@@ -89,17 +89,14 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
      */
     val assembled: StateFlow<LibraryAssembled?> by lazy {
         val prefsFlow = combine(
-            combine(
-                libraryPreferences.sortingMode.changes(),
-                libraryPreferences.randomSortSeed.changes(),
-                reikaiLibraryPreferences.showHiddenCategories.changes(),
-                reikaiLibraryPreferences.categorySortOrder.changes(),
-                reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering.changes(),
-            ) { sort, seed, showHidden, catOrder, keepWhileFiltering ->
-                AssemblyPrefs(sort, seed.toLong(), showHidden, catOrder, keepWhileFiltering, showCounts = false)
-            },
+            libraryPreferences.sortingMode.changes(),
+            libraryPreferences.randomSortSeed.changes(),
+            reikaiLibraryPreferences.showHiddenCategories.changes(),
+            reikaiLibraryPreferences.categorySortOrder.changes(),
             libraryPreferences.categoryNumberOfItems.changes(),
-        ) { prefs, showCounts -> prefs.copy(showCounts = showCounts) }
+        ) { sort, seed, showHidden, catOrder, showCounts ->
+            AssemblyPrefs(sort, seed.toLong(), showHidden, catOrder, showCounts)
+        }
         val groupModes = combine(
             reikaiLibraryPreferences.groupLibraryBy.changes(),
             reikaiLibraryPreferences.groupNovelLibraryBy.changes(),
@@ -138,11 +135,6 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         val rows = providers.indices
             .filter { providers[it] in active }
             .flatMap { rowsPerProvider[it] }
-        // The excluded providers' rows tell assembly which empty categories the chip emptied (hidden)
-        // as opposed to truly empty (shown when nothing is filtering).
-        val excludedRows = providers.indices
-            .filter { providers[it] !in active }
-            .flatMap { rowsPerProvider[it] }
         val categories = allCategories.filter { category ->
             when (chip) {
                 ContentType.MANGA -> category.contentType != CategoryContentType.NOVEL
@@ -150,23 +142,21 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
                 ContentType.ALL -> true
             }
         }
-        val activeStates = active.map { statesPerProvider[providers.indexOf(it)] }
-        val filtering = activeStates.any { it.hasActiveFilters || it.searchQuery != null }
-        val searchActive = activeStates.any { !it.searchQuery.isNullOrEmpty() }
+        val searchActive = active.any {
+            !statesPerProvider[providers.indexOf(it)].searchQuery.isNullOrEmpty()
+        }
         val inputs = LibraryAssemblyInputs(
             globalSort = prefs.sort,
             randomSeed = prefs.seed,
             showHiddenCategories = prefs.showHidden,
             categorySortOrder = prefs.categorySortOrder,
-            filtering = filtering,
-            keepEmptyWhileFiltering = prefs.keepEmptyWhileFiltering,
         )
         // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
         val means = active.associate { it.contentType to lazy(it::trackerMeans) }
         val fields = mixedLibraryItemSortFields { item ->
             means[item.entryId.contentType]?.value?.get(item.id) ?: -1.0
         }
-        val assembledList = assembleLibrary(rows, categories, inputs, fields, occupiedCategoryIds(excludedRows))
+        val assembledList = assembleLibrary(rows, categories, inputs, fields)
         val bucketsById = assembledList.associate { it.first.id to it.second }
         val byType = providers.associateBy { it.contentType }
         val showCounts = prefs.showCounts || searchActive
@@ -187,7 +177,6 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         val seed: Long,
         val showHidden: Boolean,
         val categorySortOrder: Int,
-        val keepEmptyWhileFiltering: Boolean,
         val showCounts: Boolean,
     )
 

@@ -75,8 +75,8 @@ class ReikaiLibraryPreferences(
     // (show-all) is the opt-in Reikai addition. Toggle lives in the library display settings.
     val showAllCategories: Preference<Boolean> = preferenceStore.getBoolean("show_all_categories", false)
 
-    val showEmptyCategoriesWhileFiltering: Preference<Boolean> =
-        preferenceStore.getBoolean("show_empty_categories_filtering", false)
+    // The "show_empty_categories_filtering" key is retired (DEAD_SHOW_EMPTY_CATEGORIES_KEY): empty
+    // categories are always hidden now, on every chip, so the toggle had nothing left to control.
 
     // Off so a hidden category stays hidden; turning this on reveals hidden categories in the library.
     val showHiddenCategories: Preference<Boolean> = preferenceStore.getBoolean("show_hidden_categories", false)
@@ -210,5 +210,9 @@ class ReikaiLibraryPreferences(
         // (filters are casually re-picked); skipped on restore so an old backup can't resurrect them.
         const val DEAD_NOVEL_FILTER_KEY_PREFIX = "novel_library_filter_"
         const val DEAD_NOVEL_MERGE_ICONS_KEY = "novel_merge_source_icons"
+
+        // Retired with the one empty-category rule (empty categories always hide): the toggle had
+        // nothing left to control. Skipped on restore like the other retired keys.
+        const val DEAD_SHOW_EMPTY_CATEGORIES_KEY = "show_empty_categories_filtering"
     }
 }

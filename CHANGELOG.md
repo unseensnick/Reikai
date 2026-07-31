@@ -46,7 +46,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A category you collapse stays collapsed on both the Manga and Novels chips.** Collapsing is now remembered per category rather than per chip.
 - **The library's global sort is now one setting for manga and novels.** Set it once under either chip and both libraries follow it; a novel-only global sort choice needs re-picking once. Per-category sorts are untouched.
 - **Library filters are now one set for manga and novels.** Downloaded, unread, tracker and category filters apply to the whole library whichever chip is up; novel-only filter choices need re-picking once.
-- **Category item counts and empty categories now follow one rule on every chip.** Counts obey the "Show number of items" setting for novels too, and an empty category shows unless a chip, filter or search emptied it.
+- **Empty categories are now always hidden, and item counts follow one rule on every chip.** A category without anything to show never renders a bare header, and counts obey the "Show number of items" setting for novels too.
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens either one source's chapters or the whole merged group, depending on where you tapped.** Updates, source chips and new-chapter notifications open one source; your library, the series page and history open the group.
 - **Reading a chapter now marks it read on the series' other sources too, by default.** Switch it off under Settings -> Reader.

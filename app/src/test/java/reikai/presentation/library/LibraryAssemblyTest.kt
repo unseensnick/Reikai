@@ -59,8 +59,6 @@ class LibraryAssemblyTest {
     private fun inputs(
         showHidden: Boolean = false,
         categorySortOrder: Int = 0,
-        filtering: Boolean = false,
-        keepEmptyWhileFiltering: Boolean = false,
         sort: LibrarySort = LibrarySort.default,
         seed: Long = 0,
     ) = LibraryAssemblyInputs(
@@ -68,8 +66,6 @@ class LibraryAssemblyTest {
         randomSeed = seed,
         showHiddenCategories = showHidden,
         categorySortOrder = categorySortOrder,
-        filtering = filtering,
-        keepEmptyWhileFiltering = keepEmptyWhileFiltering,
     )
 
     private val fields = mixedLibraryItemSortFields { -1.0 }
@@ -78,37 +74,14 @@ class LibraryAssemblyTest {
         result.map { (cat, items) -> cat.id to items.map { it.libraryManga.manga.title } }
 
     @Test
-    fun `a truly empty category shows when nothing is filtering`() {
+    fun `an empty category is hidden`() {
         val result = assembleLibrary(
             rows = listOf(item(1, categories = listOf(10))),
             categories = listOf(category(10), category(20)),
             inputs = inputs(),
             fields = fields,
-        )
-        result.map { it.first.id } shouldBe listOf(10L, 20L)
-    }
-
-    @Test
-    fun `a chip-emptied category hides even when nothing is filtering`() {
-        val result = assembleLibrary(
-            rows = listOf(item(1, categories = listOf(10))),
-            categories = listOf(category(10), category(20)),
-            inputs = inputs(),
-            fields = fields,
-            occupiedByExcluded = setOf(20L),
         )
         result.map { it.first.id } shouldBe listOf(10L)
-    }
-
-    @Test
-    fun `a filter-emptied category can be kept by the preference`() {
-        val result = assembleLibrary(
-            rows = listOf(item(1, categories = listOf(10))),
-            categories = listOf(category(10), category(20)),
-            inputs = inputs(filtering = true, keepEmptyWhileFiltering = true),
-            fields = fields,
-        )
-        result.map { it.first.id } shouldBe listOf(10L, 20L)
     }
 
     @Test
@@ -223,27 +196,13 @@ class LibraryAssemblyTest {
     }
 
     @Test
-    fun `a filter-emptied category hides while filtering`() {
-        val result = assembleLibrary(
-            rows = listOf(item(1, categories = listOf(10))),
-            categories = listOf(category(10), category(20)),
-            inputs = inputs(filtering = true),
-            fields = fields,
-        )
-        result.map { it.first.id } shouldBe listOf(10L)
-    }
-
-    @Test
-    fun `occupiedCategoryIds normalizes exactly like bucketing`() {
-        occupiedCategoryIds(
-            listOf(item(1, categories = listOf(0)), item(2, categories = listOf(5), novel = true)),
-        ) shouldBe setOf(0L, 5L)
-    }
-
-    @Test
     fun `category order follows the order column then the sort-order pref`() {
         val result = assembleLibrary(
-            rows = listOf(item(1, categories = listOf(0))),
+            rows = listOf(
+                item(1, categories = listOf(0)),
+                item(2, categories = listOf(10)),
+                item(3, categories = listOf(20)),
+            ),
             categories = listOf(
                 category(20, order = 2, name = "Alpha"),
                 category(10, order = 1, name = "Zeta"),

@@ -21,10 +21,6 @@ data class LibraryAssemblyInputs(
     val showHiddenCategories: Boolean,
     /** The category-sort-order pref (0 manual, 1 A-Z, 2 Z-A), applied via [reikaiSortCategories]. */
     val categorySortOrder: Int,
-    /** A filter or search is active on the view. */
-    val filtering: Boolean,
-    /** The show-empty-categories-while-filtering preference (one reader for both types now). */
-    val keepEmptyWhileFiltering: Boolean = false,
 )
 
 /**
@@ -40,62 +36,42 @@ data class LibraryAssemblyInputs(
  * Behaviour rules, pinned by LibraryAssemblyTest:
  * - Bucketing: a row's non-zero category ids, or the system bucket when it has none. Manga rows carry
  *   [0] when uncategorized and novels may carry 0 or nothing, so ids are normalized first.
- * - The system category shows only when some row is actually uncategorized (manga's derived
- *   showSystemCategory); under a mixed list that derivation runs over both types' rows at once.
+ * - An empty category is hidden, always (the step 4 ruling): whether the chip, a filter, a search or
+ *   simple emptiness left it without rows, nothing renders an empty header. This also covers the
+ *   system Default row, which only shows when some row in view is actually uncategorized.
  * - Category order is explicit (order column, then the category-sort-order pref): a list unioned from
  *   two queries is not DB-ordered, so nothing may rely on incoming order. [categories] is deduped by id
  *   because every universal row appears in both per-type lists.
- * - Empty categories follow ONE rule (the step 4 ruling): a category the chip emptied (it holds only
- *   rows of the excluded type, [occupiedByExcluded]) is hidden; a truly empty category shows unless a
- *   filter or search is active with the keep-while-filtering preference off. Novels thereby gain
- *   visible empty categories when idle, and the keep preference gains a novel reader.
  */
 fun assembleLibrary(
     rows: List<LibraryItem>,
     categories: List<Category>,
     inputs: LibraryAssemblyInputs,
     fields: LibrarySortFields<LibraryItem>,
-    occupiedByExcluded: Set<Long> = emptySet(),
 ): List<Pair<Category, List<LibraryItem>>> {
     val buckets = HashMap<Long, MutableList<LibraryItem>>()
-    var anyUncategorized = false
     rows.forEach { item ->
         val categoryIds = item.libraryManga.categories.filter { it != Category.UNCATEGORIZED_ID }
         if (categoryIds.isEmpty()) {
-            anyUncategorized = true
             buckets.getOrPut(Category.UNCATEGORIZED_ID) { mutableListOf() }.add(item)
         } else {
             categoryIds.forEach { buckets.getOrPut(it) { mutableListOf() }.add(item) }
         }
     }
 
-    val visible = categories
+    return categories
         .distinctBy { it.id }
-        .filter { anyUncategorized || !it.isSystemCategory }
         .filter { inputs.showHiddenCategories || !it.isHidden }
         .sortedBy { it.order }
         .let { reikaiSortCategories(it, inputs.categorySortOrder) }
-
-    val dropTrulyEmpty = inputs.filtering && !inputs.keepEmptyWhileFiltering
-    return visible.mapNotNull { category ->
-        val bucket = buckets[category.id].orEmpty()
-        if (bucket.isEmpty() && (category.id in occupiedByExcluded || dropTrulyEmpty)) return@mapNotNull null
-        val sort = sortForCategory(category, inputs.globalSort)
-        val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, inputs.randomSeed, fields)
-        category to bucket.sortedWith(comparator)
-    }
+        .mapNotNull { category ->
+            val bucket = buckets[category.id] ?: return@mapNotNull null
+            val sort = sortForCategory(category, inputs.globalSort)
+            val comparator =
+                librarySortComparator(sort.type.toSortMode(), sort.isAscending, inputs.randomSeed, fields)
+            category to bucket.sortedWith(comparator)
+        }
 }
-
-/**
- * The category ids a row list occupies, under the same normalization [assembleLibrary] buckets with.
- * The engine feeds it the EXCLUDED providers' rows so assembly can tell a chip-emptied category (hidden)
- * from a truly empty one (shown when nothing is filtering).
- */
-fun occupiedCategoryIds(rows: List<LibraryItem>): Set<Long> =
-    rows.flatMapTo(mutableSetOf()) { item ->
-        item.libraryManga.categories.filter { it != Category.UNCATEGORIZED_ID }
-            .ifEmpty { listOf(Category.UNCATEGORIZED_ID) }
-    }
 
 /**
  * The assembled list the tab renders: the ordered categories, the per-category display read as a

@@ -89,9 +89,11 @@ class PreferenceRestorer(
                 return@forEach
             }
             // RK: retired novel filter keys (every novel_library_filter_* key) plus the novel
-            // merge-icons toggle; the filter preferences unified onto the manga keys.
+            // merge-icons toggle (the filter preferences unified onto the manga keys) and the
+            // show-empty-categories toggle (empty categories are always hidden now).
             if (key.startsWith(ReikaiLibraryPreferences.DEAD_NOVEL_FILTER_KEY_PREFIX) ||
-                key == ReikaiLibraryPreferences.DEAD_NOVEL_MERGE_ICONS_KEY
+                key == ReikaiLibraryPreferences.DEAD_NOVEL_MERGE_ICONS_KEY ||
+                key == ReikaiLibraryPreferences.DEAD_SHOW_EMPTY_CATEGORIES_KEY
             ) {
                 return@forEach
             }
