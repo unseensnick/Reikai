@@ -126,22 +126,29 @@ class CategoryScreenModel(
 
     /** Commit a pending bulk delete to the DB. Per-row so each delete keeps its reorder + preference cleanup. */
     fun commitPendingDelete() {
+        if (pendingDelete.value.isEmpty()) return
+        screenModelScope.launch { commitPendingDeleteNow() }
+    }
+
+    private suspend fun commitPendingDeleteNow() {
         val categories = pendingDelete.value
         if (categories.isEmpty()) return
-        screenModelScope.launch {
-            // RK: non-cancellable so leaving the screen still finishes the delete
-            withNonCancellableContext {
-                categories.forEach { category ->
-                    if (!actions.delete(category)) _events.tryEmit(CategoryEvent.InternalError)
-                }
-                pendingDelete.value = emptySet()
+        // RK: non-cancellable so leaving the screen still finishes the delete
+        withNonCancellableContext {
+            categories.forEach { category ->
+                if (!actions.delete(category)) _events.tryEmit(CategoryEvent.InternalError)
             }
+            pendingDelete.value = emptySet()
         }
     }
     // RK <--
 
     fun changeOrder(category: Category, newIndex: Int) {
         screenModelScope.launch {
+            // The drag index comes from the visible list, which hides rows pending delete, while
+            // the reorder renumbers the full table; flush the pending delete first so the two lists
+            // agree (dragging while the undo snackbar is up also reads as moving on from the undo).
+            commitPendingDeleteNow()
             if (!actions.reorder(category, newIndex)) _events.emit(CategoryEvent.InternalError)
         }
     }
