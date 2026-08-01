@@ -80,6 +80,12 @@ class ReikaiLibraryPreferences(
     // Off so a hidden category stays hidden; turning this on reveals hidden categories in the library.
     val showHiddenCategories: Preference<Boolean> = preferenceStore.getBoolean("show_hidden_categories", false)
 
+    // Per-chip last category page for the tabbed pager. Manga rides Mihon's own lastUsedCategory
+    // key; these cover the Novels and All chips, whose pagers index different category lists, so
+    // one shared key restored the wrong page after a chip switch.
+    val lastUsedNovelCategory: Preference<Int> = preferenceStore.getInt("reikai_last_used_novel_category", 0)
+    val lastUsedAllCategory: Preference<Int> = preferenceStore.getInt("reikai_last_used_all_category", 0)
+
     // endregion
 
     // region Hopper

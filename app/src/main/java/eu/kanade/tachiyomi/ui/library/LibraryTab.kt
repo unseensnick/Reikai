@@ -236,8 +236,8 @@ data object LibraryTab : Tab {
         }
         // RK: one pager per chip, each sized from a snapshot taken only while its own chip is up. Pointing
         // all three at activeCategories.size would make an inactive chip's pager lose its position, since
-        // Compose clamps a pager's currentPage whenever its pageCount shrinks. Only the manga pager seeds
-        // a page: it restores lastUsedCategory, and the pager clamps the value if the list is shorter.
+        // Compose clamps a pager's currentPage whenever its pageCount shrinks. Each pager seeds its own
+        // chip's persisted page (the pager clamps the value if the list is shorter).
         val mangaPageCount = remember { mutableIntStateOf(0) }
         val novelPageCount = remember { mutableIntStateOf(0) }
         val allPageCount = remember { mutableIntStateOf(0) }
@@ -249,8 +249,10 @@ data object LibraryTab : Tab {
         val mangaPagerState = rememberPagerState(initialPage = mangaLibState.activeCategoryIndex) {
             mangaPageCount.intValue
         }
-        val novelPagerState = rememberPagerState { novelPageCount.intValue }
-        val allPagerState = rememberPagerState { allPageCount.intValue }
+        val novelInitialPage = remember { engine.initialPageFor(ContentType.NOVELS) }
+        val allInitialPage = remember { engine.initialPageFor(ContentType.ALL) }
+        val novelPagerState = rememberPagerState(initialPage = novelInitialPage) { novelPageCount.intValue }
+        val allPagerState = rememberPagerState(initialPage = allInitialPage) { allPageCount.intValue }
         val pagerState = when (libraryContentType) {
             ContentType.MANGA -> mangaPagerState
             ContentType.NOVELS -> novelPagerState

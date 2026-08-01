@@ -777,11 +777,8 @@ class LibraryScreenModel(
 
     fun updateActiveCategoryIndex(index: Int) {
         mutableState.update { state -> state.copy(activeCategoryIndex = index) }
-        // RK: persist the RAW index. Upstream stored the value coerced against this model's own
-        // category list, which under the All chip is shorter than the list on screen, so a page past
-        // the last manga category came back clamped. Readers tolerate an out-of-range value because
-        // the tab coerces against what it renders.
-        libraryPreferences.lastUsedCategory.set(index)
+        // RK: upstream persisted lastUsedCategory here; LibraryEngine owns that now, per chip, so
+        // a swipe under All can no longer overwrite the Manga chip's restore point.
     }
 
     // RK: DEAD, along with openDeleteMangaDialog, closeDialog, the Dialog union and State.dialog below.
