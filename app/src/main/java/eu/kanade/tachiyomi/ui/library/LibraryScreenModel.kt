@@ -66,6 +66,7 @@ import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryStateFlow
 import reikai.presentation.library.mangaTrackerMeans
+import reikai.presentation.library.toQueryOverlay
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -193,7 +194,7 @@ class LibraryScreenModel(
                         } else {
                             val parsedQuery = searchEngine.parseQuery(searchQuery)
                             val queryNode = QueryNode.from(searchQuery)
-                            val queryFields = mangaQueryFields(chapterMatches)
+                            val queryFields = mangaQueryFields(chapterMatches, customInfo)
                             items.filter { m ->
                                 libraryQueryMatches(queryNode, m, queryFields) ||
                                     (m.metadataSourceName != null && m.matchesMetadataQuery(parsedQuery))
@@ -348,11 +349,17 @@ class LibraryScreenModel(
 
     // RK: the manga binding of the shared query kernel. The source key is the numeric source id as a
     // string (novels supply a plugin slug), and manga answer both time comparisons, so neither is gated.
-    private fun mangaQueryFields(chapterMatches: Map<String, Set<Long>>) = libraryItemQueryFields(
+    private fun mangaQueryFields(
+        chapterMatches: Map<String, Set<Long>>,
+        customInfo: List<CustomMangaInfo>,
+    ) = libraryItemQueryFields(
         sourceKey = { it.libraryManga.manga.source.toString() },
         fetchInterval = { it.libraryManga.manga.fetchInterval },
         nextUpdate = { it.libraryManga.manga.nextUpdate },
         chapterMatches = chapterMatches,
+        // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
+        // The rows stay override-free: filter, sort and grouping deliberately read the source values.
+        overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
     )
 
     // RK: one lookup per distinct `chapter:` term the user actually typed. Runs off the query slot, so a

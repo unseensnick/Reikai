@@ -64,6 +64,7 @@ import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
@@ -429,6 +430,9 @@ class NovelLibraryScreenModel :
             fetchInterval = { null },
             nextUpdate = { null },
             chapterMatches = chapterMatches,
+            // Search matches what the card shows, so a renamed novel is findable by the name you gave it.
+            // The rows stay override-free: filter, sort and grouping deliberately read the source values.
+            overlay = overlay.mapValues { (_, custom) -> custom.toQueryOverlay() },
         )
         val items = allItems.filter { item ->
             val matchesSearch = queryNode == null || libraryQueryMatches(queryNode, item, queryFields)

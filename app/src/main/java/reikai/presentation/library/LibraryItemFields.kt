@@ -3,7 +3,9 @@ package reikai.presentation.library
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.library.LibrarySortFields
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.util.isLewd
+import tachiyomi.domain.manga.model.CustomMangaInfo
 
 /**
  * The one binding of the shared filter and sort kernels onto the library's row type, used by both
@@ -44,25 +46,30 @@ fun libraryItemFilterFields(
  * Most fields read the row directly, including `sourceName` and `sourceLanguage`, which both content
  * types now populate when they build it.
  *
- * Four seams: [sourceKey] is a numeric source id for manga and a plugin slug for novels, so it is a
+ * Five seams: [sourceKey] is a numeric source id for manga and a plugin slug for novels, so it is a
  * String on both sides; [fetchInterval] and [nextUpdate] are null for novels, which have neither concept,
  * and a null makes the term false before negation so an inapplicable comparison never pulls a novel in
  * from either direction; [chapterMatches] is the per-term id set each side resolved once for this query,
- * since the two content types keep separate chapter tables.
+ * since the two content types keep separate chapter tables; and [overlay] supplies each row's custom-info
+ * overrides, keyed by the row's own id, so search matches the values shown on the card.
+ *
+ * The overlay is a plain map lookup per field rather than a copied row, because the rows themselves stay
+ * override-free on purpose: filter, sort and grouping all read the source values.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
     fetchInterval: (LibraryItem) -> Int?,
     nextUpdate: (LibraryItem) -> Long?,
     chapterMatches: Map<String, Set<Long>> = emptyMap(),
+    overlay: Map<Long, LibraryQueryOverlay> = emptyMap(),
 ) = LibraryQueryFields<LibraryItem>(
     id = { it.id },
-    title = { it.libraryManga.manga.title },
-    author = { it.libraryManga.manga.author },
-    artist = { it.libraryManga.manga.artist },
-    description = { it.libraryManga.manga.description },
+    title = { overlay[it.id]?.title ?: it.libraryManga.manga.title },
+    author = { overlay[it.id]?.author ?: it.libraryManga.manga.author },
+    artist = { overlay[it.id]?.artist ?: it.libraryManga.manga.artist },
+    description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
     notes = { it.libraryManga.manga.notes },
-    genre = { it.libraryManga.manga.genre },
+    genre = { overlay[it.id]?.genre ?: it.libraryManga.manga.genre },
     sourceName = { it.sourceName },
     sourceKey = sourceKey,
     sourceLanguage = { it.sourceLanguage },
@@ -78,6 +85,13 @@ fun libraryItemQueryFields(
     // id spaces never meet here.
     matchesChapter = { item, term -> chapterMatches[term]?.contains(item.id) },
 )
+
+// The two custom-info rows differ only in their id field's name, so each maps onto the neutral overlay
+// here rather than either content type learning about the query kernel.
+
+fun CustomMangaInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
+
+fun CustomNovelInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
 
 /**
  * The sort twin of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker

@@ -60,6 +60,19 @@ class LibraryQueryFields<T>(
 )
 
 /**
+ * A row's custom-info overrides, neutral over the two content types' own custom-info rows, so search can
+ * match the values actually on the card. A null field means no override, so the source value is used.
+ * `status` is overridable too but has no query field, so it is not here.
+ */
+class LibraryQueryOverlay(
+    val title: String? = null,
+    val author: String? = null,
+    val artist: String? = null,
+    val description: String? = null,
+    val genre: List<String>? = null,
+)
+
+/**
  * Every `chapter:` term in a parsed query, so a caller resolves exactly the lookups the user typed and
  * nothing else. Walks the tree rather than the raw string, so quoting, negation and nesting are already
  * handled: `-chapter:"the clown"` yields `the clown`.

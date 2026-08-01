@@ -93,6 +93,6 @@ Entries from gallery sources also answer the namespace tag grammar those sources
 ## If something does not match
 
 - **A misspelled field name is searched as plain text.** `titel:solo` looks for the literal text "titel:solo" rather than warning you, and finds nothing.
-- **Search matches the original title, not one you set yourself.** If you renamed an entry through Edit info, search still finds it under the name its source uses. Changing this is on the roadmap.
+- **Search uses the details you set, not the source's.** If you renamed an entry through Edit info, search finds it under your name and no longer under the source's. The same applies to an author, artist, description or genre you overrode. Sorting and grouping still use the source values.
 - **`chapter:` only searches chapters already saved on your device**, which for most entries means everything fetched so far, not the source's full catalogue.
 - **A grouped entry is matched as one.** Merged sources are searched through the entry you see, not each source behind it.

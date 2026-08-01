@@ -4,12 +4,10 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. The library takeover is largely shipped (the All chip is live over one assembled list with one sort and one filter set); what remains of it is dynamic grouping into the assembly plus the model-list retirement, then browse, migrate/global-search, and finally the reader migration. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. The library takeover is complete (one assembled list behind the All chip, with one sort, filter, grouping and search); what remains is browse, then migrate plus global search, and finally the reader migration. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Next
 
-- **Level novel library search up to the query AST** `[M]` - manga search runs on Mihon's AST (field terms like `title:`/`author:`/`genre:`, comparisons like `unread>5`) while novels still use the older plain-text matcher, so the shipped All chip answers one typed query two ways across its rows. The All-chip plan's step 6 closeout; gate the fields novels cannot support (no artist, String source ids). [Plan](docs/dev/plans/library-all-chip.md).
-- **Match custom titles in library search** `[S]` - an entry you renamed is only findable by its original title, because rows are filtered before the custom-info overlay is applied, so searching the name shown on its card returns nothing. Feed the overlay title into the shared matcher for both content types; sequence it with the query-AST item above, which touches the same matcher.
 - **Extract the merge read/observe wiring into a shared host** `[M]` - collapse the per-ScreenModel group read/observe wiring into a shared `EntryMergeGroupHost` both details models compose, mirroring `EntryMergeActionHost`, so a merge read behavior is written once. Delicate (it rewires live reactive paths on both models), so it needs on-device verification. [Plan](docs/dev/plans/merge-component-consolidation.md).
 - **Fix two Statistics miscounts** `[S]` - novel downloads never reach the Downloaded stat, and merged series count once per source instead of once (so the title count reads higher than the library). Both promised publicly in `unseensnick/Reikai#56`; detail in the 2026-07-23 stats-fixes audit note (local).
 - **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift (Tsundoku's single-subsystem model). A code merge, not a data migration; touches Mihon's download files (`// RK`), sequenced within the content-layer program. [Plan](docs/dev/plans/content-layer-architecture.md).
@@ -35,12 +33,10 @@ Opportunistic polish:
 
 ### Library
 
-Novels are a first-class library type, but the library tab is still a binary Manga/Novels toggle.
+One library screen lists manga and novels together; what is left here is polish and performance on top of it.
 
-- **Finish the All-first library takeover: dynamic grouping into the assembly, then the retirement** `[M]` - the All chip shipped; steps 5b/5c remain: one kernel call over the providers' EntryId-keyed feeds (grouping works under All, group-by key unifies), then the models stop assembling lists (`groupedFavorites`, `State.reikai`, the display helpers retire). Plan is cold-start executable. [Plan](docs/dev/plans/library-all-chip.md).
 - **Category reorder mode (both types)** `[S]` - a reorder mode on the edit-categories screen (a drag handle plus move-to-top / move-to-bottom per card, confirm or cancel), built once on the shared category screen model so it serves manga and novels. Uses the existing `sort` column, no schema work. [Plan](docs/dev/plans/category-schema-unification.md).
 - **Trigger-maintained library count columns for novels** `[M]` - denormalize unread / download / total counts onto the novel row via chapter and history triggers (tsundoku's `mangas.sq` pattern), so library filter and sort read them directly instead of aggregating on every rebuild.
-- **Level the hopper long-press up on manga** `[S]` - the hopper's long-press "category settings" opens the sheet scoped to the on-screen category for novels but in global scope for manga, so the same gesture means two different things; owner ruled level manga up. Those cases also call the two models directly instead of the existing `LibraryBehavior` methods.
 - **Bulk tracker-score refresh for the library** `[M]` - an entry's tracker score is only pulled when its details screen opens and library updates never refresh trackers, so tracker-score sort and filter run on a stale, sparse local cache. Add a refresh-all path (a library "refresh tracker data" action and/or a "refresh trackers on library update" preference) for both content types.
 
 ### Details

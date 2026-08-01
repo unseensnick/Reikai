@@ -52,6 +52,31 @@ class LibraryQueryMatchTest {
     private fun matches(query: String, row: Row = Row()) =
         libraryQueryMatches(QueryNode.from(query), row, fields)
 
+    /** The same fields with an override on row 1, standing in for a renamed entry. */
+    private val overlaidFields = LibraryQueryFields<Row>(
+        id = fields.id,
+        title = { if (it.id == 1L) "Renamed Entry" else it.title },
+        author = { if (it.id == 1L) "New Author" else it.author },
+        artist = fields.artist,
+        description = fields.description,
+        notes = fields.notes,
+        genre = { if (it.id == 1L) listOf("Renamed Genre") else it.genre },
+        sourceName = fields.sourceName,
+        sourceKey = fields.sourceKey,
+        sourceLanguage = fields.sourceLanguage,
+        isLocal = fields.isLocal,
+        unreadCount = fields.unreadCount,
+        readCount = fields.readCount,
+        totalChapters = fields.totalChapters,
+        dateAdded = fields.dateAdded,
+        fetchInterval = fields.fetchInterval,
+        nextUpdate = fields.nextUpdate,
+        matchesChapter = fields.matchesChapter,
+    )
+
+    private fun matchesOverlaid(query: String) =
+        libraryQueryMatches(QueryNode.from(query), Row(), overlaidFields)
+
     @Test
     fun `a bare word sweeps the text fields`() {
         matches("mysteries") shouldBe true
@@ -127,6 +152,27 @@ class LibraryQueryMatchTest {
         QueryNode.from("-chapter:\"the clown\"").chapterSearchTerms() shouldBe setOf("the clown")
         QueryNode.from("chapter:a || (chapter:b fantasy)").chapterSearchTerms() shouldBe setOf("a", "b")
         QueryNode.from("fantasy").chapterSearchTerms() shouldBe emptySet()
+    }
+
+    @Test
+    fun `a custom override is what search matches`() {
+        // The name on the card wins over the source's.
+        matchesOverlaid("renamed") shouldBe true
+        matchesOverlaid("title:renamed") shouldBe true
+        matchesOverlaid("author:\"new author\"") shouldBe true
+        matchesOverlaid("genre:renamed") shouldBe true
+    }
+
+    @Test
+    fun `a custom override replaces the source value rather than adding to it`() {
+        // Searching the source title of a renamed entry no longer finds it, which is the tradeoff.
+        matchesOverlaid("mysteries") shouldBe false
+        matchesOverlaid("author:cuttlefish") shouldBe false
+    }
+
+    @Test
+    fun `an unoverridden field still reads the source value`() {
+        matchesOverlaid("srcid:novelarrow") shouldBe true
     }
 
     @Test
