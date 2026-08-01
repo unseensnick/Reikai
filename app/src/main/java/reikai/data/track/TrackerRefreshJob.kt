@@ -1,5 +1,6 @@
 package reikai.data.track
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
@@ -9,6 +10,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import eu.kanade.domain.track.interactor.RefreshTracks
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -16,6 +18,7 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -65,7 +68,10 @@ class TrackerRefreshJob(
     private val refreshNovelTracks: RefreshNovelTracks = Injekt.get()
     private val trackerManager: TrackerManager = Injekt.get()
 
-    private val notifier = TrackerRefreshNotifier(context)
+    // WorkManager's own cancel intent for this run, so the notification action needs no receiver.
+    private val cancelIntent: PendingIntent by lazy { context.workManager.createCancelPendingIntent(id) }
+
+    private val notifier by lazy { TrackerRefreshNotifier(context, cancelIntent) }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
@@ -74,6 +80,7 @@ class TrackerRefreshJob(
             setOngoing(true)
             setOnlyAlertOnce(true)
             priority = NotificationCompat.PRIORITY_LOW
+            addAction(R.drawable.ic_close_24dp, context.stringResource(MR.strings.action_cancel), cancelIntent)
         }.build()
         return ForegroundInfo(
             Notifications.ID_TRACKER_REFRESH_PROGRESS,
@@ -84,6 +91,10 @@ class TrackerRefreshJob(
 
     override suspend fun doWork(): Result {
         return try {
+            // Foreground like every other long worker: without this a backgrounded refresh dies
+            // with the cached process and WorkManager silently reruns it from zero later,
+            // repeating every tracker call.
+            setForegroundSafely()
             refreshAll()
             Result.success()
         } catch (e: Exception) {
@@ -177,15 +188,14 @@ class TrackerRefreshJob(
             context.workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
             return true
         }
-
-        fun stop(context: Context) {
-            context.workManager.cancelUniqueWork(WORK_NAME)
-        }
     }
 }
 
 /** Progress and result notifications for [TrackerRefreshJob], on the shared library channels. */
-private class TrackerRefreshNotifier(private val context: Context) {
+private class TrackerRefreshNotifier(
+    private val context: Context,
+    cancelIntent: PendingIntent,
+) {
 
     private val progressBuilder = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
         setContentTitle(context.stringResource(MR.strings.tracker_refresh_progress))
@@ -193,6 +203,7 @@ private class TrackerRefreshNotifier(private val context: Context) {
         setOngoing(true)
         setOnlyAlertOnce(true)
         priority = NotificationCompat.PRIORITY_LOW
+        addAction(R.drawable.ic_close_24dp, context.stringResource(MR.strings.action_cancel), cancelIntent)
     }
 
     fun showProgress(done: Int, total: Int) {
