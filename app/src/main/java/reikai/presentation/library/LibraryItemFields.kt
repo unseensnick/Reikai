@@ -81,9 +81,12 @@ fun libraryItemQueryFields(
     dateAdded = { it.libraryManga.manga.dateAdded },
     fetchInterval = fetchInterval,
     nextUpdate = nextUpdate,
-    // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the two
-    // id spaces never meet here.
-    matchesChapter = { item, term -> chapterMatches[term]?.contains(item.id) },
+    // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the
+    // two id spaces never meet here. A collapsed merge group also matches through its members'
+    // ids, since their chapters render as the entry's own but their rows are not in the list.
+    matchesChapter = { item, term ->
+        chapterMatches[term]?.let { ids -> item.id in ids || item.relatedMangaIds.any { it in ids } }
+    },
 )
 
 // The two custom-info rows differ only in their id field's name, so each maps onto the neutral overlay
