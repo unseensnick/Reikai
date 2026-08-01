@@ -339,6 +339,20 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     /** The active category page, fanned out so each model's own coercion stays consistent. */
     fun updateActiveCategoryIndex(contentType: ContentType, index: Int) {
         providersFor(contentType).forEach { it.updateActiveCategoryIndex(index) }
+        // Persisted per chip: the three pagers index different category lists, so one shared key
+        // meant a swipe under All rewrote the Manga chip's restore point with a foreign index.
+        when (contentType) {
+            ContentType.MANGA -> libraryPreferences.lastUsedCategory.set(index)
+            ContentType.NOVELS -> reikaiLibraryPreferences.lastUsedNovelCategory.set(index)
+            ContentType.ALL -> reikaiLibraryPreferences.lastUsedAllCategory.set(index)
+        }
+    }
+
+    /** The restore page for a chip's pager, read once at pager construction. */
+    fun initialPageFor(contentType: ContentType): Int = when (contentType) {
+        ContentType.MANGA -> libraryPreferences.lastUsedCategory.get()
+        ContentType.NOVELS -> reikaiLibraryPreferences.lastUsedNovelCategory.get()
+        ContentType.ALL -> reikaiLibraryPreferences.lastUsedAllCategory.get()
     }
 
     /** The one library-wide global sort (chip-free since the sort preferences unified). */
@@ -402,9 +416,10 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
 
     // Per-type verbs the view dispatches for whatever the chip is showing.
 
-    /** Start a library update, returning false when one is already running. */
+    /** Start a library update, returning true when any provider started one. Under All, one
+     *  side's update already running must not report the other's fresh start as already-running. */
     fun refresh(contentType: ContentType, category: Category?): Boolean =
-        providersFor(contentType).map { it.refresh(category) }.all { it }
+        providersFor(contentType).map { it.refresh(category) }.any { it }
 
     /**
      * A random entry from [categoryId], or the whole library when null, drawn from the assembled list.
@@ -492,8 +507,15 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     fun markReadSelection(contentType: ContentType, read: Boolean) =
         dispatchAndClear(contentType) { it.markReadSelection(selection.value, read) }
 
-    fun performDownloadAction(contentType: ContentType, action: DownloadAction) =
-        dispatchAndClear(contentType) { it.performDownloadAction(selection.value, action) }
+    fun performDownloadAction(contentType: ContentType, action: DownloadAction) {
+        // Skip providers whose part of the selection cannot download (all-local manga): forwarding
+        // anyway would queue downloads for entries the action button was hidden for.
+        val selection = selection.value
+        providersFor(contentType)
+            .filter { it.canDownload(selection) }
+            .forEach { it.performDownloadAction(selection, action) }
+        clearSelection()
+    }
 
     fun mergeSelection(contentType: ContentType) =
         dispatchAndClear(contentType) { it.mergeSelection(selection.value) }
@@ -574,9 +596,10 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     fun selectionContainsMerged(contentType: ContentType): Boolean =
         providersFor(contentType).any { it.containsMerged(selection.value) }
 
-    /** The bulk Download action applies (manga hides it when every selected entry is local). */
+    /** The bulk Download action applies when ANY provider's part of the selection can download,
+     *  so a mixed local-manga + novel selection keeps the action; dispatch skips the rest. */
     fun canDownloadSelection(contentType: ContentType): Boolean =
-        providersFor(contentType).all { it.canDownload(selection.value) }
+        providersFor(contentType).any { it.canDownload(selection.value) }
 
     private fun dispatchAndClear(contentType: ContentType, action: (LibraryProvider) -> Unit) {
         providersFor(contentType).forEach(action)

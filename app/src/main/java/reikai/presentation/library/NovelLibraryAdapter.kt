@@ -184,8 +184,9 @@ class NovelLibraryAdapter(
     override fun containsMerged(entries: Set<EntryId>) =
         model.state.value.containsMerged(entries.ownIds())
 
-    /** Novels have no local-source concept, so Download always applies and nothing is ever local. */
-    override fun canDownload(entries: Set<EntryId>) = true
+    /** Novels have no local-source concept, so Download applies whenever any are selected. The
+     *  non-empty check matters under All: the engine shows Download if ANY provider can act. */
+    override fun canDownload(entries: Set<EntryId>) = entries.ownIds().isNotEmpty()
     override fun containsLocal(entries: Set<EntryId>) = false
 
     override fun groupedSourceCount(entries: Set<EntryId>): Int {
