@@ -12,9 +12,12 @@ import eu.kanade.tachiyomi.extension.model.InstallStep
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -52,12 +55,26 @@ class ExtensionRestorer(
             // colliding with the user's own actions. Each install is bounded so one slow download can't
             // stall the whole restore.
             launch {
-                withTimeoutOrNull(INSTALL_TIMEOUT_MS) {
+                // A failed, errored or timed-out install leaves the extension absent; without this
+                // log there was no trace of why (only repo-missing extensions reached the report).
+                var lastStep: InstallStep? = null
+                val result = withTimeoutOrNull(INSTALL_TIMEOUT_MS) {
                     runCatching {
                         extensionManager.installExtension(match)
+                            .onEach { lastStep = it }
                             .takeWhile { it != InstallStep.Installed && it != InstallStep.Error }
                             .collect()
                     }
+                }
+                when {
+                    result == null ->
+                        logcat(LogPriority.WARN) { "Extension restore timed out: ${backupExtension.pkgName}" }
+                    result.isFailure ->
+                        logcat(LogPriority.WARN, result.exceptionOrNull()) {
+                            "Extension restore failed: ${backupExtension.pkgName}"
+                        }
+                    lastStep == InstallStep.Error ->
+                        logcat(LogPriority.WARN) { "Extension restore install error: ${backupExtension.pkgName}" }
                 }
             }
         }
