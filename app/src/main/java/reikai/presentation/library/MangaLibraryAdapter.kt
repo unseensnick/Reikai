@@ -200,6 +200,7 @@ class MangaLibraryAdapter(
 
     override fun containsMerged(entries: Set<EntryId>) =
         model.state.value.containsMerged(entries.ownIds())
+
     // Non-empty matters under All (the engine shows Download if ANY provider can act); the
     // all-non-local rule is upstream's (Download hides when any selected manga is local).
     override fun canDownload(entries: Set<EntryId>) =
