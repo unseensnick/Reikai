@@ -74,7 +74,17 @@ data object UpdatesTab : Tab {
         val contentType by novelScreenModel.contentType.collectAsState()
         val scope = rememberCoroutineScope()
         val chip: @Composable () -> Unit = {
-            ContentTypeFilterChips(selected = contentType, onSelect = novelScreenModel::setContentType)
+            ContentTypeFilterChips(
+                selected = contentType,
+                onSelect = { type ->
+                    // A selection must not survive into a chip that hides its rows: the action bar
+                    // still counts the hidden entries and every action would run on them unseen.
+                    // Mirrors the library engine's setContentType.
+                    screenModel.toggleAllSelection(false)
+                    novelScreenModel.selectAll(false)
+                    novelScreenModel.setContentType(type)
+                },
+            )
         }
 
         // All three chips render through one consolidated Reikai screen. Manga is driven by Mihon's
