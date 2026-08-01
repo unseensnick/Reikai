@@ -190,10 +190,12 @@ class NovelEntryAdapter(
         model.showCoverDialog()
     }
     override fun createCoverScreenModel(): EntryCoverScreenModel<*> {
+        // Anchor-scoped like manga: the dialog also EDITS the custom cover, and a custom cover set
+        // from a source-chip view must land on the entry the library renders, not the sibling.
         val loaded = model.state.value as? NovelDetailsState.Loaded
         return NovelCoverScreenModel(
-            novelUrl = loaded?.displayNovel?.url.orEmpty(),
-            novelSource = loaded?.displayNovel?.source.orEmpty(),
+            novelUrl = loaded?.novel?.url.orEmpty(),
+            novelSource = loaded?.novel?.source.orEmpty(),
             site = loaded?.sourceUrl,
         )
     }

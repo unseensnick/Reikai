@@ -161,14 +161,28 @@ class MangaScreen(
                         onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
                         onOpenFilterSettings = screenModel::showSettingsDialog,
                         // Share lives in the toolbar overflow for manga.
+                        // RK: view-only surfaces (share / WebView / copy URL) follow the selected
+                        // source chip like novels; writes (migrate, covers) stay anchor-scoped.
                         onToolbarShare = {
-                            shareManga(context, screenModel.manga, screenModel.source)
+                            shareManga(
+                                context,
+                                successState.mergeDisplayManga ?: screenModel.manga,
+                                successState.mergeDisplaySource ?: screenModel.source,
+                            )
                         }.takeIf { isHttpSource },
                         onOpenWebView = {
-                            openMangaInWebView(navigator, screenModel.manga, screenModel.source)
+                            openMangaInWebView(
+                                navigator,
+                                successState.mergeDisplayManga ?: screenModel.manga,
+                                successState.mergeDisplaySource ?: screenModel.source,
+                            )
                         }.takeIf { isHttpSource },
                         onOpenWebViewLong = {
-                            copyMangaUrl(context, screenModel.manga, screenModel.source)
+                            copyMangaUrl(
+                                context,
+                                successState.mergeDisplayManga ?: screenModel.manga,
+                                successState.mergeDisplaySource ?: screenModel.source,
+                            )
                         }.takeIf { isHttpSource },
                         onMigrate = {
                             // Source picker first, so a merged manga can pick which source to migrate.

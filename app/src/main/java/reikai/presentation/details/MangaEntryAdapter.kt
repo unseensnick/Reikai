@@ -67,7 +67,9 @@ class MangaEntryAdapter(
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Manga(manga.id),
             details = EntryDetailsUiState(
-                header = (mergeDisplayManga ?: displayManga).toEntryHeader(
+                // The overlay applies in chip view too (matching novels): a custom title must not
+                // vanish from the header just because a source chip is selected.
+                header = (mergeDisplayManga?.withCustomInfo(customInfo) ?: displayManga).toEntryHeader(
                     sourceName = model.headerSourceName(this),
                     isStubSource = displaySource is StubSource,
                 ),

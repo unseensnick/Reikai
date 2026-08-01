@@ -30,6 +30,7 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.novel.browse.DuplicateNovelDialog
+import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrateHost
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
@@ -112,7 +113,15 @@ class NovelScreen(
                                     )
                                 }
                             },
-                            onSearch = { query, _ -> navigator.push(NovelGlobalSearchScreen(query)) },
+                            // A non-global search (the source-name tap) scopes to the shown source,
+                            // like manga's browse-scoped search; global goes cross-source.
+                            onSearch = { query, global ->
+                                if (global) {
+                                    navigator.push(NovelGlobalSearchScreen(query))
+                                } else {
+                                    navigator.push(NovelBrowseScreen(s.displayNovel.source, query))
+                                }
+                            },
                             onTagSearch = { navigator.push(NovelGlobalSearchScreen(it)) },
                             onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {
@@ -131,9 +140,15 @@ class NovelScreen(
                             onActionRowShare = s.novelWebUrl?.let { { onShare() } },
                             onToolbarShare = s.novelWebUrl?.let { { onShare() } },
                             onOpenWebView = s.novelWebUrl?.let { { onWebView() } },
+                            // Long-press copies the URL, matching the manga action row.
+                            onOpenWebViewLong = s.novelWebUrl?.let { url ->
+                                { context.copyToClipboard(url, url) }
+                            },
                             // Migration only re-homes a library novel, so it shows only when favorited.
+                            // Anchor-scoped like manga: migrating must re-home the series, not
+                            // whichever source chip happens to be selected.
                             onMigrate = if (s.novel.favorite) {
-                                { navigator.push(NovelMigrationSourcePickScreen(listOf(s.displayNovel.id))) }
+                                { navigator.push(NovelMigrationSourcePickScreen(listOf(s.novel.id))) }
                             } else {
                                 null
                             },
