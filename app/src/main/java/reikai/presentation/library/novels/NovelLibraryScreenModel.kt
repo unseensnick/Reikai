@@ -70,6 +70,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -500,7 +501,9 @@ class NovelLibraryScreenModel :
         // Mark every source of a merge group, so a merged series doesn't stay part-read on the
         // sources that aren't the representative.
         val novelIds = state.value.memberIdsFor(ids)
-        screenModelScope.launchIO {
+        // Non-cancellable like the manga twins: a bulk write must not half-apply because the
+        // screen was left mid-loop.
+        screenModelScope.launchNonCancellable {
             // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
             val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
             setNovelReadStatus.await(read, chapters)
@@ -515,7 +518,7 @@ class NovelLibraryScreenModel :
         // representative, which becomes the user's chosen trunk once the collapse honours the
         // persisted source ranking.
         val novelIds = ids
-        screenModelScope.launchIO {
+        screenModelScope.launchNonCancellable {
             novelIds.forEach { id ->
                 val novel = novelRepository.getById(id) ?: return@forEach
                 val chapters = novelChapterRepository.getByNovelId(id)
@@ -533,7 +536,7 @@ class NovelLibraryScreenModel :
 
     /** Writes exactly the ids it is handed; the caller expands the merge group. */
     fun setNovelCategories(novelIds: List<Long>, addCategories: List<Long>, removeCategories: List<Long>) {
-        screenModelScope.launchIO {
+        screenModelScope.launchNonCancellable {
             novelIds.forEach { novelId ->
                 val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }
                 val new = (current - removeCategories.toSet() + addCategories).distinct()
@@ -549,7 +552,7 @@ class NovelLibraryScreenModel :
         // Expand merged covers to every grouped source, so the whole series leaves the library.
         removeGroupedSources: Boolean = false,
     ) {
-        screenModelScope.launchIO {
+        screenModelScope.launchNonCancellable {
             val targets = if (removeGroupedSources) state.value.memberIdsFor(novelIds) else novelIds
             targets.forEach { novelId ->
                 if (deleteFromLibrary) {
