@@ -600,8 +600,11 @@ data object LibraryTab : Tab {
                         if (display.reikai.showAllCategories) {
                             val isLandscape =
                                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-                            val columns by engine.columnsForOrientation(isLandscape)
-                            val displayMode by engine.displayMode()
+                            // Remembered like upstream's pager: each call builds a preference state
+                            // whose collector lives in the engine scope, so an un-remembered call
+                            // leaked one per recomposition.
+                            val columns by remember(isLandscape) { engine.columnsForOrientation(isLandscape) }
+                            val displayMode by remember { engine.displayMode() }
                             // RK: the global sort each non-overridden category follows, one library-wide
                             // value since the sort preferences unified, so no chip involved.
                             val globalSort by engine.globalSort.collectAsState()
