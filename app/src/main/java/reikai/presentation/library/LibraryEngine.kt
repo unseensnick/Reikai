@@ -143,6 +143,11 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
         ) { chip, rowsPerProvider, queryAndOverlay, allCategories, prefs ->
+            // Piggybacked here rather than a collector of its own so it runs exactly when the
+            // rendered rows change: a selected row that a filter, search or removal took out of
+            // the list must leave the selection too, or the toolbar count promises more than the
+            // verbs (which resolve ids through the filtered rows) will actually touch.
+            pruneSelection(rowsPerProvider)
             assembleFor(chip, rowsPerProvider, queryAndOverlay.map { it.first }, allCategories, prefs)
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
@@ -292,6 +297,17 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
 
     private val mutableSelection = MutableStateFlow<Set<EntryId>>(emptySet())
     val selection: StateFlow<Set<EntryId>> = mutableSelection.asStateFlow()
+
+    /** Drop selected ids that are no longer in any provider's rendered rows. */
+    private fun pruneSelection(rowsPerProvider: List<List<LibraryItem>>) {
+        mutableSelection.update { selection ->
+            if (selection.isEmpty()) return@update selection
+            val present = HashSet<EntryId>()
+            rowsPerProvider.forEach { rows -> rows.forEach { present.add(it.entryId) } }
+            val pruned = selection.filterTo(HashSet()) { it in present }
+            if (pruned.size == selection.size) selection else pruned
+        }
+    }
 
     private val mutableDialog = MutableStateFlow<LibraryDialog?>(null)
     val dialog: StateFlow<LibraryDialog?> = mutableDialog.asStateFlow()
