@@ -68,6 +68,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import reikai.data.track.TrackerRefreshJob
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
@@ -453,6 +454,22 @@ data object LibraryTab : Tab {
                         onClickGlobalUpdate = { onClickRefresh(null) },
                         // RK: follows the content-type chip; it used to always open a manga.
                         onClickOpenRandomManga = { onOpenRandom(activeCategory?.id) },
+                        // RK: library-wide tracker refresh, both content types at once, so it does not
+                        // follow the chip. A snackbar reports the two states the user can act on.
+                        onClickRefreshTrackers = {
+                            val started = TrackerRefreshJob.startNow(context)
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.stringResource(
+                                        if (started) {
+                                            MR.strings.tracker_refresh_progress
+                                        } else {
+                                            MR.strings.tracker_refresh_already_running
+                                        },
+                                    ),
+                                )
+                            }
+                        },
                         // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
                         //     opens on the chip for the content type currently shown.
                         onClickUpdateErrors = run {

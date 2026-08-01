@@ -43,6 +43,11 @@ object Notifications {
     const val ID_EHENTAI_PROGRESS = -106
     const val ID_EHENTAI_ERROR = -107
 
+    // RK: library-wide tracker refresh. Its own ids on the shared library channels, so its progress
+    // neither overwrites nor is overwritten by a chapter update running beside it.
+    const val ID_TRACKER_REFRESH_PROGRESS = -108
+    const val ID_TRACKER_REFRESH_RESULT = -109
+
     /**
      * Notification channel and ids used by the downloader.
      */

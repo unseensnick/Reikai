@@ -36,6 +36,8 @@ fun LibraryToolbar(
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
+    // RK: library-wide tracker refresh
+    onClickRefreshTrackers: () -> Unit,
     // RK: opt-in "Update errors" overflow entry (null = hidden)
     onClickUpdateErrors: (() -> Unit)? = null,
     searchQuery: String?,
@@ -57,6 +59,7 @@ fun LibraryToolbar(
         onClickRefresh = onClickRefresh,
         onClickGlobalUpdate = onClickGlobalUpdate,
         onClickOpenRandomManga = onClickOpenRandomManga,
+        onClickRefreshTrackers = onClickRefreshTrackers,
         onClickUpdateErrors = onClickUpdateErrors,
         scrollBehavior = scrollBehavior,
     )
@@ -72,6 +75,7 @@ private fun LibraryRegularToolbar(
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
+    onClickRefreshTrackers: () -> Unit,
     onClickUpdateErrors: (() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior?,
 ) {
@@ -117,6 +121,11 @@ private fun LibraryRegularToolbar(
                     AppBar.OverflowAction(
                         title = stringResource(MR.strings.action_open_random_manga),
                         onClick = onClickOpenRandomManga,
+                    ),
+                    // RK: pulls fresh score/status for every tracked entry, both content types
+                    AppBar.OverflowAction(
+                        title = stringResource(MR.strings.action_refresh_trackers),
+                        onClick = onClickRefreshTrackers,
                     ),
                     // RK: opt-in entry to the Update errors screen
                     onClickUpdateErrors?.let {

@@ -38,6 +38,16 @@ Two cases are skipped rather than guessed: a source that isn't in your library (
 
 Removing an entry from the library doesn't clear its tracker rows. They are dropped only when the entry itself is deleted from the database (Settings → Advanced → Clear database), which cascades. Re-adding a removed source to your library brings its tracker back with it.
 
+## Refresh the whole library's tracker data
+
+*Library → the three-dot menu → **Refresh tracker data**.*
+
+Scores, statuses and remote progress are normally pulled when you open an entry's page, so an entry you have not opened lately can hold stale values. Since the library can sort and filter by tracker score, that stale data is what those read. This action pulls fresh data for every tracked entry in one pass, manga and light novels together, whichever chip you are on.
+
+It only visits entries that carry a tracker you are signed into, so an untracked library finishes immediately, and it is group-aware in the sense above: a merged entry refreshes every tracker bound anywhere in its group.
+
+When it finishes you get a count, plus the names of any services that had failures. The usual cause is an entry whose remote list item no longer exists, for instance because you deleted it on the service; re-binding that entry fixes it. It is deliberately not attached to the library update, because that runs on a schedule and this is a network call per bound tracker.
+
 ## Setting
 
 *Settings → Tracking → "Share trackers across merged sources".*

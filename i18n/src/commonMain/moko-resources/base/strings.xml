@@ -1088,6 +1088,12 @@
     <!-- Updates -->
     <string name="updating_library">Updating library</string>
     <string name="update_already_running">An update is already running</string>
+    <string name="action_refresh_trackers">Refresh tracker data</string>
+    <string name="tracker_refresh_progress">Refreshing tracker data</string>
+    <string name="tracker_refresh_done">Refreshed tracker data for %1$d entries</string>
+    <string name="tracker_refresh_failed">%1$d could not be refreshed</string>
+    <string name="tracker_refresh_none">Nothing in your library is tracked</string>
+    <string name="tracker_refresh_already_running">A tracker refresh is already running</string>
     <string name="cant_open_last_read_chapter">Unable to open last read chapter</string>
     <string name="updates_last_update_info">Library last updated: %s</string>
     <string name="updates_last_update_info_just_now">Just now</string>

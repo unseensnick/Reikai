@@ -37,6 +37,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Create backup now lets you pick Manga, Novels and custom entry info separately, for a smaller file.**
 - **Reikai can now send crash reports so bugs get found and fixed faster.** Crash logs and anonymous usage data are both opt-out, from onboarding or Settings -> Security and privacy.
 - **Every release now also has a build with no crash reporting or analytics in it at all.** Download the `-foss` APK instead of the normal one; it installs as a separate app.
+- **The library's three-dot menu can now refresh tracker data for everything you track, in one pass.** Scores and statuses were only pulled when you opened an entry, so sorting or filtering by tracker score read whatever was last cached.
 - **A new Tokyo Night app theme, selectable under Settings -> Appearance.**
 
 ### Changes

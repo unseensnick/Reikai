@@ -36,8 +36,7 @@ Opportunistic polish:
 One library screen lists manga and novels together; what is left here is polish and performance on top of it.
 
 - **Category reorder mode (both types)** `[S]` - a reorder mode on the edit-categories screen (a drag handle plus move-to-top / move-to-bottom per card, confirm or cancel), built once on the shared category screen model so it serves manga and novels. Uses the existing `sort` column, no schema work. [Plan](docs/dev/plans/category-schema-unification.md).
-- **Trigger-maintained library count columns for novels** `[M]` - denormalize unread / download / total counts onto the novel row via chapter and history triggers (tsundoku's `mangas.sq` pattern), so library filter and sort read them directly instead of aggregating on every rebuild.
-- **Bulk tracker-score refresh for the library** `[M]` - an entry's tracker score is only pulled when its details screen opens and library updates never refresh trackers, so tracker-score sort and filter run on a stale, sparse local cache. Add a refresh-all path (a library "refresh tracker data" action and/or a "refresh trackers on library update" preference) for both content types.
+- **Denormalize the library count columns, measured first** `[M]` - both library views aggregate unread / read / total / bookmark counts per rebuild (`count(*)` and `sum(read)` in `libraryView.sq` and `novelLibraryView.sq`), and tsundoku instead maintains them as columns via triggers. This is not a novel parity gap: the two types aggregate identically. Treat it as a shared performance change that touches a Mihon view (so a `.sqm`, a `versionCode` bump and a sync liability), and measure that the aggregation is actually the cost before building it. Related: the parked library-jank item below.
 
 ### Details
 
