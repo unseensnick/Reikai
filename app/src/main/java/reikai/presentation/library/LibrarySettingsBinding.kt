@@ -59,6 +59,7 @@ data class LibrarySettingsBinding(
     val resetSort: (categoryId: Long) -> Unit,
     /** Whether the Display tab offers the Local badge. Only manga has a local-source concept. */
     val showLocalBadge: Boolean,
-    /** Show grouped sources' icons instead of a count on a merged cover. Its own key per content type. */
+    /** Show grouped sources' icons instead of a count on a merged cover. One shared key; both
+     *  adapters pass [reikai.domain.library.ReikaiLibraryPreferences.showMergeSourceIcons]. */
     val mergeSourceIcons: Preference<Boolean>,
 )

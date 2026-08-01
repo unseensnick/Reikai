@@ -41,7 +41,7 @@ Three layers, one hard ownership rule.
 
 ## Key files
 
-The details surface and most of the library surface have shipped; these are the homes and the twins still to collapse.
+The details and library surfaces have shipped; these are the homes and the twins still to collapse.
 
 - Target seam: `reikai/presentation/details/` already holds the shared Entry* UI (`EntryDetailsScaffold`, `EntryInfoBox`, `EntryToolbar`, `EntryActionRow`, `entryInfoItems`) and is where the shared behavior interface (`Entry`, the capability slots) and the two adapters (`MangaEntryAdapter`, `NovelEntryAdapter`) land.
 - Details twins to collapse: `MangaScreenModel` (stays live, adapted) and `NovelDetailsScreenModel` (dissolves).
@@ -51,7 +51,7 @@ The details surface and most of the library surface have shipped; these are the 
 
 ## Status
 
-In progress. Designed 2026-07-18; the details surface shipped, and the library surface has shipped its shared pipeline (collapse representative, grouping, sort, filter, search) with the identity re-key as its last step. Browse, migrate plus global search, and the reader phase are ahead. Per-surface detail lives in the surface plans; this file holds only the program-level design. Grounded by an integration-pattern analysis of the Reikai-versus-Mihon duplication and a feasibility comparison of the two details ScreenModels (~70-75% congruent, with a small bounded set of per-type capabilities). This is a deliberate refactor sprint, explicitly exempted from the no-standalone-refactor rule by the project owner because the current per-type duplication is not sustainable for a solo developer. First surface: details, planned in [content-layer-details-surface.md](content-layer-details-surface.md).
+In progress. Designed 2026-07-18; the details surface shipped, and the library surface is complete: the All-first takeover landed in full (one assembled list behind the All chip, shared grouping, sort, filter and search, both per-type models reduced to providers plus verbs). Browse, migrate plus global search, and the reader phase are ahead. Per-surface detail lives in the surface plans; this file holds only the program-level design. Grounded by an integration-pattern analysis of the Reikai-versus-Mihon duplication and a feasibility comparison of the two details ScreenModels (~70-75% congruent, with a small bounded set of per-type capabilities). This is a deliberate refactor sprint, explicitly exempted from the no-standalone-refactor rule by the project owner because the current per-type duplication is not sustainable for a solo developer. First surface: details, planned in [content-layer-details-surface.md](content-layer-details-surface.md).
 
 ## Decisions & tradeoffs
 

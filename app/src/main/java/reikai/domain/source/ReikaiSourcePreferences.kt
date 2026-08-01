@@ -94,9 +94,10 @@ class ReikaiSourcePreferences(
 
     /**
      * Include/exclude category filter for the Updates tab. Mirrors the library's
-     * [reikai.domain.library.ReikaiLibraryPreferences.filterCategories] dim, but manga and novels
-     * have separate category systems (separate id spaces), so each type carries its own selections;
-     * the picker applies them per content-type chip. Empty sets = no constraint for that type.
+     * [reikai.domain.library.ReikaiLibraryPreferences.filterCategories] dim, but a category row in
+     * the shared table is manga-, novel- or both-visible, so each type carries its own selections
+     * (a universal row can appear in both); the picker applies them per content-type chip. Empty
+     * sets = no constraint for that type.
      */
     val updatesFilterCategories: Preference<Boolean> =
         preferenceStore.getBoolean("updates_filter_categories", false)

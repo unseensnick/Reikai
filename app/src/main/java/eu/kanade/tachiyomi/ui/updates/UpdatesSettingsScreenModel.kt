@@ -32,8 +32,9 @@ class UpdatesSettingsScreenModel(
         }
     }
 
-    // RK --> backing for the include/exclude category-filter picker. Manga and novel categories are
-    // separate id spaces, so the picker shows a section per type and persists per-type selections.
+    // RK --> backing for the include/exclude category-filter picker. Categories share one table but
+    // a row is manga-, novel- or both-visible, so the picker shows a section per type (universal
+    // rows in both) and persists per-type selections.
     private val _mangaCategories = MutableStateFlow<List<Category>>(emptyList())
     val mangaCategories: StateFlow<List<Category>> = _mangaCategories.asStateFlow()
 

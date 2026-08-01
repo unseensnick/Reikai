@@ -41,9 +41,9 @@ Three of these are only reachable by typing the field name, because a plain word
 
 **`source:` matches the source's display name**, so `source:mangadex` and `src:manga` both work by partial name. **`srcid:` matches the source's exact identity** instead, which is a number for manga sources and a plugin name for novel sources. Use `srcid:` when two sources have similar names. On manga, `source:local` finds entries from your local source.
 
-**`chapter:` searches chapter names**, so `chapter:epilogue` finds every entry that has a chapter called that. It is the one field that looks beyond the entry itself, which is why an ordinary word search never includes chapter names.
+**`chapter:` searches chapter names**, so `chapter:epilogue` finds every entry that has a chapter called that. It is the one field that looks beyond the entry itself, which is why an ordinary word search never includes chapter names. One caveat: its case-insensitivity covers plain letters only, so accented characters must match the chapter's own casing (`ch:épilogue` does not find "Épilogue").
 
-Leaving a field empty finds entries where it is missing: `genre:` finds entries with no genres at all.
+An empty quoted value finds entries where a field is missing: `genre:""` finds entries with no genres at all. (A bare `genre:` with nothing after it reads as ordinary text, not an empty field.)
 
 ## Comparing numbers and dates
 
@@ -65,7 +65,7 @@ Use `>`, `<`, `>=`, `<=` or `=`:
 | `unread=0` | nothing left to read |
 | `total<20` | short series |
 | `added>2026-01-01` | added this year |
-| `id=1425` | that exact entry |
+| `id=1425` | that exact entry (on the All chip, a manga and a novel can share a number, so it can show one of each) |
 
 Dates are written year-month-day, like `2026-08-01`.
 
@@ -81,7 +81,7 @@ Dates are written year-month-day, like `2026-08-01`.
 | `-genre:ecchi` | everything without that genre |
 | `genre:action genre:comedy` | both genres |
 | `genre:action \|\| genre:comedy` | either genre |
-| `(genre:action \|\| genre:comedy) -completed` | either genre, excluding completed |
+| `(genre:action \|\| genre:comedy) -horror` | either genre, and not a horror entry |
 | `chapter:finale -genre:horror` | has a chapter called finale, is not horror |
 
 Terms sit next to each other for "and", `||` means "or", `-` in front of a term excludes it, and parentheses group. Writing `&&` for "and" is allowed but never necessary.

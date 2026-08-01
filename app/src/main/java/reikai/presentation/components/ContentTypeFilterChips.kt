@@ -26,7 +26,7 @@ fun ContentTypeFilterChips(
     selected: ContentType,
     onSelect: (ContentType) -> Unit,
     modifier: Modifier = Modifier,
-    // The library passes [ContentType.MANGA, ContentType.NOVELS] (no All); Browse/Downloads use all.
+    // Every current caller (library included, since the All chip shipped) uses all three.
     types: List<ContentType> = ContentType.entries,
     // Opt-in per-type count badge (the Extensions tab passes pending updates per type); empty = none.
     badges: Map<ContentType, Int> = emptyMap(),

@@ -364,8 +364,8 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     /**
      * The settings sheet a [contentType] describes. Since the filter unification every axis writes a
      * library-wide preference, so the All description is the manga binding (the axis superset: novels
-     * only omit the debug interval axis) with the two remaining per-type members answered for a mixed
-     * view: a union category list, and no Group tab until dynamic grouping is assembled under All.
+     * only omit the debug interval axis) with the remaining per-type member answered for a mixed
+     * view: a union category list, re-sorted by the category-sort-order preference.
      */
     fun settingsFor(contentType: ContentType): LibrarySettingsBinding =
         providersFor(contentType).singleOrNull()?.settings ?: allSettings

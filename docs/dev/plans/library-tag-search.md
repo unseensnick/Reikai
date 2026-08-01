@@ -34,7 +34,9 @@ Mechanism:
   regex-escaped, `$`-exact anchored), so `parody:*hero*` matches as intended.
 - The engine only runs for entries whose source is a `MetadataSource` (the
   `getMainSource<MetadataSource<*, *>>()` gate), so a normal title containing `:` is never
-  misread as a namespace. Everything else falls through to the existing plain-string `matches`.
+  misread as a namespace. Since the unified search grammar landed, a gallery entry answers BOTH
+  grammars: positive queries OR the two (either can find a row), exclusion-only queries AND them
+  (each grammar removes what it understands).
 - Tags and titles are batch-loaded once per library build (one query each) onto `LibraryItem`,
   and the query is parsed once per search (cached), not per entry.
 
@@ -42,8 +44,8 @@ Mechanism:
 
 - `app/src/main/java/exh/search/` (net-new): `SearchEngine.parseQuery`, `Text.asRegex`, and the
   component types.
-- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryItem.kt`: `matches(constraint,
-  parsedQuery, sourceManager)` gains the metadata-source engine branch (`matchesComponent`).
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryItem.kt`: `matchesMetadataQuery(parsedQuery)`
+  evaluates the tag grammar per entry (`matchesComponent`); the old plain-string `matches` fallback is gone.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryScreenModel.kt`: parses once and passes
   the components in; batch-loads `searchTitles` alongside `searchTags`.
 - `data/.../search_titles.sq` + `GetSearchTitles.awaitAll()` + `MangaMetadataRepository.getAllTitles()`:

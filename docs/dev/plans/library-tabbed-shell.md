@@ -16,6 +16,8 @@ The Mihon base is Compose + Voyager throughout (see [.claude/rules/architecture.
 
 ### The dual-content Library shell
 
+**Superseded by the All-first library takeover** (record: [library-all-chip.md](library-all-chip.md)). The chip strip is now All | Manga | Novels over one shared `LibraryEngine` assembly; the engine owns the content-type preference and the selection, the `isNovels` branching and the negative-id novel disguise are gone (novels ride `EntryId`), and the per-type settings dialogs collapsed into the shared `LibrarySettingsSheet`. The description below is the shell as originally built, kept as the record of that phase.
+
 The Library tab is one screen. Under the toolbar sits a small chip strip: Manga | Novels. Tapping Novels swaps the whole grid to novels, keeping the same layout, badges, hopper, search, multi-select, and pull-to-refresh as manga. Tapping Manga swaps back. The choice persists.
 
 There is no second Voyager `Tab`. Mihon's single `LibraryTab` ([app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt](../../../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt)) holds two screen models side by side: Mihon's `LibraryScreenModel` (manga) and Reikai's `NovelLibraryScreenModel` (novels), both resolved via `rememberScreenModel` so neither is destroyed on a chip flip. The novel model owns the content-type preference: `NovelLibraryScreenModel.contentType` is a `StateFlow<ContentType>` backed by `ReikaiLibraryPreferences.libraryContentType` ([app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt](../../../app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt)), so the active type survives restart.

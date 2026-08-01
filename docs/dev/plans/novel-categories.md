@@ -24,13 +24,13 @@ Deletion is deferred and undoable: selecting Delete holds the rows out of the li
 
 The hopper is `ReikaiCategoryHopper`, a small rounded floating control with up / center / down buttons (`app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`). Up and down jump to the previous / next category; the center button opens `ReikaiCategoryPickerSheet`, a bottom sheet listing every category (with item counts when enabled) so the user can jump straight to one (`app/src/main/java/reikai/presentation/library/ReikaiCategoryPickerSheet.kt`). The center button also has a long-press action.
 
-Both the manga and novel libraries render through the same shared host (`LibraryTab.kt`), which draws the hopper and picker once, unconditionally, in the single-list view (`LibraryTab.kt`). The Novels tab is no longer special-cased: every hopper callback is content-aware, branching on the active content type. The center long-press dispatches all six actions (search, collapse/expand all, open Display options, open group-by, random-in-category, global-random), each routed to either the novel or manga screen model (`LibraryTab.kt`). The hopper can be dragged left / center / right to change its gravity, which persists per content type. The picker sheet decodes synthetic dynamic-grouping category names through `ReikaiDynamicCategory`, so it works for both real DB categories and dynamic groups.
+Both the manga and novel libraries render through the same shared host (`LibraryTab.kt`), which draws the hopper and picker once, unconditionally, in the single-list view (`LibraryTab.kt`). The Novels tab is no longer special-cased: every hopper callback is content-aware, branching on the active content type. The center long-press dispatches all six actions (search, collapse/expand all, open Display options, open group-by, random-in-category, global-random), each routed to either the novel or manga screen model (`LibraryTab.kt`). The hopper can be dragged left / center / right to change its gravity, one library-wide setting. The picker sheet decodes synthetic dynamic-grouping category names through `ReikaiDynamicCategory`, so it works for both real DB categories and dynamic groups.
 
 The hopper appears when its visibility preference (`hideHopper`) is off and at least one category exists (`LibraryTab.kt`); it is not gated on search state. With autohide on, it fades while the list scrolls and returns when it settles.
 
 ### The tab-aware Display sheet
 
-The library's Display sheet (sort, filter, display mode, badges, categories tabs) is shared between Manga and Novels. The host resolves both screen models and tracks which content type is active via `libraryContentType`; the sheet and its actions are routed to the active type's screen model (`LibraryTab.kt`). On the Novels tab the sheet's settings dialog is `NovelLibrarySettingsDialog` driven by `NovelLibraryScreenModel`; on the Manga tab it is Mihon's `LibrarySettingsDialog`. The "Add or edit categories" / "Edit categories" buttons used to be tab-aware, pushing a per-content-type category manager. They no longer are: `CategoryScreen` is one list covering both libraries, so every entry point pushes the same screen. See [category-schema-unification.md](category-schema-unification.md).
+The library's Display sheet (sort, filter, display mode, badges, categories tabs) is shared between Manga and Novels. The host resolves both screen models and tracks which chip is active via `libraryContentType`; every chip opens the one shared `LibrarySettingsSheet`, whose per-type behavior comes from each provider's settings binding (the twin per-type dialogs are gone). The "Add or edit categories" / "Edit categories" buttons used to be tab-aware, pushing a per-content-type category manager. They no longer are: `CategoryScreen` is one list covering both libraries, so every entry point pushes the same screen. See [category-schema-unification.md](category-schema-unification.md).
 
 ### Light-novel plugin update detection
 
@@ -54,7 +54,7 @@ Hopper + picker (single-list view):
 Library host (shared, `// RK` islands):
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: resolves both screen models, the content-type chip, the unconditional hopper + picker, content-aware callbacks, and the tab-aware Display sheet + edit-categories routing.
 - `app/src/main/java/reikai/presentation/library/novels/NovelLibraryScreenModel.kt`: the Novels library screen model (state, dialogs, hopper actions, category filter).
-- `app/src/main/java/reikai/presentation/library/novels/NovelLibrarySettingsDialog.kt`: the Novels-side Display sheet.
+- `app/src/main/java/reikai/presentation/library/LibrarySettingsSheet.kt`: the one settings sheet every chip opens (the per-type `NovelLibrarySettingsDialog` is gone).
 
 LN plugin update detection:
 - `app/src/main/java/reikai/novel/update/LnPluginUpdateChecker.kt`: the version diff + `runIfStale` cache.
@@ -70,7 +70,7 @@ Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels t
 
 - **Deferred, undoable deletes over immediate DB writes.** Deleting a category hides it from the live flow and commits to the DB only when the undo snackbar dismisses, so undo never needs a lossy re-insert (junction tables cascade their membership rows, and a re-inserted category would get a new id). Single-row delete shares the same deferred path. The cost is the extra `pendingDeleteIds` bookkeeping and the non-cancellable commit-on-leave, which is worth it to make undo correct rather than approximate.
 
-- **One shared hopper, content-aware callbacks.** Rather than disabling the hopper on the Novels tab or duplicating it, the shared host draws it once and routes each callback (jump, long-press actions, gravity drag) to whichever content type is active. Hopper preferences (gravity, autohide, long-press action) are tracked per content type so the two libraries can diverge.
+- **One shared hopper, content-aware callbacks.** Rather than disabling the hopper on the Novels tab or duplicating it, the shared host draws it once and routes each callback (jump, long-press actions, gravity drag) to whichever content type is active. Hopper preferences (gravity, autohide, long-press action) are one library-wide set; the chip changes what is listed, not how the hopper behaves.
 
 - **Tab-aware actions, shared sheet shell.** The Display sheet shell is shared, but the settings dialog routes to the active content type. This avoids forking the sheet UI. The edit-categories buttons were tab-aware for the same reason until the category manager became one list for both content types.
 

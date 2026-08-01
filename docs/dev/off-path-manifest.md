@@ -60,10 +60,10 @@ So treat **VANISHED as unresolved, never as expected**: find whether upstream re
 (`git log --oneline --follow --diff-filter=R -- <new path>`) and repoint the row, or confirm it was genuinely
 deleted and drop the row with a note. Only a deliberate, recorded conclusion closes one.
 
-`TrackInfoDialog.kt` reports CHANGED against base `5ce7d00eb`, from one commit: mihon `98705910e`
-(`mihonapp/mihon#3609`), the deferred ViewModel migration's crash fix, which lands with that bundle rather than
-on its own. It clears once the migration is ported. Confirm the commit list is still just that one
-(`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`) instead of assuming; a second commit there would be
-real debt hiding behind a familiar-looking report.
+`TrackInfoDialog.kt` carries one deferred upstream change: mihon `98705910e` (`mihonapp/mihon#3609`), the
+deferred ViewModel migration's crash fix, which lands with that bundle rather than on its own. That commit is
+now BELOW the synced base, so the off-path check reports the row clean and no longer nags; the deferred-changes
+record in [upstream-sync.md](upstream-sync.md) is the only tracker of it until the migration is ported. On a
+sync, still confirm nothing new touched the file (`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`).
 
 The three category interactors each scoped themselves to the manga-visible rows. Once a category can span both libraries those rows overlap the novel-visible ones, so a create, reorder or delete that only sees one library writes an order or a preference scrub that is wrong for the other. `CategoryActions` does all three over the whole table instead.

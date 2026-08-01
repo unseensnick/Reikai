@@ -12,7 +12,7 @@
 
 ## Rebase status
 
-The rebase has shipped: `main` is the Mihon-based main. The master plan and per-phase record live in [ROADMAP.md](../../ROADMAP.md), the per-feature implementation records in [plans/](plans/), and the `mihon-rebase` memory. The old Yōkai-based code stays on the `design/library-compose` branch as the porting reference.
+The rebase has shipped: `main` is the Mihon-based main. The forward backlog lives in [ROADMAP.md](../../ROADMAP.md) (forward-only), the per-feature implementation records in [plans/](plans/) (the rebase's own record is `plans/rebase-overview.md`), and the done-log in [shipped.md](shipped.md). The old Yōkai-based code stays on the `design/library-compose` branch as the porting reference.
 
 ## Canonical rules
 
@@ -61,6 +61,7 @@ Sibling read-only clones in `refs/` provide context:
 - `mihon` — the base; port upstream Mihon changes from here.
 - `yokai` — the Yōkai-era base; historical reference only.
 - `komikku` — Komikku (SY/EH lineage); reference for merge and feature approaches.
+- `tsundoku` — Tsundoku, a Mihon-fork novel reader; reference for novel-reader features and the planned native-reader migration.
 - `lnreader-main` / `lnreader-plugins` — LNReader; reference for the light-novel subsystem.
 - `keiyoushi-extensions` / `keiyoushi-extensions-source` — Keiyoushi extensions (distribution + source).
 - `tachiyomi-extension` — Suwayomi's extension repo.

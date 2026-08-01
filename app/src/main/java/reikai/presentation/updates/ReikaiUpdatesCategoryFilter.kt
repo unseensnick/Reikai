@@ -26,8 +26,9 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 
 /**
- * Include/exclude category filter for the Updates tab. Manga and novel categories are separate id
- * spaces, so the picker shows a section per content type and persists per-type selections; on the
+ * Include/exclude category filter for the Updates tab. Categories live in one shared table, but a
+ * row is manga-, novel- or both-visible, so the picker shows a section per content type (universal
+ * rows appear in both) and persists per-type selections; on the
  * Manga/Novels chips only that type's section appears, on All both do. The shared [CategoryFilterRow]
  * renders the row + dialog. Mounted inside the `// RK` island of Mihon's `UpdatesFilterDialog`.
  */
