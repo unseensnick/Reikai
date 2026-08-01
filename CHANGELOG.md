@@ -98,6 +98,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Renaming an entry now makes it findable by the name you gave it.** Library search reads the title, author, artist, description and genre you set in Edit info, instead of only the source's.
 - **The Edit categories picker on a details page now respects your category sort order.**
 - **The novel library-update and download category filters now include the Default (uncategorized) group.** You can include or exclude novels that are not in any category, matching the manga filters.
+- **Excluding a term from library search now applies to adult-source entries too.** A query like `-genre:horror` used to leave them in the results regardless.
 - **Deleting a category now clears it from the library and Updates filters.** No filter is left pointing at a category that no longer exists.
 
 **Tracking**

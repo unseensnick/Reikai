@@ -41,9 +41,11 @@ data class LibraryItem(
     val id: Long = libraryManga.id
 
     // RK --> tag-search engine for adult/metadata sources. Upstream matches every entry through the
-    // query AST (mihon.feature.library.matches); a gallery entry is matched by this structured grammar
-    // instead (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent for. The
-    // caller picks the path, since a prefix query (id:/src:) still belongs to the AST.
+    // query AST (mihon.feature.library.matches); a gallery entry ALSO gets this structured grammar
+    // (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent for. The caller
+    // (LibraryScreenModel's search filter) ORs the two grammars for positive queries and ANDs them
+    // for exclusion-only ones, because an excluded component this grammar cannot resolve passes
+    // vacuously and an OR would then keep rows the AST kernel excluded.
     fun matchesMetadataQuery(parsedQuery: List<QueryComponent>): Boolean =
         parsedQuery.all { matchesComponent(it, metadataSourceName.orEmpty()) }
 

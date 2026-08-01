@@ -195,9 +195,19 @@ class LibraryScreenModel(
                             val parsedQuery = searchEngine.parseQuery(searchQuery)
                             val queryNode = QueryNode.from(searchQuery)
                             val queryFields = mangaQueryFields(chapterMatches, customInfo)
+                            // An excluded component the tag grammar cannot resolve (no such namespace,
+                            // no text hit) passes vacuously, so ORing it into an exclusion-only query
+                            // would resurrect every gallery row the kernel excluded. Positive queries
+                            // OR (either grammar can find a row); exclusion-only queries AND (each
+                            // grammar removes what it understands).
+                            val hasPositive = parsedQuery.any { !it.excluded }
                             items.filter { m ->
-                                libraryQueryMatches(queryNode, m, queryFields) ||
-                                    (m.metadataSourceName != null && m.matchesMetadataQuery(parsedQuery))
+                                val kernel = libraryQueryMatches(queryNode, m, queryFields)
+                                when {
+                                    m.metadataSourceName == null -> kernel
+                                    hasPositive -> kernel || m.matchesMetadataQuery(parsedQuery)
+                                    else -> kernel && m.matchesMetadataQuery(parsedQuery)
+                                }
                             }
                         }
                     }
