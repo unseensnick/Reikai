@@ -18,7 +18,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A new All chip shows your whole library, manga and novels together.** One list, one sort, with each series opening in its own reader; the Manga and Novels chips now simply filter it.
 - **A category can now hold both manga and novels.** Pick whether a new category shows in manga, novels or both when you create it.
-- **Manga library search understands field terms and comparisons, like `author:kubo`, `genre:horror -genre:ecchi` or `unread>5`.** Novel search gets the term matching, not the comparisons.
+- **Library search understands field terms and comparisons, like `author:kubo`, `genre:horror -genre:ecchi` or `unread>5`.** One grammar for manga and novels, so a query means the same thing on every entry the All chip shows.
 - **Settings -> Library -> Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
 
 **Merged series**
@@ -88,7 +88,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Grouping the library by tag or author no longer splits one tag into two groups.** Sources that spell a tag differently, like Adult and ADULT or Sci-Fi and Sci Fi, now land in a single group.
 - **The novel library now has an adult-content filter, based on genre tags.** It is less reliable than the manga one, which can use a source's own flag.
 - **The novel library now sorts like the manga library.** Ties stay A to Z under a descending sort, fully-read novels sort to the bottom by unread, and titles order by your device language.
-- **Searching the novel library now matches source, description and negated terms too, not just title, author and genre.** Terms are comma-separated, and a leading minus excludes one.
+- **Two novel search prefixes changed spelling: `id:5` is now `id=5`, and `src:slug` is now `srcid:slug`.** They are the manga library's spellings, so both libraries answer one grammar.
 - **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It waits for a short pause first, like the manga library.
 - **Selecting novels in the library is no longer slow.** It used to get worse the more novels you had.
 - **Select all and Invert selection now act on the category you have scrolled to.** In the single-list view they always acted on the first category instead.

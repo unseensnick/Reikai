@@ -40,6 +40,41 @@ fun libraryItemFilterFields(
 )
 
 /**
+ * The search twin of [libraryItemFilterFields], binding the shared query kernel onto the library row.
+ * Most fields read the row directly, including `sourceName` and `sourceLanguage`, which both content
+ * types now populate when they build it.
+ *
+ * Three seams: [sourceKey] is a numeric source id for manga and a plugin slug for novels, so it is a
+ * String on both sides; [fetchInterval] and [nextUpdate] are null for novels, which have neither concept,
+ * and a null makes the term false before negation so an inapplicable comparison never pulls a novel in
+ * from either direction.
+ */
+fun libraryItemQueryFields(
+    sourceKey: (LibraryItem) -> String,
+    fetchInterval: (LibraryItem) -> Int?,
+    nextUpdate: (LibraryItem) -> Long?,
+) = LibraryQueryFields<LibraryItem>(
+    id = { it.id },
+    title = { it.libraryManga.manga.title },
+    author = { it.libraryManga.manga.author },
+    artist = { it.libraryManga.manga.artist },
+    description = { it.libraryManga.manga.description },
+    notes = { it.libraryManga.manga.notes },
+    genre = { it.libraryManga.manga.genre },
+    sourceName = { it.sourceName },
+    sourceKey = sourceKey,
+    sourceLanguage = { it.sourceLanguage },
+    isLocal = { it.isLocal },
+    // The deduplicated group counts, matching what the badges and the sort read.
+    unreadCount = { it.unreadCount },
+    readCount = { it.libraryManga.readCount },
+    totalChapters = { it.libraryManga.totalChapters },
+    dateAdded = { it.libraryManga.manga.dateAdded },
+    fetchInterval = fetchInterval,
+    nextUpdate = nextUpdate,
+)
+
+/**
  * The sort twin of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker
  * mean, which each content type precomputes over its own track table (deduped per tracker, unrated
  * scores dropped) and hands in keyed by the row's own id.

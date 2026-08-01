@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryFilterActive
@@ -58,6 +59,7 @@ import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
+import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.reikaiSortCategories
@@ -377,6 +379,7 @@ class NovelLibraryScreenModel :
                 sourceBadge = settings.badges.source,
                 sourceSite = source?.site,
                 sourceIconUrl = source?.iconUrl,
+                sourceName = novelSourceName(rep.novel.source),
             )
             if (group.memberIds.size > 1) {
                 // Stamp the merge badge (group member ids) + summed downloads onto the rep.
@@ -410,13 +413,18 @@ class NovelLibraryScreenModel :
             lewdSourceName = { null },
             trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
         )
+        // The search twin of the filter binding above, and the same kernel the manga library runs, so one
+        // typed query means one thing on every row of the All list. The seams: a novel's source key is its
+        // plugin slug (manga supply a numeric id), and neither time comparison applies, so both are gated
+        // null rather than answered from the synthetic row's zero defaults.
+        val queryFields = libraryItemQueryFields(
+            sourceKey = { item -> novelById[item.id]?.novel?.source.orEmpty() },
+            fetchInterval = { null },
+            nextUpdate = { null },
+        )
+        val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
         val items = allItems.filter { item ->
-            val matchesSearch = if (query.isNullOrBlank()) {
-                true
-            } else {
-                val novel = novelById[item.id]?.novel
-                novel != null && item.matchesQuery(query, novelSourceName(novel.source), novel.source)
-            }
+            val matchesSearch = queryNode == null || libraryQueryMatches(queryNode, item, queryFields)
             matchesSearch && libraryFilterMatches(item, filterPrefs, filterFields)
         }
         val byId = items.associateBy { it.id }
@@ -721,23 +729,4 @@ class NovelLibraryScreenModel :
     }
 
     data class NovelRoute(val source: String, val url: String)
-}
-
-// Levels novel search up to the manga library's grammar via the shared matcher: id:, src: (by source
-// slug), description, source name, and comma-separated negatable terms, on top of title/author/artist/
-// genre. Reads the shared library row, like the filter and sort beside it; [sourceName] and [sourceSlug]
-// are resolved by the caller, since a novel row carries no Mihon Source to read either off.
-private fun LibraryItem.matchesQuery(query: String, sourceName: String, sourceSlug: String): Boolean {
-    val m = libraryManga.manga
-    return libraryQueryMatches(
-        query = query,
-        id = id,
-        title = m.title,
-        author = m.author,
-        artist = m.artist,
-        description = m.description,
-        genre = m.genre,
-        sourceName = sourceName,
-        matchesSourceTerm = { term -> sourceSlug.equals(term, ignoreCase = true) },
-    )
 }

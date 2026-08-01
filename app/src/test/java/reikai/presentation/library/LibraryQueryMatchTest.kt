@@ -1,61 +1,109 @@
 package reikai.presentation.library
 
 import io.kotest.matchers.shouldBe
+import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.api.Test
 
+/**
+ * The shared query kernel, exercised over a plain row type rather than `LibraryItem`, since the kernel is
+ * pure over its accessors. Pins the two things that are Reikai's rather than upstream's: an inapplicable
+ * field is false before negation, and the source key is matched as a String on both content types.
+ */
 class LibraryQueryMatchTest {
 
-    private fun match(
-        query: String,
-        id: Long = 1L,
-        title: String = "",
-        author: String? = null,
-        artist: String? = null,
-        description: String? = null,
-        genre: List<String>? = null,
-        sourceName: String = "",
-        matchesSourceTerm: (String) -> Boolean = { false },
-    ): Boolean = libraryQueryMatches(
-        query, id, title, author, artist, description, genre, sourceName, matchesSourceTerm,
+    private data class Row(
+        val id: Long = 1L,
+        val title: String = "Lord of the Mysteries",
+        val author: String? = "Cuttlefish",
+        val genre: List<String>? = listOf("Fantasy"),
+        val sourceName: String = "novel arrow",
+        val sourceKey: String = "novelarrow",
+        val notes: String? = "",
+        val unread: Long = 3L,
+        /** Null models a novel, which has neither concept. */
+        val interval: Int? = null,
+        val nextUpdate: Long? = null,
     )
 
+    private val fields = LibraryQueryFields<Row>(
+        id = { it.id },
+        title = { it.title },
+        author = { it.author },
+        artist = { null },
+        description = { null },
+        notes = { it.notes },
+        genre = { it.genre },
+        sourceName = { it.sourceName },
+        sourceKey = { it.sourceKey },
+        sourceLanguage = { "en" },
+        isLocal = { false },
+        unreadCount = { it.unread },
+        readCount = { 0L },
+        totalChapters = { 10L },
+        dateAdded = { 0L },
+        fetchInterval = { it.interval },
+        nextUpdate = { it.nextUpdate },
+    )
+
+    private fun matches(query: String, row: Row = Row()) =
+        libraryQueryMatches(QueryNode.from(query), row, fields)
+
     @Test
-    fun `id prefix matches the exact entry id`() {
-        match("id:42", id = 42L) shouldBe true
-        match("id:42", id = 7L) shouldBe false
-        match("id:notanumber", id = 42L) shouldBe false
+    fun `a bare word sweeps the text fields`() {
+        matches("mysteries") shouldBe true
     }
 
     @Test
-    fun `src prefix delegates to the source-term matcher`() {
-        match("src:webtoons", matchesSourceTerm = { it == "webtoons" }) shouldBe true
-        match("src:other", matchesSourceTerm = { it == "webtoons" }) shouldBe false
+    fun `an inapplicable comparison is false`() {
+        matches("nu<2030-01-01") shouldBe false
     }
 
     @Test
-    fun `plain text matches title, author and description case-insensitively`() {
-        match("dawn", title = "Break of Dawn") shouldBe true
-        match("alice", author = "Alice Writer") shouldBe true
-        match("epic", description = "An EPIC saga") shouldBe true
-        match("missing", title = "Something Else") shouldBe false
+    fun `an inapplicable comparison stays false when negated`() {
+        // The whole point of the gate: a novel must not be pulled in by a field it cannot answer.
+        matches("-nu<2030-01-01") shouldBe false
     }
 
     @Test
-    fun `a comma term matches the source name or a genre`() {
-        match("action", genre = listOf("Action", "Romance")) shouldBe true
-        match("webtoons", sourceName = "Webtoons") shouldBe true
+    fun `a field the row can answer still follows the absent-then-negate convention`() {
+        // artist is null here, so `-artist:x` keeps the row, matching upstream's semantics.
+        matches("-artist:hoshino") shouldBe true
     }
 
     @Test
-    fun `a negated term excludes matching entries`() {
-        match("-action", genre = listOf("Action")) shouldBe false
-        match("-action", genre = listOf("Romance")) shouldBe true
+    fun `srcid matches the source key exactly on either content type`() {
+        matches("srcid:novelarrow") shouldBe true
+        matches("srcid:novel") shouldBe false
     }
 
     @Test
-    fun `comma-separated terms must all match`() {
-        match("action, romance", genre = listOf("Action", "Romance")) shouldBe true
-        match("action, horror", genre = listOf("Action", "Romance")) shouldBe false
-        match("action, -horror", genre = listOf("Action", "Romance")) shouldBe true
+    fun `source matches the display name, not the key`() {
+        matches("source:arrow") shouldBe true
+    }
+
+    @Test
+    fun `id compares numerically`() {
+        matches("id=1") shouldBe true
+        matches("id=2") shouldBe false
+    }
+
+    @Test
+    fun `comparisons the row can answer work`() {
+        matches("unread>2") shouldBe true
+        matches("unread>5") shouldBe false
+    }
+
+    @Test
+    fun `an unknown field degrades to a plain text term`() {
+        // Upstream's parser behaviour, worth pinning because it is what a typo does.
+        matches("chapter:clown") shouldBe false
+        matches("nonsense:mysteries") shouldBe false
+    }
+
+    @Test
+    fun `boolean operators and negation compose`() {
+        matches("fantasy || horror") shouldBe true
+        matches("fantasy -mysteries") shouldBe false
+        matches("\"lord of the\"") shouldBe true
     }
 }

@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
-import mihon.feature.library.matches
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
@@ -61,7 +60,9 @@ import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
+import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryItemSortFields
+import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryStateFlow
 import reikai.presentation.library.mangaTrackerMeans
 import tachiyomi.core.common.i18n.stringResource
@@ -167,22 +168,20 @@ class LibraryScreenModel(
                 val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
                 val filteredFavorites = favorites
                     .applyFilters(tracksMap, trackingFilters, itemPreferences)
-                    // RK: parse the query once, then filter; metadata-source entries match via the
-                    //     structured tag grammar, everything else via plain text (see LibraryItem).
+                    // RK: parse once, then filter through the shared query kernel, the same one the novel
+                    //     library runs, so one typed query means one thing on every row of the All list.
+                    //     A gallery entry ALSO gets the EXH tag grammar, which is a manga-only capability
+                    //     the AST has no equivalent for; the two are ORed rather than routed between, so a
+                    //     row appears if either grammar it supports matches.
                     .let { items ->
                         if (searchQuery == null) {
                             items
                         } else {
                             val parsedQuery = searchEngine.parseQuery(searchQuery)
                             val queryNode = QueryNode.from(searchQuery)
-                            val isPrefixQuery = searchQuery.startsWith("id:", true) ||
-                                searchQuery.startsWith("src:", true)
                             items.filter { m ->
-                                if (m.metadataSourceName != null && !isPrefixQuery) {
-                                    m.matchesMetadataQuery(parsedQuery)
-                                } else {
-                                    queryNode.matches(m)
-                                }
+                                libraryQueryMatches(queryNode, m, mangaQueryFields) ||
+                                    (m.metadataSourceName != null && m.matchesMetadataQuery(parsedQuery))
                             }
                         }
                     }
@@ -331,6 +330,14 @@ class LibraryScreenModel(
         return fastFilter { libraryFilterMatches(it, prefs, fields) }
     }
     // RK <--
+
+    // RK: the manga binding of the shared query kernel. The source key is the numeric source id as a
+    // string (novels supply a plugin slug), and manga answer both time comparisons, so neither is gated.
+    private val mangaQueryFields = libraryItemQueryFields(
+        sourceKey = { it.libraryManga.manga.source.toString() },
+        fetchInterval = { it.libraryManga.manga.fetchInterval },
+        nextUpdate = { it.libraryManga.manga.nextUpdate },
+    )
 
     // RK: upstream's applyGrouping (bucket rows into categories) and Reikai's applySort are both gone.
     // LibraryEngine's assembleLibrary buckets and sorts, over rows from both content types at once, so

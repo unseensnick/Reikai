@@ -27,6 +27,7 @@ class NovelLibraryItemTest {
         sourceBadge = false,
         sourceSite = null,
         sourceIconUrl = null,
+        sourceName = "Novel Arrow",
     )
 
     @Test

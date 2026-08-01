@@ -74,6 +74,7 @@ class NovelLibrarySortComparatorTest {
                     sourceBadge = false,
                     sourceSite = null,
                     sourceIconUrl = null,
+                    sourceName = "",
                 )
             }
             .sortedWith(comparator)

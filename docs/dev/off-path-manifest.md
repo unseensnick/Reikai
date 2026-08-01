@@ -43,6 +43,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverViewModel.kt | mihon | reikai/presentation/details/EntryCoverScreenModel.kt |
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryInfoBox.kt |
 | app/src/main/java/eu/kanade/presentation/library/LibrarySettingsDialog.kt | mihon | reikai/presentation/library/LibrarySettingsSheet.kt |
+| app/src/main/java/mihon/feature/library/QueryNodeExtensions.kt | mihon | reikai/presentation/library/LibraryQueryMatch.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/CreateCategoryWithName.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/ReorderCategory.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/DeleteCategory.kt | mihon | reikai/domain/category/DeleteCategoryCleanup.kt |

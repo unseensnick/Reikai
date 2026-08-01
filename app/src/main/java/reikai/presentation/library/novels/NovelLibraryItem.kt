@@ -22,6 +22,7 @@ fun LibraryNovel.toLibraryItem(
     sourceBadge: Boolean,
     sourceSite: String?,
     sourceIconUrl: String?,
+    sourceName: String,
 ): LibraryItem {
     val n = novel
     val synthetic = Manga.create().copy(
@@ -41,6 +42,8 @@ fun LibraryNovel.toLibraryItem(
         initialized = n.initialized,
         chapterFlags = n.chapterFlags,
         updateStrategy = n.updateStrategy,
+        // Carried so the shared query kernel can answer `notes:` on a novel exactly as on a manga.
+        notes = n.notes,
     )
     val libraryManga = LibraryManga(
         manga = synthetic,
@@ -60,6 +63,10 @@ fun LibraryNovel.toLibraryItem(
         downloadCount = downloadCount.toInt(),
         unreadCount = unreadCount,
         isLocal = false,
+        // The shared query kernel reads these off the row, so they are populated here rather than
+        // resolved again at filter time. Lowercased to match how the manga side supplies its own.
+        sourceName = sourceName.lowercase(),
+        sourceLanguage = sourceLanguage,
         badges = LibraryItem.Badges(
             downloadCount = if (downloadBadge) downloadCount.toInt() else 0,
             unreadCount = if (unreadBadge) unreadCount else 0,
