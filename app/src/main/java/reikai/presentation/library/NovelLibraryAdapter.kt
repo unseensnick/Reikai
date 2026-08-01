@@ -126,15 +126,13 @@ class NovelLibraryAdapter(
     }
 
     private fun NovelLibraryScreenModel.State.toNeutral() = LibraryScreenState(
-        categories = displayedCategories,
         isLoading = isLoading,
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
         activeCategoryIndex = activeCategoryIndex,
+        overlayKey = overlayKey,
         showContinueButton = showContinueButton,
-        itemsForCategory = this::getItemsForCategory,
-        itemCountForCategory = this::getItemCountForCategory,
     )
 
     override fun search(query: String?) {
@@ -142,9 +140,6 @@ class NovelLibraryAdapter(
     }
 
     override fun refresh(category: Category?) = NovelUpdateJob.startNow(context, category)
-
-    override fun randomEntry(categoryId: Long?): EntryId? =
-        model.state.value.randomItemId(categoryId)?.let(EntryId::Novel)
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

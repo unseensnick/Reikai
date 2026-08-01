@@ -135,7 +135,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Other
 
 - The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
-- The manga and novel libraries now share one implementation of filtering, searching, sorting, selection and every library dialog, and identify an entry by its content type rather than by the sign of its id, so a library change reaches both content types instead of being written twice.
+- The manga and novel libraries now share one implementation of filtering, searching, sorting, grouping, list assembly, selection and every library dialog, and identify an entry by its content type rather than by the sign of its id, so a library change reaches both content types instead of being written twice.
 - Manga and novel categories now live in one shared table with a content-type column, read and written through one repository, so the parallel novel category stack is gone.
 - Custom novel covers are now stored under a name that carries the content type, moved once on upgrade, so a novel can never collide with a manga that shares its row number.
 - The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring), so a grouping change reaches both content types.

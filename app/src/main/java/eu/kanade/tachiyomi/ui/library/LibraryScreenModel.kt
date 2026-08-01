@@ -56,18 +56,14 @@ import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.MangaGroupingInputs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
-import reikai.presentation.library.buildMangaDynamicGrouping
-import reikai.presentation.library.groupingInputs
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryStateFlow
 import reikai.presentation.library.mangaTrackerMeans
-import reikai.presentation.library.reorderReikaiCategories
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -205,50 +201,18 @@ class LibraryScreenModel(
                 .distinctUntilChanged()
                 .collectLatest { libraryData ->
                     mutableState.update { state ->
-                        state.copy(libraryData = libraryData)
+                        // RK: loading ends here, not in a later grouping pass: the model no longer
+                        // assembles a list, so this is the last point that knows the data has arrived.
+                        // The shared assembly emits a tick later, and that one empty frame renders the
+                        // list branch with no categories rather than the empty-library screen.
+                        state.copy(libraryData = libraryData, isLoading = false)
                     }
                 }
         }
 
-        screenModelScope.launchIO {
-            combine(
-                state.dropWhile { !it.libraryData.isInitialized },
-                // RK: re-run the sort when the GLOBAL sort changes; non-overridden categories follow it
-                //     via the CUSTOMIZED override bit, so a global change re-sorts them (applySort reads
-                //     sortingMode fresh). Pairing it into the distinct key is what re-fires the pipeline.
-                libraryPreferences.sortingMode.changes(),
-            ) { s, globalSort -> s to globalSort }
-                // RK --> branch on the Reikai grouping mode; dynamic grouping and category
-                // order replace Mihon's plain category bucketing. The distinct key includes
-                // only the grouping-relevant Reikai fields so badge/hopper changes don't re-group.
-                .map { (it, globalSort) ->
-                    (it.libraryData to it.reikai.groupingInputs()) to globalSort
-                }
-                .distinctUntilChanged()
-                .map { (inputs, _) ->
-                    val (data, grouping) = inputs
-                    val grouped = if (grouping.groupLibraryBy == LibraryGroup.BY_DEFAULT) {
-                        data.favorites
-                            .applyGrouping(data.categories, data.showSystemCategory, grouping.showHiddenCategories)
-                            .reorderReikaiCategories(grouping.categorySortOrder)
-                    } else {
-                        buildReikaiDynamicGrouping(data, grouping)
-                    }
-                    val sorted = grouped.applySort(data.favoritesById, data.tracksMap, data.loggedInTrackerIds)
-                    // RK: empty categories are always hidden, the same rule the shared assembly applies.
-                    sorted.filterValues { it.isNotEmpty() }
-                }
-                // RK <--
-                .collectLatest {
-                    mutableState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            // RK: store as an ordered list so category reorders aren't deduped away
-                            groupedFavorites = it.toList(),
-                        )
-                    }
-                }
-        }
+        // RK: upstream's second pipeline (bucket favorites into categories, then sort each) is gone. The
+        // model is a row provider now: LibraryEngine assembles and sorts the list, because only it sees
+        // both content types. Everything below still belongs to the manga library alone.
 
         combine(
             libraryPreferences.categoryTabs.changes(),
@@ -299,20 +263,11 @@ class LibraryScreenModel(
             }
             .launchIn(screenModelScope)
 
-        // RK -->
-        getReikaiLibraryStateFlow()
-            .distinctUntilChanged()
-            .onEach { reikai -> mutableState.update { it.copy(reikai = reikai) } }
-            .launchIn(screenModelScope)
-        // RK <--
+        // RK: the Reikai display state used to be mirrored onto this State for grouping and the toolbar
+        // title. Both moved out (LibraryEngine.display feeds the tab directly), so nothing mirrors it.
     }
 
-    // RK --> Reikai library display state and dynamic grouping. The logic lives in
-    //        reikai.presentation.library (ReikaiLibraryState.kt, MangaDynamicGrouping.kt); these are the
-    //        delegations, so an upstream change here is a re-applied call rather than a merged body.
-    private fun getReikaiLibraryStateFlow(): Flow<ReikaiLibraryState> =
-        reikaiLibraryPreferences.libraryStateFlow()
-
+    // RK -->
     fun setGroupLibraryBy(value: Int) {
         reikaiLibraryPreferences.groupLibraryBy.set(value)
     }
@@ -328,17 +283,8 @@ class LibraryScreenModel(
     // RK: category collapse moved to LibraryEngine, which writes the same preferences. It is library-wide
     // rather than per content type, so it belongs beside the selection and not on a per-type model.
 
-    private fun buildReikaiDynamicGrouping(data: LibraryData, grouping: MangaGroupingInputs) =
-        buildMangaDynamicGrouping(
-            favorites = data.favorites,
-            tracksMap = data.tracksMap,
-            loggedInTrackerIds = data.loggedInTrackerIds,
-            inputs = grouping,
-            inheritedSortFlag = libraryPreferences.sortingMode.get().flag,
-            sourceManager = sourceManager,
-            trackerManager = trackerManager,
-            context = Injekt.get<Application>(),
-        )
+    // RK: dynamic grouping moved to LibraryEngine, which runs the shared kernel once over both content
+    // types' feeds. This model contributes its half through LibraryProvider.dynamicGroupingFeed.
     // RK <--
 
     // RK -->
@@ -386,56 +332,9 @@ class LibraryScreenModel(
     }
     // RK <--
 
-    private fun List<LibraryItem>.applyGrouping(
-        categories: List<Category>,
-        showSystemCategory: Boolean,
-        // RK --> reveal hidden categories (a flags bit) when the user opts in
-        showHiddenCategories: Boolean,
-        // RK <--
-    ): Map<Category, List</* LibraryItem */ Long>> {
-        val groupCache = mutableMapOf</* Category */ Long, MutableList</* LibraryItem */ Long>>()
-        forEach { item ->
-            item.libraryManga.categories.forEach { categoryId ->
-                groupCache.getOrPut(categoryId) { mutableListOf() }.add(item.id)
-            }
-        }
-        return categories.filter { showSystemCategory || !it.isSystemCategory }
-            // RK: drop hidden categories (a flags bit) unless the user reveals them
-            .filter { showHiddenCategories || !it.isHidden }
-            .associateWith { groupCache[it.id]?.toList().orEmpty() }
-    }
-
-    // RK -->
-    // Manga library sort, routed through the shared reikai.domain.library.librarySortComparator so a sort
-    // behaviour change is written once for manga and novels. Both types also decode their per-category
-    // flags through the shared sortForCategory; the novel bit layout was translated onto the manga one
-    // when the category tables merged, so there is one layout and no per-type decoder.
-    private fun Map<Category, List</* LibraryItem */ Long>>.applySort(
-        favoritesById: Map<Long, LibraryItem>,
-        trackMap: Map<Long, List<Track>>,
-        loggedInTrackerIds: Set<Long>,
-    ): Map<Category, List</* LibraryItem */ Long>> {
-        // Lazy so only a TrackerMean sort pays it; the scoring rule itself lives in the shared
-        // mangaTrackerMeans, which the provider seam (MangaLibraryAdapter.trackerMeans) also reads.
-        val trackerScores by lazy {
-            val trackerMap = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
-            mangaTrackerMeans(favoritesById.values, trackMap, trackerMap)
-        }
-
-        val fields = libraryItemSortFields(trackerMean = { trackerScores[it.id] ?: -1.0 })
-
-        // A category follows the global sort unless it has a per-category override (CUSTOMIZED bit), and
-        // the universal Default row always follows it.
-        val globalSort = libraryPreferences.sortingMode.get()
-        val randomSeed = libraryPreferences.randomSortSeed.get().toLong()
-        return mapValues { (key, value) ->
-            val sort = sortForCategory(key, globalSort)
-            val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, randomSeed, fields)
-            value.mapNotNull { favoritesById[it] }.sortedWith(comparator).map { it.id }
-        }
-    }
-
-    // RK <--
+    // RK: upstream's applyGrouping (bucket rows into categories) and Reikai's applySort are both gone.
+    // LibraryEngine's assembleLibrary buckets and sorts, over rows from both content types at once, so
+    // the category order, the per-category sort override and the empty-category rule live there now.
 
     private fun getLibraryItemPreferencesFlow(): Flow<ItemPreferences> {
         return combine(
@@ -799,10 +698,8 @@ class LibraryScreenModel(
             .asState(screenModelScope)
     }
 
-    fun getRandomLibraryItemForCurrentCategory(): LibraryItem? {
-        val state = state.value
-        return state.getItemsForCategoryId(state.activeCategory?.id).randomOrNull()
-    }
+    // RK: picking a random entry moved to LibraryEngine, which reads the assembled list and so can pick
+    // from a dynamic group and from either content type. Upstream's version is gone with the list it read.
 
     // RK: DEAD. The library dialogs are built and owned by reikai.presentation.library.LibraryEngine, so
     // nothing renders this state any more. Kept because upstream has its own copy and deleting it would
@@ -945,35 +842,13 @@ class LibraryScreenModel(
         val showMangaContinueButton: Boolean = false,
         val dialog: Dialog? = null,
         val libraryData: LibraryData = LibraryData(),
-        // RK -->
-        val reikai: ReikaiLibraryState = ReikaiLibraryState(),
-        // RK <--
         // RK: exposed (upstream keeps it private) so the adapter can hand the tab the RAW index. The
         // coercion below is against this model's own category list, which is the wrong list under the
         // All chip; the tab coerces against the list it actually renders instead.
         val activeCategoryIndex: Int = 0,
-        // RK --> ordered list, not a Map: Map.equals() ignores key order, so a category reorder
-        // (category sort / move-dynamic-to-bottom) would compare equal and StateFlow would dedupe it,
-        // leaving the UI unchanged. A List has order-sensitive equality, so reorders propagate.
-        private val groupedFavorites: List<Pair<Category, List</* LibraryItem */ Long>>> = emptyList(),
-        // RK <--
+        // RK: upstream's groupedFavorites (the bucketed, sorted list) and everything derived from it are
+        // gone. LibraryEngine.assembled owns the list; this State carries rows and per-type status only.
     ) {
-        // RK --> derived from the ordered groupedFavorites list above (not a Map): keep an
-        // id-keyed lookup so getItemsForCategory/getItemCountForCategory stay O(1) after the switch.
-        val displayedCategories: List<Category> = groupedFavorites.map { it.first }
-
-        private val groupedFavoritesById: Map<Long, List<Long>> by lazy {
-            groupedFavorites.associate { it.first.id to it.second }
-        }
-        // RK <--
-
-        val coercedActiveCategoryIndex = activeCategoryIndex.coerceIn(
-            minimumValue = 0,
-            maximumValue = displayedCategories.lastIndex.coerceAtLeast(0),
-        )
-
-        val activeCategory: Category? = displayedCategories.getOrNull(coercedActiveCategoryIndex)
-
         val isLibraryEmpty = libraryData.favorites.isEmpty()
 
         // RK: these resolve an explicit id set rather than reading the selection, so a bulk action is
@@ -996,23 +871,9 @@ class LibraryScreenModel(
                 item.relatedMangaIds.ifEmpty { listOf(id) }
             }.distinct()
 
-        fun getItemsForCategoryId(categoryId: Long?): List<LibraryItem> {
-            if (categoryId == null) return emptyList()
-            val category = displayedCategories.find { it.id == categoryId } ?: return emptyList()
-            return getItemsForCategory(category)
-        }
-
-        fun getItemsForCategory(category: Category): List<LibraryItem> {
-            // RK: look up by id (groupedFavorites is an ordered List, not a Map keyed by Category),
-            //     then apply the display-only custom-info overlay. This is the sole render path, so
-            //     the overrides never reach the raw favorites that search/filter/sort/selection read.
-            return groupedFavoritesById[category.id].orEmpty().mapNotNull { id ->
-                libraryData.favoritesById[id]?.let(::withOverlay)
-            }
-        }
-
-        // RK: the one place the overlay is applied; also the provider seam (LibraryProvider.overlaid)
-        //     for the shared assembly's display read.
+        // RK: the one place the overlay is applied, reached through the provider seam
+        //     (LibraryProvider.overlaid) at the shared assembly's display read. It stays out of the raw
+        //     favorites, which is what search, filter, sort and selection read.
         fun withOverlay(item: LibraryItem): LibraryItem {
             val custom = libraryData.customInfo[item.libraryManga.manga.id] ?: return item
             return item.copy(
@@ -1020,34 +881,6 @@ class LibraryScreenModel(
                     manga = item.libraryManga.manga.withCustomInfo(custom),
                 ),
             )
-        }
-
-        fun getItemCountForCategory(category: Category): Int? {
-            // RK: id-keyed lookup, see getItemsForCategory
-            return if (showMangaCount || !searchQuery.isNullOrEmpty()) groupedFavoritesById[category.id]?.size else null
-        }
-
-        fun getToolbarTitle(
-            defaultTitle: String,
-            defaultCategoryTitle: String,
-            page: Int,
-        ): LibraryToolbarTitle {
-            val category = displayedCategories.getOrNull(page) ?: return LibraryToolbarTitle(defaultTitle)
-            val categoryName = when {
-                category.isSystemCategory -> defaultCategoryTitle
-                // RK: dynamic-grouping categories store an encoded name; show the decoded label.
-                ReikaiDynamicCategory.isDynamic(category) -> ReikaiDynamicCategory.displayName(category)
-                else -> category.name
-            }
-            // RK: "Always show current category" forces the category name into the title.
-            val title = if (reikai.showCategoryInTitle || !showCategoryTabs) categoryName else defaultTitle
-            val count = when {
-                !showMangaCount -> null
-                !showCategoryTabs -> getItemCountForCategory(category)
-                // Whole library count
-                else -> libraryData.favorites.size
-            }
-            return LibraryToolbarTitle(title, count)
         }
     }
 }

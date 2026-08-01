@@ -8,9 +8,9 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
 
 /**
- * Reikai's net-new library display state, bundled into one object so Mihon's
- * `LibraryScreenModel.State` carries a single extra field instead of ~18 loose ones.
- * Fed from [reikai.domain.library.ReikaiLibraryPreferences]; consumed by the Reikai library renderer.
+ * Reikai's net-new library display state, bundled into one object rather than ~18 loose fields. Fed from
+ * [reikai.domain.library.ReikaiLibraryPreferences] and read through [LibraryEngine.display]: it is
+ * library-wide, so it belongs to the engine and not to either content type's model.
  */
 @Immutable
 data class ReikaiLibraryState(

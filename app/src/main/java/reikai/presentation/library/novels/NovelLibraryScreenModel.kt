@@ -113,13 +113,6 @@ class NovelLibraryScreenModel :
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
-    /** Reactive grouping inputs folded into the main combine so a collapse toggle re-sinks groups. */
-    private data class GroupingInputs(
-        val settings: LibrarySettings,
-        val collapsedDynamic: Set<String>,
-        val atBottom: Boolean,
-    )
-
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
         // badges); the source flow below re-emits buildState once the sources register.
@@ -151,26 +144,12 @@ class NovelLibraryScreenModel :
                 // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
                 // No distinctUntilChanged: a StateFlow already conflates equal values.
                 searchQuery.debounce(0.25.seconds),
-                // Collapse set + at-bottom pref ride with settings so a collapse toggle rebuilds the
-                // grouping and re-sinks collapsed dynamic groups (the manga reactivity pattern). The
-                // collapse preferences are library-wide and owned by LibraryEngine; only the dynamic set
-                // reaches the pipeline, because that is the one the grouping kernel sinks on.
-                combine(
-                    settingsFlow(),
-                    reikaiLibraryPreferences.collapsedDynamicCategories.changes(),
-                    reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
-                ) { settings, collapsed, atBottom -> GroupingInputs(settings, collapsed, atBottom) },
-            ) { categories, (library, customInfo, tracks), query, grouping ->
-                buildState(
-                    categories,
-                    library,
-                    customInfo,
-                    tracks,
-                    query,
-                    grouping.settings,
-                    grouping.collapsedDynamic,
-                    grouping.atBottom,
-                )
+                // The collapse preferences no longer reach this pipeline. They only ever fed grouping,
+                // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
+                // whole filtered novel list (merge collapse, tracker scores, filtering) for nothing.
+                settingsFlow(),
+            ) { categories, (library, customInfo, tracks), query, settings ->
+                buildState(categories, library, customInfo, tracks, query, settings)
             }.collectLatest { built ->
                 // Preserve the live searchQuery and active page: the async buildState lags the user, so
                 // overwriting the query here resets the search field to a stale value mid-input and
@@ -250,16 +229,17 @@ class NovelLibraryScreenModel :
         ) { membership, mergingEnabled, showIcons, overrideRankings, preferredSources ->
             MergeSettings(membership, mergingEnabled, showIcons, overrideRankings, preferredSources)
         }
+        // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
+        // group-mode change would rebuild the filtered list for a decision it no longer makes.
         return combine(
             badgePrefsFlow(),
             miscFlow,
             filterFlow,
             mergeFlow,
-            reikaiLibraryPreferences.groupLibraryBy.changes(),
-        ) { badges, misc, filterSettings, merge, groupBy ->
+        ) { badges, misc, filterSettings, merge ->
             LibrarySettings(
                 badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
-                filterSettings.filters, filterSettings.downloadedOnly, merge, misc.categorySortOrder, groupBy,
+                filterSettings.filters, filterSettings.downloadedOnly, merge, misc.categorySortOrder,
                 filterSettings.trackingFilter,
             )
         }
@@ -292,8 +272,6 @@ class NovelLibraryScreenModel :
         tracks: Map<Long, List<NovelTrack>>,
         query: String?,
         settings: LibrarySettings,
-        collapsedDynamicKeys: Set<String>,
-        atBottom: Boolean,
     ): State {
         // Downloaded state is disk-derived (NovelDownloadCache), not a DB column, so fill each novel's
         // download count from the cache before it feeds the filter, sort, collapse, and badge.
@@ -442,59 +420,8 @@ class NovelLibraryScreenModel :
             matchesSearch && libraryFilterMatches(item, filterPrefs, filterFields)
         }
         val byId = items.associateBy { it.id }
-        // The sort twin of the filter binding. Each merged row already carries its group's deduplicated
-        // unread count, so the comparator needs no separate unread map.
-        val sortFields = libraryItemSortFields(trackerMean = { trackerMeanScores[it.id] ?: -1.0 })
-        val flagsByCat = categories.associate { it.id to it.flags }
-        val defaultSort = LibrarySort.valueOf(settings.defaultSort)
-
-        val grouped: List<Pair<Category, List<Long>>> = if (settings.groupBy == LibraryGroup.BY_DEFAULT) {
-            // Bucket item ids by category id; uncategorized (no real category) goes to Default (id 0).
-            val byCategory = LinkedHashMap<Long, MutableList<Long>>()
-            items.forEach { item ->
-                val cats = item.libraryManga.categories.filter { it != Category.UNCATEGORIZED_ID }
-                if (cats.isEmpty()) {
-                    byCategory.getOrPut(Category.UNCATEGORIZED_ID) { mutableListOf() }.add(item.id)
-                } else {
-                    cats.forEach { c -> byCategory.getOrPut(c) { mutableListOf() }.add(item.id) }
-                }
-            }
-
-            // The real universal row 0 is the Default bucket: visualName renders its empty name as
-            // "Default" and the header decodes its flags-0 sort to the library default, so no synthesis.
-            val visibleCategories = if (settings.showHidden) {
-                categories
-            } else {
-                categories.filterNot { (it.flags and CATEGORY_HIDDEN_MASK) == CATEGORY_HIDDEN_MASK }
-            }
-            // Manual DB order first, then the Reikai category-sort-order pref (Off/A->Z/Z->A), matching the
-            // manga library so the shared Display setting reorders novel categories too (system pinned top).
-            val allCategories = reikaiSortCategories(
-                visibleCategories.sortedBy { it.order },
-                settings.categorySortOrder,
-            )
-            allCategories.mapNotNull { category ->
-                val ids = byCategory[category.id] ?: return@mapNotNull null
-                val sort = sortFor(category.id, flagsByCat[category.id] ?: 0L, defaultSort)
-                val comparator =
-                    librarySortComparator(sort.type.toSortMode(), sort.isAscending, settings.randomSeed, sortFields)
-                category to ids.mapNotNull { byId[it] }.sortedWith(comparator).map { it.id }
-            }
-        } else {
-            // Dynamic grouping (by source / tag / author / language / status) replaces categories.
-            buildNovelDynamicGrouping(
-                items = items,
-                byId = byId,
-                novelById = novelById,
-                tracksByRep = tracksByRep,
-                inputs = settings.groupingInputs(collapsedDynamicKeys, atBottom),
-                defaultSort = defaultSort,
-                sortFields = sortFields,
-                sourceManager = sourceManager,
-                trackerManager = trackerManager,
-                context = context,
-            )
-        }
+        // Bucketing, category order and sorting all moved to LibraryEngine's shared assembly, which sees
+        // both content types. This model stops at the filtered rows, its split point.
 
         // Item id -> (source, url) so LibraryTab can open the (representative) novel. Over the displayed
         // rows, so the hopper's random actions pick from what is actually on screen.
@@ -510,7 +437,6 @@ class NovelLibraryScreenModel :
             trackerMeans = trackerMeanScores,
             novelById = novelById,
             tracksByRep = tracksByRep,
-            groupedFavorites = grouped,
             favoritesById = byId,
             customInfo = overlay,
             novelRoutes = routes,
@@ -519,21 +445,6 @@ class NovelLibraryScreenModel :
             showContinueButton = settings.showContinue,
         )
     }
-
-    private fun sortFor(categoryId: Long, flags: Long, default: LibrarySort): LibrarySort =
-        if (categoryId == Category.UNCATEGORIZED_ID) default else sortForCategory(flags, default)
-
-    /** The grouping inputs, read off the library settings the same way the manga library reads its own. */
-    private fun LibrarySettings.groupingInputs(collapsedDynamicKeys: Set<String>, atBottom: Boolean) =
-        NovelGroupingInputs(
-            groupLibraryBy = groupBy,
-            categorySortOrder = categorySortOrder,
-            collapsedDynamicCategories = collapsedDynamicKeys,
-            collapsedDynamicAtBottom = atBottom,
-            loggedInTrackerIds = trackingFilter.keys,
-            inheritedSortFlag = defaultSort,
-            randomSeed = randomSeed,
-        )
 
     // --- search / selection / collapse mutators (read by LibraryTab) ---
 
@@ -740,7 +651,6 @@ class NovelLibraryScreenModel :
         val downloadedOnly: Boolean,
         val merge: MergeSettings,
         val categorySortOrder: Int,
-        val groupBy: Int,
         // Per-logged-in-tracker filter (trackerId -> tri-state); keys are the logged-in tracker ids.
         val trackingFilter: Map<Long, TriState>,
     )
@@ -766,24 +676,13 @@ class NovelLibraryScreenModel :
          *  feed seam (LibraryProvider.dynamicGroupingFeed), which resolves metadata the row cannot carry. */
         val novelById: Map<Long, LibraryNovel> = emptyMap(),
         val tracksByRep: Map<Long, List<NovelTrack>> = emptyMap(),
-        private val groupedFavorites: List<Pair<Category, List<Long>>> = emptyList(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
         private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
         private val novelRoutes: Map<Long, NovelRoute> = emptyMap(),
     ) {
-        val displayedCategories: List<Category> = groupedFavorites.map { it.first }
-
-        private val groupedById: Map<Long, List<Long>> by lazy {
-            groupedFavorites.associate { it.first.id to it.second }
-        }
-
-        val coercedActiveCategoryIndex = activeCategoryIndex.coerceIn(
-            0,
-            displayedCategories.lastIndex.coerceAtLeast(0),
-        )
-
-        val activeCategory: Category? = displayedCategories.getOrNull(coercedActiveCategoryIndex)
+        /** Identity of [customInfo], so a display-overlay edit is not conflated away downstream. */
+        val overlayKey: Any get() = customInfo
 
         val isLibraryEmpty = favoritesById.isEmpty()
 
@@ -803,14 +702,11 @@ class NovelLibraryScreenModel :
                 item.relatedMangaIds.ifEmpty { listOf(id) }
             }.distinct()
 
-        // Apply the display-only custom-info overlay here, the sole render path, so the overrides never
-        // reach the raw rows that filter, sort, grouping and search read. Mirrors the manga library.
-        fun getItemsForCategory(category: Category): List<LibraryItem> =
-            groupedById[category.id].orEmpty().mapNotNull { id ->
-                favoritesById[id]?.let(::withOverlay)
-            }
-
-        /** The one place the overlay is applied; also the provider seam (LibraryProvider.overlaid). */
+        /**
+         * The one place the overlay is applied, reached through the provider seam
+         * (LibraryProvider.overlaid) at the shared assembly's display read, so the overrides never reach
+         * the raw rows that filter, sort and search read. Mirrors the manga library.
+         */
         fun withOverlay(item: LibraryItem): LibraryItem {
             val custom = customInfo[item.id] ?: return item
             return item.copy(
@@ -820,18 +716,8 @@ class NovelLibraryScreenModel :
             )
         }
 
-        fun getItemCountForCategory(category: Category): Int? = groupedById[category.id]?.size
-
-        /** Ordered item ids for a category, for range/select-all; null id = active category. */
-        fun itemIdsForCategory(categoryId: Long?): List<Long> =
-            categoryId?.let { groupedById[it] }.orEmpty()
-
         /** (source, url) for the item id, to open the novel details screen. */
         fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]
-
-        /** A random favorited novel's id, within [categoryId] or across the whole library when null. */
-        fun randomItemId(categoryId: Long?): Long? =
-            if (categoryId == null) novelRoutes.keys.randomOrNull() else itemIdsForCategory(categoryId).randomOrNull()
     }
 
     data class NovelRoute(val source: String, val url: String)

@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,6 +52,7 @@ import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
 import eu.kanade.presentation.library.components.LibraryContent
 import eu.kanade.presentation.library.components.LibraryToolbar
+import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
@@ -161,11 +163,9 @@ data object LibraryTab : Tab {
         val libState = when (libraryContentType) {
             ContentType.MANGA -> mangaLibState
             ContentType.NOVELS -> novelLibState
-            // RK: the All view's state, combined field by field. The list and the counts come off the
-            // assembly below; the empty fallbacks here show only for the frame before its first
-            // emission.
+            // RK: the All view's state, combined field by field. The list itself is not in here at all;
+            // it comes off the assembly below.
             ContentType.ALL -> LibraryScreenState(
-                categories = emptyList(),
                 isLoading = mangaLibState.isLoading || novelLibState.isLoading,
                 isLibraryEmpty = mangaLibState.isLibraryEmpty && novelLibState.isLibraryEmpty,
                 // The engine fans a search out to both models, so the two queries mirror each other.
@@ -173,25 +173,25 @@ data object LibraryTab : Tab {
                 hasActiveFilters = mangaLibState.hasActiveFilters || novelLibState.hasActiveFilters,
                 activeCategoryIndex = mangaLibState.activeCategoryIndex,
                 showContinueButton = mangaLibState.showContinueButton,
-                itemsForCategory = { emptyList() },
-                itemCountForCategory = { null },
+                // Either type's overlay edit must reach the screen, so both identities are carried.
+                overlayKey = mangaLibState.overlayKey to novelLibState.overlayKey,
             )
         }
-        // RK: the list itself (categories + the per-category display read) renders off the engine's
-        // assembly (step 2 of the All-chip plan); the rest of libState stays adapter-sourced until
-        // step 5. The assembly lags a chip flip by one emission, so it renders only when its chip
-        // matches, with the provider's own list (identical for a single-type chip) filling in.
+        // RK: the list (categories, the per-category rows and their counts) renders off the engine's
+        // assembly, the only place that can bucket both content types into one list. The assembly lags a
+        // chip flip by one emission, so it renders only when its chip matches; the empty defaults below
+        // cover that single frame and the cold-start frame, both of which sit behind isLoading.
         val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == libraryContentType }
-        val activeCategories = assembled?.categories ?: libState.categories
+        val activeCategories = assembled?.categories.orEmpty()
         // RK: the selection is the engine's, not a provider's: it can span both content types.
         val activeSelection by engine.selection.collectAsState()
         val activeSearchQuery = libState.searchQuery
         val activeIsLibraryEmpty = libState.isLibraryEmpty
         val activeIsLoading = libState.isLoading
         val activeGetItems: (Category) -> List<LibraryItem> =
-            assembled?.let { it::itemsFor } ?: libState.itemsForCategory
+            assembled?.let { it::itemsFor } ?: { emptyList() }
         val activeGetItemCount: (Category) -> Int? =
-            assembled?.let { it::countFor } ?: libState.itemCountForCategory
+            assembled?.let { it::countFor } ?: { null }
         val onSearch: (String?) -> Unit = { engine.search(libraryContentType, it) }
         val activeSelectionMode = activeSelection.isNotEmpty()
         val activeHasActiveFilters = libState.hasActiveFilters
@@ -199,9 +199,21 @@ data object LibraryTab : Tab {
         // against the list actually rendered: each model coerces against its own category list, which
         // under All is neither the union nor the assembled dynamic groups, so a page past the manga
         // model's last category used to resolve to the wrong category (or none).
-        val activeCategory = activeCategories.getOrNull(
-            libState.activeCategoryIndex.coerceIn(0, activeCategories.lastIndex.coerceAtLeast(0)),
-        )
+        val activeCategoryIndex = libState.activeCategoryIndex
+            .coerceIn(0, activeCategories.lastIndex.coerceAtLeast(0))
+        val activeCategory = activeCategories.getOrNull(activeCategoryIndex)
+        // RK: the toolbar's whole-library count, over the assembled list rather than the manga model's
+        // favorites (which under All counted only one of the two content types). Distinct because an
+        // entry in several categories sits in several buckets. Remembered: it walks the whole library,
+        // and only the tabbed view with counts on ever shows it.
+        val showWholeLibraryCount = display.showItemCounts && display.showCategoryTabs
+        val wholeLibraryCount = remember(activeCategories, activeGetItems, showWholeLibraryCount) {
+            if (!showWholeLibraryCount) {
+                0
+            } else {
+                activeCategories.flatMap(activeGetItems).distinctBy(LibraryItem::entryId).size
+            }
+        }
         // A dynamic group is a synthetic negative id, not a real category, so anything that has to name
         // a real one falls back to the global scope rather than passing an id nothing can resolve. The
         // category headers disable these affordances outright; the hopper has no such off state.
@@ -231,14 +243,23 @@ data object LibraryTab : Tab {
             ContentType.NOVELS -> novelSingleListGridState
             ContentType.ALL -> allSingleListGridState
         }
-        val mangaPagerState = rememberPagerState(initialPage = state.coercedActiveCategoryIndex) {
-            state.displayedCategories.size
+        // RK: one pager per chip, each sized from a snapshot taken only while its own chip is up. Pointing
+        // all three at activeCategories.size would make an inactive chip's pager lose its position, since
+        // Compose clamps a pager's currentPage whenever its pageCount shrinks. Only the manga pager seeds
+        // a page: it restores lastUsedCategory, and the pager clamps the value if the list is shorter.
+        val mangaPageCount = remember { mutableIntStateOf(0) }
+        val novelPageCount = remember { mutableIntStateOf(0) }
+        val allPageCount = remember { mutableIntStateOf(0) }
+        when (libraryContentType) {
+            ContentType.MANGA -> mangaPageCount.intValue = activeCategories.size
+            ContentType.NOVELS -> novelPageCount.intValue = activeCategories.size
+            ContentType.ALL -> allPageCount.intValue = activeCategories.size
         }
-        val novelPagerState = rememberPagerState(initialPage = novelState.coercedActiveCategoryIndex) {
-            novelState.displayedCategories.size
+        val mangaPagerState = rememberPagerState(initialPage = mangaLibState.activeCategoryIndex) {
+            mangaPageCount.intValue
         }
-        // RK: the All pager pages over the assembled list, which is the only list that view has.
-        val allPagerState = rememberPagerState { activeCategories.size }
+        val novelPagerState = rememberPagerState { novelPageCount.intValue }
+        val allPagerState = rememberPagerState { allPageCount.intValue }
         val pagerState = when (libraryContentType) {
             ContentType.MANGA -> mangaPagerState
             ContentType.NOVELS -> novelPagerState
@@ -365,16 +386,40 @@ data object LibraryTab : Tab {
 
         Scaffold(
             topBar = { scrollBehavior ->
-                val title = state.getToolbarTitle(
-                    defaultTitle = stringResource(MR.strings.label_library),
-                    defaultCategoryTitle = stringResource(MR.strings.label_default),
-                    // RK: single-list tracks the visible category on scroll, so the title follows it
-                    page = if (display.reikai.showAllCategories) {
-                        currentCategoryIndex()
-                    } else {
-                        state.coercedActiveCategoryIndex
-                    },
-                )
+                // RK: built here over the assembled list, keeping the manga model's rules. It used to be
+                // the manga State's own, which knew only manga categories and counted only manga rows.
+                val defaultTitle = stringResource(MR.strings.label_library)
+                val defaultCategoryTitle = stringResource(MR.strings.label_default)
+                // Single-list tracks the visible category on scroll, so the title follows it.
+                val titlePage = if (display.reikai.showAllCategories) {
+                    currentCategoryIndex()
+                } else {
+                    activeCategoryIndex
+                }
+                val title = when (val category = activeCategories.getOrNull(titlePage)) {
+                    null -> LibraryToolbarTitle(defaultTitle)
+                    else -> {
+                        val categoryName = when {
+                            category.isSystemCategory -> defaultCategoryTitle
+                            // Dynamic-grouping categories store an encoded name; show the decoded label.
+                            ReikaiDynamicCategory.isDynamic(category) -> ReikaiDynamicCategory.displayName(category)
+                            else -> category.name
+                        }
+                        LibraryToolbarTitle(
+                            // "Always show current category" forces the category name into the title.
+                            text = if (display.reikai.showCategoryInTitle || !display.showCategoryTabs) {
+                                categoryName
+                            } else {
+                                defaultTitle
+                            },
+                            numberOfManga = when {
+                                !display.showItemCounts -> null
+                                !display.showCategoryTabs -> activeGetItemCount(category)
+                                else -> wholeLibraryCount
+                            },
+                        )
+                    }
+                }
                 // RK: stack the content-type chip under the toolbar so the Scaffold sizes
                 // contentPadding to include it and both library views render below it untouched.
                 // RK: match the toolbar's container color so the chip strip reads as part of it.

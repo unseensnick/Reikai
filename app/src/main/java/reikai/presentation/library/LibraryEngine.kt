@@ -370,12 +370,27 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         providersFor(contentType).map { it.refresh(category) }.all { it }
 
     /**
-     * A random entry from [categoryId], or the whole library when null, across every provider in view.
-     * Picking one per provider and then one of those weights the content types equally rather than by
-     * how many entries each holds, which only matters once a mixed view is reachable.
+     * A random entry from [categoryId], or the whole library when null, drawn from the assembled list.
+     * Reading the assembly rather than the providers means the pick is from what is actually on screen,
+     * so a dynamic group's synthetic id resolves and rows in hidden or emptied categories are excluded.
+     *
+     * Null when nothing is pickable: no assembly yet, a chip flip the assembly has not caught up with
+     * (it lags by one emission), or an id that is not in the current list. The caller shows a snackbar.
      */
-    fun randomEntry(contentType: ContentType, categoryId: Long?): EntryId? =
-        providersFor(contentType).mapNotNull { it.randomEntry(categoryId) }.randomOrNull()
+    fun randomEntry(contentType: ContentType, categoryId: Long?): EntryId? {
+        val current = assembled.value?.takeIf { it.chip == contentType } ?: return null
+        if (categoryId != null) {
+            val category = current.categories.find { it.id == categoryId } ?: return null
+            return current.itemsFor(category).randomOrNull()?.entryId
+        }
+        // Distinct: an entry in several categories appears in several buckets, and without this it
+        // would be that many times likelier to come up.
+        return current.categories
+            .flatMap { current.itemsFor(it) }
+            .distinctBy { it.entryId }
+            .randomOrNull()
+            ?.entryId
+    }
 
     // Selection. Every op that needs to know what is on screen takes the category's entries in display
     // order, so the engine never has to resolve rows itself and stays free of per-type lookups.

@@ -25,27 +25,11 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The grouping inputs the novel library reads out of its settings, so the builder below takes one
- * argument instead of six loose ones. The novel twin of
- * [MangaGroupingInputs][reikai.presentation.library.MangaGroupingInputs].
- */
-data class NovelGroupingInputs(
-    val groupLibraryBy: Int,
-    val categorySortOrder: Int,
-    val collapsedDynamicCategories: Set<String>,
-    val collapsedDynamicAtBottom: Boolean,
-    val loggedInTrackerIds: Set<Long>,
-    val inheritedSortFlag: Long,
-    val randomSeed: Long,
-)
-
-/**
  * Resolve the novel library's per-item metadata (source, language, status, tracking status) into a
  * [DynamicGroupingFeed] for the shared [LibraryDynamicGrouping] kernel, keyed by [EntryId]. The twin of
  * [mangaDynamicGroupingFeed][reikai.presentation.library.mangaDynamicGroupingFeed]: the two are separate
  * only because they resolve metadata off different source managers and track tables, so any change to one
- * is a question about the other. The novel model's own builder below and the engine's mixed assembly both
- * consume this, so the resolution rules cannot fork.
+ * is a question about the other. The engine concatenates this with the manga feed for one kernel call.
  *
  * Operates on the merge-collapsed representatives. Tracking status uses each representative's unioned
  * merge-group tracks.
@@ -117,75 +101,6 @@ fun novelDynamicGroupingFeed(
         statusNames = statusNames,
         trackStatuses = trackStatuses,
     )
-}
-
-/**
- * Bucket the novel library into synthetic dynamic categories through the shared feed above; the novel
- * model's own dynamic path, returning its Long-keyed, per-bucket-sorted shape.
- */
-@Suppress("LongParameterList")
-fun buildNovelDynamicGrouping(
-    items: List<LibraryItem>,
-    byId: Map<Long, LibraryItem>,
-    novelById: Map<Long, LibraryNovel>,
-    tracksByRep: Map<Long, List<NovelTrack>>,
-    inputs: NovelGroupingInputs,
-    defaultSort: LibrarySort,
-    sortFields: LibrarySortFields<LibraryItem>,
-    sourceManager: NovelSourceManager,
-    trackerManager: TrackerManager,
-    context: Context,
-): List<Pair<Category, List<Long>>> {
-    val groupType = inputs.groupLibraryBy
-    val feed = novelDynamicGroupingFeed(
-        items,
-        novelById,
-        tracksByRep,
-        inputs.loggedInTrackerIds,
-        groupType,
-        sourceManager,
-        trackerManager,
-        context,
-    )
-
-    // Order the track-status buckets by each tracker's own status list (Reading first, Dropped last)
-    // instead of alphabetically, sharing the manga library's helper; identity for other groupings.
-    val trackingStatusOrder: (String) -> String = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-        LibraryTrackingStatusOrder.build(
-            inputs.loggedInTrackerIds.mapNotNull { trackerManager.get(it) },
-        ) { context.stringResource(it) }
-    } else {
-        { it }
-    }
-
-    val groups = LibraryDynamicGrouping.build(
-        items = feed.items,
-        groupType = groupType,
-        inheritedSortFlag = inputs.inheritedSortFlag,
-        collapsedDynamicCategories = inputs.collapsedDynamicCategories,
-        collapsedDynamicAtBottom = inputs.collapsedDynamicAtBottom,
-        unknownLabel = context.stringResource(MR.strings.unknown),
-        notTrackedLabel = context.stringResource(MR.strings.not_tracked),
-        ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
-        categorySortOrder = inputs.categorySortOrder,
-        sourceMeta = feed.sourceMeta,
-        languageCodes = feed.languageCodes,
-        languageDisplay = ::displayLanguage,
-        statusNames = feed.statusNames,
-        trackStatuses = feed.trackStatuses,
-        trackingStatusOrder = trackingStatusOrder,
-    )
-
-    // Dynamic groups have no per-category sort, so they all use the library default sort.
-    val comparator = librarySortComparator(
-        defaultSort.type.toSortMode(),
-        defaultSort.isAscending,
-        inputs.randomSeed,
-        sortFields,
-    )
-    return groups.map { (category, ids) ->
-        category to ids.mapNotNull { byId[it.rawId] }.sortedWith(comparator).map { it.id }
-    }
 }
 
 /**

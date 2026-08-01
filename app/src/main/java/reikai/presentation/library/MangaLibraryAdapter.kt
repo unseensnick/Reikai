@@ -142,15 +142,13 @@ class MangaLibraryAdapter(
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
     private fun LibraryScreenModel.State.toNeutral() = LibraryScreenState(
-        categories = displayedCategories,
         isLoading = isLoading,
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
         activeCategoryIndex = activeCategoryIndex,
         showContinueButton = showMangaContinueButton,
-        itemsForCategory = this::getItemsForCategory,
-        itemCountForCategory = this::getItemCountForCategory,
+        overlayKey = libraryData.customInfo,
     )
 
     override fun search(query: String?) {
@@ -158,16 +156,6 @@ class MangaLibraryAdapter(
     }
 
     override fun refresh(category: Category?) = LibraryUpdateJob.startNow(context, category)
-
-    override fun randomEntry(categoryId: Long?): EntryId? {
-        val state = model.state.value
-        val item = if (categoryId == null) {
-            state.libraryData.favorites.randomOrNull()
-        } else {
-            state.getItemsForCategoryId(categoryId).randomOrNull()
-        }
-        return item?.entryId
-    }
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

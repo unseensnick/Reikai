@@ -27,11 +27,8 @@ interface LibraryBehavior {
      */
     fun refresh(category: Category?): Boolean
 
-    /**
-     * A random entry from [categoryId], or from the whole library when null. Neutral, so the caller opens
-     * it through the same per-type routing every other row uses.
-     */
-    fun randomEntry(categoryId: Long?): EntryId?
+    // Picking a random entry lives in LibraryEngine, not here: it draws from the assembled list, which is
+    // the only thing that knows what is actually on screen (a dynamic group, a hidden category).
 
     // Selection itself lives in LibraryEngine, not here: a combined list can hold both content types at
     // once and a range-select can span them, which neither provider can compute alone.

@@ -1,8 +1,6 @@
 package reikai.presentation.library
 
-import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
-import tachiyomi.domain.category.model.Category
 
 /**
  * The neutral, per-content-type library state the shared [LibraryTab][eu.kanade.tachiyomi.ui.library.LibraryTab]
@@ -12,12 +10,11 @@ import tachiyomi.domain.category.model.Category
  * categories are collapsed) belongs to [LibraryEngine] instead, because the chips filter one list rather
  * than selecting between two, so those values describe the list and not the content type being listed.
  *
- * [itemsForCategory] / [itemCountForCategory] stay functions rather than a precomputed map so the manga
- * side keeps applying its custom-info overlay lazily at the display read (only the visible categories),
- * not eagerly over the whole library on every emission. Each adapter binds them to its own state snapshot.
+ * The list itself is NOT here: categories, the per-category rows and their counts all come off
+ * [LibraryEngine.assembled], which is the only thing that can bucket both content types into one list.
+ * What remains is per-type status the tab needs before or alongside that assembly.
  */
 data class LibraryScreenState(
-    val categories: List<Category>,
     val isLoading: Boolean,
     val isLibraryEmpty: Boolean,
     val searchQuery: String?,
@@ -29,6 +26,11 @@ data class LibraryScreenState(
     val activeCategoryIndex: Int,
     /** The resume ("continue reading") button is shown on covers. */
     val showContinueButton: Boolean,
-    val itemsForCategory: (Category) -> List<LibraryItem>,
-    val itemCountForCategory: (Category) -> Int?,
+    /**
+     * Identity of the custom-info map this state was built from. Nothing reads it: it exists so a
+     * custom-title or custom-cover edit changes this state's equality. The rows deliberately exclude the
+     * overlay (it is applied at the display read), so without this field a customInfo-only edit leaves
+     * every other field equal, the state flow conflates it away, and the edit never reaches the screen.
+     */
+    val overlayKey: Any?,
 )
