@@ -29,14 +29,14 @@ Opportunistic polish:
 - Browse: Latest shortcut, hide-in-library, per-row language, genre-tap-search.
 - Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Updates / history: fast-scroll animation.
-- Details: long-press-copy WebView URL, per-source scanlator filter for merged novels, novel tag-tap global search.
+- Details: per-source scanlator filter for merged novels, novel tag-tap global search.
 
 ### Library
 
 One library screen lists manga and novels together; what is left here is polish and performance on top of it.
 
 - **Category reorder mode (both types)** `[S]` - a reorder mode on the edit-categories screen (a drag handle plus move-to-top / move-to-bottom per card, confirm or cancel), built once on the shared category screen model so it serves manga and novels. Uses the existing `sort` column, no schema work. [Plan](docs/dev/plans/category-schema-unification.md).
-- **Denormalize the library count columns, measured first** `[M]` - both library views aggregate unread / read / total / bookmark counts per rebuild (`count(*)` and `sum(read)` in `libraryView.sq` and `novelLibraryView.sq`), and tsundoku instead maintains them as columns via triggers. This is not a novel parity gap: the two types aggregate identically. Treat it as a shared performance change that touches a Mihon view (so a `.sqm`, a `versionCode` bump and a sync liability), and measure that the aggregation is actually the cost before building it. Related: the parked library-jank item below.
+- **Denormalize the library count columns, measured first** `[M]` - both library views aggregate unread / read / total / bookmark counts per rebuild (`count(*)` and `sum(read)` in `libraryView.sq` and `novelLibraryView.sq`), and tsundoku instead maintains them as columns via triggers. This is not a novel parity gap: the two types aggregate identically. Treat it as a shared performance change that touches a Mihon view (so a `.sqm`, a `versionCode` bump and a sync liability), and measure that the aggregation is actually the cost before building it. Related: the library-jank memory; the per-swipe full reassembly (one candidate cause) was fixed 2026-08-02, so re-measure before building this.
 
 ### Details
 
