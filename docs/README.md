@@ -20,6 +20,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Multi-source & merge | [multi-source.md](multi-source.md) | [merge-system-rebuild.md](dev/plans/merge-system-rebuild.md), [merge-aware-manga-reader.md](dev/plans/merge-aware-manga-reader.md), [merge-component-consolidation.md](dev/plans/merge-component-consolidation.md), [merged-read-state.md](dev/plans/merged-read-state.md) |
 | Recommendations | [related-mangas.md](related-mangas.md) | [recommendations.md](dev/plans/recommendations.md) |
 | Adult sources | [adult-sources.md](adult-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
+| Library search | [library-search.md](library-search.md) | [library-all-chip.md](dev/plans/library-all-chip.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
 | Cloudflare bypass | [flaresolverr.md](flaresolverr.md) | [flaresolverr-integration.md](dev/plans/flaresolverr-integration.md) |
 | MangaDex enhanced source | (in [adult-sources.md](adult-sources.md) settings) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
 | Light novels | [FAQ.md](FAQ.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/ln-plugin-host.md) |
