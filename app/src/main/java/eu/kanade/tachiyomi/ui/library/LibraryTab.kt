@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -568,6 +569,26 @@ data object LibraryTab : Tab {
                                     stringRes = MR.strings.getting_started_guide,
                                     icon = Icons.AutoMirrored.Outlined.HelpOutline,
                                     onClick = { handler.openUri(GETTING_STARTED_URL) },
+                                ),
+                            )
+                        },
+                    )
+                }
+                // RK: a search or filter that matches nothing empties every category, and the
+                // assembly always hides empty categories, so the pager would render zero pages: no
+                // message, and no way to search globally exactly when the local search failed.
+                // (Loading and the truly-empty library are handled above, so reaching here means an
+                // active search or filter, or hiding every category, emptied the list.)
+                activeCategories.isEmpty() -> {
+                    EmptyScreen(
+                        stringRes = MR.strings.no_results_found,
+                        modifier = Modifier.padding(contentPadding),
+                        actions = activeSearchQuery?.takeIf { it.isNotEmpty() }?.let { query ->
+                            listOf(
+                                EmptyScreenAction(
+                                    stringRes = MR.strings.action_global_search,
+                                    icon = Icons.Outlined.TravelExplore,
+                                    onClick = { navigator.push(GlobalSearchScreen(query)) },
                                 ),
                             )
                         },
