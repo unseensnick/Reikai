@@ -1,12 +1,15 @@
 package reikai.presentation.category
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.deleteCategoryAndCleanup
 import reikai.domain.category.flagsWithHidden
 import reikai.domain.category.isHidden
+import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.RenameCategory
 import tachiyomi.domain.category.interactor.UpdateCategory
@@ -67,17 +70,23 @@ class CategoryActions(
         false
     }
 
+    // Serializes the read-renumber-write like upstream's ReorderCategory: two rapid drags may
+    // otherwise interleave and scramble the order column.
+    private val reorderMutex = Mutex()
+
     /** Move a category and renumber the whole list, so one ordering serves both libraries. */
-    suspend fun reorder(category: Category, newIndex: Int): Boolean {
-        val categories = nonSystemCategories().toMutableList()
-        val from = categories.indexOfFirst { it.id == category.id }
-        if (from < 0) return true
-        val moved = categories.removeAt(from)
-        categories.add(newIndex.coerceIn(0, categories.size), moved)
-        return update(
-            *categories.mapIndexed { index, cat -> CategoryUpdate(id = cat.id, order = index.toLong()) }
-                .toTypedArray(),
-        )
+    suspend fun reorder(category: Category, newIndex: Int): Boolean = withNonCancellableContext {
+        reorderMutex.withLock {
+            val categories = nonSystemCategories().toMutableList()
+            val from = categories.indexOfFirst { it.id == category.id }
+            if (from < 0) return@withNonCancellableContext true
+            val moved = categories.removeAt(from)
+            categories.add(newIndex.coerceIn(0, categories.size), moved)
+            update(
+                *categories.mapIndexed { index, cat -> CategoryUpdate(id = cat.id, order = index.toLong()) }
+                    .toTypedArray(),
+            )
+        }
     }
 
     suspend fun toggleHidden(category: Category) =
