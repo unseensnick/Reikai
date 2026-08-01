@@ -6,8 +6,11 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.util.editCover
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.source.local.image.LocalCoverManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -21,13 +24,19 @@ import java.io.InputStream
 class MangaCoverScreenModel(
     private val mangaId: Long,
     private val getManga: GetManga = Injekt.get(),
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
     private val coverManager: LocalCoverManager = Injekt.get(),
     imageSaver: ImageSaver = Injekt.get(),
 ) : EntryCoverScreenModel<Manga>(imageSaver) {
 
-    override suspend fun subscribe(): Flow<Manga?> = getManga.subscribe(mangaId)
+    // Overlaid with the edit-info cover URL: the header renders it, so the full-screen viewer and
+    // Save/Share must show the same image. A custom cover FILE still wins inside the fetcher.
+    override suspend fun subscribe(): Flow<Manga?> =
+        getManga.subscribe(mangaId).combine(getCustomMangaInfo.subscribe(mangaId)) { manga, custom ->
+            manga?.withCustomInfo(custom)
+        }
 
     override fun coilModel(entry: Manga): Any = entry
 

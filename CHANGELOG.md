@@ -101,6 +101,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Excluding a term from library search now applies to adult-source entries too.** A query like `-genre:horror` used to leave them in the results regardless.
 - **Bulk actions on selected novels now always run to completion.** Marking read, changing categories, downloading or removing could quietly stop partway if the app closed mid-action; manga already ran these to the end.
 - **A backup made with Categories on but Library entries off now includes your novel categories.** Restoring also no longer assigns novels to categories when the Categories restore option is unticked; both matched manga behavior already.
+- **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.** They kept showing the source's original cover while the series page showed yours.
 - **Deleting a category now clears it from the library and Updates filters.** No filter is left pointing at a category that no longer exists.
 
 **Tracking**

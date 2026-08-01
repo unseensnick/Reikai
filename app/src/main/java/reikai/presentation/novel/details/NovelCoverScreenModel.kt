@@ -3,11 +3,14 @@ package reikai.presentation.novel.details
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import reikai.data.coil.NovelCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.details.EntryCoverScreenModel
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -23,12 +26,19 @@ class NovelCoverScreenModel(
     private val novelSource: String,
     private val site: String?,
     private val novelRepo: NovelRepository = Injekt.get(),
+    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val updateNovel: UpdateNovel = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
     imageSaver: ImageSaver = Injekt.get(),
 ) : EntryCoverScreenModel<Novel>(imageSaver) {
 
-    override suspend fun subscribe(): Flow<Novel?> = novelRepo.getByUrlAndSourceAsFlow(novelUrl, novelSource)
+    // Overlaid with the edit-info cover URL, matching the manga twin: the header renders it, so
+    // the viewer and Save/Share must show the same image. A custom cover file still wins.
+    override suspend fun subscribe(): Flow<Novel?> =
+        novelRepo.getByUrlAndSourceAsFlow(novelUrl, novelSource)
+            .combine(getCustomNovelInfo.subscribeAll()) { novel, custom ->
+                novel?.withCustomInfo(custom.firstOrNull { it.novelId == novel.id })
+            }
 
     override fun coilModel(entry: Novel): Any = entry.toNovelCover()
 
