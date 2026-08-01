@@ -46,8 +46,11 @@ class MangaEntryAdapter(
     override val state: StateFlow<EntryDetailsScreenState> =
         model.state
             .map { it.toNeutral() }
-            // Seed with the current mapped value so a screen collecting this renders without a Loading frame.
-            .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+            // Seed with the current mapped value so a screen collecting this renders without a
+            // Loading frame. WhileSubscribed, not Eagerly: the adapter is rebuilt per composition
+            // entry while its sharing coroutine lives in the model's scope, so an eager start left
+            // one orphaned mapper running per re-entry (rotation, reader round-trips).
+            .stateIn(model.screenModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
 
     private fun MangaScreenModel.State.toNeutral(): EntryDetailsScreenState = when (this) {
         MangaScreenModel.State.Loading -> EntryDetailsScreenState.Loading
