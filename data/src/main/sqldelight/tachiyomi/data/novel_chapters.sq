@@ -50,6 +50,12 @@ FROM novel_chapters
 WHERE novel_id = :novelId AND page != ''
 ORDER BY page;
 
+-- The novel twin of chapters.sq's getMangaIdsWithChapterNameLike, backing the library's `chapter:` term.
+getNovelIdsWithChapterNameLike:
+SELECT DISTINCT novel_id
+FROM novel_chapters
+WHERE lower(name) LIKE '%' || lower(:name) || '%';
+
 getById:
 SELECT *
 FROM novel_chapters

@@ -30,6 +30,9 @@ class NovelChapterRepositoryImpl(
     override suspend fun getDistinctPages(novelId: Long): List<String> =
         database.novel_chaptersQueries.getDistinctPages(novelId).awaitAsList()
 
+    override suspend fun getNovelIdsWithChapterNameLike(name: String): Set<Long> =
+        database.novel_chaptersQueries.getNovelIdsWithChapterNameLike(name).awaitAsList().toSet()
+
     override suspend fun getById(id: Long): NovelChapter? =
         database.novel_chaptersQueries.getById(id, ::mapNovelChapter).awaitAsOneOrNull()
 

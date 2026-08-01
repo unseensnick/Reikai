@@ -25,6 +25,9 @@ class LibraryQueryMatchTest {
         val nextUpdate: Long? = null,
     )
 
+    /** Stands in for the id set each library resolves once per query from its own chapter table. */
+    private val chapterMatches = mapOf("clown" to setOf(1L), "seer" to setOf(2L))
+
     private val fields = LibraryQueryFields<Row>(
         id = { it.id },
         title = { it.title },
@@ -43,6 +46,7 @@ class LibraryQueryMatchTest {
         dateAdded = { 0L },
         fetchInterval = { it.interval },
         nextUpdate = { it.nextUpdate },
+        matchesChapter = { row, term -> chapterMatches[term]?.contains(row.id) },
     )
 
     private fun matches(query: String, row: Row = Row()) =
@@ -96,8 +100,33 @@ class LibraryQueryMatchTest {
     @Test
     fun `an unknown field degrades to a plain text term`() {
         // Upstream's parser behaviour, worth pinning because it is what a typo does.
-        matches("chapter:clown") shouldBe false
         matches("nonsense:mysteries") shouldBe false
+    }
+
+    @Test
+    fun `chapter matches through the resolved id set`() {
+        matches("chapter:clown") shouldBe true
+        matches("chapter:seer") shouldBe false
+        matches("chapter:clown", Row(id = 2L)) shouldBe false
+    }
+
+    @Test
+    fun `a term with no resolved lookup does not match`() {
+        matches("chapter:nothingresolvedthis") shouldBe false
+    }
+
+    @Test
+    fun `a bare word never sweeps chapter names`() {
+        // CHAPTER is fieldOnly, so a plain search must never pay a chapter lookup.
+        matches("clown") shouldBe false
+    }
+
+    @Test
+    fun `chapter terms are extracted from the parsed tree, quoting and negation included`() {
+        QueryNode.from("chapter:clown").chapterSearchTerms() shouldBe setOf("clown")
+        QueryNode.from("-chapter:\"the clown\"").chapterSearchTerms() shouldBe setOf("the clown")
+        QueryNode.from("chapter:a || (chapter:b fantasy)").chapterSearchTerms() shouldBe setOf("a", "b")
+        QueryNode.from("fantasy").chapterSearchTerms() shouldBe emptySet()
     }
 
     @Test

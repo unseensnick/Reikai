@@ -73,6 +73,15 @@ SELECT scanlator
 FROM chapters
 WHERE manga_id = :mangaId;
 
+-- RK: manga owning a chapter whose name matches, backing the library's `chapter:` search term. Resolved
+-- once per query change into an id set the filter tests membership against, so a search never loads
+-- chapters per row. There is no index on name and a leading-wildcard LIKE could not use one anyway, so
+-- this is one table scan per query, which is why `chapter:` is a field and never part of a bare word.
+getMangaIdsWithChapterNameLike:
+SELECT DISTINCT manga_id
+FROM chapters
+WHERE lower(name) LIKE '%' || lower(:name) || '%';
+
 getBookmarkedChaptersByMangaId:
 SELECT *
 FROM chapters

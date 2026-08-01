@@ -18,6 +18,10 @@ interface ChapterRepository {
 
     suspend fun getScanlatorsByMangaId(mangaId: Long): List<String>
 
+    // RK: manga owning a chapter whose name contains [name], for the library's `chapter:` search term.
+    // Resolved once per query, not per row.
+    suspend fun getMangaIdsWithChapterNameLike(name: String): Set<Long>
+
     fun getScanlatorsByMangaIdAsFlow(mangaId: Long): Flow<List<String>>
 
     suspend fun getBookmarkedChaptersByMangaId(mangaId: Long): List<Chapter>

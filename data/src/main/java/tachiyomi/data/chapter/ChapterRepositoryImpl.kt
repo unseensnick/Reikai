@@ -100,6 +100,15 @@ class ChapterRepositoryImpl(
             .awaitAsList()
     }
 
+    // RK -->
+    override suspend fun getMangaIdsWithChapterNameLike(name: String): Set<Long> {
+        return database.chaptersQueries
+            .getMangaIdsWithChapterNameLike(name)
+            .awaitAsList()
+            .toSet()
+    }
+    // RK <--
+
     override fun getScanlatorsByMangaIdAsFlow(mangaId: Long): Flow<List<String>> {
         return database.chaptersQueries
             .getScanlatorsByMangaId(mangaId) { it.orEmpty() }

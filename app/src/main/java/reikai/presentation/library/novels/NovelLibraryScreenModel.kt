@@ -57,6 +57,7 @@ import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiDynamicCategory
+import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
@@ -417,12 +418,18 @@ class NovelLibraryScreenModel :
         // typed query means one thing on every row of the All list. The seams: a novel's source key is its
         // plugin slug (manga supply a numeric id), and neither time comparison applies, so both are gated
         // null rather than answered from the synthetic row's zero defaults.
+        val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
+        // One lookup per distinct `chapter:` term the user actually typed, resolved here rather than per
+        // row: buildState is already suspend and runs once per query change, so a chapter search costs one
+        // scan of the novel chapter table instead of a query for every novel.
+        val chapterMatches = queryNode?.chapterSearchTerms().orEmpty()
+            .associateWith { novelChapterRepository.getNovelIdsWithChapterNameLike(it) }
         val queryFields = libraryItemQueryFields(
             sourceKey = { item -> novelById[item.id]?.novel?.source.orEmpty() },
             fetchInterval = { null },
             nextUpdate = { null },
+            chapterMatches = chapterMatches,
         )
-        val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
         val items = allItems.filter { item ->
             val matchesSearch = queryNode == null || libraryQueryMatches(queryNode, item, queryFields)
             matchesSearch && libraryFilterMatches(item, filterPrefs, filterFields)

@@ -51,7 +51,26 @@ class LibraryQueryFields<T>(
     val fetchInterval: (T) -> Int?,
     /** Null for a content type with no next-update estimate (novels). */
     val nextUpdate: (T) -> Long?,
+    /**
+     * Whether [T] owns a chapter matching the term, answered from a set resolved once per query by
+     * [chapterSearchTerms]. Null when the term was never resolved, which is a caller bug rather than a
+     * no-match, so it reads as false rather than quietly keeping the row.
+     */
+    val matchesChapter: (T, String) -> Boolean?,
 )
+
+/**
+ * Every `chapter:` term in a parsed query, so a caller resolves exactly the lookups the user typed and
+ * nothing else. Walks the tree rather than the raw string, so quoting, negation and nesting are already
+ * handled: `-chapter:"the clown"` yields `the clown`.
+ */
+fun QueryNode.chapterSearchTerms(): Set<String> = when (this) {
+    is AndNode -> children.flatMapTo(mutableSetOf()) { it.chapterSearchTerms() }
+    is OrNode -> children.flatMapTo(mutableSetOf()) { it.chapterSearchTerms() }
+    is NotNode -> child.chapterSearchTerms()
+    is FieldQueryNode -> if (field == MangaField.CHAPTER && value.isNotEmpty()) setOf(value) else emptySet()
+    else -> emptySet()
+}
 
 /** Whether [row] satisfies the parsed [node]. Pure over the [fields] accessors. */
 fun <T> libraryQueryMatches(
@@ -87,7 +106,7 @@ private fun <T> GeneralQueryNode.matches(row: T, fields: LibraryQueryFields<T>):
             MangaField.NOTES -> fields.notes(row)?.contains(value, ignoreCase = true) ?: false
 
             // field-only; unreachable above, listed to keep the `when` exhaustive
-            MangaField.LANGUAGE, MangaField.SOURCE_ID -> false
+            MangaField.LANGUAGE, MangaField.SOURCE_ID, MangaField.CHAPTER -> false
         }
     }
     return if (negated) !match else match
@@ -106,6 +125,8 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
 
         MangaField.SOURCE_ID -> fields.sourceKey(row).equals(value, ignoreCase = true)
 
+        MangaField.CHAPTER -> if (value.isEmpty()) false else fields.matchesChapter(row, value) ?: false
+
         else -> {
             val text = when (field) {
                 MangaField.TITLE -> fields.title(row)
@@ -116,7 +137,7 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
                 MangaField.LANGUAGE -> fields.sourceLanguage(row)
 
                 // unreachable; listed to keep the `when` exhaustive
-                MangaField.GENRE, MangaField.SOURCE, MangaField.SOURCE_ID -> null
+                MangaField.GENRE, MangaField.SOURCE, MangaField.SOURCE_ID, MangaField.CHAPTER -> null
             }
             if (value.isEmpty()) text.isNullOrEmpty() else text?.contains(value, ignoreCase = true) ?: false
         }

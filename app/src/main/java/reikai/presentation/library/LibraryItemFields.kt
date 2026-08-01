@@ -44,15 +44,17 @@ fun libraryItemFilterFields(
  * Most fields read the row directly, including `sourceName` and `sourceLanguage`, which both content
  * types now populate when they build it.
  *
- * Three seams: [sourceKey] is a numeric source id for manga and a plugin slug for novels, so it is a
+ * Four seams: [sourceKey] is a numeric source id for manga and a plugin slug for novels, so it is a
  * String on both sides; [fetchInterval] and [nextUpdate] are null for novels, which have neither concept,
  * and a null makes the term false before negation so an inapplicable comparison never pulls a novel in
- * from either direction.
+ * from either direction; [chapterMatches] is the per-term id set each side resolved once for this query,
+ * since the two content types keep separate chapter tables.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
     fetchInterval: (LibraryItem) -> Int?,
     nextUpdate: (LibraryItem) -> Long?,
+    chapterMatches: Map<String, Set<Long>> = emptyMap(),
 ) = LibraryQueryFields<LibraryItem>(
     id = { it.id },
     title = { it.libraryManga.manga.title },
@@ -72,6 +74,9 @@ fun libraryItemQueryFields(
     dateAdded = { it.libraryManga.manga.dateAdded },
     fetchInterval = fetchInterval,
     nextUpdate = nextUpdate,
+    // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the two
+    // id spaces never meet here.
+    matchesChapter = { item, term -> chapterMatches[term]?.contains(item.id) },
 )
 
 /**

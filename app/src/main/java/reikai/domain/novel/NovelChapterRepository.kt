@@ -17,6 +17,9 @@ interface NovelChapterRepository {
 
     /** Distinct non-empty page labels, for the page selector of label-grouped sources. */
     suspend fun getDistinctPages(novelId: Long): List<String>
+
+    /** Novels owning a chapter whose name contains [name], for the library's `chapter:` search term. */
+    suspend fun getNovelIdsWithChapterNameLike(name: String): Set<Long>
     suspend fun getById(id: Long): NovelChapter?
     suspend fun getByUrlAndNovelId(url: String, novelId: Long): NovelChapter?
     suspend fun insert(chapter: NovelChapter): Long?

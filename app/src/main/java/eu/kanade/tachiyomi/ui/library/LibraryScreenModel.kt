@@ -58,6 +58,7 @@ import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
+import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
@@ -76,6 +77,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
@@ -131,6 +133,8 @@ class LibraryScreenModel(
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val chapterMatchKeyRepository: ChapterMatchKeyRepository = Injekt.get(),
+    // RK: backs the `chapter:` search term's id-set lookup.
+    private val chapterRepository: ChapterRepository = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get(),
     // RK <--
@@ -156,7 +160,11 @@ class LibraryScreenModel(
 
         screenModelScope.launchIO {
             combine(
-                state.map { it.searchQuery }.distinctUntilChanged().debounce(0.25.seconds),
+                // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
+                //     lookup runs once per query change rather than on every favorites tick (this combine
+                //     is at its 5-source cap, so it rides here rather than taking a slot of its own).
+                state.map { it.searchQuery }.distinctUntilChanged().debounce(0.25.seconds)
+                    .map { query -> query to resolveChapterMatches(query) },
                 getCategories.subscribe(),
                 // RK: the custom-info overlay rides with favorites (combine caps at 5 sources) but is
                 //     NOT applied here: search/filter/sort below all read the raw favorites. It is
@@ -164,7 +172,13 @@ class LibraryScreenModel(
                 combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
                 combine(getTracksPerManga.subscribe(), getTrackingFiltersFlow(), ::Pair),
                 getLibraryItemPreferencesFlow(),
-            ) { searchQuery, categories, (favorites, customInfo), (tracksMap, trackingFilters), itemPreferences ->
+            ) {
+                    (searchQuery, chapterMatches),
+                    categories,
+                    (favorites, customInfo),
+                    (tracksMap, trackingFilters),
+                    itemPreferences,
+                ->
                 val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
                 val filteredFavorites = favorites
                     .applyFilters(tracksMap, trackingFilters, itemPreferences)
@@ -179,8 +193,9 @@ class LibraryScreenModel(
                         } else {
                             val parsedQuery = searchEngine.parseQuery(searchQuery)
                             val queryNode = QueryNode.from(searchQuery)
+                            val queryFields = mangaQueryFields(chapterMatches)
                             items.filter { m ->
-                                libraryQueryMatches(queryNode, m, mangaQueryFields) ||
+                                libraryQueryMatches(queryNode, m, queryFields) ||
                                     (m.metadataSourceName != null && m.matchesMetadataQuery(parsedQuery))
                             }
                         }
@@ -333,11 +348,19 @@ class LibraryScreenModel(
 
     // RK: the manga binding of the shared query kernel. The source key is the numeric source id as a
     // string (novels supply a plugin slug), and manga answer both time comparisons, so neither is gated.
-    private val mangaQueryFields = libraryItemQueryFields(
+    private fun mangaQueryFields(chapterMatches: Map<String, Set<Long>>) = libraryItemQueryFields(
         sourceKey = { it.libraryManga.manga.source.toString() },
         fetchInterval = { it.libraryManga.manga.fetchInterval },
         nextUpdate = { it.libraryManga.manga.nextUpdate },
+        chapterMatches = chapterMatches,
     )
+
+    // RK: one lookup per distinct `chapter:` term the user actually typed. Runs off the query slot, so a
+    // plain search never touches the chapter table and a chapter search costs one scan, not one per row.
+    private suspend fun resolveChapterMatches(query: String?): Map<String, Set<Long>> {
+        val terms = query?.takeUnless { it.isBlank() }?.let { QueryNode.from(it).chapterSearchTerms() }
+        return terms.orEmpty().associateWith { chapterRepository.getMangaIdsWithChapterNameLike(it) }
+    }
 
     // RK: upstream's applyGrouping (bucket rows into categories) and Reikai's applySort are both gone.
     // LibraryEngine's assembleLibrary buckets and sorts, over rows from both content types at once, so

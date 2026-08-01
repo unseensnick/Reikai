@@ -10,6 +10,9 @@ enum class MangaField(vararg val aliases: String, val fieldOnly: Boolean = false
     NOTES("notes", "note"),
     LANGUAGE("language", "lang", fieldOnly = true),
     SOURCE_ID("source_id", "sourceid", "src_id", "srcid", fieldOnly = true),
+    // RK: chapter-name search, which upstream has no field for. fieldOnly on purpose: the match needs a
+    // database lookup, so a bare word must never sweep it.
+    CHAPTER("chapter", "ch", fieldOnly = true),
     ;
 
     companion object {

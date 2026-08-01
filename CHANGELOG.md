@@ -19,6 +19,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A new All chip shows your whole library, manga and novels together.** One list, one sort, with each series opening in its own reader; the Manga and Novels chips now simply filter it.
 - **A category can now hold both manga and novels.** Pick whether a new category shows in manga, novels or both when you create it.
 - **Library search understands field terms and comparisons, like `author:kubo`, `genre:horror -genre:ecchi` or `unread>5`.** One grammar for manga and novels, so a query means the same thing on every entry the All chip shows.
+- **You can find an entry by one of its chapter names, with `chapter:epilogue`.** Works on manga and novels, and combines with everything else, so `chapter:finale -genre:horror` does what it reads like.
 - **Settings -> Library -> Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
 
 **Merged series**
