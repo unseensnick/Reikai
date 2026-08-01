@@ -8,11 +8,15 @@ import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.category.CategoryContentType
@@ -128,18 +132,28 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         combine(
             contentType,
             combine(providers.map { it.rows }) { it.toList() },
-            combine(providers.map { it.state }) { it.toList() },
+            // Only what the assembly consumes from the provider states: the query (the
+            // search-forces-counts rule) and the overlay key (the per-item display read applies the
+            // custom-info overlay, so an edit must re-emit the assembled list to repaint). Taking
+            // the whole states re-ran the full bucket-and-sort on every state tick, page swipes and
+            // loading flags included.
+            combine(
+                providers.map { p -> p.state.map { it.searchQuery to it.overlayKey }.distinctUntilChanged() },
+            ) { it.toList() },
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
-        ) { chip, rowsPerProvider, statesPerProvider, allCategories, prefs ->
-            assembleFor(chip, rowsPerProvider, statesPerProvider, allCategories, prefs)
-        }.stateIn(screenModelScope, SharingStarted.Eagerly, null)
+        ) { chip, rowsPerProvider, queryAndOverlay, allCategories, prefs ->
+            assembleFor(chip, rowsPerProvider, queryAndOverlay.map { it.first }, allCategories, prefs)
+        }
+            // The transform sorts and buckets the whole library; keep it off the main thread.
+            .flowOn(Dispatchers.Default)
+            .stateIn(screenModelScope, SharingStarted.Eagerly, null)
     }
 
     private fun assembleFor(
         chip: ContentType,
         rowsPerProvider: List<List<LibraryItem>>,
-        statesPerProvider: List<LibraryScreenState>,
+        searchQueryPerProvider: List<String?>,
         allCategories: List<Category>,
         prefs: AssemblyPrefs,
     ): LibraryAssembled {
@@ -148,7 +162,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
             .filter { providers[it] in active }
             .flatMap { rowsPerProvider[it] }
         val searchActive = active.any {
-            !statesPerProvider[providers.indexOf(it)].searchQuery.isNullOrEmpty()
+            !searchQueryPerProvider[providers.indexOf(it)].isNullOrEmpty()
         }
         // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
         val means = active.associate { it.contentType to lazy(it::trackerMeans) }
