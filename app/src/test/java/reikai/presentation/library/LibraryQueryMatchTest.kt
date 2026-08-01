@@ -181,4 +181,29 @@ class LibraryQueryMatchTest {
         matches("fantasy -mysteries") shouldBe false
         matches("\"lord of the\"") shouldBe true
     }
+
+    @Test
+    fun `a negated applicable comparison inverts normally`() {
+        matches("-unread>5") shouldBe true
+        matches("-unread>2") shouldBe false
+    }
+
+    @Test
+    fun `a negated chapter term excludes through the id set`() {
+        matches("-chapter:clown") shouldBe false
+        matches("-chapter:clown", Row(id = 2L)) shouldBe true
+    }
+
+    @Test
+    fun `date comparisons parse and compare`() {
+        matches("added<2030-01-01") shouldBe true
+        matches("added>2030-01-01") shouldBe false
+    }
+
+    @Test
+    fun `an empty quoted field value matches an absent field`() {
+        // genre:"" is the reachable spelling for "no value" (a bare trailing colon lexes as text).
+        matches("artist:\"\"") shouldBe true
+        matches("genre:\"\"") shouldBe false
+    }
 }
