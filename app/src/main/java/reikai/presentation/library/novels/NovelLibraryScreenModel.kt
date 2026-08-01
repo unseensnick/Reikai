@@ -147,14 +147,16 @@ class NovelLibraryScreenModel :
                     ::Triple,
                 ),
                 // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
-                // No distinctUntilChanged: a StateFlow already conflates equal values.
-                searchQuery.debounce(0.25.seconds),
+                // No distinctUntilChanged: a StateFlow already conflates equal values. The resolved
+                // `chapter:` id sets ride the slot so the chapter-table scan runs once per query
+                // change, not on every library, download-cache or track tick (mirrors the manga side).
+                searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
                 // The collapse preferences no longer reach this pipeline. They only ever fed grouping,
                 // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
                 // whole filtered novel list (merge collapse, tracker scores, filtering) for nothing.
                 settingsFlow(),
-            ) { categories, (library, customInfo, tracks), query, settings ->
-                buildState(categories, library, customInfo, tracks, query, settings)
+            ) { categories, (library, customInfo, tracks), search, settings ->
+                buildState(categories, library, customInfo, tracks, search, settings)
             }.collectLatest { built ->
                 // Preserve the live searchQuery and active page: the async buildState lags the user, so
                 // overwriting the query here resets the search field to a stale value mid-input and
@@ -270,14 +272,21 @@ class NovelLibraryScreenModel :
             }
         }
 
+    /** One chapter-table LIKE scan per distinct `chapter:` term, resolved once per query change. */
+    private suspend fun resolveChapterMatches(query: String?): Map<String, Set<Long>> {
+        val node = query?.takeUnless { it.isBlank() }?.let(QueryNode::from) ?: return emptyMap()
+        return node.chapterSearchTerms().associateWith { novelChapterRepository.getNovelIdsWithChapterNameLike(it) }
+    }
+
     private suspend fun buildState(
         categories: List<Category>,
         library: List<LibraryNovel>,
         customInfo: List<CustomNovelInfo>,
         tracks: Map<Long, List<NovelTrack>>,
-        query: String?,
+        search: Pair<String?, Map<String, Set<Long>>>,
         settings: LibrarySettings,
     ): State {
+        val (query, chapterMatches) = search
         // Downloaded state is disk-derived (NovelDownloadCache), not a DB column, so fill each novel's
         // download count from the cache before it feeds the filter, sort, collapse, and badge.
         val withCounts = library.map {
@@ -421,11 +430,6 @@ class NovelLibraryScreenModel :
         // plugin slug (manga supply a numeric id), and neither time comparison applies, so both are gated
         // null rather than answered from the synthetic row's zero defaults.
         val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
-        // One lookup per distinct `chapter:` term the user actually typed, resolved here rather than per
-        // row: buildState is already suspend and runs once per query change, so a chapter search costs one
-        // scan of the novel chapter table instead of a query for every novel.
-        val chapterMatches = queryNode?.chapterSearchTerms().orEmpty()
-            .associateWith { novelChapterRepository.getNovelIdsWithChapterNameLike(it) }
         val queryFields = libraryItemQueryFields(
             sourceKey = { item -> novelById[item.id]?.novel?.source.orEmpty() },
             fetchInterval = { null },
