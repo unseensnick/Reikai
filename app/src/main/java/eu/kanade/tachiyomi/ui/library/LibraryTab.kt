@@ -196,13 +196,6 @@ data object LibraryTab : Tab {
         val onSearch: (String?) -> Unit = { engine.search(libraryContentType, it) }
         val activeSelectionMode = activeSelection.isNotEmpty()
         val activeHasActiveFilters = libState.hasActiveFilters
-        // The category on screen. The models hand over a RAW page index and the coercion happens here,
-        // against the list actually rendered: each model coerces against its own category list, which
-        // under All is neither the union nor the assembled dynamic groups, so a page past the manga
-        // model's last category used to resolve to the wrong category (or none).
-        val activeCategoryIndex = libState.activeCategoryIndex
-            .coerceIn(0, activeCategories.lastIndex.coerceAtLeast(0))
-        val activeCategory = activeCategories.getOrNull(activeCategoryIndex)
         // RK: the toolbar's whole-library count, over the assembled list rather than the manga model's
         // favorites (which under All counted only one of the two content types). Distinct because an
         // entry in several categories sits in several buckets. Remembered: it walks the whole library,
@@ -215,10 +208,6 @@ data object LibraryTab : Tab {
                 activeCategories.flatMap(activeGetItems).distinctBy(LibraryItem::entryId).size
             }
         }
-        // A dynamic group is a synthetic negative id, not a real category, so anything that has to name
-        // a real one falls back to the global scope rather than passing an id nothing can resolve. The
-        // category headers disable these affordances outright; the hopper has no such off state.
-        val activeRealCategoryId = activeCategory?.takeUnless(ReikaiDynamicCategory::isDynamic)?.id
         // The rows of one category in display order, which is what the engine's range-select and
         // select-all need. Resolved here rather than in the engine so the engine never looks rows up
         // itself and stays free of per-type knowledge.
@@ -291,6 +280,16 @@ data object LibraryTab : Tab {
         // index never moves off the first category no matter how far down the list you are.
         val activeCategoryEntries: () -> List<EntryId> = {
             entriesOf(activeCategories.getOrNull(currentCategoryIndex()))
+        }
+        // The category the toolbar and hopper actions act on: the one actually on screen. In the
+        // single-list view the stored page index never moves, so anything reading it there acted on
+        // the first category while the title named the scrolled-to one.
+        val currentCategory: () -> Category? = { activeCategories.getOrNull(currentCategoryIndex()) }
+        // For actions that need a REAL category: a dynamic group is a synthetic negative id nothing
+        // can resolve, so these fall back to null (the global scope). The category headers disable
+        // such affordances outright; the toolbar and hopper have no off state.
+        val currentRealCategory: () -> Category? = {
+            currentCategory()?.takeUnless(ReikaiDynamicCategory::isDynamic)
         }
         LaunchedEffect(hopperTarget) {
             val target = hopperTarget ?: return@LaunchedEffect
@@ -392,12 +391,7 @@ data object LibraryTab : Tab {
                 val defaultTitle = stringResource(MR.strings.label_library)
                 val defaultCategoryTitle = stringResource(MR.strings.label_default)
                 // Single-list tracks the visible category on scroll, so the title follows it.
-                val titlePage = if (display.reikai.showAllCategories) {
-                    currentCategoryIndex()
-                } else {
-                    activeCategoryIndex
-                }
-                val title = when (val category = activeCategories.getOrNull(titlePage)) {
+                val title = when (val category = currentCategory()) {
                     null -> LibraryToolbarTitle(defaultTitle)
                     else -> {
                         val categoryName = when {
@@ -450,10 +444,10 @@ data object LibraryTab : Tab {
                             // from each category header's sort in the single-list view.
                             engine.openSettingsDialog(libraryContentType, categoryId = null, initialTab = 0)
                         },
-                        onClickRefresh = { onClickRefresh(activeCategory) },
+                        onClickRefresh = { onClickRefresh(currentRealCategory()) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
                         // RK: follows the content-type chip; it used to always open a manga.
-                        onClickOpenRandomManga = { onOpenRandom(activeCategory?.id) },
+                        onClickOpenRandomManga = { onOpenRandom(currentCategory()?.id) },
                         // RK: library-wide tracker refresh, both content types at once, so it does not
                         // follow the chip. A snackbar reports the two states the user can act on.
                         onClickRefreshTrackers = {
@@ -658,7 +652,7 @@ data object LibraryTab : Tab {
                                     engine.toggleRangeSelection(category.id, item.entryId, entriesOf(category))
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
-                                onRefresh = { onClickRefresh(activeCategory) },
+                                onRefresh = { onClickRefresh(currentRealCategory()) },
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
@@ -728,15 +722,15 @@ data object LibraryTab : Tab {
                                             // preference while presenting itself as a per-category override.
                                             2 -> engine.openSettingsDialog(
                                                 libraryContentType,
-                                                activeRealCategoryId,
+                                                currentRealCategory()?.id,
                                                 initialTab = 2,
                                             )
                                             3 -> engine.openSettingsDialog(
                                                 libraryContentType,
-                                                activeRealCategoryId,
+                                                currentRealCategory()?.id,
                                                 initialTab = 3,
                                             )
-                                            4 -> onOpenRandom(activeCategory?.id)
+                                            4 -> onOpenRandom(currentCategory()?.id)
                                             5 -> onOpenRandom(null)
                                         }
                                     },

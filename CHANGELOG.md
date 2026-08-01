@@ -94,7 +94,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Two novel search prefixes changed spelling: `id:5` is now `id=5`, and `src:slug` is now `srcid:slug`.** They are the manga library's spellings, so both libraries answer one grammar.
 - **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It waits for a short pause first, like the manga library.
 - **Selecting novels in the library is no longer slow.** It used to get worse the more novels you had.
-- **Select all and Invert selection now act on the category you have scrolled to.** In the single-list view they always acted on the first category instead.
+- **Library actions now act on the category you have scrolled to in the single-list view.** Select all, Invert selection, Update category, Open random entry and the hopper's long-press sort all acted on the first category instead.
 - **Renaming an entry now makes it findable by the name you gave it.** Library search reads the title, author, artist, description and genre you set in Edit info, instead of only the source's.
 - **The Edit categories picker on a details page now respects your category sort order.**
 - **The novel library-update and download category filters now include the Default (uncategorized) group.** You can include or exclude novels that are not in any category, matching the manga filters.
