@@ -360,8 +360,15 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         val manga = providersFor(ContentType.MANGA).single()
         val novel = providersFor(ContentType.NOVELS).single()
         manga.settings.copy(
-            categories = combine(manga.settings.categories, novel.settings.categories) { m, n ->
-                (m + n).distinctBy { it.id }.sortedBy { it.order }
+            // Re-apply the category-sort-order pref after the union: both inputs arrive pref-sorted,
+            // but the order-column re-sort (needed to interleave the two lists) discards it, which
+            // left the All sheet in manual order while the other chips honoured A-Z / Z-A.
+            categories = combine(
+                manga.settings.categories,
+                novel.settings.categories,
+                reikaiLibraryPreferences.categorySortOrder.changes(),
+            ) { m, n, sortOrder ->
+                reikaiSortCategories((m + n).distinctBy { it.id }.sortedBy { it.order }, sortOrder)
             }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList()),
         )
     }
