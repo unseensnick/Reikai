@@ -204,7 +204,10 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenMo
 private fun NovelDetailsState.Loaded.toSharedDetailsDialog(): EntryDetailsDialog? =
     when (val d = dialog) {
         NovelDetailsDialog.EditInfo -> EntryDetailsDialog.EditInfo(
-            initial = displayNovel.withCustomInfo(customInfo).toEntryEditInfoUi(),
+            // Seed from the ANCHOR, not displayNovel: save diffs each field against the anchor row, so
+            // seeding from a selected merge sibling would persist its every differing field as an
+            // override on an untouched Save. Matches the manga side (seed and diff share one entry).
+            initial = novel.withCustomInfo(customInfo).toEntryEditInfoUi(),
             source = novel.toEntryEditInfoUi(),
             seedColor = seedColor,
             coverModel = { url ->

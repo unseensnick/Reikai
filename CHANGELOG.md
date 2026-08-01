@@ -73,6 +73,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A merged light novel opened from history now continues through the whole group instead of one source.**
 - **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**
 - **Adding a manga to an existing merged group now updates its details page right away, like novels.**
+- **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
 
 **Library & updates**
 
