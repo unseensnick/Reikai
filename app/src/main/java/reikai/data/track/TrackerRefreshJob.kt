@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
@@ -67,6 +69,7 @@ class TrackerRefreshJob(
     private val refreshTracks: RefreshTracks = Injekt.get()
     private val refreshNovelTracks: RefreshNovelTracks = Injekt.get()
     private val trackerManager: TrackerManager = Injekt.get()
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get()
 
     // WorkManager's own cancel intent for this run, so the notification action needs no receiver.
     private val cancelIntent: PendingIntent by lazy { context.workManager.createCancelPendingIntent(id) }
@@ -124,12 +127,14 @@ class TrackerRefreshJob(
         val mangaTracks = getTracksPerManga.subscribe().first()
         val mangaIds = getLibraryManga.await()
             .map { it.id }
-            .filterTo(mutableSetOf()) { id -> mangaTracks[id]?.any { it.trackerId in loggedIn } == true }
+            .filter { id -> mangaTracks[id]?.any { it.trackerId in loggedIn } == true }
+            .dedupeByGroup(mergeGroupRepository.getAllMemberships(ContentType.MANGA))
 
         val novelTracks = getNovelTracks.subscribeAll().first()
         val novelIds = novelRepository.getLibraryNovelAsFlow().first()
             .map { it.novel.id }
-            .filterTo(mutableSetOf()) { id -> novelTracks[id]?.any { it.trackerId in loggedIn } == true }
+            .filter { id -> novelTracks[id]?.any { it.trackerId in loggedIn } == true }
+            .dedupeByGroup(mergeGroupRepository.getAllMemberships(ContentType.NOVELS))
 
         val total = mangaIds.size + novelIds.size
         if (total == 0) {
@@ -172,6 +177,13 @@ class TrackerRefreshJob(
             failed = failed.get(),
             failedTrackers = failedTrackers.sorted(),
         )
+    }
+
+    /** One refresh per merge group: the interactors refresh the group's canonical rows, so two
+     *  members that each carry track rows would refresh the same rows twice. */
+    private fun List<Long>.dedupeByGroup(membership: Map<Long, Long>): List<Long> {
+        val seenGroups = HashSet<Long>()
+        return filter { id -> membership[id]?.let(seenGroups::add) ?: true }
     }
 
     companion object {
