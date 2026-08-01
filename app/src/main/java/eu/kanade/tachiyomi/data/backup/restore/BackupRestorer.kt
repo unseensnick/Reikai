@@ -263,6 +263,9 @@ class BackupRestorer(
             ensureActive()
             novelRestorer.restoreCategories(summary.backupNovelCategories)
         }
+        // Mirrors the manga stream's gate: with Categories off, novels must not be assigned to
+        // same-named pre-existing categories either.
+        val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         if (options.libraryEntries) {
             val batch = ArrayList<BackupNovel>(RESTORE_CHUNK)
             suspend fun flush() {
@@ -271,7 +274,7 @@ class BackupRestorer(
                     batch.forEach { backupNovel ->
                         ensureActive()
                         try {
-                            novelRestorer.restore(backupNovel, summary.backupNovelCategories)
+                            novelRestorer.restore(backupNovel, membershipCategories)
                         } catch (e: Exception) {
                             errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
                         }

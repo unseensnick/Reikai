@@ -186,8 +186,11 @@ class BackupCreator(
                         )
                     }
                 }
+                // Novel categories ride the Categories option alone, like manga's field 2: a
+                // categories-only backup (Library entries off) must still carry both types' rows,
+                // or restoring it recreates only half the category list.
+                writeEach(out, 701, BackupNovelCategory.serializer(), novelBackupCreator.novelCategories(options))
                 if (includeNovels) {
-                    writeEach(out, 701, BackupNovelCategory.serializer(), novelBackupCreator.novelCategories(options))
                     writeEach(out, 702, BackupNovelMergeGroup.serializer(), novelBackupCreator.novelMerges(options))
                     if (options.customInfo) {
                         writeEach(out, 714, BackupCustomNovelInfo.serializer(), novelBackupCreator.novelCustomInfo())
