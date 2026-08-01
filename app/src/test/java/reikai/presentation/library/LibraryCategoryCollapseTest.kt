@@ -52,8 +52,19 @@ class LibraryCategoryCollapseTest {
     fun `collapse all splits real categories from dynamic groups`() {
         preferences.toggleAllCategoriesCollapsed(listOf(category(7, "Reading"), dynamic("Action")))
 
+        // Dynamic keys store normalized (case-folded), so the key survives the merged bucket's
+        // first-seen display spelling changing.
         preferences.collapsedCategories.get() to preferences.collapsedDynamicCategories.get() shouldBe
-            (setOf("7") to setOf("Action"))
+            (setOf("7") to setOf("action"))
+    }
+
+    @Test
+    fun `toggling with a normalized key expands a legacy raw-spelling entry`() {
+        preferences.collapsedDynamicCategories.set(setOf("Sci-Fi"))
+
+        preferences.toggleDynamicCategoryCollapsed("sci fi")
+
+        preferences.collapsedDynamicCategories.get() shouldBe emptySet()
     }
 
     @Test

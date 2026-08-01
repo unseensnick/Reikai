@@ -202,13 +202,13 @@ class LibraryDynamicGroupingTest {
     }
 
     @Test
-    fun `headerKey is the encoded collapse key`() {
+    fun `headerKey is the encoded collapse key, normalized`() {
         val result = build(
             listOf(libraryManga(1)),
             LibraryGroup.BY_SOURCE,
             sourceMeta = mapOf(1L to ("Webtoons" to 200L)),
         )
-        ReikaiDynamicCategory.headerKey(result.keys.first()) shouldBe "Webtoons${SOURCE_SPLITTER}200"
+        ReikaiDynamicCategory.headerKey(result.keys.first()) shouldBe "webtoons${SOURCE_SPLITTER}200"
     }
 
     @Test

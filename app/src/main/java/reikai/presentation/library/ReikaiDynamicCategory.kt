@@ -20,8 +20,19 @@ object ReikaiDynamicCategory {
     /** A synthetic dynamic category, distinguished from real DB categories by its negative id. */
     fun isDynamic(category: Category): Boolean = category.id < 0
 
-    /** Stable collapse key: the encoded name itself. */
-    fun headerKey(category: Category): String = category.name
+    private val SEPARATOR_RUN = Regex("[-_\\s]+")
+
+    /**
+     * Normalized form of a collapse key, matching the grouping's spelling-merge rule (case-folded,
+     * separator runs unified). The display name of a merged bucket is the first spelling seen, so a
+     * raw-name key silently expands the group whenever a filter or removal changes which spelling
+     * comes first; compare keys through this instead. Stored keys may predate normalization, so
+     * membership checks normalize both sides.
+     */
+    fun normalizeKey(name: String): String = name.lowercase().replace(SEPARATOR_RUN, " ").trim()
+
+    /** Stable collapse key: the encoded name, normalized. */
+    fun headerKey(category: Category): String = normalizeKey(category.name)
 
     /** Human-facing name with the encoded source-id / lang-code stripped off. */
     fun displayName(category: Category): String {

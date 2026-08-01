@@ -154,10 +154,15 @@ object LibraryDynamicGrouping {
             )
         }
 
-        // Step 4: optionally push collapsed groups to the bottom.
+        // Step 4: optionally push collapsed groups to the bottom. Collapse keys compare by
+        // normalized form (see ReikaiDynamicCategory.normalizeKey): the display name is the first
+        // spelling seen, which changes when a filter or removal reorders the feed, so a raw-name
+        // comparison silently expanded a merged group.
         val finalCategories = if (collapsedDynamicAtBottom) {
-            sorted.filterNot { it.name in collapsedDynamicCategories } +
-                sorted.filter { it.name in collapsedDynamicCategories }
+            val collapsedKeys =
+                collapsedDynamicCategories.mapTo(HashSet(), ReikaiDynamicCategory::normalizeKey)
+            sorted.filterNot { it.name.bucketKey() in collapsedKeys } +
+                sorted.filter { it.name.bucketKey() in collapsedKeys }
         } else {
             sorted
         }
@@ -218,11 +223,10 @@ object LibraryDynamicGrouping {
     private fun String.capitalizeWords(): String =
         split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
 
-    private val SEPARATOR_RUN = Regex("[-_\\s]+")
-
     /**
      * The merge key for a bucket name: case-folded, with hyphen / underscore / whitespace runs unified so
-     * one tag spelled two ways by two sources is one group. Display keeps the first spelling seen.
+     * one tag spelled two ways by two sources is one group. Display keeps the first spelling seen. One
+     * implementation with the collapse key, so a collapsed merged group stays matched to its bucket.
      */
-    private fun String.bucketKey(): String = lowercase().replace(SEPARATOR_RUN, " ").trim()
+    private fun String.bucketKey(): String = ReikaiDynamicCategory.normalizeKey(this)
 }

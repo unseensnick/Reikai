@@ -83,9 +83,12 @@ fun ReikaiLibraryPreferences.toggleCategoryCollapsed(headerKey: String) {
     collapsedCategories.toggle(headerKey)
 }
 
-/** Collapse or expand one dynamic group, keyed by its header key. */
+/** Collapse or expand one dynamic group, keyed by its normalized header key. Removal matches by
+ *  normalized form so entries persisted before normalization still toggle off. */
 fun ReikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey: String) {
-    collapsedDynamicCategories.toggle(headerKey)
+    val current = collapsedDynamicCategories.get()
+    val equivalent = current.filterTo(HashSet()) { ReikaiDynamicCategory.normalizeKey(it) == headerKey }
+    collapsedDynamicCategories.set(if (equivalent.isNotEmpty()) current - equivalent else current + headerKey)
 }
 
 /**
@@ -97,14 +100,20 @@ fun ReikaiLibraryPreferences.toggleAllCategoriesCollapsed(categories: List<Categ
         .map { it.id.toString() }.toSet()
     val dynamicKeys = categories.filter { ReikaiDynamicCategory.isDynamic(it) }
         .map { ReikaiDynamicCategory.headerKey(it) }.toSet()
+    // Dynamic keys compare and clear by normalized form, so pre-normalization entries count as
+    // collapsed and expand-all actually removes them.
+    val storedDynamic = collapsedDynamicCategories.get()
+    val storedDynamicNormalized = storedDynamic.mapTo(HashSet(), ReikaiDynamicCategory::normalizeKey)
     val allCollapsed = collapsedCategories.get().containsAll(defaultKeys) &&
-        collapsedDynamicCategories.get().containsAll(dynamicKeys)
+        storedDynamicNormalized.containsAll(dynamicKeys)
     if (allCollapsed) {
         collapsedCategories.set(collapsedCategories.get() - defaultKeys)
-        collapsedDynamicCategories.set(collapsedDynamicCategories.get() - dynamicKeys)
+        collapsedDynamicCategories.set(
+            storedDynamic.filterNotTo(HashSet()) { ReikaiDynamicCategory.normalizeKey(it) in dynamicKeys },
+        )
     } else {
         collapsedCategories.set(collapsedCategories.get() + defaultKeys)
-        collapsedDynamicCategories.set(collapsedDynamicCategories.get() + dynamicKeys)
+        collapsedDynamicCategories.set(storedDynamic + dynamicKeys)
     }
 }
 

@@ -44,7 +44,9 @@ fun reikaiIsCollapsed(
     collapsedDynamicCategories: Set<String>,
 ): Boolean {
     return if (ReikaiDynamicCategory.isDynamic(category)) {
-        ReikaiDynamicCategory.headerKey(category) in collapsedDynamicCategories
+        // Normalize the stored side too: keys persisted before normalization keep matching.
+        val key = ReikaiDynamicCategory.headerKey(category)
+        collapsedDynamicCategories.any { ReikaiDynamicCategory.normalizeKey(it) == key }
     } else {
         category.id.toString() in collapsedCategories
     }

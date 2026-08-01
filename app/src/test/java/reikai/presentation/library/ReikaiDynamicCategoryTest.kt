@@ -66,8 +66,9 @@ class ReikaiDynamicCategoryTest {
     }
 
     @Test
-    fun `the encoded name is the stable collapse key`() {
+    fun `the collapse key is the encoded name, normalized`() {
         val name = sourceName("MangaDex", 5)
-        ReikaiDynamicCategory.headerKey(dynamic(name)) shouldBe name
+        // Case-folded so the key survives the merged bucket's first-seen spelling changing.
+        ReikaiDynamicCategory.headerKey(dynamic(name)) shouldBe name.lowercase()
     }
 }
