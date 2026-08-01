@@ -75,11 +75,16 @@ const val DEAD_LAST_USED_NOVEL_CATEGORY_KEY = "last_used_novel_category"
 /**
  * Translate a set of backup category ids to the freshly restored local ids, matched by category name.
  * A restore mints new rowids, so a stored id only survives if some restored category still carries the
- * same name; anything unmatched is dropped. Shared by the manga (inline, in PreferenceRestorer) and novel
- * (post-restore) remap paths so the two can't diverge.
+ * same name; anything unmatched is dropped, except an id in [currentIds]: that names a live local
+ * category the backup never knew (the pref kept its on-device value), so it is left alone. Shared by
+ * the manga (inline, in PreferenceRestorer) and novel (post-restore) remap paths so the two can't
+ * diverge; the manga path translates values it just wrote from the backup, so it passes no currentIds.
  */
 fun translateCategoryIds(
     ids: Set<String>,
     backupIdToName: Map<String, String>,
     nameToNewId: Map<String, String>,
-): Set<String> = ids.mapNotNullTo(mutableSetOf()) { backupIdToName[it]?.let(nameToNewId::get) }
+    currentIds: Set<String> = emptySet(),
+): Set<String> = ids.mapNotNullTo(mutableSetOf()) { id ->
+    backupIdToName[id]?.let(nameToNewId::get) ?: id.takeIf { it in currentIds }
+}

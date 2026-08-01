@@ -73,13 +73,20 @@ class NovelRestorer(
     suspend fun remapCategoryPreferences(backupCategories: List<BackupNovelCategory>) {
         if (backupCategories.isEmpty()) return
         val backupIdToName = backupCategories.associate { it.id.toString() to it.name }
-        val nameToNewId = categoryRepository.getAll(CategoryContentType.NOVEL)
-            .associate { it.name to it.id.toString() }
+        val novelVisible = categoryRepository.getAll(CategoryContentType.NOVEL)
+        // On a name shared by a novel-typed and a universal row, bind to the novel-typed one (the
+        // same rule CategoriesRestorer applies); associateBy silently kept whichever came last.
+        val nameToNewId = novelVisible.groupBy { it.name }.mapValues { (_, rows) ->
+            (rows.firstOrNull { it.contentType == CategoryContentType.NOVEL } ?: rows.first()).id.toString()
+        }
+        // Live local ids survive untranslated: a pref key absent from the backup kept its on-device
+        // value, and running that through backup-id translation dropped or remapped valid ids.
+        val currentIds = novelVisible.mapTo(mutableSetOf()) { it.id.toString() }
 
         categoryIdPreferences.novelSets.forEach { preference ->
             val current = preference.get()
             if (current.isNotEmpty()) {
-                preference.set(translateCategoryIds(current, backupIdToName, nameToNewId))
+                preference.set(translateCategoryIds(current, backupIdToName, nameToNewId, currentIds))
             }
         }
 
@@ -163,7 +170,10 @@ class NovelRestorer(
         backupCategories: List<BackupNovelCategory>,
     ) {
         if (categoryOrders.isEmpty()) return
-        val dbCategoriesByName = categoryRepository.getAll(CategoryContentType.NOVEL).associateBy { it.name }
+        // Prefer the novel-typed row when a universal one shares its name (see remap above).
+        val dbCategoriesByName = categoryRepository.getAll(CategoryContentType.NOVEL)
+            .groupBy { it.name }
+            .mapValues { (_, rows) -> rows.firstOrNull { it.contentType == CategoryContentType.NOVEL } ?: rows.first() }
         val backupCategoriesByOrder = backupCategories.associateBy { it.order }
         val categoryIds = categoryOrders.mapNotNull { order ->
             backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }
