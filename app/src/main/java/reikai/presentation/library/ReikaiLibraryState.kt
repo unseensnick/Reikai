@@ -14,14 +14,13 @@ import tachiyomi.domain.category.model.Category
  */
 @Immutable
 data class ReikaiLibraryState(
-    val groupLibraryBy: Int = LibraryGroup.BY_DEFAULT,
+    // Only what the TAB reads. The assembly-side preferences (grouping mode, category sort order,
+    // hidden categories, collapsed-at-bottom) feed LibraryEngine's own prefs flow instead; carrying
+    // them here too left dead fields a future reader could wrongly trust.
     val collapsedCategories: Set<String> = emptySet(),
     val collapsedDynamicCategories: Set<String> = emptySet(),
-    val collapsedDynamicAtBottom: Boolean = false,
-    val categorySortOrder: Int = 0,
     val showCategoryInTitle: Boolean = false,
     val showAllCategories: Boolean = true,
-    val showHiddenCategories: Boolean = false,
     val hideHopper: Boolean = false,
     val autohideHopper: Boolean = true,
     val hopperGravity: Int = 1,
@@ -45,36 +44,28 @@ data class LibraryDisplayState(
 /** Every Reikai library display preference, folded into one reactive state. */
 @Suppress("UNCHECKED_CAST")
 fun ReikaiLibraryPreferences.libraryStateFlow(): Flow<ReikaiLibraryState> = combine(
-    groupLibraryBy.changes(),
     collapsedCategories.changes(),
     collapsedDynamicCategories.changes(),
-    collapsedDynamicAtBottom.changes(),
-    categorySortOrder.changes(),
     showCategoryInTitle.changes(),
     showAllCategories.changes(),
     hideHopper.changes(),
     autohideHopper.changes(),
     hopperGravity.changes(),
     hopperLongPressAction.changes(),
-    showHiddenCategories.changes(),
     trackUpdateErrors.changes(),
     trackNovelUpdateErrors.changes(),
 ) {
     ReikaiLibraryState(
-        groupLibraryBy = it[0] as Int,
-        collapsedCategories = it[1] as Set<String>,
-        collapsedDynamicCategories = it[2] as Set<String>,
-        collapsedDynamicAtBottom = it[3] as Boolean,
-        categorySortOrder = it[4] as Int,
-        showCategoryInTitle = it[5] as Boolean,
-        showAllCategories = it[6] as Boolean,
-        hideHopper = it[7] as Boolean,
-        autohideHopper = it[8] as Boolean,
-        hopperGravity = it[9] as Int,
-        hopperLongPressAction = it[10] as Int,
-        showHiddenCategories = it[11] as Boolean,
-        trackUpdateErrors = it[12] as Boolean,
-        trackNovelUpdateErrors = it[13] as Boolean,
+        collapsedCategories = it[0] as Set<String>,
+        collapsedDynamicCategories = it[1] as Set<String>,
+        showCategoryInTitle = it[2] as Boolean,
+        showAllCategories = it[3] as Boolean,
+        hideHopper = it[4] as Boolean,
+        autohideHopper = it[5] as Boolean,
+        hopperGravity = it[6] as Int,
+        hopperLongPressAction = it[7] as Int,
+        trackUpdateErrors = it[8] as Boolean,
+        trackNovelUpdateErrors = it[9] as Boolean,
     )
 }
 

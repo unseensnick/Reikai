@@ -31,7 +31,10 @@ object MangaMergeCollapse {
         resolveSource: (Long) -> Source,
         // Group id -> deduplicated unread count. A group is ABSENT when everything in it is read, so a
         // missing entry means zero, not "unknown". Empty until the match-key backfill has run, in which
-        // case the group keeps the primary's own count rather than reporting a wrong one.
+        // case the group keeps the primary's own count rather than reporting a wrong one. Known edge:
+        // a library whose merge groups are ALL fully read also yields an empty map and takes that
+        // fallback, briefly over-reporting from the primary's own count; telling the two apart would
+        // need a backfill marker, and any group gaining an unread chapter corrects it.
         mergedUnreadByGroup: Map<Long, Long> = emptyMap(),
         // Mirrors the unread-badge preference, so a merged count never lights a badge the user turned off.
         showUnreadBadge: Boolean = true,
