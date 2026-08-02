@@ -127,7 +127,7 @@ fun BrowseSectionHeader(
 }
 
 @Composable
-private fun NovelSourceIcon(iconUrl: String?) {
+fun NovelSourceIcon(iconUrl: String?) {
     val modifier = Modifier
         .size(40.dp)
         .clip(RoundedCornerShape(4.dp))

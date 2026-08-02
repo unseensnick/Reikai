@@ -64,6 +64,8 @@ class NovelMigrationFlowAdapter(
         sourcePreferences.novelMigrationSources.set(keys)
     }
 
+    override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedNovelSources.get()
+
     override fun readTuning(): MigrationTuning = MigrationTuning(
         hideUnmatched = novelPreferences.novelMigrationHideUnmatched().get(),
         hideWithoutUpdates = novelPreferences.novelMigrationHideWithoutUpdates().get(),

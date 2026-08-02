@@ -17,6 +17,7 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
 
 class MangaMigrationFlowAdapter(
@@ -45,7 +46,13 @@ class MangaMigrationFlowAdapter(
                     key = "${source.id}",
                     name = source.name,
                     lang = source.lang,
-                    icon = source,
+                    icon = Source(
+                        id = source.id,
+                        lang = source.lang,
+                        name = source.name,
+                        supportsLatest = false,
+                        isStub = false,
+                    ),
                 )
             }
     }
@@ -55,6 +62,8 @@ class MangaMigrationFlowAdapter(
     override fun persistSelection(keys: List<String>) {
         sourcePreferences.migrationSources.set(keys.mapNotNull { it.toLongOrNull() })
     }
+
+    override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedSources.get()
 
     override fun readTuning(): MigrationTuning = MigrationTuning(
         deepSearch = sourcePreferences.migrationDeepSearchMode.get(),

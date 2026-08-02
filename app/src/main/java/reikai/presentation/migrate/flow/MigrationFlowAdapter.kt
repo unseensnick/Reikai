@@ -79,6 +79,9 @@ interface MigrationFlowAdapter {
 
     fun persistSelection(keys: List<String>)
 
+    /** Pinned source keys, the config screen's selection default when nothing is saved yet. */
+    fun pinnedKeys(): Set<String>
+
     fun readTuning(): MigrationTuning
 
     fun persistTuning(tuning: MigrationTuning)
