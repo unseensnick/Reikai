@@ -16,6 +16,7 @@ import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.hasCustomCover
+import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
@@ -53,6 +54,7 @@ class NovelMigrationListScreenModel(
     private val database: Database by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
+    private val getEnabledNovelSources: GetEnabledNovelSources by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val migrateNovel: MigrateNovelUseCase by injectLazy()
     private val coverCache: CoverCache by injectLazy()
@@ -101,8 +103,11 @@ class NovelMigrationListScreenModel(
         // the first selected source's hit the suggested match. Empty (no pre-step yet) falls back to all.
         val selectedIds = sourcePreferences.novelMigrationSources.get()
         val sources = if (selectedIds.isEmpty()) {
+            // Enabled sources only: getAll() would resurrect disabled sources and denied languages
+            // here, the one migrate path the sources filter must still cover (an explicit config
+            // selection is honored as saved, matching manga's migrationSources semantics).
             selectGlobalSearchSources(
-                sourceManager.getAll(),
+                getEnabledNovelSources.get(),
                 sourcePreferences.pinnedNovelSources.get(),
                 NovelGlobalSearchScreenModel.SourceFilter.All,
             )
