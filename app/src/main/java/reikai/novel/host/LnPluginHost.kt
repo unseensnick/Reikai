@@ -7,6 +7,7 @@ import com.dokar.quickjs.binding.function
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
@@ -30,12 +31,22 @@ import logcat.LogPriority
 import okhttp3.OkHttpClient
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.coroutines.CoroutineContext
 
 /**
- * Hosts lnreader plugins in a headless QuickJS engine (no WebView, no Activity), so novel sources
- * run the same on a screen or on a background worker. The engine is single-threaded, so every call
- * is serialized through [mutex]; the engine is created lazily on first use.
+ * Hosts lnreader plugins in headless QuickJS engines (no WebView, no Activity), so novel sources
+ * run the same on a screen or on a background worker.
+ *
+ * Isolation is per plugin: each plugin gets its own engine on its own confinement thread, created
+ * lazily on first call and closed again after [IDLE_CLOSE_MS] of disuse, so concurrent calls to
+ * different sources (global search, browse while the update job runs) no longer serialize behind
+ * one app-wide lane, and an idle plugin holds no native engine. [loadPlugin] (info extraction at
+ * install / app start) runs on a shared loader engine instead, so a bulk `ensureLoaded` still costs
+ * one engine, not one per installed plugin; the load args are retained and replayed into the
+ * plugin's own engine on its first real call.
  *
  * Each plugin method call is suspending: success returns a strongly-typed Kotlin value, failure
  * throws [LnPluginException]. Per-call timeouts guard against runaway plugins.
@@ -55,19 +66,62 @@ class LnPluginHost(
         runCatching { android.webkit.WebSettings.getDefaultUserAgent(appContext) }.getOrDefault("")
     private val bridge = LnHostBridge(preferenceStore, client, deviceUserAgent)
 
-    // QuickJS is not thread-safe: confine all native calls to one thread and serialize with the mutex.
-    private val engineExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "LnPluginHost") }
-    private val engineDispatcher = engineExecutor.asCoroutineDispatcher()
-    private val mutex = Mutex()
-    private var qjs: QuickJs? = null
+    /** What it takes to (re)load a plugin into an engine; retained per plugin so its own engine can
+     *  replay the load after lazy creation or an idle close. */
+    private class LoadArgs(
+        val scopeId: String,
+        val source: String,
+        val iconUrl: String?,
+        val lang: String?,
+    )
 
-    // Distinguishes each call's result slot. Only ever touched under [mutex].
-    private var callSeq = 0L
+    /**
+     * One QuickJS engine plus its confinement thread. QuickJS is not thread-safe: all native calls
+     * for a slot are confined to its single-thread executor and serialized through its [mutex].
+     * All fields except [lastUsedMs] are only touched while holding [mutex].
+     */
+    private class EngineSlot(val label: String) {
+        val mutex = Mutex()
+        var executor: ExecutorService? = null
+        var dispatcher: CoroutineContext? = null
+        var qjs: QuickJs? = null
+        var callSeq = 0L
+        var loadArgs: LoadArgs? = null
 
-    /** Create the engine and load the vendor bundles + runtime once. Caller must hold [mutex]. */
-    private suspend fun engine(): QuickJs {
+        @Volatile
+        var lastUsedMs = 0L
+    }
+
+    private val loaderSlot = EngineSlot("loader")
+    private val pluginSlots = ConcurrentHashMap<String, EngineSlot>()
+
+    // Idle sweeper lifecycle; guarded by [sweeperLock].
+    private val sweeperLock = Any()
+    private val hostScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var sweeperJob: Job? = null
+
+    // Vendor bundles + runtime, read from assets once and evaluated into every engine, in order.
+    // headless.js last: it wires the shims over the vendor globals.
+    private val runtimeScripts: List<String> by lazy {
+        listOf(
+            "lnhost/vendor/dayjs.min.js",
+            "lnhost/vendor/htmlparser2.min.js",
+            "lnhost/vendor/cheerio.min.js",
+            // protobuf powers @libs/fetch's fetchProto for gRPC-web sources e.g. WuxiaWorld.
+            "lnhost/vendor/protobuf.min.js",
+            // @noble/ciphers AES-GCM, backs @libs/aes (wtrlab decrypts chapter bodies with it).
+            "lnhost/vendor/noble-ciphers.min.js",
+            "lnhost/headless.js",
+        ).map(::asset)
+    }
+
+    /** Create the slot's engine, load the runtime, and replay the plugin load if the slot has one.
+     *  Caller must hold the slot's mutex. */
+    private suspend fun EngineSlot.engine(): QuickJs {
         qjs?.let { return it }
-        val q = QuickJs.create(engineDispatcher)
+        val exec = Executors.newSingleThreadExecutor { r -> Thread(r, "LnPlugin-$label") }
+        val disp = exec.asCoroutineDispatcher()
+        val q = QuickJs.create(disp)
         q.function("__lnLog") { args ->
             bridge.log(args.getOrNull(0) as? String ?: "info", args.getOrNull(1) as? String ?: "")
             null
@@ -84,7 +138,7 @@ class LnPluginHost(
         }
         // Backs the setTimeout shim in headless.js: plugins use it for rate-limit politeness sleeps and
         // retry backoffs, which QuickJS can't honor natively (no timers). Suspends the engine job pump
-        // for the real delay, capped so a buggy/hostile plugin can't hold the mutex indefinitely.
+        // for the real delay, capped so a buggy/hostile plugin can't hold the slot indefinitely.
         q.asyncFunction("__lnDelay") { args ->
             delay(((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, MAX_TIMER_DELAY_MS))
             null
@@ -94,16 +148,21 @@ class LnPluginHost(
         // Wrapped in an IIFE so the completion value is undefined, not globalThis (dokar can't
         // marshal the self-referential global back to Kotlin: "circular reference").
         q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
-        // Vendor bundles define the cheerio / htmlparser2 / dayjs / protobuf globals the runtime +
-        // plugins need (protobuf powers @libs/fetch's fetchProto for gRPC-web sources e.g. WuxiaWorld).
-        q.evaluate<Any?>(asset("lnhost/vendor/dayjs.min.js"))
-        q.evaluate<Any?>(asset("lnhost/vendor/htmlparser2.min.js"))
-        q.evaluate<Any?>(asset("lnhost/vendor/cheerio.min.js"))
-        q.evaluate<Any?>(asset("lnhost/vendor/protobuf.min.js"))
-        // @noble/ciphers AES-GCM, backs @libs/aes (wtrlab decrypts chapter bodies with it).
-        q.evaluate<Any?>(asset("lnhost/vendor/noble-ciphers.min.js"))
-        q.evaluate<Any?>(asset("lnhost/headless.js"))
+        runtimeScripts.forEach { q.evaluate<Any?>(it) }
+        executor = exec
+        dispatcher = disp
         qjs = q
+        loadArgs?.let { args ->
+            // void: the returned info object was already decoded at loadPlugin time; marshalling it
+            // back through dokar here would be wasted work (and objects don't cross the bridge).
+            q.evaluate<Any?>(
+                "void globalThis.__lnLoadPlugin(" +
+                    "${jsStr(args.scopeId)}, ${jsStr(args.source)}, " +
+                    "${jsStr(args.iconUrl ?: "")}, ${jsStr(args.lang ?: "")})",
+            )
+        }
+        lastUsedMs = System.currentTimeMillis()
+        ensureSweeper()
         return q
     }
 
@@ -116,13 +175,23 @@ class LnPluginHost(
         iconUrl: String? = null,
         lang: String? = null,
     ): LnPluginInfo = withTimeout(LOAD_TIMEOUT_MS) {
-        mutex.withLock {
-            val infoJson = engine().evaluate<String>(
+        val info = loaderSlot.mutex.withLock {
+            val infoJson = loaderSlot.engine().evaluate<String>(
                 "JSON.stringify(globalThis.__lnLoadPlugin(" +
                     "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}, ${jsStr(lang ?: "")}))",
             )
+            loaderSlot.lastUsedMs = System.currentTimeMillis()
             JSON.decodeFromString(LnPluginInfo.serializer(), infoJson)
         }
+        // Retain the args under the plugin's CANONICAL id (callMethod is keyed by it, which can
+        // differ from the URL-derived pluginId), and drop a live engine still running the previous
+        // code so the next call re-loads fresh.
+        val slot = pluginSlots.getOrPut(info.id) { EngineSlot(info.id) }
+        slot.mutex.withLock {
+            slot.loadArgs = LoadArgs(pluginId, source, iconUrl, lang)
+            closeLocked(slot)
+        }
+        info
     }
 
     suspend fun popularNovels(pluginId: String, pageNo: Int, optionsJson: String = "{}"): List<NovelItem> {
@@ -200,12 +269,59 @@ class LnPluginHost(
     }
 
     fun destroy() {
-        val q = qjs
-        qjs = null
+        synchronized(sweeperLock) {
+            sweeperJob?.cancel()
+            sweeperJob = null
+        }
+        val slots = listOf(loaderSlot) + pluginSlots.values
+        pluginSlots.clear()
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            slots.forEach { slot -> slot.mutex.withLock { closeLocked(slot) } }
+        }
+    }
+
+    /** Close a slot's engine and retire its thread. Caller must hold the slot's mutex. */
+    private suspend fun closeLocked(slot: EngineSlot) {
+        val q = slot.qjs ?: return
+        slot.qjs = null
         // Close on the engine thread (close() may pump native state), then retire the executor.
-        CoroutineScope(SupervisorJob() + engineDispatcher).launch {
-            runCatching { q?.close() }
-            engineExecutor.shutdown()
+        slot.dispatcher?.let { disp -> withContext(disp) { runCatching { q.close() } } }
+        slot.executor?.shutdown()
+        slot.executor = null
+        slot.dispatcher = null
+    }
+
+    /** Closes engines nobody has used for [IDLE_CLOSE_MS], so an idle plugin (or the loader after a
+     *  startup burst) holds no native engine or thread. Exits when nothing is live; engine creation
+     *  restarts it. */
+    private fun ensureSweeper() {
+        synchronized(sweeperLock) {
+            if (sweeperJob?.isActive == true) return
+            sweeperJob = hostScope.launch {
+                while (true) {
+                    delay(SWEEP_INTERVAL_MS)
+                    var anyLive = false
+                    for (slot in pluginSlots.values + loaderSlot) {
+                        if (slot.qjs == null) continue
+                        val idle = System.currentTimeMillis() - slot.lastUsedMs >= IDLE_CLOSE_MS
+                        // tryLock: a slot mid-call is busy, not idle; skip instead of queueing
+                        // behind a call that can legitimately run for minutes.
+                        if (!slot.mutex.tryLock()) {
+                            anyLive = true
+                            continue
+                        }
+                        try {
+                            if (slot.qjs != null && idle) closeLocked(slot) else anyLive = anyLive || slot.qjs != null
+                        } finally {
+                            slot.mutex.unlock()
+                        }
+                    }
+                    if (!anyLive) {
+                        synchronized(sweeperLock) { sweeperJob = null }
+                        return@launch
+                    }
+                }
+            }
         }
     }
 
@@ -214,8 +330,9 @@ class LnPluginHost(
         method: String,
         args: List<JsonElement>,
     ): JsonElement = withTimeout(CALL_TIMEOUT_MS) {
-        mutex.withLock {
-            val q = engine()
+        val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
+        slot.mutex.withLock {
+            val q = slot.engine()
             val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
             // __lnCallMethod is async (it fetches). evaluate returns the Promise, not its value, so the
             // settled result is parked on a global that the engine fills while evaluate pumps the job
@@ -226,7 +343,7 @@ class LnPluginHost(
             // up could settle later and land in the slot the NEXT call then read, handing one novel the
             // parsed metadata of another and writing it over that novel's row. Keying by call id makes
             // a late settle land somewhere nobody reads.
-            val callId = "c${++callSeq}"
+            val callId = "c${++slot.callSeq}"
             q.evaluate<Any?>(
                 "globalThis.__lnResults=globalThis.__lnResults||{};" +
                     // A call that timed out never collects its slot; bound the leak.
@@ -248,6 +365,7 @@ class LnPluginHost(
                 resultJson = q.evaluate<String>(read)
             }
             q.evaluate<Any?>("delete globalThis.__lnResults[${jsStr(callId)}];")
+            slot.lastUsedMs = System.currentTimeMillis()
             val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
             if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message")
             result.value ?: JsonNull
@@ -283,6 +401,12 @@ class LnPluginHost(
         // Slots are collected by the call that made them, so this only grows when a call times out and
         // never comes back for its result. Well above any realistic in-flight count.
         private const val MAX_PENDING_SLOTS = 64
+
+        // An engine unused this long is closed (native engine + thread reclaimed); the next call
+        // re-creates it and replays the plugin load. Mirrors tsundoku's 60s instance timeout.
+        private const val IDLE_CLOSE_MS = 60_000L
+        private const val SWEEP_INTERVAL_MS = 30_000L
+
         val JSON: Json = Json {
             ignoreUnknownKeys = true
             isLenient = true

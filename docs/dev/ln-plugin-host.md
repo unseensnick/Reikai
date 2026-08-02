@@ -20,28 +20,33 @@ registry URL at runtime.
 
 ## Architecture
 
-### The engine
+### The engines
 
-`LnPluginHost` (`reikai.novel.host.LnPluginHost`) owns one QuickJS engine from
+`LnPluginHost` (`reikai.novel.host.LnPluginHost`) runs QuickJS engines from
 `com.dokar.quickjs` (`io.github.dokar3:quickjs-kt`, see `gradle/libs.versions.toml` `quickjs-kt`).
-QuickJS is not thread-safe, so the host confines every native call to a single-thread executor
-(`Executors.newSingleThreadExecutor`, thread name `LnPluginHost`) turned into a coroutine dispatcher,
-and serializes all access through a `kotlinx.coroutines.sync.Mutex`. The engine is created lazily on
-first use in `engine()`: it binds the host functions, seeds browser globals, evaluates the vendor
-bundles and `headless.js`, then caches the `QuickJs` instance.
+Isolation is per plugin: each plugin has an engine slot (its own single-thread executor, thread name
+`LnPlugin-<id>`, its own `Mutex`, its own `QuickJs`), created lazily on the plugin's first method
+call and closed again by an idle sweeper after 60s of disuse, so calls to different sources run in
+parallel and an idle plugin holds no native engine or thread. QuickJS is not thread-safe, so a slot
+confines every native call to its executor and serializes through its mutex. `loadPlugin` (info
+extraction at install / app start) instead runs on one shared loader slot, so a bulk `ensureLoaded`
+over every installed plugin costs one engine rather than one per plugin; the load args are retained
+per plugin and replayed into the plugin's own engine whenever it is (re)created. Engine creation
+binds the host functions, seeds browser globals, and evaluates the vendor bundles plus `headless.js`
+(read from assets once and cached as strings).
 
 Each public method (`loadPlugin`, `popularNovels`, `searchNovels`, `parseNovel`, `parsePage`,
-`parseChapter`, `resolveUrl`) is suspending, takes the mutex, and is wrapped in a timeout: `loadPlugin`
-gets `LOAD_TIMEOUT_MS` (30s, CPU-only), method calls get `CALL_TIMEOUT_MS` (180s, because a call can
-issue HTTP that routes through the shared CloudflareInterceptor, which itself can run a WebView solve
-plus a Flaresolverr fallback). Success decodes to a typed Kotlin value; failure throws
-`LnPluginException`.
+`parseChapter`, `resolveUrl`) is suspending, takes its slot's mutex, and is wrapped in a timeout:
+`loadPlugin` gets `LOAD_TIMEOUT_MS` (30s, CPU-only), method calls get `CALL_TIMEOUT_MS` (180s,
+because a call can issue HTTP that routes through the shared CloudflareInterceptor, which itself can
+run a WebView solve plus a Flaresolverr fallback). Success decodes to a typed Kotlin value; failure
+throws `LnPluginException`.
 
 `callMethod` works around the fact that `evaluate` returns the Promise object, not its settled value:
-it stashes a sentinel on `globalThis.__lnPending`, kicks off the async plugin call with `.then`
-handlers that overwrite that global, lets `evaluate` pump the job queue (including the suspend
-`__lnFetch` binding), then reads `__lnPending` back as the result envelope (`LnCallResult`). The mutex
-makes the shared global safe.
+it kicks off the async plugin call with `.then` handlers that write the envelope into a per-call slot
+on `globalThis.__lnResults` (keyed by a call id, so a timed-out call's late settle can never be read
+as the next call's answer), lets `evaluate` pump the job queue (including the suspend `__lnFetch`
+binding), and polls the slot until it settles before decoding the `LnCallResult` envelope.
 
 ### The Kotlin<->JS bridge
 
@@ -121,15 +126,16 @@ A `popularNovels` call (the others are analogous):
 
 1. UI calls `source.popularNovels(page, optionsJson)` on an `LnPluginSource`.
 2. The adapter delegates to `host.popularNovels(info.id, page, optionsJson)`.
-3. The host takes the mutex, builds the args as `JsonElement`s, and calls `callMethod` which evaluates
+3. The host takes the plugin slot's mutex (creating its engine if it was never built or idle-closed),
+   builds the args as `JsonElement`s, and calls `callMethod` which evaluates
    `globalThis.__lnCallMethod(pluginId, "popularNovels", argsJson)` and pumps the job queue.
 4. `headless.js` `callMethod` invokes `plugin.popularNovels(page, options)` and awaits it.
 5. The plugin's `require('@libs/fetch').fetchApi(url, init)` calls `await __lnFetch(url, optsJson)`.
 6. Kotlin's `__lnFetch` binding runs `bridge.runFetch` on `Dispatchers.IO`: OkHttp on the shared
    client (interceptors + cookie jar inherited), response serialized to a JSON `FetchResponse` string.
 7. The Promise resolves, the plugin parses the HTML with cheerio/htmlparser2, returns the list.
-8. `callMethod` stringifies `{ok: true, value}`; the host reads it back off `__lnPending`, decodes the
-   envelope, and deserializes the value to `List<NovelItem>`.
+8. `callMethod` stringifies `{ok: true, value}`; the host reads it back off the call's `__lnResults`
+   slot, decodes the envelope, and deserializes the value to `List<NovelItem>`.
 
 ## File map
 
@@ -137,7 +143,7 @@ A `popularNovels` call (the others are analogous):
 
 | File | Purpose |
 |---|---|
-| `LnPluginHost.kt` | The engine owner: lazy QuickJS creation, host-function binding, mutex serialization, typed suspend methods, per-plugin settings accessors, `LnPluginException`. |
+| `LnPluginHost.kt` | The engine owner: per-plugin engine slots plus the shared loader slot, lazy QuickJS creation, the idle sweeper, host-function binding, per-slot mutex serialization, typed suspend methods, per-plugin settings accessors, `LnPluginException`. |
 | `LnHostBridge.kt` | OkHttp fetch (`runFetch`), namespaced `PreferenceStore` storage, logging; the `FetchOpts` / `FetchResponseDto` wire types. |
 | `LnPluginLoader.kt` | Downloads a plugin `.js` and caches it under `cacheDir/lnplugins/<sha>.js`. |
 | `LnPluginModels.kt` | Wire DTOs: `LnPluginInfo`, `LnCallResult`, `NovelItem`, `ChapterItem`, `SourceNovel`, `SourcePage`, `ChapterContent`. |
