@@ -175,4 +175,9 @@
         <item quantity="one">%1$d second ago</item>
         <item quantity="other">%1$d seconds ago</item>
     </plurals>
+    <!-- RK: the unified migration flow's done toast (content-layer-migrate-surface.md) -->
+    <plurals name="migrationFlow.doneToast">
+        <item quantity="one">Migrated %1$d entry</item>
+        <item quantity="other">Migrated %1$d entries</item>
+    </plurals>
 </resources>

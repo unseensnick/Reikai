@@ -1,7 +1,11 @@
 package reikai.presentation.migrate.flow
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -9,7 +13,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -92,7 +98,14 @@ class EntryMigrationSearchScreen(
                             },
                         ) {
                             when {
-                                section.loading -> LoadingScreen()
+                                section.loading -> Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                }
                                 else -> EntrySearchCardRow(
                                     entries = section.candidates,
                                     key = { it.stableKey },
@@ -117,11 +130,12 @@ class EntryMigrationSearchScreen(
                 target = target,
                 onDismissRequest = { dialogTarget = null },
                 onOpenTarget = { target.openDetails(navigator) },
-                onFinished = {
+                onFinished = { replaced ->
                     dialogTarget = null
-                    // Land on the migrated-to entry, not the replaced one's stale details.
+                    // Land on the migrated-to entry; on a replace the origin's now-stale details
+                    // screen beneath is swapped out instead of left in the stack.
                     navigator.pop()
-                    target.openDetails(navigator)
+                    target.openDetailsAfterCommit(navigator, replaced)
                 },
             )
         }
@@ -186,7 +200,8 @@ class EntryMigrationSearchScreenModel(
         sources.forEach { source ->
             screenModelScope.launchIO {
                 val candidates = searchSemaphore.withPermit {
-                    runCatching { adapter.candidates(entry, query, source.key) }.getOrDefault(emptyList())
+                    runCatchingCancellable { adapter.candidates(entry, query, source.key) }
+                        .getOrDefault(emptyList())
                 }
                 if (generation != searchGeneration) return@launchIO
                 mutableState.update { st ->

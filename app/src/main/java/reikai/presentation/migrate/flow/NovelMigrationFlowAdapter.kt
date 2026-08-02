@@ -51,6 +51,7 @@ class NovelMigrationFlowAdapter(
 
     override val contentType = ContentType.NOVELS
     override val supportsSmartMatch = false
+    override val suggestsChapterCounts = false
 
     override suspend fun prepare() {
         // Best-effort, like every other novel surface: a load failure falls through to empty sources.
@@ -150,12 +151,14 @@ class NovelMigrationFlowAdapter(
     override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> {
         return ids.mapNotNull { id ->
             val novel = novelRepository.getById(id) ?: return@mapNotNull null
+            val chapters = chapterRepository.getByNovelId(id)
             MigrationEntry(
                 id = EntryId.Novel(id),
                 title = novel.title,
                 sourceKey = novel.source,
                 sourceName = sourceManager.get(novel.source)?.name,
-                chapterCount = chapterRepository.getByNovelId(id).size,
+                chapterCount = chapters.size,
+                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
                 cover = NovelCover(
                     url = novel.thumbnailUrl,
                     site = sourceManager.get(novel.source)?.site,
@@ -212,18 +215,24 @@ class NovelMigrationFlowAdapter(
             novelDownloadManager = downloadManager,
         )
         val resolved = novelRepository.getByUrlAndSource(handle.item.path, source.id) ?: return null
+        val chapters = chapterRepository.getByNovelId(resolved.id)
         return candidate.copy(
-            chapterCount = chapterRepository.getByNovelId(resolved.id).size,
+            chapterCount = chapters.size,
+            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
             handle = handle.copy(resolved = resolved),
         )
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
         val novel = novelRepository.getById(id) ?: return null
+        val chapters = chapterRepository.getByNovelId(id)
         return MigrationCandidate(
             sourceKey = novel.source,
             title = novel.title,
-            chapterCount = chapterRepository.getByNovelId(id).size,
+            // A deep-picked row is stored bare (no chapter sync yet); null, not 0, so the compare
+            // line shows unknown instead of a lying full-shortfall delta. Migrate refreshes it anyway.
+            chapterCount = chapters.size.takeIf { it > 0 },
+            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
             handle = NovelCandidateHandle(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
                 site = sourceManager.get(novel.source)?.site,
@@ -246,7 +255,11 @@ class NovelMigrationFlowAdapter(
                 MigrationDataFlag.CATEGORY -> true
                 MigrationDataFlag.CUSTOM_COVER -> novels.any { it.hasCustomCover(coverCache) }
                 MigrationDataFlag.NOTES -> novels.any { it.notes.isNotBlank() }
-                MigrationDataFlag.REMOVE_DOWNLOAD -> true
+                // Offered only when something is actually downloaded, matching the manga gate.
+                MigrationDataFlag.REMOVE_DOWNLOAD -> novels.any { novel ->
+                    chapterRepository.getByNovelId(novel.id)
+                        .any { downloadManager.isChapterDownloaded(novel, it) }
+                }
             }
         }
     }

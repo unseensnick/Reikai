@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,22 +23,23 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * The pre-list search options sheet, shared by both content types: extra query and the hide toggles
- * apply to both; the smart-match half renders only where the adapter supports it (manga), since
- * those options run on the manga smart-search engine.
+ * The pre-list search options sheet, shared by both content types: extra query and hide-unmatched
+ * apply to both; the smart-match half and hide-without-updates render only where the adapter
+ * supports them (manga), since they run on the smart-search engine / suggest-time chapter counts.
  */
 @Composable
 fun MigrationTuningSheet(
     tuning: MigrationTuning,
     supportsSmartMatch: Boolean,
+    supportsChapterComparison: Boolean,
     onDismissRequest: () -> Unit,
     onApply: (MigrationTuning) -> Unit,
 ) {
-    var extraQuery by remember { mutableStateOf(tuning.extraQuery.orEmpty()) }
-    var hideUnmatched by remember { mutableStateOf(tuning.hideUnmatched) }
-    var hideWithoutUpdates by remember { mutableStateOf(tuning.hideWithoutUpdates) }
-    var deepSearch by remember { mutableStateOf(tuning.deepSearch) }
-    var prioritizeByChapters by remember { mutableStateOf(tuning.prioritizeByChapters) }
+    var extraQuery by rememberSaveable { mutableStateOf(tuning.extraQuery.orEmpty()) }
+    var hideUnmatched by rememberSaveable { mutableStateOf(tuning.hideUnmatched) }
+    var hideWithoutUpdates by rememberSaveable { mutableStateOf(tuning.hideWithoutUpdates) }
+    var deepSearch by rememberSaveable { mutableStateOf(tuning.deepSearch) }
+    var prioritizeByChapters by rememberSaveable { mutableStateOf(tuning.prioritizeByChapters) }
 
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -51,6 +52,9 @@ fun MigrationTuningSheet(
                 value = extraQuery,
                 onValueChange = { extraQuery = it },
                 label = { Text(text = stringResource(MR.strings.migrationConfigScreen_additionalSearchQueryLabel)) },
+                supportingText = {
+                    Text(text = stringResource(MR.strings.migrationConfigScreen_additionalSearchQuerySupportingText))
+                },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -59,20 +63,31 @@ fun MigrationTuningSheet(
                 checked = hideUnmatched,
                 onCheckedChange = { hideUnmatched = it },
             )
-            ToggleRow(
-                label = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesTitle),
-                checked = hideWithoutUpdates,
-                onCheckedChange = { hideWithoutUpdates = it },
-            )
+            if (supportsChapterComparison) {
+                ToggleRow(
+                    label = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesTitle),
+                    subtitle = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesSubtitle),
+                    checked = hideWithoutUpdates,
+                    onCheckedChange = { hideWithoutUpdates = it },
+                )
+            }
             if (supportsSmartMatch) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Text(
+                    text = stringResource(MR.strings.migrationConfigScreen_enhancedOptionsWarning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
                 ToggleRow(
                     label = stringResource(MR.strings.migrationConfigScreen_deepSearchModeTitle),
+                    subtitle = stringResource(MR.strings.migrationConfigScreen_deepSearchModeSubtitle),
                     checked = deepSearch,
                     onCheckedChange = { deepSearch = it },
                 )
                 ToggleRow(
                     label = stringResource(MR.strings.migrationConfigScreen_prioritizeByChaptersTitle),
+                    subtitle = stringResource(MR.strings.migrationConfigScreen_prioritizeByChaptersSubtitle),
                     checked = prioritizeByChapters,
                     onCheckedChange = { prioritizeByChapters = it },
                 )
@@ -111,6 +126,7 @@ private fun ToggleRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    subtitle: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -118,11 +134,19 @@ private fun ToggleRow(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

@@ -74,14 +74,17 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
+import reikai.domain.novel.model.Novel
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrateHost
 import reikai.presentation.migrate.flow.EntryMigrationListScreen
+import reikai.presentation.migrate.flow.EntryMigrationSearchScreen
 import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
@@ -131,6 +134,9 @@ class NovelBrowseScreen(
 
         var searchQuery by rememberSaveable { mutableStateOf<String?>(initialQuery.ifBlank { null }) }
         var selectingDisplayMode by remember { mutableStateOf(false) }
+        // Pick-mode single-entry route: the stored target awaiting the migrate dialog (no list
+        // screen beneath to hand back to).
+        var migratePickTarget by remember { mutableStateOf<Novel?>(null) }
         // After "Open in WebView" (to clear Cloudflare), auto-retry the failed listing on return so the
         // user doesn't have to. Survives the activity stop the WebView causes.
         var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
@@ -333,14 +339,16 @@ class NovelBrowseScreen(
                                 listScreen.addMatchOverride(currentRawId = migratePickFor, targetRawId = stored.id)
                                 navigator.popUntil { it is EntryMigrationListScreen }
                             } else {
-                                migrateController.start(ContentType.NOVELS, migratePickFor, stored.id)
+                                migratePickTarget = stored
                             }
                         }
                         else -> navigator.push(NovelScreen(sourceId, item.path))
                     }
                 },
                 onLongClickItem = { item ->
-                    if (bulkState.selectionMode) {
+                    if (bulkState.selectionMode || migratePickFor != null) {
+                        // Pick mode: long-press verifies (details), never add-to-library; a second
+                        // migrate route through the duplicate dialog would tangle the pick flow.
                         navigator.push(NovelScreen(sourceId, item.path))
                     } else {
                         screenModel.onLongClickItem(item)
@@ -383,6 +391,27 @@ class NovelBrowseScreen(
             null -> {}
         }
         EntryMigrateHost(migrateController)
+
+        val pickTarget = migratePickTarget
+        if (pickTarget != null && migratePickFor != null) {
+            EntryMigrateFor(
+                contentType = ContentType.NOVELS,
+                currentId = migratePickFor,
+                targetId = pickTarget.id,
+                onDismissRequest = { migratePickTarget = null },
+                onFinished = { replaced ->
+                    migratePickTarget = null
+                    // Land on the migrated-to entry like the search route: pop the picker chain, and
+                    // on a replace swap out the origin's now-stale details beneath it.
+                    navigator.popUntil { it !is NovelBrowseScreen && it !is EntryMigrationSearchScreen }
+                    if (replaced && navigator.lastItem is NovelScreen) {
+                        navigator.replace(NovelScreen(pickTarget.source, pickTarget.url))
+                    } else {
+                        navigator.push(NovelScreen(pickTarget.source, pickTarget.url))
+                    }
+                },
+            )
+        }
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         BulkFavoriteDialogs(bulkModel, bulkState.dialog)

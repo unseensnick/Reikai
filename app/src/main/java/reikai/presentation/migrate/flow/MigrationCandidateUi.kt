@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.novel.model.Novel
@@ -53,13 +54,29 @@ internal fun MigrationEntry.openDetails(navigator: Navigator) {
 
 /** Push the deep target picker: a full browse of one source (filters, pagination), which hands the
  *  pick back to the migration list, or opens the shared dialog when reached from the single-entry
- *  search screen. Per-type because the two browse stacks are different screens. */
-internal fun openDeepPicker(navigator: Navigator, entry: MigrationEntry, sourceKey: String, query: String) {
+ *  search screen. Per-type because the two browse stacks are different screens. False when the
+ *  picker cannot open (a malformed source key); callers toast instead of silently doing nothing. */
+internal fun openDeepPicker(navigator: Navigator, entry: MigrationEntry, sourceKey: String, query: String): Boolean {
     when (val p = entry.payload) {
         is Manga -> {
-            val sourceId = sourceKey.toLongOrNull() ?: return
+            val sourceId = sourceKey.toLongOrNull() ?: return false
             navigator.push(MigrationDeepSearchScreen(p.id, sourceId, query))
         }
         is Novel -> navigator.push(NovelBrowseScreen(sourceKey, query, migratePickFor = p.id))
+        else -> return false
     }
+    return true
+}
+
+/** Land on a committed target's details. On a replace the origin's now-stale details screen (the one
+ *  the single-entry routes sit on top of) is swapped out instead of left underneath; a copy keeps it
+ *  (the origin is still favorited). Call after popping the search/picker screens themselves. */
+internal fun MigrationCandidate.openDetailsAfterCommit(navigator: Navigator, replaced: Boolean) {
+    val details: Screen = when (val h = handle) {
+        is Manga -> MangaScreen(h.id)
+        is NovelCandidateHandle -> NovelScreen(sourceKey, h.item.path)
+        else -> return
+    }
+    val lastIsDetails = navigator.lastItem is MangaScreen || navigator.lastItem is NovelScreen
+    if (replaced && lastIsDetails) navigator.replace(details) else navigator.push(details)
 }

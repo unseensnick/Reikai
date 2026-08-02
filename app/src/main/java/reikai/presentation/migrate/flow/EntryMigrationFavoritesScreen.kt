@@ -1,13 +1,13 @@
 package reikai.presentation.migrate.flow
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.Icon
@@ -132,7 +132,8 @@ private fun FavoriteRow(
         modifier = Modifier
             .selectedBackground(isSelected)
             .fillMaxWidth()
-            .clickable(onClick = onClickItem)
+            // selectable, not clickable: announces the checked state to accessibility services.
+            .selectable(selected = isSelected, onClick = onClickItem)
             .padding(horizontal = MaterialTheme.padding.medium, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

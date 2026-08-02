@@ -1302,7 +1302,6 @@
     <string name="migrationListScreen.progressDialog.cancelLabel">Cancel</string>
     <string name="migrationListScreen.matchWithoutChapterToast">No chapters found, this entry cannot be used for migration</string>
     <!-- RK: the unified migration flow (content-layer-migrate-surface.md) -->
-    <string name="migrationFlow.matchedSubtitle">%1$d entries · %2$d matched</string>
     <string name="migrationFlow.chooseTarget">Choose a target</string>
     <string name="migrationFlow.browseSource">Browse a source instead</string>
     <string name="migrationFlow.skippedChip">Skipped</string>
@@ -1312,7 +1311,8 @@
     <string name="migrationFlow.showTarget">Show</string>
     <string name="migrationFlow.searchOptionsTitle">Search options</string>
     <string name="migrationFlow.acceptAllLabel">Accept all matches</string>
-    <string name="migrationFlow.smartMatchUnavailableNote">Smart-match options aren\'t available for novel sources.</string>
+    <string name="migrationFlow.smartMatchUnavailableNote">Chapter-based search options aren\'t available for novel sources.</string>
+    <string name="migrationFlow.restoreActionLabel">Restore</string>
     <!-- RK end -->
 
     <string name="supportUsScreen.perks">Patrons get access to exclusive channels, with more perks to come.</string>

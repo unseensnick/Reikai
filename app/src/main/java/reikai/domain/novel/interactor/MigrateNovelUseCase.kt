@@ -153,7 +153,9 @@ class MigrateNovelUseCase(
             // Keep the merge consistent: the target takes the source's place in the group on a replace
             // (split the source out, merge the target in with the survivors), or joins it on a copy.
             if (replace) {
-                updateNovel.await(NovelUpdate(id = current.id, favorite = false))
+                // dateAdded zeroes like manga migration, so a later re-add stamps fresh instead of
+                // inheriting the pre-migration date.
+                updateNovel.await(NovelUpdate(id = current.id, favorite = false, dateAdded = 0))
                 if (group.size > 1) {
                     val survivors = novelMergeManager.removeFromGroup(group, listOf(current.id))
                     novelMergeManager.merge(survivors.toList() + target.id)

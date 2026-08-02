@@ -15,12 +15,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +50,7 @@ import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 import tachiyomi.presentation.core.util.shouldExpandFAB
@@ -135,9 +138,22 @@ class EntryMigrationConfigScreen(
                         }
                     },
                     expanded = lazyListState.shouldExpandFAB(),
+                    // Nothing selected means nothing to search: hiding Continue makes "select none"
+                    // an explicit dead end instead of silently searching every enabled source.
+                    modifier = Modifier.animateFloatingActionButton(
+                        visible = selectedSources.isNotEmpty(),
+                        alignment = Alignment.BottomEnd,
+                    ),
                 )
             },
         ) { contentPadding ->
+            if (state.sources.isEmpty()) {
+                EmptyScreen(
+                    stringRes = MR.strings.source_empty_screen,
+                    modifier = Modifier.padding(contentPadding),
+                )
+                return@Scaffold
+            }
             val reorderableState = rememberReorderableLazyListState(lazyListState, contentPadding) { from, to ->
                 val fromIndex = selectedSources.indexOfFirst { it.key == from.key }
                 val toIndex = selectedSources.indexOfFirst { it.key == to.key }
@@ -188,6 +204,7 @@ class EntryMigrationConfigScreen(
             MigrationTuningSheet(
                 tuning = state.tuning,
                 supportsSmartMatch = state.supportsSmartMatch,
+                supportsChapterComparison = state.supportsChapterComparison,
                 onDismissRequest = { tuningSheetOpen = false },
                 onApply = { tuning ->
                     tuningSheetOpen = false
@@ -284,6 +301,7 @@ class EntryMigrationConfigScreenModel(
                     sources = sources.sortedWith(comparator(saved)),
                     tuning = adapter.readTuning(),
                     supportsSmartMatch = adapter.supportsSmartMatch,
+                    supportsChapterComparison = adapter.suggestsChapterCounts,
                 )
             }
         }
@@ -321,7 +339,13 @@ class EntryMigrationConfigScreenModel(
     }
 
     fun saveSources() {
-        adapter.persistSelection(state.value.sources.filter { it.isSelected }.map { it.key })
+        val visibleSelected = state.value.sources.filter { it.isSelected }.map { it.key }
+        // Keep saved keys whose source is currently disabled or uninstalled (they are not listed, so
+        // merely opening this screen must not prune them from the priority order); they re-appear at
+        // the end of the order when the source comes back.
+        val visibleKeys = state.value.sources.mapTo(HashSet()) { it.key }
+        val hiddenSaved = adapter.savedSelection().filter { it !in visibleKeys }
+        adapter.persistSelection(visibleSelected + hiddenSaved)
     }
 
     fun persistTuning(tuning: MigrationTuning) = adapter.persistTuning(tuning)
@@ -331,6 +355,7 @@ class EntryMigrationConfigScreenModel(
         val sources: List<ConfigSource> = emptyList(),
         val tuning: MigrationTuning = MigrationTuning(),
         val supportsSmartMatch: Boolean = false,
+        val supportsChapterComparison: Boolean = false,
     )
 
     enum class SelectionConfig { All, None, Pinned }

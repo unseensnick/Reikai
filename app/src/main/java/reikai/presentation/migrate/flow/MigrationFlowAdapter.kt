@@ -1,9 +1,20 @@
 package reikai.presentation.migrate.flow
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.PickMember
+
+/** [runCatching] that rethrows [CancellationException]: the flow's search/commit coroutines must die
+ *  on cancellation instead of reporting a cancelled call as "no match" or a row failure. */
+internal inline fun <T> runCatchingCancellable(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Throwable) {
+    Result.failure(e)
+}
 
 /**
  * Content-type-neutral data flags for the migration confirm dialog. Both per-type enums carry the
@@ -36,6 +47,9 @@ data class MigrationEntry(
     val sourceKey: String,
     val sourceName: String?,
     val chapterCount: Int?,
+    /** Highest known chapter number, the upstream comparison basis for prioritize-by-chapters and
+     *  hide-without-updates (sources split/bundle chapters differently, so row count alone lies). */
+    val latestChapter: Double? = null,
     /** Adapter-built Coil cover model (`MangaCover` / `NovelCover`) for the row thumbnail. */
     val cover: Any?,
     val payload: Any,
@@ -47,6 +61,8 @@ data class MigrationCandidate(
     val sourceKey: String,
     val title: String,
     val chapterCount: Int?,
+    /** Highest known chapter number; see [MigrationEntry.latestChapter]. */
+    val latestChapter: Double? = null,
     val handle: Any,
 )
 
@@ -83,6 +99,10 @@ interface MigrationFlowAdapter {
 
     /** Whether the smart-match tuning options (deep search, prioritize-by-chapters) apply. */
     val supportsSmartMatch: Boolean
+
+    /** Whether [suggest] fills chapter counts. Hide-without-updates needs suggest-time counts, so the
+     *  tuning sheet hides that toggle when this is false (novels resolve counts only at accept). */
+    val suggestsChapterCounts: Boolean
 
     /** One-time readiness work before sources are read (the novel side loads its plugin host here;
      *  without it, entering the flow before the host warms up shows empty sources with no error). */

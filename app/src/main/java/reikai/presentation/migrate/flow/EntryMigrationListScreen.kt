@@ -46,9 +46,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +63,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -69,6 +73,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -102,10 +107,20 @@ class EntryMigrationListScreen(
         }
         val state by screenModel.state.collectAsState()
 
-        var showExitDialog by remember { mutableStateOf(false) }
-        var showTuningSheet by remember { mutableStateOf(false) }
+        var showExitDialog by rememberSaveable { mutableStateOf(false) }
+        var showTuningSheet by rememberSaveable { mutableStateOf(false) }
 
-        LaunchedEffect(state.finished) { if (state.finished) navigator.pop() }
+        val doneMessage = pluralStringResource(
+            MR.plurals.migrationFlow_doneToast,
+            state.finishedCount,
+            state.finishedCount,
+        )
+        LaunchedEffect(state.finished) {
+            if (state.finished) {
+                if (state.finishedCount > 0) context.toast(doneMessage)
+                navigator.pop()
+            }
+        }
 
         LaunchedEffect(matchOverride) {
             val (current, target) = matchOverride ?: return@LaunchedEffect
@@ -134,12 +149,10 @@ class EntryMigrationListScreen(
             topBar = { scrollBehavior ->
                 AppBar(
                     title = stringResource(MR.strings.action_migrate),
+                    // Mono-adjacent "n / total" searched, per the design note; numbers only, so the
+                    // raw format needs no translation.
                     subtitle = if (state.rows.size > 1) {
-                        stringResource(
-                            MR.strings.migrationFlow_matchedSubtitle,
-                            state.rows.size,
-                            state.rows.count { it.chosen != null || it.suggested != null },
-                        )
+                        "${state.searchedCount} / ${state.rows.size}"
                     } else {
                         null
                     },
@@ -165,7 +178,9 @@ class EntryMigrationListScreen(
                 )
             },
             bottomBar = {
-                if (state.chosenCount > 0 && !state.isMigrating) {
+                // Commit only once every row has searched (the design's all-searched gate): an early
+                // commit would race rows still resolving their suggestions.
+                if (state.chosenCount > 0 && state.allSearched && !state.isMigrating) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -193,9 +208,6 @@ class EntryMigrationListScreen(
                 contentPadding = contentPadding,
             ) {
                 items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
-                    // searchStarted is in the key so a tuning apply (which resets it) re-triggers
-                    // the search for rows already on screen.
-                    LaunchedEffect(row.entry.id, row.searchStarted) { screenModel.searchRow(row.entry.id) }
                     MigrationRow(row = row, screenModel = screenModel)
                     HorizontalDivider()
                 }
@@ -228,6 +240,7 @@ class EntryMigrationListScreen(
             MigrationTuningSheet(
                 tuning = state.tuning,
                 supportsSmartMatch = state.supportsSmartMatch,
+                supportsChapterComparison = state.supportsChapterComparison,
                 onDismissRequest = { showTuningSheet = false },
                 onApply = {
                     showTuningSheet = false
@@ -270,6 +283,8 @@ private fun MigrationRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { screenModel.toggleExpanded(id) }
+            // Skipped rows dim but stay in place, per the design's restorable-skip.
+            .alpha(if (row.skipped) 0.5f else 1f)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -388,7 +403,10 @@ private fun RowTrailing(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = stringResource(MR.strings.action_menu_overflow_description),
+                    )
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(
@@ -400,8 +418,36 @@ private fun RowTrailing(
                             if (!row.expanded) screenModel.toggleExpanded(id)
                         },
                     )
+                    if (!row.skipped && !row.migratedOk && (row.chosen ?: row.suggested) != null) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel))
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                screenModel.commitSingle(id, replace = true)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(MR.strings.migrationListScreen_copyNowActionLabel)) },
+                            onClick = {
+                                menuExpanded = false
+                                screenModel.commitSingle(id, replace = false)
+                            },
+                        )
+                    }
                     DropdownMenuItem(
-                        text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
+                        text = {
+                            Text(
+                                text = stringResource(
+                                    if (row.skipped) {
+                                        MR.strings.migrationFlow_restoreActionLabel
+                                    } else {
+                                        MR.strings.migrationListScreen_skipActionLabel
+                                    },
+                                ),
+                            )
+                        },
                         onClick = {
                             menuExpanded = false
                             screenModel.toggleSkip(id)
@@ -420,10 +466,11 @@ private fun ExpandedSection(
     screenModel: EntryMigrationListScreenModel,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
     val id = row.entry.id
-    var query by remember(id) { mutableStateOf(row.entry.title) }
+    var query by rememberSaveable(id.toString()) { mutableStateOf(row.entry.title) }
 
-    LaunchedEffect(id, row.expanded) {
+    LaunchedEffect(id) {
         if (row.overrideStrips.isEmpty() && !row.overrideLoading) {
             screenModel.research(id, row.entry.title)
         }
@@ -467,6 +514,24 @@ private fun ExpandedSection(
         }
     }
 
+    // Latest chapter numbers, the basis prioritize-by-chapters and hide-without-updates compare on
+    // (row counts lie across sources that split/bundle chapters), so the user can check the pick.
+    val currentLatest = row.entry.latestChapter
+    val targetLatest = (row.chosen ?: row.suggested)?.latestChapter
+    if (currentLatest != null || targetLatest != null) {
+        val unknown = stringResource(MR.strings.migrationListScreen_unknownLatestChapter)
+        Text(
+            text = stringResource(
+                MR.strings.migrationListScreen_latestChapterLabel,
+                "${currentLatest?.let(::formatChapterNumber) ?: unknown} → " +
+                    (targetLatest?.let(::formatChapterNumber) ?: unknown),
+            ),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+
     OutlinedTextField(
         value = query,
         onValueChange = { query = it },
@@ -480,7 +545,10 @@ private fun ExpandedSection(
                 onClick = { screenModel.research(id, query) },
                 enabled = query.isNotBlank(),
             ) {
-                Icon(imageVector = Icons.Filled.Check, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = stringResource(MR.strings.action_search),
+                )
             }
         },
     )
@@ -505,7 +573,13 @@ private fun ExpandedSection(
                     .weight(1f)
                     .padding(top = 8.dp, bottom = 2.dp),
             )
-            IconButton(onClick = { openDeepPicker(navigator, row.entry, strip.sourceKey, query) }) {
+            IconButton(
+                onClick = {
+                    if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
+                        context.toast(MR.strings.internal_error)
+                    }
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.TravelExplore,
                     contentDescription = stringResource(MR.strings.migrationFlow_browseSource),
@@ -567,7 +641,7 @@ private fun MigrationConfirmDialog(
 ) {
     // Seeded with the FULL saved set: only applicable flags render, so a hidden flag's saved state
     // survives the confirm instead of being erased from the pref for future migrations.
-    var selected by remember { mutableStateOf(initialFlags) }
+    var selected by rememberSaveable(stateSaver = migrationFlagSaver) { mutableStateOf(initialFlags) }
     val verb = stringResource(if (replace) MR.strings.migrate else MR.strings.copy)
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -646,6 +720,12 @@ private fun MigrationProgressDialog(
         },
     )
 }
+
+/** Bundle-safe saver for the confirm dialog's flag selection (enum sets aren't saveable directly). */
+private val migrationFlagSaver = listSaver<Set<MigrationDataFlag>, String>(
+    save = { it.map(MigrationDataFlag::name) },
+    restore = { it.map(MigrationDataFlag::valueOf).toSet() },
+)
 
 internal fun MigrationDataFlag.titleRes() = when (this) {
     MigrationDataFlag.CHAPTER -> MR.strings.chapters

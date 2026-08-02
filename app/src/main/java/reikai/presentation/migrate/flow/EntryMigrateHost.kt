@@ -64,27 +64,32 @@ fun Screen.EntryMigrateHost(controller: EntryMigrateController) {
 
 /** Render the shared migrate dialog for two already-stored rows. Call sites that keep the
  *  (current, target) pair in their own ScreenModel dialog state render this directly;
- *  [EntryMigrateHost] wraps it for the controller-based surfaces. */
+ *  [EntryMigrateHost] wraps it for the controller-based surfaces. [onFinished] (default: dismiss)
+ *  receives the chosen verb so single-entry pickers can land on the target's details. */
 @Composable
 fun Screen.EntryMigrateFor(
     contentType: ContentType,
     currentId: Long,
     targetId: Long,
     onDismissRequest: () -> Unit,
+    onFinished: ((replaced: Boolean) -> Unit)? = null,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
-    val screenModel = rememberScreenModel(
-        tag = "migrateHost-$contentType-$currentId-$targetId",
-    ) {
-        EntryMigrateHostScreenModel(EntryMigrateController.Request(contentType, currentId, targetId))
+    // One model per content type; the pair is loaded per appearance (keyed below), never a
+    // constructor arg, so a cached model can neither serve a stale pair nor accumulate per pair.
+    val screenModel = rememberScreenModel(tag = "migrateHost-$contentType") {
+        EntryMigrateHostScreenModel(contentType)
     }
-    // Reload on every appearance: the model is cached per pair for the host screen's lifetime, and a
-    // reopened pair must commit from fresh rows, not the first open's snapshot.
-    LaunchedEffect(Unit) { screenModel.load() }
+    val request = remember(contentType, currentId, targetId) {
+        EntryMigrateController.Request(contentType, currentId, targetId)
+    }
+    // Reload on every appearance and on every pair change: a reopened pair must commit from fresh
+    // rows, not a previous open's snapshot.
+    LaunchedEffect(request) { screenModel.load(request) }
     val state by screenModel.state.collectAsState()
 
-    if (!state.loaded) return
+    if (!state.loaded || state.request != request) return
     val entry = state.entry
     val target = state.target
     if (entry == null || target == null) {
@@ -105,29 +110,36 @@ fun Screen.EntryMigrateFor(
             onDismissRequest()
             entry.openDetails(navigator)
         },
-        onFinished = onDismissRequest,
+        onFinished = onFinished ?: { onDismissRequest() },
     )
 }
 
 internal class EntryMigrateHostScreenModel(
-    private val request: EntryMigrateController.Request,
+    contentType: ContentType,
 ) : StateScreenModel<EntryMigrateHostScreenModel.State>(State()) {
 
-    private val adapter: MigrationFlowAdapter = when (request.contentType) {
+    private val adapter: MigrationFlowAdapter = when (contentType) {
         ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
-    fun load() {
-        mutableState.update { it.copy(loaded = false) }
+    fun load(request: EntryMigrateController.Request) {
+        mutableState.update { State(request = request) }
         screenModelScope.launchIO {
+            // Warm the novel plugin host before rows are read: the duplicate-dialog route can be the
+            // first migration surface entered, and a cold host loses source names and cover Referers.
+            adapter.prepare()
             val entry = adapter.loadEntries(listOf(request.currentId)).firstOrNull()
             val target = adapter.storedCandidate(request.targetId)
-            mutableState.update { it.copy(loaded = true, entry = entry, target = target) }
+            mutableState.update {
+                if (it.request != request) return@update it
+                it.copy(loaded = true, entry = entry, target = target)
+            }
         }
     }
 
     data class State(
+        val request: EntryMigrateController.Request? = null,
         val loaded: Boolean = false,
         val entry: MigrationEntry? = null,
         val target: MigrationCandidate? = null,

@@ -145,6 +145,17 @@ class MigrationDeepSearchScreen(
                 currentId = currentMangaId,
                 targetId = targetId,
                 onDismissRequest = { dialogTargetId = null },
+                onFinished = { replaced ->
+                    dialogTargetId = null
+                    // Land on the migrated-to entry like the search route: pop the picker chain, and
+                    // on a replace swap out the origin's now-stale details beneath it.
+                    navigator.popUntil { it !is MigrationDeepSearchScreen && it !is EntryMigrationSearchScreen }
+                    if (replaced && navigator.lastItem is MangaScreen) {
+                        navigator.replace(MangaScreen(targetId))
+                    } else {
+                        navigator.push(MangaScreen(targetId))
+                    }
+                },
             )
         }
     }

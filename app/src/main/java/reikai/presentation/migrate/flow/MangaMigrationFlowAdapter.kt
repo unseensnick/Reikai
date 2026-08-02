@@ -43,6 +43,7 @@ class MangaMigrationFlowAdapter(
 
     override val contentType = ContentType.MANGA
     override val supportsSmartMatch = true
+    override val suggestsChapterCounts = true
 
     override fun enabledSources(): List<MigrationSourceUi> {
         val languages = sourcePreferences.enabledLanguages.get()
@@ -130,12 +131,14 @@ class MangaMigrationFlowAdapter(
     override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> {
         return ids.mapNotNull { id ->
             val manga = getManga.await(id) ?: return@mapNotNull null
+            val chapters = getChaptersByMangaId.await(id)
             MigrationEntry(
                 id = EntryId.Manga(id),
                 title = manga.title,
                 sourceKey = "${manga.source}",
                 sourceName = sourceManager.get(manga.source)?.name,
-                chapterCount = getChaptersByMangaId.await(id).size,
+                chapterCount = chapters.size,
+                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
                 cover = manga.toEntryBrowseUi().cover,
                 payload = manga,
             )
@@ -160,12 +163,17 @@ class MangaMigrationFlowAdapter(
         val local = networkToLocalManga(listOf(match)).firstOrNull() ?: return null
         // Fetch the target's chapters now so counts are real before commit (prioritize-by-chapters,
         // hide-without-updates, and the row's count line all read them); best-effort like upstream.
-        runCatching { updateMangaFromRemote(local, fetchChapters = true).getOrThrow() }
+        runCatchingCancellable { updateMangaFromRemote(local, fetchChapters = true).getOrThrow() }
         if (local.thumbnailUrl == null) {
-            runCatching { updateMangaFromRemote(local, fetchDetails = true, manualFetch = true) }
+            runCatchingCancellable { updateMangaFromRemote(local, fetchDetails = true, manualFetch = true) }
         }
-        return local.toCandidate(sourceKey)
-            .copy(chapterCount = getChaptersByMangaId.await(local.id).size)
+        // Re-read the row so a just-fetched cover/details reach the candidate, not the pre-fetch snapshot.
+        val refreshed = getManga.await(local.id) ?: local
+        val chapters = getChaptersByMangaId.await(local.id)
+        return refreshed.toCandidate(sourceKey).copy(
+            chapterCount = chapters.size,
+            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+        )
     }
 
     override suspend fun candidates(
@@ -184,15 +192,22 @@ class MangaMigrationFlowAdapter(
 
     override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {
         // The manga target is already a local row (networkToLocalManga at search time); its chapters
-        // are fetched inside MigrateMangaUseCase at commit, so resolving only fills the local count.
+        // are fetched inside MigrateMangaUseCase at commit, so resolving only fills the local counts.
         val manga = candidate.handle as? Manga ?: return null
-        return candidate.copy(chapterCount = getChaptersByMangaId.await(manga.id).size)
+        val chapters = getChaptersByMangaId.await(manga.id)
+        return candidate.copy(
+            chapterCount = chapters.size,
+            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+        )
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
         val manga = getManga.await(id) ?: return null
-        return manga.toCandidate("${manga.source}")
-            .copy(chapterCount = getChaptersByMangaId.await(id).size)
+        val chapters = getChaptersByMangaId.await(id)
+        return manga.toCandidate("${manga.source}").copy(
+            chapterCount = chapters.size,
+            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+        )
     }
 
     override fun savedFlags(): Set<MigrationDataFlag> {
