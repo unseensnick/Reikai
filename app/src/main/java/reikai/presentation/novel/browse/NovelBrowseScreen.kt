@@ -71,17 +71,18 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import reikai.domain.library.ContentType
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.EntryBulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.migrate.flow.EntryMigrateHost
+import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
-import reikai.presentation.novel.migrate.NovelMigrateHost
-import reikai.presentation.novel.migrate.rememberNovelMigrateController
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -321,7 +322,7 @@ class NovelBrowseScreen(
         }
 
         val migrateScope = rememberCoroutineScope()
-        val migrateController = rememberNovelMigrateController()
+        val migrateController = rememberEntryMigrateController()
         when (val dialog = state.dialog) {
             is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
                 duplicates = dialog.duplicates,
@@ -332,7 +333,8 @@ class NovelBrowseScreen(
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
                 onMigrate = { dup ->
                     migrateScope.launch {
-                        screenModel.materializeForMigrate(dialog.item)?.let { migrateController.start(dup, it) }
+                        screenModel.materializeForMigrate(dialog.item)
+                            ?.let { migrateController.start(ContentType.NOVELS, dup.id, it.id) }
                     }
                 },
                 groupIdByNovelId = dialog.groupIdByNovelId,
@@ -352,7 +354,7 @@ class NovelBrowseScreen(
             )
             null -> {}
         }
-        NovelMigrateHost(migrateController)
+        EntryMigrateHost(migrateController)
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {

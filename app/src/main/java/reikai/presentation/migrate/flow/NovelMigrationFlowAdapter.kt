@@ -205,6 +205,20 @@ class NovelMigrationFlowAdapter(
         )
     }
 
+    override suspend fun storedCandidate(id: Long): MigrationCandidate? {
+        val novel = novelRepository.getById(id) ?: return null
+        return MigrationCandidate(
+            sourceKey = novel.source,
+            title = novel.title,
+            chapterCount = chapterRepository.getByNovelId(id).size,
+            handle = NovelCandidateHandle(
+                item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
+                site = sourceManager.get(novel.source)?.site,
+                resolved = novel,
+            ),
+        )
+    }
+
     override fun savedFlags(): Set<MigrationDataFlag> {
         return NovelMigrationFlag.fromBits(novelPreferences.novelMigrationFlags().get())
             .map { it.toNeutral() }

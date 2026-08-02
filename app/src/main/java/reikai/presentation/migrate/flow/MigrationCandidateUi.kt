@@ -30,3 +30,11 @@ internal fun MigrationFavorite.openDetails(navigator: Navigator) {
         is Novel -> navigator.push(NovelScreen(p.source, p.url))
     }
 }
+
+/** Open a flow entry's details page (the migrate host's Show affordance). */
+internal fun MigrationEntry.openDetails(navigator: Navigator) {
+    when (val p = payload) {
+        is Manga -> navigator.push(MangaScreen(p.id))
+        is Novel -> navigator.push(NovelScreen(p.source, p.url))
+    }
+}

@@ -37,8 +37,8 @@ import mihon.feature.migration.config.MigrationConfigScreen
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.migrate.flow.EntryMigrationConfigScreen
 import reikai.presentation.novel.details.NovelScreen
-import reikai.presentation.novel.migrate.NovelMigrationConfigScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -91,7 +91,9 @@ class UpdateErrorsScreen(
                                         if (mangaIds.isNotEmpty()) {
                                             navigator.push(MigrationConfigScreen(mangaIds))
                                         } else if (novelIds.isNotEmpty()) {
-                                            navigator.push(NovelMigrationConfigScreen(novelIds))
+                                            navigator.push(
+                                                EntryMigrationConfigScreen(ContentType.NOVELS, novelIds),
+                                            )
                                         }
                                         screenModel.clearSelection()
                                     },

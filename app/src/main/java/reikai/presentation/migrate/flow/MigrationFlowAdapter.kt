@@ -121,6 +121,10 @@ interface MigrationFlowAdapter {
      *  count known). Null on failure; [migrate] requires a resolved candidate. */
     suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate?
 
+    /** Wrap an already-stored entry (a duplicate-dialog migrate target) as a resolved, commit-ready
+     *  candidate, bypassing search. Null when the row is gone. */
+    suspend fun storedCandidate(id: Long): MigrationCandidate?
+
     fun savedFlags(): Set<MigrationDataFlag>
 
     /** The flags worth offering for these entries: CHAPTER and CATEGORY always; the rest only when

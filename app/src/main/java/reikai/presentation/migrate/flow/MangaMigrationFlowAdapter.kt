@@ -177,6 +177,12 @@ class MangaMigrationFlowAdapter(
         return candidate.copy(chapterCount = getChaptersByMangaId.await(manga.id).size)
     }
 
+    override suspend fun storedCandidate(id: Long): MigrationCandidate? {
+        val manga = getManga.await(id) ?: return null
+        return manga.toCandidate("${manga.source}")
+            .copy(chapterCount = getChaptersByMangaId.await(id).size)
+    }
+
     override fun savedFlags(): Set<MigrationDataFlag> {
         return sourcePreferences.migrationFlags.get().map { MigrationDataFlag.valueOf(it.name) }.toSet()
     }

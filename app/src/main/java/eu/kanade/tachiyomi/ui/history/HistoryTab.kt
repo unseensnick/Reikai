@@ -33,15 +33,16 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryScreenModel
 import reikai.presentation.history.ReikaiHistoryScreen
+import reikai.presentation.migrate.flow.EntryMigrateHost
+import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
-import reikai.presentation.novel.migrate.NovelMigrateHost
-import reikai.presentation.novel.migrate.rememberNovelMigrateController
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.model.Chapter
@@ -160,7 +161,7 @@ data object HistoryTab : Tab {
         // RK --> novel history dialogs (delete one / delete all from novel / clear all)
         val onDismissNovelDialog = { novelScreenModel.setDialog(null) }
         val novelMigrateScope = rememberCoroutineScope()
-        val novelMigrateController = rememberNovelMigrateController()
+        val novelMigrateController = rememberEntryMigrateController()
         when (val dialog = novelState.dialog) {
             is NovelHistoryScreenModel.Dialog.Delete -> {
                 HistoryDeleteDialog(
@@ -191,7 +192,7 @@ data object HistoryTab : Tab {
                     onMigrate = { dup ->
                         novelMigrateScope.launch {
                             novelScreenModel.novelForMigrate(dialog.novelId)
-                                ?.let { novelMigrateController.start(dup, it) }
+                                ?.let { novelMigrateController.start(ContentType.NOVELS, dup.id, it.id) }
                         }
                     },
                     groupIdByNovelId = dialog.groupIdByNovelId,
@@ -209,7 +210,7 @@ data object HistoryTab : Tab {
             }
             null -> {}
         }
-        NovelMigrateHost(novelMigrateController)
+        EntryMigrateHost(novelMigrateController)
         // RK <--
 
         LaunchedEffect(state.list) {

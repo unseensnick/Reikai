@@ -25,7 +25,8 @@ import uy.kohesive.injekt.api.get
 
 /**
  * Pre-step for migrating a merged manga: pick which source(s) of the merge group to migrate, the
- * manga twin of [reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen]. Continue advances
+ * manga twin of the unified [reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen]
+ * (which replaces this screen at the manga cutover). Continue advances
  * to Mihon's [MigrationConfigScreen] with the chosen ids; when nothing in the selection is merged it
  * forwards straight there. The UI is the shared [MigrationSourcePickContent].
  */
