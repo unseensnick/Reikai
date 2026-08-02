@@ -29,9 +29,18 @@ Five steps, each independently shippable and device-verified before the next.
   every call site keeps its current types. A sealed cross-type selection key was considered and
   dropped: no browse screen shows a mixed list, and the generic keeps Mihon's `selection:
   List<Manga>` parameters untouched.
-- **Step 2, the adder contract.** One neutral favorite / duplicate-check / categories contract
-  behind `MangaLibraryAdder` / `NovelLibraryAdder`; the twin browse dialog sealed types and the
-  `RemoveMangaDialog` / `RemoveNovelDialog` pair collapse onto it.
+- **Step 2, the shared remove dialog + default-category kernel (shipped `66dd5d007`).** The
+  scouted "one neutral adder contract" narrowed on inspection: the two adders are not twins (the
+  manga one returns neutral results and leaves orchestration to its callers, the novel one owns the
+  long-press orchestration and returns dialogs; the carriers differ because a `NovelItem` has no
+  row until insert). What was genuinely twinned now lives once: `EntryRemoveDialog` replaces
+  Mihon's `RemoveMangaDialog` (deleted and manifested) and the novel twin across all five hosting
+  screens, and `resolveDefaultCategoryIds` (`reikai/domain/category/`) is the one
+  default-category decision tree, used by both adders and the bulk-favorite engine. Assessed and
+  declined, do not re-flag: a polymorphic adder interface (no shared caller exists, so it would be
+  ceremony), the sealed-dialog-type collapse (needs a generic carrier for payloads that differ by
+  construction), and extracting `seedCategoriesFromGroup` (~8 identical lines against a
+  category-port interface).
 - **Step 3, hide-in-library for novel browse.** The novel pager filters fetched items against the
   already-held favorited keys behind the same preference manga reads (`hideInLibraryItems`).
 - **Step 4, enabled-languages for novel sources.** A novel enabled-languages preference filtering
@@ -55,7 +64,8 @@ Five steps, each independently shippable and device-verified before the next.
 ## Status
 
 In progress on `feat/0.4.0`. Step 1 shipped (`1392f58c9`, Fold-verified both types: select, invert,
-category prompt, add, remove). Steps 2 through 5 ahead.
+category prompt, add, remove). Step 2 shipped (`66dd5d007`, Fold-verified: the add-then-remove
+round trip on both content types). Steps 3 through 5 ahead.
 
 ## Decisions & tradeoffs
 
