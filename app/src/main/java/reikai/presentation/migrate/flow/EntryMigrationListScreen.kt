@@ -142,7 +142,10 @@ class EntryMigrationListScreen(
             }
         }
 
-        val guardExit = !state.finished && state.rows.isNotEmpty()
+        // No guard over a settled-empty list (every row hidden by the toggles): nothing accepted
+        // is losable there, and upstream pops a drained list outright.
+        val settledEmpty = state.visibleRows.isEmpty() && state.allSearched
+        val guardExit = !state.finished && state.rows.isNotEmpty() && !settledEmpty
         BackHandler(enabled = guardExit) { showExitDialog = true }
 
         if (state.isLoading) {
@@ -350,6 +353,19 @@ private fun MigrationRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 RowMetaLine(row)
+                // The matched target's TITLE, the wrong-match tell (upstream renders it on the
+                // result card): source names alone can't reveal a bad Levenshtein match, and
+                // accept-all commits suggestions unseen without it.
+                val targetTitle = (row.chosen ?: row.suggested)?.title
+                if (targetTitle != null && !row.skipped) {
+                    Text(
+                        text = targetTitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 RowCountLine(row)
             }
             RowTrailing(row = row, screenModel = screenModel, commitBusy = commitBusy)
@@ -467,9 +483,11 @@ private fun RowTrailing(
             }
         }
     }
-    // The menu renders in EVERY row state: skip is the escape hatch for a hung source, so it must
-    // be reachable exactly when the row is stuck searching (a spinner-only row held the all-searched
-    // commit gate hostage), and a failed row needs skip alongside retry.
+    // The menu renders in EVERY unmigrated row state: skip is the escape hatch for a hung source,
+    // so it must be reachable exactly when the row is stuck searching (a spinner-only row held the
+    // all-searched commit gate hostage), and a failed row needs skip alongside retry. A migrated
+    // row has no items at all, so it gets no menu button (an empty popup read as broken).
+    if (row.migratedOk) return
     Box {
         IconButton(onClick = { menuExpanded = true }) {
             Icon(
@@ -478,23 +496,21 @@ private fun RowTrailing(
             )
         }
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            if (!row.migratedOk) {
-                DropdownMenuItem(
-                    text = {
-                        Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        if (!row.expanded) {
-                            screenModel.toggleExpanded(id)
-                        } else {
-                            // Already expanded: re-run instead of a silent no-op.
-                            screenModel.research(id, row.entry.title)
-                        }
-                    },
-                )
-            }
-            if (!row.skipped && !row.migratedOk && !row.searching && !row.resolving && !commitBusy &&
+            DropdownMenuItem(
+                text = {
+                    Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
+                },
+                onClick = {
+                    menuExpanded = false
+                    if (!row.expanded) {
+                        screenModel.toggleExpanded(id)
+                    } else {
+                        // Already expanded: re-run instead of a silent no-op.
+                        screenModel.research(id, row.entry.title)
+                    }
+                },
+            )
+            if (!row.skipped && !row.searching && !row.resolving && !commitBusy &&
                 (row.chosen ?: row.suggested) != null
             ) {
                 DropdownMenuItem(
@@ -514,7 +530,9 @@ private fun RowTrailing(
                     },
                 )
             }
-            if (!row.migratedOk) {
+            // Matches toggleSkip's own guard: a skip landing on a mid-commit row would outlive the
+            // completion write as a dimmed "Migrated" row with no restore path.
+            if (!row.committing) {
                 DropdownMenuItem(
                     text = {
                         Text(
@@ -687,7 +705,15 @@ private fun ExpandedSection(
                     EntryBrowseGridCell(
                         ui = candidate.toBrowseUi(),
                         displayMode = LibraryDisplayMode.ComfortableGrid,
-                        onClick = { screenModel.pick(id, candidate, strip.sourceName) },
+                        onClick = {
+                            // pick() rejects a mid-commit/mid-resolve row; say so instead of a
+                            // silent no-op tap.
+                            if (row.committing || row.resolving) {
+                                context.toast(MR.strings.migrationFlow_busyToast)
+                            } else {
+                                screenModel.pick(id, candidate, strip.sourceName)
+                            }
+                        },
                         onLongClick = { candidate.openDetails(navigator) },
                     )
                 }

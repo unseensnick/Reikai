@@ -45,6 +45,14 @@ class NovelHistoryRepositoryImpl(
         }
     }
 
+    override suspend fun removeResettedNovelHistory() {
+        try {
+            database.novel_historyQueries.removeResetted()
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to remove resetted novel history" }
+        }
+    }
+
     override suspend fun upsertNovelHistory(update: NovelHistoryUpdate) {
         try {
             database.novel_historyQueries.upsert(update.chapterId, update.readAt, update.sessionReadDuration)

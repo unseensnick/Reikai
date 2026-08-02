@@ -36,7 +36,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.migrate.flow.EntryMigrationConfigScreen
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -87,13 +87,16 @@ class UpdateErrorsScreen(
                                     onClick = {
                                         val mangaIds = screenModel.selectedMangaIds()
                                         val novelIds = screenModel.selectedNovelIds()
+                                        // Through the merge-group pre-step like the library and
+                                        // details routes (it auto-forwards to config when nothing
+                                        // in the selection is merged).
                                         if (mangaIds.isNotEmpty()) {
                                             navigator.push(
-                                                EntryMigrationConfigScreen(ContentType.MANGA, mangaIds),
+                                                EntryMigrationSourcePickScreen(ContentType.MANGA, mangaIds),
                                             )
                                         } else if (novelIds.isNotEmpty()) {
                                             navigator.push(
-                                                EntryMigrationConfigScreen(ContentType.NOVELS, novelIds),
+                                                EntryMigrationSourcePickScreen(ContentType.NOVELS, novelIds),
                                             )
                                         }
                                         screenModel.clearSelection()

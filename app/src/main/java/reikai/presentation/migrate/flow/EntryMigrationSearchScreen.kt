@@ -249,10 +249,15 @@ class EntryMigrationSearchScreenModel(
             // Nothing saved, or nothing saved resolves (all currently disabled): pinned sources
             // lead the enabled set, matching the list's fallback order. The entry's own source
             // stays searchable; the adapter rejects its identical listing.
-            resolved.ifEmpty {
+            val head = resolved.ifEmpty {
                 val pinned = adapter.pinnedKeys()
                 enabled.sortedBy { it.key !in pinned }
             }
+            // An explicit manual search reaches EVERY enabled source (upstream's migrate-search
+            // scope: the config selection orders, it does not cap); the batch search alone is
+            // bounded by the configured selection.
+            val headKeys = head.mapTo(HashSet()) { it.key }
+            head + enabled.filterNot { it.key in headKeys }
         }
         val generation = ++searchGeneration
         searchJobs.forEach { it.cancel() }

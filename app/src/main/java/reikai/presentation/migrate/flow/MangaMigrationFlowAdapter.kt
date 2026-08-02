@@ -191,12 +191,19 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {
-        // The manga target is already a local row (networkToLocalManga at search time); its chapters
-        // are fetched inside MigrateMangaUseCase at commit, so resolving only fills the local counts.
-        // A fresh pick's row has no chapters yet: null, not 0, so the compare line shows unknown
-        // instead of a lying full-shortfall delta (mirrors the novel adapter).
+        // The manga target is already a local row (networkToLocalManga at search time). A manual
+        // pick has no chapters locally yet (suggest() fetches them, candidates() does not), so
+        // fetch them here, upstream's manual-pick shape, and the compare line, prioritize basis and
+        // hide-without-updates see real counts. Best-effort: a failed fetch still resolves (counts
+        // read unknown, never a lying zero-shortfall) and the commit fetches again inside
+        // MigrateMangaUseCase. A suggestion's chapters are already local, so this adds no fetch to
+        // the accept-all commit path.
         val manga = candidate.handle as? Manga ?: return null
-        val chapters = getChaptersByMangaId.await(manga.id)
+        var chapters = getChaptersByMangaId.await(manga.id)
+        if (chapters.isEmpty()) {
+            runCatchingCancellable { updateMangaFromRemote(manga, fetchChapters = true) }
+            chapters = getChaptersByMangaId.await(manga.id)
+        }
         return candidate.copy(
             chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },

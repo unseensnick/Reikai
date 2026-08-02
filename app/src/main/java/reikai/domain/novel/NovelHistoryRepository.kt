@@ -16,6 +16,9 @@ interface NovelHistoryRepository {
     suspend fun resetNovelHistory(historyId: Long)
     suspend fun resetNovelHistoryByNovelId(novelId: Long)
     suspend fun deleteAllNovelHistory()
+
+    /** Hard-delete the soft-deleted rows (last_read = 0); Clear-database maintenance. */
+    suspend fun removeResettedNovelHistory()
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
 
     /** Total novel reading time (ms) across all chapters, for the Stats screen. */

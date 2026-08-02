@@ -188,8 +188,8 @@ class MigrateNovelUseCase(
 
 /**
  * Pure core: given the source novel's chapters and the target's, return the target chapters whose
- * read / bookmark / progress should change. A target chapter takes its matched (same chapter number)
- * source chapter's state; additionally every target chapter at or below the highest read source
+ * read / bookmark / progress / dateFetch should change. A target chapter takes its matched (same
+ * chapter number) source chapter's state; additionally every target chapter at or below the highest read source
  * number is marked read (mirrors Mihon's `maxChapterRead` sweep, so coarser target numbering still
  * reflects how far you'd read). Unrecognized numbers (< 0) are skipped, matching the sync convention.
  */
@@ -208,12 +208,17 @@ internal fun computeChapterMigration(
         var read = if (match != null) match.read else target.read
         val bookmark = if (match != null) match.bookmark else target.bookmark
         val progress = if (match != null) match.lastTextProgress else target.lastTextProgress
+        // dateFetch carries too (manga parity): without it every migrated chapter reads as
+        // freshly fetched and floods recency-ordered surfaces.
+        val dateFetch = if (match != null) match.dateFetch else target.dateFetch
         if (maxReadNumber != null && target.chapterNumber <= maxReadNumber) read = true
 
-        if (read == target.read && bookmark == target.bookmark && progress == target.lastTextProgress) {
+        if (read == target.read && bookmark == target.bookmark && progress == target.lastTextProgress &&
+            dateFetch == target.dateFetch
+        ) {
             null
         } else {
-            target.copy(read = read, bookmark = bookmark, lastTextProgress = progress)
+            target.copy(read = read, bookmark = bookmark, lastTextProgress = progress, dateFetch = dateFetch)
         }
     }
 }

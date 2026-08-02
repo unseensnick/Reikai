@@ -17,10 +17,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import reikai.domain.library.ContentType
@@ -59,6 +63,12 @@ fun VoyagerScreen.EntryMigrateDialog(
 
     val pairKey = "${entry.id}-${target.stableKey}"
     LaunchedEffect(pairKey) { screenModel.reset(pairKey, entry) }
+    // A pair switch mid-migrate deliberately drops the old pair's completion (it must not land on
+    // the next pair's dialog), but the DB write DID happen: say so instead of total silence.
+    val context = LocalContext.current
+    LaunchedEffect(screenModel) {
+        screenModel.droppedCompletions.collect { context.toast(MR.strings.migrationFlow_migratedChip) }
+    }
     // Completion is state consumed exactly once. State (not a fire-and-forget channel) so a success
     // that lands while the composition is being recreated (rotation mid-migrate) is delivered on
     // re-entry instead of dropped with the dialog left re-armed; consuming it before dispatch (and
@@ -134,6 +144,11 @@ private class EntryMigrateDialogScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
+    /** Fired when a pair switch dropped a SUCCESSFUL migration's completion; buffered so the send
+     *  never suspends on a briefly absent collector. */
+    private val _droppedCompletions = Channel<Unit>(Channel.BUFFERED)
+    val droppedCompletions = _droppedCompletions.receiveAsFlow()
+
     /** Load the pair being shown: clears any previous appearance's transient state synchronously,
      *  then fills the applicable flags and the freshly saved selection (a commit rewrites the pref,
      *  so a cached init snapshot would go stale). A rotation re-fires this mid-migrate; the same
@@ -180,14 +195,19 @@ private class EntryMigrateDialogScreenModel(
                 adapter.migrate(entry, resolved, replace, flags)
             }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }
+            var dropped = false
             mutableState.update {
-                if (it.pairKey != pairKey) return@update it
+                // Idempotent flag write: the lambda may re-run on a CAS retry, but it only ever
+                // sets the same boolean.
+                dropped = it.pairKey != pairKey
+                if (dropped) return@update it
                 it.copy(
                     isMigrating = false,
                     failed = result.isFailure,
                     finishedWith = if (result.isSuccess) replace else it.finishedWith,
                 )
             }
+            if (dropped && result.isSuccess) _droppedCompletions.send(Unit)
         }
     }
 

@@ -43,6 +43,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.NovelSourceIcon
@@ -300,6 +301,7 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
 
     // RK -->
     private val novelRepository: NovelRepository = Injekt.get()
+    private val novelHistoryRepository: NovelHistoryRepository = Injekt.get()
     private val novelSourceManager: NovelSourceManager = Injekt.get()
     // RK <--
 
@@ -338,10 +340,12 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
         val state = state.value as? State.Ready ?: return@withNonCancellableContext
         database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
         database.historyQueries.removeResettedHistory()
-        // RK --> novel side of the clear; the keep-read toggle covers both content types
+        // RK --> novel side of the clear; the keep-read toggle covers both content types, and the
+        // soft-deleted novel history rows are reclaimed exactly like the manga line above
         if (state.novelSelection.isNotEmpty()) {
             novelRepository.deleteNonLibraryNovels(state.novelSelection, keepReadManga)
         }
+        novelHistoryRepository.removeResettedNovelHistory()
         // RK <--
     }
 

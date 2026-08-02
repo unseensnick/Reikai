@@ -40,6 +40,12 @@ WHERE _id IN (
 removeAll:
 DELETE FROM novel_history;
 
+-- RK: Clear-database maintenance, twin of history.sq's removeResettedHistory: reclaim rows the
+-- soft-delete zeroed (invisible to the feed but never deleted).
+removeResetted:
+DELETE FROM novel_history
+WHERE last_read = 0;
+
 -- Total novel reading time across all chapters, backing the novel Stats screen (twin of history.sq's
 -- getReadDuration). Soft-deleted rows keep their time_read, matching the manga sum.
 getTotalReadDuration:

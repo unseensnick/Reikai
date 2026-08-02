@@ -275,12 +275,14 @@ class EntryMigrationConfigScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
-    // Selected first, then by saved priority order, then by name. Selected keys are always in
-    // `included`, so the raw indexOf orders them; unselected (-1) are already split off by the first key.
+    // Selected first, then by saved priority order, then by name, then language (same-named sources
+    // across languages would otherwise order unstably). Selected keys are always in `included`, so
+    // the raw indexOf orders them; unselected (-1) are already split off by the first key.
     private fun comparator(included: List<String>) = compareBy<ConfigSource>(
         { !it.isSelected },
         { included.indexOf(it.key) },
         { it.name.lowercase() },
+        { it.source.lang },
     )
 
     init {
@@ -352,11 +354,27 @@ class EntryMigrationConfigScreenModel(
             return
         }
         // Keep saved keys whose source is currently disabled or uninstalled (they are not listed, so
-        // merely opening this screen must not prune them from the priority order); they re-appear at
-        // the end of the order when the source comes back.
+        // merely opening this screen must not prune them from the priority order), AND keep them in
+        // their saved slot: appending them shuffled a temporarily disabled source to the back of the
+        // priority order on every save. Hidden keys stay put; visible ones fill the remaining slots
+        // in their new order; newly selected sources append.
         val visibleKeys = state.value.sources.mapTo(HashSet()) { it.key }
-        val hiddenSaved = adapter.savedSelection().filter { it !in visibleKeys }
-        adapter.persistSelection(visibleSelected + hiddenSaved)
+        val saved = adapter.savedSelection()
+        val hiddenSaved = saved.filterTo(HashSet()) { it !in visibleKeys }
+        if (hiddenSaved.isEmpty()) {
+            adapter.persistSelection(visibleSelected)
+            return
+        }
+        val queue = ArrayDeque(visibleSelected)
+        val merged = mutableListOf<String>()
+        for (key in saved) {
+            when {
+                key in hiddenSaved -> merged += key
+                queue.isNotEmpty() -> merged += queue.removeFirst()
+            }
+        }
+        merged += queue
+        adapter.persistSelection(merged.distinct())
     }
 
     fun persistTuning(tuning: MigrationTuning) = adapter.persistTuning(tuning)
