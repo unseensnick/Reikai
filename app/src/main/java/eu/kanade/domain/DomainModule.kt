@@ -114,6 +114,8 @@ import reikai.domain.recommendation.taste.TasteCandidateFetcher
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.migrate.flow.MangaMigrationFlowAdapter
+import reikai.presentation.migrate.flow.NovelMigrationFlowAdapter
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -227,6 +229,9 @@ class DomainModule : InjektModule {
         addFactory { SetNovelViewerFlags(get()) }
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetEnabledNovelSources(get(), get()) }
+        // RK: the unified migration flow's per-type seams (content-layer-migrate-surface.md)
+        addFactory { MangaMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get()) }
+        addFactory { NovelMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         // RK: novel custom-info overlay (non-destructive display-layer edits)
         addSingletonFactory<CustomNovelInfoRepository> { CustomNovelInfoRepositoryImpl(get()) }
         addFactory { GetCustomNovelInfo(get()) }
