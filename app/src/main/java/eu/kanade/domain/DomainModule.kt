@@ -230,7 +230,9 @@ class DomainModule : InjektModule {
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetEnabledNovelSources(get(), get()) }
         // RK: the unified migration flow's per-type seams (content-layer-migrate-surface.md)
-        addFactory { MangaMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        addFactory {
+            MangaMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
+        }
         addFactory {
             NovelMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
         }

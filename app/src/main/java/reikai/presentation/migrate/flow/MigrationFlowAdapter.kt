@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.PickMember
@@ -49,6 +50,16 @@ data class MigrationCandidate(
     val handle: Any,
 )
 
+/** One row of the per-source favorites picker, deliberately lighter than [MigrationEntry] (no
+ *  chapter count, so listing a large source's favorites costs no per-row query). [cover] is the
+ *  adapter-built Coil model; [payload] is the per-type domain model for the details push. */
+data class MigrationFavorite(
+    val id: EntryId,
+    val title: String,
+    val cover: Any?,
+    val payload: Any,
+)
+
 /** The pre-list search options. [extraQuery] is transient per run (matching Mihon, which threads it
  *  as a screen argument); the toggles persist per type. Smart-match options ([deepSearch],
  *  [prioritizeByChapters]) only apply where [MigrationFlowAdapter.supportsSmartMatch]. */
@@ -86,6 +97,13 @@ interface MigrationFlowAdapter {
     /** Every entry in [ids] expanded to its full merge group, deduped in encounter order. The pick
      *  screen skips itself when the members are exactly the input set (nothing merged). */
     suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>
+
+    /** The display name for one source key, falling back to the key when the source is gone (the
+     *  favorites picker works for an uninstalled source; the stored rows still migrate). */
+    fun sourceDisplayName(sourceKey: String): String
+
+    /** The library favorites belonging to one source, title-sorted, for the favorites picker. */
+    fun favorites(sourceKey: String): Flow<List<MigrationFavorite>>
 
     fun readTuning(): MigrationTuning
 

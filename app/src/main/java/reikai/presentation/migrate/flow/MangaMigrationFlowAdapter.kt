@@ -6,6 +6,9 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
@@ -16,6 +19,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -32,6 +36,7 @@ class MangaMigrationFlowAdapter(
     private val downloadManager: DownloadManager,
     private val migrateManga: MigrateMangaUseCase,
     private val mergeManager: MangaMergeManager,
+    private val getFavorites: GetFavorites,
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.MANGA
@@ -101,6 +106,25 @@ class MangaMigrationFlowAdapter(
         sourcePreferences.migrationPrioritizeByChapters.set(tuning.prioritizeByChapters)
         sourcePreferences.migrationHideUnmatched.set(tuning.hideUnmatched)
         sourcePreferences.migrationHideWithoutUpdates.set(tuning.hideWithoutUpdates)
+    }
+
+    override fun sourceDisplayName(sourceKey: String): String {
+        return sourceKey.toLongOrNull()?.let { sourceManager.getOrStub(it).name } ?: sourceKey
+    }
+
+    override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
+        val sourceId = sourceKey.toLongOrNull() ?: return flowOf(emptyList())
+        return getFavorites.subscribe(sourceId).map { list ->
+            list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+                .map { manga ->
+                    MigrationFavorite(
+                        id = EntryId.Manga(manga.id),
+                        title = manga.title,
+                        cover = manga,
+                        payload = manga,
+                    )
+                }
+        }
     }
 
     override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> {

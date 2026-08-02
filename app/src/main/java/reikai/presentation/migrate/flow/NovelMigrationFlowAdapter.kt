@@ -1,6 +1,8 @@
 package reikai.presentation.migrate.flow
 
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import reikai.data.coil.NovelCover
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
@@ -103,6 +105,37 @@ class NovelMigrationFlowAdapter(
     override fun persistTuning(tuning: MigrationTuning) {
         novelPreferences.novelMigrationHideUnmatched().set(tuning.hideUnmatched)
         novelPreferences.novelMigrationHideWithoutUpdates().set(tuning.hideWithoutUpdates)
+    }
+
+    override fun sourceDisplayName(sourceKey: String): String {
+        return sourceManager.get(sourceKey)?.name
+            ?: novelPreferences.seenNovelSources().get()[sourceKey]?.name
+            ?: sourceKey
+    }
+
+    override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
+        val site = sourceManager.get(sourceKey)?.site
+        return novelRepository.getLibraryNovelAsFlow().map { list ->
+            list.asSequence()
+                .map { it.novel }
+                .filter { it.source == sourceKey }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+                .map { novel ->
+                    MigrationFavorite(
+                        id = EntryId.Novel(novel.id),
+                        title = novel.title,
+                        cover = NovelCover(
+                            url = novel.thumbnailUrl,
+                            site = site,
+                            isNovelFavorite = false,
+                            lastModified = novel.coverLastModified,
+                            novelId = novel.id,
+                        ),
+                        payload = novel,
+                    )
+                }
+                .toList()
+        }
     }
 
     override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> {
