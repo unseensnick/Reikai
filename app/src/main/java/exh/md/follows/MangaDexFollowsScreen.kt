@@ -18,7 +18,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.BrowseSourceContent
-import eu.kanade.presentation.browse.components.RemoveMangaDialog
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
@@ -32,6 +31,7 @@ import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryRemoveDialog
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -181,10 +181,10 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                 )
             }
             is BrowseSourceScreenModel.Dialog.RemoveManga -> {
-                RemoveMangaDialog(
+                EntryRemoveDialog(
+                    title = dialog.manga.title,
                     onDismissRequest = onDismissRequest,
                     onConfirm = { screenModel.changeMangaFavorite(dialog.manga) },
-                    mangaToRemove = dialog.manga,
                 )
             }
             is BrowseSourceScreenModel.Dialog.ChangeMangaCategory -> {

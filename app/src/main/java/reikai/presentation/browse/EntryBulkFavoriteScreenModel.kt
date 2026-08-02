@@ -10,6 +10,7 @@ import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.update
+import reikai.domain.category.resolveDefaultCategoryIds
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -96,12 +97,11 @@ abstract class EntryBulkFavoriteScreenModel<T : Any> :
                 return@launchIO
             }
             val categories = userCategories()
-            val defaultCategoryId = defaultCategoryId()
-            val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }
-            when {
-                defaultCategory != null -> addAndFinish(items, listOf(defaultCategory.id))
-                defaultCategoryId == 0 || categories.isEmpty() -> addAndFinish(items, emptyList())
-                else -> setDialog(Dialog.ChangeCategory(items, categories.mapAsCheckboxState { false }))
+            val directIds = resolveDefaultCategoryIds(categories, defaultCategoryId())
+            if (directIds != null) {
+                addAndFinish(items, directIds)
+            } else {
+                setDialog(Dialog.ChangeCategory(items, categories.mapAsCheckboxState { false }))
             }
         }
     }

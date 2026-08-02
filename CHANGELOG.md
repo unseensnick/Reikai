@@ -146,7 +146,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- The manga and novel bulk add-to-library flows in browse and global search now share one selection and category engine, so the two can't drift apart.
+- The manga and novel add-to-library flows in browse and global search now share one bulk-selection engine, one default-category decision and one remove dialog, so the two can't drift apart.
 - The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
 - The manga and novel libraries now share one implementation of filtering, searching, sorting, grouping, list assembly, selection and every library dialog, and identify an entry by its content type rather than by the sign of its id, so a library change reaches both content types instead of being written twice.
 - Manga and novel categories now live in one shared table with a content-type column, read and written through one repository, so the parallel novel category stack is gone.

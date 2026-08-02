@@ -75,6 +75,7 @@ import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.EntryBulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
@@ -344,9 +345,9 @@ class NovelBrowseScreen(
                 onDismiss = screenModel::dismissDialog,
                 onConfirm = { screenModel.applyCategories(dialog.novelId, it) },
             )
-            is NovelBrowseDialog.RemoveNovel -> RemoveNovelDialog(
+            is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
                 title = dialog.item.name,
-                onDismiss = screenModel::dismissDialog,
+                onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.confirmRemove(dialog.item) },
             )
             null -> {}
@@ -497,26 +498,6 @@ private fun NovelBrowseBody(
             )
         }
     }
-}
-
-/** Confirm removing a favorited result from the library, the novel twin of `RemoveMangaDialog`.
- *  Shared with the novel global search, which reuses the same long-press remove flow. */
-@Composable
-internal fun RemoveNovelDialog(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.are_you_sure)) },
-        text = { Text(stringResource(MR.strings.remove_manga, title)) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirm()
-                    onDismiss()
-                },
-            ) { Text(stringResource(MR.strings.action_remove)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
-    )
 }
 
 /**

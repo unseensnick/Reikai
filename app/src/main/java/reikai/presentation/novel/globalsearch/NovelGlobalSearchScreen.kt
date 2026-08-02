@@ -64,12 +64,12 @@ import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.browse.NovelBulkFavoriteScreenModel
-import reikai.presentation.novel.browse.RemoveNovelDialog
 import reikai.presentation.novel.browse.SelectedNovel
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
@@ -189,9 +189,9 @@ class NovelGlobalSearchScreen(
                 onDismiss = screenModel::dismissDialog,
                 onConfirm = { screenModel.applyCategories(dialog.novelId, it) },
             )
-            is NovelBrowseDialog.RemoveNovel -> RemoveNovelDialog(
+            is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
                 title = dialog.item.name,
-                onDismiss = screenModel::dismissDialog,
+                onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.confirmRemove(dialog.item, dialog.sourceId) },
             )
             null -> {}

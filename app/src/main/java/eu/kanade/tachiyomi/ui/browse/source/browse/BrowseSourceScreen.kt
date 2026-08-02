@@ -40,7 +40,6 @@ import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.browse.MissingSourceScreen
 import eu.kanade.presentation.browse.components.BrowseSourceToolbar
-import eu.kanade.presentation.browse.components.RemoveMangaDialog
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.AssistContentScreen
@@ -62,6 +61,7 @@ import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryRemoveDialog
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.model.StubSource
@@ -356,13 +356,15 @@ data class BrowseSourceScreen(
                 )
             }
             is BrowseSourceScreenModel.Dialog.RemoveManga -> {
-                RemoveMangaDialog(
+                // RK --> the shared manga/novel remove dialog replaces Mihon's RemoveMangaDialog
+                EntryRemoveDialog(
+                    title = dialog.manga.title,
                     onDismissRequest = onDismissRequest,
                     onConfirm = {
                         screenModel.changeMangaFavorite(dialog.manga)
                     },
-                    mangaToRemove = dialog.manga,
                 )
+                // RK <--
             }
             is BrowseSourceScreenModel.Dialog.ChangeMangaCategory -> {
                 ChangeCategoryDialog(

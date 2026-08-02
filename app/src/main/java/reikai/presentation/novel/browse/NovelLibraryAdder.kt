@@ -1,6 +1,7 @@
 package reikai.presentation.novel.browse
 
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -158,21 +159,13 @@ class NovelLibraryAdder(
      */
     suspend fun applyDefaultCategoryOrPrompt(novelId: Long): CategoryPrompt? {
         val categories = getNovelCategories.await().filter { it.id > 0L }
-        val defaultId = novelPreferences.defaultNovelCategory().get()
-        val target = categories.find { it.id == defaultId.toLong() }
-        return when {
-            target != null -> {
-                setNovelCategories.await(novelId, listOf(target.id))
-                null
-            }
-            defaultId == 0 || categories.isEmpty() -> {
-                setNovelCategories.await(novelId, emptyList())
-                null
-            }
-            else -> {
-                val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }.toSet()
-                CategoryPrompt(categories, current)
-            }
+        val directIds = resolveDefaultCategoryIds(categories, novelPreferences.defaultNovelCategory().get())
+        return if (directIds != null) {
+            setNovelCategories.await(novelId, directIds)
+            null
+        } else {
+            val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }.toSet()
+            CategoryPrompt(categories, current)
         }
     }
 

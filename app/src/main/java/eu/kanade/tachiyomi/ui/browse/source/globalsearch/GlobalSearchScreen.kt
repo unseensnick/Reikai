@@ -16,7 +16,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.GlobalSearchScreen
-import eu.kanade.presentation.browse.components.RemoveMangaDialog
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.Screen
@@ -26,6 +25,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
+import reikai.presentation.browse.components.EntryRemoveDialog
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -162,10 +162,10 @@ class GlobalSearchScreen(
                 )
             }
             is SearchScreenModel.Dialog.RemoveManga -> {
-                RemoveMangaDialog(
+                EntryRemoveDialog(
+                    title = dialog.manga.title,
                     onDismissRequest = onDismissRequest,
                     onConfirm = { screenModel.changeMangaFavorite(dialog.manga) },
-                    mangaToRemove = dialog.manga,
                 )
             }
             is SearchScreenModel.Dialog.ChangeMangaCategory -> {

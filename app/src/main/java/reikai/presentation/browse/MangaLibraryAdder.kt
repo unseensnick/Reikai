@@ -5,6 +5,7 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
+import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.manga.MangaMergeManager
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -120,24 +121,15 @@ class MangaLibraryAdder(
      */
     private suspend fun applyDefaultCategoryOrPrompt(manga: Manga): AddFavoriteResult {
         val categories = getUserCategories()
-        val defaultCategoryId = libraryPreferences.defaultCategory.get()
-        val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }
-
-        return when {
-            defaultCategory != null -> {
-                moveToCategories(manga, listOf(defaultCategory.id))
-                AddFavoriteResult.Added
-            }
-            defaultCategoryId == 0 || categories.isEmpty() -> {
-                moveToCategories(manga, emptyList())
-                AddFavoriteResult.Added
-            }
-            else -> {
-                val preselectedIds = getCategories.await(manga.id).map { it.id }
-                AddFavoriteResult.NeedsCategoryChoice(
-                    categories.mapAsCheckboxState { it.id in preselectedIds },
-                )
-            }
+        val directIds = resolveDefaultCategoryIds(categories, libraryPreferences.defaultCategory.get())
+        return if (directIds != null) {
+            moveToCategories(manga, directIds)
+            AddFavoriteResult.Added
+        } else {
+            val preselectedIds = getCategories.await(manga.id).map { it.id }
+            AddFavoriteResult.NeedsCategoryChoice(
+                categories.mapAsCheckboxState { it.id in preselectedIds },
+            )
         }
     }
 
