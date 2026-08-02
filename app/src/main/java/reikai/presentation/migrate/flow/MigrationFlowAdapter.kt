@@ -2,6 +2,7 @@ package reikai.presentation.migrate.flow
 
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.presentation.migrate.PickMember
 
 /**
  * Content-type-neutral data flags for the migration confirm dialog. Both per-type enums carry the
@@ -81,6 +82,10 @@ interface MigrationFlowAdapter {
 
     /** Pinned source keys, the config screen's selection default when nothing is saved yet. */
     fun pinnedKeys(): Set<String>
+
+    /** Every entry in [ids] expanded to its full merge group, deduped in encounter order. The pick
+     *  screen skips itself when the members are exactly the input set (nothing merged). */
+    suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>
 
     fun readTuning(): MigrationTuning
 

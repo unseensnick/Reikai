@@ -12,7 +12,9 @@ import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.feature.migration.list.search.SmartSourceSearchEngine
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -29,6 +31,7 @@ class MangaMigrationFlowAdapter(
     private val coverCache: CoverCache,
     private val downloadManager: DownloadManager,
     private val migrateManga: MigrateMangaUseCase,
+    private val mergeManager: MangaMergeManager,
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.MANGA
@@ -64,6 +67,27 @@ class MangaMigrationFlowAdapter(
     }
 
     override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedSources.get()
+
+    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> {
+        val memberIds = LinkedHashSet<Long>()
+        ids.forEach { id ->
+            val manga = getManga.await(id) ?: return@forEach
+            mergeManager.computeRelatedIds(manga.id).forEach { memberIds += it }
+        }
+        return memberIds.mapNotNull { id ->
+            getManga.await(id)?.let { manga ->
+                PickMember(
+                    id = manga.id,
+                    title = manga.title,
+                    coverData = manga,
+                    subtitle = listOfNotNull(
+                        sourceManager.get(manga.source)?.name,
+                        "${getChaptersByMangaId.await(manga.id).size} ch",
+                    ).joinToString(" · "),
+                )
+            }
+        }
+    }
 
     override fun readTuning(): MigrationTuning = MigrationTuning(
         deepSearch = sourcePreferences.migrationDeepSearchMode.get(),

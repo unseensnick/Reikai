@@ -7,6 +7,7 @@ import reikai.data.novel.toNovel
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.MigrateNovelUseCase
@@ -18,6 +19,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.migrate.PickMember
 import tachiyomi.data.Database
 
 /** The adapter-owned candidate handle: the raw search hit, plus the materialised row once
@@ -40,6 +42,7 @@ class NovelMigrationFlowAdapter(
     private val coverCache: CoverCache,
     private val downloadManager: NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
+    private val mergeManager: NovelMergeManager,
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.NOVELS
@@ -65,6 +68,32 @@ class NovelMigrationFlowAdapter(
     }
 
     override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedNovelSources.get()
+
+    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> {
+        val memberIds = LinkedHashSet<Long>()
+        ids.forEach { id ->
+            val novel = novelRepository.getById(id) ?: return@forEach
+            mergeManager.computeRelatedIds(novel.id).forEach { memberIds += it }
+        }
+        return memberIds.mapNotNull { id ->
+            novelRepository.getById(id)?.let { novel ->
+                val source = sourceManager.get(novel.source)
+                PickMember(
+                    id = novel.id,
+                    title = novel.title,
+                    coverData = NovelCover(
+                        url = novel.thumbnailUrl,
+                        site = source?.site,
+                        isNovelFavorite = false,
+                        lastModified = novel.coverLastModified,
+                        novelId = novel.id,
+                    ),
+                    subtitle = listOfNotNull(source?.name, "${chapterRepository.getByNovelId(novel.id).size} ch")
+                        .joinToString(" · "),
+                )
+            }
+        }
+    }
 
     override fun readTuning(): MigrationTuning = MigrationTuning(
         hideUnmatched = novelPreferences.novelMigrationHideUnmatched().get(),
