@@ -57,8 +57,9 @@ import tachiyomi.source.local.isLocal
  * Reikai wrapper for the Browse "Sources" tab: the sticky content-type chip over Mihon's
  * manga sources list and a net-new installed-novel-sources list. Manga reuses [SourcesScreen]
  * verbatim, Novels shows the LN list, All interleaves both under type headers. No badge, no install
- * affordance (those live on the Extensions tab). Swapped in for Mihon's `sourcesTab()` at the
- * [eu.kanade.tachiyomi.ui.browse.BrowseTab] call site via a `// RK` island.
+ * affordance (those live on the Extensions tab). Replaces Mihon's `sourcesTab()` at the
+ * [eu.kanade.tachiyomi.ui.browse.BrowseTab] call site via a `// RK` island; the replaced builder
+ * is deleted (see the off-path manifest).
  */
 @Composable
 fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabContent {

@@ -56,9 +56,10 @@ import tachiyomi.presentation.core.util.plus
 /**
  * Reikai wrapper for the Browse "Migration" tab: the sticky content-type chip over Mihon's manga
  * migrate-source list (reused verbatim) and a net-new novel migrate-source list. Manga and Novels
- * each show their sources with a favorite count; All interleaves both under type headers. Swapped in
- * for Mihon's `migrateSourceTab()` at the [eu.kanade.tachiyomi.ui.browse.BrowseTab] call site via a
- * `// RK` island. Mirrors [reikai.presentation.browse.source.reikaiSourcesTab].
+ * each show their sources with a favorite count; All interleaves both under type headers. Replaces
+ * Mihon's `migrateSourceTab()` at the [eu.kanade.tachiyomi.ui.browse.BrowseTab] call site via a
+ * `// RK` island; the replaced builder is deleted (see the off-path manifest). Mirrors
+ * [reikai.presentation.browse.source.reikaiSourcesTab].
  */
 @Composable
 fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): TabContent {
