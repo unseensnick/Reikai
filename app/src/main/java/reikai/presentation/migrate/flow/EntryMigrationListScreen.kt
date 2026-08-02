@@ -57,15 +57,10 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntryBrowseGridCell
-import reikai.presentation.browse.EntryBrowseItemUi
-import reikai.presentation.browse.toEntryBrowseUi
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -582,18 +577,4 @@ internal fun MigrationDataFlag.titleRes() = when (this) {
     MigrationDataFlag.CUSTOM_COVER -> MR.strings.custom_cover
     MigrationDataFlag.NOTES -> MR.strings.action_notes
     MigrationDataFlag.REMOVE_DOWNLOAD -> MR.strings.migrationConfigScreen_removeDownloadsTitle
-}
-
-/** Per-type mapping into the shared browse cell; the one place the flow UI branches on a handle. */
-private fun MigrationCandidate.toBrowseUi(): EntryBrowseItemUi = when (val h = handle) {
-    is Manga -> h.toEntryBrowseUi()
-    is NovelCandidateHandle -> h.item.toEntryBrowseUi(inLibrary = false, site = h.site)
-    else -> error("unknown migration candidate handle")
-}
-
-private fun MigrationCandidate.openDetails(navigator: cafe.adriel.voyager.navigator.Navigator) {
-    when (val h = handle) {
-        is Manga -> navigator.push(MangaScreen(h.id))
-        is NovelCandidateHandle -> navigator.push(NovelScreen(sourceKey, h.item.path))
-    }
 }

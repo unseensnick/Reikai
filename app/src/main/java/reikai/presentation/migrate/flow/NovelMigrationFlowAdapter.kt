@@ -121,6 +121,7 @@ class NovelMigrationFlowAdapter(
 
     override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null
+        if (handle.resolved != null) return candidate
         val source = sourceManager.get(candidate.sourceKey) ?: return null
         val sourceNovel = source.parseNovel(handle.item.path)
         novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = source.id, favorite = false)) ?: return null

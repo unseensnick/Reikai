@@ -1309,6 +1309,7 @@
     <string name="migrationFlow.skippedNote">Skipped entries stay untouched.</string>
     <string name="migrationFlow.tracksNote">Tracking always carries over.</string>
     <string name="migrationFlow.rowFailed">Migration failed</string>
+    <string name="migrationFlow.showTarget">Show</string>
     <string name="migrationFlow.searchOptionsTitle">Search options</string>
     <string name="migrationFlow.smartMatchUnavailableNote">Smart-match options aren\'t available for novel sources.</string>
     <!-- RK end -->
