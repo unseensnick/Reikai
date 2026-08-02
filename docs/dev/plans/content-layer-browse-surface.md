@@ -48,9 +48,13 @@ Five steps, each independently shippable and device-verified before the next.
   manual pager (the scroll trigger only re-arms when the visible list changes), so `loadMore` loops
   to the next page until something visible lands or the catalog ends, and a fully-hidden first page
   hands off to that loop.
-- **Step 4, enabled-languages for novel sources.** A novel enabled-languages preference filtering
-  the source list and global search, mirroring manga's, seeded all-on so nothing disappears on
-  update. Grounded: the LNReader registry's `lang` field is first-class (a fixed 16-language list).
+- **Step 4, per-language switch for novel sources (shipped `09cb80e27`).** Each language heading in
+  the novel sources filter is a switch, mirroring manga's; a disabled language hides its sources
+  from the Sources list and global search. Stored as a deny-list (`disabledNovelLanguages`),
+  deliberately inverted from manga's enabled-set: novel languages arrive with whatever plugins the
+  user installs, so a deny-list keeps every language on by default and a newly appearing language
+  visible without a migration. Grounded: the LNReader registry's `lang` field is first-class (a
+  fixed 16-language list).
 - **Step 5, delete-and-manifest the dead tab builders.** Mihon's `sourcesTab()` and
   `migrateSourceTab()` have no callers (the Reikai chip tabs replaced them; `extensionsTab()` stays,
   it is wrapped live by `ReikaiExtensionsTab`).
@@ -71,7 +75,8 @@ Five steps, each independently shippable and device-verified before the next.
 In progress on `feat/0.4.0`. Step 1 shipped (`1392f58c9`, Fold-verified both types: select, invert,
 category prompt, add, remove). Step 2 shipped (`66dd5d007`, Fold-verified: the add-then-remove
 round trip on both content types). Step 3 shipped (`cadf22edb`, Fold-verified: entry hidden with
-the setting on, restored off). Steps 4 and 5 ahead.
+the setting on, restored off). Step 4 shipped (`09cb80e27`, Fold-verified: language off empties the
+novel Sources list, back on restores it). Step 5 ahead.
 
 ## Decisions & tradeoffs
 
