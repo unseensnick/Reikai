@@ -5,6 +5,7 @@ import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.preference.asState
+import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
@@ -41,9 +42,21 @@ class NovelBrowseScreenModel(
     private val novelRepository: NovelRepository by injectLazy()
     private val libraryAdder: NovelLibraryAdder by injectLazy()
     private val reikaiSourcePreferences: ReikaiSourcePreferences by injectLazy()
+    private val sourcePreferences: SourcePreferences by injectLazy()
 
     /** Compose-observable display mode (comfortable / compact / list), persisted via [ReikaiSourcePreferences]. */
     var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(screenModelScope)
+
+    // Same preference and same load-time snapshot as manga browse (BrowseSourceScreenModel).
+    private val hideInLibraryItems = sourcePreferences.hideInLibraryItems.get()
+
+    /** Drop already-favorited results when Hide-entries-already-in-library is on, against the live
+     *  favorited-key set (the same check the in-library badge uses). */
+    private fun List<NovelItem>.dropInLibrary(): List<NovelItem> {
+        if (!hideInLibraryItems) return this
+        val keys = state.value.favoritedKeys
+        return filterNot { (sourceId to it.path) in keys }
+    }
 
     init {
         // In-library marking: favorited (source, url) keys so results already saved are dimmed +
@@ -93,8 +106,9 @@ class NovelBrowseScreenModel(
                 val novels = source.searchNovels(query, 1)
                 val more = hasMore(novels, 1) { p -> source.searchNovels(query, p) }
                 mutableState.update {
-                    it.copy(loading = false, novels = novels, page = 1, endReached = !more)
+                    it.copy(loading = false, novels = novels.dropInLibrary(), page = 1, endReached = !more)
                 }
+                continuePastHiddenFirstPage()
             }
         }
     }
@@ -218,7 +232,6 @@ class NovelBrowseScreenModel(
         val source = state.value.source ?: return
         val current = state.value
         if (current.loading || current.loadingMore || current.endReached) return
-        val next = current.page + 1
         mutableState.update { it.copy(loadingMore = true) }
         screenModelScope.launchIO {
             try {
@@ -229,27 +242,38 @@ class NovelBrowseScreenModel(
                 } else {
                     { p -> source.searchNovels(current.query, p) }
                 }
-                // Reuse the eager probe fetched for this page, if still fresh, instead of re-fetching.
-                val cached = probe
-                    ?.takeIf { it.page == next && System.currentTimeMillis() - it.at < PROBE_TTL_MS }
-                    ?.novels
-                val more = cached ?: fetchPage(next)
-                if (more.isEmpty()) {
-                    probe = null
-                    mutableState.update { it.copy(loadingMore = false, endReached = true) }
-                } else {
+                // Loop: a page that hide-in-library filters down to nothing must not stall paging (the
+                // scroll trigger only re-arms when the visible list changes), so keep fetching until
+                // something visible lands or the catalog ends. One pass when nothing is hidden.
+                var next = current.page + 1
+                while (true) {
+                    // Reuse the eager probe fetched for this page, if still fresh, instead of re-fetching.
+                    val cached = probe
+                        ?.takeIf { it.page == next && System.currentTimeMillis() - it.at < PROBE_TTL_MS }
+                        ?.novels
+                    val more = cached ?: fetchPage(next)
+                    if (more.isEmpty()) {
+                        probe = null
+                        mutableState.update { it.copy(loadingMore = false, endReached = true) }
+                        break
+                    }
                     val end = !hasMore(more, next, fetchPage)
+                    var appended = false
                     mutableState.update {
                         // Dedupe by path so a source repeating entries across a page boundary doesn't
                         // produce duplicate LazyGrid keys.
                         val seen = it.novels.mapTo(HashSet()) { n -> n.path }
+                        val fresh = more.filter { n -> seen.add(n.path) }.dropInLibrary()
+                        appended = fresh.isNotEmpty()
                         it.copy(
-                            loadingMore = false,
-                            novels = it.novels + more.filter { n -> seen.add(n.path) },
+                            loadingMore = !(appended || end),
+                            novels = it.novels + fresh,
                             page = next,
                             endReached = end,
                         )
                     }
+                    if (appended || end) break
+                    next++
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -269,10 +293,18 @@ class NovelBrowseScreenModel(
                 val novels = source.popularNovels(1, opts)
                 val more = hasMore(novels, 1) { p -> source.popularNovels(p, opts) }
                 mutableState.update {
-                    it.copy(loading = false, novels = novels, page = 1, endReached = !more)
+                    it.copy(loading = false, novels = novels.dropInLibrary(), page = 1, endReached = !more)
                 }
+                continuePastHiddenFirstPage()
             }
         }
+    }
+
+    /** A first page that hide-in-library filtered down to nothing leaves the grid empty with more
+     *  pages available, and the scroll trigger never fires on an empty grid; hand off to [loadMore],
+     *  whose loop keeps paging until something visible lands or the catalog ends. */
+    private fun continuePastHiddenFirstPage() {
+        if (state.value.novels.isEmpty() && !state.value.endReached) loadMore()
     }
 
     private inline fun runFetch(error: (Throwable) -> Unit, block: () -> Unit) {
