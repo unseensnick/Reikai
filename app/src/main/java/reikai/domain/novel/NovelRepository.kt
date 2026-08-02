@@ -24,6 +24,20 @@ interface NovelRepository {
     suspend fun getReadNovelsNotInLibrary(): List<Novel>
 
     /**
+     * Reactive (source id, non-favorite row count) pairs for the Clear database screen's novel
+     * section. Twin of `SourceRepository.getSourcesWithNonLibraryManga`, minus the source-manager
+     * mapping (novel source ids are Strings; callers resolve display data themselves).
+     */
+    fun getSourcesWithNonLibraryNovelAsFlow(): Flow<List<Pair<String, Long>>>
+
+    /**
+     * Delete non-favorite novels of [sources]; with [keepReadNovels] true, rows with progress (a
+     * read chapter or a mid-chapter position) survive. Chapters and other child rows go via FK
+     * cascade. Twin of `MangaRepository`'s clear-database delete.
+     */
+    suspend fun deleteNonLibraryNovels(sources: List<String>, keepReadNovels: Boolean)
+
+    /**
      * Favorited novels whose title contains [title] (case-insensitive), excluding novel [id], each
      * with its chapter count. Backs the browse "possible duplicates" dialog. Runs DB-side over the
      * favorite partial index (mirrors the manga duplicate check) so it scales to large libraries.

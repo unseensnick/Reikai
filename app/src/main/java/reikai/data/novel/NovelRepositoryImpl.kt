@@ -35,6 +35,14 @@ class NovelRepositoryImpl(
     override suspend fun getReadNovelsNotInLibrary(): List<Novel> =
         database.novelsQueries.getReadNovelsNotInLibrary(::mapNovel).awaitAsList()
 
+    override fun getSourcesWithNonLibraryNovelAsFlow(): Flow<List<Pair<String, Long>>> =
+        database.novelsQueries.getSourcesWithNonLibraryNovel { source, count -> source to count }
+            .subscribeToList()
+
+    override suspend fun deleteNonLibraryNovels(sources: List<String>, keepReadNovels: Boolean) {
+        database.novelsQueries.deleteNonLibraryNovel(sources, if (keepReadNovels) 1L else 0L)
+    }
+
     override suspend fun getDuplicateLibraryNovel(id: Long, title: String): List<NovelWithChapterCount> =
         database.novelsQueries.getDuplicateLibraryNovel(id, title, ::mapNovelWithChapterCount).awaitAsList()
 
