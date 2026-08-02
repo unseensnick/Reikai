@@ -5,18 +5,18 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.EntryBulkFavoriteScreenModel
-import tachiyomi.domain.manga.model.Manga
 
 /**
- * Renders the dialogs owned by [BulkFavoriteScreenModel]. Shared by every manga browse surface that
- * hosts bulk selection (per-source Browse, global search, the MangaDex follows screen).
+ * Renders the dialogs owned by [EntryBulkFavoriteScreenModel], shared by every browse surface that
+ * hosts bulk selection on either content type (per-source Browse, global search, the MangaDex
+ * follows screen, and the novel twins of the first two). Generic over the facade's selection item,
+ * so a dialog change here reaches manga and novels alike.
  */
 @Composable
-fun BulkFavoriteDialogs(
-    bulkFavoriteScreenModel: BulkFavoriteScreenModel,
-    dialog: EntryBulkFavoriteScreenModel.Dialog<Manga>?,
+fun <T : Any> BulkFavoriteDialogs(
+    bulkFavoriteScreenModel: EntryBulkFavoriteScreenModel<T>,
+    dialog: EntryBulkFavoriteScreenModel.Dialog<T>?,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     when (dialog) {

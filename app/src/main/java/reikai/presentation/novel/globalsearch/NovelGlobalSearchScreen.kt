@@ -60,10 +60,10 @@ import reikai.domain.library.ContentType
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntryBrowseGridCell
-import reikai.presentation.browse.EntryBulkFavoriteScreenModel
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.EntrySearchSourceFilterChips
+import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
@@ -200,14 +200,7 @@ class NovelGlobalSearchScreen(
         EntryMigrateHost(migrateController)
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
-        when (val bulkDialog = bulkState.dialog) {
-            is EntryBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
-                dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.initialSelection.map { it.value }, emptySet()),
-                onDismiss = { bulkModel.setDialog(null) },
-                onConfirm = { bulkModel.setCategories(bulkDialog.items, it) },
-            )
-            null -> {}
-        }
+        BulkFavoriteDialogs(bulkModel, bulkState.dialog)
     }
 }
 

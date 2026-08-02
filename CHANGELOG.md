@@ -45,6 +45,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Migrating now runs in one redesigned flow for manga and novels alike.** Compact match rows with inline overrides, pre-search options, safer exits, and clear progress with per-entry retry.
 - **The migration confirm step now asks what to carry over on every route.** Chapters, categories, cover, notes and downloads are picked at the final confirm instead of silently following an earlier setting.
+- **Adding several novels at once now uses the same category picker as manga.** One dialog for both types, including its shortcut to edit categories.
 - **Novel sources no longer wait in line behind each other.** Each source now runs in its own engine, so a slow site can't stall global search, browsing or updates for the rest, and idle sources free their memory after a minute.
 - **Edit categories now shows one list instead of separate Manga and Novels tabs.** Each row says which libraries it applies to, and one drag order covers them all.
 - **The library filter, sort and group menus are now identical for manga and novels.** They were drifting apart in wording and order; an option added to one now shows up in both.
