@@ -114,6 +114,9 @@ class MigrateNovelUseCase(
                 // instantly undone by re-downloading the same chapters onto the target.
                 if (NovelMigrationFlag.REMOVE_DOWNLOAD !in flags) {
                     chaptersToRedownload(currentChapters, targetChapters, currentDownloadedIds)
+                        // The queue has no enqueue-time disk check, so an unfiltered call would
+                        // re-download chapters the target already has on disk.
+                        .filterNot { novelDownloadManager.isChapterDownloaded(target, it) }
                         .takeIf { it.isNotEmpty() }
                         ?.let { novelDownloadManager.downloadChapters(it) }
                 }
@@ -217,8 +220,8 @@ internal fun computeChapterMigration(
 
 /**
  * The target chapters to re-queue for download: those whose chapter number matches a chapter that was
- * downloaded on the old source. Unrecognized numbers (< 0) are skipped. The download manager itself
- * skips any the target already has, so this is safe to call with the full matched set.
+ * downloaded on the old source. Unrecognized numbers (< 0) are skipped. The queue does NOT skip
+ * already-downloaded chapters, so the caller filters against the target's disk state before enqueueing.
  */
 internal fun chaptersToRedownload(
     currentChapters: List<NovelChapter>,

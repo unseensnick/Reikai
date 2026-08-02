@@ -176,8 +176,10 @@ class EntryMigrationListScreen(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
                                     icon = Icons.Outlined.Tune,
                                     onClick = { showTuningSheet = true },
-                                    // Applying tuning resets rows a running commit is reading.
-                                    enabled = !state.isMigrating && !state.hasActiveSingleCommit,
+                                    // Matches applyTuning's own gate exactly, so the sheet can't
+                                    // open into a guaranteed busy-toast.
+                                    enabled = !state.isMigrating && !state.hasActiveSingleCommit &&
+                                        !state.hasActiveResolve,
                                 ),
                             ),
                         )
@@ -234,7 +236,11 @@ class EntryMigrationListScreen(
                 contentPadding = contentPadding,
             ) {
                 items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
-                    MigrationRow(row = row, screenModel = screenModel)
+                    MigrationRow(
+                        row = row,
+                        screenModel = screenModel,
+                        commitBusy = state.isMigrating || state.hasActiveSingleCommit,
+                    )
                     HorizontalDivider()
                 }
             }
@@ -269,10 +275,13 @@ class EntryMigrationListScreen(
                 supportsChapterComparison = state.supportsChapterComparison,
                 onDismissRequest = { showTuningSheet = false },
                 onApply = {
-                    showTuningSheet = false
-                    // The sheet can be open when a per-row commit starts; a silent no-op would
-                    // read as the options having applied.
-                    if (!screenModel.applyTuning(it)) context.toast(MR.strings.migrationFlow_busyToast)
+                    // The sheet can be open when a per-row commit starts; keep it (and the user's
+                    // edits) open on the busy path instead of silently discarding them.
+                    if (screenModel.applyTuning(it)) {
+                        showTuningSheet = false
+                    } else {
+                        context.toast(MR.strings.migrationFlow_busyToast)
+                    }
                 },
             )
         }
@@ -305,6 +314,7 @@ class EntryMigrationListScreen(
 private fun MigrationRow(
     row: EntryMigrationListScreenModel.Row,
     screenModel: EntryMigrationListScreenModel,
+    commitBusy: Boolean,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val id = row.entry.id
@@ -342,7 +352,7 @@ private fun MigrationRow(
                 RowMetaLine(row)
                 RowCountLine(row)
             }
-            RowTrailing(row = row, screenModel = screenModel)
+            RowTrailing(row = row, screenModel = screenModel, commitBusy = commitBusy)
         }
         if (row.expanded) {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -355,21 +365,25 @@ private fun MigrationRow(
 /** "CurrentSource -> TargetSource" (or the choose-a-target hint / skipped chip / failure line). */
 @Composable
 private fun RowMetaLine(row: EntryMigrationListScreenModel.Row) {
+    val searchFailedShown = row.searchFailed && row.chosen == null && !row.skipped && !row.migratedOk
     val target = when {
         row.failed -> stringResource(MR.strings.migrationFlow_rowFailed)
-        row.searchFailed && row.chosen == null -> stringResource(MR.strings.migrationFlow_searchFailed)
+        row.migratedOk -> stringResource(MR.strings.migrationFlow_migratedChip)
+        // Skip outranks a failed search: the escape hatch must visibly confirm itself.
         row.skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
+        searchFailedShown -> stringResource(MR.strings.migrationFlow_searchFailed)
         row.chosen != null -> row.chosenSourceName
         row.suggested != null -> row.suggestedSourceName
+        row.searching -> stringResource(MR.strings.loading)
         else -> stringResource(MR.strings.migrationFlow_chooseTarget)
     }
     Text(
         text = listOfNotNull(row.entry.sourceName, target).joinToString(" → "),
         style = MaterialTheme.typography.bodySmall,
-        color = if (row.failed || (row.searchFailed && row.chosen == null)) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+        color = when {
+            row.failed || searchFailedShown -> MaterialTheme.colorScheme.error
+            row.migratedOk -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -401,6 +415,7 @@ private fun RowCountLine(row: EntryMigrationListScreenModel.Row) {
 private fun RowTrailing(
     row: EntryMigrationListScreenModel.Row,
     screenModel: EntryMigrationListScreenModel,
+    commitBusy: Boolean,
 ) {
     val id = row.entry.id
     var menuExpanded by remember { mutableStateOf(false) }
@@ -411,8 +426,21 @@ private fun RowTrailing(
         ) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp))
         }
-        row.failed -> TextButton(onClick = { screenModel.retryRow(id) }) {
+        row.failed -> TextButton(
+            onClick = { screenModel.retryRow(id) },
+            // Single commits serialize; a tap during another one would silently no-op.
+            enabled = !commitBusy,
+        ) {
             Text(text = stringResource(MR.strings.action_retry))
+        }
+        // Migrated: a quiet done mark, not a button; the target is history, un-accepting it would
+        // strand the row.
+        row.migratedOk -> Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = stringResource(MR.strings.migrationFlow_migratedChip),
+                tint = MaterialTheme.colorScheme.primary,
+            )
         }
         else -> Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             if (!row.skipped && (row.suggested != null || row.chosen != null)) {
@@ -450,16 +478,23 @@ private fun RowTrailing(
             )
         }
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
-                text = {
-                    Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
-                },
-                onClick = {
-                    menuExpanded = false
-                    if (!row.expanded) screenModel.toggleExpanded(id)
-                },
-            )
-            if (!row.skipped && !row.migratedOk && !row.searching && !row.resolving &&
+            if (!row.migratedOk) {
+                DropdownMenuItem(
+                    text = {
+                        Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        if (!row.expanded) {
+                            screenModel.toggleExpanded(id)
+                        } else {
+                            // Already expanded: re-run instead of a silent no-op.
+                            screenModel.research(id, row.entry.title)
+                        }
+                    },
+                )
+            }
+            if (!row.skipped && !row.migratedOk && !row.searching && !row.resolving && !commitBusy &&
                 (row.chosen ?: row.suggested) != null
             ) {
                 DropdownMenuItem(
