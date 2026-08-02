@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reikai: unified migration flow mockup (step-2 design note)</title>
+<style>
+  body{margin:0;padding:24px;background:#e8ebec;font-family:system-ui,sans-serif;color:#1c2226}
+  @media (prefers-color-scheme: dark){body{background:#0c0f11;color:#e2e8ea}}
+  .nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;max-width:680px;margin:0 auto 14px}
+  .nav button{font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid #9aa6ab;background:transparent;color:inherit;cursor:pointer}
+  .nav button.active{background:#c6cdd0;border-color:#5c6a72}
+  @media (prefers-color-scheme: dark){.nav button.active{background:#232c33}}
+  .nav select{font-size:13px;padding:4px}
+  .stage{display:flex;justify-content:center}
+  .phone{width:376px;height:720px;background:#12161a;border-radius:24px;border:1px solid #2c3640;overflow:hidden;position:relative;color:#e2e8ea;font-family:system-ui,sans-serif}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .scr{position:absolute;inset:0;display:none;flex-direction:column}
+  .tgl{width:36px;height:20px;border-radius:10px;background:#2c3640;display:inline-block;position:relative;flex:none}
+  .tgl:after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:7px;background:#93a1a8}
+  .tgl.on{background:#45c4b8}.tgl.on:after{left:19px;background:#06302b}
+  .flag{display:flex;align-items:center;gap:10px;font-size:14px;padding:7px 0;color:#e2e8ea}
+  .cb{width:17px;height:17px;border-radius:5px;border:1.5px solid #5c6a72;display:inline-block;flex:none}
+  .cb.on{background:#45c4b8;border-color:#45c4b8}
+  .row{display:flex;align-items:center;gap:11px;padding:10px 2px}
+  .cov{width:38px;height:52px;border-radius:6px;flex:none}
+  .meta{font-size:12px;color:#93a1a8}
+  .srcrow{display:flex;align-items:center;gap:12px;padding:11px 12px}
+  .srcicon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex:none}
+  .accent-btn{background:#45c4b8;color:#06302b;border:none;border-radius:12px;font-weight:500;cursor:pointer}
+  .ghost-btn{background:transparent;border:1px solid #2c3640;color:#e2e8ea;border-radius:12px;cursor:pointer}
+  .caption{max-width:680px;margin:14px auto 0;font-size:13px;color:#5f6a70}
+  @media (prefers-color-scheme: dark){.caption{color:#93a1a8}}
+</style>
+</head>
+<body>
+<div class="nav">
+  <button data-nav="config">1 Config</button>
+  <button data-nav="sheet">2 Tuning sheet</button>
+  <button data-nav="list">3 List</button>
+  <button data-nav="confirm">4 Confirm</button>
+  <button data-nav="progress">5 Progress</button>
+  <span style="flex:1"></span>
+  <label style="font-size:13px">Content type
+    <select id="ctype"><option value="manga">Manga</option><option value="novel" selected>Novel</option></select>
+  </label>
+</div>
+<div class="stage">
+<div class="phone">
+
+  <div id="scr-config" class="scr">
+    <div style="display:flex;align-items:center;gap:14px;padding:16px 16px 10px">
+      <span style="font-size:19px;color:#93a1a8">&#8592;</span>
+      <span style="font-size:19px;font-weight:500;flex:1">Migrate</span>
+      <span style="font-size:16px;color:#93a1a8" title="Select all">&#9635;</span>
+      <span style="font-size:16px;color:#93a1a8" title="Select none">&#9634;</span>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:0 16px">
+      <div style="font-size:12px;font-weight:500;color:#93a1a8;letter-spacing:.4px;padding:10px 0 6px">Selected</div>
+      <div style="background:#191f24;border-radius:12px">
+        <div class="srcrow">
+          <div class="srcicon" style="background:#28454b;color:#9fe0d9">NF</div>
+          <div style="flex:1"><div style="font-size:14.5px">Novel Fire</div><div class="meta">English</div></div>
+          <span style="color:#5c6a72">&#10495;</span>
+        </div>
+        <div style="height:1px;background:#232c33;margin:0 12px"></div>
+        <div class="srcrow">
+          <div class="srcicon" style="background:#28454b;color:#9fe0d9">AO</div>
+          <div style="flex:1"><div style="font-size:14.5px">Archive Of Our Own</div><div class="meta">English</div></div>
+          <span style="color:#5c6a72">&#10495;</span>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:500;color:#93a1a8;letter-spacing:.4px;padding:14px 0 6px">Available</div>
+      <div class="srcrow"><div class="srcicon" style="background:#242e35;color:#93a1a8">GE</div><div style="flex:1"><div style="font-size:14.5px">Genesis</div><div class="meta">English</div></div></div>
+      <div class="srcrow"><div class="srcicon" style="background:#242e35;color:#93a1a8">NA</div><div style="flex:1"><div style="font-size:14.5px">Novel Arrow</div><div class="meta">English</div></div></div>
+      <div class="srcrow"><div class="srcicon" style="background:#242e35;color:#93a1a8">RR</div><div style="flex:1"><div style="font-size:14.5px">Royal Road</div><div class="meta">English</div></div></div>
+      <div style="font-size:12px;color:#5c6a72;padding:10px 12px 0">Disabled sources don't appear here.</div>
+    </div>
+    <div style="padding:14px 16px;display:flex;justify-content:flex-end">
+      <button data-nav="sheet" class="accent-btn" style="border-radius:14px;padding:12px 20px;font-size:14.5px">&#8594;&nbsp; Continue</button>
+    </div>
+  </div>
+
+  <div id="scr-sheet" class="scr" style="justify-content:flex-end;background:rgba(6,9,11,.55)">
+    <div style="background:#1c242a;border-radius:20px 20px 0 0;padding:18px 18px 16px">
+      <div style="font-size:16px;font-weight:500;margin-bottom:12px">Search options</div>
+      <label style="font-size:12px;color:#93a1a8">Extra search query</label>
+      <div style="background:#141a1e;border:1px solid #2c3640;border-radius:10px;padding:9px 12px;font-size:14px;color:#5c6a72;margin:4px 0 14px">light novel</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0"><span style="font-size:14.5px">Hide unmatched entries</span><span class="tgl on"></span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0"><span style="font-size:14.5px">Hide entries without new chapters</span><span class="tgl"></span></div>
+      <div id="gated" style="border-top:1px solid #2c3640;margin-top:8px;padding-top:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0"><span style="font-size:14.5px">Deep search</span><span class="tgl"></span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0"><span style="font-size:14.5px">Prioritize by chapter count</span><span class="tgl on"></span></div>
+      </div>
+      <div id="gatednote" style="display:none;font-size:12px;color:#5c6a72;padding:6px 0 2px">Smart-match options aren't available for novel sources.</div>
+      <button data-nav="list" class="accent-btn" style="width:100%;margin-top:12px;padding:12px;font-size:14.5px">Continue</button>
+    </div>
+  </div>
+
+  <div id="scr-list" class="scr">
+    <div style="display:flex;align-items:center;gap:14px;padding:16px 16px 10px">
+      <span style="font-size:19px;color:#93a1a8">&#8592;</span>
+      <span style="font-size:19px;font-weight:500;flex:1">Migrate</span>
+      <span class="mono" style="font-size:13px;color:#93a1a8">3 / 4</span>
+      <span style="font-size:16px;color:#93a1a8" title="Search options">&#9776;</span>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:0 14px">
+      <div class="row">
+        <div class="cov" style="background:#33424d"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Young Master's PoV</div>
+          <div class="meta">Novel Fire &#8594; Novel Arrow</div>
+          <div class="mono meta">466 &#8594; 462 <span style="color:#e8705f">-4</span></div>
+        </div>
+        <button id="accbtn" class="accent-btn" style="width:40px;height:40px;border-radius:20px;font-size:16px">&#10003;</button>
+        <span style="color:#5c6a72">&#8942;</span>
+      </div>
+
+      <div style="background:#191f24;border-radius:14px;padding:10px 12px;margin:4px 0">
+        <div style="display:flex;align-items:center;gap:11px">
+          <div class="cov" style="background:#4d3a33"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Transmigrated as a Ghost</div>
+            <div class="meta">Royal Road &#8594; choose a target</div>
+          </div>
+          <button class="ghost-btn" style="width:40px;height:40px;border-radius:20px;color:#93a1a8;font-size:16px">&#10003;</button>
+          <span style="color:#5c6a72">&#8963;</span>
+        </div>
+        <div style="display:flex;gap:12px;margin:12px 0 10px;justify-content:center">
+          <div style="text-align:center"><div style="width:76px;height:104px;border-radius:8px;background:#4d3a33"></div><div style="font-size:11px;color:#93a1a8;margin-top:4px">Current</div></div>
+          <span style="color:#5c6a72;align-self:center">&#8594;</span>
+          <div style="text-align:center"><div style="width:76px;height:104px;border-radius:8px;border:1px dashed #2c3640"></div><div style="font-size:11px;color:#5c6a72;margin-top:4px">Target</div></div>
+        </div>
+        <div style="background:#141a1e;border:1px solid #2c3640;border-radius:10px;padding:8px 12px;font-size:13px;color:#5c6a72">&#128269;&nbsp; Transmigrated as a Ghost</div>
+        <div style="font-size:11.5px;color:#93a1a8;margin:10px 0 4px">Novel Arrow</div>
+        <div style="display:flex;gap:8px">
+          <div><div style="width:56px;height:76px;border-radius:6px;background:#3a4d42"></div><div style="font-size:11px;width:56px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px">Ghost TL</div></div>
+          <div><div style="width:56px;height:76px;border-radius:6px;background:#4d4633"></div><div style="font-size:11px;width:56px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px">Ghost story</div></div>
+        </div>
+        <div style="font-size:13px;color:#45c4b8;margin-top:10px">&#8599;&nbsp; Browse a source instead</div>
+      </div>
+
+      <div class="row">
+        <div class="cov" style="background:#232c33"></div>
+        <div style="flex:1">
+          <div style="height:12px;width:70%;border-radius:6px;background:#232c33"></div>
+          <div style="height:10px;width:45%;border-radius:5px;background:#1d252b;margin-top:7px"></div>
+        </div>
+      </div>
+
+      <div class="row" style="opacity:.55">
+        <div class="cov" style="background:#33424d"></div>
+        <div style="flex:1">
+          <div style="font-size:14px">Joystick Joyride</div>
+          <div class="meta">No results. Search manually or skip.</div>
+        </div>
+        <span style="font-size:12px;color:#93a1a8;border:1px solid #2c3640;border-radius:10px;padding:5px 10px">Skipped</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:12px 16px;border-top:1px solid #232c33">
+      <button data-nav="confirm" data-verb="copy" class="ghost-btn" style="flex:1;padding:11px;font-size:14px">Copy <span class="mono">(2)</span></button>
+      <button data-nav="confirm" data-verb="migrate" class="accent-btn" style="flex:1;padding:11px;font-size:14px">Migrate <span class="mono">(2)</span></button>
+    </div>
+  </div>
+
+  <div id="scr-confirm" class="scr" style="align-items:center;justify-content:center;background:rgba(6,9,11,.55)">
+    <div style="background:#1c242a;border-radius:20px;padding:20px;width:300px">
+      <div id="ctitle" style="font-size:16px;font-weight:500">Migrate 2 entries</div>
+      <div style="font-size:12.5px;color:#93a1a8;margin:3px 0 12px"><span class="mono">1</span> skipped entry stays untouched.</div>
+      <div class="flag"><span class="cb on"></span>Chapters read and bookmarks</div>
+      <div class="flag"><span class="cb on"></span>Categories</div>
+      <div class="flag"><span class="cb"></span>Custom cover</div>
+      <div class="flag"><span class="cb on"></span>Notes</div>
+      <div class="flag"><span class="cb"></span>Delete downloaded chapters</div>
+      <div style="font-size:12px;color:#5c6a72;padding:4px 0 0">Tracking always carries over.</div>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+        <button data-nav="list" style="background:transparent;border:none;color:#93a1a8;font-size:14px;padding:9px 10px;cursor:pointer">Cancel</button>
+        <button id="cgo" data-nav="progress" class="accent-btn" style="border-radius:10px;padding:9px 16px;font-size:14px">Migrate</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="scr-progress" class="scr" style="align-items:center;justify-content:center;background:rgba(6,9,11,.55)">
+    <div style="background:#1c242a;border-radius:20px;padding:20px;width:280px">
+      <div id="ptitle" style="font-size:15px;font-weight:500;margin-bottom:14px">Migrating</div>
+      <div style="height:5px;border-radius:3px;background:#232c33;overflow:hidden"><div id="pbar" style="height:100%;width:50%;background:#45c4b8"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center">
+        <span id="pcount" class="mono" style="font-size:13px;color:#93a1a8">1 / 2</span>
+        <button data-nav="list" style="background:transparent;border:none;color:#93a1a8;font-size:14px;padding:6px 8px;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+<p class="caption">Interactive mockup for the step-2 design note in content-layer-migrate-surface.md. Click through: Continue opens the tuning sheet, then the list; the bottom bar picks the verb once (Copy or Migrate) and the confirm dialog carries the flags plus that single verb; Migrate/Copy there shows the quiet progress modal. The Content type selector shows the capability gating (the smart-match sheet options are manga-only; the confirm dialog's flag list is identical for both types, and tracking carries unconditionally). Placeholder blocks stand in for covers; final palette is contrast-checked at implementation.</p>
+<script>
+const scrs=["config","sheet","list","confirm","progress"];
+let verb="Migrate";
+function show(id){
+  scrs.forEach(s=>{document.getElementById("scr-"+s).style.display=s===id?"flex":"none";});
+  document.querySelectorAll(".nav button[data-nav]").forEach(b=>b.classList.toggle("active",b.dataset.nav===id));
+  if(id==="sheet"){document.getElementById("scr-config").style.display="flex";document.getElementById("scr-sheet").style.display="flex";}
+  if(id==="confirm"||id==="progress"){document.getElementById("scr-list").style.display="flex";document.getElementById("scr-"+id).style.display="flex";}
+}
+document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",e=>{
+  e.stopPropagation();
+  if(b.dataset.verb){verb=b.dataset.verb==="copy"?"Copy":"Migrate";}
+  if(b.dataset.nav==="confirm"){
+    document.getElementById("ctitle").textContent=verb+" 2 entries";
+    document.getElementById("cgo").textContent=verb;
+  }
+  if(b.dataset.nav==="progress"){
+    document.getElementById("ptitle").textContent=verb==="Copy"?"Copying":"Migrating";
+  }
+  show(b.dataset.nav);
+}));
+document.getElementById("ctype").addEventListener("change",e=>{
+  const novel=e.target.value==="novel";
+  document.getElementById("gated").style.display=novel?"none":"block";
+  document.getElementById("gatednote").style.display=novel?"block":"none";
+});
+document.getElementById("ctype").dispatchEvent(new Event("change"));
+let acc=true;
+document.getElementById("accbtn").addEventListener("click",function(){
+  acc=!acc;
+  this.style.background=acc?"#45c4b8":"transparent";
+  this.style.border=acc?"none":"1px solid #2c3640";
+  this.style.color=acc?"#06302b":"#93a1a8";
+});
+let p=1;
+setInterval(()=>{
+  if(document.getElementById("scr-progress").style.display!=="none"){
+    p=p>=2?1:2;
+    document.getElementById("pbar").style.width=(p*50)+"%";
+    document.getElementById("pcount").textContent=p+" / 2";
+  }
+},1200);
+show("config");
+</script>
+</body>
+</html>
