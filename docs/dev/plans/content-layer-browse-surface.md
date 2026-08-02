@@ -41,8 +41,13 @@ Five steps, each independently shippable and device-verified before the next.
   ceremony), the sealed-dialog-type collapse (needs a generic carrier for payloads that differ by
   construction), and extracting `seedCategoriesFromGroup` (~8 identical lines against a
   category-port interface).
-- **Step 3, hide-in-library for novel browse.** The novel pager filters fetched items against the
-  already-held favorited keys behind the same preference manga reads (`hideInLibraryItems`).
+- **Step 3, hide-in-library for novel browse (shipped `cadf22edb`).** The novel pager filters each
+  fetched page against the live favorited keys behind the same preference manga reads
+  (`hideInLibraryItems`), at the same load-time snapshot semantics. One mechanic manga gets from
+  Paging 3 for free is hand-built here: a page that filters down to nothing must not stall the
+  manual pager (the scroll trigger only re-arms when the visible list changes), so `loadMore` loops
+  to the next page until something visible lands or the catalog ends, and a fully-hidden first page
+  hands off to that loop.
 - **Step 4, enabled-languages for novel sources.** A novel enabled-languages preference filtering
   the source list and global search, mirroring manga's, seeded all-on so nothing disappears on
   update. Grounded: the LNReader registry's `lang` field is first-class (a fixed 16-language list).
@@ -65,7 +70,8 @@ Five steps, each independently shippable and device-verified before the next.
 
 In progress on `feat/0.4.0`. Step 1 shipped (`1392f58c9`, Fold-verified both types: select, invert,
 category prompt, add, remove). Step 2 shipped (`66dd5d007`, Fold-verified: the add-then-remove
-round trip on both content types). Steps 3 through 5 ahead.
+round trip on both content types). Step 3 shipped (`cadf22edb`, Fold-verified: entry hidden with
+the setting on, restored off). Steps 4 and 5 ahead.
 
 ## Decisions & tradeoffs
 
