@@ -19,8 +19,8 @@ import uy.kohesive.injekt.api.get
 /**
  * Lists the installed light-novel sources for the Browse → Sources tab (Novels chip). Loads the
  * persisted plugins once via [LnPluginInstaller.ensureLoaded], then follows [NovelSourceManager],
- * grouping by language like Mihon's manga sources list. Tapping a source is stubbed until per-source
- * novel browse lands.
+ * grouping by language like Mihon's manga sources list. Tapping a source opens its browse screen
+ * (wired in ReikaiSourcesTab).
  */
 class NovelSourcesScreenModel(
     manager: NovelSourceManager = Injekt.get(),
@@ -36,8 +36,11 @@ class NovelSourcesScreenModel(
                 manager.sources,
                 sourcePreferences.pinnedNovelSources.changes(),
                 sourcePreferences.disabledNovelSources.changes(),
+                sourcePreferences.disabledNovelLanguages.changes(),
                 novelPreferences.lastUsedNovelSource().changes(),
-            ) { sources, pinned, disabled, lastUsed -> sources.toUiModels(pinned, disabled, lastUsed) }
+            ) { sources, pinned, disabled, disabledLangs, lastUsed ->
+                sources.toUiModels(pinned, disabled, disabledLangs, lastUsed)
+            }
                 .collectLatest { items -> mutableState.update { it.copy(isLoading = false, items = items) } }
         }
     }
@@ -68,14 +71,15 @@ class NovelSourcesScreenModel(
     private fun List<NovelSource>.toUiModels(
         pinned: Set<String>,
         disabled: Set<String>,
+        disabledLangs: Set<String>,
         lastUsedId: String,
     ): List<NovelSourceUiModel> {
         // The last-used source leads in its own section, then pinned sources, then language groups
         // (mirrors the manga sources list). Each source shows in exactly one section: the last-used
         // one is pulled out of pinned/language, and a pinned source shows only under Pinned.
-        // Disabled sources are filtered out entirely (like manga); they are re-enabled from the
-        // Sources filter screen and stay excluded from global search (see GetEnabledNovelSources).
-        val enabled = filterNot { it.id in disabled }
+        // Disabled sources and languages are filtered out entirely (like manga); they are re-enabled
+        // from the Sources filter screen and stay excluded from global search (GetEnabledNovelSources).
+        val enabled = filterNot { it.id in disabled || it.lang in disabledLangs }
         val lastUsed = lastUsedId.takeIf { it.isNotBlank() }?.let { id -> enabled.firstOrNull { it.id == id } }
         val remaining = enabled.filter { it.id != lastUsed?.id }
         val pinnedSources = remaining.filter { it.id in pinned }.sortedBy { it.name.lowercase() }

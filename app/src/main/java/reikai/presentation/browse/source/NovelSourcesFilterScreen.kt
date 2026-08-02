@@ -12,6 +12,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.presentation.browse.components.BrowseSectionHeader
@@ -25,9 +26,9 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
  * Bulk enable/disable screen for light-novel sources, the novel twin of Mihon's manga sources filter.
- * Every installed source is listed under its language heading with a checkbox; unchecking one disables
- * it (hidden from the Sources tab and global search). Novels have no per-language enable model, so the
- * headings are plain section labels, not language toggles.
+ * Each language heading is a switch (disabling it hides every source of that language, like manga);
+ * under an enabled language every installed source is listed with a checkbox, and unchecking one
+ * disables just that source. Both hide from the Sources tab and global search.
  */
 class NovelSourcesFilterScreen : Screen() {
 
@@ -54,28 +55,35 @@ class NovelSourcesFilterScreen : Screen() {
                     } else {
                         FastScrollLazyColumn(contentPadding = contentPadding) {
                             s.items.forEach { (language, sources) ->
+                                val languageEnabled = language !in s.disabledLanguages
                                 item(key = "ln-filter-header-$language", contentType = "header") {
-                                    BrowseSectionHeader(
+                                    // Language switch, like manga's SourcesFilterHeader: off hides
+                                    // the whole group's sources here and everywhere else.
+                                    SwitchPreferenceWidget(
                                         title = LocaleHelper.getSourceDisplayName(language, LocalContext.current),
+                                        checked = languageEnabled,
+                                        onCheckedChanged = { screenModel.toggleLanguage(language) },
                                     )
                                 }
-                                items(
-                                    items = sources,
-                                    key = { "ln-filter-${it.id}" },
-                                    contentType = { "item" },
-                                ) { source ->
-                                    NovelSourceRow(
-                                        name = source.name,
-                                        lang = "",
-                                        iconUrl = source.iconUrl,
-                                        onClickItem = { screenModel.toggleSource(source.id) },
-                                        action = {
-                                            Checkbox(
-                                                checked = source.id !in s.disabledSources,
-                                                onCheckedChange = null,
-                                            )
-                                        },
-                                    )
+                                if (languageEnabled) {
+                                    items(
+                                        items = sources,
+                                        key = { "ln-filter-${it.id}" },
+                                        contentType = { "item" },
+                                    ) { source ->
+                                        NovelSourceRow(
+                                            name = source.name,
+                                            lang = "",
+                                            iconUrl = source.iconUrl,
+                                            onClickItem = { screenModel.toggleSource(source.id) },
+                                            action = {
+                                                Checkbox(
+                                                    checked = source.id !in s.disabledSources,
+                                                    onCheckedChange = null,
+                                                )
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }

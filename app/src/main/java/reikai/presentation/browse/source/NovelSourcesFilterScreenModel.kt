@@ -17,8 +17,10 @@ import uy.kohesive.injekt.api.get
 
 /**
  * Backs the bulk novel source filter screen: lists every installed light-novel source grouped by
- * language, each toggling [ReikaiSourcePreferences.disabledNovelSources]. A disabled novel source is
- * hidden from the Sources tab (like manga), so this screen is where it is re-enabled.
+ * language, with a per-language switch toggling [ReikaiSourcePreferences.disabledNovelLanguages]
+ * and per-source checkboxes toggling [ReikaiSourcePreferences.disabledNovelSources] (mirroring
+ * Mihon's manga sources filter). A disabled source or language is hidden from the Sources tab and
+ * global search, so this screen is where they are re-enabled.
  */
 class NovelSourcesFilterScreenModel(
     manager: NovelSourceManager = Injekt.get(),
@@ -32,12 +34,14 @@ class NovelSourcesFilterScreenModel(
             combine(
                 manager.sources,
                 sourcePreferences.disabledNovelSources.changes(),
-            ) { sources, disabled ->
+                sourcePreferences.disabledNovelLanguages.changes(),
+            ) { sources, disabled, disabledLanguages ->
                 State.Success(
                     items = sources.groupBy { it.lang }
                         .toSortedMap(LocaleHelper.comparator)
                         .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } },
                     disabledSources = disabled,
+                    disabledLanguages = disabledLanguages,
                 )
             }.collectLatest { success -> mutableState.update { success } }
         }
@@ -49,6 +53,12 @@ class NovelSourcesFilterScreenModel(
         pref.set(if (sourceId in current) current - sourceId else current + sourceId)
     }
 
+    fun toggleLanguage(language: String) {
+        val pref = sourcePreferences.disabledNovelLanguages
+        val current = pref.get()
+        pref.set(if (language in current) current - language else current + language)
+    }
+
     sealed interface State {
         data object Loading : State
 
@@ -56,6 +66,7 @@ class NovelSourcesFilterScreenModel(
         data class Success(
             val items: List<Pair<String, List<NovelSource>>>,
             val disabledSources: Set<String>,
+            val disabledLanguages: Set<String>,
         ) : State {
             val isEmpty get() = items.isEmpty()
         }

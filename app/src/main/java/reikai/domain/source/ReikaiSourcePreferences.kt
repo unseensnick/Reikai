@@ -49,6 +49,18 @@ class ReikaiSourcePreferences(
         preferenceStore.getStringSet("ln_disabled_sources", emptySet())
 
     /**
+     * Disabled light-novel source LANGUAGES. Novel twin of
+     * [eu.kanade.domain.source.service.SourcePreferences.enabledLanguages], inverted: manga stores
+     * the enabled set because its language universe is known up front, while novel languages arrive
+     * with whatever plugins the user installs, so a deny-list keeps every language on by default and
+     * a newly appearing language visible without a migration. A disabled language hides its sources
+     * from the Sources list and global search; they stay installed and re-enable from the filter
+     * screen.
+     */
+    val disabledNovelLanguages: Preference<Set<String>> =
+        preferenceStore.getStringSet("ln_disabled_languages", emptySet())
+
+    /**
      * Ordered novel source ids picked in the migration pre-step. Novel twin of
      * [eu.kanade.domain.source.service.SourcePreferences.migrationSources]: the selection and its
      * priority order drive which sources a migration searches (and so which match it suggests first).
