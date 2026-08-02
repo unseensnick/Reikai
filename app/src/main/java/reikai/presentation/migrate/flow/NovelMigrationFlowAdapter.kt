@@ -1,6 +1,7 @@
 package reikai.presentation.migrate.flow
 
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import reikai.data.coil.NovelCover
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.domain.entry.EntryId
@@ -23,6 +24,8 @@ import tachiyomi.data.Database
  *  [NovelMigrationFlowAdapter.resolve] has run. */
 data class NovelCandidateHandle(
     val item: NovelItem,
+    /** The source's site, the cover Referer. */
+    val site: String?,
     val resolved: Novel? = null,
 )
 
@@ -80,6 +83,13 @@ class NovelMigrationFlowAdapter(
                 sourceKey = novel.source,
                 sourceName = sourceManager.get(novel.source)?.name,
                 chapterCount = chapterRepository.getByNovelId(id).size,
+                cover = NovelCover(
+                    url = novel.thumbnailUrl,
+                    site = sourceManager.get(novel.source)?.site,
+                    isNovelFavorite = true,
+                    lastModified = novel.coverLastModified,
+                    novelId = novel.id,
+                ),
                 payload = novel,
             )
         }
@@ -104,7 +114,7 @@ class NovelMigrationFlowAdapter(
                 sourceKey = sourceKey,
                 title = item.name,
                 chapterCount = null,
-                handle = NovelCandidateHandle(item),
+                handle = NovelCandidateHandle(item, source.site),
             )
         }
     }

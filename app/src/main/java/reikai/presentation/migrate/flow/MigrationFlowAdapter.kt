@@ -34,6 +34,8 @@ data class MigrationEntry(
     val sourceKey: String,
     val sourceName: String?,
     val chapterCount: Int?,
+    /** Adapter-built Coil cover model (`MangaCover` / `NovelCover`) for the row thumbnail. */
+    val cover: Any?,
     val payload: Any,
 )
 

@@ -12,6 +12,7 @@ import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.feature.migration.list.search.SmartSourceSearchEngine
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.toEntryBrowseUi
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -78,6 +79,7 @@ class MangaMigrationFlowAdapter(
                 sourceKey = "${manga.source}",
                 sourceName = sourceManager.get(manga.source)?.name,
                 chapterCount = getChaptersByMangaId.await(id).size,
+                cover = manga.toEntryBrowseUi().cover,
                 payload = manga,
             )
         }

@@ -1,0 +1,599 @@
+package reikai.presentation.migrate.flow
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
+import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.EntryBrowseItemUi
+import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.novel.details.NovelScreen
+import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.LabeledCheckbox
+import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.LoadingScreen
+
+private val PICKER_CELL_WIDTH = 112.dp
+
+/**
+ * The unified migration list, one screen for both content types over
+ * [EntryMigrationListScreenModel]. Compact rows expand into the compare view plus the inline
+ * override picker; the verb is chosen once in the bottom bar; the confirm dialog carries the flags.
+ */
+class EntryMigrationListScreen(
+    private val contentType: ContentType,
+    private val entryIds: List<Long>,
+    private val extraQuery: String? = null,
+) : Screen() {
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val screenModel = rememberScreenModel {
+            EntryMigrationListScreenModel(contentType, entryIds, extraQuery)
+        }
+        val state by screenModel.state.collectAsState()
+
+        var showExitDialog by remember { mutableStateOf(false) }
+        var showTuningSheet by remember { mutableStateOf(false) }
+
+        LaunchedEffect(state.finished) { if (state.finished) navigator.pop() }
+
+        val guardExit = !state.finished && state.rows.isNotEmpty()
+        BackHandler(enabled = guardExit) { showExitDialog = true }
+
+        if (state.isLoading) {
+            LoadingScreen()
+            return
+        }
+
+        Scaffold(
+            topBar = { scrollBehavior ->
+                AppBar(
+                    title = stringResource(MR.strings.action_migrate),
+                    subtitle = if (state.rows.size > 1) {
+                        stringResource(
+                            MR.strings.migrationFlow_matchedSubtitle,
+                            state.rows.size,
+                            state.rows.count { it.chosen != null || it.suggested != null },
+                        )
+                    } else {
+                        null
+                    },
+                    navigateUp = { if (guardExit) showExitDialog = true else navigator.pop() },
+                    scrollBehavior = scrollBehavior,
+                    actions = {
+                        AppBarActions(
+                            listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
+                                    icon = Icons.Outlined.Tune,
+                                    onClick = { showTuningSheet = true },
+                                ),
+                            ),
+                        )
+                    },
+                )
+            },
+            bottomBar = {
+                if (state.chosenCount > 0 && !state.isMigrating) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(MaterialTheme.padding.medium),
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                    ) {
+                        OutlinedButton(
+                            onClick = { screenModel.showConfirm(replace = false) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(text = "${stringResource(MR.strings.copy)} (${state.chosenCount})")
+                        }
+                        Button(
+                            onClick = { screenModel.showConfirm(replace = true) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(text = "${stringResource(MR.strings.migrate)} (${state.chosenCount})")
+                        }
+                    }
+                }
+            },
+        ) { contentPadding ->
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = contentPadding,
+            ) {
+                items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
+                    LaunchedEffect(row.entry.id) { screenModel.searchRow(row.entry.id) }
+                    MigrationRow(row = row, screenModel = screenModel)
+                    HorizontalDivider()
+                }
+            }
+        }
+
+        if (showExitDialog) {
+            AlertDialog(
+                onDismissRequest = { showExitDialog = false },
+                title = { Text(text = stringResource(MR.strings.migrationListScreen_exitDialogTitle)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showExitDialog = false
+                            navigator.pop()
+                        },
+                    ) {
+                        Text(text = stringResource(MR.strings.migrationListScreen_exitDialog_stopLabel))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text(text = stringResource(MR.strings.migrationListScreen_exitDialog_cancelLabel))
+                    }
+                },
+            )
+        }
+
+        if (showTuningSheet) {
+            MigrationTuningSheet(
+                tuning = state.tuning,
+                supportsSmartMatch = state.supportsSmartMatch,
+                onDismissRequest = { showTuningSheet = false },
+                onApply = {
+                    showTuningSheet = false
+                    screenModel.applyTuning(it)
+                },
+            )
+        }
+
+        if (state.showConfirm) {
+            MigrationConfirmDialog(
+                count = state.chosenCount,
+                skipped = state.skippedCount,
+                replace = state.confirmReplace,
+                initialFlags = state.initialFlags,
+                applicableFlags = state.applicableFlags,
+                onDismissRequest = screenModel::dismissConfirm,
+                onConfirm = { flags -> screenModel.commit(flags, state.confirmReplace) },
+            )
+        }
+
+        if (state.isMigrating) {
+            MigrationProgressDialog(
+                done = state.progressDone,
+                total = state.progressTotal,
+                replace = state.lastReplace,
+                onCancel = screenModel::cancelCommit,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MigrationRow(
+    row: EntryMigrationListScreenModel.Row,
+    screenModel: EntryMigrationListScreenModel,
+) {
+    val id = row.entry.id
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { screenModel.toggleExpanded(id) }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MangaCover.Book(
+                modifier = Modifier.width(38.dp),
+                data = row.entry.cover,
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp),
+            ) {
+                Text(
+                    text = row.entry.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                RowMetaLine(row)
+                RowCountLine(row)
+            }
+            RowTrailing(row = row, screenModel = screenModel)
+        }
+        if (row.expanded) {
+            ExpandedSection(row = row, screenModel = screenModel)
+        }
+    }
+}
+
+/** "CurrentSource -> TargetSource" (or the choose-a-target hint / skipped chip / failure line). */
+@Composable
+private fun RowMetaLine(row: EntryMigrationListScreenModel.Row) {
+    val target = when {
+        row.failed -> stringResource(MR.strings.migrationFlow_rowFailed)
+        row.skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
+        row.chosen != null -> row.chosenSourceName
+        row.suggested != null -> row.suggestedSourceName
+        else -> stringResource(MR.strings.migrationFlow_chooseTarget)
+    }
+    Text(
+        text = listOfNotNull(row.entry.sourceName, target).joinToString(" → "),
+        style = MaterialTheme.typography.bodySmall,
+        color = if (row.failed) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** Mono chapter counts with the shortfall delta in the error color (paired with its minus sign). */
+@Composable
+private fun RowCountLine(row: EntryMigrationListScreenModel.Row) {
+    val current = row.entry.chapterCount ?: return
+    val target = (row.chosen ?: row.suggested)?.chapterCount
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = if (target != null) "$current → $target" else "$current",
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (target != null && target < current) {
+            Text(
+                text = " ${target - current}",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowTrailing(
+    row: EntryMigrationListScreenModel.Row,
+    screenModel: EntryMigrationListScreenModel,
+) {
+    val id = row.entry.id
+    var menuExpanded by remember { mutableStateOf(false) }
+    when {
+        row.searching || row.resolving -> Box(
+            modifier = Modifier.size(48.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+        }
+        row.failed -> TextButton(onClick = { screenModel.retryRow(id) }) {
+            Text(text = stringResource(MR.strings.action_retry))
+        }
+        else -> {
+            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                if (!row.skipped && (row.suggested != null || row.chosen != null)) {
+                    if (row.chosen != null) {
+                        FilledTonalIconButton(
+                            onClick = { screenModel.toggleAccept(id) },
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = stringResource(MR.strings.action_accept),
+                            )
+                        }
+                    } else {
+                        OutlinedIconButton(onClick = { screenModel.toggleAccept(id) }) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = stringResource(MR.strings.action_accept),
+                            )
+                        }
+                    }
+                }
+            }
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = null)
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            if (!row.expanded) screenModel.toggleExpanded(id)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
+                        onClick = {
+                            menuExpanded = false
+                            screenModel.toggleSkip(id)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The expanded body: side-by-side compare, the inline override picker, and its per-source strips. */
+@Composable
+private fun ExpandedSection(
+    row: EntryMigrationListScreenModel.Row,
+    screenModel: EntryMigrationListScreenModel,
+) {
+    val navigator = LocalNavigator.currentOrThrow
+    val id = row.entry.id
+    var query by remember(id) { mutableStateOf(row.entry.title) }
+
+    LaunchedEffect(id, row.expanded) {
+        if (row.overrideStrips.isEmpty() && !row.overrideLoading) {
+            screenModel.research(id, row.entry.title)
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MangaCover.Book(modifier = Modifier.width(76.dp), data = row.entry.cover)
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val targetUi = (row.chosen ?: row.suggested)?.toBrowseUi()
+        if (targetUi != null) {
+            MangaCover.Book(modifier = Modifier.width(76.dp), data = targetUi.cover)
+        } else {
+            Box(
+                modifier = Modifier
+                    .width(76.dp)
+                    .height(107.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(8.dp),
+                    ),
+            )
+        }
+    }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        label = { Text(text = stringResource(MR.strings.action_search)) },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp),
+        trailingIcon = {
+            IconButton(
+                onClick = { screenModel.research(id, query) },
+                enabled = query.isNotBlank(),
+            ) {
+                Icon(imageVector = Icons.Filled.Check, contentDescription = null)
+            }
+        },
+    )
+
+    if (row.overrideLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+        }
+    }
+    row.overrideStrips.forEach { strip ->
+        Text(
+            text = strip.sourceName,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+        )
+        LazyRow {
+            items(items = strip.candidates, key = { "${it.sourceKey}:${it.title}" }) { candidate ->
+                Box(
+                    modifier = Modifier
+                        .width(PICKER_CELL_WIDTH)
+                        .padding(horizontal = 4.dp),
+                ) {
+                    EntryBrowseGridCell(
+                        ui = candidate.toBrowseUi(),
+                        displayMode = LibraryDisplayMode.ComfortableGrid,
+                        onClick = { screenModel.pick(id, candidate, strip.sourceName) },
+                        onLongClick = { candidate.openDetails(navigator) },
+                    )
+                }
+            }
+        }
+    }
+    if (row.overrideStrips.isEmpty() && !row.overrideLoading) {
+        Text(
+            text = stringResource(MR.strings.no_results_found),
+            modifier = Modifier.padding(vertical = 8.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun MigrationConfirmDialog(
+    count: Int,
+    skipped: Int,
+    replace: Boolean,
+    initialFlags: Set<MigrationDataFlag>,
+    applicableFlags: Set<MigrationDataFlag>,
+    onDismissRequest: () -> Unit,
+    onConfirm: (Set<MigrationDataFlag>) -> Unit,
+) {
+    var selected by remember { mutableStateOf(initialFlags intersect applicableFlags) }
+    val verb = stringResource(if (replace) MR.strings.migrate else MR.strings.copy)
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = "$verb ($count)") },
+        text = {
+            Column {
+                if (skipped > 0) {
+                    Text(
+                        text = "$skipped · ${stringResource(MR.strings.migrationFlow_skippedNote)}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                applicableFlags.forEach { flag ->
+                    LabeledCheckbox(
+                        label = stringResource(flag.titleRes()),
+                        checked = flag in selected,
+                        onCheckedChange = {
+                            selected = if (it) selected + flag else selected - flag
+                        },
+                    )
+                }
+                Text(
+                    text = stringResource(MR.strings.migrationFlow_tracksNote),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selected) }) {
+                Text(text = verb)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.migrationListScreen_migrateDialog_cancelLabel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun MigrationProgressDialog(
+    done: Int,
+    total: Int,
+    replace: Boolean,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = {
+            Text(text = stringResource(if (replace) MR.strings.migrate else MR.strings.copy))
+        },
+        text = {
+            Column {
+                LinearProgressIndicator(
+                    progress = { if (total == 0) 0f else done.toFloat() / total },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "$done / $total",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(text = stringResource(MR.strings.migrationListScreen_progressDialog_cancelLabel))
+            }
+        },
+    )
+}
+
+internal fun MigrationDataFlag.titleRes() = when (this) {
+    MigrationDataFlag.CHAPTER -> MR.strings.chapters
+    MigrationDataFlag.CATEGORY -> MR.strings.categories
+    MigrationDataFlag.CUSTOM_COVER -> MR.strings.custom_cover
+    MigrationDataFlag.NOTES -> MR.strings.action_notes
+    MigrationDataFlag.REMOVE_DOWNLOAD -> MR.strings.migrationConfigScreen_removeDownloadsTitle
+}
+
+/** Per-type mapping into the shared browse cell; the one place the flow UI branches on a handle. */
+private fun MigrationCandidate.toBrowseUi(): EntryBrowseItemUi = when (val h = handle) {
+    is Manga -> h.toEntryBrowseUi()
+    is NovelCandidateHandle -> h.item.toEntryBrowseUi(inLibrary = false, site = h.site)
+    else -> error("unknown migration candidate handle")
+}
+
+private fun MigrationCandidate.openDetails(navigator: cafe.adriel.voyager.navigator.Navigator) {
+    when (val h = handle) {
+        is Manga -> navigator.push(MangaScreen(h.id))
+        is NovelCandidateHandle -> navigator.push(NovelScreen(sourceKey, h.item.path))
+    }
+}
