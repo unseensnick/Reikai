@@ -41,7 +41,11 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import reikai.domain.novel.NovelRepository
+import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.components.NovelSourceIcon
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.toLong
@@ -137,7 +141,9 @@ class ClearDatabaseScreen : Screen() {
                             title = stringResource(MR.strings.pref_clear_database),
                             navigateUp = navigator::pop,
                             actions = {
-                                if (s.items.isNotEmpty()) {
+                                // RK --> novel rows are selectable too
+                                if (s.items.isNotEmpty() || s.novelItems.isNotEmpty()) {
+                                    // RK <--
                                     AppBarActions(
                                         actions = listOf(
                                             AppBar.Action(
@@ -158,7 +164,9 @@ class ClearDatabaseScreen : Screen() {
                         )
                     },
                 ) { contentPadding ->
-                    if (s.items.isEmpty()) {
+                    // RK --> the screen is clean only when both content types have nothing to clear
+                    if (s.items.isEmpty() && s.novelItems.isEmpty()) {
+                        // RK <--
                         EmptyScreen(
                             message = stringResource(MR.strings.database_clean),
                             modifier = Modifier.padding(contentPadding),
@@ -167,9 +175,17 @@ class ClearDatabaseScreen : Screen() {
                         LazyColumnWithAction(
                             contentPadding = contentPadding,
                             actionLabel = stringResource(MR.strings.action_delete),
-                            actionEnabled = s.selection.isNotEmpty(),
+                            // RK -->
+                            actionEnabled = s.selection.isNotEmpty() || s.novelSelection.isNotEmpty(),
+                            // RK <--
                             onClickAction = model::showConfirmation,
                         ) {
+                            // RK --> section headers only when both content types are present
+                            val showHeaders = s.items.isNotEmpty() && s.novelItems.isNotEmpty()
+                            if (showHeaders) {
+                                item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_manga)) }
+                            }
+                            // RK <--
                             items(s.items) { sourceWithCount ->
                                 ClearDatabaseItem(
                                     source = sourceWithCount.source,
@@ -178,6 +194,18 @@ class ClearDatabaseScreen : Screen() {
                                     onClickSelect = { model.toggleSelection(sourceWithCount.source) },
                                 )
                             }
+                            // RK --> novel sources with non-library rows
+                            if (showHeaders) {
+                                item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_novels)) }
+                            }
+                            items(s.novelItems) { novelSource ->
+                                ClearDatabaseNovelItem(
+                                    item = novelSource,
+                                    isSelected = s.novelSelection.contains(novelSource.id),
+                                    onClickSelect = { model.toggleNovelSelection(novelSource.id) },
+                                )
+                            }
+                            // RK <--
                         }
                     }
                 }
@@ -218,24 +246,91 @@ class ClearDatabaseScreen : Screen() {
             )
         }
     }
+
+    // RK --> novel section pieces: a plain subheader and the novel twin of ClearDatabaseItem
+    // (String-keyed source, icon from the plugin registry's CDN URL)
+    @Composable
+    private fun ClearDatabaseSectionHeader(label: String) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+
+    @Composable
+    private fun ClearDatabaseNovelItem(
+        item: ClearDatabaseScreenModel.NovelSourceWithCount,
+        isSelected: Boolean,
+        onClickSelect: () -> Unit,
+    ) {
+        Row(
+            modifier = Modifier
+                .selectedBackground(isSelected)
+                .clickable(onClick = onClickSelect)
+                .padding(horizontal = 8.dp)
+                .height(56.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NovelSourceIcon(iconUrl = item.iconUrl)
+            Column(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .weight(1f),
+            ) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(text = stringResource(MR.strings.clear_database_source_item_count, item.count))
+            }
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onClickSelect() },
+            )
+        }
+    }
+    // RK <--
 }
 
 private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenModel.State>(State.Loading) {
     private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga = Injekt.get()
     private val database: Database = Injekt.get()
 
+    // RK -->
+    private val novelRepository: NovelRepository = Injekt.get()
+    private val novelSourceManager: NovelSourceManager = Injekt.get()
+    // RK <--
+
     init {
         screenModelScope.launchIO {
-            getSourcesWithNonLibraryManga.subscribe()
-                .collectLatest { list ->
+            // RK --> fold the novel-side source counts into the same Ready state
+            combine(
+                getSourcesWithNonLibraryManga.subscribe(),
+                novelRepository.getSourcesWithNonLibraryNovelAsFlow(),
+            ) { mangaSources, novelSources -> mangaSources to novelSources }
+                .collectLatest { (list, novelList) ->
+                    val novelItems = novelList
+                        .map { (sourceId, count) ->
+                            val source = novelSourceManager.get(sourceId)
+                            NovelSourceWithCount(
+                                id = sourceId,
+                                name = source?.name ?: sourceId,
+                                iconUrl = source?.iconUrl,
+                                count = count,
+                            )
+                        }
+                        .sortedBy { it.name }
                     mutableState.update { old ->
                         val items = list.sortedBy { it.name }
                         when (old) {
-                            State.Loading -> State.Ready(items)
-                            is State.Ready -> old.copy(items = items)
+                            State.Loading -> State.Ready(items, novelItems)
+                            is State.Ready -> old.copy(items = items, novelItems = novelItems)
                         }
                     }
                 }
+            // RK <--
         }
     }
 
@@ -243,7 +338,25 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
         val state = state.value as? State.Ready ?: return@withNonCancellableContext
         database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
         database.historyQueries.removeResettedHistory()
+        // RK --> novel side of the clear; the keep-read toggle covers both content types
+        if (state.novelSelection.isNotEmpty()) {
+            novelRepository.deleteNonLibraryNovels(state.novelSelection, keepReadManga)
+        }
+        // RK <--
     }
+
+    // RK -->
+    fun toggleNovelSelection(id: String) = mutableState.update { state ->
+        if (state !is State.Ready) return@update state
+        val mutableList = state.novelSelection.toMutableList()
+        if (mutableList.contains(id)) {
+            mutableList.remove(id)
+        } else {
+            mutableList.add(id)
+        }
+        state.copy(novelSelection = mutableList)
+    }
+    // RK <--
 
     fun toggleSelection(source: Source) = mutableState.update { state ->
         if (state !is State.Ready) return@update state
@@ -258,12 +371,22 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
 
     fun clearSelection() = mutableState.update { state ->
         if (state !is State.Ready) return@update state
-        state.copy(selection = emptyList())
+        state.copy(
+            selection = emptyList(),
+            // RK -->
+            novelSelection = emptyList(),
+            // RK <--
+        )
     }
 
     fun selectAll() = mutableState.update { state ->
         if (state !is State.Ready) return@update state
-        state.copy(selection = state.items.fastMap { it.id })
+        state.copy(
+            selection = state.items.fastMap { it.id },
+            // RK -->
+            novelSelection = state.novelItems.fastMap { it.id },
+            // RK <--
+        )
     }
 
     fun invertSelection() = mutableState.update { state ->
@@ -272,6 +395,11 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
             selection = state.items
                 .fastMap { it.id }
                 .filterNot { it in state.selection },
+            // RK -->
+            novelSelection = state.novelItems
+                .fastMap { it.id }
+                .filterNot { it in state.novelSelection },
+            // RK <--
         )
     }
 
@@ -292,8 +420,25 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
         @Immutable
         data class Ready(
             val items: List<SourceWithCount>,
+            // RK -->
+            val novelItems: List<NovelSourceWithCount> = emptyList(),
+            // RK <--
             val selection: List<Long> = emptyList(),
+            // RK -->
+            val novelSelection: List<String> = emptyList(),
+            // RK <--
             val showConfirmation: Boolean = false,
         ) : State
     }
+
+    // RK --> display row for a novel source with its non-favorite count; name/icon resolved from
+    // the source manager at map time, falling back to the raw plugin id for uninstalled sources
+    @Immutable
+    data class NovelSourceWithCount(
+        val id: String,
+        val name: String,
+        val iconUrl: String?,
+        val count: Long,
+    )
+    // RK <--
 }

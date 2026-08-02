@@ -89,6 +89,32 @@ WHERE favorite = 0 AND _id IN (
     WHERE read = 1 OR last_text_progress != 0
 );
 
+-- Novel twin of mangas.sq getSourceIdsWithNonLibraryManga, backing the Clear database screen's
+-- novel section. Source ids are the lnreader plugin String ids.
+getSourcesWithNonLibraryNovel:
+SELECT source, COUNT(*) AS novel_count
+FROM novels
+WHERE favorite = 0
+GROUP BY source;
+
+-- Novel twin of mangas.sq deleteNonLibraryManga. The keep-read guard mirrors
+-- getReadNovelsNotInLibrary above: a chapter marked read or with a mid-chapter position counts as
+-- progress. Child rows (chapters, category junctions, tracks, custom info, update errors, merge
+-- memberships) go via their ON DELETE CASCADE foreign keys; the app driver enables enforcement.
+deleteNonLibraryNovel:
+DELETE FROM novels
+WHERE favorite = 0
+AND source IN :sources
+AND (
+    :keepReadNovel = 0
+    OR _id NOT IN (
+        SELECT DISTINCT novel_id
+        FROM novel_chapters
+        WHERE read = 1
+        OR last_text_progress != 0
+    )
+);
+
 -- Novel twin of mangas.sq getDuplicateLibraryManga, minus the tracker CTE (novels are untracked):
 -- a title-substring match over favorited novels with each candidate's chapter count. DB-side and
 -- bounded by the favorite partial index, so it scales to large libraries instead of an in-memory scan.

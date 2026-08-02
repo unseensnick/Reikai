@@ -126,8 +126,9 @@ fun BrowseSectionHeader(
     }
 }
 
+/** Shared with the Clear-database screen's novel rows; renders a placeholder when the URL is absent. */
 @Composable
-private fun NovelSourceIcon(iconUrl: String?) {
+fun NovelSourceIcon(iconUrl: String?) {
     val modifier = Modifier
         .size(40.dp)
         .clip(RoundedCornerShape(4.dp))
