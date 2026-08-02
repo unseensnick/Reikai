@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.EntryBulkFavoriteScreenModel
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.EntrySearchSourceFilterChips
@@ -199,10 +200,10 @@ class NovelGlobalSearchScreen(
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
-            is NovelBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
-                dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.categories, emptySet()),
+            is EntryBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
+                dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.initialSelection.map { it.value }, emptySet()),
                 onDismiss = { bulkModel.setDialog(null) },
-                onConfirm = { bulkModel.setNovelsCategories(bulkDialog.items, it) },
+                onConfirm = { bulkModel.setCategories(bulkDialog.items, it) },
             )
             null -> {}
         }
