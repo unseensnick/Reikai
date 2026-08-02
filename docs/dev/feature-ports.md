@@ -88,12 +88,14 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 | Plugin text sanitizing | `reikai/novel/host/NovelTextSanitizer.kt` (`eeda00bee`) | 2026-07-15 @ `11a6ffce3` | From tsundoku's `JsSource` `stripInvalidChars` + entity decoding. Applied to metadata + chapter names; chapter bodies get control-char stripping only, so HTML survives. |
 | Next-page probing | `reikai/presentation/novel/browse/NovelBrowseScreenModel.kt` (`c565c5413`) | 2026-07-15 @ `11a6ffce3` | From tsundoku's `inferHasNextPage`: full page assumes more, short page eager-probes the next and caches it for the matching load-more. |
 | Download-queue card gutter | `reikai/presentation/download/EntryDownloadCardList.kt` (`7e7bd0a5e`) | 2026-07-12 | Tsundoku's 16.dp card gutter, adopted during the queue redesign. Layout detail only. |
+| Per-source engine isolation | `reikai/novel/host/LnPluginHost.kt` (`93d8a0425`) | 2026-08-02 @ `ba62b1937` | The design idea from tsundoku's per-source `JsSource` instances + 60s idle timeout, implemented Reikai-native: per-plugin engine slots plus a shared loader engine for bulk info extraction (tsundoku has no loader equivalent). |
 
 **Informed by, but implemented independently:** the LN-plugin host runtime work (`226dd7d1b`, `3875e70f3`, `e04d4e5fe`). The *gap list* came from diffing tsundoku's JS runtime against Reikai's, but each fix is Reikai-native: real `setTimeout` delays via a `__lnDelay` async binding (30s cap), `Buffer` / `Blob` / `Response.arrayBuffer()` / fuller headers, an `X-XSRF-TOKEN` header, and a truncated-plugin-cache heal.
 
 ### Where Reikai is ahead (do NOT port backwards)
 
-- **The LN-plugin host.** Reikai vendors real cheerio / htmlparser2 / dayjs / protobuf / noble-ciphers, plus an `Intl` stub, typed storage with expiry, a restore trust-gate, and CF/Flaresolverr-aware timeouts. Tsundoku's runtime is thinner.
+- **The LN-plugin host.** Reikai vendors real cheerio / htmlparser2 / dayjs / protobuf / noble-ciphers, plus an `Intl` stub, typed storage with expiry, a restore trust-gate, and CF/Flaresolverr-aware timeouts. Tsundoku's runtime is thinner: an older `quickjs-kt` pin, polyfills as one Kotlin string (a ~40-line fake dayjs, a regex htmlparser2, a Jsoup-bridge cheerio by default), and an unknown `require` that warns and returns `{}` (the silent-failure class Reikai's host doc calls the defining hazard).
+- **Plugin identity and updates.** Tsundoku keys a source on a 32-bit `String.hashCode` of the plugin NAME (a rename orphans library rows; name+lang collisions merge silently) and carries three inconsistent version comparisons, two buggy (`"1.1.10".replace(".","")` beats `"1.2.0"`). Reikai keys on the plugin's own String id end to end and has one `LnPluginVersion.compare`.
 - **Paged-chapter aggregation.** Reikai already walks paged chapter lists (`NovelPageWalk`); this was on the port list until the comparison showed it was already done.
 - Tsundoku's "truncated-download heal" only re-downloads truncated **plugin source files**, not HTTP bodies. Reikai's equivalent (`3875e70f3`) covers the same case; neither side heals truncated response bodies.
 
@@ -104,11 +106,14 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 - **Content-type binary fetch.** Auto-detecting binary responses by Content-Type would garble a mislabeled non-UTF-8 (GBK / Shift-JIS) text source, and no novel plugin fetches raw binary. See ROADMAP "Parked".
 - **LNReader filter -> `FilterList` conversion.** Reikai renders the plugin's raw filter schema directly and that works; the real defect was a member-name mismatch in Reikai's own `filterInputs` shim, fixed in `226dd7d1b`. Adopting tsundoku's model would be a rewrite for no added coverage.
 - **On-device translation stack.** Parked; see ROADMAP.
+- **The source-list system.** Audited 2026-08-02: tsundoku runs six parallel Browse tabs (novel + manga pairs) and adapts its novel state into Mihon's `SourcesScreen`; Reikai's chip-switched tabs with a combined All view are already ahead, so there is nothing structural to take. Their persisted `sources.is_js` type tag matters only if Kotlin novel extensions ever join the JS plugins (see the APK novel-extension ROADMAP item, `unseensnick/Reikai#31`).
+- **The custom-source builder (CSS-selector wizard).** Parked on ROADMAP 2026-08-02: large (~4000 lines with its editor screens), orthogonal, unproven demand.
 
 ### Pass log
 
 | Date | Ref HEAD | Range | Result |
 |---|---|---|---|
+| 2026-08-02 | `ba62b1937` | Source system + LNReader-plugin execution audit (5 explorers + inline verification) | **Verdict: do not port** the JS host or the source list (Reikai ahead on both, see above). **1 idea ported** (per-source engine isolation, `93d8a0425`). APK novel-extension support promoted to ROADMAP (`unseensnick/Reikai#31`); custom-source wizard parked. Their `b1edfc8f4` (source-API 1.6 compat, `getMangaUpdate` as the only app-side call) is groundwork reading for the APK item. |
 | 2026-07-15 | `11a6ffce3` | Scout of `JsSource` + the JS runtime vs Reikai's LN host | **3 ported** (dates, text sanitizing, next-page probing) plus a tsundoku-informed host-runtime batch. The scout reversed the assumed priority: the runtime gaps that looked urgent (`arrayBuffer` / `Buffer` / `Blob`) had ~zero real plugin demand, while honoring `setTimeout` delays was the actual cause of plugin failures. |
 | 2026-07-14 | (scout) | Port-candidate survey | Candidates promoted to ROADMAP by area; translation stack parked. |
 
