@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. Remaining surfaces: migrate plus global search ([surface plan](docs/dev/plans/content-layer-migrate-surface.md)), then the reader migration. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. Remaining surface: the reader migration. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Next
 
