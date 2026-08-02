@@ -138,6 +138,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring a backup no longer re-merges a pair you deliberately split.**
 - **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring no longer runs out of memory, and a failed backup now reports the error.
 - **Restoring a backup now keeps your novel category filters and default category instead of quietly dropping them.**
+- **A backup with the read-entries option on now includes novels you have read but removed from your library, like manga.** Their read history used to drop out of the backup, including after migrating a novel to a new source.
 
 **Browse & migration**
 

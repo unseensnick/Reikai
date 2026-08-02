@@ -19,6 +19,10 @@ interface NovelRepository {
     suspend fun getByUrlAndSource(url: String, source: String): Novel?
     suspend fun getFavorites(): List<Novel>
 
+    /** Non-favorite novels with read progress (read chapters or a mid-chapter position), for the
+     *  read-entries backup option. Twin of [tachiyomi.domain.manga.repository.MangaRepository.getReadMangaNotInLibrary]. */
+    suspend fun getReadNovelsNotInLibrary(): List<Novel>
+
     /**
      * Favorited novels whose title contains [title] (case-insensitive), excluding novel [id], each
      * with its chapter count. Backs the browse "possible duplicates" dialog. Runs DB-side over the

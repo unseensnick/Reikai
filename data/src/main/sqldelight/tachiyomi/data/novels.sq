@@ -77,6 +77,18 @@ FROM novels
 WHERE favorite = 1
 ORDER BY title;
 
+-- Novel twin of mangas.sq getReadMangaNotInLibrary (last_text_progress replaces last_page_read).
+-- Backs the read-entries backup option, so read history survives e.g. a replace-migration that
+-- unfavorited the old novel.
+getReadNovelsNotInLibrary:
+SELECT *
+FROM novels
+WHERE favorite = 0 AND _id IN (
+    SELECT DISTINCT novel_chapters.novel_id
+    FROM novel_chapters
+    WHERE read = 1 OR last_text_progress != 0
+);
+
 -- Novel twin of mangas.sq getDuplicateLibraryManga, minus the tracker CTE (novels are untracked):
 -- a title-substring match over favorited novels with each candidate's chapter count. DB-side and
 -- bounded by the favorite partial index, so it scales to large libraries instead of an in-memory scan.
