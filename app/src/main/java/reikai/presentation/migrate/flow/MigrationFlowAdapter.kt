@@ -84,6 +84,10 @@ interface MigrationFlowAdapter {
     /** Whether the smart-match tuning options (deep search, prioritize-by-chapters) apply. */
     val supportsSmartMatch: Boolean
 
+    /** One-time readiness work before sources are read (the novel side loads its plugin host here;
+     *  without it, entering the flow before the host warms up shows empty sources with no error). */
+    suspend fun prepare() {}
+
     /** Enabled sources only: a disabled source or denied language is never offered as a target. */
     fun enabledSources(): List<MigrationSourceUi>
 

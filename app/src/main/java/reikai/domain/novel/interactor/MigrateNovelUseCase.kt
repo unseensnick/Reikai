@@ -163,9 +163,10 @@ class MigrateNovelUseCase(
             }
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
-            // A failed migration was previously swallowed silently; surface it in the log (matching
-            // manga migration) rather than letting the whole batch fail opaquely.
+            // Rethrow after logging so the unified flow's per-row failure surface (error line + retry)
+            // sees the failure instead of reporting success.
             logcat(LogPriority.ERROR, e) { "Novel migration failed (${current.id} -> ${target.id})" }
+            throw e
         }
     }
 }

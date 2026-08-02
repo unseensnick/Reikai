@@ -8,15 +8,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -70,19 +73,26 @@ fun Screen.EntryMigrateFor(
     onDismissRequest: () -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
     val screenModel = rememberScreenModel(
         tag = "migrateHost-$contentType-$currentId-$targetId",
     ) {
         EntryMigrateHostScreenModel(EntryMigrateController.Request(contentType, currentId, targetId))
     }
+    // Reload on every appearance: the model is cached per pair for the host screen's lifetime, and a
+    // reopened pair must commit from fresh rows, not the first open's snapshot.
+    LaunchedEffect(Unit) { screenModel.load() }
     val state by screenModel.state.collectAsState()
 
     if (!state.loaded) return
     val entry = state.entry
     val target = state.target
     if (entry == null || target == null) {
-        // One of the rows vanished between the tap and the load; nothing to migrate.
-        LaunchedEffect(currentId, targetId) { onDismissRequest() }
+        // One of the rows vanished between the tap and the load; say so instead of a silent no-op.
+        LaunchedEffect(currentId, targetId) {
+            context.toast(MR.strings.internal_error)
+            onDismissRequest()
+        }
         return
     }
     EntryMigrateDialog(
@@ -108,7 +118,8 @@ internal class EntryMigrateHostScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
-    init {
+    fun load() {
+        mutableState.update { it.copy(loaded = false) }
         screenModelScope.launchIO {
             val entry = adapter.loadEntries(listOf(request.currentId)).firstOrNull()
             val target = adapter.storedCandidate(request.targetId)

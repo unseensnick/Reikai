@@ -55,6 +55,7 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.novel.host.NovelItem
@@ -97,6 +98,7 @@ class NovelGlobalSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val screenModel = rememberScreenModel { NovelGlobalSearchScreenModel(initialQuery) }
         val state by screenModel.state.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
@@ -178,6 +180,7 @@ class NovelGlobalSearchScreen(
                     migrateScope.launch {
                         screenModel.materializeForMigrate(dialog.item, dialog.sourceId)
                             ?.let { migrateController.start(ContentType.NOVELS, dup.id, it.id) }
+                            ?: context.toast(MR.strings.internal_error)
                     }
                 },
                 groupIdByNovelId = dialog.groupIdByNovelId,

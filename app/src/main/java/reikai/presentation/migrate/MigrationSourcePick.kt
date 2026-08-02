@@ -26,17 +26,20 @@ import eu.kanade.presentation.manga.components.MangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * One merge-group member shown in the migrate-merge source picker. [coverData] is a Coil model (a
- * `NovelCover` for novels, the `Manga` itself for manga); [subtitle] is the "source name . N ch" line.
+ * `NovelCover` for novels, the `Manga` itself for manga); the row renders "source · N chapters"
+ * from [sourceName] + [chapterCount] so the count stays translatable.
  */
 data class PickMember(
     val id: Long,
     val title: String,
     val coverData: Any?,
-    val subtitle: String,
+    val sourceName: String?,
+    val chapterCount: Int?,
 )
 
 /**
@@ -96,13 +99,19 @@ private fun MemberRow(member: PickMember, checked: Boolean, onToggle: () -> Unit
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = member.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val subtitle = listOfNotNull(
+                member.sourceName,
+                member.chapterCount?.let { pluralStringResource(MR.plurals.manga_num_chapters, it, it) },
+            ).joinToString(" · ")
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

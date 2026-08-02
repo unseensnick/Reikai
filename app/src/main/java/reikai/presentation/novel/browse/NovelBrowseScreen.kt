@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
@@ -69,6 +70,7 @@ import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
@@ -79,6 +81,7 @@ import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.flow.EntryMigrateHost
+import reikai.presentation.migrate.flow.EntryMigrationListScreen
 import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
@@ -98,19 +101,28 @@ import tachiyomi.presentation.core.util.plus
  * cohesive with the catalogue: an in-toolbar search, a Popular / Latest / Filter chip row, the same
  * empty / loading states, and the same comfortable grid cell. The source is pre-picked (constructor
  * arg, serializable); state lives in [NovelBrowseScreenModel]. Tapping a result opens the novel details
- * screen.
+ * screen, unless [migratePickFor] puts the screen in migration pick mode: then a tap hands the result
+ * back to the migration list beneath (or opens the shared migrate dialog when there is none), the
+ * novel twin of [reikai.presentation.migrate.flow.MigrationDeepSearchScreen].
  */
 class NovelBrowseScreen(
     private val sourceId: String,
     private val initialQuery: String = "",
+    /** The raw id of the novel being migrated; non-null switches taps to migration pick mode. */
+    private val migratePickFor: Long? = null,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val screenModel = rememberScreenModel { NovelBrowseScreenModel(sourceId, initialQuery) }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
+        // Shared migrate-from-duplicate wiring; also serves migration pick mode, so it sits above
+        // the content that uses it.
+        val migrateScope = rememberCoroutineScope()
+        val migrateController = rememberEntryMigrateController()
         // RK: shared bulk-selection add-to-library
         val bulkModel = rememberScreenModel { NovelBulkFavoriteScreenModel() }
         val bulkState by bulkModel.state.collectAsState()
@@ -304,10 +316,27 @@ class NovelBrowseScreen(
                 onWebViewClick = onWebViewClick,
                 // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
                 onResultClick = { item ->
-                    if (bulkState.selectionMode) {
-                        bulkModel.toggleSelection(sourceId, item)
-                    } else {
-                        navigator.push(NovelScreen(sourceId, item.path))
+                    when {
+                        bulkState.selectionMode -> bulkModel.toggleSelection(sourceId, item)
+                        migratePickFor != null -> migrateScope.launch {
+                            // Migration pick mode: materialise the pick, then hand it to the
+                            // migration list beneath, or open the migrate dialog when there is none.
+                            val stored = screenModel.materializeForMigrate(item)
+                            if (stored == null) {
+                                context.toast(MR.strings.internal_error)
+                                return@launch
+                            }
+                            val listScreen = navigator.items
+                                .filterIsInstance<EntryMigrationListScreen>()
+                                .lastOrNull()
+                            if (listScreen != null) {
+                                listScreen.addMatchOverride(currentRawId = migratePickFor, targetRawId = stored.id)
+                                navigator.popUntil { it is EntryMigrationListScreen }
+                            } else {
+                                migrateController.start(ContentType.NOVELS, migratePickFor, stored.id)
+                            }
+                        }
+                        else -> navigator.push(NovelScreen(sourceId, item.path))
                     }
                 },
                 onLongClickItem = { item ->
@@ -321,8 +350,6 @@ class NovelBrowseScreen(
             )
         }
 
-        val migrateScope = rememberCoroutineScope()
-        val migrateController = rememberEntryMigrateController()
         when (val dialog = state.dialog) {
             is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
                 duplicates = dialog.duplicates,
@@ -335,6 +362,7 @@ class NovelBrowseScreen(
                     migrateScope.launch {
                         screenModel.materializeForMigrate(dialog.item)
                             ?.let { migrateController.start(ContentType.NOVELS, dup.id, it.id) }
+                            ?: context.toast(MR.strings.internal_error)
                     }
                 },
                 groupIdByNovelId = dialog.groupIdByNovelId,

@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import reikai.domain.library.ContentType
@@ -48,10 +50,20 @@ fun VoyagerScreen.EntryMigrateDialog(
     onOpenTarget: (() -> Unit)?,
     onFinished: () -> Unit,
 ) {
-    val screenModel = rememberScreenModel { EntryMigrateDialogScreenModel(contentType, entry, target) }
+    // Tagged per (entry, target): Voyager caches one model per host screen and tag, so without the
+    // pair identity a second dialog on the same screen would reuse the first pair's model and
+    // migrate onto the wrong target.
+    val screenModel = rememberScreenModel(tag = "migrateDialog-${entry.id}-${target.stableKey}") {
+        EntryMigrateDialogScreenModel(contentType, entry, target)
+    }
     val state by screenModel.state.collectAsState()
 
-    LaunchedEffect(state.finished) { if (state.finished) onFinished() }
+    LaunchedEffect(Unit) {
+        // Completion is a one-shot event, not state: a state flag would replay a previous success
+        // when the same pair's cached model recomposes and instantly close the fresh dialog.
+        screenModel.reopen()
+        screenModel.finished.collect { onFinished() }
+    }
 
     AlertDialog(
         onDismissRequest = { if (!state.isMigrating) onDismissRequest() },
@@ -114,17 +126,25 @@ private class EntryMigrateDialogScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
+    private val _finished = Channel<Unit>()
+    val finished = _finished.receiveAsFlow()
+
     init {
         screenModelScope.launchIO {
             val applicable = adapter.applicableFlags(listOf(entry))
             mutableState.update {
                 it.copy(
                     applicableFlags = applicable,
-                    selectedFlags = adapter.savedFlags() intersect applicable,
+                    // The FULL saved set: only applicable flags render, so a hidden flag's saved
+                    // state survives the confirm instead of being erased from the pref.
+                    selectedFlags = adapter.savedFlags(),
                 )
             }
         }
     }
+
+    /** Clear transient state from a previous appearance of this cached model. */
+    fun reopen() = mutableState.update { it.copy(isMigrating = false, failed = false) }
 
     fun toggleFlag(flag: MigrationDataFlag) = mutableState.update {
         val selected = if (flag in it.selectedFlags) it.selectedFlags - flag else it.selectedFlags + flag
@@ -139,9 +159,8 @@ private class EntryMigrateDialogScreenModel(
                 adapter.migrate(entry, resolved, replace, state.value.selectedFlags)
             }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }
-            mutableState.update {
-                it.copy(isMigrating = false, failed = result.isFailure, finished = result.isSuccess)
-            }
+            mutableState.update { it.copy(isMigrating = false, failed = result.isFailure) }
+            if (result.isSuccess) _finished.send(Unit)
         }
     }
 
@@ -150,6 +169,5 @@ private class EntryMigrateDialogScreenModel(
         val selectedFlags: Set<MigrationDataFlag> = emptySet(),
         val isMigrating: Boolean = false,
         val failed: Boolean = false,
-        val finished: Boolean = false,
     )
 }

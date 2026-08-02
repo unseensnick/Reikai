@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.feature.migration.list.search.SmartSourceSearchEngine
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -37,6 +38,7 @@ class MangaMigrationFlowAdapter(
     private val migrateManga: MigrateMangaUseCase,
     private val mergeManager: MangaMergeManager,
     private val getFavorites: GetFavorites,
+    private val updateMangaFromRemote: UpdateMangaFromRemote,
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.MANGA
@@ -85,10 +87,8 @@ class MangaMigrationFlowAdapter(
                     id = manga.id,
                     title = manga.title,
                     coverData = manga,
-                    subtitle = listOfNotNull(
-                        sourceManager.get(manga.source)?.name,
-                        "${getChaptersByMangaId.await(manga.id).size} ch",
-                    ).joinToString(" · "),
+                    sourceName = sourceManager.get(manga.source)?.name,
+                    chapterCount = getChaptersByMangaId.await(manga.id).size,
                 )
             }
         }
@@ -154,8 +154,18 @@ class MangaMigrationFlowAdapter(
         } else {
             engine.regularSearch(source, entry.title)
         } ?: return null
+        // Own source is searchable, but the identical listing is never a migration target.
+        val current = entry.payload as? Manga
+        if (current != null && match.url == current.url && sourceKey == entry.sourceKey) return null
         val local = networkToLocalManga(listOf(match)).firstOrNull() ?: return null
+        // Fetch the target's chapters now so counts are real before commit (prioritize-by-chapters,
+        // hide-without-updates, and the row's count line all read them); best-effort like upstream.
+        runCatching { updateMangaFromRemote(local, fetchChapters = true).getOrThrow() }
+        if (local.thumbnailUrl == null) {
+            runCatching { updateMangaFromRemote(local, fetchDetails = true, manualFetch = true) }
+        }
         return local.toCandidate(sourceKey)
+            .copy(chapterCount = getChaptersByMangaId.await(local.id).size)
     }
 
     override suspend fun candidates(
@@ -164,9 +174,11 @@ class MangaMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = catalogueSource(sourceKey) ?: return emptyList()
+        val currentUrl = (entry.payload as? Manga)?.url.takeIf { sourceKey == entry.sourceKey }
         val found = source.getSearchManga(1, query, source.getFilterList()).mangas
             .map { it.toDomainManga(source.id) }
             .distinctBy { it.url }
+            .filterNot { it.url == currentUrl }
         return networkToLocalManga(found).map { it.toCandidate(sourceKey) }
     }
 
@@ -208,6 +220,8 @@ class MangaMigrationFlowAdapter(
     ) {
         val current = entry.payload as? Manga ?: error("manga entry payload missing")
         val targetManga = target.handle as? Manga ?: error("manga target handle missing")
+        // The use case silently no-ops when the target source is gone; surface that as a row failure.
+        checkNotNull(sourceManager.get(targetManga.source)) { "target source is not installed" }
         sourcePreferences.migrationFlags.set(flags.map { MigrationFlag.valueOf(it.name) }.toSet())
         migrateManga(current, targetManga, replace)
     }

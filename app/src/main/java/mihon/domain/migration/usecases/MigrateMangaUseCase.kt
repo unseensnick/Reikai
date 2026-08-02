@@ -157,8 +157,10 @@ class MigrateMangaUseCase(
             if (e is CancellationException) {
                 throw e
             }
-            // RK: a failed migration was previously swallowed silently; surface it in the log
+            // RK: rethrow after logging so the unified flow's per-row failure surface (error line +
+            // retry) sees the failure; upstream swallowed it, which made every commit look successful.
             logcat(LogPriority.ERROR, e) { "Manga migration failed" }
+            throw e
         }
     }
 }

@@ -20,6 +20,7 @@ import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
+import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.migrate.PickMember
 import tachiyomi.data.Database
@@ -45,10 +46,16 @@ class NovelMigrationFlowAdapter(
     private val downloadManager: NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
     private val mergeManager: NovelMergeManager,
+    private val installer: LnPluginInstaller,
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.NOVELS
     override val supportsSmartMatch = false
+
+    override suspend fun prepare() {
+        // Best-effort, like every other novel surface: a load failure falls through to empty sources.
+        runCatching { installer.ensureLoaded() }
+    }
 
     override fun enabledSources(): List<MigrationSourceUi> {
         return getEnabledNovelSources.get()
@@ -86,12 +93,13 @@ class NovelMigrationFlowAdapter(
                     coverData = NovelCover(
                         url = novel.thumbnailUrl,
                         site = source?.site,
-                        isNovelFavorite = false,
+                        // Library rows: true, so a user-set custom cover shows in the picker.
+                        isNovelFavorite = true,
                         lastModified = novel.coverLastModified,
                         novelId = novel.id,
                     ),
-                    subtitle = listOfNotNull(source?.name, "${chapterRepository.getByNovelId(novel.id).size} ch")
-                        .joinToString(" · "),
+                    sourceName = source?.name,
+                    chapterCount = chapterRepository.getByNovelId(novel.id).size,
                 )
             }
         }
@@ -127,7 +135,8 @@ class NovelMigrationFlowAdapter(
                         cover = NovelCover(
                             url = novel.thumbnailUrl,
                             site = site,
-                            isNovelFavorite = false,
+                            // Library rows: true, so a user-set custom cover shows in the picker.
+                            isNovelFavorite = true,
                             lastModified = novel.coverLastModified,
                             novelId = novel.id,
                         ),
@@ -173,14 +182,18 @@ class NovelMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = sourceManager.get(sourceKey) ?: return emptyList()
-        return source.searchNovels(query, 1).map { item ->
-            MigrationCandidate(
-                sourceKey = sourceKey,
-                title = item.name,
-                chapterCount = null,
-                handle = NovelCandidateHandle(item, source.site),
-            )
-        }
+        // Own source is searchable, but the identical listing is never a migration target.
+        val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
+        return source.searchNovels(query, 1)
+            .filterNot { it.path == currentPath }
+            .map { item ->
+                MigrationCandidate(
+                    sourceKey = sourceKey,
+                    title = item.name,
+                    chapterCount = null,
+                    handle = NovelCandidateHandle(item, source.site),
+                )
+            }
     }
 
     override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {

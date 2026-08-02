@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -192,6 +193,7 @@ data object HistoryTab : Tab {
                         novelMigrateScope.launch {
                             novelScreenModel.novelForMigrate(dialog.novelId)
                                 ?.let { novelMigrateController.start(ContentType.NOVELS, dup.id, it.id) }
+                                ?: context.toast(MR.strings.internal_error)
                         }
                     },
                     groupIdByNovelId = dialog.groupIdByNovelId,

@@ -24,8 +24,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * The pre-list search options sheet, shared by both content types: extra query and the hide toggles
- * apply to both; the smart-match half renders only where the adapter supports it (manga), per the
- * step-2 design note.
+ * apply to both; the smart-match half renders only where the adapter supports it (manga), since
+ * those options run on the manga smart-search engine.
  */
 @Composable
 fun MigrationTuningSheet(

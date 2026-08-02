@@ -59,7 +59,7 @@ import uy.kohesive.injekt.api.get
  * [MigrationFlowAdapter] seam: pick and drag-order the target sources, then Continue applies the
  * count-fork (one entry: the single-entry search screen, tuning sheet skipped like Mihon's
  * short-circuit; more: the tuning sheet, then the migration list). Flat rows, enabled sources only,
- * per the step-2 design note.
+ * per the design note in docs/dev/plans/content-layer-migrate-surface.md.
  */
 class EntryMigrationConfigScreen(
     private val contentType: ContentType,
@@ -264,6 +264,7 @@ class EntryMigrationConfigScreenModel(
 
     init {
         screenModelScope.launchIO {
+            adapter.prepare()
             val saved = adapter.savedSelection()
             val pinned = adapter.pinnedKeys()
             val sources = adapter.enabledSources().map { source ->

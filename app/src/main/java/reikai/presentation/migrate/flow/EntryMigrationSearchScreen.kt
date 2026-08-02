@@ -36,7 +36,7 @@ import uy.kohesive.injekt.api.get
  * The single-entry branch of the count-fork: fans the configured target sources out at once
  * (global-search layout over the shared section + card row leaves) and opens the shared
  * [EntryMigrateDialog] on a result tap. Runs on the flow's own search adapter, never on Mihon's
- * `SearchScreenModel` (which stays global-search-only per the amendment).
+ * `SearchScreenModel`, which stays global-search-only and synced with upstream.
  */
 class EntryMigrationSearchScreen(
     private val contentType: ContentType,
@@ -82,16 +82,20 @@ class EntryMigrationSearchScreen(
             LazyColumn(contentPadding = contentPadding) {
                 state.sections.forEach { section ->
                     item(key = section.source.key) {
+                        val entry = state.entry
                         EntrySearchSection(
                             title = section.source.name,
                             subtitle = section.source.lang,
-                            onClick = null,
+                            // The deep path: full browse of this one source (filters, pagination).
+                            onClick = entry?.let {
+                                { openDeepPicker(navigator, it, section.source.key, state.query) }
+                            },
                         ) {
                             when {
                                 section.loading -> LoadingScreen()
                                 else -> EntrySearchCardRow(
                                     entries = section.candidates,
-                                    key = { "${it.sourceKey}:${it.title}" },
+                                    key = { it.stableKey },
                                     toUi = { it.toBrowseUi() },
                                     onClick = { dialogTarget = it },
                                     onLongClick = { it.openDetails(navigator) },
@@ -115,7 +119,9 @@ class EntryMigrationSearchScreen(
                 onOpenTarget = { target.openDetails(navigator) },
                 onFinished = {
                     dialogTarget = null
+                    // Land on the migrated-to entry, not the replaced one's stale details.
                     navigator.pop()
+                    target.openDetails(navigator)
                 },
             )
         }
@@ -137,8 +143,13 @@ class EntryMigrationSearchScreenModel(
 
     private val searchSemaphore = Semaphore(SEARCH_CONCURRENCY)
 
+    /** Bumped per search run so a superseded run's coroutines drop their writes instead of landing
+     *  old-query results on the new sections. */
+    private var searchGeneration = 0
+
     init {
         screenModelScope.launchIO {
+            adapter.prepare()
             val entry = adapter.loadEntries(listOf(entryId)).firstOrNull() ?: return@launchIO
             val query = listOfNotNull(entry.title, extraQuery?.takeIf { it.isNotBlank() }).joinToString(" ")
             mutableState.update { it.copy(entry = entry, query = query) }
@@ -154,14 +165,17 @@ class EntryMigrationSearchScreenModel(
         val sources = run {
             val enabled = adapter.enabledSources()
             val saved = adapter.savedSelection()
-            val ordered = if (saved.isEmpty()) {
-                enabled
+            if (saved.isEmpty()) {
+                // No saved selection: pinned sources lead, matching the list's fallback order. The
+                // entry's own source stays searchable; the adapter rejects its identical listing.
+                val pinned = adapter.pinnedKeys()
+                enabled.sortedBy { it.key !in pinned }
             } else {
                 val byKey = enabled.associateBy { it.key }
                 saved.mapNotNull { byKey[it] }
             }
-            ordered.filter { it.key != entry.sourceKey }
         }
+        val generation = ++searchGeneration
         mutableState.update { st ->
             st.copy(
                 progressDone = 0,
@@ -174,6 +188,7 @@ class EntryMigrationSearchScreenModel(
                 val candidates = searchSemaphore.withPermit {
                     runCatching { adapter.candidates(entry, query, source.key) }.getOrDefault(emptyList())
                 }
+                if (generation != searchGeneration) return@launchIO
                 mutableState.update { st ->
                     st.copy(
                         progressDone = st.progressDone + 1,

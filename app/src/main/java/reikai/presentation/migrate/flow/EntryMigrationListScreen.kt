@@ -19,7 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -47,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +60,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntryBrowseGridCell
@@ -81,9 +85,18 @@ class EntryMigrationListScreen(
     private val extraQuery: String? = null,
 ) : Screen() {
 
+    /** Deep-picker hand-back: (current raw id, stored target raw id). Ids only, so the field stays
+     *  serializable; consumed by a LaunchedEffect when this screen re-enters composition. */
+    private var matchOverride: Pair<Long, Long>? = null
+
+    fun addMatchOverride(currentRawId: Long, targetRawId: Long) {
+        matchOverride = currentRawId to targetRawId
+    }
+
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val screenModel = rememberScreenModel {
             EntryMigrationListScreenModel(contentType, entryIds, extraQuery)
         }
@@ -93,6 +106,21 @@ class EntryMigrationListScreen(
         var showTuningSheet by remember { mutableStateOf(false) }
 
         LaunchedEffect(state.finished) { if (state.finished) navigator.pop() }
+
+        LaunchedEffect(matchOverride) {
+            val (current, target) = matchOverride ?: return@LaunchedEffect
+            screenModel.overrideWithStored(current, target)
+            matchOverride = null
+        }
+
+        LaunchedEffect(screenModel) {
+            screenModel.events.collect {
+                when (it) {
+                    EntryMigrationListScreenModel.Event.PickFailed ->
+                        context.toast(MR.strings.migrationListScreen_matchWithoutChapterToast)
+                }
+            }
+        }
 
         val guardExit = !state.finished && state.rows.isNotEmpty()
         BackHandler(enabled = guardExit) { showExitDialog = true }
@@ -120,6 +148,12 @@ class EntryMigrationListScreen(
                     actions = {
                         AppBarActions(
                             listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
+                                    icon = Icons.Outlined.DoneAll,
+                                    onClick = screenModel::acceptAllSuggestions,
+                                    enabled = state.hasUnacceptedSuggestions,
+                                ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
                                     icon = Icons.Outlined.Tune,
@@ -159,7 +193,9 @@ class EntryMigrationListScreen(
                 contentPadding = contentPadding,
             ) {
                 items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
-                    LaunchedEffect(row.entry.id) { screenModel.searchRow(row.entry.id) }
+                    // searchStarted is in the key so a tuning apply (which resets it) re-triggers
+                    // the search for rows already on screen.
+                    LaunchedEffect(row.entry.id, row.searchStarted) { screenModel.searchRow(row.entry.id) }
                     MigrationRow(row = row, screenModel = screenModel)
                     HorizontalDivider()
                 }
@@ -228,6 +264,7 @@ private fun MigrationRow(
     row: EntryMigrationListScreenModel.Row,
     screenModel: EntryMigrationListScreenModel,
 ) {
+    val navigator = LocalNavigator.currentOrThrow
     val id = row.entry.id
     Column(
         modifier = Modifier
@@ -239,6 +276,7 @@ private fun MigrationRow(
             MangaCover.Book(
                 modifier = Modifier.width(38.dp),
                 data = row.entry.cover,
+                onClick = { row.entry.openDetails(navigator) },
             )
             Column(
                 modifier = Modifier
@@ -398,15 +436,24 @@ private fun ExpandedSection(
         horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MangaCover.Book(modifier = Modifier.width(76.dp), data = row.entry.cover)
+        MangaCover.Book(
+            modifier = Modifier.width(76.dp),
+            data = row.entry.cover,
+            onClick = { row.entry.openDetails(navigator) },
+        )
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        val targetUi = (row.chosen ?: row.suggested)?.toBrowseUi()
+        val target = row.chosen ?: row.suggested
+        val targetUi = target?.toBrowseUi()
         if (targetUi != null) {
-            MangaCover.Book(modifier = Modifier.width(76.dp), data = targetUi.cover)
+            MangaCover.Book(
+                modifier = Modifier.width(76.dp),
+                data = targetUi.cover,
+                onClick = { target.openDetails(navigator) },
+            )
         } else {
             Box(
                 modifier = Modifier
@@ -449,14 +496,41 @@ private fun ExpandedSection(
         }
     }
     row.overrideStrips.forEach { strip ->
-        Text(
-            text = strip.sourceName,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = strip.sourceName,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 8.dp, bottom = 2.dp),
+            )
+            IconButton(onClick = { openDeepPicker(navigator, row.entry, strip.sourceKey, query) }) {
+                Icon(
+                    imageVector = Icons.Outlined.TravelExplore,
+                    contentDescription = stringResource(MR.strings.migrationFlow_browseSource),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        if (strip.error != null) {
+            Text(
+                text = strip.error,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        } else if (strip.candidates.isEmpty()) {
+            Text(
+                text = stringResource(MR.strings.no_results_found),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         LazyRow {
-            items(items = strip.candidates, key = { "${it.sourceKey}:${it.title}" }) { candidate ->
+            items(items = strip.candidates, key = { it.stableKey }) { candidate ->
                 Box(
                     modifier = Modifier
                         .width(PICKER_CELL_WIDTH)
@@ -491,7 +565,9 @@ private fun MigrationConfirmDialog(
     onDismissRequest: () -> Unit,
     onConfirm: (Set<MigrationDataFlag>) -> Unit,
 ) {
-    var selected by remember { mutableStateOf(initialFlags intersect applicableFlags) }
+    // Seeded with the FULL saved set: only applicable flags render, so a hidden flag's saved state
+    // survives the confirm instead of being erased from the pref for future migrations.
+    var selected by remember { mutableStateOf(initialFlags) }
     val verb = stringResource(if (replace) MR.strings.migrate else MR.strings.copy)
     AlertDialog(
         onDismissRequest = onDismissRequest,

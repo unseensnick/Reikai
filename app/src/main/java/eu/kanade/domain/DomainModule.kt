@@ -231,10 +231,12 @@ class DomainModule : InjektModule {
         addFactory { GetEnabledNovelSources(get(), get()) }
         // RK: the unified migration flow's per-type seams (content-layer-migrate-surface.md)
         addFactory {
-            MangaMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
+            MangaMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
         }
         addFactory {
-            NovelMigrationFlowAdapter(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
+            NovelMigrationFlowAdapter(
+                get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            )
         }
         // RK: novel custom-info overlay (non-destructive display-layer edits)
         addSingletonFactory<CustomNovelInfoRepository> { CustomNovelInfoRepositoryImpl(get()) }
@@ -268,7 +270,7 @@ class DomainModule : InjektModule {
             NovelMergeManager(get(), get()) { Injekt.get<PropagateNovelTrackerLinks>().distribute(it) }
         }
         // RK <--
-        // RK --> novel source migration (Roadmap 7)
+        // RK --> novel source migration
         addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)
