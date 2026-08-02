@@ -23,6 +23,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
@@ -63,13 +64,25 @@ class EntryMigrationSearchScreen(
         }
         val state by screenModel.state.collectAsState()
 
-        if (state.loadFailed) {
-            // The entry vanished (deleted mid-flow): say so instead of spinning forever.
-            EmptyScreen(stringRes = MR.strings.internal_error)
-            return
-        }
-        if (state.entry == null) {
-            LoadingScreen()
+        if (state.loadFailed || state.entry == null) {
+            // Terminal/loading states keep the toolbar: a chrome-less EmptyScreen left system back
+            // as the only way out.
+            Scaffold(
+                topBar = { scrollBehavior ->
+                    AppBar(
+                        title = stringResource(MR.strings.action_migrate),
+                        navigateUp = navigator::pop,
+                        scrollBehavior = scrollBehavior,
+                    )
+                },
+            ) { contentPadding ->
+                if (state.loadFailed) {
+                    // The entry vanished (deleted mid-flow): say so instead of spinning forever.
+                    EmptyScreen(stringRes = MR.strings.internal_error, modifier = Modifier.padding(contentPadding))
+                } else {
+                    LoadingScreen(modifier = Modifier.padding(contentPadding))
+                }
+            }
             return
         }
 
@@ -220,6 +233,9 @@ class EntryMigrationSearchScreenModel(
 
     fun dismissMigrateDialog() = mutableState.update { it.copy(dialogTarget = null) }
 
+    // Synchronized: called from init's IO coroutine and from main-thread search submits; the job
+    // list and generation bump need one writer at a time.
+    @Synchronized
     fun search() {
         val entry = state.value.entry ?: return
         val query = state.value.query.ifBlank { return }

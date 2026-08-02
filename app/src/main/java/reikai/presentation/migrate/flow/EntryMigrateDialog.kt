@@ -169,8 +169,10 @@ private class EntryMigrateDialogScreenModel(
         // the composable consuming the completion; a second tap there would migrate twice.
         if (state.value.isMigrating || state.value.finishedWith != null) return
         // Captured before the suspending resolve: a concurrent reset must not swap the flag set
-        // under a commit already in flight.
+        // under a commit already in flight, and a pair switch mid-migrate must not land this
+        // pair's completion (or failure) on the next pair's dialog.
         val flags = state.value.selectedFlags
+        val pairKey = state.value.pairKey
         mutableState.update { it.copy(isMigrating = true, failed = false) }
         screenModelScope.launchIO {
             val result = runCatchingCancellable {
@@ -179,6 +181,7 @@ private class EntryMigrateDialogScreenModel(
             }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }
             mutableState.update {
+                if (it.pairKey != pairKey) return@update it
                 it.copy(
                     isMigrating = false,
                     failed = result.isFailure,

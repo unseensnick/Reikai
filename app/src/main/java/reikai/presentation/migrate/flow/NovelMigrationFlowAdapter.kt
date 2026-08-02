@@ -32,11 +32,16 @@ data class NovelCandidateHandle(
     /** The source's site, the cover Referer. */
     val site: String?,
     val resolved: Novel? = null,
-    /** True when [NovelMigrationFlowAdapter.resolve] just chapter-synced the row, so the engine can
-     *  skip its own refresh (a second identical fetch seconds later); a stored row wrapped by
-     *  [NovelMigrationFlowAdapter.storedCandidate] is resolved but NOT synced. */
-    val synced: Boolean = false,
+    /** When [NovelMigrationFlowAdapter.resolve] chapter-synced the row (epoch millis), so the
+     *  engine can skip its own refresh while the sync is still fresh; null for a stored row wrapped
+     *  by [NovelMigrationFlowAdapter.storedCandidate], which was never synced. resolve()'s
+     *  early-return keeps this stamp, so a commit long after the pick must NOT skip: the skip is
+     *  time-windowed at the migrate call. */
+    val syncedAtMillis: Long? = null,
 )
+
+/** How long a resolve()-time chapter sync is trusted at commit; older syncs re-refresh. */
+private const val SYNC_FRESHNESS_MILLIS = 5 * 60 * 1000L
 
 class NovelMigrationFlowAdapter(
     private val sourceManager: NovelSourceManager,
@@ -225,7 +230,7 @@ class NovelMigrationFlowAdapter(
         return candidate.copy(
             chapterCount = chapters.size,
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-            handle = handle.copy(resolved = resolved, synced = true),
+            handle = handle.copy(resolved = resolved, syncedAtMillis = System.currentTimeMillis()),
         )
     }
 
@@ -276,14 +281,19 @@ class NovelMigrationFlowAdapter(
         val current = entry.payload as? Novel ?: error("novel entry payload missing")
         val handle = target.handle as? NovelCandidateHandle
         val targetNovel = handle?.resolved ?: error("novel target not resolved")
-        // The use case silently no-ops on a self-target; surface it as a row failure instead of
-        // marking the row migrated when nothing happened.
+        // The use case silently no-ops on both of these; surface them as row failures instead of
+        // marking a row migrated when nothing happened (matching the manga adapter).
         check(current.id != targetNovel.id) { "target is the entry itself" }
+        checkNotNull(sourceManager.get(targetNovel.source)) { "target source is not installed" }
         val novelFlags = flags.map { it.toNovelFlag() }.toSet()
         novelPreferences.novelMigrationFlags().set(NovelMigrationFlag.toBits(novelFlags))
-        // A resolve()-synced target skips the engine's own refresh: it would repeat the identical
-        // chapter fetch seconds later, doubling a batch commit's network cost.
-        migrateNovel(current, targetNovel, novelFlags, replace, skipTargetRefresh = handle.synced)
+        // A freshly resolve()-synced target skips the engine's own refresh (it would repeat the
+        // identical chapter fetch, doubling a batch commit's network cost). Time-windowed: the
+        // stamp is sticky on the handle, and a commit long after the pick needs the fresh list.
+        val recentlySynced = handle.syncedAtMillis
+            ?.let { System.currentTimeMillis() - it < SYNC_FRESHNESS_MILLIS }
+            ?: false
+        migrateNovel(current, targetNovel, novelFlags, replace, skipTargetRefresh = recentlySynced)
     }
 
     private fun buildQuery(title: String, extraQuery: String?): String {

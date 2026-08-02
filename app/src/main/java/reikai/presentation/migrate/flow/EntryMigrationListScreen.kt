@@ -186,10 +186,11 @@ class EntryMigrationListScreen(
             },
             bottomBar = {
                 // Commit only once every row has searched (the design's all-searched gate; skipped
-                // rows are exempt, the escape hatch for a hung source) and no single-row commit or
-                // pick resolve is in flight (the batch would double-commit or snapshot a stale target).
+                // rows are exempt, the escape hatch for a hung source) and no single-row commit is
+                // in flight. An in-flight pick resolve only DISABLES the buttons (below): hiding
+                // the bar for every accept's resolve made the layout jump on each tap.
                 if (state.chosenCount > 0 && state.allSearched && !state.isMigrating &&
-                    !state.hasActiveSingleCommit && !state.hasActiveResolve
+                    !state.hasActiveSingleCommit
                 ) {
                     Row(
                         modifier = Modifier
@@ -199,12 +200,14 @@ class EntryMigrationListScreen(
                     ) {
                         OutlinedButton(
                             onClick = { screenModel.showConfirm(replace = false) },
+                            enabled = !state.hasActiveResolve,
                             modifier = Modifier.weight(1f),
                         ) {
                             Text(text = "${stringResource(MR.strings.copy)} (${state.chosenCount})")
                         }
                         Button(
                             onClick = { screenModel.showConfirm(replace = true) },
+                            enabled = !state.hasActiveResolve,
                             modifier = Modifier.weight(1f),
                         ) {
                             Text(text = "${stringResource(MR.strings.migrate)} (${state.chosenCount})")
@@ -267,7 +270,9 @@ class EntryMigrationListScreen(
                 onDismissRequest = { showTuningSheet = false },
                 onApply = {
                     showTuningSheet = false
-                    screenModel.applyTuning(it)
+                    // The sheet can be open when a per-row commit starts; a silent no-op would
+                    // read as the options having applied.
+                    if (!screenModel.applyTuning(it)) context.toast(MR.strings.migrationFlow_busyToast)
                 },
             )
         }
@@ -352,6 +357,7 @@ private fun MigrationRow(
 private fun RowMetaLine(row: EntryMigrationListScreenModel.Row) {
     val target = when {
         row.failed -> stringResource(MR.strings.migrationFlow_rowFailed)
+        row.searchFailed && row.chosen == null -> stringResource(MR.strings.migrationFlow_searchFailed)
         row.skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
         row.chosen != null -> row.chosenSourceName
         row.suggested != null -> row.suggestedSourceName
@@ -360,7 +366,7 @@ private fun RowMetaLine(row: EntryMigrationListScreenModel.Row) {
     Text(
         text = listOfNotNull(row.entry.sourceName, target).joinToString(" → "),
         style = MaterialTheme.typography.bodySmall,
-        color = if (row.failed) {
+        color = if (row.failed || (row.searchFailed && row.chosen == null)) {
             MaterialTheme.colorScheme.error
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
@@ -408,84 +414,89 @@ private fun RowTrailing(
         row.failed -> TextButton(onClick = { screenModel.retryRow(id) }) {
             Text(text = stringResource(MR.strings.action_retry))
         }
-        else -> {
-            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                if (!row.skipped && (row.suggested != null || row.chosen != null)) {
-                    if (row.chosen != null) {
-                        FilledTonalIconButton(
-                            onClick = { screenModel.toggleAccept(id) },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = stringResource(MR.strings.action_accept),
-                            )
-                        }
-                    } else {
-                        OutlinedIconButton(onClick = { screenModel.toggleAccept(id) }) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = stringResource(MR.strings.action_accept),
-                            )
-                        }
+        else -> Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            if (!row.skipped && (row.suggested != null || row.chosen != null)) {
+                if (row.chosen != null) {
+                    FilledTonalIconButton(
+                        onClick = { screenModel.toggleAccept(id) },
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = stringResource(MR.strings.action_accept),
+                        )
+                    }
+                } else {
+                    OutlinedIconButton(onClick = { screenModel.toggleAccept(id) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = stringResource(MR.strings.action_accept),
+                        )
                     }
                 }
             }
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = stringResource(MR.strings.action_menu_overflow_description),
-                    )
-                }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
-                        },
-                        onClick = {
-                            menuExpanded = false
-                            if (!row.expanded) screenModel.toggleExpanded(id)
-                        },
-                    )
-                    if (!row.skipped && !row.migratedOk && (row.chosen ?: row.suggested) != null) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel))
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                screenModel.commitSingle(id, replace = true)
-                            },
+        }
+    }
+    // The menu renders in EVERY row state: skip is the escape hatch for a hung source, so it must
+    // be reachable exactly when the row is stuck searching (a spinner-only row held the all-searched
+    // commit gate hostage), and a failed row needs skip alongside retry.
+    Box {
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(
+                imageVector = Icons.Outlined.MoreVert,
+                contentDescription = stringResource(MR.strings.action_menu_overflow_description),
+            )
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel))
+                },
+                onClick = {
+                    menuExpanded = false
+                    if (!row.expanded) screenModel.toggleExpanded(id)
+                },
+            )
+            if (!row.skipped && !row.migratedOk && !row.searching && !row.resolving &&
+                (row.chosen ?: row.suggested) != null
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel))
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        screenModel.commitSingle(id, replace = true)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(MR.strings.migrationListScreen_copyNowActionLabel)) },
+                    onClick = {
+                        menuExpanded = false
+                        screenModel.commitSingle(id, replace = false)
+                    },
+                )
+            }
+            if (!row.migratedOk) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(
+                                if (row.skipped) {
+                                    MR.strings.migrationFlow_restoreActionLabel
+                                } else {
+                                    MR.strings.migrationListScreen_skipActionLabel
+                                },
+                            ),
                         )
-                        DropdownMenuItem(
-                            text = { Text(text = stringResource(MR.strings.migrationListScreen_copyNowActionLabel)) },
-                            onClick = {
-                                menuExpanded = false
-                                screenModel.commitSingle(id, replace = false)
-                            },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource(
-                                    if (row.skipped) {
-                                        MR.strings.migrationFlow_restoreActionLabel
-                                    } else {
-                                        MR.strings.migrationListScreen_skipActionLabel
-                                    },
-                                ),
-                            )
-                        },
-                        onClick = {
-                            menuExpanded = false
-                            screenModel.toggleSkip(id)
-                        },
-                    )
-                }
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        screenModel.toggleSkip(id)
+                    },
+                )
             }
         }
     }
@@ -501,12 +512,8 @@ private fun ExpandedSection(
     val context = LocalContext.current
     val id = row.entry.id
     var query by rememberSaveable(id.toString()) { mutableStateOf(row.entry.title) }
-
-    LaunchedEffect(id) {
-        if (row.overrideStrips.isEmpty() && !row.overrideLoading) {
-            screenModel.research(id, row.entry.title)
-        }
-    }
+    // The first override search fires from toggleExpanded in the model, not a composable effect:
+    // an effect here re-fired on every scroll-back when the strips resolved empty.
 
     Row(
         modifier = Modifier

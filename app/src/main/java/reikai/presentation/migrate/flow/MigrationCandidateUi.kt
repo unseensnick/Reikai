@@ -29,7 +29,7 @@ internal val MigrationCandidate.stableKey: String
     }"
 
 /** Open a candidate's details page (the long-press verify affordance). fromSource matches the old
- *  migrate-search behavior: back from the peek returns here instead of restarting from the library. */
+ *  migrate-search call shape; in this fork it only auto-expands the description on the peek. */
 internal fun MigrationCandidate.openDetails(navigator: Navigator) {
     when (val h = handle) {
         is Manga -> navigator.push(MangaScreen(h.id, true))

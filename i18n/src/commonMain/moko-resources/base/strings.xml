@@ -1313,6 +1313,8 @@
     <string name="migrationFlow.smartMatchUnavailableNote">Chapter-based search options aren\'t available for novel sources.</string>
     <string name="migrationFlow.restoreActionLabel">Restore</string>
     <string name="migrationFlow.selfTargetToast">This is the entry being migrated.</string>
+    <string name="migrationFlow.busyToast">Wait for the running migration to finish.</string>
+    <string name="migrationFlow.searchFailed">Search failed</string>
     <!-- RK end -->
 
     <string name="supportUsScreen.perks">Patrons get access to exclusive channels, with more perks to come.</string>
