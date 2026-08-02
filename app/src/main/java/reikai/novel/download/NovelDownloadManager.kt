@@ -95,6 +95,8 @@ class NovelDownloadManager(private val context: Context) {
         }
     }
 
+    fun getDownloadCount(novel: Novel): Int = cache.getDownloadCount(novel)
+
     fun isChapterDownloaded(novel: Novel, chapter: NovelChapter): Boolean =
         cache.isChapterDownloaded(novel, chapter)
 

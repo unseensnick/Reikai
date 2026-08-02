@@ -132,7 +132,11 @@ class EntryMigrationConfigScreen(
                         screenModel.saveSources()
                         val singleId = entryIds.singleOrNull()
                         if (singleId != null) {
-                            navigator.replace(EntryMigrationSearchScreen(contentType, singleId))
+                            // The sheet is skipped on this branch (Mihon's short-circuit), but the
+                            // persisted extra query still applies, as it does on the batch branch.
+                            navigator.replace(
+                                EntryMigrationSearchScreen(contentType, singleId, state.tuning.extraQuery),
+                            )
                         } else {
                             tuningSheetOpen = true
                         }
@@ -340,6 +344,13 @@ class EntryMigrationConfigScreenModel(
 
     fun saveSources() {
         val visibleSelected = state.value.sources.filter { it.isSelected }.map { it.key }
+        // Explicit select-none wins: persisting hidden keys alone would leave a selection that
+        // resolves to nothing (searched as "everything" by the fallback) while the config renders
+        // every source unchecked.
+        if (visibleSelected.isEmpty()) {
+            adapter.persistSelection(emptyList())
+            return
+        }
         // Keep saved keys whose source is currently disabled or uninstalled (they are not listed, so
         // merely opening this screen must not prune them from the priority order); they re-appear at
         // the end of the order when the source comes back.

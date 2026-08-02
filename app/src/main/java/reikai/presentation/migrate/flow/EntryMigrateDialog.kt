@@ -165,7 +165,9 @@ private class EntryMigrateDialogScreenModel(
     fun consumeFinished() = mutableState.update { it.copy(finishedWith = null) }
 
     fun migrate(entry: MigrationEntry, target: MigrationCandidate, replace: Boolean) {
-        if (state.value.isMigrating) return
+        // finishedWith blocks the one-frame window between a success re-enabling the buttons and
+        // the composable consuming the completion; a second tap there would migrate twice.
+        if (state.value.isMigrating || state.value.finishedWith != null) return
         // Captured before the suspending resolve: a concurrent reset must not swap the flag set
         // under a commit already in flight.
         val flags = state.value.selectedFlags

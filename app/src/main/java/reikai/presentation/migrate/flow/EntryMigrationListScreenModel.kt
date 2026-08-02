@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -44,10 +45,13 @@ class EntryMigrationListScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
-    /** Bumped whenever tuning changes so an in-flight search from the old tuning drops its write. */
+    /** Bumped whenever tuning changes so an in-flight search from the old tuning drops its write.
+     *  Volatile: written on main (applyTuning), read from the IO batch loop. */
+    @Volatile
     private var searchGeneration = 0
 
-    /** The sequential batch searcher; cancelled and restarted by [applyTuning]. */
+    /** The sequential batch searcher; cancelled and restarted by [applyTuning] and skip. */
+    @Volatile
     private var batchJob: Job? = null
 
     /** Interactive override searches, bounded separately from the batch so expanding a row responds
@@ -56,6 +60,9 @@ class EntryMigrationListScreenModel(
     private val interactiveSemaphore = Semaphore(SEARCH_CONCURRENCY)
     private val researchJobs = ConcurrentHashMap<EntryId, Job>()
     private var commitJob: Job? = null
+
+    /** Versions the confirm dialog's flag scan; see [showConfirm]. */
+    private var confirmScanId = 0
 
     private val _events = Channel<Event>()
     val events = _events.receiveAsFlow()
@@ -97,15 +104,43 @@ class EntryMigrationListScreenModel(
         }
     }
 
-    /** Launch (or resume) the sequential batch search over every not-yet-started row. */
+    /** Launch (or resume) the sequential batch search over every not-yet-started, unskipped row.
+     *  One row's failure marks that row done and moves on; a throw must never kill the loop, or the
+     *  remaining rows would silently never search and the all-searched commit gate never open. */
     private fun startSearches() {
         if (batchJob?.isActive == true) return
         val generation = searchGeneration
         batchJob = screenModelScope.launchIO {
             while (generation == searchGeneration) {
-                val next = state.value.rows.firstOrNull { !it.searchStarted } ?: break
-                searchRow(next, generation)
+                val next = state.value.rows.firstOrNull { !it.searchStarted && !it.skipped } ?: break
+                try {
+                    searchRow(next, generation)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    logcat(LogPriority.ERROR, e) { "Row search failed for ${next.entry.id}" }
+                    setRow(next.entry.id) { it.copy(searching = false) }
+                }
             }
+        }
+    }
+
+    /** Cancel the batch, WAIT for it to fully stop (a plain cancel leaves its non-suspending head
+     *  free to mark one more row searching after a state reset, stranding it forever), then run
+     *  [afterStopped] and resume. */
+    private fun restartBatch(afterStopped: () -> Unit = {}) {
+        screenModelScope.launchIO {
+            batchJob?.cancelAndJoin()
+            // Clear any row the cancelled loop left mid-flight so the resumed loop re-searches it.
+            mutableState.update { st ->
+                st.copy(
+                    rows = st.rows.map {
+                        if (it.searching) it.copy(searchStarted = false, searching = false) else it
+                    },
+                )
+            }
+            afterStopped()
+            startSearches()
         }
     }
 
@@ -197,11 +232,16 @@ class EntryMigrationListScreenModel(
 
     /** Pick a candidate (suggested or from an override strip) and resolve it into the row's target. */
     fun pick(id: EntryId, candidate: MigrationCandidate, sourceName: String?) {
+        val row = state.value.rows.firstOrNull { it.entry.id == id } ?: return
+        // A migrated or mid-commit row takes no new target; a late pick write-back would restore a
+        // chosen candidate onto a row already marked migrated.
+        if (row.migratedOk || row.committing || row.resolving) return
         setRow(id) { it.copy(resolving = true) }
         screenModelScope.launchIO {
             val resolved = runCatchingCancellable { adapter.resolve(candidate) }.getOrNull()
             if (resolved == null) _events.send(Event.PickFailed)
             setRow(id) {
+                if (it.migratedOk) return@setRow it.copy(resolving = false)
                 it.copy(
                     resolving = false,
                     chosen = resolved,
@@ -231,31 +271,61 @@ class EntryMigrationListScreenModel(
         }
     }
 
-    /** Skip keeps the chosen target so unskip restores the row exactly (the design's "restorable"). */
-    fun toggleSkip(id: EntryId) = setRow(id) { it.copy(skipped = !it.skipped) }
+    /** Skip keeps the chosen target so unskip restores the row exactly (the design's "restorable"),
+     *  and is the escape hatch for a stuck row: a skipped row stops counting toward the all-searched
+     *  commit gate, and skipping the row currently in flight excises it from the batch immediately
+     *  (upstream's remove-from-batch mechanics under our restorable presentation). Restoring an
+     *  unsearched row re-queues its search. */
+    fun toggleSkip(id: EntryId) {
+        val row = state.value.rows.firstOrNull { it.entry.id == id } ?: return
+        val skipping = !row.skipped
+        setRow(id) { it.copy(skipped = skipping) }
+        if (skipping && row.searching) {
+            restartBatch()
+        } else if (!skipping && !row.searchStarted) {
+            startSearches()
+        }
+    }
 
     fun toggleExpanded(id: EntryId) = setRow(id) { it.copy(expanded = !it.expanded) }
 
-    /** Persist edited tuning and re-run every row's search under it. The superseded batch is
-     *  cancelled and the generation bump drops any write already past its cancellation point. */
+    /** Persist edited tuning and re-run every unmigrated row's search under it. The superseded
+     *  batch is joined before the reset (see [restartBatch]); the generation bump drops any write
+     *  already past its cancellation point. Blocked while a commit runs: the reset would blank rows
+     *  the commit is reading. */
     fun applyTuning(tuning: MigrationTuning) {
+        if (state.value.isMigrating || state.value.hasActiveSingleCommit) return
         adapter.persistTuning(tuning)
         searchGeneration++
-        batchJob?.cancel()
-        mutableState.update { st ->
-            st.copy(
-                tuning = tuning,
-                rows = st.rows.map {
-                    it.copy(searchStarted = false, searching = false, suggested = null, suggestedSourceName = null)
-                },
-            )
+        restartBatch {
+            mutableState.update { st ->
+                st.copy(
+                    tuning = tuning,
+                    rows = st.rows.map {
+                        // A migrated row's result is history, not a suggestion; re-searching it
+                        // would blank what it migrated to.
+                        if (it.migratedOk) {
+                            it
+                        } else {
+                            it.copy(
+                                searchStarted = false,
+                                searching = false,
+                                suggested = null,
+                                suggestedSourceName = null,
+                            )
+                        }
+                    },
+                )
+            }
         }
-        startSearches()
     }
 
     /** Open the confirm dialog immediately; the applicable-flag scan (per-entry chapter and
-     *  download reads) fills in async so the button never looks dead. */
+     *  download reads) fills in async so the button never looks dead. Scans are versioned: a
+     *  dismiss-and-reopen must not let the older scan's late result rewrite the newer dialog's
+     *  flags (the seed is also the checkbox state's reset key). */
     fun showConfirm(replace: Boolean) {
+        val scanId = ++confirmScanId
         mutableState.update {
             it.copy(showConfirm = true, confirmReplace = replace, confirmFlagsLoading = true)
         }
@@ -266,6 +336,7 @@ class EntryMigrationListScreenModel(
             // one-shot init snapshot would reseed the second confirm with stale checks.
             val saved = adapter.savedFlags()
             mutableState.update {
+                if (scanId != confirmScanId) return@update it
                 it.copy(confirmFlagsLoading = false, applicableFlags = applicable, initialFlags = saved)
             }
         }
@@ -279,8 +350,9 @@ class EntryMigrationListScreenModel(
      *  unresolved suggestion (which the novel adapter rejects). */
     fun commit(flags: Set<MigrationDataFlag>, replace: Boolean) {
         // One commit path at a time: re-entry (a double-tapped confirm) and an in-flight single-row
-        // commit would migrate the same row twice.
-        if (state.value.isMigrating || state.value.hasActiveSingleCommit) return
+        // commit would migrate the same row twice; an in-flight pick resolve would be snapshotted
+        // at its previous target.
+        if (state.value.isMigrating || state.value.hasActiveSingleCommit || state.value.hasActiveResolve) return
         val targets = state.value.rows.filter { it.chosen != null && !it.skipped && !it.migratedOk }
         mutableState.update {
             it.copy(
@@ -356,11 +428,14 @@ class EntryMigrationListScreenModel(
         val row = state.value.rows.firstOrNull { it.entry.id == id } ?: return
         if (row.committing) return
         val target = row.chosen ?: row.suggested ?: return
+        // Captured at tap time: a concurrent commit path rewriting the pref during our resolve must
+        // not swap the flag set under this commit.
+        val flags = adapter.savedFlags()
         setRow(id) { it.copy(resolving = true, committing = true, failed = false) }
         screenModelScope.launchIO {
             val result = runCatchingCancellable {
                 val resolved = adapter.resolve(target) ?: error("target failed to resolve")
-                adapter.migrate(row.entry, resolved, replace, adapter.savedFlags())
+                adapter.migrate(row.entry, resolved, replace, flags)
                 resolved
             }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-row migration failed for ${row.entry.id}" } }
@@ -414,8 +489,12 @@ class EntryMigrationListScreenModel(
             if (result.isSuccess) {
                 mutableState.update { it.copy(finishedCount = it.finishedCount + 1) }
                 // Only a batch commit's retry finishes the screen; a single-row retry leaves the
-                // user in the list to keep working.
-                if (st.lastFlags != null && !state.value.isMigrating && state.value.rows.none { it.failed }) {
+                // user in the list to keep working, and another retry still in flight (committing)
+                // must finish first or the pop would cancel it mid-migration.
+                val now = state.value
+                if (st.lastFlags != null && !now.isMigrating && !now.hasActiveSingleCommit &&
+                    now.rows.none { it.failed }
+                ) {
                     mutableState.update { it.copy(finished = true) }
                 }
             }
@@ -541,8 +620,16 @@ class EntryMigrationListScreenModel(
         val hasUnacceptedSuggestions: Boolean
             get() = visibleRows.any { it.chosen == null && !it.skipped && it.suggested != null }
         val hasActiveSingleCommit: Boolean get() = rows.any { it.committing }
-        val searchedCount: Int get() = rows.count { it.searchStarted && !it.searching }
-        val allSearched: Boolean get() = rows.isNotEmpty() && rows.all { it.searchStarted && !it.searching }
+
+        /** A pick/accept resolve in flight; the commit bar hides so a commit can't snapshot the
+         *  row's previous target while the new one is still resolving. */
+        val hasActiveResolve: Boolean get() = rows.any { it.resolving }
+
+        /** Skipped rows count as settled: skip is the escape hatch for a source that hangs, so a
+         *  skipped row must not hold the searched count or the commit gate hostage. */
+        val searchedCount: Int get() = rows.count { it.skipped || (it.searchStarted && !it.searching) }
+        val allSearched: Boolean
+            get() = rows.isNotEmpty() && rows.all { it.skipped || (it.searchStarted && !it.searching) }
         val hasFailures: Boolean get() = rows.any { it.failed }
     }
 }

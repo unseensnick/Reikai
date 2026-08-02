@@ -176,6 +176,8 @@ class EntryMigrationListScreen(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
                                     icon = Icons.Outlined.Tune,
                                     onClick = { showTuningSheet = true },
+                                    // Applying tuning resets rows a running commit is reading.
+                                    enabled = !state.isMigrating && !state.hasActiveSingleCommit,
                                 ),
                             ),
                         )
@@ -183,9 +185,12 @@ class EntryMigrationListScreen(
                 )
             },
             bottomBar = {
-                // Commit only once every row has searched (the design's all-searched gate) and no
-                // single-row commit is in flight (the batch would migrate that row a second time).
-                if (state.chosenCount > 0 && state.allSearched && !state.isMigrating && !state.hasActiveSingleCommit) {
+                // Commit only once every row has searched (the design's all-searched gate; skipped
+                // rows are exempt, the escape hatch for a hung source) and no single-row commit or
+                // pick resolve is in flight (the batch would double-commit or snapshot a stale target).
+                if (state.chosenCount > 0 && state.allSearched && !state.isMigrating &&
+                    !state.hasActiveSingleCommit && !state.hasActiveResolve
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -209,11 +214,16 @@ class EntryMigrationListScreen(
             },
         ) { contentPadding ->
             if (state.visibleRows.isEmpty()) {
-                // Nothing to render: every row hidden by the toggles, or nothing loaded.
-                EmptyScreen(
-                    stringRes = MR.strings.no_results_found,
-                    modifier = Modifier.padding(contentPadding),
-                )
+                // Mid-search a hide toggle can transiently empty a short list: keep the loading
+                // surface until the batch settles, and only then call it empty.
+                if (state.rows.isNotEmpty() && !state.allSearched) {
+                    LoadingScreen(modifier = Modifier.padding(contentPadding))
+                } else {
+                    EmptyScreen(
+                        stringRes = MR.strings.no_results_found,
+                        modifier = Modifier.padding(contentPadding),
+                    )
+                }
                 return@Scaffold
             }
             LazyColumn(
@@ -296,12 +306,18 @@ private fun MigrationRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { screenModel.toggleExpanded(id) }
             // Skipped rows dim but stay in place, per the design's restorable-skip.
-            .alpha(if (row.skipped) 0.5f else 1f)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .alpha(if (row.skipped) 0.5f else 1f),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Only the compact header toggles expansion: a clickable spanning the expanded body made
+        // every stray tap in it (strip gutters, texts) collapse the row mid-interaction.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { screenModel.toggleExpanded(id) }
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
             MangaCover.Book(
                 modifier = Modifier.width(38.dp),
                 data = row.entry.cover,
@@ -324,7 +340,9 @@ private fun MigrationRow(
             RowTrailing(row = row, screenModel = screenModel)
         }
         if (row.expanded) {
-            ExpandedSection(row = row, screenModel = screenModel)
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                ExpandedSection(row = row, screenModel = screenModel)
+            }
         }
     }
 }

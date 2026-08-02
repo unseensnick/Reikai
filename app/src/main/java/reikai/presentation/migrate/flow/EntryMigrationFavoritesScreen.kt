@@ -31,11 +31,10 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import reikai.domain.library.ContentType
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -163,14 +162,18 @@ class EntryMigrationFavoritesScreenModel(
     }
 
     init {
-        mutableState.update { it.copy(sourceName = adapter.sourceDisplayName(sourceKey)) }
-        adapter.favorites(sourceKey)
-            .catch {
-                logcat(LogPriority.ERROR, it)
-                mutableState.update { st -> st.copy(loading = false, entries = emptyList()) }
-            }
-            .onEach { entries -> mutableState.update { it.copy(loading = false, entries = entries) } }
-            .launchIn(screenModelScope)
+        screenModelScope.launchIO {
+            // Warm the source layer first (the novel plugin host): resolving names, sites and cover
+            // Referers against a cold host silently loses them.
+            adapter.prepare()
+            mutableState.update { it.copy(sourceName = adapter.sourceDisplayName(sourceKey)) }
+            adapter.favorites(sourceKey)
+                .catch {
+                    logcat(LogPriority.ERROR, it)
+                    mutableState.update { st -> st.copy(loading = false, entries = emptyList()) }
+                }
+                .collect { entries -> mutableState.update { it.copy(loading = false, entries = entries) } }
+        }
     }
 
     fun toggleSelection(rawId: Long) {

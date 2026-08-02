@@ -54,6 +54,9 @@ class MigrateNovelUseCase(
         target: Novel,
         flags: Set<NovelMigrationFlag>,
         replace: Boolean,
+        /** True when the caller just chapter-synced the target (the flow's resolve step), so the
+         *  refresh below would repeat an identical fetch seconds later. */
+        skipTargetRefresh: Boolean = false,
     ) {
         if (current.id == target.id) return
         try {
@@ -65,21 +68,23 @@ class MigrateNovelUseCase(
             // (parity with MigrateMangaUseCase.updateMangaFromRemote). This lets the migrate work from any
             // add-path, including browse / global search where the target is a fresh, unsynced row.
             // Best-effort: skip when the source is unavailable, and never let a fetch failure abort.
-            sourceManager.get(target.source)?.let { targetSource ->
-                try {
-                    refreshNovelFromSource(
-                        target,
-                        targetSource,
-                        novelChapterRepository,
-                        novelRepository,
-                        database,
-                        novelDownloadManager,
-                    )
-                } catch (e: CancellationException) {
-                    // A cancelled migration must die, not proceed with an unrefreshed target.
-                    throw e
-                } catch (_: Throwable) {
-                    // Best-effort otherwise: a fetch failure must not abort the migration.
+            if (!skipTargetRefresh) {
+                sourceManager.get(target.source)?.let { targetSource ->
+                    try {
+                        refreshNovelFromSource(
+                            target,
+                            targetSource,
+                            novelChapterRepository,
+                            novelRepository,
+                            database,
+                            novelDownloadManager,
+                        )
+                    } catch (e: CancellationException) {
+                        // A cancelled migration must die, not proceed with an unrefreshed target.
+                        throw e
+                    } catch (_: Throwable) {
+                        // Best-effort otherwise: a fetch failure must not abort the migration.
+                    }
                 }
             }
 

@@ -7,14 +7,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -24,6 +25,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -54,12 +57,17 @@ class EntryMigrationSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val screenModel = rememberScreenModel {
             EntryMigrationSearchScreenModel(contentType, entryId, extraQuery)
         }
         val state by screenModel.state.collectAsState()
-        var dialogTarget by remember { mutableStateOf<MigrationCandidate?>(null) }
 
+        if (state.loadFailed) {
+            // The entry vanished (deleted mid-flow): say so instead of spinning forever.
+            EmptyScreen(stringRes = MR.strings.internal_error)
+            return
+        }
         if (state.entry == null) {
             LoadingScreen()
             return
@@ -106,7 +114,11 @@ class EntryMigrationSearchScreen(
                             subtitle = section.source.lang,
                             // The deep path: full browse of this one source (filters, pagination).
                             onClick = entry?.let {
-                                { openDeepPicker(navigator, it, section.source.key, state.query) }
+                                {
+                                    if (!openDeepPicker(navigator, it, section.source.key, state.query)) {
+                                        context.toast(MR.strings.internal_error)
+                                    }
+                                }
                             },
                         ) {
                             when {
@@ -118,11 +130,19 @@ class EntryMigrationSearchScreen(
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(20.dp))
                                 }
+                                section.error != null -> Text(
+                                    text = section.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
                                 else -> EntrySearchCardRow(
                                     entries = section.candidates,
                                     key = { it.stableKey },
                                     toUi = { it.toBrowseUi() },
-                                    onClick = { dialogTarget = it },
+                                    onClick = screenModel::showMigrateDialog,
                                     onLongClick = { it.openDetails(navigator) },
                                     isSelected = { false },
                                 )
@@ -134,16 +154,16 @@ class EntryMigrationSearchScreen(
         }
 
         val entry = state.entry
-        val target = dialogTarget
+        val target = state.dialogTarget
         if (entry != null && target != null) {
             EntryMigrateDialog(
                 contentType = contentType,
                 entry = entry,
                 target = target,
-                onDismissRequest = { dialogTarget = null },
+                onDismissRequest = screenModel::dismissMigrateDialog,
                 onOpenTarget = { target.openDetails(navigator) },
                 onFinished = { replaced ->
-                    dialogTarget = null
+                    screenModel.dismissMigrateDialog()
                     // Land on the migrated-to entry; on a replace the origin's now-stale details
                     // screen beneath is swapped out instead of left in the stack.
                     navigator.pop()
@@ -170,13 +190,22 @@ class EntryMigrationSearchScreenModel(
     private val searchSemaphore = Semaphore(SEARCH_CONCURRENCY)
 
     /** Bumped per search run so a superseded run's coroutines drop their writes instead of landing
-     *  old-query results on the new sections. */
+     *  old-query results on the new sections. Volatile: main-thread writes, IO reads. */
+    @Volatile
     private var searchGeneration = 0
+
+    /** The current run's jobs, cancelled by the next run: guard-only superseded jobs kept running
+     *  and held semaphore permits through dead network hops, starving the new run. */
+    private val searchJobs = mutableListOf<Job>()
 
     init {
         screenModelScope.launchIO {
             adapter.prepare()
-            val entry = adapter.loadEntries(listOf(entryId)).firstOrNull() ?: return@launchIO
+            val entry = adapter.loadEntries(listOf(entryId)).firstOrNull()
+            if (entry == null) {
+                mutableState.update { it.copy(loadFailed = true) }
+                return@launchIO
+            }
             val query = listOfNotNull(entry.title, extraQuery?.takeIf { it.isNotBlank() }).joinToString(" ")
             mutableState.update { it.copy(entry = entry, query = query) }
             search()
@@ -184,6 +213,12 @@ class EntryMigrationSearchScreenModel(
     }
 
     fun setQuery(query: String) = mutableState.update { it.copy(query = query) }
+
+    /** The dialog target lives in model state (not composable memory) so a rotation mid-migrate
+     *  keeps the dialog alive to receive the completion and run the landing navigation. */
+    fun showMigrateDialog(target: MigrationCandidate) = mutableState.update { it.copy(dialogTarget = target) }
+
+    fun dismissMigrateDialog() = mutableState.update { it.copy(dialogTarget = null) }
 
     fun search() {
         val entry = state.value.entry ?: return
@@ -204,6 +239,8 @@ class EntryMigrationSearchScreenModel(
             }
         }
         val generation = ++searchGeneration
+        searchJobs.forEach { it.cancel() }
+        searchJobs.clear()
         mutableState.update { st ->
             st.copy(
                 progressDone = 0,
@@ -214,10 +251,9 @@ class EntryMigrationSearchScreenModel(
             )
         }
         sources.forEach { source ->
-            screenModelScope.launchIO {
-                val candidates = searchSemaphore.withPermit {
+            searchJobs += screenModelScope.launchIO {
+                val result = searchSemaphore.withPermit {
                     runCatchingCancellable { adapter.candidates(entry, query, source.key) }
-                        .getOrDefault(emptyList())
                 }
                 if (generation != searchGeneration) return@launchIO
                 mutableState.update { st ->
@@ -225,16 +261,23 @@ class EntryMigrationSearchScreenModel(
                         progressDone = st.progressDone + 1,
                         sections = st.sections
                             .map {
-                                if (it.source.key ==
-                                    source.key
-                                ) {
-                                    it.copy(loading = false, candidates = candidates)
+                                if (it.source.key == source.key) {
+                                    // A failed source keeps its error visible instead of reading as
+                                    // "no results", matching the list's override strips.
+                                    it.copy(
+                                        loading = false,
+                                        candidates = result.getOrDefault(emptyList()),
+                                        error = result.exceptionOrNull()?.let { e ->
+                                            e.message ?: e.javaClass.simpleName
+                                        },
+                                    )
                                 } else {
                                     it
                                 }
                             }
-                            // Empties sink; otherwise the saved priority order holds (it defines
-                            // which source "wins" a migration, so the display must not re-rank).
+                            // Empty and failed sections sink; otherwise the saved priority order
+                            // holds (it defines which source "wins" a migration, so the display
+                            // must not re-rank).
                             .sortedWith(
                                 compareBy(
                                     { it.candidates.isEmpty() && !it.loading },
@@ -253,13 +296,16 @@ class EntryMigrationSearchScreenModel(
         val priority: Int = 0,
         val loading: Boolean = false,
         val candidates: List<MigrationCandidate> = emptyList(),
+        val error: String? = null,
     )
 
     data class State(
         val entry: MigrationEntry? = null,
+        val loadFailed: Boolean = false,
         val query: String = "",
         val progressDone: Int = 0,
         val progressTotal: Int = 0,
         val sections: List<Section> = emptyList(),
+        val dialogTarget: MigrationCandidate? = null,
     )
 }

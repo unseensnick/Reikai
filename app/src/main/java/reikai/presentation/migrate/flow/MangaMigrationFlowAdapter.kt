@@ -193,10 +193,12 @@ class MangaMigrationFlowAdapter(
     override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {
         // The manga target is already a local row (networkToLocalManga at search time); its chapters
         // are fetched inside MigrateMangaUseCase at commit, so resolving only fills the local counts.
+        // A fresh pick's row has no chapters yet: null, not 0, so the compare line shows unknown
+        // instead of a lying full-shortfall delta (mirrors the novel adapter).
         val manga = candidate.handle as? Manga ?: return null
         val chapters = getChaptersByMangaId.await(manga.id)
         return candidate.copy(
-            chapterCount = chapters.size,
+            chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
         )
     }
@@ -205,7 +207,7 @@ class MangaMigrationFlowAdapter(
         val manga = getManga.await(id) ?: return null
         val chapters = getChaptersByMangaId.await(id)
         return manga.toCandidate("${manga.source}").copy(
-            chapterCount = chapters.size,
+            chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
         )
     }
@@ -235,7 +237,9 @@ class MangaMigrationFlowAdapter(
     ) {
         val current = entry.payload as? Manga ?: error("manga entry payload missing")
         val targetManga = target.handle as? Manga ?: error("manga target handle missing")
-        // The use case silently no-ops when the target source is gone; surface that as a row failure.
+        // The use case silently no-ops on both of these; surface them as row failures instead of
+        // marking a row migrated when nothing happened.
+        check(current.id != targetManga.id) { "target is the entry itself" }
         checkNotNull(sourceManager.get(targetManga.source)) { "target source is not installed" }
         sourcePreferences.migrationFlags.set(flags.map { MigrationFlag.valueOf(it.name) }.toSet())
         migrateManga(current, targetManga, replace)

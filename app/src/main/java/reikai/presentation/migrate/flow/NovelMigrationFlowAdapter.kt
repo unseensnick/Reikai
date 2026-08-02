@@ -32,6 +32,10 @@ data class NovelCandidateHandle(
     /** The source's site, the cover Referer. */
     val site: String?,
     val resolved: Novel? = null,
+    /** True when [NovelMigrationFlowAdapter.resolve] just chapter-synced the row, so the engine can
+     *  skip its own refresh (a second identical fetch seconds later); a stored row wrapped by
+     *  [NovelMigrationFlowAdapter.storedCandidate] is resolved but NOT synced. */
+    val synced: Boolean = false,
 )
 
 class NovelMigrationFlowAdapter(
@@ -185,9 +189,11 @@ class NovelMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = sourceManager.get(sourceKey) ?: return emptyList()
-        // Own source is searchable, but the identical listing is never a migration target.
+        // Own source is searchable, but the identical listing is never a migration target. Dedupe
+        // by path: plugins can repeat a listing in one page, and the path is the lazy-list key.
         val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
         return source.searchNovels(query, 1)
+            .distinctBy { it.path }
             .filterNot { it.path == currentPath }
             .map { item ->
                 MigrationCandidate(
@@ -219,7 +225,7 @@ class NovelMigrationFlowAdapter(
         return candidate.copy(
             chapterCount = chapters.size,
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-            handle = handle.copy(resolved = resolved),
+            handle = handle.copy(resolved = resolved, synced = true),
         )
     }
 
@@ -256,10 +262,7 @@ class NovelMigrationFlowAdapter(
                 MigrationDataFlag.CUSTOM_COVER -> novels.any { it.hasCustomCover(coverCache) }
                 MigrationDataFlag.NOTES -> novels.any { it.notes.isNotBlank() }
                 // Offered only when something is actually downloaded, matching the manga gate.
-                MigrationDataFlag.REMOVE_DOWNLOAD -> novels.any { novel ->
-                    chapterRepository.getByNovelId(novel.id)
-                        .any { downloadManager.isChapterDownloaded(novel, it) }
-                }
+                MigrationDataFlag.REMOVE_DOWNLOAD -> novels.any { downloadManager.getDownloadCount(it) > 0 }
             }
         }
     }
@@ -273,9 +276,14 @@ class NovelMigrationFlowAdapter(
         val current = entry.payload as? Novel ?: error("novel entry payload missing")
         val handle = target.handle as? NovelCandidateHandle
         val targetNovel = handle?.resolved ?: error("novel target not resolved")
+        // The use case silently no-ops on a self-target; surface it as a row failure instead of
+        // marking the row migrated when nothing happened.
+        check(current.id != targetNovel.id) { "target is the entry itself" }
         val novelFlags = flags.map { it.toNovelFlag() }.toSet()
         novelPreferences.novelMigrationFlags().set(NovelMigrationFlag.toBits(novelFlags))
-        migrateNovel(current, targetNovel, novelFlags, replace)
+        // A resolve()-synced target skips the engine's own refresh: it would repeat the identical
+        // chapter fetch seconds later, doubling a batch commit's network cost.
+        migrateNovel(current, targetNovel, novelFlags, replace, skipTargetRefresh = handle.synced)
     }
 
     private fun buildQuery(title: String, extraQuery: String?): String {

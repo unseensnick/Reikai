@@ -65,6 +65,9 @@ class EntryMigrationSourcePickScreenModel(
 
     init {
         screenModelScope.launchIO {
+            // Warm the source layer first (the novel plugin host): member source names and cover
+            // Referers resolve against it.
+            adapter.prepare()
             val members = adapter.mergeGroupMembers(entryIds)
             // No merged entries: the members are exactly the selection, so there's nothing to choose.
             if (members.map { it.id }.toSet() == entryIds.toSet()) {

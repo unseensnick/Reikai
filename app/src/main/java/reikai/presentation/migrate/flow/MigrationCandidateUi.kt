@@ -28,10 +28,11 @@ internal val MigrationCandidate.stableKey: String
         }
     }"
 
-/** Open a candidate's details page (the long-press verify affordance). */
+/** Open a candidate's details page (the long-press verify affordance). fromSource matches the old
+ *  migrate-search behavior: back from the peek returns here instead of restarting from the library. */
 internal fun MigrationCandidate.openDetails(navigator: Navigator) {
     when (val h = handle) {
-        is Manga -> navigator.push(MangaScreen(h.id))
+        is Manga -> navigator.push(MangaScreen(h.id, true))
         is NovelCandidateHandle -> navigator.push(NovelScreen(sourceKey, h.item.path))
     }
 }
