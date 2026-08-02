@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -135,8 +136,11 @@ class NovelBrowseScreen(
         var searchQuery by rememberSaveable { mutableStateOf<String?>(initialQuery.ifBlank { null }) }
         var selectingDisplayMode by remember { mutableStateOf(false) }
         // Pick-mode single-entry route: the stored target awaiting the migrate dialog (no list
-        // screen beneath to hand back to).
-        var migratePickTarget by remember { mutableStateOf<Novel?>(null) }
+        // screen beneath to hand back to). Saveable (id + source + path) so rotation mid-dialog
+        // does not orphan a migrate that then completes with no landing.
+        var migratePickTarget by rememberSaveable(stateSaver = migratePickTargetSaver) {
+            mutableStateOf<MigratePickTarget?>(null)
+        }
         // After "Open in WebView" (to clear Cloudflare), auto-retry the failed listing on return so the
         // user doesn't have to. Survives the activity stop the WebView causes.
         var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
@@ -332,14 +336,22 @@ class NovelBrowseScreen(
                                 context.toast(MR.strings.internal_error)
                                 return@launch
                             }
+                            if (stored.id == migratePickFor) {
+                                // The entry's own listing is never a migration target; the engine
+                                // would silently no-op and the row would read as migrated.
+                                context.toast(MR.strings.migrationFlow_selfTargetToast)
+                                return@launch
+                            }
+                            // Only a list that owns this entry may take the pick: an unrelated
+                            // outer flow left on the stack must not.
                             val listScreen = navigator.items
                                 .filterIsInstance<EntryMigrationListScreen>()
-                                .lastOrNull()
+                                .lastOrNull { it.owns(ContentType.NOVELS, migratePickFor) }
                             if (listScreen != null) {
                                 listScreen.addMatchOverride(currentRawId = migratePickFor, targetRawId = stored.id)
-                                navigator.popUntil { it is EntryMigrationListScreen }
+                                navigator.popUntil { it === listScreen }
                             } else {
-                                migratePickTarget = stored
+                                migratePickTarget = MigratePickTarget(stored.id, stored.source, stored.url)
                             }
                         }
                         else -> navigator.push(NovelScreen(sourceId, item.path))
@@ -390,7 +402,12 @@ class NovelBrowseScreen(
             )
             null -> {}
         }
-        EntryMigrateHost(migrateController)
+        // In pick mode the duplicate-dialog migrate route is disabled (long-press goes to details),
+        // so the controller host is not rendered; it would share the pick dialog's per-type model
+        // tag, and two live requests would leave one dialog permanently invisible.
+        if (migratePickFor == null) {
+            EntryMigrateHost(migrateController)
+        }
 
         val pickTarget = migratePickTarget
         if (pickTarget != null && migratePickFor != null) {
@@ -405,9 +422,9 @@ class NovelBrowseScreen(
                     // on a replace swap out the origin's now-stale details beneath it.
                     navigator.popUntil { it !is NovelBrowseScreen && it !is EntryMigrationSearchScreen }
                     if (replaced && navigator.lastItem is NovelScreen) {
-                        navigator.replace(NovelScreen(pickTarget.source, pickTarget.url))
+                        navigator.replace(NovelScreen(pickTarget.source, pickTarget.path))
                     } else {
-                        navigator.push(NovelScreen(pickTarget.source, pickTarget.url))
+                        navigator.push(NovelScreen(pickTarget.source, pickTarget.path))
                     }
                 },
             )
@@ -575,3 +592,14 @@ private fun LoadMoreOnScrollEnd(
 }
 
 private const val PREFETCH_DISTANCE = 6
+
+/** The pick-mode migrate target, reduced to the identifiers the dialog and landing need so it can
+ *  survive process death (a full [Novel] is not saveable). */
+private data class MigratePickTarget(val id: Long, val source: String, val path: String)
+
+private val migratePickTargetSaver = listSaver<MigratePickTarget?, String>(
+    save = { target -> target?.let { listOf(it.id.toString(), it.source, it.path) } ?: emptyList() },
+    restore = { saved ->
+        saved.takeIf { it.size == 3 }?.let { MigratePickTarget(it[0].toLong(), it[1], it[2]) }
+    },
+)

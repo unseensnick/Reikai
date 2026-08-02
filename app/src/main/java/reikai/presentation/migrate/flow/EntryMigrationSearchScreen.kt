@@ -34,6 +34,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -81,9 +82,20 @@ class EntryMigrationSearchScreen(
                 LinearProgressIndicator(
                     progress = { state.progressDone.toFloat() / state.progressTotal },
                     modifier = Modifier
+                        // Below the app bar: the content slot starts at y=0 under it.
+                        .padding(top = contentPadding.calculateTopPadding())
                         .fillMaxWidth()
                         .zIndex(1f),
                 )
+            }
+            if (state.sections.isEmpty()) {
+                // No target sources at all (empty selection resolving to nothing, or a cold novel
+                // plugin host): say so instead of a silent blank screen.
+                EmptyScreen(
+                    stringRes = MR.strings.source_empty_screen,
+                    modifier = Modifier.padding(contentPadding),
+                )
+                return@Scaffold
             }
             LazyColumn(contentPadding = contentPadding) {
                 state.sections.forEach { section ->
@@ -179,14 +191,16 @@ class EntryMigrationSearchScreenModel(
         val sources = run {
             val enabled = adapter.enabledSources()
             val saved = adapter.savedSelection()
-            if (saved.isEmpty()) {
-                // No saved selection: pinned sources lead, matching the list's fallback order. The
-                // entry's own source stays searchable; the adapter rejects its identical listing.
-                val pinned = adapter.pinnedKeys()
-                enabled.sortedBy { it.key !in pinned }
-            } else {
+            val resolved = run {
                 val byKey = enabled.associateBy { it.key }
                 saved.mapNotNull { byKey[it] }
+            }
+            // Nothing saved, or nothing saved resolves (all currently disabled): pinned sources
+            // lead the enabled set, matching the list's fallback order. The entry's own source
+            // stays searchable; the adapter rejects its identical listing.
+            resolved.ifEmpty {
+                val pinned = adapter.pinnedKeys()
+                enabled.sortedBy { it.key !in pinned }
             }
         }
         val generation = ++searchGeneration
@@ -194,7 +208,9 @@ class EntryMigrationSearchScreenModel(
             st.copy(
                 progressDone = 0,
                 progressTotal = sources.size,
-                sections = sources.map { Section(source = it, loading = true) },
+                sections = sources.mapIndexed { index, source ->
+                    Section(source = source, priority = index, loading = true)
+                },
             )
         }
         sources.forEach { source ->
@@ -217,10 +233,12 @@ class EntryMigrationSearchScreenModel(
                                     it
                                 }
                             }
+                            // Empties sink; otherwise the saved priority order holds (it defines
+                            // which source "wins" a migration, so the display must not re-rank).
                             .sortedWith(
                                 compareBy(
                                     { it.candidates.isEmpty() && !it.loading },
-                                    { it.source.name.lowercase() },
+                                    { it.priority },
                                 ),
                             ),
                     )
@@ -231,6 +249,8 @@ class EntryMigrationSearchScreenModel(
 
     data class Section(
         val source: MigrationSourceUi,
+        /** Index in the saved source order, so display sorting never re-ranks the priority. */
+        val priority: Int = 0,
         val loading: Boolean = false,
         val candidates: List<MigrationCandidate> = emptyList(),
     )

@@ -72,11 +72,12 @@ internal fun openDeepPicker(navigator: Navigator, entry: MigrationEntry, sourceK
  *  the single-entry routes sit on top of) is swapped out instead of left underneath; a copy keeps it
  *  (the origin is still favorited). Call after popping the search/picker screens themselves. */
 internal fun MigrationCandidate.openDetailsAfterCommit(navigator: Navigator, replaced: Boolean) {
-    val details: Screen = when (val h = handle) {
-        is Manga -> MangaScreen(h.id)
-        is NovelCandidateHandle -> NovelScreen(sourceKey, h.item.path)
+    // Type-matched: only a SAME-type details screen beneath can be the origin's; a cross-type
+    // details page must never be swapped out.
+    val (details: Screen, lastIsDetails) = when (val h = handle) {
+        is Manga -> MangaScreen(h.id) to (navigator.lastItem is MangaScreen)
+        is NovelCandidateHandle -> NovelScreen(sourceKey, h.item.path) to (navigator.lastItem is NovelScreen)
         else -> return
     }
-    val lastIsDetails = navigator.lastItem is MangaScreen || navigator.lastItem is NovelScreen
     if (replaced && lastIsDetails) navigator.replace(details) else navigator.push(details)
 }

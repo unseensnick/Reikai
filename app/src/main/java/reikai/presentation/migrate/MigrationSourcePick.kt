@@ -1,6 +1,5 @@
 package reikai.presentation.migrate
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.Checkbox
@@ -86,11 +86,13 @@ private fun MemberRow(member: PickMember, checked: Boolean, onToggle: () -> Unit
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
+            // toggleable with a null-handler checkbox: one accessibility node carrying the checked
+            // state, instead of two competing clickables.
+            .toggleable(value = checked, onValueChange = { onToggle() })
             .padding(horizontal = MaterialTheme.padding.medium, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
+        Checkbox(checked = checked, onCheckedChange = null)
         MangaCover.Book(data = member.coverData, modifier = Modifier.width(48.dp).padding(start = 4.dp))
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
             Text(

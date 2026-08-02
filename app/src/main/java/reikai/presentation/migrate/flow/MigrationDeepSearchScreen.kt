@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -31,6 +32,7 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.toast
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.Constants
@@ -60,6 +62,7 @@ class MigrationDeepSearchScreen(
         }
 
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
         val screenModel = rememberScreenModel { BrowseSourceScreenModel(sourceId, query) }
         val state by screenModel.state.collectAsState()
@@ -71,6 +74,7 @@ class MigrationDeepSearchScreen(
                 SearchToolbar(
                     searchQuery = state.toolbarQuery ?: "",
                     onChangeSearchQuery = screenModel::setToolbarQuery,
+                    navigateUp = navigator::pop,
                     onClickCloseSearch = navigator::pop,
                     onSearch = screenModel::search,
                     scrollBehavior = scrollBehavior,
@@ -111,12 +115,20 @@ class MigrationDeepSearchScreen(
                 onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
                 onLocalSourceHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) },
                 onMangaClick = { picked ->
+                    if (picked.id == currentMangaId) {
+                        // The entry's own listing is never a migration target; the engine would
+                        // silently no-op and the row would read as migrated.
+                        context.toast(MR.strings.migrationFlow_selfTargetToast)
+                        return@BrowseSourceContent
+                    }
+                    // Only a list that owns this entry may take the pick: an unrelated outer flow
+                    // left on the stack (a nested migrate from a candidate's details) must not.
                     val listScreen = navigator.items
                         .filterIsInstance<EntryMigrationListScreen>()
-                        .lastOrNull()
+                        .lastOrNull { it.owns(ContentType.MANGA, currentMangaId) }
                     if (listScreen != null) {
                         listScreen.addMatchOverride(currentRawId = currentMangaId, targetRawId = picked.id)
-                        navigator.popUntil { it is EntryMigrationListScreen }
+                        navigator.popUntil { it === listScreen }
                     } else {
                         dialogTargetId = picked.id
                     }

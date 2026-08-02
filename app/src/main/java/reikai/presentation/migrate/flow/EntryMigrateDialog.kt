@@ -21,8 +21,6 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import reikai.domain.library.ContentType
@@ -61,11 +59,16 @@ fun VoyagerScreen.EntryMigrateDialog(
 
     val pairKey = "${entry.id}-${target.stableKey}"
     LaunchedEffect(pairKey) { screenModel.reset(pairKey, entry) }
-    LaunchedEffect(screenModel) {
-        // Completion is a one-shot event, not state: a state flag would replay a previous success
-        // when the cached model recomposes and instantly close a fresh dialog. The channel drops
-        // (instead of parking) a send with no collector, so an abandoned migrate can't replay either.
-        screenModel.finished.collect { onFinished(it) }
+    // Completion is state consumed exactly once. State (not a fire-and-forget channel) so a success
+    // that lands while the composition is being recreated (rotation mid-migrate) is delivered on
+    // re-entry instead of dropped with the dialog left re-armed; consuming it before dispatch (and
+    // reset() clearing it per appearance) is what prevents the old replay-on-recompose bug.
+    val finishedWith = state.finishedWith
+    LaunchedEffect(finishedWith) {
+        if (finishedWith != null) {
+            screenModel.consumeFinished()
+            onFinished(finishedWith)
+        }
     }
 
     // A cached model briefly carries the previous pair's state until reset lands; render nothing
@@ -131,15 +134,13 @@ private class EntryMigrateDialogScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
-    // Rendezvous + trySend: delivery only to a live collector. A suspending send would park a
-    // success from an abandoned dialog and replay it into the next appearance, instantly closing it.
-    private val _finished = Channel<Boolean>()
-    val finished = _finished.receiveAsFlow()
-
     /** Load the pair being shown: clears any previous appearance's transient state synchronously,
      *  then fills the applicable flags and the freshly saved selection (a commit rewrites the pref,
-     *  so a cached init snapshot would go stale). */
+     *  so a cached init snapshot would go stale). A rotation re-fires this mid-migrate; the same
+     *  pair's in-flight state is kept, or the wipe would re-arm the buttons over a live commit and
+     *  discard the user's checkbox edits. */
     fun reset(pairKey: String, entry: MigrationEntry) {
+        if (state.value.pairKey == pairKey && state.value.isMigrating) return
         mutableState.update { State(pairKey = pairKey) }
         screenModelScope.launchIO {
             adapter.prepare()
@@ -161,16 +162,27 @@ private class EntryMigrateDialogScreenModel(
         it.copy(selectedFlags = selected)
     }
 
+    fun consumeFinished() = mutableState.update { it.copy(finishedWith = null) }
+
     fun migrate(entry: MigrationEntry, target: MigrationCandidate, replace: Boolean) {
+        if (state.value.isMigrating) return
+        // Captured before the suspending resolve: a concurrent reset must not swap the flag set
+        // under a commit already in flight.
+        val flags = state.value.selectedFlags
         mutableState.update { it.copy(isMigrating = true, failed = false) }
         screenModelScope.launchIO {
             val result = runCatchingCancellable {
                 val resolved = adapter.resolve(target) ?: error("target failed to resolve")
-                adapter.migrate(entry, resolved, replace, state.value.selectedFlags)
+                adapter.migrate(entry, resolved, replace, flags)
             }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }
-            mutableState.update { it.copy(isMigrating = false, failed = result.isFailure) }
-            if (result.isSuccess) _finished.trySend(replace)
+            mutableState.update {
+                it.copy(
+                    isMigrating = false,
+                    failed = result.isFailure,
+                    finishedWith = if (result.isSuccess) replace else it.finishedWith,
+                )
+            }
         }
     }
 
@@ -180,5 +192,7 @@ private class EntryMigrateDialogScreenModel(
         val selectedFlags: Set<MigrationDataFlag> = emptySet(),
         val isMigrating: Boolean = false,
         val failed: Boolean = false,
+        /** Set on success with the verb used; consumed exactly once by the composable. */
+        val finishedWith: Boolean? = null,
     )
 }

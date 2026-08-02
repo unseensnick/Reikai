@@ -75,6 +75,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 private val PICKER_CELL_WIDTH = 112.dp
@@ -97,6 +98,10 @@ class EntryMigrationListScreen(
     fun addMatchOverride(currentRawId: Long, targetRawId: Long) {
         matchOverride = currentRawId to targetRawId
     }
+
+    /** Whether this list is migrating the given entry: the deep pickers hand their pick back to the
+     *  closest list that OWNS the entry, never to an unrelated outer flow left on the stack. */
+    fun owns(type: ContentType, rawId: Long): Boolean = type == contentType && rawId in entryIds
 
     @Composable
     override fun Content() {
@@ -178,9 +183,9 @@ class EntryMigrationListScreen(
                 )
             },
             bottomBar = {
-                // Commit only once every row has searched (the design's all-searched gate): an early
-                // commit would race rows still resolving their suggestions.
-                if (state.chosenCount > 0 && state.allSearched && !state.isMigrating) {
+                // Commit only once every row has searched (the design's all-searched gate) and no
+                // single-row commit is in flight (the batch would migrate that row a second time).
+                if (state.chosenCount > 0 && state.allSearched && !state.isMigrating && !state.hasActiveSingleCommit) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -203,6 +208,14 @@ class EntryMigrationListScreen(
                 }
             },
         ) { contentPadding ->
+            if (state.visibleRows.isEmpty()) {
+                // Nothing to render: every row hidden by the toggles, or nothing loaded.
+                EmptyScreen(
+                    stringRes = MR.strings.no_results_found,
+                    modifier = Modifier.padding(contentPadding),
+                )
+                return@Scaffold
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = contentPadding,
@@ -254,6 +267,7 @@ class EntryMigrationListScreen(
                 count = state.chosenCount,
                 skipped = state.skippedCount,
                 replace = state.confirmReplace,
+                flagsLoading = state.confirmFlagsLoading,
                 initialFlags = state.initialFlags,
                 applicableFlags = state.applicableFlags,
                 onDismissRequest = screenModel::dismissConfirm,
@@ -634,36 +648,66 @@ private fun MigrationConfirmDialog(
     count: Int,
     skipped: Int,
     replace: Boolean,
+    flagsLoading: Boolean,
     initialFlags: Set<MigrationDataFlag>,
     applicableFlags: Set<MigrationDataFlag>,
     onDismissRequest: () -> Unit,
     onConfirm: (Set<MigrationDataFlag>) -> Unit,
 ) {
     // Seeded with the FULL saved set: only applicable flags render, so a hidden flag's saved state
-    // survives the confirm instead of being erased from the pref for future migrations.
-    var selected by rememberSaveable(stateSaver = migrationFlagSaver) { mutableStateOf(initialFlags) }
-    val verb = stringResource(if (replace) MR.strings.migrate else MR.strings.copy)
+    // survives the confirm instead of being erased from the pref for future migrations. Keyed on
+    // initialFlags because the saved set arrives async (after the applicable-flag scan).
+    var selected by rememberSaveable(initialFlags, stateSaver = migrationFlagSaver) {
+        mutableStateOf(initialFlags)
+    }
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = "$verb ($count)") },
+        title = {
+            Text(
+                text = pluralStringResource(
+                    if (replace) {
+                        MR.plurals.migrationListScreen_migrateDialog_migrateTitle
+                    } else {
+                        MR.plurals.migrationListScreen_migrateDialog_copyTitle
+                    },
+                    count,
+                    count,
+                ),
+            )
+        },
         text = {
             Column {
                 if (skipped > 0) {
                     Text(
-                        text = "$skipped · ${stringResource(MR.strings.migrationFlow_skippedNote)}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        text = pluralStringResource(
+                            MR.plurals.migrationListScreen_migrateDialog_skipText,
+                            skipped,
+                            skipped,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
-                applicableFlags.forEach { flag ->
-                    LabeledCheckbox(
-                        label = stringResource(flag.titleRes()),
-                        checked = flag in selected,
-                        onCheckedChange = {
-                            selected = if (it) selected + flag else selected - flag
-                        },
-                    )
+                if (flagsLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    }
+                } else {
+                    applicableFlags.forEach { flag ->
+                        LabeledCheckbox(
+                            label = stringResource(flag.titleRes()),
+                            checked = flag in selected,
+                            onCheckedChange = {
+                                selected = if (it) selected + flag else selected - flag
+                            },
+                        )
+                    }
                 }
                 Text(
                     text = stringResource(MR.strings.migrationFlow_tracksNote),
@@ -674,8 +718,8 @@ private fun MigrationConfirmDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(selected) }) {
-                Text(text = verb)
+            TextButton(onClick = { onConfirm(selected) }, enabled = !flagsLoading) {
+                Text(text = stringResource(if (replace) MR.strings.migrate else MR.strings.copy))
             }
         },
         dismissButton = {

@@ -66,7 +66,7 @@ class MigrateNovelUseCase(
             // add-path, including browse / global search where the target is a fresh, unsynced row.
             // Best-effort: skip when the source is unavailable, and never let a fetch failure abort.
             sourceManager.get(target.source)?.let { targetSource ->
-                runCatching {
+                try {
                     refreshNovelFromSource(
                         target,
                         targetSource,
@@ -75,6 +75,11 @@ class MigrateNovelUseCase(
                         database,
                         novelDownloadManager,
                     )
+                } catch (e: CancellationException) {
+                    // A cancelled migration must die, not proceed with an unrefreshed target.
+                    throw e
+                } catch (_: Throwable) {
+                    // Best-effort otherwise: a fetch failure must not abort the migration.
                 }
             }
 
