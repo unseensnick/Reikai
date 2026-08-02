@@ -55,9 +55,10 @@ Five steps, each independently shippable and device-verified before the next.
   user installs, so a deny-list keeps every language on by default and a newly appearing language
   visible without a migration. Grounded: the LNReader registry's `lang` field is first-class (a
   fixed 16-language list).
-- **Step 5, delete-and-manifest the dead tab builders.** Mihon's `sourcesTab()` and
-  `migrateSourceTab()` have no callers (the Reikai chip tabs replaced them; `extensionsTab()` stays,
-  it is wrapped live by `ReikaiExtensionsTab`).
+- **Step 5, delete-and-manifest the dead tab builders (shipped `df4d6e752`).** Mihon's
+  `sourcesTab()` and `migrateSourceTab()` had no callers (the Reikai chip tabs replaced them);
+  both files are deleted and manifested. `extensionsTab()` stays, it is wrapped live by
+  `ReikaiExtensionsTab`.
 
 ## Key files
 
@@ -72,11 +73,10 @@ Five steps, each independently shippable and device-verified before the next.
 
 ## Status
 
-In progress on `feat/0.4.0`. Step 1 shipped (`1392f58c9`, Fold-verified both types: select, invert,
-category prompt, add, remove). Step 2 shipped (`66dd5d007`, Fold-verified: the add-then-remove
-round trip on both content types). Step 3 shipped (`cadf22edb`, Fold-verified: entry hidden with
-the setting on, restored off). Step 4 shipped (`09cb80e27`, Fold-verified: language off empties the
-novel Sources list, back on restores it). Step 5 ahead.
+Shipped in full on `feat/0.4.0`: step 1 `1392f58c9`, step 2 `66dd5d007`, step 3 `cadf22edb`,
+step 4 `09cb80e27`, step 5 `df4d6e752`. Every step Fold-verified on both content types (the
+add / remove round trips, the hide-in-library toggle, the language switch). The next content-layer
+surface is migrate plus global search.
 
 ## Decisions & tradeoffs
 
