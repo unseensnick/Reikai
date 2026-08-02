@@ -32,11 +32,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryScreenModel
 import reikai.presentation.history.ReikaiHistoryScreen
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrateHost
 import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.browse.DuplicateNovelDialog
@@ -147,11 +147,10 @@ data object HistoryTab : Tab {
                 )
             }
             is HistoryScreenModel.Dialog.Migrate -> {
-                MigrateMangaDialog(
-                    current = dialog.current,
-                    target = dialog.target,
-                    // Initiated from the context of [dialog.target] so we show [dialog.current].
-                    onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
+                EntryMigrateFor(
+                    contentType = ContentType.MANGA,
+                    currentId = dialog.current.id,
+                    targetId = dialog.target.id,
                     onDismissRequest = onDismissRequest,
                 )
             }

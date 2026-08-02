@@ -50,12 +50,30 @@ fun rememberEntryMigrateController(): EntryMigrateController = remember { EntryM
 
 @Composable
 fun Screen.EntryMigrateHost(controller: EntryMigrateController) {
-    val navigator = LocalNavigator.currentOrThrow
     val request = controller.request ?: return
+    EntryMigrateFor(
+        contentType = request.contentType,
+        currentId = request.currentId,
+        targetId = request.targetId,
+        onDismissRequest = controller::dismiss,
+    )
+}
+
+/** Render the shared migrate dialog for two already-stored rows. Call sites that keep the
+ *  (current, target) pair in their own ScreenModel dialog state render this directly;
+ *  [EntryMigrateHost] wraps it for the controller-based surfaces. */
+@Composable
+fun Screen.EntryMigrateFor(
+    contentType: ContentType,
+    currentId: Long,
+    targetId: Long,
+    onDismissRequest: () -> Unit,
+) {
+    val navigator = LocalNavigator.currentOrThrow
     val screenModel = rememberScreenModel(
-        tag = "migrateHost-${request.contentType}-${request.currentId}-${request.targetId}",
+        tag = "migrateHost-$contentType-$currentId-$targetId",
     ) {
-        EntryMigrateHostScreenModel(request)
+        EntryMigrateHostScreenModel(EntryMigrateController.Request(contentType, currentId, targetId))
     }
     val state by screenModel.state.collectAsState()
 
@@ -64,20 +82,20 @@ fun Screen.EntryMigrateHost(controller: EntryMigrateController) {
     val target = state.target
     if (entry == null || target == null) {
         // One of the rows vanished between the tap and the load; nothing to migrate.
-        LaunchedEffect(request) { controller.dismiss() }
+        LaunchedEffect(currentId, targetId) { onDismissRequest() }
         return
     }
     EntryMigrateDialog(
-        contentType = request.contentType,
+        contentType = contentType,
         entry = entry,
         target = target,
-        onDismissRequest = controller::dismiss,
+        onDismissRequest = onDismissRequest,
         // Show opens the current library entry to compare against (matching the old per-type dialogs).
         onOpenTarget = {
-            controller.dismiss()
+            onDismissRequest()
             entry.openDetails(navigator)
         },
-        onFinished = controller::dismiss,
+        onFinished = onDismissRequest,
     )
 }
 

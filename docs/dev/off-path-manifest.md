@@ -26,6 +26,7 @@ Install the hooks on a fresh clone with the command in [upstream-sync.md](upstre
 ## What is NOT here
 
 - **Engine files** (a ScreenModel, repository, or the source manager) are never deleted; they stay live and minimally patched on the render path, and sync normally. An interactor that is still called stays too: the category interactors listed below went off-path only because nothing calls them any more, while their type-agnostic siblings (`RenameCategory`, `UpdateCategory`) remain live and are not listed. Example still pending its surface: `eu/kanade/tachiyomi/ui/download/DownloadQueueScreenModel.kt` (replaced by `MangaDownloadQueueScreenModel`) is a dead ScreenModel kept `// RK: inert` until the download-subsystem unification (Road B) retires it there.
+  **Carve-out, orchestration takeovers:** when the content-layer program takes over a surface's orchestration (recorded as an amendment in [plans/content-layer-architecture.md](plans/content-layer-architecture.md)), that surface's flow ScreenModels/ViewModels are orchestration, not engine, and ARE deleted and listed below with their screens. First instance: the migration flow (`MigrationListViewModel`, `MigrateSearchViewModel`, `MigrateMangaViewModel`; the config screen's embedded model died with its screen file). The engine floor under them (`MigrateMangaUseCase`, `MigrationFlag`, the smart-search engines) stays live and synced as ever.
 - **Partially collapsed files** keep their live remainder in place, marked `// RK` with what moved out, so they stay on the render path and are not listed here. Once nothing live remains, the file moves to the manifest below, as `MangaInfoHeader` did once its last live piece (the expandable description) became `ExpandableEntryDescription`.
 - **Reikai-own files**, even under a shared `tachiyomi/` path. A file Reikai added (e.g. the retired `novel_categories.sq`) has no `refs/mihon` counterpart, so deleting it is not a Mihon reroute and the check has nothing to diff. Only files that exist in `refs/mihon` belong here.
 
@@ -50,6 +51,22 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | domain/src/main/java/tachiyomi/domain/category/interactor/CreateCategoryWithName.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/ReorderCategory.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/DeleteCategory.kt | mihon | reikai/domain/category/DeleteCategoryCleanup.kt |
+| app/src/main/java/mihon/feature/migration/config/MigrationConfigScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationConfigScreen.kt |
+| app/src/main/java/mihon/feature/migration/config/MigrationConfigScreenSheet.kt | mihon | reikai/presentation/migrate/flow/MigrationTuningSheet.kt |
+| app/src/main/java/mihon/feature/migration/list/MigrationListScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
+| app/src/main/java/mihon/feature/migration/list/MigrationListScreenContent.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
+| app/src/main/java/mihon/feature/migration/list/MigrationListViewModel.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreenModel.kt |
+| app/src/main/java/mihon/feature/migration/list/components/MigrationExitDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
+| app/src/main/java/mihon/feature/migration/list/components/MigrationMangaDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
+| app/src/main/java/mihon/feature/migration/list/components/MigrationProgressDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
+| app/src/main/java/mihon/feature/migration/list/models/MigratingManga.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreenModel.kt |
+| app/src/main/java/mihon/feature/migration/dialog/MigrateMangaDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrateDialog.kt |
+| app/src/main/java/eu/kanade/presentation/browse/MigrateSearchScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationSearchScreen.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/search/MigrateSearchScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationSearchScreen.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/search/MigrateSearchViewModel.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationSearchScreen.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/search/MigrateSourceSearchScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/manga/MigrateMangaScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationFavoritesScreen.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/manga/MigrateMangaViewModel.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationFavoritesScreen.kt |
 
 **A row tracks the file's CURRENT upstream path, not the name Reikai deleted.** When upstream renames a
 manifested file, repoint the row at the new path, because the check `cat-file`s the path at upstream HEAD and,

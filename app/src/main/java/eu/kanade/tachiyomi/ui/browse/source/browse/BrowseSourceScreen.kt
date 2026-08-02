@@ -56,12 +56,13 @@ import exh.source.getMainSource
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
-import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.presentation.core.util.collectAsLazyPagingItems
+import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.model.StubSource
@@ -347,11 +348,10 @@ data class BrowseSourceScreen(
             }
 
             is BrowseSourceScreenModel.Dialog.Migrate -> {
-                MigrateMangaDialog(
-                    current = dialog.current,
-                    target = dialog.target,
-                    // Initiated from the context of [dialog.target] so we show [dialog.current].
-                    onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
+                EntryMigrateFor(
+                    contentType = ContentType.MANGA,
+                    currentId = dialog.current.id,
+                    targetId = dialog.target.id,
                     onDismissRequest = onDismissRequest,
                 )
             }

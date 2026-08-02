@@ -50,7 +50,7 @@ import exh.source.getMainSource
 import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.domain.library.ContentType
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -59,7 +59,8 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.manga.EhRemoveFavoriteDialog
-import reikai.presentation.manga.MangaMigrationSourcePickScreen
+import reikai.presentation.migrate.flow.EntryMigrateFor
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -186,7 +187,9 @@ class MangaScreen(
                         }.takeIf { isHttpSource },
                         onMigrate = {
                             // Source picker first, so a merged manga can pick which source to migrate.
-                            navigator.push(MangaMigrationSourcePickScreen(listOf(successState.manga.id)))
+                            navigator.push(
+                                EntryMigrationSourcePickScreen(ContentType.MANGA, listOf(successState.manga.id)),
+                            )
                         }.takeIf { successState.manga.favorite },
                         onEditInterval = screenModel::showSetFetchIntervalDialog
                             .takeIf { successState.manga.favorite },
@@ -272,11 +275,10 @@ class MangaScreen(
                 }
 
                 is MangaScreenModel.Dialog.Migrate -> {
-                    MigrateMangaDialog(
-                        current = dialog.current,
-                        target = dialog.target,
-                        // Initiated from the context of [dialog.target] so we show [dialog.current].
-                        onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
+                    EntryMigrateFor(
+                        contentType = ContentType.MANGA,
+                        currentId = dialog.current.id,
+                        targetId = dialog.target.id,
                         onDismissRequest = onDismissRequest,
                     )
                 }

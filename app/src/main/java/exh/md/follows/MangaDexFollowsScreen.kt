@@ -26,12 +26,13 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
-import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.presentation.core.util.collectAsLazyPagingItems
+import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -173,10 +174,10 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                 )
             }
             is BrowseSourceScreenModel.Dialog.Migrate -> {
-                MigrateMangaDialog(
-                    current = dialog.current,
-                    target = dialog.target,
-                    onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
+                EntryMigrateFor(
+                    contentType = ContentType.MANGA,
+                    currentId = dialog.current.id,
+                    targetId = dialog.target.id,
                     onDismissRequest = onDismissRequest,
                 )
             }

@@ -32,7 +32,6 @@ import eu.kanade.presentation.browse.MigrateSourceScreen
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
-import eu.kanade.tachiyomi.ui.browse.migration.manga.MigrateMangaScreen
 import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrateSourceScreenModel
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.ReikaiBrowseScreenModel
@@ -91,7 +90,7 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
                     ContentType.MANGA -> MigrateSourceScreen(
                         state = mangaState,
                         contentPadding = contentPadding,
-                        onClickItem = { navigator.push(MigrateMangaScreen(it.id)) },
+                        onClickItem = { navigator.push(EntryMigrationFavoritesScreen(ContentType.MANGA, "${it.id}")) },
                         onToggleSortingDirection = mangaModel::toggleSortingDirection,
                         onToggleSortingMode = mangaModel::toggleSortingMode,
                     )
@@ -106,7 +105,9 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
                         mangaState = mangaState,
                         novelState = novelState,
                         contentPadding = contentPadding,
-                        onClickMangaItem = { navigator.push(MigrateMangaScreen(it.id)) },
+                        onClickMangaItem = {
+                            navigator.push(EntryMigrationFavoritesScreen(ContentType.MANGA, "${it.id}"))
+                        },
                         onClickNovelItem = { navigator.push(EntryMigrationFavoritesScreen(ContentType.NOVELS, it.id)) },
                     )
                 }

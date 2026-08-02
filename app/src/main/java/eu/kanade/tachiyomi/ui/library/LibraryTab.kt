@@ -89,7 +89,6 @@ import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
-import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
@@ -523,7 +522,7 @@ data object LibraryTab : Tab {
                                 {
                                     engine.clearSelection()
                                     // RK: source picker first (merged-manga member choice).
-                                    navigator.push(MangaMigrationSourcePickScreen(mangaIds))
+                                    navigator.push(EntryMigrationSourcePickScreen(ContentType.MANGA, mangaIds))
                                 }
                             }
                             mangaIds.isEmpty() && novelIds.isNotEmpty() -> {
