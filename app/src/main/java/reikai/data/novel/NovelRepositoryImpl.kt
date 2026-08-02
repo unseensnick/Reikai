@@ -32,6 +32,9 @@ class NovelRepositoryImpl(
     override suspend fun getFavorites(): List<Novel> =
         database.novelsQueries.findFavorites(::mapNovel).awaitAsList()
 
+    override suspend fun getReadNovelsNotInLibrary(): List<Novel> =
+        database.novelsQueries.getReadNovelsNotInLibrary(::mapNovel).awaitAsList()
+
     override suspend fun getDuplicateLibraryNovel(id: Long, title: String): List<NovelWithChapterCount> =
         database.novelsQueries.getDuplicateLibraryNovel(id, title, ::mapNovelWithChapterCount).awaitAsList()
 

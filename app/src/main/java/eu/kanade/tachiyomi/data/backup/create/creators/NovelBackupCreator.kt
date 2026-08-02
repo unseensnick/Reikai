@@ -46,7 +46,15 @@ class NovelBackupCreator(
     // materialising every novel and all its chapters at once (the novel twin of backupMangaStream).
     fun streamNovels(options: BackupOptions): Flow<BackupNovel> = flow {
         if (!options.libraryEntries) return@flow
-        for (novel in novelRepository.getFavorites()) {
+        // Mirrors BackupCreator's manga path: the read-entries option also carries non-favorites
+        // with read progress (e.g. a replace-migration unfavorites the old novel but keeps its
+        // read chapters).
+        val nonFavorite = if (options.readEntries) {
+            novelRepository.getReadNovelsNotInLibrary()
+        } else {
+            emptyList()
+        }
+        for (novel in novelRepository.getFavorites() + nonFavorite) {
             emit(backupNovel(novel, options))
             yield()
         }
