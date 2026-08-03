@@ -69,7 +69,7 @@ private const val SEARCH_CONCURRENCY = 5
 class EntryMigrationSearchScreen(
     private val contentType: ContentType,
     private val entryId: Long,
-) : Screen() {
+) : Screen(), MigrationFlowScreen {
 
     @Composable
     override fun Content() {
@@ -140,12 +140,14 @@ class EntryMigrationSearchScreen(
                     screenModel.dismissDialog()
                     entry.openDetails(navigator)
                 },
-                onFinished = { replaced ->
+                onFinished = { replaced, resolved ->
                     screenModel.dismissDialog()
-                    // Leave the search behind before landing, so back does not return to results for
-                    // a migration that already happened.
-                    navigator.pop()
-                    target.openDetailsAfterCommit(navigator, replaced)
+                    // Leave the whole flow behind before landing, so back does not return to
+                    // results (or a stale config step) for a migration that already happened.
+                    navigator.popUntil { it !is MigrationFlowScreen }
+                    // The resolved candidate, not the raw pick: replace-detection needs the
+                    // stored row behind it to swap out the migrated-away details page.
+                    resolved.openDetailsAfterCommit(navigator, replaced)
                 },
             )
         }

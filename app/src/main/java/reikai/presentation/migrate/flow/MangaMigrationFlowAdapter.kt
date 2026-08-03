@@ -217,6 +217,12 @@ class MangaMigrationFlowAdapter(
         )
     }
 
+    override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
+        // Manga candidates are already stored rows, so resolve is the peek: it fetches chapters
+        // onto the existing row, the same best-effort work the commit would do anyway.
+        return resolve(candidate)?.candidate
+    }
+
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
         val manga = getManga.await(id) ?: return null
         val chapters = getChaptersByMangaId.await(id)

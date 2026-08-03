@@ -109,7 +109,7 @@ fun Screen.EntryMigrateFor(
             onDismissRequest()
             entry.openDetails(navigator)
         },
-        onFinished = onFinished ?: { onDismissRequest() },
+        onFinished = { replaced, _ -> onFinished?.invoke(replaced) ?: onDismissRequest() },
     )
 }
 

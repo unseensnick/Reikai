@@ -24,6 +24,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.migrate.PickMember
 import tachiyomi.data.Database
+import tachiyomi.domain.chapter.service.ChapterRecognition
 
 /**
  * The adapter-owned novel candidate: the raw search hit, the source's site (the cover Referer), and
@@ -232,6 +233,24 @@ class NovelMigrationFlowAdapter(
                 handle = handle.copy(stored = resolved),
             ),
             syncedNow = true,
+        )
+    }
+
+    override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
+        val handle = candidate.handle as? NovelCandidateHandle ?: return null
+        val source = sourceManager.get(candidate.sourceKey) ?: return null
+        val parsed = source.parseNovel(handle.item.path)
+        // A paged source's first page undercounts; unknown is more honest than a floor.
+        if (parsed.totalPages > 1) return null
+        val chapters = parsed.chapters.orEmpty()
+        if (chapters.isEmpty()) return null
+        // Mirrors NovelChapterSync's numbering so the peeked latest matches what a commit stores.
+        val latest = chapters.maxOf {
+            ChapterRecognition.parseChapterNumber(handle.item.name, it.name, it.chapterNumber?.takeIf { n -> n > 0.0 })
+        }
+        return candidate.copy(
+            chapterCount = chapters.size,
+            latestChapter = latest.takeIf { it >= 0.0 },
         )
     }
 

@@ -35,7 +35,9 @@ import uy.kohesive.injekt.api.get
 /**
  * The shared single-item migrate dialog: flag checkboxes plus Copy and Migrate. Used by the routes
  * that already know both sides of the migration (the duplicate dialogs), which have no commit bar,
- * so the verb is chosen here. [onFinished] receives the verb used, so a caller can navigate.
+ * so the verb is chosen here. [onFinished] receives the verb used and the RESOLVED target (the
+ * [target] argument may be pre-resolve, with no stored row behind it), so a caller can navigate
+ * to what was actually migrated onto.
  */
 @Composable
 fun Screen.EntryMigrateDialog(
@@ -44,7 +46,7 @@ fun Screen.EntryMigrateDialog(
     target: MigrationCandidate,
     onDismissRequest: () -> Unit,
     onShowEntry: (() -> Unit)?,
-    onFinished: (replaced: Boolean) -> Unit,
+    onFinished: (replaced: Boolean, resolved: MigrationCandidate) -> Unit,
 ) {
     // One model per content type: tagging by pair would cache a model for every pair ever opened on
     // a long-lived screen, so the pair is loaded per appearance instead of being a constructor arg.
@@ -63,7 +65,7 @@ fun Screen.EntryMigrateDialog(
     LaunchedEffect(finishedWith) {
         if (finishedWith != null) {
             screenModel.consumeFinished()
-            onFinished(finishedWith)
+            onFinished(finishedWith.replaced, finishedWith.target)
         }
     }
 
@@ -171,11 +173,15 @@ private class EntryMigrateDialogScreenModel(
                 it.copy(
                     isMigrating = false,
                     failed = result.isFailure,
-                    finishedWith = if (result.isSuccess) replace else it.finishedWith,
+                    finishedWith = result.getOrNull()?.let { resolved -> Finished(replace, resolved) }
+                        ?: it.finishedWith,
                 )
             }
         }
     }
+
+    /** The verb used and what [MigrationFlowAdapter.commitMigration] actually migrated onto. */
+    data class Finished(val replaced: Boolean, val target: MigrationCandidate)
 
     data class State(
         val pairKey: String? = null,
@@ -183,7 +189,7 @@ private class EntryMigrateDialogScreenModel(
         val selectedFlags: Set<MigrationDataFlag> = emptySet(),
         val isMigrating: Boolean = false,
         val failed: Boolean = false,
-        /** Set on success with the verb used; consumed exactly once by the composable. */
-        val finishedWith: Boolean? = null,
+        /** Set on success; consumed exactly once by the composable. */
+        val finishedWith: Finished? = null,
     )
 }

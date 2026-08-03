@@ -58,6 +58,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
@@ -77,7 +78,7 @@ class EntryMigrationListScreen(
     private val contentType: ContentType,
     private val entryIds: List<Long>,
     private val extraQuery: String? = null,
-) : Screen() {
+) : Screen(), MigrationFlowScreen {
 
     @Composable
     override fun Content() {
@@ -89,7 +90,8 @@ class EntryMigrationListScreen(
         var showTuning by rememberSaveable { mutableStateOf(false) }
 
         if (state.finished) {
-            LaunchedEffect(Unit) { navigator.pop() }
+            // Unwind the whole flow, not one step: the screen below is a stale flow step.
+            LaunchedEffect(Unit) { navigator.popUntil { it !is MigrationFlowScreen } }
             return
         }
 
@@ -112,7 +114,13 @@ class EntryMigrationListScreen(
                 AppBar(
                     title = stringResource(MR.strings.migrationListScreenTitle),
                     subtitle = if (state.rows.size > 1) "${state.searchedCount} / ${state.rows.size}" else null,
-                    navigateUp = { if (guardExit) screenModel.showExitConfirm() else navigator.pop() },
+                    navigateUp = {
+                        if (guardExit) {
+                            screenModel.showExitConfirm()
+                        } else {
+                            navigator.popUntil { it !is MigrationFlowScreen }
+                        }
+                    },
                     scrollBehavior = scrollBehavior,
                     actions = {
                         AppBarActions(
@@ -192,7 +200,9 @@ class EntryMigrationListScreen(
             )
             EntryMigrationListScreenModel.Dialog.Exit -> ExitDialog(
                 onDismissRequest = screenModel::dismissDialog,
-                onConfirm = navigator::pop,
+                // Stopping abandons the flow, so it unwinds to wherever the flow was started,
+                // the same as finishing: one pop would land on a stale flow step.
+                onConfirm = { navigator.popUntil { it !is MigrationFlowScreen } },
             )
             null -> {}
         }
@@ -241,8 +251,19 @@ private fun MigrationRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                RowStatusLine(row = row, search = search, commit = commit, skipped = skipped)
-                RowCountLine(row = row, target = chosen)
+                // An override pick can land on a different source than the suggestion; the status
+                // line follows the chosen target, not the search cell.
+                val chosenSourceName = chosen?.let {
+                    remember(it.sourceKey) { screenModel.sourceDisplayName(it.sourceKey) }
+                }
+                RowStatusLine(
+                    row = row,
+                    search = search,
+                    commit = commit,
+                    skipped = skipped,
+                    chosenSourceName = chosenSourceName,
+                )
+                RowCountLine(row = row, target = chosen ?: (search as? SearchPhase.Found)?.suggestion)
             }
             RowTrailing(
                 row = row,
@@ -383,6 +404,7 @@ private fun RowStatusLine(
     search: SearchPhase,
     commit: CommitPhase,
     skipped: Boolean,
+    chosenSourceName: String?,
 ) {
     val isError = commit is CommitPhase.Failed || search is SearchPhase.Failed
     val status = when {
@@ -390,6 +412,7 @@ private fun RowStatusLine(
         commit is CommitPhase.Migrated -> stringResource(MR.strings.migrate)
         // Skip outranks a failed search: the escape hatch has to confirm itself visibly.
         skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
+        chosenSourceName != null -> chosenSourceName
         search is SearchPhase.Failed -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
         search is SearchPhase.Found -> search.sourceName
         search is SearchPhase.Searching -> stringResource(MR.strings.loading)
@@ -419,7 +442,9 @@ private fun RowCountLine(row: MigratingEntryRow, target: MigrationCandidate?) {
     Text(
         text = stringResource(
             MR.strings.migrationListScreen_latestChapterLabel,
-            "${current?.toString() ?: unknown} → ${targetLatest?.toString() ?: unknown}",
+            "${current?.let(
+                ::formatChapterNumber,
+            ) ?: unknown} → ${targetLatest?.let(::formatChapterNumber) ?: unknown}",
         ),
         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -124,6 +124,28 @@ class EntryMigrationListScreenModel(
             }
             row.search.value = outcome
             syncCounts()
+            peekSuggestionCounts(row)
+        }
+    }
+
+    /**
+     * Fill a found suggestion's chapter counts in the background, so the compare reads
+     * "584 -> 601" instead of unknown before the user decides. Display-only and best-effort;
+     * runs in the row's own scope, and a result whose row moved on is dropped, not applied.
+     */
+    private fun peekSuggestionCounts(row: MigratingEntryRow) {
+        val found = row.search.value as? SearchPhase.Found ?: return
+        val suggestion = found.suggestion
+        if (suggestion.latestChapter != null || suggestion.chapterCount != null) return
+        row.scope.launchIO {
+            val peeked = runCatchingCancellable { adapter.peekCounts(suggestion) }.getOrNull() ?: return@launchIO
+            row.search.compareAndSet(found, SearchPhase.Found(peeked, found.sourceName))
+            // An accept may have copied the un-peeked suggestion into chosen meanwhile; keep both in step.
+            if (row.chosen.value?.key == suggestion.key && MigrationRowRules.canChoose(row.commit.value)) {
+                row.chosen.value = peeked
+            }
+            // Hide-without-updates compares these counts, so visibility can change with them.
+            syncCounts()
         }
     }
 
@@ -329,6 +351,25 @@ class EntryMigrationListScreenModel(
         }
     }
 
+    /** Display name for a candidate's source, for the row status line. */
+    fun sourceDisplayName(sourceKey: String): String = adapter.sourceDisplayName(sourceKey)
+
+    /**
+     * Fill the chosen target's chapter counts in the background, so the count line stops reading
+     * unknown once a target is accepted. Display-only and best-effort; runs in the row's own scope,
+     * and a result whose row moved on (target swapped, commit started) is dropped, not applied.
+     */
+    private fun peekChosenCounts(row: MigratingEntryRow) {
+        val candidate = row.chosen.value ?: return
+        if (candidate.latestChapter != null || candidate.chapterCount != null) return
+        row.scope.launchIO {
+            val peeked = runCatchingCancellable { adapter.peekCounts(candidate) }.getOrNull() ?: return@launchIO
+            if (row.chosen.value?.key != candidate.key) return@launchIO
+            if (!MigrationRowRules.canChoose(row.commit.value)) return@launchIO
+            row.chosen.value = peeked
+        }
+    }
+
     /** Accept a specific candidate from an override strip, in place of the suggestion. */
     fun pick(id: EntryId, candidate: MigrationCandidate) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
@@ -337,6 +378,7 @@ class EntryMigrationListScreenModel(
         // A pick answers the question the picker was open for; leaving it open buries the result.
         row.expanded.value = false
         row.skipped.value = false
+        peekChosenCounts(row)
         syncCounts()
     }
 
@@ -349,6 +391,7 @@ class EntryMigrationListScreenModel(
         } else {
             if (!MigrationRowRules.canChoose(row.commit.value)) return
             row.chosen.value = row.search.value.suggestion ?: return
+            peekChosenCounts(row)
         }
         syncCounts()
     }
@@ -360,6 +403,7 @@ class EntryMigrationListScreenModel(
             if (row.chosen.value != null || row.skipped.value) return@forEach
             if (!MigrationRowRules.canChoose(row.commit.value)) return@forEach
             row.chosen.value = row.search.value.suggestion ?: return@forEach
+            peekChosenCounts(row)
         }
         syncCounts()
     }

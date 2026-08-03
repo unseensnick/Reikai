@@ -29,7 +29,7 @@ import uy.kohesive.injekt.api.get
 class EntryMigrationSourcePickScreen(
     private val contentType: ContentType,
     private val entryIds: List<Long>,
-) : Screen() {
+) : Screen(), MigrationFlowScreen {
 
     @Composable
     override fun Content() {

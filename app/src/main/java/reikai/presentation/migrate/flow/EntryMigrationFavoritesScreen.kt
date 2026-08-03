@@ -59,7 +59,7 @@ import uy.kohesive.injekt.api.get
 class EntryMigrationFavoritesScreen(
     private val contentType: ContentType,
     private val sourceKey: String,
-) : Screen() {
+) : Screen(), MigrationFlowScreen {
 
     @Composable
     override fun Content() {

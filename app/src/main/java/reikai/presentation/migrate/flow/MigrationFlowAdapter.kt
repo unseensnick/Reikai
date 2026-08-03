@@ -201,6 +201,14 @@ interface MigrationFlowAdapter {
      */
     suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget?
 
+    /**
+     * Best-effort chapter counts for a chosen target, so the row can show "584 -> 601" instead of
+     * unknown. Display-only: unlike [resolve] it must not make the candidate commit-ready, and null
+     * (couldn't fetch, or a count would be a lie, e.g. a paged novel source's first page) leaves the
+     * row reading unknown. Called once per accepted target, never for unaccepted suggestions.
+     */
+    suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate?
+
     /** Wrap an already-stored entry (a duplicate-dialog migrate target) as a resolved, commit-ready
      *  candidate, bypassing search. Null when the row is gone. */
     suspend fun storedCandidate(id: Long): MigrationCandidate?
