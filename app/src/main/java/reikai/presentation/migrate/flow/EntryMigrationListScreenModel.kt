@@ -51,6 +51,10 @@ class EntryMigrationListScreenModel(
 
     private var commitJob: Job? = null
 
+    /** The sequential search driver; idle once every row has settled. */
+    @Volatile
+    private var searchJob: Job? = null
+
     /** Versions the confirm dialog's flag scan so a dismissed scan cannot land on a later dialog. */
     @Volatile
     private var confirmScanId = 0
@@ -65,23 +69,41 @@ class EntryMigrationListScreenModel(
             mutableState.update {
                 it.copy(isLoading = false, tuning = tuning, rows = built, savedFlags = adapter.savedFlags())
             }
-            runSearches(built, tuning)
+            startDriver()
         }
     }
 
-    private suspend fun runSearches(batch: List<MigratingEntryRow>, tuning: MigrationTuning) {
-        val sources = sourcesFor()
-        for (row in batch) {
-            if (!currentCoroutineContext().isActive) break
-            if (row.entry.id !in state.value.rowIds) continue
-            if (!MigrationRowRules.canSearch(row.search.value, row.commit.value, row.skipped.value)) continue
-            if (!row.scope.isActive) continue
+    /** Run the search driver unless it is already running. Restoring a skipped row calls this too,
+     *  since the driver stops once nothing is left to search. */
+    private fun startDriver() {
+        if (searchJob?.isActive == true) return
+        searchJob = screenModelScope.launchIO { drive() }
+    }
 
-            row.search.value = SearchPhase.Searching
+    /**
+     * Search whatever is eligible, one row at a time, until nothing is. The next row is chosen on
+     * each pass rather than iterating a fixed list, so a row skipped mid-run drops out and a
+     * restored row is picked up without a second driver.
+     */
+    private suspend fun drive() {
+        val sources = sourcesFor()
+        val tuning = state.value.tuning
+        while (currentCoroutineContext().isActive) {
+            val row = rows.firstOrNull {
+                MigrationRowRules.canSearch(it.search.value, it.commit.value, it.skipped.value) && it.scope.isActive
+            } ?: break
+            // Claim the row atomically: if a second driver ever overlaps this one, only the winner
+            // searches, and the loser moves on.
+            if (!row.search.compareAndSet(SearchPhase.Queued, SearchPhase.Searching)) continue
+            syncCounts()
+
             val outcome = try {
                 row.scope.async { search(row, sources, tuning) }.await()
             } catch (_: CancellationException) {
-                // The row was abandoned (skipped, or its generation replaced); the batch carries on.
+                // The row was abandoned mid-search (skipped). Put it back in the queue so restoring
+                // it searches instead of leaving it stuck and holding the commit gate shut.
+                row.search.compareAndSet(SearchPhase.Searching, SearchPhase.Queued)
+                syncCounts()
                 continue
             }
             row.search.value = outcome
@@ -195,15 +217,22 @@ class EntryMigrationListScreenModel(
         syncCounts()
     }
 
+    /**
+     * Skip a row out of the migration, or restore it. A skipped row keeps its accepted target and
+     * stays in place, so restoring puts it back exactly as it was, and it stops counting toward the
+     * commit gate, which is what makes skip the way out of a source that will not answer.
+     */
     fun toggleSkip(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         if (!MigrationRowRules.canToggleSkip(row.commit.value)) return
         val skipping = !row.skipped.value
         row.skipped.value = skipping
-        // Skipping the row being searched abandons that search immediately; restoring an unsearched
-        // row re-queues it for a follow-up pass.
-        if (skipping && row.search.value is SearchPhase.Searching) {
-            row.scope.coroutineContext.cancelChildren()
+        when {
+            // Skipping the row being searched abandons that search now, rather than after whatever
+            // the source is doing finally returns.
+            skipping && row.search.value is SearchPhase.Searching -> row.scope.coroutineContext.cancelChildren()
+            // Restoring a row that never searched puts the driver back to work.
+            !skipping && row.search.value is SearchPhase.Queued -> startDriver()
         }
         syncCounts()
     }

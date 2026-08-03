@@ -230,7 +230,7 @@ private fun RowStatusLine(
         commit is CommitPhase.Failed -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
         commit is CommitPhase.Migrated -> stringResource(MR.strings.migrate)
         // Skip outranks a failed search: the escape hatch has to confirm itself visibly.
-        skipped -> stringResource(MR.strings.migrationListScreen_skipActionLabel)
+        skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
         search is SearchPhase.Failed -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
         search is SearchPhase.Found -> search.sourceName
         search is SearchPhase.Searching -> stringResource(MR.strings.loading)
@@ -343,7 +343,17 @@ private fun RowTrailing(
                 )
             }
             DropdownMenuItem(
-                text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
+                text = {
+                    Text(
+                        text = stringResource(
+                            if (skipped) {
+                                MR.strings.migrationFlow_restoreActionLabel
+                            } else {
+                                MR.strings.migrationListScreen_skipActionLabel
+                            },
+                        ),
+                    )
+                },
                 onClick = {
                     menuExpanded = false
                     screenModel.toggleSkip(row.entry.id)
