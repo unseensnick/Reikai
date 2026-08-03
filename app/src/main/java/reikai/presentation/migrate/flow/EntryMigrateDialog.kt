@@ -1,0 +1,189 @@
+package reikai.presentation.migrate.flow
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.StateScreenModel
+import cafe.adriel.voyager.core.model.rememberScreenModel
+import cafe.adriel.voyager.core.model.screenModelScope
+import cafe.adriel.voyager.core.screen.Screen
+import kotlinx.coroutines.flow.update
+import logcat.LogPriority
+import reikai.domain.library.ContentType
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+
+/**
+ * The shared single-item migrate dialog: flag checkboxes plus Copy and Migrate. Used by the routes
+ * that already know both sides of the migration (the duplicate dialogs), which have no commit bar,
+ * so the verb is chosen here. [onFinished] receives the verb used, so a caller can navigate.
+ */
+@Composable
+fun Screen.EntryMigrateDialog(
+    contentType: ContentType,
+    entry: MigrationEntry,
+    target: MigrationCandidate,
+    onDismissRequest: () -> Unit,
+    onShowEntry: (() -> Unit)?,
+    onFinished: (replaced: Boolean) -> Unit,
+) {
+    // One model per content type: tagging by pair would cache a model for every pair ever opened on
+    // a long-lived screen, so the pair is loaded per appearance instead of being a constructor arg.
+    val screenModel = rememberScreenModel(tag = "migrateDialog-$contentType") {
+        EntryMigrateDialogScreenModel(contentType)
+    }
+    val state by screenModel.state.collectAsState()
+
+    val pairKey = "${entry.id}-${target.key}"
+    LaunchedEffect(pairKey) { screenModel.load(pairKey, entry) }
+
+    // Completion is state consumed exactly once, not an event: a success landing while the
+    // composition is being recreated (a rotation mid-migrate) is delivered on re-entry rather than
+    // dropped with the dialog still armed.
+    val finishedWith = state.finishedWith
+    LaunchedEffect(finishedWith) {
+        if (finishedWith != null) {
+            screenModel.consumeFinished()
+            onFinished(finishedWith)
+        }
+    }
+
+    // A cached model briefly holds the previous pair until the load lands; render nothing until the
+    // state and the arguments agree.
+    if (state.pairKey != pairKey) return
+
+    AlertDialog(
+        onDismissRequest = { if (!state.isMigrating) onDismissRequest() },
+        title = { Text(text = stringResource(MR.strings.migrate)) },
+        text = {
+            Column {
+                MigrationFlagChecks(
+                    applicable = state.applicableFlags,
+                    selected = state.selectedFlags,
+                    onToggle = screenModel::toggleFlag,
+                )
+                Text(
+                    text = stringResource(MR.strings.migrationFlow_tracksNote),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                if (state.failed) {
+                    Text(
+                        text = stringResource(MR.strings.migrationListScreen_noMatchFoundText),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (state.isMigrating) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (onShowEntry != null) {
+                        TextButton(onClick = onShowEntry) {
+                            Text(text = stringResource(MR.strings.migrationFlow_showEntry))
+                        }
+                    }
+                    OutlinedButton(onClick = { screenModel.migrate(entry, target, replace = false) }) {
+                        Text(text = stringResource(MR.strings.copy))
+                    }
+                    Button(onClick = { screenModel.migrate(entry, target, replace = true) }) {
+                        Text(text = stringResource(MR.strings.migrate))
+                    }
+                }
+            }
+        },
+    )
+}
+
+private class EntryMigrateDialogScreenModel(
+    contentType: ContentType,
+) : StateScreenModel<EntryMigrateDialogScreenModel.State>(State()) {
+
+    private val adapter: MigrationFlowAdapter = when (contentType) {
+        ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
+        else -> Injekt.get<NovelMigrationFlowAdapter>()
+    }
+
+    /** Load the pair being shown. A rotation re-fires this mid-migrate, so an in-flight commit on
+     *  the same pair is left alone: wiping would re-arm the buttons over a live migration. */
+    fun load(pairKey: String, entry: MigrationEntry) {
+        if (state.value.pairKey == pairKey && state.value.isMigrating) return
+        mutableState.update { State(pairKey = pairKey) }
+        screenModelScope.launchIO {
+            adapter.prepare()
+            val applicable = adapter.applicableFlags(listOf(entry))
+            val saved = adapter.savedFlags()
+            mutableState.update {
+                if (it.pairKey != pairKey) return@update it
+                // Seeded with the FULL saved set: only applicable flags render, so a hidden flag
+                // keeps its saved state instead of being cleared for the next migration.
+                it.copy(applicableFlags = applicable, selectedFlags = saved)
+            }
+        }
+    }
+
+    fun toggleFlag(flag: MigrationDataFlag) = mutableState.update {
+        val selected = if (flag in it.selectedFlags) it.selectedFlags - flag else it.selectedFlags + flag
+        it.copy(selectedFlags = selected)
+    }
+
+    fun consumeFinished() = mutableState.update { it.copy(finishedWith = null) }
+
+    fun migrate(entry: MigrationEntry, target: MigrationCandidate, replace: Boolean) {
+        // finishedWith also blocks: between a success and the composable consuming it, a second tap
+        // would migrate twice.
+        if (state.value.isMigrating || state.value.finishedWith != null) return
+        // Captured before the suspending work: a pair switch mid-migrate must not swap the flag set
+        // under a live commit, nor land this pair's outcome on the next pair's dialog.
+        val flags = state.value.selectedFlags
+        val pairKey = state.value.pairKey
+        mutableState.update { it.copy(isMigrating = true, failed = false) }
+        screenModelScope.launchIO {
+            adapter.persistFlags(flags)
+            val result = runCatchingCancellable { adapter.commitMigration(entry, target, replace, flags) }
+            result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }
+            mutableState.update {
+                if (it.pairKey != pairKey) return@update it
+                it.copy(
+                    isMigrating = false,
+                    failed = result.isFailure,
+                    finishedWith = if (result.isSuccess) replace else it.finishedWith,
+                )
+            }
+        }
+    }
+
+    data class State(
+        val pairKey: String? = null,
+        val applicableFlags: Set<MigrationDataFlag> = emptySet(),
+        val selectedFlags: Set<MigrationDataFlag> = emptySet(),
+        val isMigrating: Boolean = false,
+        val failed: Boolean = false,
+        /** Set on success with the verb used; consumed exactly once by the composable. */
+        val finishedWith: Boolean? = null,
+    )
+}

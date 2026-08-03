@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,7 +133,7 @@ class EntryMigrationListScreen(
             is EntryMigrationListScreenModel.Dialog.Confirm -> ConfirmDialog(
                 dialog = dialog,
                 onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { screenModel.commit(dialog.replace) },
+                onConfirm = { flags -> screenModel.commit(dialog.replace, flags) },
             )
             is EntryMigrationListScreenModel.Dialog.Progress -> ProgressDialog(
                 dialog = dialog,
@@ -315,8 +316,13 @@ private fun RowTrailing(
 private fun ConfirmDialog(
     dialog: EntryMigrationListScreenModel.Dialog.Confirm,
     onDismissRequest: () -> Unit,
-    onConfirm: () -> Unit,
+    onConfirm: (Set<MigrationDataFlag>) -> Unit,
 ) {
+    // Keyed on the saved set because it arrives with the async scan; re-keying seeds the checkboxes
+    // once the real values land instead of leaving them on the empty first frame.
+    var selected by rememberSaveable(dialog.savedFlags, stateSaver = migrationFlagSaver) {
+        mutableStateOf(dialog.savedFlags)
+    }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = {
@@ -333,14 +339,30 @@ private fun ConfirmDialog(
             )
         },
         text = {
-            if (dialog.untouched > 0) {
-                Text(
-                    text = pluralStringResource(
-                        MR.plurals.migrationListScreen_migrateDialog_skipText,
-                        dialog.untouched,
-                        dialog.untouched,
-                    ),
+            Column {
+                MigrationFlagChecks(
+                    applicable = dialog.applicableFlags,
+                    selected = selected,
+                    onToggle = { flag ->
+                        selected = if (flag in selected) selected - flag else selected + flag
+                    },
                 )
+                Text(
+                    text = stringResource(MR.strings.migrationFlow_tracksNote),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                if (dialog.untouched > 0) {
+                    Text(
+                        text = pluralStringResource(
+                            MR.plurals.migrationListScreen_migrateDialog_skipText,
+                            dialog.untouched,
+                            dialog.untouched,
+                        ),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
         },
         dismissButton = {
@@ -349,7 +371,12 @@ private fun ConfirmDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm) {
+            Button(
+                onClick = { onConfirm(selected) },
+                // The scan decides which checkboxes exist, so confirming before it lands could
+                // migrate with a set the user never saw.
+                enabled = !dialog.loadingFlags,
+            ) {
                 Text(
                     text = stringResource(
                         if (dialog.replace) {

@@ -51,6 +51,10 @@ class EntryMigrationListScreenModel(
 
     private var commitJob: Job? = null
 
+    /** Versions the confirm dialog's flag scan so a dismissed scan cannot land on a later dialog. */
+    @Volatile
+    private var confirmScanId = 0
+
     init {
         screenModelScope.launchIO {
             adapter.prepare()
@@ -159,14 +163,16 @@ class EntryMigrationListScreenModel(
         bumpProgress()
     }
 
-    fun commit(replace: Boolean) {
+    fun commit(replace: Boolean, flags: Set<MigrationDataFlag>) {
         if (state.value.isCommitting) return
         val targets = rows.filter {
             MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
         }
         if (targets.isEmpty()) return
-        val flags = state.value.savedFlags
+        // Persisted once, here, and then carried as a value: the per-row commits below must all use
+        // the set the user just confirmed.
         adapter.persistFlags(flags)
+        mutableState.update { it.copy(savedFlags = flags) }
         mutableState.update { it.copy(dialog = Dialog.Progress(0, targets.size), isCommitting = true) }
         commitJob = screenModelScope.launchIO {
             try {
@@ -216,10 +222,8 @@ class EntryMigrationListScreenModel(
         val target = row.chosen.value ?: return
         row.commit.value = CommitPhase.Committing(replace)
         try {
-            val outcome = adapter.resolve(target) ?: error("target failed to resolve")
-            val resolved = outcome.candidate
+            val resolved = adapter.commitMigration(row.entry, target, replace, flags)
             row.chosen.value = resolved
-            adapter.migrate(row.entry, resolved, replace, flags, targetJustSynced = outcome.syncedNow)
             row.commit.value = CommitPhase.Migrated(resolved, replace)
             mutableState.update { it.copy(migratedCount = it.migratedCount + 1) }
         } catch (e: CancellationException) {
@@ -236,8 +240,27 @@ class EntryMigrationListScreenModel(
         commitJob = null
     }
 
-    fun showConfirm(replace: Boolean) = mutableState.update {
-        it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
+    /** Opens immediately and fills the applicable flags behind it, so the button never looks dead
+     *  while the per-entry scan (custom cover, notes, downloads) runs. */
+    fun showConfirm(replace: Boolean) {
+        val scan = ++confirmScanId
+        mutableState.update {
+            it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
+        }
+        screenModelScope.launchIO {
+            val targets = rows.filter {
+                MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
+            }
+            val applicable = adapter.applicableFlags(targets.map { it.entry })
+            // The saved set is re-read rather than reused: an earlier commit in this session rewrote
+            // the preference, and the seed has to match what the next migration will actually use.
+            val saved = adapter.savedFlags()
+            mutableState.update {
+                val dialog = it.dialog
+                if (scan != confirmScanId || dialog !is Dialog.Confirm) return@update it
+                it.copy(dialog = dialog.copy(applicableFlags = applicable, savedFlags = saved, loadingFlags = false))
+            }
+        }
     }
 
     fun showExitConfirm() = mutableState.update { it.copy(dialog = Dialog.Exit) }
@@ -251,7 +274,16 @@ class EntryMigrationListScreenModel(
     }
 
     sealed interface Dialog {
-        data class Confirm(val replace: Boolean, val count: Int, val untouched: Int) : Dialog
+        data class Confirm(
+            val replace: Boolean,
+            val count: Int,
+            val untouched: Int,
+            val applicableFlags: Set<MigrationDataFlag> = emptySet(),
+            /** The FULL saved set seeds the checkboxes: only applicable flags render, so a flag that
+             *  is hidden for this batch keeps its saved state instead of being cleared. */
+            val savedFlags: Set<MigrationDataFlag> = emptySet(),
+            val loadingFlags: Boolean = true,
+        ) : Dialog
         data class Progress(val done: Int, val total: Int) : Dialog
         data object Exit : Dialog
     }
