@@ -58,12 +58,14 @@ class MangaMigrationFlowAdapter(
                     key = "${source.id}",
                     name = source.name,
                     lang = source.lang,
-                    icon = Source(
-                        id = source.id,
-                        lang = source.lang,
-                        name = source.name,
-                        supportsLatest = false,
-                        isStub = false,
+                    icon = MigrationSourceIcon.MangaSource(
+                        Source(
+                            id = source.id,
+                            lang = source.lang,
+                            name = source.name,
+                            supportsLatest = false,
+                            isStub = false,
+                        ),
                     ),
                 )
             }
@@ -173,7 +175,9 @@ class MangaMigrationFlowAdapter(
         runCatchingCancellable { updateMangaFromRemote(local, fetchChapters = true).getOrThrow() }
         val chapters = getChaptersByMangaId.await(local.id)
         return local.toCandidate(sourceKey).copy(
-            chapterCount = chapters.size,
+            // Null, not 0, when the fetch produced nothing: 0 reads as a settled count and blocks
+            // the display peek from retrying, while null leaves the count honestly unknown.
+            chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
         )
     }
@@ -213,13 +217,17 @@ class MangaMigrationFlowAdapter(
                 latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
                 resolved = true,
             ),
-            syncedNow = fetched,
+            // A fetch that produced nothing is not a sync: claiming it would make the engine skip
+            // its compensating refresh and migrate onto an empty row when the source flaked here.
+            syncedNow = fetched && chapters.isNotEmpty(),
         )
     }
 
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
         // Manga candidates are already stored rows, so resolve is the peek: it fetches chapters
-        // onto the existing row, the same best-effort work the commit would do anyway.
+        // onto the existing row, the same best-effort work the commit would do anyway. The result
+        // carries resolved = true, which is safe only while resolve() has no resolved early-out;
+        // if it ever adopts the novel side's, peeked candidates would skip commit-time work.
         return resolve(candidate)?.candidate
     }
 

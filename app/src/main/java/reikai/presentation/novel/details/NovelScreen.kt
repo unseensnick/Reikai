@@ -49,8 +49,9 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * page selector) and the per-type dialogs live here; the shared dialogs go through [EntryDetailsDialogHost].
  */
 class NovelScreen(
-    private val sourceId: String,
-    private val novelUrl: String,
+    // Public so the migrate flow can identity-check the screen below it before replacing.
+    val sourceId: String,
+    val novelUrl: String,
 ) : Screen() {
 
     @Composable

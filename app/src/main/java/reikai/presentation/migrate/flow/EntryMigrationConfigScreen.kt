@@ -47,7 +47,6 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.Pill
@@ -260,7 +259,7 @@ private fun SourceItem(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MigrationSourceIcon(icon = source.icon)
+            SourceRowIcon(icon = source.icon)
             Text(
                 text = source.name,
                 maxLines = 1,
@@ -284,12 +283,11 @@ private fun SourceItem(
     }
 }
 
-/** The per-type icon payload: the manga side carries a domain [Source], the novel side its icon URL. */
 @Composable
-private fun MigrationSourceIcon(icon: Any?) {
+private fun SourceRowIcon(icon: MigrationSourceIcon) {
     when (icon) {
-        is Source -> SourceIcon(source = icon, modifier = Modifier.size(32.dp))
-        else -> NovelSourceIcon(iconUrl = icon as? String, size = 32.dp)
+        is MigrationSourceIcon.MangaSource -> SourceIcon(source = icon.source, modifier = Modifier.size(32.dp))
+        is MigrationSourceIcon.NovelUrl -> NovelSourceIcon(iconUrl = icon.iconUrl, size = 32.dp)
     }
 }
 

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.PickMember
+import tachiyomi.domain.source.model.Source
 
 /** [runCatching] that rethrows [CancellationException]: the flow's search/commit coroutines must die
  *  on cancellation instead of reporting a cancelled call as "no match" or a row failure. */
@@ -30,14 +31,19 @@ enum class MigrationDataFlag {
     REMOVE_DOWNLOAD,
 }
 
-/** A migration target source. [key] is the neutral id (manga `Long` stringified, novel plugin id).
- *  [icon] is the per-type icon payload (manga domain `Source` for `SourceIcon`, novel `iconUrl`). */
+/** A migration target source. [key] is the neutral id (manga `Long` stringified, novel plugin id). */
 data class MigrationSourceUi(
     val key: String,
     val name: String,
     val lang: String,
-    val icon: Any?,
+    val icon: MigrationSourceIcon,
 )
+
+/** The per-type icon payload: a typed slot, so shared UI renders by case instead of downcasting. */
+sealed interface MigrationSourceIcon {
+    data class MangaSource(val source: Source) : MigrationSourceIcon
+    data class NovelUrl(val iconUrl: String?) : MigrationSourceIcon
+}
 
 /** An entry being migrated, loaded once per flow run. [payload] is the per-type domain model
  *  (`Manga` / `Novel`), consumed only by the owning adapter and the per-type cover mappers. */
@@ -191,7 +197,8 @@ interface MigrationFlowAdapter {
 
     /**
      * Materialise a picked candidate into a commit-ready target (row inserted, chapters fetched,
-     * count known), returning it with `resolved = true`. Null on failure; [migrate] requires a
+     * count known), returning it with `resolved = true`. Fails as null OR by throwing (the novel
+     * side lets its refresh throw); callers must catch as well as null-check. [migrate] requires a
      * resolved candidate.
      *
      * The one networked method here, and idempotent: the commit path resolves unconditionally
@@ -202,10 +209,11 @@ interface MigrationFlowAdapter {
     suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget?
 
     /**
-     * Best-effort chapter counts for a chosen target, so the row can show "584 -> 601" instead of
-     * unknown. Display-only: unlike [resolve] it must not make the candidate commit-ready, and null
-     * (couldn't fetch, or a count would be a lie, e.g. a paged novel source's first page) leaves the
-     * row reading unknown. Called once per accepted target, never for unaccepted suggestions.
+     * Best-effort chapter counts for a candidate, so the row can show "584 -> 601" instead of
+     * unknown. Display-only: the flow never relies on the result being commit-ready (a side where
+     * that comes free may return one), and null (couldn't fetch, or a count would be a lie, e.g. a
+     * paged novel source's first page) leaves the row reading unknown. Called for found suggestions
+     * and for accepted targets; the caller bounds the concurrency, so one fetch per call is fine.
      */
     suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate?
 

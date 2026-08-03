@@ -34,8 +34,11 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
+
+// File-level rather than a Screen field: Voyager serializes Screen instances, and a composable-body
+// Injekt.get is against the screen conventions for net-new code.
+private val pickHandoff: MigrationPickHandoff by injectLazy()
 
 /**
  * Push a full browse of one source to choose a migration target from, when the inline strips are not
@@ -81,7 +84,6 @@ class MigrationDeepPickerScreen(
         val screenModel = rememberScreenModel { BrowseSourceScreenModel(sourceId, query) }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
-        val handoff = remember { Injekt.get<MigrationPickHandoff>() }
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -119,7 +121,7 @@ class MigrationDeepPickerScreen(
                 onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
                 onLocalSourceHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) },
                 onMangaClick = {
-                    handoff.offer(EntryId.Manga(entryRawId), it.id)
+                    pickHandoff.offer(EntryId.Manga(entryRawId), it.id)
                     navigator.pop()
                 },
                 // Long-press opens the entry, so a candidate can be checked before choosing it.

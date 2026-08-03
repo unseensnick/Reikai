@@ -130,10 +130,12 @@ private class EntryMigrateDialogScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
-    /** Load the pair being shown. A rotation re-fires this mid-migrate, so an in-flight commit on
-     *  the same pair is left alone: wiping would re-arm the buttons over a live migration. */
+    /** Load the pair being shown. Never loads over a live commit: a rotation re-fires this for the
+     *  same pair, and a host swapping arguments mid-migrate must not wipe the running commit's
+     *  state either, since that would re-arm the buttons and drop the outcome of a migration that
+     *  already mutated the database. */
     fun load(pairKey: String, entry: MigrationEntry) {
-        if (state.value.pairKey == pairKey && state.value.isMigrating) return
+        if (state.value.isMigrating) return
         mutableState.update { State(pairKey = pairKey) }
         screenModelScope.launchIO {
             adapter.prepare()

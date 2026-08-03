@@ -114,17 +114,22 @@ class MigrationRowRulesTest {
 
     @Test
     fun `retry is offered only for a failed commit`() {
-        MigrationRowRules.canRetry(CommitPhase.Idle, anyCommitInFlight = false) shouldBe false
+        MigrationRowRules.canRetry(CommitPhase.Idle, anyCommitInFlight = false, skipped = false) shouldBe false
     }
 
     @Test
     fun `retry waits while another commit runs`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = true) shouldBe false
+        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = true, skipped = false) shouldBe false
     }
 
     @Test
     fun `retry is offered on a failed row when nothing else commits`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false) shouldBe true
+        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false, skipped = false) shouldBe true
+    }
+
+    @Test
+    fun `retry is not offered on a skipped row`() {
+        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false, skipped = true) shouldBe false
     }
 
     @Test

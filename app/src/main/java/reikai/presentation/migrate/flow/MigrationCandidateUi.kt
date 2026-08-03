@@ -34,17 +34,30 @@ internal fun MigrationCandidate.openDetails(navigator: Navigator) {
  *
  * A replace leaves the entry that was migrated away behind on the stack, showing a page that no
  * longer describes anything in the library, so the target replaces it. A copy keeps it, since both
- * entries are still there. Only a details page of the same content type can be the one being
- * replaced, so the check is type-matched.
+ * entries are still there. The check is by identity, not just type: a migration launched from a
+ * merged entry's details can migrate a member that is NOT the page below, and replacing that page
+ * would discard a details screen that still describes a live entry.
  */
-internal fun MigrationCandidate.openDetailsAfterCommit(navigator: Navigator, replaced: Boolean) {
-    val (details: Screen, previousIsDetails: Boolean) = when (val handle = handle) {
-        is Manga -> MangaScreen(handle.id) to (navigator.lastItem is MangaScreen)
+internal fun MigrationCandidate.openDetailsAfterCommit(
+    navigator: Navigator,
+    replaced: Boolean,
+    migrated: MigrationEntry,
+) {
+    val (details: Screen, previousIsMigrated: Boolean) = when (val handle = handle) {
+        is Manga -> MangaScreen(handle.id) to
+            ((navigator.lastItem as? MangaScreen)?.mangaId == migrated.id.rawId)
         is NovelCandidateHandle -> {
-            val stored = handle.stored
-            NovelScreen(sourceKey, handle.item.path) to (stored != null && navigator.lastItem is NovelScreen)
+            val last = navigator.lastItem as? NovelScreen
+            val migratedNovel = migrated.payload as? Novel
+            NovelScreen(sourceKey, handle.item.path) to (
+                handle.stored != null &&
+                    last != null &&
+                    migratedNovel != null &&
+                    last.sourceId == migratedNovel.source &&
+                    last.novelUrl == migratedNovel.url
+                )
         }
         else -> return
     }
-    if (replaced && previousIsDetails) navigator.replace(details) else navigator.push(details)
+    if (replaced && previousIsMigrated) navigator.replace(details) else navigator.push(details)
 }

@@ -75,7 +75,7 @@ class NovelMigrationFlowAdapter(
                     key = source.id,
                     name = source.name,
                     lang = source.lang,
-                    icon = source.iconUrl,
+                    icon = MigrationSourceIcon.NovelUrl(source.iconUrl),
                 )
             }
     }
@@ -226,7 +226,8 @@ class NovelMigrationFlowAdapter(
         return ResolvedTarget(
             candidate = candidate.copy(
                 title = resolved.title,
-                chapterCount = chapters.size,
+                // Null, not 0, for an empty list, matching every other candidate builder.
+                chapterCount = chapters.size.takeIf { it > 0 },
                 latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
                 cover = resolved.toCover(source.site, favorite = false),
                 resolved = true,

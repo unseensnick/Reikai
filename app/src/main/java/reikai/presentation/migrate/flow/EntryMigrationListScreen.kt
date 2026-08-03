@@ -148,7 +148,9 @@ class EntryMigrationListScreen(
                 )
             },
             bottomBar = {
-                if (state.allSearched && state.committableCount > 0 && !state.isCommitting) {
+                if (state.allSearched && state.committableCount > 0 && !state.isCommitting &&
+                    !state.singleCommitInFlight
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -458,7 +460,8 @@ private fun RowTrailing(
         ) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp))
         }
-        commit is CommitPhase.Failed -> TextButton(onClick = { screenModel.retry(row.entry.id) }) {
+        // No retry on a skipped row: skip excludes it from every commit, and the model refuses too.
+        commit is CommitPhase.Failed && !skipped -> TextButton(onClick = { screenModel.retry(row.entry.id) }) {
             Text(text = stringResource(MR.strings.action_retry))
         }
         commit is CommitPhase.Migrated -> Box(

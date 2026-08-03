@@ -175,7 +175,7 @@ class EntryMigrationSearchScreen(
                     navigator.popUntil { it !is MigrationFlowScreen }
                     // The resolved candidate, not the raw pick: replace-detection needs the
                     // stored row behind it to swap out the migrated-away details page.
-                    resolved.openDetailsAfterCommit(navigator, replaced)
+                    resolved.openDetailsAfterCommit(navigator, replaced, migrated = entry)
                 },
             )
         }
@@ -303,14 +303,21 @@ class EntryMigrationSearchScreenModel(
         }
     }
 
-    /** The chosen sources, resolved against what is enabled; pinned lead when nothing saved resolves. */
+    /** The chosen sources, resolved against what is enabled. The empty-selection fallback is
+     *  pinned-only, mirroring the config screen's seed, so what it showed is what gets searched. */
     private fun sourcesFor(): List<MigrationSourceUi> {
         val enabled = adapter.enabledSources()
         val byKey = enabled.associateBy { it.key }
         return adapter.savedSelection().mapNotNull { byKey[it] }.ifEmpty {
             val pinned = adapter.pinnedKeys()
-            enabled.sortedBy { it.key !in pinned }
+            enabled.filter { it.key in pinned }.ifEmpty { enabled }
         }
+    }
+
+    override fun onDispose() {
+        super.onDispose()
+        // An uncollected pick belongs to this migration only.
+        pickHandoff.clear()
     }
 
     /** Held in model state, not the composition, so a rotation mid-migrate keeps the dialog alive

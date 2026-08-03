@@ -2,12 +2,14 @@ package reikai.presentation.migrate.flow
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.autoSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -32,25 +34,35 @@ import uy.kohesive.injekt.api.get
  * with the two entries, and renders [EntryMigrateHost].
  */
 @Stable
-class EntryMigrateController {
+class EntryMigrateController(private val state: MutableState<Request?>) {
     /** Non-null while the dialog is open, or its rows are still loading. */
-    var request by mutableStateOf<Request?>(null)
-        private set
+    val request: Request? get() = state.value
 
     /** [currentId] is the entry already in the library; [targetId] the one just added. */
     fun start(contentType: ContentType, currentId: Long, targetId: Long) {
-        request = Request(contentType, currentId, targetId)
+        state.value = Request(contentType, currentId, targetId)
     }
 
     fun dismiss() {
-        request = null
+        state.value = null
     }
 
-    data class Request(val contentType: ContentType, val currentId: Long, val targetId: Long)
+    /** Serializable so the open request survives a configuration change: losing it mid-migrate
+     *  detaches a running commit from its dialog, which then finishes with no feedback. */
+    data class Request(
+        val contentType: ContentType,
+        val currentId: Long,
+        val targetId: Long,
+    ) : java.io.Serializable
 }
 
 @Composable
-fun rememberEntryMigrateController(): EntryMigrateController = remember { EntryMigrateController() }
+fun rememberEntryMigrateController(): EntryMigrateController {
+    val request = rememberSaveable(stateSaver = autoSaver()) {
+        mutableStateOf<EntryMigrateController.Request?>(null)
+    }
+    return remember { EntryMigrateController(request) }
+}
 
 @Composable
 fun Screen.EntryMigrateHost(controller: EntryMigrateController) {

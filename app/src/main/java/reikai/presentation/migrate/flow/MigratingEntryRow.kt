@@ -168,9 +168,13 @@ object MigrationRowRules {
         skipped: Boolean,
     ): Boolean = chosen != null && !skipped && !commit.isDone && !commit.isBusy
 
-    /** A retry is offered only for a failed commit, and only while nothing else is committing. */
-    fun canRetry(commit: MigratingEntryRow.CommitPhase, anyCommitInFlight: Boolean): Boolean =
-        commit is MigratingEntryRow.CommitPhase.Failed && !anyCommitInFlight
+    /** A retry is offered only for a failed commit, only while nothing else is committing, and
+     *  never on a skipped row: skip excludes the row from every commit, including this one. */
+    fun canRetry(
+        commit: MigratingEntryRow.CommitPhase,
+        anyCommitInFlight: Boolean,
+        skipped: Boolean,
+    ): Boolean = commit is MigratingEntryRow.CommitPhase.Failed && !anyCommitInFlight && !skipped
 
     /**
      * The row state a search restart produces. A migrated row keeps everything (its result is

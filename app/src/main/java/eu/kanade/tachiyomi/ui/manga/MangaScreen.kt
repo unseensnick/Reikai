@@ -72,7 +72,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class MangaScreen(
-    private val mangaId: Long,
+    val mangaId: Long, // RK: exposed so the migrate flow can identity-check the screen below it
     val fromSource: Boolean = false,
 ) : Screen(), AssistContentScreen {
 
