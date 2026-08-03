@@ -115,6 +115,7 @@ import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.migrate.flow.MangaMigrationFlowAdapter
+import reikai.presentation.migrate.flow.NovelMigrationFlowAdapter
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -339,10 +340,15 @@ class DomainModule : InjektModule {
                 get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             )
         }
-        // RK --> the shared migration flow's manga seam
+        // RK --> the shared migration flow's per-type seams
         addSingletonFactory {
             MangaMigrationFlowAdapter(
                 get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            )
+        }
+        addSingletonFactory {
+            NovelMigrationFlowAdapter(
+                get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             )
         }
         // RK <--

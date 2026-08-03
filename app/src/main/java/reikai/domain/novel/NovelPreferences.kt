@@ -320,6 +320,13 @@ class NovelPreferences(
     /** Last selection in the migrate dialog, as a [NovelMigrationFlag] bitmask. Defaults to all on. */
     fun novelMigrationFlags() = preferenceStore.getInt("novel_migration_flags", NovelMigrationFlag.DEFAULT_BITS)
 
+    /** Hide rows whose search found nothing. Twin of the manga migration pref. */
+    fun novelMigrationHideUnmatched() = preferenceStore.getBoolean("novel_migration_hide_unmatched", false)
+
+    /** Hide rows whose match is no further ahead than the entry already is. */
+    fun novelMigrationHideWithoutUpdates() =
+        preferenceStore.getBoolean("novel_migration_hide_without_updates", false)
+
     companion object {
         // Referenced by backup restore (PreferenceRestorer) to flag restored plugin URLs for
         // validation against the added repos before the host evaluates any.

@@ -44,7 +44,7 @@ class EntryMigrationListScreenModel(
 
     private val adapter: MigrationFlowAdapter = when (contentType) {
         ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-        else -> error("no adapter for $contentType")
+        else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
     private val rows: List<MigratingEntryRow> get() = state.value.rows

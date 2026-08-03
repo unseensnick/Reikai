@@ -98,6 +98,9 @@ class NovelDownloadManager(private val context: Context) {
     fun isChapterDownloaded(novel: Novel, chapter: NovelChapter): Boolean =
         cache.isChapterDownloaded(novel, chapter)
 
+    /** How many chapters of [novel] are on disk, from the same cache the reader consults. */
+    fun getDownloadCount(novel: Novel): Int = cache.getDownloadCount(novel)
+
     /** The downloaded HTML for a chapter, or null when it isn't downloaded. No host involvement. */
     fun getChapterText(novel: Novel, chapter: NovelChapter): String? =
         provider.readChapter(novel, chapter)
