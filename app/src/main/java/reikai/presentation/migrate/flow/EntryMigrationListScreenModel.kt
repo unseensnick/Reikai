@@ -49,6 +49,8 @@ class EntryMigrationListScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
+    private val pickHandoff: MigrationPickHandoff = Injekt.get()
+
     private val rows: List<MigratingEntryRow> get() = state.value.rows
 
     private var commitJob: Job? = null
@@ -300,6 +302,33 @@ class EntryMigrationListScreenModel(
         }
     }
 
+    /**
+     * Apply a target picked on a pushed browse screen, if one came back for a row here.
+     *
+     * Called when the list returns to the foreground. The pick is a stored row already, so it wraps
+     * into a resolved candidate with no search; the same guards as any other pick apply, so a pick
+     * that arrives after the row migrated is dropped rather than re-arming it.
+     */
+    fun collectPendingPick() {
+        val rows = rows
+        screenModelScope.launchIO {
+            rows.forEach { row ->
+                val targetRawId = pickHandoff.take(row.entry.id) ?: return@forEach
+                if (!MigrationRowRules.canChoose(row.commit.value)) return@forEach
+                // The entry's own row is never a target: the engines would no-op and the row would
+                // read as migrated with nothing done.
+                if (targetRawId == row.entry.id.rawId) return@forEach
+                val candidate = runCatchingCancellable { adapter.storedCandidate(targetRawId) }.getOrNull()
+                    ?: return@forEach
+                if (!MigrationRowRules.canChoose(row.commit.value)) return@forEach
+                row.chosen.value = candidate
+                row.expanded.value = false
+                row.skipped.value = false
+                syncCounts()
+            }
+        }
+    }
+
     /** Accept a specific candidate from an override strip, in place of the suggestion. */
     fun pick(id: EntryId, candidate: MigrationCandidate) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
@@ -483,6 +512,8 @@ class EntryMigrationListScreenModel(
         super.onDispose()
         // Row scopes are detached, so they outlive the model unless cancelled here.
         rows.forEach { it.scope.cancel() }
+        // An uncollected pick belongs to this migration only.
+        pickHandoff.clear()
     }
 
     sealed interface Dialog {

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -90,6 +91,11 @@ class EntryMigrationListScreen(
         if (state.finished) {
             LaunchedEffect(Unit) { navigator.pop() }
             return
+        }
+
+        // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
+        LaunchedEffect(state.isLoading) {
+            if (!state.isLoading) screenModel.collectPendingPick()
         }
 
         // Back is guarded all the way through the commit: rows are being mutated.
@@ -259,6 +265,8 @@ private fun OverridePicker(
     row: MigratingEntryRow,
     screenModel: EntryMigrationListScreenModel,
 ) {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
     val overrides by row.overrides.collectAsState()
     var query by rememberSaveable(row.entry.id.toString()) { mutableStateOf(row.entry.title) }
 
@@ -293,7 +301,15 @@ private fun OverridePicker(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             }
             is MigratingEntryRow.OverrideState.Loaded -> state.strips.forEach { strip ->
-                OverrideStripRow(strip = strip, onPick = { screenModel.pick(row.entry.id, it) })
+                OverrideStripRow(
+                    strip = strip,
+                    onPick = { screenModel.pick(row.entry.id, it) },
+                    onBrowseSource = {
+                        if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
+                            context.toast(MR.strings.internal_error)
+                        }
+                    },
+                )
             }
         }
     }
@@ -303,13 +319,27 @@ private fun OverridePicker(
 private fun OverrideStripRow(
     strip: MigratingEntryRow.OverrideStrip,
     onPick: (MigrationCandidate) -> Unit,
+    onBrowseSource: () -> Unit,
 ) {
-    Text(
-        text = strip.sourceName,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = strip.sourceName,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 10.dp, bottom = 2.dp),
+        )
+        // Browsing the whole source is the way out when the search cannot reach the title, which is
+        // exactly when the strip below has nothing in it.
+        IconButton(onClick = onBrowseSource) {
+            Icon(
+                imageVector = Icons.Outlined.TravelExplore,
+                contentDescription = stringResource(MR.strings.migrationFlow_browseSource),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
     when {
         // A source that threw says so, rather than looking like a source with nothing to offer.
         strip.error != null -> Text(

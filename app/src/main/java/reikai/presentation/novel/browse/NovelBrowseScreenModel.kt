@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -21,7 +22,9 @@ import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.migrate.flow.MigrationPickHandoff
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.injectLazy
 
@@ -41,6 +44,9 @@ class NovelBrowseScreenModel(
     private val manager: NovelSourceManager by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
     private val libraryAdder: NovelLibraryAdder by injectLazy()
+
+    // RK: where a migration-target pick is left for the screen that asked for it.
+    private val pickHandoff: MigrationPickHandoff by injectLazy()
     private val reikaiSourcePreferences: ReikaiSourcePreferences by injectLazy()
     private val sourcePreferences: SourcePreferences by injectLazy()
 
@@ -140,6 +146,26 @@ class NovelBrowseScreenModel(
             mutableState.update { it.copy(dialog = dialog) }
         }
     }
+
+    // RK -->
+
+    /**
+     * Report [item] back as the migration target for the novel with id [entryRawId], then run
+     * [onPicked] (which pops back to the migration screen waiting for it).
+     *
+     * The row is stored first, unfavorited, because a migration target has to be something the
+     * library can point at; the migrate step does the rest.
+     */
+    fun pickAsMigrationTarget(item: NovelItem, entryRawId: Long, onPicked: () -> Unit) {
+        screenModelScope.launchIO {
+            val stored = libraryAdder.materialize(item, sourceId)
+            if (stored != null) {
+                pickHandoff.offer(EntryId.Novel(entryRawId), stored.id)
+            }
+            withUIContext { onPicked() }
+        }
+    }
+    // RK <--
 
     /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
     fun addFromDuplicate(item: NovelItem) {

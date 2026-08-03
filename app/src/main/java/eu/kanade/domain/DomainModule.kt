@@ -115,6 +115,7 @@ import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.migrate.flow.MangaMigrationFlowAdapter
+import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.migrate.flow.NovelMigrationFlowAdapter
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.data.category.CategoryRepositoryImpl
@@ -351,6 +352,7 @@ class DomainModule : InjektModule {
                 get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             )
         }
+        addSingletonFactory { MigrationPickHandoff() }
         // RK <--
 
         addSingletonFactory<ReleaseService> { ReleaseServiceImpl(get(), get()) }

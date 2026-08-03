@@ -102,6 +102,9 @@ import tachiyomi.presentation.core.util.plus
 class NovelBrowseScreen(
     private val sourceId: String,
     private val initialQuery: String = "",
+    /** Set when browsing to choose a migration target for this novel: a tap reports the pick back
+     *  instead of opening details. */
+    private val migratePickFor: Long? = null,
 ) : Screen() {
 
     @Composable
@@ -303,10 +306,13 @@ class NovelBrowseScreen(
                 onWebViewClick = onWebViewClick,
                 // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
                 onResultClick = { item ->
-                    if (bulkState.selectionMode) {
-                        bulkModel.toggleSelection(sourceId, item)
-                    } else {
-                        navigator.push(NovelScreen(sourceId, item.path))
+                    when {
+                        // RK: picking a migration target; store the row and hand its id back.
+                        migratePickFor != null -> screenModel.pickAsMigrationTarget(item, migratePickFor) {
+                            navigator.pop()
+                        }
+                        bulkState.selectionMode -> bulkModel.toggleSelection(sourceId, item)
+                        else -> navigator.push(NovelScreen(sourceId, item.path))
                     }
                 },
                 onLongClickItem = { item ->
