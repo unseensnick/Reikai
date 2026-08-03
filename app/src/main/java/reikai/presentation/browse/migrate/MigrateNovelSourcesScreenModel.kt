@@ -20,7 +20,7 @@ import uy.kohesive.injekt.api.get
  * count per source, sorted by the same migration sort preference manga uses. A source's display name
  * and icon resolve through a 3-step chain so a row shows even when its plugin is uninstalled (manga
  * stub parity): the live installed source, else the last-known [NovelPreferences.seenNovelSources]
- * cache, else the raw plugin id. Tapping a row opens [MigrateNovelScreen] for that source.
+ * cache, else the raw plugin id. Tapping a row opens the shared migration favorites picker for that source.
  */
 class MigrateNovelSourcesScreenModel(
     private val novelRepository: NovelRepository = Injekt.get(),

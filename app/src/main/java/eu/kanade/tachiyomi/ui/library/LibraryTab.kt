@@ -90,8 +90,8 @@ import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
-import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -529,7 +529,9 @@ data object LibraryTab : Tab {
                             mangaIds.isEmpty() && novelIds.isNotEmpty() -> {
                                 {
                                     engine.clearSelection()
-                                    navigator.push(NovelMigrationSourcePickScreen(novelIds))
+                                    navigator.push(
+                                        EntryMigrationSourcePickScreen(ContentType.NOVELS, novelIds),
+                                    )
                                 }
                             }
                             else -> null

@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
+import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.details.EntryDetailsContent
@@ -29,12 +30,12 @@ import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
+import reikai.presentation.migrate.flow.EntryMigrateHost
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
+import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
-import reikai.presentation.novel.migrate.NovelMigrateHost
-import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
-import reikai.presentation.novel.migrate.rememberNovelMigrateController
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -148,7 +149,11 @@ class NovelScreen(
                             // Anchor-scoped like manga: migrating must re-home the series, not
                             // whichever source chip happens to be selected.
                             onMigrate = if (s.novel.favorite) {
-                                { navigator.push(NovelMigrationSourcePickScreen(listOf(s.novel.id))) }
+                                {
+                                    navigator.push(
+                                        EntryMigrationSourcePickScreen(ContentType.NOVELS, listOf(s.novel.id)),
+                                    )
+                                }
                             } else {
                                 null
                             },
@@ -169,7 +174,7 @@ class NovelScreen(
 @Composable
 private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
     val navigator = LocalNavigator.currentOrThrow
-    val migrateController = rememberNovelMigrateController()
+    val migrateController = rememberEntryMigrateController()
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
             dialog = dialog,
@@ -183,7 +188,9 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenMo
             onDismissRequest = screenModel::dismissDialog,
             onConfirm = screenModel::addFavoriteAnyway,
             onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-            onMigrate = { migrateController.start(current = it, target = state.novel) },
+            onMigrate = {
+                migrateController.start(ContentType.NOVELS, currentId = it.id, targetId = state.novel.id)
+            },
             groupIdByNovelId = dialog.groupIdByNovelId,
             onAddToGroup = { selectedIds: List<Long> ->
                 screenModel.addToExistingGroup(selectedIds)
@@ -211,7 +218,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenMo
         )
         else -> {}
     }
-    NovelMigrateHost(migrateController)
+    EntryMigrateHost(migrateController)
 }
 
 // Map a novel dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);

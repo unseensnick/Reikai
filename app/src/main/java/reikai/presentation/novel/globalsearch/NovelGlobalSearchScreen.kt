@@ -56,6 +56,7 @@ import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.launch
+import reikai.domain.library.ContentType
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntryBrowseGridCell
@@ -66,6 +67,8 @@ import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
+import reikai.presentation.migrate.flow.EntryMigrateHost
+import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
@@ -75,8 +78,6 @@ import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreenModel.SourceFilter
-import reikai.presentation.novel.migrate.NovelMigrateHost
-import reikai.presentation.novel.migrate.rememberNovelMigrateController
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -164,7 +165,7 @@ class NovelGlobalSearchScreen(
         }
 
         val migrateScope = rememberCoroutineScope()
-        val migrateController = rememberNovelMigrateController()
+        val migrateController = rememberEntryMigrateController()
         when (val dialog = state.dialog) {
             is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
                 duplicates = dialog.duplicates,
@@ -175,8 +176,9 @@ class NovelGlobalSearchScreen(
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
                 onMigrate = { dup ->
                     migrateScope.launch {
-                        screenModel.materializeForMigrate(dialog.item, dialog.sourceId)
-                            ?.let { migrateController.start(dup, it) }
+                        screenModel.materializeForMigrate(dialog.item, dialog.sourceId)?.let {
+                            migrateController.start(ContentType.NOVELS, currentId = dup.id, targetId = it.id)
+                        }
                     }
                 },
                 groupIdByNovelId = dialog.groupIdByNovelId,
@@ -196,7 +198,7 @@ class NovelGlobalSearchScreen(
             )
             null -> {}
         }
-        NovelMigrateHost(migrateController)
+        EntryMigrateHost(migrateController)
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
@@ -212,7 +214,7 @@ class NovelGlobalSearchScreen(
 
 /**
  * The shared cross-source results body: the Pinned / All / Has-results chips and one row per source.
- * The migration screen ([reikai.presentation.novel.migrate.NovelMigrationListScreen]) runs the same
+ * The shared migration list runs the same
  * per-source fan-out per row; this composable backs the standalone global search.
  */
 @Composable

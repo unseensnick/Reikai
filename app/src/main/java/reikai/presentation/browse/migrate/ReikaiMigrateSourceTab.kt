@@ -39,6 +39,7 @@ import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.migrate.flow.EntryMigrationFavoritesScreen
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
@@ -97,7 +98,7 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
                     ContentType.NOVELS -> NovelMigrateSourceList(
                         state = novelState,
                         contentPadding = contentPadding,
-                        onClickItem = { navigator.push(MigrateNovelScreen(it.id)) },
+                        onClickItem = { navigator.push(EntryMigrationFavoritesScreen(ContentType.NOVELS, it.id)) },
                         onToggleSortingMode = novelModel::toggleSortingMode,
                         onToggleSortingDirection = novelModel::toggleSortingDirection,
                     )
@@ -106,7 +107,7 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
                         novelState = novelState,
                         contentPadding = contentPadding,
                         onClickMangaItem = { navigator.push(MigrateMangaScreen(it.id)) },
-                        onClickNovelItem = { navigator.push(MigrateNovelScreen(it.id)) },
+                        onClickNovelItem = { navigator.push(EntryMigrationFavoritesScreen(ContentType.NOVELS, it.id)) },
                     )
                 }
             }
