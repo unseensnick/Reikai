@@ -88,6 +88,11 @@ interface NovelRepository {
      *  novel twin of `MangaRepository.update(MangaUpdate)`. Use over [update] for single-field edits. */
     suspend fun update(update: NovelUpdate): Boolean
 
+    /** All of [updates] in ONE transaction (all or nothing), the novel twin of
+     *  `MangaRepository.updateAll`. The migration favorite swap depends on the atomicity: two
+     *  separate updates could unfavorite the source after favoriting the target failed. */
+    suspend fun updateAll(updates: List<NovelUpdate>): Boolean
+
     /** Stamp the novel's last-read time (denormalized for the LastRead library sort). */
     suspend fun setLastReadAt(id: Long, at: Long): Boolean
     suspend fun setCategories(novelId: Long, categoryIds: List<Long>)

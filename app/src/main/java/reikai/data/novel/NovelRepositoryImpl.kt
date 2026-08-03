@@ -156,6 +156,38 @@ class NovelRepositoryImpl(
         false
     }
 
+    override suspend fun updateAll(updates: List<NovelUpdate>): Boolean = try {
+        database.transaction {
+            updates.forEach { update ->
+                database.novelsQueries.partialUpdate(
+                    source = update.source,
+                    url = update.url,
+                    title = update.title,
+                    author = update.author,
+                    artist = update.artist,
+                    description = update.description,
+                    status = update.status,
+                    thumbnailUrl = update.thumbnailUrl,
+                    favorite = update.favorite,
+                    lastUpdate = update.lastUpdate,
+                    initialized = update.initialized,
+                    chapterFlags = update.chapterFlags,
+                    dateAdded = update.dateAdded,
+                    coverLastModified = update.coverLastModified,
+                    totalPages = update.totalPages,
+                    lastReadAt = update.lastReadAt,
+                    notes = update.notes,
+                    viewerFlags = update.viewerFlags,
+                    id = update.id,
+                )
+            }
+        }
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to batch-update ${updates.size} novels" }
+        false
+    }
+
     override suspend fun setLastReadAt(id: Long, at: Long): Boolean = try {
         database.novelsQueries.setLastReadAt(at, id)
         true

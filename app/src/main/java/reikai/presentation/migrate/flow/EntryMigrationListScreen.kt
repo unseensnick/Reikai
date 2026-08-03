@@ -183,12 +183,34 @@ class EntryMigrationListScreen(
         if (showTuning) {
             val context = LocalContext.current
             val busyMessage = stringResource(MR.strings.migrationFlow_busyToast)
-            AdaptiveSheet(onDismissRequest = { showTuning = false }) {
+            val onApply: (MigrationTuning) -> Unit = {
+                if (!screenModel.applyTuning(it)) context.toast(busyMessage)
+            }
+            // Hosted here (saveable) so a rotation neither loses the draft nor applies it; only IME
+            // done and a real dismissal commit, and each commit is one batch restart at most.
+            var tuningQuery by rememberSaveable(state.tuning.extraQuery) {
+                mutableStateOf(state.tuning.extraQuery.orEmpty())
+            }
+            val commitQuery = {
+                val trimmed = tuningQuery.trim().takeIf(String::isNotBlank)
+                if (trimmed != state.tuning.extraQuery) {
+                    onApply(state.tuning.copy(extraQuery = trimmed))
+                }
+            }
+            AdaptiveSheet(
+                onDismissRequest = {
+                    commitQuery()
+                    showTuning = false
+                },
+            ) {
                 MigrationTuningSheet(
                     tuning = state.tuning,
+                    query = tuningQuery,
+                    onQueryChange = { tuningQuery = it },
+                    onCommitQuery = commitQuery,
                     supportsSmartMatch = state.supportsSmartMatch,
                     supportsChapterComparison = state.supportsChapterComparison,
-                    onApply = { if (!screenModel.applyTuning(it)) context.toast(busyMessage) },
+                    onApply = onApply,
                 )
             }
         }

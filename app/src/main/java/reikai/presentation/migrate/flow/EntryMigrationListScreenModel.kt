@@ -208,7 +208,9 @@ class EntryMigrationListScreenModel(
 
     /** The saved target order resolved against the enabled set. The fallback for an empty saved
      *  selection is pinned-only, mirroring what the config screen seeds as Selected, so what that
-     *  screen showed is what gets searched; everything enabled only when nothing is pinned either. */
+     *  screen showed is what gets searched; everything enabled only when nothing is pinned either.
+     *  An explicit deselect-all also persists an empty list and reads as unset BY DESIGN: the config
+     *  screen hides Continue on an empty selection, so a list can never be reached under one. */
     private fun sourcesFor(): List<MigrationSourceUi> {
         val enabled = adapter.enabledSources()
         val byKey = enabled.associateBy { it.key }
@@ -365,7 +367,12 @@ class EntryMigrationListScreenModel(
                 if (!MigrationRowRules.canChoose(live.commit.value)) return@forEach
                 live.chosen.value = candidate
                 live.expanded.value = false
-                live.skipped.value = false
+                if (live.skipped.value) {
+                    live.skipped.value = false
+                    // Un-skipping a row the driver never reached must hand it back, like toggleSkip
+                    // does, or it sits Queued forever and allSearched never turns true.
+                    if (live.search.value is SearchPhase.Queued) startDriver()
+                }
                 syncCounts()
             }
         }
@@ -449,6 +456,9 @@ class EntryMigrationListScreenModel(
             !skipping && row.search.value is SearchPhase.Queued -> startDriver()
         }
         syncCounts()
+        // Skipping a batch-failed row is giving up on it; if it was the last thing holding the
+        // screen open after a batch, the batch is done.
+        if (skipping && row.commit.value is CommitPhase.Failed) finishIfNothingFailed()
     }
 
     fun commit(replace: Boolean, flags: Set<MigrationDataFlag>) {
@@ -507,16 +517,21 @@ class EntryMigrationListScreenModel(
     }
 
     /**
-     * Called by whichever commit just finished. The screen finishes only when nothing is failed AND
-     * nothing committable remains: a cancelled batch leaves untouched accepted rows behind, and
-     * finishing over them (say, after a lone retry succeeds) would silently drop their migrations.
+     * Called by whichever commit just finished, and by skipping a failed row. The screen finishes
+     * only when: something actually migrated (a fresh list where the user skips a row must not pop),
+     * no NON-SKIPPED row is failed (skipping a failed row is giving up on it, which should not hold
+     * the screen open forever), nothing is still committing (finishing would cancel it half-applied),
+     * and nothing committable remains (a cancelled batch leaves accepted rows behind; finishing over
+     * them, say after a lone retry succeeds, would silently drop their migrations).
      */
     private fun finishIfNothingFailed() {
-        val anyFailed = rows.any { it.commit.value is CommitPhase.Failed }
+        if (state.value.migratedCount == 0) return
+        val anyFailed = rows.any { it.commit.value is CommitPhase.Failed && !it.skipped.value }
+        val anyBusy = rows.any { it.commit.value.isBusy }
         val anyCommittable = rows.any {
             MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
         }
-        if (!anyFailed && !anyCommittable) {
+        if (!anyFailed && !anyBusy && !anyCommittable) {
             mutableState.update { it.copy(finished = true) }
         }
     }
@@ -534,17 +549,27 @@ class EntryMigrationListScreenModel(
         flags: Set<MigrationDataFlag>,
         fromBatch: Boolean,
     ) {
-        val target = row.chosen.value ?: return
         // Claim the row atomically: the busy mark used to land only once this coroutine ran, so a
         // double-tap on Retry (or a batch racing a single commit) could commit the same row twice.
         // The loser of the claim no-ops.
         val previous = row.commit.value
         if (previous.isBusy || previous.isDone) return
         if (!row.commit.compareAndSet(previous, CommitPhase.Committing(replace))) return
+        // The target and skip state are read AFTER the claim: once Committing is visible every
+        // chooser and skipper refuses, so a swap or skip that slipped in between the caller's guard
+        // and the claim is caught here instead of being migrated and then overwritten.
+        val target = row.chosen.value
+        if (target == null || row.skipped.value) {
+            row.commit.value = previous
+            syncCounts()
+            return
+        }
         syncCounts()
         try {
             val resolved = adapter.commitMigration(row.entry, target, replace, flags)
-            row.chosen.value = resolved
+            // CAS, not a plain write: if anything legitimately changed chosen mid-commit, the user's
+            // choice wins over the bookkeeping copy.
+            row.chosen.compareAndSet(target, resolved)
             row.commit.value = CommitPhase.Migrated(resolved, replace)
             mutableState.update { it.copy(migratedCount = it.migratedCount + 1) }
         } catch (e: CancellationException) {

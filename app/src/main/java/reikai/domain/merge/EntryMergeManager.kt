@@ -42,6 +42,13 @@ open class EntryMergeManager(
         repository.merge(contentType, ids)
     }
 
+    /** Atomically swap [oldId] out of its group and [newId] in (a replace migration); no-op when
+     *  [oldId] is ungrouped. No [onBeforeDissolve]: the group survives, only its membership changes,
+     *  and the departing entry is being removed from the library by the migration anyway. */
+    suspend fun replaceInGroup(oldId: Long, newId: Long) {
+        repository.replaceInGroup(contentType, oldId, newId)
+    }
+
     override fun membershipChanges(): Flow<Map<Long, Long>> =
         repository.getAllMembershipsAsFlow(contentType)
 

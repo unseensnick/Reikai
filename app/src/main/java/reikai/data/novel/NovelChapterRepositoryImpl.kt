@@ -82,6 +82,31 @@ class NovelChapterRepositoryImpl(
         false
     }
 
+    override suspend fun updateAll(chapters: List<NovelChapter>): Boolean = try {
+        database.transaction {
+            chapters.forEach { chapter ->
+                database.novel_chaptersQueries.update(
+                    novelId = chapter.novelId,
+                    url = chapter.url,
+                    name = chapter.name,
+                    read = chapter.read,
+                    bookmark = chapter.bookmark,
+                    lastTextProgress = chapter.lastTextProgress,
+                    chapterNumber = chapter.chapterNumber,
+                    sourceOrder = chapter.sourceOrder,
+                    dateFetch = chapter.dateFetch,
+                    dateUpload = chapter.dateUpload,
+                    page = chapter.page,
+                    chapterId = chapter.id,
+                )
+            }
+        }
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to batch-update ${chapters.size} novel chapters" }
+        false
+    }
+
     override suspend fun setLastTextProgress(id: Long, progress: Long): Boolean =
         // Null every column but last_text_progress so coalesce keeps the rest.
         updateSingleColumn(id, lastTextProgress = progress)

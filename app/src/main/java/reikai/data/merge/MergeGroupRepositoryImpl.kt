@@ -122,6 +122,29 @@ class MergeGroupRepositoryImpl(
         }
     }
 
+    override suspend fun replaceInGroup(contentType: ContentType, oldId: Long, newId: Long) {
+        database.transaction {
+            val groupId = getGroupId(contentType, oldId) ?: return@transaction
+            deleteMember(contentType, oldId)
+            if (getMembers(contentType, groupId).isEmpty()) {
+                queries.deleteGroup(groupId)
+                return@transaction
+            }
+            when (val newGroupId = getGroupId(contentType, newId)) {
+                groupId -> {}
+                null -> insertMember(contentType, groupId, newId)
+                // The new member brings its own group along, like merge() would.
+                else -> {
+                    getMembers(contentType, newGroupId).forEach { member ->
+                        deleteMember(contentType, member)
+                        insertMember(contentType, groupId, member)
+                    }
+                    queries.deleteGroup(newGroupId)
+                }
+            }
+        }
+    }
+
     override suspend fun dissolve(contentType: ContentType, entryId: Long) {
         database.transaction {
             val groupId = getGroupId(contentType, entryId) ?: return@transaction

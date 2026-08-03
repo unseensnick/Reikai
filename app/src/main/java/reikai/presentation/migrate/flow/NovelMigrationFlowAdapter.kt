@@ -233,7 +233,10 @@ class NovelMigrationFlowAdapter(
                 resolved = true,
                 handle = handle.copy(stored = resolved),
             ),
-            syncedNow = true,
+            // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
+            // chapter list without throwing); claiming it would make the engine skip its
+            // compensating refresh and migrate onto an empty row. Mirrors the manga guard.
+            syncedNow = chapters.isNotEmpty(),
         )
     }
 

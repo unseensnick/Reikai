@@ -154,13 +154,11 @@ class MigrateMangaUseCase(
             updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))
 
             // RK --> keep the merge consistent: the target takes the source's place in the group on a
-            // replace (split the source out, merge the target in with the survivors), or joins it on a
-            // copy. Works for manual and same-title auto groups.
+            // replace, or joins it on a copy. Works for manual and same-title auto groups. The swap is
+            // one atomic repository call: split-then-merge as two calls left a cancellation window a
+            // retry could not heal (it saw the source already ungrouped and skipped the join).
             if (replace) {
-                if (mergeGroup.size > 1) {
-                    val survivors = mangaMergeManager.removeFromGroup(mergeGroup, listOf(current.id))
-                    mangaMergeManager.merge(survivors.toList() + target.id)
-                }
+                mangaMergeManager.replaceInGroup(current.id, target.id)
             } else if (mergeGroup.size > 1) {
                 mangaMergeManager.merge(mergeGroup.toList() + target.id)
             }

@@ -25,6 +25,10 @@ interface NovelChapterRepository {
     suspend fun insert(chapter: NovelChapter): Long?
     suspend fun update(chapter: NovelChapter): Boolean
 
+    /** All of [chapters] in ONE transaction (all or nothing), the novel twin of the manga chapter
+     *  carry's batched `UpdateChapter.awaitAll`. */
+    suspend fun updateAll(chapters: List<NovelChapter>): Boolean
+
     /** Focused write for the reader's auto-save path; avoids the round-trip a full update needs. */
     suspend fun setLastTextProgress(id: Long, progress: Long): Boolean
 
