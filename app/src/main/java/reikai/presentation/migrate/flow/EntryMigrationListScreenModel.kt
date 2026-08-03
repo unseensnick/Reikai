@@ -73,7 +73,15 @@ class EntryMigrationListScreenModel(
                 MigratingEntryRow(entry = it, parentContext = screenModelScope.coroutineContext)
             }
             mutableState.update {
-                it.copy(isLoading = false, tuning = tuning, rows = built, savedFlags = adapter.savedFlags())
+                it.copy(
+                    isLoading = false,
+                    tuning = tuning,
+                    rows = built,
+                    visibleRows = built,
+                    supportsSmartMatch = adapter.supportsSmartMatch,
+                    supportsChapterComparison = adapter.suggestsChapterCounts,
+                    savedFlags = adapter.savedFlags(),
+                )
             }
             startDriver()
         }
@@ -184,6 +192,7 @@ class EntryMigrationListScreenModel(
      */
     private fun syncCounts() = mutableState.update { state ->
         state.copy(
+            visibleRows = state.rows.filter { it.isVisibleUnder(state.tuning) },
             searchedCount = state.rows.count { it.isSettled },
             allSearched = state.rows.isNotEmpty() && state.rows.all { it.isSettled },
             committableCount = state.rows.count {
@@ -197,6 +206,45 @@ class EntryMigrationListScreenModel(
             },
             singleCommitInFlight = state.rows.any { it.commit.value.isBusy },
         )
+    }
+
+    /**
+     * Save edited search options and, when they change what a search would return, run the batch
+     * again under them. The hide toggles are pure filters over results already in hand, so they
+     * never re-hit the network.
+     *
+     * A re-run replaces each unfinished row with a fresh object and cancels the old one's scope.
+     * Any work still running against a replaced row writes to an object no longer in the list, so
+     * abandoned searches need no epoch counter to be told apart from live ones.
+     *
+     * Returns false when a commit is in flight, since rebuilding rows underneath one would blank
+     * what it is migrating.
+     */
+    fun applyTuning(tuning: MigrationTuning): Boolean {
+        if (state.value.isCommitting || state.value.singleCommitInFlight) return false
+        val previous = state.value.tuning
+        adapter.persistTuning(tuning)
+        mutableState.update { it.copy(tuning = tuning) }
+        if (!tuning.affectsSearch(previous)) {
+            syncCounts()
+            return true
+        }
+        searchJob?.cancel()
+        val rebuilt = rows.map { row ->
+            when (MigrationRowRules.onSearchRestart(row.commit.value)) {
+                // A migrated row's result is history, not a suggestion: re-searching it would blank
+                // what it migrated onto.
+                MigrationRowRules.RestartOutcome.Keep -> row
+                MigrationRowRules.RestartOutcome.Requeue -> {
+                    row.scope.cancel()
+                    MigratingEntryRow(row.entry, screenModelScope.coroutineContext)
+                }
+            }
+        }
+        mutableState.update { it.copy(rows = rebuilt) }
+        syncCounts()
+        startDriver()
+        return true
     }
 
     /** Open or close a row's override picker. Opening runs the first search for it, so the picker
@@ -457,6 +505,8 @@ class EntryMigrationListScreenModel(
         val isLoading: Boolean = true,
         val tuning: MigrationTuning = MigrationTuning(),
         val rows: List<MigratingEntryRow> = emptyList(),
+        /** [rows] after the hide toggles; what the list renders. */
+        val visibleRows: List<MigratingEntryRow> = emptyList(),
         val searchedCount: Int = 0,
         /** Every row has settled, so the totals the commit bar shows are final. */
         val allSearched: Boolean = false,
@@ -465,6 +515,8 @@ class EntryMigrationListScreenModel(
         val untouchedCount: Int = 0,
         val hasUnaccepted: Boolean = false,
         val singleCommitInFlight: Boolean = false,
+        val supportsSmartMatch: Boolean = false,
+        val supportsChapterComparison: Boolean = false,
         val migratedCount: Int = 0,
         val isCommitting: Boolean = false,
         val finished: Boolean = false,
@@ -478,3 +530,22 @@ class EntryMigrationListScreenModel(
 /** Settled for progress purposes: searched, or skipped out of the batch. */
 private val MigratingEntryRow.isSettled: Boolean
     get() = skipped.value || search.value.isSettled
+
+/**
+ * Whether the hide toggles leave this row on screen. An accepted row is always shown: hiding one the
+ * user has chosen would commit it invisibly. A failed search is shown too, since hide-unmatched is
+ * about entries with no match, not about entries whose sources were unreachable.
+ */
+private fun MigratingEntryRow.isVisibleUnder(tuning: MigrationTuning): Boolean {
+    if (chosen.value != null || !search.value.isSettled) return true
+    val phase = search.value
+    if (tuning.hideUnmatched && phase is MigratingEntryRow.SearchPhase.NoMatch) return false
+    if (tuning.hideWithoutUpdates && phase is MigratingEntryRow.SearchPhase.Found) {
+        val targetLatest = phase.suggestion.latestChapter
+        val currentLatest = entry.latestChapter
+        // Only hide on a real comparison: an unknown count on either side is not evidence that the
+        // target is no further ahead.
+        if (targetLatest != null && currentLatest != null && targetLatest <= currentLatest) return false
+    }
+    return true
+}

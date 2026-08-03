@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,16 +45,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
@@ -81,6 +85,7 @@ class EntryMigrationListScreen(
             EntryMigrationListScreenModel(contentType, entryIds, extraQuery)
         }
         val state by screenModel.state.collectAsState()
+        var showTuning by rememberSaveable { mutableStateOf(false) }
 
         if (state.finished) {
             LaunchedEffect(Unit) { navigator.pop() }
@@ -112,6 +117,14 @@ class EntryMigrationListScreen(
                                     onClick = screenModel::acceptAll,
                                     enabled = state.hasUnaccepted,
                                 ),
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
+                                    icon = Icons.Outlined.Tune,
+                                    onClick = { showTuning = true },
+                                    // Matches what applyTuning itself allows, so the sheet cannot
+                                    // open onto edits that would be refused.
+                                    enabled = !state.isCommitting && !state.singleCommitInFlight,
+                                ),
                             ),
                         )
                     },
@@ -142,9 +155,22 @@ class EntryMigrationListScreen(
             },
         ) { contentPadding ->
             LazyColumn(contentPadding = contentPadding) {
-                items(items = state.rows, key = { it.entry.id.toString() }) { row ->
+                items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
                     MigrationRow(row = row, screenModel = screenModel)
                 }
+            }
+        }
+
+        if (showTuning) {
+            val context = LocalContext.current
+            val busyMessage = stringResource(MR.strings.migrationFlow_busyToast)
+            AdaptiveSheet(onDismissRequest = { showTuning = false }) {
+                MigrationTuningSheet(
+                    tuning = state.tuning,
+                    supportsSmartMatch = state.supportsSmartMatch,
+                    supportsChapterComparison = state.supportsChapterComparison,
+                    onApply = { if (!screenModel.applyTuning(it)) context.toast(busyMessage) },
+                )
             }
         }
 
