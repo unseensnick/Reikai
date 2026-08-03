@@ -16,4 +16,7 @@ interface NovelTrackRepository {
     suspend fun delete(novelId: Long, trackerId: Long)
 
     suspend fun insert(track: NovelTrack)
+
+    /** Insert every track in one transaction, so a multi-tracker carry cannot half apply. */
+    suspend fun insertAll(tracks: List<NovelTrack>)
 }

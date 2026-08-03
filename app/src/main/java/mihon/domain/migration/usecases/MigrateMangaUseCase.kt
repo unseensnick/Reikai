@@ -61,7 +61,14 @@ class MigrateMangaUseCase(
         flags: Set<MigrationFlag> = sourcePreferences.migrationFlags.get(),
         skipTargetRefresh: Boolean = false,
     ) {
-        val targetSource = sourceManager.get(target.source) ?: return
+        // RK: both guards are the engine's own, not the caller's. Upstream returned silently when the
+        // target source was missing, and never checked for a self-target at all, so a caller that
+        // forgot either check got a migration reporting success with nothing done. A self-target
+        // would also put favorite=false and favorite=true for one row into the same swap.
+        if (current.id == target.id) return
+        val targetSource = checkNotNull(sourceManager.get(target.source)) {
+            "Target source ${target.source} unavailable"
+        }
         val currentSource = sourceManager.get(current.source)
 
         try {
@@ -142,6 +149,10 @@ class MigrateMangaUseCase(
             // Update custom cover (recheck if custom cover exists)
             if (MigrationFlag.CUSTOM_COVER in flags && current.hasCustomCover()) {
                 coverCache.setCustomCoverToCache(target, coverCache.getCustomCoverFile(current.id).inputStream())
+                // RK: bump the timestamp so Coil reloads, matching the novel engine and every other
+                // custom-cover write. Without it a target that already had a custom cover keeps
+                // showing the old one, since the cache key does not change.
+                updateManga.awaitUpdateCoverLastModified(target.id)
             }
 
             val currentMangaUpdate = MangaUpdate(

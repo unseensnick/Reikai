@@ -39,6 +39,17 @@ class MigratingEntryRow(
     /** Whether the row's override picker is open. Pure UI, independent of every phase above. */
     val expanded = MutableStateFlow(false)
 
+    /**
+     * Keeps the row on screen whatever the hide toggles say, once the user has acted on it.
+     *
+     * Hiding a row the user just touched reads as it vanishing under their hands, and the hide
+     * toggles are about thinning a list you have not worked yet. Sticky rather than recomputed: the
+     * filter's inputs (the search outcome, the peeked counts) can arrive AFTER the interaction, so
+     * anything derived from them re-hides the row a moment later. A tuning re-search builds fresh
+     * rows and so clears it, which is correct: that is a new list.
+     */
+    val pinnedVisible = MutableStateFlow(false)
+
     /** The override picker's own little machine, unrelated to the batch search: a user can search by
      *  hand from any search outcome, including one that already found a match. */
     val overrides = MutableStateFlow<OverrideState>(OverrideState.Idle)
@@ -136,10 +147,11 @@ object MigrationRowRules {
      * Whether the driver may search this row now. A settled row is not re-searched; a migrated or
      * committing row must never have its result blanked underneath the commit.
      *
-     * [isSettled] reads this as "will never be searchable again", so every clause here must be
-     * permanent for the row. A clause that can flip back (a pause flag, a temporary source outage)
-     * would mark every queued row settled and open the commit bar over unsearched rows; such a
-     * condition belongs in the driver's own loop head, next to its scope-liveness check, not here.
+     * [isSettled] reads this as "the driver will not pick this row up", so a clause that can flip
+     * back must have someone who restarts the driver when it does. Both current ones do: un-skipping
+     * calls startDriver, and releasing a commit claim does too. A clause with no such waker (a pause
+     * flag, a source-availability probe) would strand queued rows as settled with the commit bar
+     * open over them; put that in the driver's own loop head, next to its scope-liveness check.
      */
     fun canSearch(
         search: MigratingEntryRow.SearchPhase,
@@ -182,6 +194,33 @@ object MigrationRowRules {
      *  clear [MigratingEntryRow.skipped], so a skip landing there leaves a dimmed migrated row with
      *  no way back. */
     fun canToggleSkip(commit: MigratingEntryRow.CommitPhase): Boolean = !commit.isBusy && !commit.isDone
+
+    /**
+     * Whether the hide toggles leave this row on screen.
+     *
+     * Always shown: an accepted row (hiding one the user has chosen would commit it invisibly), a
+     * [pinned] row (open, or acted on), and a row still searching (its outcome is not known yet, and
+     * hiding it the instant one lands is the vanishing-row bug this rule keeps producing). A failed
+     * search is shown too: hide-unmatched is about entries with no match, not about entries whose
+     * sources were unreachable.
+     */
+    fun isVisible(
+        search: MigratingEntryRow.SearchPhase,
+        chosen: MigrationCandidate?,
+        entryLatestChapter: Double?,
+        pinned: Boolean,
+        tuning: MigrationTuning,
+    ): Boolean {
+        if (chosen != null || pinned || !search.isSettled) return true
+        if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return false
+        if (tuning.hideWithoutUpdates && search is MigratingEntryRow.SearchPhase.Found) {
+            val targetLatest = search.suggestion.latestChapter
+            // Only hide on a real comparison: an unknown count on either side is not evidence that
+            // the target is no further ahead.
+            if (targetLatest != null && entryLatestChapter != null && targetLatest <= entryLatestChapter) return false
+        }
+        return true
+    }
 
     /** A row the batch commit should include: accepted, not skipped, not already migrated. */
     fun isCommittable(

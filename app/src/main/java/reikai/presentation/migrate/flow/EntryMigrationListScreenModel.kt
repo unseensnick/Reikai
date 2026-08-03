@@ -55,9 +55,14 @@ class EntryMigrationListScreenModel(
 
     private var commitJob: Job? = null
 
-    /** Whether a batch commit has been started. The screen only ever finishes itself out of a batch:
-     *  a list where the user commits rows one at a time is a list they are still working. */
-    private var batchCommitRan = false
+    /**
+     * The rows the last batch commit was responsible for. The screen only ever finishes itself when
+     * every one of them has been resolved, so a batch that was cancelled or left failures keeps the
+     * list open until the user deals with its rows. Anything they do afterwards is new work, not the
+     * batch's, which is why a lone "Migrate now" cannot close a list they are still working.
+     */
+    @Volatile
+    private var batchTargets: List<MigratingEntryRow> = emptyList()
 
     /** The sequential search driver; idle once every row has settled. */
     @Volatile
@@ -110,9 +115,7 @@ class EntryMigrationListScreenModel(
         val sources = sourcesFor()
         val tuning = state.value.tuning
         while (currentCoroutineContext().isActive) {
-            val row = rows.firstOrNull {
-                MigrationRowRules.canSearch(it.search.value, it.commit.value, it.skipped.value) && it.scope.isActive
-            } ?: break
+            val row = nextSearchable() ?: break
             // Claim the row atomically: if a second driver ever overlaps this one, only the winner
             // searches, and the loser moves on.
             if (!row.search.compareAndSet(SearchPhase.Queued, SearchPhase.Searching)) continue
@@ -136,6 +139,29 @@ class EntryMigrationListScreenModel(
             row.search.value = outcome
             syncCounts()
             peekSuggestionCounts(row)
+        }
+        handOffIfWorkRemains()
+    }
+
+    /** The row the driver should search next, or null when nothing is eligible. */
+    private fun nextSearchable(): MigratingEntryRow? = rows.firstOrNull {
+        MigrationRowRules.canSearch(it.search.value, it.commit.value, it.skipped.value) && it.scope.isActive
+    }
+
+    /**
+     * Restart the driver if a row became searchable on the way out.
+     *
+     * The loop's last scan and [startDriver]'s liveness check are not atomic: a row handed back
+     * between them sees a job that is still active, so the restart is skipped and the row sits
+     * queued for the rest of the session with the commit bar shut. Joining this driver first means
+     * the restart runs against a completed job and actually takes.
+     */
+    private fun handOffIfWorkRemains() {
+        val finishing = searchJob
+        if (nextSearchable() == null) return
+        screenModelScope.launchIO {
+            finishing?.join()
+            startDriver()
         }
     }
 
@@ -271,6 +297,9 @@ class EntryMigrationListScreenModel(
             return true
         }
         searchJob?.cancel()
+        // A re-search is a new list. Holding on to the old batch's rows would leave the finish gate
+        // waiting on row objects that no longer exist and can never resolve.
+        batchTargets = emptyList()
         val rebuilt = rows.map { row ->
             when (MigrationRowRules.onSearchRestart(row.commit.value)) {
                 // A migrated row's result is history, not a suggestion: re-searching it would blank
@@ -427,13 +456,10 @@ class EntryMigrationListScreenModel(
         if (row.chosen.value != null) {
             if (!MigrationRowRules.canUnchoose(row.commit.value)) return
             row.chosen.value = null
-            // Giving the target back can drop the row out of the list under a hide toggle, which
-            // reads as the row vanishing under the user's hands. Ask visibility itself rather than
-            // guessing from the search phase: hide-unmatched catches a no-match row, and
-            // hide-without-updates catches a found one. Open the picker instead, which both pins the
-            // row visible and answers the question the un-accept asked. Through toggleExpanded, so
-            // the strips load rather than opening onto an empty panel.
-            if (!row.isVisibleUnder(state.value.tuning) && !row.expanded.value) toggleExpanded(id)
+            // Giving a target back must not make the row disappear. Pinning rather than testing
+            // visibility here, because the filter's inputs can still arrive later: a row whose
+            // search has not settled looks visible now and is hidden the moment NoMatch lands.
+            row.pinnedVisible.value = true
         } else {
             if (!MigrationRowRules.canChoose(row.commit.value)) return
             row.chosen.value = row.search.value.suggestion ?: return
@@ -490,7 +516,7 @@ class EntryMigrationListScreenModel(
         adapter.persistFlags(flags)
         mutableState.update { it.copy(savedFlags = flags) }
         mutableState.update { it.copy(dialog = Dialog.Progress(0, targets.size), isCommitting = true) }
-        batchCommitRan = true
+        batchTargets = targets
         commitJob = screenModelScope.launchIO {
             try {
                 targets.forEachIndexed { index, row ->
@@ -538,16 +564,18 @@ class EntryMigrationListScreenModel(
      * Called unconditionally by every path that can resolve the last outstanding row: a commit
      * finishing, a retry, a skip. EVERY condition lives here rather than at the call sites, because
      * guarding it per caller is how the screen has both popped early and failed to pop at all: one
-     * predicate cannot disagree with itself. The screen finishes only when a batch has run (a list
-     * where the user only ever commits single rows is a list they are still working, so it stays
-     * open), something actually migrated, every row is settled (a pop mid-search would abandon rows
-     * still being searched), no NON-SKIPPED row is failed (skipping a failed row is giving up on it,
-     * which should not hold the screen open forever), nothing is still committing (finishing would
-     * cancel it half-applied), and nothing committable remains (a cancelled batch leaves accepted
-     * rows behind; finishing over them would silently drop their migrations).
+     * predicate cannot disagree with itself. The screen finishes only when a batch ran and every row
+     * it was responsible for is now resolved (migrated or skipped), something actually migrated,
+     * every row is settled (a pop mid-search would abandon rows still being searched), no NON-SKIPPED
+     * row is failed (skipping a failed row is giving up on it, which should not hold the screen open
+     * forever), nothing is still committing (finishing would cancel it half-applied), and nothing
+     * committable remains (a cancelled batch leaves accepted rows behind; finishing over them would
+     * silently drop their migrations).
      */
     private fun finishIfNothingFailed() {
-        if (!batchCommitRan || state.value.migratedCount == 0) return
+        val batch = batchTargets
+        if (batch.isEmpty() || state.value.migratedCount == 0) return
+        if (batch.any { !it.commit.value.isDone && !it.skipped.value }) return
         if (rows.any { !it.isSettled }) return
         val anyFailed = rows.any { it.commit.value is CommitPhase.Failed && !it.skipped.value }
         val anyBusy = rows.any { it.commit.value.isBusy }
@@ -555,6 +583,7 @@ class EntryMigrationListScreenModel(
             MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
         }
         if (!anyFailed && !anyBusy && !anyCommittable) {
+            batchTargets = emptyList()
             mutableState.update { it.copy(finished = true) }
         }
     }
@@ -702,16 +731,10 @@ private val MigratingEntryRow.isSettled: Boolean
  * shown whatever the toggles say: it is the row being worked on, and un-accepting inside it would
  * otherwise make it vanish under the user's hands.
  */
-private fun MigratingEntryRow.isVisibleUnder(tuning: MigrationTuning): Boolean {
-    if (chosen.value != null || expanded.value || !search.value.isSettled) return true
-    val phase = search.value
-    if (tuning.hideUnmatched && phase is MigratingEntryRow.SearchPhase.NoMatch) return false
-    if (tuning.hideWithoutUpdates && phase is MigratingEntryRow.SearchPhase.Found) {
-        val targetLatest = phase.suggestion.latestChapter
-        val currentLatest = entry.latestChapter
-        // Only hide on a real comparison: an unknown count on either side is not evidence that the
-        // target is no further ahead.
-        if (targetLatest != null && currentLatest != null && targetLatest <= currentLatest) return false
-    }
-    return true
-}
+private fun MigratingEntryRow.isVisibleUnder(tuning: MigrationTuning): Boolean = MigrationRowRules.isVisible(
+    search = search.value,
+    chosen = chosen.value,
+    entryLatestChapter = entry.latestChapter,
+    pinned = pinnedVisible.value || expanded.value,
+    tuning = tuning,
+)

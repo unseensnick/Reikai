@@ -34,25 +34,34 @@ class NovelTrackRepositoryImpl(
         }
     }
 
-    override suspend fun insert(track: NovelTrack) {
+    override suspend fun insert(track: NovelTrack) = insertAll(listOf(track))
+
+    override suspend fun insertAll(tracks: List<NovelTrack>) {
+        if (tracks.isEmpty()) return
         try {
-            database.novel_tracksQueries.insert(
-                novelId = track.novelId,
-                syncId = track.trackerId,
-                remoteId = track.remoteId,
-                libraryId = track.libraryId,
-                title = track.title,
-                lastChapterRead = track.lastChapterRead,
-                totalChapters = track.totalChapters,
-                status = track.status,
-                score = track.score,
-                remoteUrl = track.remoteUrl,
-                startDate = track.startDate,
-                finishDate = track.finishDate,
-                private = track.private,
-            )
+            // One transaction, matching the manga side: carrying a multi-tracker entry must not be
+            // able to land some links and drop others.
+            database.transaction {
+                tracks.forEach { track ->
+                    database.novel_tracksQueries.insert(
+                        novelId = track.novelId,
+                        syncId = track.trackerId,
+                        remoteId = track.remoteId,
+                        libraryId = track.libraryId,
+                        title = track.title,
+                        lastChapterRead = track.lastChapterRead,
+                        totalChapters = track.totalChapters,
+                        status = track.status,
+                        score = track.score,
+                        remoteUrl = track.remoteUrl,
+                        startDate = track.startDate,
+                        finishDate = track.finishDate,
+                        private = track.private,
+                    )
+                }
+            }
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to insert novel track novelId=${track.novelId}" }
+            logcat(LogPriority.ERROR, e) { "Failed to insert ${tracks.size} novel track(s)" }
         }
     }
 }

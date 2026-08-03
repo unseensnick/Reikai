@@ -194,18 +194,35 @@ class NovelDownloadManager(private val context: Context) {
 
     fun deleteChapters(chapters: List<NovelChapter>) {
         if (chapters.isEmpty()) return
+        dequeueChapters(chapters)
+        scope.launch { deleteChapterFiles(chapters) }
+    }
+
+    /**
+     * [deleteChapters], but the caller waits for the files to actually go. Migration needs this: a
+     * detached delete returns before anything is deleted, so a failure can neither fail the row nor
+     * be retried, and the next step runs against files that are still there.
+     */
+    suspend fun awaitDeleteChapters(chapters: List<NovelChapter>) {
+        if (chapters.isEmpty()) return
+        dequeueChapters(chapters)
+        deleteChapterFiles(chapters)
+    }
+
+    private fun dequeueChapters(chapters: List<NovelChapter>) {
         val ids = chapters.map { it.id }.toSet()
         _queueState.update { q -> q.filter { it.chapterId !in ids } }
-        scope.launch {
-            val novelsById = chapters.map { it.novelId }.distinct()
-                .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
-                .toMap()
-            chapters.forEach { ch ->
-                store.remove(ch.id)
-                val novel = novelsById[ch.novelId] ?: return@forEach
-                provider.deleteChapter(novel, ch)
-                cache.removeChapter(novel, ch)
-            }
+    }
+
+    private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
+        val novelsById = chapters.map { it.novelId }.distinct()
+            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
+            .toMap()
+        chapters.forEach { ch ->
+            store.remove(ch.id)
+            val novel = novelsById[ch.novelId] ?: return@forEach
+            provider.deleteChapter(novel, ch)
+            cache.removeChapter(novel, ch)
         }
     }
 

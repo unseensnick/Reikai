@@ -16,4 +16,12 @@ class InsertNovelTrack(
             logcat(LogPriority.ERROR, e)
         }
     }
+
+    suspend fun awaitAll(tracks: List<NovelTrack>) {
+        try {
+            repository.insertAll(tracks)
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+        }
+    }
 }

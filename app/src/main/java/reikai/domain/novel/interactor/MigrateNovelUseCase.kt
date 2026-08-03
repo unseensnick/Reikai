@@ -67,29 +67,21 @@ class MigrateNovelUseCase(
             // Fetch the target's chapters from its source first, so read progress can match onto them
             // (parity with MigrateMangaUseCase.updateMangaFromRemote). This lets the migrate work from any
             // add-path, including browse / global search where the target is a fresh, unsynced row.
+            // A refresh failure fails the row, matching manga's getOrThrow contract: migrating onto a
+            // target whose chapter list could not be brought up to date would carry read state onto
+            // whatever stale rows happen to be there. The row's retry is the recovery path.
             if (!skipTargetRefresh) {
-                try {
-                    val targetSource = checkNotNull(sourceManager.get(target.source)) {
-                        "Target source ${target.source} unavailable"
-                    }
-                    refreshNovelFromSource(
-                        target,
-                        targetSource,
-                        novelChapterRepository,
-                        novelRepository,
-                        database,
-                        novelDownloadManager,
-                    )
-                } catch (e: CancellationException) {
-                    // A cancelled migration must die, not proceed with an unrefreshed target.
-                    throw e
-                } catch (e: Throwable) {
-                    // Best-effort ONLY when the target already has chapters to migrate onto. A
-                    // chapterless target with a failed refresh has nothing to carry state to, so it
-                    // fails the row (manga's getOrThrow contract) instead of migrating onto nothing.
-                    if (novelChapterRepository.getByNovelId(target.id).isEmpty()) throw e
-                    logcat(LogPriority.WARN, e) { "Target refresh failed; migrating onto existing chapters" }
+                val targetSource = checkNotNull(sourceManager.get(target.source)) {
+                    "Target source ${target.source} unavailable"
                 }
+                refreshNovelFromSource(
+                    target,
+                    targetSource,
+                    novelChapterRepository,
+                    novelRepository,
+                    database,
+                    novelDownloadManager,
+                )
             }
 
             if (NovelMigrationFlag.CHAPTER in flags) {
@@ -112,14 +104,18 @@ class MigrateNovelUseCase(
 
             // Carry tracker links onto the target, re-pointed to its id (matching manga migration). The
             // source's own track rows are left intact, which is correct for a Copy.
-            getNovelTracks.await(current.id).forEach { insertNovelTrack.await(it.copy(novelId = target.id)) }
+            insertNovelTrack.awaitAll(
+                getNovelTracks.await(current.id).map { it.copy(novelId = target.id) },
+            )
 
             // Delete the old source's downloaded chapters (parity with manga's REMOVE_DOWNLOAD). The
             // file delete is a no-op when nothing is downloaded. Downloads are never auto re-fetched
             // onto the target: parity with manga, and a silent re-download costs metered data.
             if (NovelMigrationFlag.REMOVE_DOWNLOAD in flags) {
                 val currentChapters = novelChapterRepository.getByNovelId(current.id)
-                novelDownloadManager.deleteChapters(
+                // Awaited, matching manga: a detached delete returns before the files are gone and
+                // cannot fail the row.
+                novelDownloadManager.awaitDeleteChapters(
                     currentChapters.filter { novelDownloadManager.isChapterDownloaded(current, it) },
                 )
             }

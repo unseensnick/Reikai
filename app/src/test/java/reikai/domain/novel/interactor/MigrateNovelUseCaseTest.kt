@@ -217,7 +217,9 @@ class MigrateNovelUseCaseTest {
             skipTargetRefresh = true,
         )
 
-        coVerify { insert.await(match { it.novelId == 2L }) }
+        // One batched write, so a multi-tracker carry cannot land some links and drop others.
+        coVerify(exactly = 1) { insert.awaitAll(match { tracks -> tracks.all { it.novelId == 2L } }) }
+        coVerify(exactly = 0) { insert.await(any()) }
     }
 
     @Test
@@ -273,7 +275,9 @@ class MigrateNovelUseCaseTest {
             skipTargetRefresh = true,
         )
 
-        verify { downloadManager.deleteChapters(match { chapters -> chapters.map { it.id } == listOf(1L) }) }
+        // Awaited, not the fire-and-forget variant: a detached delete returns before the files go.
+        coVerify { downloadManager.awaitDeleteChapters(match { chapters -> chapters.map { it.id } == listOf(1L) }) }
+        verify(exactly = 0) { downloadManager.deleteChapters(any()) }
     }
 
     @Test

@@ -26,6 +26,70 @@ class MigrationRowRulesTest {
     )
     private val migrated = CommitPhase.Migrated(candidate, replace = true)
 
+    private val hideBoth = MigrationTuning(hideUnmatched = true, hideWithoutUpdates = true)
+
+    private fun visible(
+        search: SearchPhase,
+        chosen: MigrationCandidate? = null,
+        entryLatest: Double? = 10.0,
+        pinned: Boolean = false,
+        tuning: MigrationTuning = hideBoth,
+    ) = MigrationRowRules.isVisible(search, chosen, entryLatest, pinned, tuning)
+
+    @Test
+    fun `hide-unmatched hides a row that found nothing`() {
+        visible(SearchPhase.NoMatch) shouldBe false
+    }
+
+    @Test
+    fun `a pinned row survives the hide toggles`() {
+        visible(SearchPhase.NoMatch, pinned = true) shouldBe true
+    }
+
+    @Test
+    fun `an accepted row survives the hide toggles, or it would commit invisibly`() {
+        visible(SearchPhase.NoMatch, chosen = candidate) shouldBe true
+    }
+
+    @Test
+    fun `a row that has not settled is never hidden, since its outcome is unknown`() {
+        visible(SearchPhase.Queued) shouldBe true
+        visible(SearchPhase.Searching) shouldBe true
+    }
+
+    @Test
+    fun `an unreachable source is not the same as no match, so a failed search stays`() {
+        visible(SearchPhase.Failed) shouldBe true
+    }
+
+    @Test
+    fun `hide-without-updates hides a target that is no further ahead`() {
+        val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
+
+        visible(behind, entryLatest = 10.0) shouldBe false
+    }
+
+    @Test
+    fun `hide-without-updates keeps a target that is ahead`() {
+        val ahead = SearchPhase.Found(candidate.copy(latestChapter = 11.0), "Source")
+
+        visible(ahead, entryLatest = 10.0) shouldBe true
+    }
+
+    @Test
+    fun `an unknown count on either side is not evidence, so the row stays`() {
+        val unknownTarget = SearchPhase.Found(candidate.copy(latestChapter = null), "Source")
+        val knownTarget = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
+
+        visible(unknownTarget, entryLatest = 10.0) shouldBe true
+        visible(knownTarget, entryLatest = null) shouldBe true
+    }
+
+    @Test
+    fun `with the toggles off nothing is hidden`() {
+        visible(SearchPhase.NoMatch, tuning = MigrationTuning()) shouldBe true
+    }
+
     @Test
     fun `a queued row the driver can still reach is not settled`() {
         MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle, skipped = false) shouldBe false
