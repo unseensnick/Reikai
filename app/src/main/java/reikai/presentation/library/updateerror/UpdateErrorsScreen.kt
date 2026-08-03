@@ -33,7 +33,6 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
-import mihon.feature.migration.config.MigrationConfigScreen
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
@@ -89,7 +88,9 @@ class UpdateErrorsScreen(
                                         val mangaIds = screenModel.selectedMangaIds()
                                         val novelIds = screenModel.selectedNovelIds()
                                         if (mangaIds.isNotEmpty()) {
-                                            navigator.push(MigrationConfigScreen(mangaIds))
+                                            navigator.push(
+                                                EntryMigrationSourcePickScreen(ContentType.MANGA, mangaIds),
+                                            )
                                         } else if (novelIds.isNotEmpty()) {
                                             navigator.push(
                                                 EntryMigrationSourcePickScreen(ContentType.NOVELS, novelIds),

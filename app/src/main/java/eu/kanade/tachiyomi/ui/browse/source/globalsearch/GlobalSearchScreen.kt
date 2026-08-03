@@ -22,10 +22,11 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
-import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteScreenModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -153,11 +154,10 @@ class GlobalSearchScreen(
                 )
             }
             is SearchScreenModel.Dialog.Migrate -> {
-                MigrateMangaDialog(
-                    current = dialog.current,
-                    target = dialog.target,
-                    // Initiated from [dialog.target], so the title opens [dialog.current].
-                    onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
+                EntryMigrateFor(
+                    contentType = ContentType.MANGA,
+                    currentId = dialog.current.id,
+                    targetId = dialog.target.id,
                     onDismissRequest = onDismissRequest,
                 )
             }
