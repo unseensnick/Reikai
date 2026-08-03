@@ -54,6 +54,9 @@ class MigrateNovelUseCase(
         target: Novel,
         flags: Set<NovelMigrationFlag>,
         replace: Boolean,
+        /** The caller just fetched the target's chapters, so the refresh below would repeat the
+         *  identical request; a novel refresh also walks every chapter page, so it is not cheap. */
+        skipTargetRefresh: Boolean = false,
     ) {
         if (current.id == target.id) return
         try {
@@ -65,7 +68,7 @@ class MigrateNovelUseCase(
             // (parity with MigrateMangaUseCase.updateMangaFromRemote). This lets the migrate work from any
             // add-path, including browse / global search where the target is a fresh, unsynced row.
             // Best-effort: skip when the source is unavailable, and never let a fetch failure abort.
-            sourceManager.get(target.source)?.let { targetSource ->
+            sourceManager.get(target.source)?.takeIf { !skipTargetRefresh }?.let { targetSource ->
                 try {
                     refreshNovelFromSource(
                         target,

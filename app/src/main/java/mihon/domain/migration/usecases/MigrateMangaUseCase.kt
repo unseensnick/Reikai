@@ -47,12 +47,15 @@ class MigrateMangaUseCase(
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
     // RK: flags may be passed as a value so concurrent migrations can't read each other's set out of
-    // the shared preference; omitting it keeps upstream's read-the-pref behavior.
+    // the shared preference; skipTargetRefresh lets a caller that just fetched the target's chapters
+    // say so, instead of paying the source for the identical request again. Both default to
+    // upstream's behavior, so upstream's own call sites are unchanged.
     suspend operator fun invoke(
         current: Manga,
         target: Manga,
         replace: Boolean,
         flags: Set<MigrationFlag> = sourcePreferences.migrationFlags.get(),
+        skipTargetRefresh: Boolean = false,
     ) {
         val targetSource = sourceManager.get(target.source) ?: return
         val currentSource = sourceManager.get(current.source)
@@ -62,7 +65,10 @@ class MigrateMangaUseCase(
             // plus its existing siblings (not the target, which shares the title on a clean match).
             val mergeGroup = mangaMergeManager.computeRelatedIds(current.id)
 
-            updateMangaFromRemote(target, fetchChapters = true).getOrThrow()
+            // RK: guarded, see skipTargetRefresh above.
+            if (!skipTargetRefresh) {
+                updateMangaFromRemote(target, fetchChapters = true).getOrThrow()
+            }
 
             // Update chapters read, bookmark and dateFetch
             if (MigrationFlag.CHAPTER in flags) {

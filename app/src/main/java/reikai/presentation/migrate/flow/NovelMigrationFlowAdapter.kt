@@ -198,15 +198,20 @@ class NovelMigrationFlowAdapter(
             }
     }
 
-    override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {
+    override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null
-        if (candidate.resolved) return candidate
+        if (candidate.resolved) return ResolvedTarget(candidate, syncedNow = false)
         val source = sourceManager.get(candidate.sourceKey) ?: return null
-        // A search hit is not a row yet: parse it, store it unfavorited, then sync its chapters so
-        // the count the user is shown is the count that migrates.
-        val sourceNovel = source.parseNovel(handle.item.path)
-        novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = source.id, favorite = false)) ?: return null
-        val stored = novelRepository.getByUrlAndSource(handle.item.path, source.id) ?: return null
+        // The search hit already carries everything a row needs to exist (title, path, cover), so it
+        // is stored straight from that; the refresh below is the one call that parses the source, and
+        // it fills in the details and chapters. Parsing here as well would double every accept.
+        val base = Novel.create().copy(
+            source = source.id,
+            url = handle.item.path,
+            title = handle.item.name,
+            thumbnailUrl = handle.item.cover,
+        )
+        val stored = novelRepository.insertOrGet(base) ?: return null
         refreshNovelFromSource(
             stored,
             source,
@@ -217,12 +222,16 @@ class NovelMigrationFlowAdapter(
         )
         val resolved = novelRepository.getByUrlAndSource(handle.item.path, source.id) ?: return null
         val chapters = chapterRepository.getByNovelId(resolved.id)
-        return candidate.copy(
-            chapterCount = chapters.size,
-            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-            cover = resolved.toCover(source.site, favorite = false),
-            resolved = true,
-            handle = handle.copy(stored = resolved),
+        return ResolvedTarget(
+            candidate = candidate.copy(
+                title = resolved.title,
+                chapterCount = chapters.size,
+                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                cover = resolved.toCover(source.site, favorite = false),
+                resolved = true,
+                handle = handle.copy(stored = resolved),
+            ),
+            syncedNow = true,
         )
     }
 
@@ -282,6 +291,7 @@ class NovelMigrationFlowAdapter(
         target: MigrationCandidate,
         replace: Boolean,
         flags: Set<MigrationDataFlag>,
+        targetJustSynced: Boolean,
     ) {
         val current = entry.payload as? Novel ?: error("novel entry payload missing")
         val handle = target.handle as? NovelCandidateHandle
@@ -290,7 +300,13 @@ class NovelMigrationFlowAdapter(
         // marking a row migrated when nothing happened.
         check(current.id != targetNovel.id) { "target is the entry itself" }
         checkNotNull(sourceManager.get(targetNovel.source)) { "target source is not installed" }
-        migrateNovel(current, targetNovel, flags.mapTo(HashSet()) { it.toNovelFlag() }, replace)
+        migrateNovel(
+            current,
+            targetNovel,
+            flags.mapTo(HashSet()) { it.toNovelFlag() },
+            replace,
+            skipTargetRefresh = targetJustSynced,
+        )
     }
 
     private fun Novel.toCover(site: String?, favorite: Boolean = true) = NovelCover(

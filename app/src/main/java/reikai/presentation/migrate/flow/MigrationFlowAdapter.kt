@@ -78,6 +78,19 @@ data class MigrationCandidate(
     val handle: Any,
 )
 
+/**
+ * What [MigrationFlowAdapter.resolve] produced: the commit-ready [candidate], and whether this call
+ * actually pulled the target's chapters from its source.
+ *
+ * [syncedNow] is returned rather than stored on the candidate on purpose. It is only true of the
+ * call that produced it, so a commit can skip a refresh it just performed, while a candidate that
+ * has been sitting on a row since an earlier resolve carries no claim about freshness at all.
+ */
+data class ResolvedTarget(
+    val candidate: MigrationCandidate,
+    val syncedNow: Boolean,
+)
+
 /** One row of the per-source favorites picker, deliberately lighter than [MigrationEntry] (no
  *  chapter count, so listing a large source's favorites costs no per-row query). [cover] is the
  *  adapter-built Coil model; [payload] is the per-type domain model for the details push. */
@@ -178,14 +191,15 @@ interface MigrationFlowAdapter {
 
     /**
      * Materialise a picked candidate into a commit-ready target (row inserted, chapters fetched,
-     * count known), returning a candidate with `resolved = true`. Null on failure; [migrate]
-     * requires a resolved candidate.
+     * count known), returning it with `resolved = true`. Null on failure; [migrate] requires a
+     * resolved candidate.
      *
      * The one networked method here, and idempotent: the commit path resolves unconditionally
      * (a bulk-accepted row still carries an unresolved suggestion), so resolving an already-resolved
-     * candidate must be cheap.
+     * candidate must be cheap. Implementations report through [ResolvedTarget.syncedNow] whether
+     * this call fetched, which is what lets the commit avoid a second identical fetch.
      */
-    suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate?
+    suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget?
 
     /** Wrap an already-stored entry (a duplicate-dialog migrate target) as a resolved, commit-ready
      *  candidate, bypassing search. Null when the row is gone. */
@@ -202,12 +216,20 @@ interface MigrationFlowAdapter {
      *  at least one entry actually has the thing (custom cover, notes, downloads). */
     suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag>
 
-    /** Commit one entry onto a [resolve]d target with exactly [flags]. Writes no preferences.
-     *  Throws on failure; the shared model owns retry surfacing. */
+    /**
+     * Commit one entry onto a [resolve]d target with exactly [flags]. Writes no preferences.
+     * Throws on failure; the shared model owns retry surfacing.
+     *
+     * Both engines re-fetch the target's chapters before carrying read state, so that a migration
+     * works from any add path. [targetJustSynced] says the caller's [resolve] already did that fetch
+     * moments ago, so repeating it would only cost the source another request; pass it through and
+     * skip. It describes this call alone, never a remembered freshness window.
+     */
     suspend fun migrate(
         entry: MigrationEntry,
         target: MigrationCandidate,
         replace: Boolean,
         flags: Set<MigrationDataFlag>,
+        targetJustSynced: Boolean,
     )
 }

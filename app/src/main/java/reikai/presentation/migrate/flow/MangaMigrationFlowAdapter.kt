@@ -192,13 +192,14 @@ class MangaMigrationFlowAdapter(
         return networkToLocalManga(found).map { it.toCandidate(sourceKey) }
     }
 
-    override suspend fun resolve(candidate: MigrationCandidate): MigrationCandidate? {
+    override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
         val manga = candidate.handle as? Manga ?: return null
         // A candidate straight from candidates() has no chapters locally, so counts would read as
         // unknown and the commit would migrate onto an unfetched row; a suggestion already has them
         // and skips the fetch. Best-effort: a failure still resolves, and the use case fetches again.
         var chapters = getChaptersByMangaId.await(manga.id)
-        if (chapters.isEmpty()) {
+        val fetched = chapters.isEmpty()
+        if (fetched) {
             runCatchingCancellable { updateMangaFromRemote(manga, fetchChapters = true) }
             chapters = getChaptersByMangaId.await(manga.id)
         }
@@ -206,10 +207,13 @@ class MangaMigrationFlowAdapter(
             runCatchingCancellable { updateMangaFromRemote(manga, fetchDetails = true, manualFetch = true) }
         }
         val refreshed = getManga.await(manga.id) ?: manga
-        return refreshed.toCandidate(candidate.sourceKey).copy(
-            chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-            resolved = true,
+        return ResolvedTarget(
+            candidate = refreshed.toCandidate(candidate.sourceKey).copy(
+                chapterCount = chapters.size.takeIf { it > 0 },
+                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                resolved = true,
+            ),
+            syncedNow = fetched,
         )
     }
 
@@ -249,6 +253,7 @@ class MangaMigrationFlowAdapter(
         target: MigrationCandidate,
         replace: Boolean,
         flags: Set<MigrationDataFlag>,
+        targetJustSynced: Boolean,
     ) {
         val current = entry.payload as? Manga ?: error("manga entry payload missing")
         val targetManga = target.handle as? Manga ?: error("manga target handle missing")
@@ -256,7 +261,13 @@ class MangaMigrationFlowAdapter(
         // marking a row migrated when nothing happened.
         check(current.id != targetManga.id) { "target is the entry itself" }
         checkNotNull(sourceManager.get(targetManga.source)) { "target source is not installed" }
-        migrateManga(current, targetManga, replace, flags.mapTo(HashSet()) { MigrationFlag.valueOf(it.name) })
+        migrateManga(
+            current,
+            targetManga,
+            replace,
+            flags.mapTo(HashSet()) { MigrationFlag.valueOf(it.name) },
+            skipTargetRefresh = targetJustSynced,
+        )
     }
 
     private fun catalogueSource(key: String): CatalogueSource? {

@@ -204,7 +204,8 @@ class EntryMigrationListScreenModel(
      * The one commit path: resolve, migrate, record the outcome on the row. Resolving here rather
      * than at accept keeps a bulk accept free and is a no-op for an already-resolved candidate; a
      * cancelled commit is marked failed because the engines are not transactional and the row may
-     * be half-applied.
+     * be half-applied. When the resolve did fetch the target, the engine is told to skip its own
+     * identical fetch, which halves what a batch asks of the target source.
      */
     private suspend fun commitRow(
         row: MigratingEntryRow,
@@ -215,9 +216,10 @@ class EntryMigrationListScreenModel(
         val target = row.chosen.value ?: return
         row.commit.value = CommitPhase.Committing(replace)
         try {
-            val resolved = adapter.resolve(target) ?: error("target failed to resolve")
+            val outcome = adapter.resolve(target) ?: error("target failed to resolve")
+            val resolved = outcome.candidate
             row.chosen.value = resolved
-            adapter.migrate(row.entry, resolved, replace, flags)
+            adapter.migrate(row.entry, resolved, replace, flags, targetJustSynced = outcome.syncedNow)
             row.commit.value = CommitPhase.Migrated(resolved, replace)
             mutableState.update { it.copy(migratedCount = it.migratedCount + 1) }
         } catch (e: CancellationException) {
