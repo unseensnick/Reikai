@@ -22,7 +22,9 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
+import logcat.LogPriority
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.model.Novel
@@ -30,6 +32,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.hasCustomCover
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.padding
@@ -167,7 +170,15 @@ private class MigrateNovelDialogScreenModel(
         val target = state.target ?: return
         novelPreferences.novelMigrationFlags().set(NovelMigrationFlag.toBits(state.selectedFlags))
         mutableState.update { it.copy(isMigrating = true) }
-        migrateNovel(current, target, state.selectedFlags, replace)
+        // The use case rethrows now, and this dialog has no failure surface, so it keeps the
+        // previous swallow-and-log behavior rather than taking down the calling coroutine.
+        try {
+            migrateNovel(current, target, state.selectedFlags, replace)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e) { "Novel migration failed" }
+        }
         mutableState.update { it.copy(isMigrating = false, isMigrated = true) }
     }
 

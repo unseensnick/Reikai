@@ -169,8 +169,11 @@ class MigrateMangaUseCase(
             if (e is CancellationException) {
                 throw e
             }
-            // RK: a failed migration was previously swallowed silently; surface it in the log
+            // RK: rethrown after logging, where upstream swallowed. A caller that shows per-row
+            // outcomes has to be able to tell a failure from a success; the ones that don't care
+            // catch it themselves.
             logcat(LogPriority.ERROR, e) { "Manga migration failed" }
+            throw e
         }
     }
 }

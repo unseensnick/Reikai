@@ -255,7 +255,9 @@ class EntryMigrationListScreenModel(
                     commitRow(row, replace, flags, fromBatch = true)
                     mutableState.update { it.copy(dialog = Dialog.Progress(index + 1, targets.size)) }
                 }
-                mutableState.update { it.copy(finished = true) }
+                // Only a clean run leaves: a failure keeps the screen open so the row that failed
+                // stays visible with its retry, instead of vanishing with the rest.
+                finishIfNothingFailed()
             } finally {
                 mutableState.update { it.copy(dialog = null, isCommitting = false) }
                 commitJob = null
@@ -280,7 +282,19 @@ class EntryMigrationListScreenModel(
         val failure = row.commit.value as? CommitPhase.Failed ?: return
         val busy = state.value.isCommitting || state.value.singleCommitInFlight
         if (!MigrationRowRules.canRetry(failure, busy)) return
-        screenModelScope.launchIO { commitRow(row, failure.replace, failure.flags, failure.fromBatch) }
+        screenModelScope.launchIO {
+            commitRow(row, failure.replace, failure.flags, failure.fromBatch)
+            // Clearing the last failure from a batch finishes what that batch started; a retry of a
+            // single-row commit leaves the user on the list to carry on working.
+            if (failure.fromBatch) finishIfNothingFailed()
+        }
+    }
+
+    /** Called by whichever commit just finished, so it asks only whether anything is still failed. */
+    private fun finishIfNothingFailed() {
+        if (rows.none { it.commit.value is CommitPhase.Failed }) {
+            mutableState.update { it.copy(finished = true) }
+        }
     }
 
     /**

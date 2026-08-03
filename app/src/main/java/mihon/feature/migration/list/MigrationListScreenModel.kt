@@ -295,7 +295,16 @@ class MigrationListScreenModel(
         screenModelScope.launchIO {
             val manga = items.find { it.manga.id == mangaId } ?: return@launchIO
             val target = (manga.searchResult.value as? SearchResult.Success)?.manga ?: return@launchIO
-            migrateManga(current = manga.manga, target = target, replace = replace)
+            // RK: the use case rethrows now; this screen has no per-row failure surface, so a
+            // failure is logged and the row is left in place instead of killing the coroutine.
+            try {
+                migrateManga(current = manga.manga, target = target, replace = replace)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logcat(LogPriority.ERROR, e) { "Manga migration failed" }
+                return@launchIO
+            }
 
             removeManga(mangaId)
         }

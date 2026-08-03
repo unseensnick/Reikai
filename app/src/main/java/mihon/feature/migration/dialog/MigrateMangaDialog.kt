@@ -25,12 +25,15 @@ import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
+import logcat.LogPriority
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.feature.common.utils.getLabel
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -169,7 +172,15 @@ private class MigrateDialogScreenModel(
         val target = state.target ?: return
         sourcePreference.migrationFlags.set(state.selectedFlags)
         mutableState.update { it.copy(isMigrating = true) }
-        migrateManga(current, target, replace)
+        // RK: the use case rethrows now, and this dialog has no failure surface, so it keeps the
+        // previous swallow-and-log behavior rather than taking down the calling coroutine.
+        try {
+            migrateManga(current, target, replace)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e) { "Manga migration failed" }
+        }
         mutableState.update { it.copy(isMigrating = false, isMigrated = true) }
     }
 
