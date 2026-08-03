@@ -34,6 +34,16 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings -> Advanced can now repair novels that are showing another novel's title or cover.** It finds the affected entries and re-fetches them from their own source.
 - **Clear database now also removes novels that aren't in your library.** Novel sources get their own rows on the screen, and the keep-read toggle protects novels with reading progress, like manga.
 
+**Migration**
+
+- **Manga and novels now migrate through one shared flow, so both get every migration feature.** Whichever you are moving, the screens, options and safeguards are the same.
+- **A migration now names the entries that failed and offers to retry them.** A failure used to be logged and reported as a success, leaving entries silently where they were.
+- **Choose what a migration carries at the moment you confirm it, on both manga and novels.** Only the options the selected entries can actually use are offered.
+- **Matches are now offered rather than assumed: accept them one at a time, or all at once.** Tapping an accepted match gives it back so you can pick a different target.
+- **Leave an entry out of a migration and put it back later.** A source that never answers no longer holds up the rest of the batch.
+- **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
+- **Change the search options from the migration list itself, without starting over.** Hiding entries only re-filters what is on screen; only the options that change results search again.
+
 **App & backup**
 
 - **Create backup now lets you pick Manga, Novels and custom entry info separately, for a smaller file.**
@@ -44,6 +54,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Changes
 
+- **Migrating no longer asks the target's source for the same thing twice.** A large migration puts roughly half the load on the site it did before, which matters where rate limits bite.
 - **Novel sources no longer wait in line behind each other.** Each source now runs in its own engine, so a slow site can't stall global search, browsing or updates for the rest, and idle sources free their memory after a minute.
 - **Edit categories now shows one list instead of separate Manga and Novels tabs.** Each row says which libraries it applies to, and one drag order covers them all.
 - **The library filter, sort and group menus are now identical for manga and novels.** They were drifting apart in wording and order; an option added to one now shows up in both.
