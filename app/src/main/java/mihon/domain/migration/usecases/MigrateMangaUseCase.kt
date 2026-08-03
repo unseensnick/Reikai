@@ -46,10 +46,16 @@ class MigrateMangaUseCase(
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
-    suspend operator fun invoke(current: Manga, target: Manga, replace: Boolean) {
+    // RK: flags may be passed as a value so concurrent migrations can't read each other's set out of
+    // the shared preference; omitting it keeps upstream's read-the-pref behavior.
+    suspend operator fun invoke(
+        current: Manga,
+        target: Manga,
+        replace: Boolean,
+        flags: Set<MigrationFlag> = sourcePreferences.migrationFlags.get(),
+    ) {
         val targetSource = sourceManager.get(target.source) ?: return
         val currentSource = sourceManager.get(current.source)
-        val flags = sourcePreferences.migrationFlags.get()
 
         try {
             // RK: capture the source's merge group before the target is favorited, so it's the source
