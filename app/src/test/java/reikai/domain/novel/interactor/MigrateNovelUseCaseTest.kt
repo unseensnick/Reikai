@@ -218,6 +218,7 @@ class MigrateNovelUseCaseTest {
         read: Boolean = false,
         bookmark: Boolean = false,
         progress: Long = 0,
+        dateFetch: Long = 0,
     ) = NovelChapter(
         id = id,
         novelId = 1L,
@@ -228,7 +229,7 @@ class MigrateNovelUseCaseTest {
         lastTextProgress = progress,
         chapterNumber = number,
         sourceOrder = id,
-        dateFetch = 0,
+        dateFetch = dateFetch,
         dateUpload = 0,
         page = "",
     )
@@ -246,6 +247,14 @@ class MigrateNovelUseCaseTest {
             it.bookmark shouldBe true
             it.lastTextProgress shouldBe 4200
         }
+    }
+
+    @Test
+    fun `an exact number match carries the source chapter's fetch date`() {
+        val current = listOf(chapter(1, 1.0, dateFetch = 1234))
+        val target = listOf(chapter(10, 1.0, dateFetch = 9999))
+
+        computeChapterMigration(current, target).single().dateFetch shouldBe 1234
     }
 
     @Test

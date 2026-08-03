@@ -66,7 +66,7 @@ class MigrateNovelUseCase(
             // add-path, including browse / global search where the target is a fresh, unsynced row.
             // Best-effort: skip when the source is unavailable, and never let a fetch failure abort.
             sourceManager.get(target.source)?.let { targetSource ->
-                runCatching {
+                try {
                     refreshNovelFromSource(
                         target,
                         targetSource,
@@ -75,6 +75,11 @@ class MigrateNovelUseCase(
                         database,
                         novelDownloadManager,
                     )
+                } catch (e: CancellationException) {
+                    // A cancelled migration must die, not proceed with an unrefreshed target.
+                    throw e
+                } catch (_: Throwable) {
+                    // Best-effort otherwise: a fetch failure must not abort the migration.
                 }
             }
 
@@ -104,6 +109,9 @@ class MigrateNovelUseCase(
                 // instantly undone by re-downloading the same chapters onto the target.
                 if (NovelMigrationFlag.REMOVE_DOWNLOAD !in flags) {
                     chaptersToRedownload(currentChapters, targetChapters, currentDownloadedIds)
+                        // The queue has no enqueue-time disk check, so an unfiltered call would
+                        // re-download chapters the target already has on disk.
+                        .filterNot { novelDownloadManager.isChapterDownloaded(target, it) }
                         .takeIf { it.isNotEmpty() }
                         ?.let { novelDownloadManager.downloadChapters(it) }
                 }
@@ -153,7 +161,9 @@ class MigrateNovelUseCase(
             // Keep the merge consistent: the target takes the source's place in the group on a replace
             // (split the source out, merge the target in with the survivors), or joins it on a copy.
             if (replace) {
-                updateNovel.await(NovelUpdate(id = current.id, favorite = false))
+                // dateAdded zeroes like manga migration, so a later re-add stamps fresh instead of
+                // inheriting the pre-migration date.
+                updateNovel.await(NovelUpdate(id = current.id, favorite = false, dateAdded = 0))
                 if (group.size > 1) {
                     val survivors = novelMergeManager.removeFromGroup(group, listOf(current.id))
                     novelMergeManager.merge(survivors.toList() + target.id)
@@ -172,8 +182,8 @@ class MigrateNovelUseCase(
 
 /**
  * Pure core: given the source novel's chapters and the target's, return the target chapters whose
- * read / bookmark / progress should change. A target chapter takes its matched (same chapter number)
- * source chapter's state; additionally every target chapter at or below the highest read source
+ * read / bookmark / progress / dateFetch should change. A target chapter takes its matched (same
+ * chapter number) source chapter's state; additionally every target chapter at or below the highest read source
  * number is marked read (mirrors Mihon's `maxChapterRead` sweep, so coarser target numbering still
  * reflects how far you'd read). Unrecognized numbers (< 0) are skipped, matching the sync convention.
  */
@@ -192,20 +202,25 @@ internal fun computeChapterMigration(
         var read = if (match != null) match.read else target.read
         val bookmark = if (match != null) match.bookmark else target.bookmark
         val progress = if (match != null) match.lastTextProgress else target.lastTextProgress
+        // dateFetch carries too (manga parity): without it every migrated chapter reads as
+        // freshly fetched and floods recency-ordered surfaces.
+        val dateFetch = if (match != null) match.dateFetch else target.dateFetch
         if (maxReadNumber != null && target.chapterNumber <= maxReadNumber) read = true
 
-        if (read == target.read && bookmark == target.bookmark && progress == target.lastTextProgress) {
+        if (read == target.read && bookmark == target.bookmark && progress == target.lastTextProgress &&
+            dateFetch == target.dateFetch
+        ) {
             null
         } else {
-            target.copy(read = read, bookmark = bookmark, lastTextProgress = progress)
+            target.copy(read = read, bookmark = bookmark, lastTextProgress = progress, dateFetch = dateFetch)
         }
     }
 }
 
 /**
  * The target chapters to re-queue for download: those whose chapter number matches a chapter that was
- * downloaded on the old source. Unrecognized numbers (< 0) are skipped. The download manager itself
- * skips any the target already has, so this is safe to call with the full matched set.
+ * downloaded on the old source. Unrecognized numbers (< 0) are skipped. The queue does NOT skip
+ * already-downloaded chapters, so the caller filters against the target's disk state before enqueueing.
  */
 internal fun chaptersToRedownload(
     currentChapters: List<NovelChapter>,
