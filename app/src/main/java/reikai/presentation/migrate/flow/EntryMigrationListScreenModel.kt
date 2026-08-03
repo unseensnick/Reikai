@@ -8,10 +8,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
@@ -54,6 +56,10 @@ class EntryMigrationListScreenModel(
     /** The sequential search driver; idle once every row has settled. */
     @Volatile
     private var searchJob: Job? = null
+
+    /** Override searches are bounded separately from the batch, so opening a row responds at once
+     *  rather than waiting for the batch's turn to come round. */
+    private val interactiveSearches = Semaphore(SOURCE_CONCURRENCY)
 
     /** Versions the confirm dialog's flag scan so a dismissed scan cannot land on a later dialog. */
     @Volatile
@@ -191,6 +197,70 @@ class EntryMigrationListScreenModel(
             },
             singleCommitInFlight = state.rows.any { it.commit.value.isBusy },
         )
+    }
+
+    /** Open or close a row's override picker. Opening runs the first search for it, so the picker
+     *  never opens onto an empty panel the user has to prod. */
+    fun toggleExpanded(id: EntryId) {
+        val row = rows.firstOrNull { it.entry.id == id } ?: return
+        val expanding = !row.expanded.value
+        row.expanded.value = expanding
+        if (expanding && row.overrides.value == MigratingEntryRow.OverrideState.Idle) {
+            searchOverrides(id, row.entry.title)
+        }
+    }
+
+    /**
+     * Search every configured source for [query] and fill the row's override strips.
+     *
+     * These run off the batch driver on their own bound, so opening a row answers immediately
+     * instead of queueing behind the batch. A re-search cancels its predecessor, and the write
+     * checks it is still the row's current search, since cancellation cannot stop a coroutine that
+     * has already left its last suspension point.
+     */
+    fun searchOverrides(id: EntryId, query: String) {
+        if (query.isBlank()) return
+        val row = rows.firstOrNull { it.entry.id == id } ?: return
+        val sources = sourcesFor()
+        val fullQuery = listOfNotNull(
+            query.trim(),
+            state.value.tuning.extraQuery?.takeIf { it.isNotBlank() },
+        ).joinToString(" ")
+
+        row.overrideJob?.cancel()
+        row.overrides.value = MigratingEntryRow.OverrideState.Loading
+        row.overrideJob = row.scope.launch {
+            val myJob = coroutineContext[Job]
+            val strips = coroutineScope {
+                sources.map { source ->
+                    async {
+                        val result = interactiveSearches.withPermit {
+                            runCatchingCancellable { adapter.candidates(row.entry, fullQuery, source.key) }
+                        }
+                        MigratingEntryRow.OverrideStrip(
+                            sourceKey = source.key,
+                            sourceName = source.name,
+                            candidates = result.getOrDefault(emptyList()),
+                            error = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
+                        )
+                    }
+                }.awaitAll()
+            }
+            if (row.overrideJob === myJob) {
+                row.overrides.value = MigratingEntryRow.OverrideState.Loaded(strips)
+            }
+        }
+    }
+
+    /** Accept a specific candidate from an override strip, in place of the suggestion. */
+    fun pick(id: EntryId, candidate: MigrationCandidate) {
+        val row = rows.firstOrNull { it.entry.id == id } ?: return
+        if (!MigrationRowRules.canChoose(row.commit.value)) return
+        row.chosen.value = candidate
+        // A pick answers the question the picker was open for; leaving it open buries the result.
+        row.expanded.value = false
+        row.skipped.value = false
+        syncCounts()
     }
 
     /** Accept the suggestion, or give back an accepted target so the suggestion shows again. */

@@ -1,6 +1,7 @@
 package reikai.presentation.migrate.flow
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +30,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -173,47 +177,146 @@ private fun MigrationRow(
     val commit by row.commit.collectAsState()
     val chosen by row.chosen.collectAsState()
     val skipped by row.skipped.collectAsState()
+    val expanded by row.expanded.collectAsState()
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (skipped) 0.5f else 1f)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MangaCover.Book(modifier = Modifier.width(38.dp), data = row.entry.cover)
-        Column(
+    Column {
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp),
+                .fillMaxWidth()
+                .alpha(if (skipped) 0.5f else 1f)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = row.entry.title,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val target = chosen?.title ?: (search as? SearchPhase.Found)?.suggestion?.title
-            if (target != null) {
+            MangaCover.Book(modifier = Modifier.width(38.dp), data = row.entry.cover)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp),
+            ) {
                 Text(
-                    text = target,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = row.entry.title,
+                    style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val target = chosen?.title ?: (search as? SearchPhase.Found)?.suggestion?.title
+                if (target != null) {
+                    Text(
+                        text = target,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                RowStatusLine(row = row, search = search, commit = commit, skipped = skipped)
+                RowCountLine(row = row, target = chosen)
             }
-            RowStatusLine(row = row, search = search, commit = commit, skipped = skipped)
-            RowCountLine(row = row, target = chosen)
+            RowTrailing(
+                row = row,
+                search = search,
+                commit = commit,
+                chosen = chosen,
+                skipped = skipped,
+                screenModel = screenModel,
+            )
         }
-        RowTrailing(
-            row = row,
-            search = search,
-            commit = commit,
-            chosen = chosen,
-            skipped = skipped,
-            screenModel = screenModel,
+        if (expanded) {
+            OverridePicker(row = row, screenModel = screenModel)
+        }
+    }
+}
+
+/** The row's open override picker: a query field over per-source result strips. */
+@Composable
+private fun OverridePicker(
+    row: MigratingEntryRow,
+    screenModel: EntryMigrationListScreenModel,
+) {
+    val overrides by row.overrides.collectAsState()
+    var query by rememberSaveable(row.entry.id.toString()) { mutableStateOf(row.entry.title) }
+
+    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text(text = stringResource(MR.strings.action_search)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            trailingIcon = {
+                IconButton(
+                    onClick = { screenModel.searchOverrides(row.entry.id, query) },
+                    enabled = query.isNotBlank(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = stringResource(MR.strings.action_search),
+                    )
+                }
+            },
         )
+
+        when (val state = overrides) {
+            MigratingEntryRow.OverrideState.Idle -> {}
+            MigratingEntryRow.OverrideState.Loading -> Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            }
+            is MigratingEntryRow.OverrideState.Loaded -> state.strips.forEach { strip ->
+                OverrideStripRow(strip = strip, onPick = { screenModel.pick(row.entry.id, it) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverrideStripRow(
+    strip: MigratingEntryRow.OverrideStrip,
+    onPick: (MigrationCandidate) -> Unit,
+) {
+    Text(
+        text = strip.sourceName,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+    )
+    when {
+        // A source that threw says so, rather than looking like a source with nothing to offer.
+        strip.error != null -> Text(
+            text = strip.error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        strip.candidates.isEmpty() -> Text(
+            text = stringResource(MR.strings.no_results_found),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        else -> LazyRow {
+            items(items = strip.candidates, key = { it.key }) { candidate ->
+                Column(
+                    modifier = Modifier
+                        .width(96.dp)
+                        .padding(end = 8.dp)
+                        .clickable { onPick(candidate) },
+                ) {
+                    MangaCover.Book(modifier = Modifier.fillMaxWidth(), data = candidate.cover)
+                    Text(
+                        text = candidate.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -326,6 +429,15 @@ private fun RowTrailing(
             )
         }
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            // Offered in every state, including while the row is still searching: a match the user
+            // can already see is wrong should not have to wait for the search to give up.
+            DropdownMenuItem(
+                text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
+                onClick = {
+                    menuExpanded = false
+                    screenModel.toggleExpanded(row.entry.id)
+                },
+            )
             if (!skipped && commit !is CommitPhase.Committing) {
                 DropdownMenuItem(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel)) },

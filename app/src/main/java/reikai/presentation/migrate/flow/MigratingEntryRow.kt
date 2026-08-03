@@ -2,6 +2,7 @@ package reikai.presentation.migrate.flow
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.coroutines.CoroutineContext
@@ -34,6 +35,18 @@ class MigratingEntryRow(
     val chosen = MutableStateFlow<MigrationCandidate?>(null)
 
     val skipped = MutableStateFlow(false)
+
+    /** Whether the row's override picker is open. Pure UI, independent of every phase above. */
+    val expanded = MutableStateFlow(false)
+
+    /** The override picker's own little machine, unrelated to the batch search: a user can search by
+     *  hand from any search outcome, including one that already found a match. */
+    val overrides = MutableStateFlow<OverrideState>(OverrideState.Idle)
+
+    /** The override search in flight, so a re-search supersedes its predecessor rather than racing
+     *  it. Held here rather than in a map keyed by row, since the row is the thing that owns it. */
+    @Volatile
+    var overrideJob: Job? = null
 
     /** The row's search for a target on the configured sources. */
     sealed interface SearchPhase {
@@ -72,6 +85,26 @@ class MigratingEntryRow(
 
         data class Migrated(val target: MigrationCandidate, val replace: Boolean) : CommitPhase
     }
+
+    /** The override picker's state: one strip per searched source once results land. */
+    sealed interface OverrideState {
+        data object Idle : OverrideState
+
+        data object Loading : OverrideState
+
+        data class Loaded(val strips: List<OverrideStrip>) : OverrideState
+    }
+
+    /**
+     * One source's override results. A source that threw keeps its strip carrying [error] instead of
+     * disappearing, so a failure reads as a failure rather than as "this source has nothing".
+     */
+    data class OverrideStrip(
+        val sourceKey: String,
+        val sourceName: String,
+        val candidates: List<MigrationCandidate>,
+        val error: String? = null,
+    )
 }
 
 /** The suggestion when the search found one, else null. */
