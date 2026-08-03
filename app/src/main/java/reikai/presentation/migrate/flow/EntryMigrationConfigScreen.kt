@@ -102,7 +102,14 @@ class EntryMigrationConfigScreen(
                     SmallExtendedFloatingActionButton(
                         text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
                         icon = {},
-                        onClick = { navigator.push(EntryMigrationListScreen(contentType, entryIds)) },
+                        onClick = {
+                            // One entry has nothing to accept in bulk and no progress worth a list,
+                            // so it goes straight to its results.
+                            val next = entryIds.singleOrNull()
+                                ?.let { EntryMigrationSearchScreen(contentType, it) }
+                                ?: EntryMigrationListScreen(contentType, entryIds)
+                            navigator.push(next)
+                        },
                     )
                 }
             },
