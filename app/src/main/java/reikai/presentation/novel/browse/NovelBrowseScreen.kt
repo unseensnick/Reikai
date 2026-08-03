@@ -317,7 +317,10 @@ class NovelBrowseScreen(
                     }
                 },
                 onLongClickItem = { item ->
-                    if (bulkState.selectionMode) {
+                    // RK: in pick mode long-press previews the candidate, matching the manga picker.
+                    // The normal long-press adds to library, which would favorite a novel the user
+                    // is only inspecting before choosing a migration target.
+                    if (migratePickFor != null || bulkState.selectionMode) {
                         navigator.push(NovelScreen(sourceId, item.path))
                     } else {
                         screenModel.onLongClickItem(item)

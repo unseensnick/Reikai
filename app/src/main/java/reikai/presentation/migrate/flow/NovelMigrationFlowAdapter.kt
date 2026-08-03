@@ -22,6 +22,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.SmartNovelSearchEngine
 import reikai.presentation.migrate.PickMember
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
@@ -55,12 +56,9 @@ class NovelMigrationFlowAdapter(
 
     override val contentType = ContentType.NOVELS
 
-    /** The smart-match engines are Mihon's and run on `Manga`; novels have no equivalent yet. */
+    /** Suggestions are title-matched (see [SmartNovelSearchEngine]); this gates only the two options
+     *  built on top of that, deep search and prioritize-by-chapters, which novels do not have yet. */
     override val supportsSmartMatch = false
-
-    /** Plugin search results carry no chapter list, so filling counts at suggest time would mean
-     *  resolving every candidate, fetching for matches the user never accepts. */
-    override val suggestsChapterCounts = false
 
     override suspend fun prepare() {
         // Best-effort, like every other novel surface: a load failure falls through to empty sources.
@@ -166,8 +164,19 @@ class NovelMigrationFlowAdapter(
         sourceKey: String,
         tuning: MigrationTuning,
     ): MigrationCandidate? {
-        val query = listOfNotNull(entry.title, tuning.extraQuery?.takeIf { it.isNotBlank() }).joinToString(" ")
-        return candidates(entry, query, sourceKey).firstOrNull()
+        val source = sourceManager.get(sourceKey) ?: return null
+        // Score against the title alone and thread the extra query into the search string only,
+        // matching manga: a term the user added to find the entry is not part of the entry's title.
+        // Score the raw hit list, then drop the entry's own listing from the winner, exactly as manga
+        // does. Filtering first would be worse than not filtering: the engine skips title scoring
+        // altogether when a source returns a single candidate, so a plugin repeating one wrong
+        // listing would dedupe down to that one hit and have it accepted unscored.
+        val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title) { query ->
+            source.searchNovels(query, 1)
+        } ?: return null
+        val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
+        if (match.path == currentPath) return null
+        return match.toCandidate(sourceKey, source.site)
     }
 
     override suspend fun candidates(
@@ -176,28 +185,33 @@ class NovelMigrationFlowAdapter(
         sourceKey: String,
     ): List<MigrationCandidate> {
         val source = sourceManager.get(sourceKey) ?: return emptyList()
-        // The entry's own source stays searchable, but its identical listing is never a target.
-        // Dedupe by path: a plugin can repeat a listing within one page, and the path is the key.
-        val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
         return source.searchNovels(query, 1)
-            .distinctBy { it.path }
-            .filterNot { it.path == currentPath }
-            .map { item ->
-                MigrationCandidate(
-                    sourceKey = sourceKey,
-                    title = item.name,
-                    chapterCount = null,
-                    key = "$sourceKey:${item.path}",
-                    cover = NovelCover(
-                        url = item.cover,
-                        site = source.site,
-                        isNovelFavorite = false,
-                        lastModified = 0L,
-                    ),
-                    handle = NovelCandidateHandle(item, source.site),
-                )
-            }
+            .usableHits(entry, sourceKey)
+            .map { it.toCandidate(sourceKey, source.site) }
     }
+
+    /**
+     * The entry's own source stays searchable, but its identical listing is never a target. Dedupe
+     * by path: a plugin can repeat a listing within one page, and the path is the key.
+     */
+    private fun List<NovelItem>.usableHits(entry: MigrationEntry, sourceKey: String): List<NovelItem> {
+        val currentPath = (entry.payload as? Novel)?.url.takeIf { sourceKey == entry.sourceKey }
+        return distinctBy { it.path }.filterNot { it.path == currentPath }
+    }
+
+    private fun NovelItem.toCandidate(sourceKey: String, site: String?) = MigrationCandidate(
+        sourceKey = sourceKey,
+        title = name,
+        chapterCount = null,
+        key = "$sourceKey:$path",
+        cover = NovelCover(
+            url = cover,
+            site = site,
+            isNovelFavorite = false,
+            lastModified = 0L,
+        ),
+        handle = NovelCandidateHandle(this, site),
+    )
 
     override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null

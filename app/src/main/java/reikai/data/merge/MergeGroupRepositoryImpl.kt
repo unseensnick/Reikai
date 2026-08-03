@@ -126,10 +126,6 @@ class MergeGroupRepositoryImpl(
         database.transaction {
             val groupId = getGroupId(contentType, oldId) ?: return@transaction
             deleteMember(contentType, oldId)
-            if (getMembers(contentType, groupId).isEmpty()) {
-                queries.deleteGroup(groupId)
-                return@transaction
-            }
             when (val newGroupId = getGroupId(contentType, newId)) {
                 groupId -> {}
                 null -> insertMember(contentType, groupId, newId)
@@ -142,6 +138,10 @@ class MergeGroupRepositoryImpl(
                     queries.deleteGroup(newGroupId)
                 }
             }
+            // A group of one is not a group. Migrating onto a sibling of the same group leaves the
+            // target alone in it, and an empty group is left by a replace inside a pair; both are
+            // dissolved here, matching removeFromGroup.
+            if (getMembers(contentType, groupId).size < 2) queries.deleteGroup(groupId)
         }
     }
 

@@ -66,9 +66,16 @@ data class MigrationEntry(
  *
  * [handle] is adapter-owned and round-trips through [MigrationFlowAdapter.resolve] into a
  * commit-ready target; the shared flow never inspects it, which is why [cover] and [key] are built
- * by the adapter instead of downcast in UI code. [resolved] says whether a commit still needs a
- * resolve: novel candidates start unresolved, since materialising every suggestion would fetch for
- * matches the user never accepts, while manga candidates are already stored rows from search time.
+ * by the adapter instead of downcast in UI code.
+ *
+ * [resolved] means the candidate needs no further materialising before a commit, either because
+ * [MigrationFlowAdapter.resolve] produced it or because it came from an already-stored row
+ * (`storedCandidate`). It does NOT promise chapters: a stored row can still be empty,
+ * and neither engine refuses a chapterless target outright, so treat it as "no work owed", never as
+ * "ready to read". Novel candidates start unresolved (materialising every suggestion would fetch for
+ * matches the user never accepts) and their `resolve` honours the flag with an early-out; manga's
+ * candidates are stored rows already, and its `resolve` re-checks the chapter list regardless of the
+ * flag rather than early-outing on it.
  */
 data class MigrationCandidate(
     val sourceKey: String,
@@ -137,20 +144,21 @@ data class MigrationTuning(
  * the only place the flow touches a content type. Design record:
  * docs/dev/plans/content-layer-migrate-surface.md.
  *
- * **Fetch timing is part of the contract.** Exactly one method may perform a remote detail or
- * chapter fetch: [resolve]. [suggest] enriches only the source's winning match; [candidates] is
- * search-page data only; every other method is local. So callers may treat everything but [resolve]
- * as cheap, and must treat [resolve] as slow, networked and cancellable.
+ * **Fetch timing is part of the contract.** [resolve] is the expensive one and the only one a commit
+ * depends on having run: it puts the target's full chapter list on the row that will be migrated
+ * onto, and it is slow and cancellable. [suggest] enriches the source's winning match alone and
+ * [peekCounts] fetches counts for one already-chosen candidate, so both are bounded per row.
+ * [candidates] runs one search page. Every other method is local and callers may treat it as free.
+ *
+ * Storing is NOT the distinction: on the manga side `suggest` and `candidates` also insert rows (via
+ * `networkToLocalManga`), and `suggest` syncs chapters. What only [resolve] guarantees is that the
+ * candidate a commit is handed is materialised and populated.
  */
 interface MigrationFlowAdapter {
     val contentType: ContentType
 
     /** Whether the smart-match tuning options (deep search, prioritize-by-chapters) apply. */
     val supportsSmartMatch: Boolean
-
-    /** Whether [suggest] fills chapter counts. Hide-without-updates needs suggest-time counts, so the
-     *  tuning sheet hides that toggle when this is false (novels resolve counts only at accept). */
-    val suggestsChapterCounts: Boolean
 
     /** One-time readiness work before sources are read (the novel side loads its plugin host here;
      *  without it, entering the flow before the host warms up shows empty sources with no error).
@@ -201,7 +209,7 @@ interface MigrationFlowAdapter {
      * side lets its refresh throw); callers must catch as well as null-check. [migrate] requires a
      * resolved candidate.
      *
-     * The one networked method here, and idempotent: the commit path resolves unconditionally
+     * Idempotent, which the commit path relies on: it resolves unconditionally
      * (a bulk-accepted row still carries an unresolved suggestion), so resolving an already-resolved
      * candidate must be cheap. Implementations report through [ResolvedTarget.syncedNow] whether
      * this call fetched, which is what lets the commit avoid a second identical fetch.

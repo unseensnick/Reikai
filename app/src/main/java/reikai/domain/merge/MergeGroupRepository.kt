@@ -68,7 +68,8 @@ interface MergeGroupRepository {
      * Atomically swap [oldId] out of its group and [newId] in (a replace migration). One transaction,
      * because remove-then-merge as two calls left a window where a cancellation stranded the group
      * half-swapped and a retry, seeing [oldId] already ungrouped, silently skipped the join. No-op
-     * when [oldId] is ungrouped, which is also what makes a retry after full success harmless.
+     * when [oldId] is ungrouped, which is also what makes a retry after full success harmless. As
+     * with [removeFromGroup], a group left with fewer than two members is dissolved.
      */
     suspend fun replaceInGroup(contentType: ContentType, oldId: Long, newId: Long)
 

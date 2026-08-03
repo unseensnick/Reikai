@@ -35,9 +35,11 @@ fun MigrationTuningSheet(
     onQueryChange: (String) -> Unit,
     onCommitQuery: () -> Unit,
     supportsSmartMatch: Boolean,
-    supportsChapterComparison: Boolean,
     onApply: (MigrationTuning) -> Unit,
 ) {
+    // LabeledCheckbox brings no horizontal inset of its own, so without this the boxes sit against
+    // the screen edge while the title and query field above them keep the sheet margin.
+    val checkboxRow = Modifier.padding(horizontal = SettingsItemsPaddings.Horizontal)
     Column(modifier = Modifier.padding(vertical = MaterialTheme.padding.medium)) {
         Text(
             text = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
@@ -65,11 +67,13 @@ fun MigrationTuningSheet(
                 label = stringResource(MR.strings.migrationConfigScreen_deepSearchModeTitle),
                 checked = tuning.deepSearch,
                 onCheckedChange = { onApply(tuning.copy(deepSearch = it)) },
+                modifier = checkboxRow,
             )
             LabeledCheckbox(
                 label = stringResource(MR.strings.migrationConfigScreen_prioritizeByChaptersTitle),
                 checked = tuning.prioritizeByChapters,
                 onCheckedChange = { onApply(tuning.copy(prioritizeByChapters = it)) },
+                modifier = checkboxRow,
             )
         } else {
             Text(
@@ -87,15 +91,16 @@ fun MigrationTuningSheet(
             label = stringResource(MR.strings.migrationConfigScreen_hideUnmatchedTitle),
             checked = tuning.hideUnmatched,
             onCheckedChange = { onApply(tuning.copy(hideUnmatched = it)) },
+            modifier = checkboxRow,
         )
-        // Hiding by "no new chapters" needs a chapter count from the search, which not every content
-        // type's sources return.
-        if (supportsChapterComparison) {
-            LabeledCheckbox(
-                label = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesTitle),
-                checked = tuning.hideWithoutUpdates,
-                onCheckedChange = { onApply(tuning.copy(hideWithoutUpdates = it)) },
-            )
-        }
+        // Offered for both content types: the counts it compares arrive at search time on manga and
+        // from the count peek on novels, and a row whose count is still unknown stays visible, so
+        // the toggle is never silently wrong where a source does not report one.
+        LabeledCheckbox(
+            label = stringResource(MR.strings.migrationConfigScreen_hideWithoutUpdatesTitle),
+            checked = tuning.hideWithoutUpdates,
+            onCheckedChange = { onApply(tuning.copy(hideWithoutUpdates = it)) },
+            modifier = checkboxRow,
+        )
     }
 }

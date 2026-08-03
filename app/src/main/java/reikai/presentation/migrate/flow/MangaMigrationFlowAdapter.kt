@@ -44,7 +44,6 @@ class MangaMigrationFlowAdapter(
 
     override val contentType = ContentType.MANGA
     override val supportsSmartMatch = true
-    override val suggestsChapterCounts = true
 
     override fun enabledSources(): List<MigrationSourceUi> {
         val languages = sourcePreferences.enabledLanguages.get()
@@ -226,8 +225,8 @@ class MangaMigrationFlowAdapter(
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
         // Manga candidates are already stored rows, so resolve is the peek: it fetches chapters
         // onto the existing row, the same best-effort work the commit would do anyway. The result
-        // carries resolved = true, which is safe only while resolve() has no resolved early-out;
-        // if it ever adopts the novel side's, peeked candidates would skip commit-time work.
+        // carries resolved = true, which is correct (the row is stored) and safe only while this
+        // resolve() re-checks chapters instead of early-outing on the flag, as the seam documents.
         return resolve(candidate)?.candidate
     }
 

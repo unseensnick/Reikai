@@ -96,7 +96,7 @@ class MigrateNovelUseCase(
                 val currentChapters = novelChapterRepository.getByNovelId(current.id)
                 val targetChapters = novelChapterRepository.getByNovelId(target.id)
                 val carried = computeChapterMigration(currentChapters, targetChapters)
-                // One transaction, the twin of the manga carry's batched awaitAll, and checked: a
+                // One transaction, the twin of the manga carry's repository write, and checked: a
                 // half-carried read state is exactly what the Failed row + retry exist to prevent.
                 if (carried.isNotEmpty()) {
                     check(novelChapterRepository.updateAll(carried)) {
@@ -187,6 +187,13 @@ class MigrateNovelUseCase(
  * chapter number) source chapter's state; additionally every target chapter at or below the highest read source
  * number is marked read (mirrors Mihon's `maxChapterRead` sweep, so coarser target numbering still
  * reflects how far you'd read). Unrecognized numbers (< 0) are skipped, matching the sync convention.
+ *
+ * **Progress only ever rises.** Read and position are merged, never overwritten, so migrating onto a
+ * target that was in the library before (and still holds its own progress) cannot un-read it. Manga
+ * migration has the same property by construction: it raises read through the sweep alone.
+ * [NovelChapter.bookmark] is deliberately NOT merged: it is taken from the matched source chapter
+ * either way, matching manga migration, so a migration moves the bookmark set rather than unioning
+ * two of them.
  */
 internal fun computeChapterMigration(
     currentChapters: List<NovelChapter>,
@@ -200,9 +207,9 @@ internal fun computeChapterMigration(
         if (target.chapterNumber < 0.0) return@mapNotNull null
 
         val match = currentChapters.firstOrNull { it.chapterNumber >= 0.0 && it.chapterNumber == target.chapterNumber }
-        var read = if (match != null) match.read else target.read
+        var read = target.read || match?.read == true
         val bookmark = if (match != null) match.bookmark else target.bookmark
-        val progress = if (match != null) match.lastTextProgress else target.lastTextProgress
+        val progress = maxOf(target.lastTextProgress, match?.lastTextProgress ?: 0L)
         // dateFetch carries too (manga parity): without it every migrated chapter reads as
         // freshly fetched and floods recency-ordered surfaces.
         val dateFetch = if (match != null) match.dateFetch else target.dateFetch

@@ -18,6 +18,7 @@ import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.toChapterUpdate
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
@@ -43,6 +44,9 @@ class MigrateMangaUseCase(
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     // RK: defaulted so DomainModule's positional factory stays unchanged; keeps migration merge-aware.
     private val mangaMergeManager: MangaMergeManager = Injekt.get(),
+    // RK: the repository, not UpdateChapter, because that interactor logs and swallows; the carry
+    // has to be able to fail the row. Same reason the novel engine checks its own carry.
+    private val chapterRepository: ChapterRepository = Injekt.get(),
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -101,7 +105,11 @@ class MigrateMangaUseCase(
                 }
 
                 val chapterUpdates = updatedMangaChapters.map { it.toChapterUpdate() }
-                updateChapter.awaitAll(chapterUpdates)
+                // RK: straight to the repository (one transaction, throws on failure) where upstream
+                // went through UpdateChapter, which logs and swallows. A half-carried read state is
+                // what the Failed row and its retry exist to prevent. Runs before the downloads are
+                // deleted, so a retry after this throws heals everything.
+                chapterRepository.updateAll(chapterUpdates)
             }
 
             // Update categories
@@ -151,7 +159,12 @@ class MigrateMangaUseCase(
                 notes = if (MigrationFlag.NOTES in flags) current.notes else null,
             )
 
-            updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))
+            // RK: checked, where upstream discards the result. The swap is the step that decides
+            // which entry is in the library; letting it fail quietly reports the row as Migrated
+            // with the source still favorited and the merge group already moved to the target.
+            check(updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))) {
+                "Migration favorite swap failed (${current.id} -> ${target.id})"
+            }
 
             // RK --> keep the merge consistent: the target takes the source's place in the group on a
             // replace, or joins it on a copy. Works for manual and same-title auto groups. The swap is

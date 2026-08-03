@@ -156,6 +156,32 @@ class MigrateNovelUseCaseTest {
     }
 
     @Test
+    fun `a replace swaps both entries in one write, so neither can be left out of the library`() = runTest {
+        val updates = slot<List<NovelUpdate>>()
+        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
+
+        useCase(novelRepository = repo)(novel(1), novel(2), emptySet(), replace = true, skipTargetRefresh = true)
+
+        // One write: were it split in two, a failure between them would leave neither favorited.
+        coVerify(exactly = 1) { repo.updateAll(any()) }
+        updates.captured.size shouldBe 2
+        updates.captured.single { it.id == 1L }.let {
+            it.favorite shouldBe false
+            it.dateAdded shouldBe 0
+        }
+    }
+
+    @Test
+    fun `a copy leaves the source favorited`() = runTest {
+        val updates = slot<List<NovelUpdate>>()
+        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(capture(updates)) } returns true }
+
+        useCase(novelRepository = repo)(novel(1), novel(2), emptySet(), replace = false, skipTargetRefresh = true)
+
+        updates.captured.map { it.id } shouldBe listOf(2L)
+    }
+
+    @Test
     fun `copy of a merged novel adds the target alongside the source`() = runTest {
         val merge = mockk<NovelMergeManager>(relaxed = true) {
             coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 3L)
@@ -308,6 +334,26 @@ class MigrateNovelUseCaseTest {
             it.bookmark shouldBe true
             it.lastTextProgress shouldBe 4200
         }
+    }
+
+    @Test
+    fun `a read target chapter stays read when the matching source chapter is unread`() {
+        // Nothing read in the source, so maxChapterRead is null and the sweep cannot mask the
+        // carry: with the state taken straight from the match this un-reads the target chapter.
+        val current = listOf(chapter(1, 1.0, read = false))
+        val target = listOf(chapter(10, 1.0, read = true))
+
+        computeChapterMigration(current, target).shouldContainExactlyInAnyOrder(emptyList())
+    }
+
+    @Test
+    fun `the further of the two text positions wins`() {
+        val current = listOf(chapter(1, 1.0, progress = 1500), chapter(2, 2.0, progress = 9000))
+        val target = listOf(chapter(10, 1.0, progress = 8000), chapter(11, 2.0, progress = 200))
+
+        val result = computeChapterMigration(current, target)
+
+        result.map { it.id to it.lastTextProgress } shouldBe listOf(11L to 9000L)
     }
 
     @Test

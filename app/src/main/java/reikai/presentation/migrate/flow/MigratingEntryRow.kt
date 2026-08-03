@@ -74,13 +74,13 @@ class MigratingEntryRow(
 
         /**
          * The commit threw. Carries what a faithful retry needs, so a retry repeats this commit and
-         * not whichever ran last: [replace] is the verb that failed, [flags] the exact set it used,
-         * and [fromBatch] marks a batch failure, the only kind whose retry may finish the screen.
+         * not whichever ran last: [replace] is the verb that failed and [flags] the exact set it
+         * used. Whether the screen may finish is not a property of the row: it is decided once, by
+         * the finish gate.
          */
         data class Failed(
             val replace: Boolean,
             val flags: Set<MigrationDataFlag>,
-            val fromBatch: Boolean,
         ) : CommitPhase
 
         data class Migrated(val target: MigrationCandidate, val replace: Boolean) : CommitPhase
@@ -132,8 +132,15 @@ val MigratingEntryRow.CommitPhase.isDone: Boolean
  */
 object MigrationRowRules {
 
-    /** Whether the driver may search this row now. A settled row is not re-searched; a migrated or
-     *  committing row must never have its result blanked underneath the commit. */
+    /**
+     * Whether the driver may search this row now. A settled row is not re-searched; a migrated or
+     * committing row must never have its result blanked underneath the commit.
+     *
+     * [isSettled] reads this as "will never be searchable again", so every clause here must be
+     * permanent for the row. A clause that can flip back (a pause flag, a temporary source outage)
+     * would mark every queued row settled and open the commit bar over unsearched rows; such a
+     * condition belongs in the driver's own loop head, next to its scope-liveness check, not here.
+     */
     fun canSearch(
         search: MigratingEntryRow.SearchPhase,
         commit: MigratingEntryRow.CommitPhase,
@@ -141,20 +148,35 @@ object MigrationRowRules {
     ): Boolean =
         search is MigratingEntryRow.SearchPhase.Queued && !skipped && commit == MigratingEntryRow.CommitPhase.Idle
 
+    /**
+     * Whether the row's search has reached a resting point, for progress counts and the all-searched
+     * gate. Derived from [canSearch] rather than listing terminal phases, because a row the driver
+     * will never pick up again is settled whatever the reason: a still-queued row that migrated, or
+     * failed, or is committing, can never be searched (canSearch demands an idle commit), and listing
+     * the phases instead has twice left such a row unsettled, holding the commit bar shut forever.
+     */
+    fun isSettled(
+        search: MigratingEntryRow.SearchPhase,
+        commit: MigratingEntryRow.CommitPhase,
+        skipped: Boolean,
+    ): Boolean = search.isSettled ||
+        (search is MigratingEntryRow.SearchPhase.Queued && !canSearch(search, commit, skipped))
+
     /** Accepting a candidate. Rejected once the row has migrated or while it is committing, so a
      *  late pick cannot re-arm a finished row. */
     fun canChoose(commit: MigratingEntryRow.CommitPhase): Boolean = commit == MigratingEntryRow.CommitPhase.Idle ||
         commit is MigratingEntryRow.CommitPhase.Failed
 
     /**
-     * Un-accepting restores the suggestion, so it is only offered where a suggestion exists to fall
-     * back to and no commit is in play; un-accepting a failed row would strand its retry, which
-     * needs the target it failed on.
+     * Un-accepting gives the target back: the row falls back to its suggestion where the search
+     * found one, and to no target otherwise. It needs no suggestion to fall back to, because a
+     * target picked from an override strip or the deep picker is exactly the case where the search
+     * found nothing, and that control must not render as a no-op. Blocked once a commit is in play:
+     * un-accepting a failed row would strand its retry, which needs the target it failed on.
      */
     fun canUnchoose(
-        search: MigratingEntryRow.SearchPhase,
         commit: MigratingEntryRow.CommitPhase,
-    ): Boolean = commit == MigratingEntryRow.CommitPhase.Idle && search is MigratingEntryRow.SearchPhase.Found
+    ): Boolean = commit == MigratingEntryRow.CommitPhase.Idle
 
     /** Skip and restore. Blocked mid-commit and after migrating: the completion write does not
      *  clear [MigratingEntryRow.skipped], so a skip landing there leaves a dimmed migrated row with

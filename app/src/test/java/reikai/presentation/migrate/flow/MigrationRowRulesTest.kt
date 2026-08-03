@@ -23,9 +23,39 @@ class MigrationRowRulesTest {
     private val failedCommit = CommitPhase.Failed(
         replace = false,
         flags = setOf(MigrationDataFlag.CHAPTER),
-        fromBatch = true,
     )
     private val migrated = CommitPhase.Migrated(candidate, replace = true)
+
+    @Test
+    fun `a queued row the driver can still reach is not settled`() {
+        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle, skipped = false) shouldBe false
+    }
+
+    @Test
+    fun `a row searching right now is not settled`() {
+        MigrationRowRules.isSettled(SearchPhase.Searching, CommitPhase.Idle, skipped = false) shouldBe false
+    }
+
+    @Test
+    fun `a queued row that migrated is settled, since it can never be searched again`() {
+        MigrationRowRules.isSettled(SearchPhase.Queued, migrated, skipped = false) shouldBe true
+    }
+
+    @Test
+    fun `a queued row whose commit failed is settled, since it can never be searched again`() {
+        MigrationRowRules.isSettled(SearchPhase.Queued, failedCommit, skipped = false) shouldBe true
+    }
+
+    @Test
+    fun `a queued row mid-commit is settled, since the driver cannot touch it`() {
+        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Committing(replace = true), skipped = false)
+            .shouldBe(true)
+    }
+
+    @Test
+    fun `a queued skipped row is settled`() {
+        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle, skipped = true) shouldBe true
+    }
 
     @Test
     fun `a queued unskipped row is searchable`() {
@@ -63,18 +93,18 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `un-accept needs a suggestion to fall back to`() {
-        MigrationRowRules.canUnchoose(SearchPhase.NoMatch, CommitPhase.Idle) shouldBe false
-    }
-
-    @Test
-    fun `un-accept is offered on a found row`() {
-        MigrationRowRules.canUnchoose(found, CommitPhase.Idle) shouldBe true
+    fun `un-accept is offered while the commit is idle, whatever the search found`() {
+        MigrationRowRules.canUnchoose(CommitPhase.Idle) shouldBe true
     }
 
     @Test
     fun `un-accept is blocked on a failed row so its retry keeps a target`() {
-        MigrationRowRules.canUnchoose(found, failedCommit) shouldBe false
+        MigrationRowRules.canUnchoose(failedCommit) shouldBe false
+    }
+
+    @Test
+    fun `un-accept is blocked mid-commit`() {
+        MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false)) shouldBe false
     }
 
     @Test

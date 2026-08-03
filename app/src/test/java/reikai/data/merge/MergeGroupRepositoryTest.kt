@@ -203,6 +203,57 @@ class MergeGroupRepositoryTest {
     }
 
     @Test
+    fun `replaceInGroup puts the target in the source's place`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 3)
+
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 3L)
+        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
+    }
+
+    @Test
+    fun `replaceInGroup dissolves the group when the target was already its only sibling`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        // Migrating onto the entry it was merged with: the target would be left alone in the group.
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 2)
+
+        repository.getGroup(groupId).shouldBeNull()
+        repository.getGroupId(ContentType.MANGA, 2).shouldBeNull()
+    }
+
+    @Test
+    fun `replaceInGroup brings the target's own group along`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        val targetGroup = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 3)
+
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 3L, 4L)
+        repository.getGroup(targetGroup).shouldBeNull()
+    }
+
+    @Test
+    fun `replaceInGroup is a no-op when the source is ungrouped`() = runTest {
+        insertManga(1)
+        insertManga(2)
+
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 2)
+
+        repository.getGroupId(ContentType.MANGA, 2).shouldBeNull()
+    }
+
+    @Test
     fun `dissolve ungroups every member`() = runTest {
         insertManga(1)
         insertManga(2)

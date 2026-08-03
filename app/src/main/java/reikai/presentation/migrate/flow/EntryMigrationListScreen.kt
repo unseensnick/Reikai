@@ -209,7 +209,6 @@ class EntryMigrationListScreen(
                     onQueryChange = { tuningQuery = it },
                     onCommitQuery = commitQuery,
                     supportsSmartMatch = state.supportsSmartMatch,
-                    supportsChapterComparison = state.supportsChapterComparison,
                     onApply = onApply,
                 )
             }
