@@ -85,9 +85,7 @@ class EntryMigrationListScreenModel(
                 continue
             }
             row.search.value = outcome
-            // Upstream migrates whatever it found; an explicit accept step lands with its own UI.
-            row.chosen.value = outcome.suggestion
-            bumpProgress()
+            syncCounts()
         }
     }
 
@@ -148,7 +146,54 @@ class EntryMigrationListScreenModel(
         }
     }
 
-    private fun bumpProgress() = mutableState.update { it.copy(searchedCount = it.rows.count { row -> row.isSettled }) }
+    /**
+     * Recompute the list-level counts into state.
+     *
+     * The rows own their state in flows the list items collect individually, which keeps a row's
+     * update from recomposing the whole list. Nothing about that reaches the screen-level state on
+     * its own, so every action that changes what the toolbar and commit bar report ends by calling
+     * this.
+     */
+    private fun syncCounts() = mutableState.update { state ->
+        state.copy(
+            searchedCount = state.rows.count { it.isSettled },
+            allSearched = state.rows.isNotEmpty() && state.rows.all { it.isSettled },
+            committableCount = state.rows.count {
+                MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
+            },
+            untouchedCount = state.rows.count {
+                !it.commit.value.isDone && (it.skipped.value || it.chosen.value == null)
+            },
+            hasUnaccepted = state.rows.any {
+                it.chosen.value == null && !it.skipped.value && it.search.value.suggestion != null
+            },
+            singleCommitInFlight = state.rows.any { it.commit.value.isBusy },
+        )
+    }
+
+    /** Accept the suggestion, or give back an accepted target so the suggestion shows again. */
+    fun toggleAccept(id: EntryId) {
+        val row = rows.firstOrNull { it.entry.id == id } ?: return
+        if (row.chosen.value != null) {
+            if (!MigrationRowRules.canUnchoose(row.search.value, row.commit.value)) return
+            row.chosen.value = null
+        } else {
+            if (!MigrationRowRules.canChoose(row.commit.value)) return
+            row.chosen.value = row.search.value.suggestion ?: return
+        }
+        syncCounts()
+    }
+
+    /** Accept every row that found a match and has no target yet. */
+    fun acceptAll() {
+        if (state.value.isCommitting || state.value.singleCommitInFlight) return
+        rows.forEach { row ->
+            if (row.chosen.value != null || row.skipped.value) return@forEach
+            if (!MigrationRowRules.canChoose(row.commit.value)) return@forEach
+            row.chosen.value = row.search.value.suggestion ?: return@forEach
+        }
+        syncCounts()
+    }
 
     fun toggleSkip(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
@@ -160,7 +205,7 @@ class EntryMigrationListScreenModel(
         if (skipping && row.search.value is SearchPhase.Searching) {
             row.scope.coroutineContext.cancelChildren()
         }
-        bumpProgress()
+        syncCounts()
     }
 
     fun commit(replace: Boolean, flags: Set<MigrationDataFlag>) {
@@ -191,7 +236,9 @@ class EntryMigrationListScreenModel(
 
     /** Commit one row now with the saved flags, the per-row Migrate / Copy action. */
     fun commitSingle(id: EntryId, replace: Boolean) {
-        if (state.value.isCommitting) return
+        // Single commits serialize with each other and with the batch: two at once would race on
+        // the same rows and on the flag preference.
+        if (state.value.isCommitting || state.value.singleCommitInFlight) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         if (!MigrationRowRules.isCommittable(row.chosen.value, row.commit.value, row.skipped.value)) return
         val flags = state.value.savedFlags
@@ -202,7 +249,8 @@ class EntryMigrationListScreenModel(
     fun retry(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         val failure = row.commit.value as? CommitPhase.Failed ?: return
-        if (!MigrationRowRules.canRetry(failure, state.value.isCommitting)) return
+        val busy = state.value.isCommitting || state.value.singleCommitInFlight
+        if (!MigrationRowRules.canRetry(failure, busy)) return
         screenModelScope.launchIO { commitRow(row, failure.replace, failure.flags, failure.fromBatch) }
     }
 
@@ -221,6 +269,7 @@ class EntryMigrationListScreenModel(
     ) {
         val target = row.chosen.value ?: return
         row.commit.value = CommitPhase.Committing(replace)
+        syncCounts()
         try {
             val resolved = adapter.commitMigration(row.entry, target, replace, flags)
             row.chosen.value = resolved
@@ -232,6 +281,8 @@ class EntryMigrationListScreenModel(
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Migration failed for ${row.entry.id}" }
             row.commit.value = CommitPhase.Failed(replace, flags, fromBatch)
+        } finally {
+            syncCounts()
         }
     }
 
@@ -288,11 +339,19 @@ class EntryMigrationListScreenModel(
         data object Exit : Dialog
     }
 
+    /** Counts are stored, not derived: see [syncCounts]. */
     data class State(
         val isLoading: Boolean = true,
         val tuning: MigrationTuning = MigrationTuning(),
         val rows: List<MigratingEntryRow> = emptyList(),
         val searchedCount: Int = 0,
+        /** Every row has settled, so the totals the commit bar shows are final. */
+        val allSearched: Boolean = false,
+        val committableCount: Int = 0,
+        /** Rows a commit would leave alone: skipped, or with nothing to migrate onto. */
+        val untouchedCount: Int = 0,
+        val hasUnaccepted: Boolean = false,
+        val singleCommitInFlight: Boolean = false,
         val migratedCount: Int = 0,
         val isCommitting: Boolean = false,
         val finished: Boolean = false,
@@ -300,16 +359,6 @@ class EntryMigrationListScreenModel(
         val dialog: Dialog? = null,
     ) {
         val rowIds: Set<EntryId> = rows.mapTo(HashSet()) { it.entry.id }
-
-        /** Every row has settled, so the totals the commit bar shows are final. */
-        val allSearched: Boolean get() = rows.isNotEmpty() && rows.all { it.isSettled }
-
-        val committableCount: Int
-            get() = rows.count { MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value) }
-
-        /** Rows a commit would leave alone: skipped, or with nothing to migrate onto. */
-        val untouchedCount: Int
-            get() = rows.count { !it.commit.value.isDone && (it.skipped.value || it.chosen.value == null) }
     }
 }
 

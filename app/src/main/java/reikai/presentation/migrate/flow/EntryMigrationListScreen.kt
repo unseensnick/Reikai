@@ -1,7 +1,6 @@
 package reikai.presentation.migrate.flow
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,17 +13,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +47,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import reikai.domain.library.ContentType
@@ -96,6 +99,18 @@ class EntryMigrationListScreen(
                     subtitle = if (state.rows.size > 1) "${state.searchedCount} / ${state.rows.size}" else null,
                     navigateUp = { if (guardExit) screenModel.showExitConfirm() else navigator.pop() },
                     scrollBehavior = scrollBehavior,
+                    actions = {
+                        AppBarActions(
+                            listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
+                                    icon = Icons.Outlined.DoneAll,
+                                    onClick = screenModel::acceptAll,
+                                    enabled = state.hasUnaccepted,
+                                ),
+                            ),
+                        )
+                    },
                 )
             },
             bottomBar = {
@@ -191,7 +206,14 @@ private fun MigrationRow(
             RowStatusLine(row = row, search = search, commit = commit, skipped = skipped)
             RowCountLine(row = row, target = chosen)
         }
-        RowTrailing(row = row, commit = commit, screenModel = screenModel, skipped = skipped)
+        RowTrailing(
+            row = row,
+            search = search,
+            commit = commit,
+            chosen = chosen,
+            skipped = skipped,
+            screenModel = screenModel,
+        )
     }
 }
 
@@ -248,9 +270,11 @@ private fun RowCountLine(row: MigratingEntryRow, target: MigrationCandidate?) {
 @Composable
 private fun RowTrailing(
     row: MigratingEntryRow,
+    search: SearchPhase,
     commit: CommitPhase,
-    screenModel: EntryMigrationListScreenModel,
+    chosen: MigrationCandidate?,
     skipped: Boolean,
+    screenModel: EntryMigrationListScreenModel,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     when {
@@ -272,6 +296,23 @@ private fun RowTrailing(
                 contentDescription = stringResource(MR.strings.migrate),
                 tint = MaterialTheme.colorScheme.primary,
             )
+        }
+        // Accept: filled once a target is accepted, outlined while it is only a suggestion. Tapping
+        // an accepted row gives the target back, which is why it stays a control and not a chip.
+        !skipped && (chosen != null || search.suggestion != null) -> {
+            val accepted = chosen != null
+            val description = stringResource(
+                if (accepted) MR.strings.migrationFlow_acceptedLabel else MR.strings.action_accept,
+            )
+            if (accepted) {
+                FilledTonalIconButton(onClick = { screenModel.toggleAccept(row.entry.id) }) {
+                    Icon(imageVector = Icons.Filled.Check, contentDescription = description)
+                }
+            } else {
+                OutlinedIconButton(onClick = { screenModel.toggleAccept(row.entry.id) }) {
+                    Icon(imageVector = Icons.Filled.Check, contentDescription = description)
+                }
+            }
         }
     }
     // The menu renders in every non-terminal row state: skip has to stay reachable while a row is
