@@ -336,7 +336,12 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
 
     suspend fun removeMangaBySourceId(keepReadManga: Boolean) = withNonCancellableContext {
         val state = state.value as? State.Ready ?: return@withNonCancellableContext
-        database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
+        // RK --> guarded: a novel-only selection reaches here with no manga selected, and SQLDelight
+        // renders an empty collection as `IN ()`, which SQLite rejects, crashing the whole clear.
+        if (state.selection.isNotEmpty()) {
+            database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
+        }
+        // RK <--
         database.historyQueries.removeResettedHistory()
         // RK --> novel side of the clear; the keep-read toggle covers both content types
         if (state.novelSelection.isNotEmpty()) {
