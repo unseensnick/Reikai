@@ -91,7 +91,7 @@ fun Screen.EntryMigrateDialog(
                 )
                 if (state.failed) {
                     Text(
-                        text = stringResource(MR.strings.migrationListScreen_noMatchFoundText),
+                        text = stringResource(MR.strings.migrationFlow_commitFailed),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 8.dp),

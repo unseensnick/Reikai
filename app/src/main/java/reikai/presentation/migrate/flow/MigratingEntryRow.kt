@@ -102,6 +102,8 @@ class MigratingEntryRow(
     data class OverrideStrip(
         val sourceKey: String,
         val sourceName: String,
+        /** Raw language tag, localized at render (shared header shows it like global search). */
+        val sourceLang: String = "",
         val candidates: List<MigrationCandidate>,
         val error: String? = null,
     )

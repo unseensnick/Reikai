@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,7 +19,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -53,14 +53,17 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import tachiyomi.i18n.MR
@@ -291,13 +294,15 @@ private fun OverridePicker(
     val overrides by row.overrides.collectAsState()
     var query by rememberSaveable(row.entry.id.toString()) { mutableStateOf(row.entry.title) }
 
-    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+    Column(modifier = Modifier.padding(bottom = 12.dp)) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
             label = { Text(text = stringResource(MR.strings.action_search)) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             trailingIcon = {
                 IconButton(
                     onClick = { screenModel.searchOverrides(row.entry.id, query) },
@@ -342,55 +347,40 @@ private fun OverrideStripRow(
     onPick: (MigrationCandidate) -> Unit,
     onBrowseSource: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = strip.sourceName,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .weight(1f)
-                .padding(top = 10.dp, bottom = 2.dp),
-        )
-        // Browsing the whole source is the way out when the search cannot reach the title, which is
-        // exactly when the strip below has nothing in it.
-        IconButton(onClick = onBrowseSource) {
-            Icon(
-                imageVector = Icons.Outlined.TravelExplore,
-                contentDescription = stringResource(MR.strings.migrationFlow_browseSource),
-                modifier = Modifier.size(18.dp),
+    // The global-search section header, so this reads like the search screens everywhere else.
+    // Tapping it (or the arrow) browses the whole source, which is the way out when the search
+    // cannot reach the title, which is exactly when the strip below has nothing in it.
+    EntrySearchSection(
+        title = strip.sourceName,
+        subtitle = LocaleHelper.getSourceDisplayName(strip.sourceLang, LocalContext.current),
+        onClick = onBrowseSource,
+    ) {
+        when {
+            // A source that threw says so, rather than looking like a source with nothing to offer.
+            strip.error != null -> GlobalSearchErrorResultItem(message = strip.error)
+            strip.candidates.isEmpty() -> Text(
+                text = stringResource(MR.strings.no_results_found),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
-        }
-    }
-    when {
-        // A source that threw says so, rather than looking like a source with nothing to offer.
-        strip.error != null -> Text(
-            text = strip.error,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        strip.candidates.isEmpty() -> Text(
-            text = stringResource(MR.strings.no_results_found),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        else -> LazyRow {
-            items(items = strip.candidates, key = { it.key }) { candidate ->
-                Column(
-                    modifier = Modifier
-                        .width(96.dp)
-                        .padding(end = 8.dp)
-                        .clickable { onPick(candidate) },
-                ) {
-                    MangaCover.Book(modifier = Modifier.fillMaxWidth(), data = candidate.cover)
-                    Text(
-                        text = candidate.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+            else -> LazyRow(contentPadding = PaddingValues(horizontal = 16.dp)) {
+                items(items = strip.candidates, key = { it.key }) { candidate ->
+                    Column(
+                        modifier = Modifier
+                            .width(96.dp)
+                            .padding(end = 8.dp)
+                            .clickable { onPick(candidate) },
+                    ) {
+                        MangaCover.Book(modifier = Modifier.fillMaxWidth(), data = candidate.cover)
+                        Text(
+                            text = candidate.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }
@@ -408,7 +398,7 @@ private fun RowStatusLine(
 ) {
     val isError = commit is CommitPhase.Failed || search is SearchPhase.Failed
     val status = when {
-        commit is CommitPhase.Failed -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
+        commit is CommitPhase.Failed -> stringResource(MR.strings.migrationFlow_commitFailed)
         commit is CommitPhase.Migrated -> stringResource(MR.strings.migrate)
         // Skip outranks a failed search: the escape hatch has to confirm itself visibly.
         skipped -> stringResource(MR.strings.migrationFlow_skippedChip)

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.browse.components.BaseBrowseItem
@@ -128,9 +129,9 @@ fun BrowseSectionHeader(
 
 /** Shared with the Clear-database screen's novel rows; renders a placeholder when the URL is absent. */
 @Composable
-fun NovelSourceIcon(iconUrl: String?) {
+fun NovelSourceIcon(iconUrl: String?, size: Dp = 40.dp) {
     val modifier = Modifier
-        .size(40.dp)
+        .size(size)
         .clip(RoundedCornerShape(4.dp))
     if (iconUrl.isNullOrEmpty()) {
         Icon(

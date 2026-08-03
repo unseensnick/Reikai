@@ -312,6 +312,7 @@ class EntryMigrationListScreenModel(
                         MigratingEntryRow.OverrideStrip(
                             sourceKey = source.key,
                             sourceName = source.name,
+                            sourceLang = source.lang,
                             candidates = result.getOrDefault(emptyList()),
                             error = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
                         )

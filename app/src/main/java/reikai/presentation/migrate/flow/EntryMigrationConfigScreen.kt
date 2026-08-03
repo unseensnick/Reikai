@@ -1,25 +1,32 @@
 package reikai.presentation.migrate.flow
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -27,21 +34,27 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.components.NovelSourceIcon
+import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
+import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.util.selectedBackground
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -117,6 +130,8 @@ class EntryMigrationConfigScreen(
             val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
                 screenModel.reorder(from.key, to.key)
             }
+            // The language pill only earns its place when it disambiguates anything.
+            val showLanguage = (state.selected + state.available).distinctBy { it.lang }.size > 1
             FastScrollLazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
@@ -126,27 +141,33 @@ class EntryMigrationConfigScreen(
                     item(key = "selected-header") {
                         SectionHeader(stringResource(MR.strings.migrationConfigScreen_selectedHeader))
                     }
-                    itemsIndexed(state.selected, key = { _, source -> source.key }) { _, source ->
-                        ReorderableItem(reorderState, key = source.key) {
-                            SourceRow(
-                                source = source,
-                                selected = true,
-                                // Order only means something with more than one source in it.
-                                dragHandle = state.selected.size > 1,
-                                onClick = { screenModel.toggleSelection(source.key) },
-                            )
-                        }
+                    itemsIndexed(state.selected, key = { _, source -> source.key }) { index, source ->
+                        SourceItemContainer(
+                            firstItem = index == 0,
+                            lastItem = index == state.selected.size - 1,
+                            source = source,
+                            showLanguage = showLanguage,
+                            // Order only means something with more than one source in it.
+                            dragEnabled = state.selected.size > 1,
+                            state = reorderState,
+                            key = source.key,
+                            onClick = { screenModel.toggleSelection(source.key) },
+                        )
                     }
                 }
                 if (state.available.isNotEmpty()) {
                     item(key = "available-header") {
                         SectionHeader(stringResource(MR.strings.migrationConfigScreen_availableHeader))
                     }
-                    itemsIndexed(state.available, key = { _, source -> "available-${source.key}" }) { _, source ->
-                        SourceRow(
+                    itemsIndexed(state.available, key = { _, source -> "available-${source.key}" }) { index, source ->
+                        SourceItemContainer(
+                            firstItem = index == 0,
+                            lastItem = index == state.available.size - 1,
                             source = source,
-                            selected = false,
-                            dragHandle = false,
+                            showLanguage = showLanguage,
+                            dragEnabled = false,
+                            state = reorderState,
+                            key = "available-${source.key}",
                             onClick = { screenModel.toggleSelection(source.key) },
                         )
                     }
@@ -165,48 +186,110 @@ private fun SectionHeader(text: String) {
     )
 }
 
+/** The card-group row shape of Mihon's MigrationConfigScreen: rounded ends on each group, dividers
+ *  between rows, tap toggles the source between the lists. */
 @Composable
-private fun SourceRow(
+private fun LazyItemScope.SourceItemContainer(
+    firstItem: Boolean,
+    lastItem: Boolean,
     source: MigrationSourceUi,
-    selected: Boolean,
-    dragHandle: Boolean,
+    showLanguage: Boolean,
+    dragEnabled: Boolean,
+    state: ReorderableLazyListState,
+    key: Any,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectedBackground(selected)
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(checked = selected, onCheckedChange = { onClick() })
-        Column(
+    val shape = remember(firstItem, lastItem) {
+        val top = if (firstItem) 12.dp else 0.dp
+        val bottom = if (lastItem) 12.dp else 0.dp
+        RoundedCornerShape(top, top, bottom, bottom)
+    }
+
+    ReorderableItem(
+        state = state,
+        key = key,
+        enabled = dragEnabled,
+    ) { _ ->
+        ElevatedCard(
+            shape = shape,
             modifier = Modifier
-                .weight(1f)
-                .padding(start = 8.dp),
+                .padding(horizontal = MaterialTheme.padding.medium)
+                .animateItem(),
         ) {
+            SourceItem(
+                source = source,
+                showLanguage = showLanguage,
+                dragEnabled = dragEnabled,
+                scope = this@ReorderableItem,
+                onClick = onClick,
+            )
+        }
+    }
+
+    if (!lastItem) {
+        HorizontalDivider(modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium))
+    }
+}
+
+@Composable
+private fun SourceItem(
+    source: MigrationSourceUi,
+    showLanguage: Boolean,
+    dragEnabled: Boolean,
+    scope: ReorderableCollectionItemScope,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        trailingContent = if (dragEnabled) {
+            {
+                Icon(
+                    imageVector = Icons.Outlined.DragHandle,
+                    contentDescription = null,
+                    modifier = with(scope) {
+                        Modifier.draggableHandle()
+                    },
+                )
+            }
+        } else {
+            null
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MigrationSourceIcon(icon = source.icon)
             Text(
                 text = source.name,
-                style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
             )
-            // Language as quiet metadata, not a pill: it disambiguates same-named sources without
-            // competing with the name.
-            Text(
-                text = source.lang,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (showLanguage && source.lang.isNotEmpty()) {
+                Pill(
+                    // Manga langs are short tags ("en" -> "EN"); novel plugins declare full names
+                    // ("English"), which stay as-is rather than becoming a shouting pill.
+                    text = if (source.lang.length <= 6) {
+                        LocaleHelper.getShortDisplayName(source.lang, uppercase = true)
+                    } else {
+                        source.lang
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
-        if (dragHandle) {
-            Icon(
-                imageVector = Icons.Filled.DragHandle,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    }
+}
+
+/** The per-type icon payload: the manga side carries a domain [Source], the novel side its icon URL. */
+@Composable
+private fun MigrationSourceIcon(icon: Any?) {
+    when (icon) {
+        is Source -> SourceIcon(source = icon, modifier = Modifier.size(32.dp))
+        else -> NovelSourceIcon(iconUrl = icon as? String, size = 32.dp)
     }
 }
 

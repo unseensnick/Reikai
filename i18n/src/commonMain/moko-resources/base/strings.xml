@@ -1304,6 +1304,7 @@
     <string name="migrationFlow.showEntry">Show</string>
     <string name="migrationFlow.acceptAllLabel">Accept all matches</string>
     <string name="migrationFlow.skippedChip">Skipped</string>
+    <string name="migrationFlow.commitFailed">Migration failed</string>
     <string name="migrationFlow.browseSource">Browse this source</string>
     <string name="migrationFlow.searchOptionsTitle">Search options</string>
     <string name="migrationFlow.busyToast">Still working. Try again in a moment.</string>

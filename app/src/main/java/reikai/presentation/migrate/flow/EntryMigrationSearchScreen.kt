@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,20 +8,15 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -35,9 +32,13 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
+import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
+import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.util.system.LocaleHelper
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -46,6 +47,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.EntrySearchSection
+import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -74,6 +77,7 @@ class EntryMigrationSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
         val screenModel = rememberScreenModel { EntryMigrationSearchScreenModel(contentType, entryId) }
         val state by screenModel.state.collectAsState()
         var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
@@ -90,41 +94,65 @@ class EntryMigrationSearchScreen(
             return
         }
 
+        // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
+        LaunchedEffect(state.isLoading) {
+            if (!state.isLoading) screenModel.collectPendingPick()
+        }
+
         Scaffold(
             topBar = { scrollBehavior ->
-                AppBar(
-                    title = entry.title,
-                    subtitle = "${state.searchedCount} / ${state.sections.size}",
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
+                // The global-search header shape: search field in the toolbar, progress under it,
+                // then the has-results chip. Same surface, same reading.
+                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                    Box {
+                        SearchToolbar(
+                            searchQuery = query,
+                            onChangeSearchQuery = { query = it.orEmpty() },
+                            onSearch = { screenModel.search(it) },
+                            onClickCloseSearch = navigator::pop,
+                            navigateUp = navigator::pop,
+                            scrollBehavior = scrollBehavior,
+                        )
+                        val progress = state.searchedCount
+                        val total = state.sections.size
+                        if (progress in 1..<total) {
+                            LinearProgressIndicator(
+                                progress = { progress / total.toFloat() },
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .fillMaxWidth(),
+                            )
+                        }
+                    }
+                    EntrySearchSourceFilterChips(
+                        isPinnedOnly = false,
+                        onlyShowHasResults = state.onlyShowHasResults,
+                        // The sources searched are the configured migration targets; the
+                        // pinned/all source filter has no meaning here.
+                        showSourceFilter = false,
+                        onSelectPinnedOnly = {},
+                        onSelectAll = {},
+                        onToggleResults = screenModel::toggleOnlyResults,
+                    )
+                }
             },
         ) { contentPadding ->
+            val sections = if (state.onlyShowHasResults) {
+                state.sections.filter { it.loading || it.candidates.isNotEmpty() }
+            } else {
+                state.sections
+            }
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
-                item(key = "query") {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        label = { Text(text = stringResource(MR.strings.action_search)) },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(MaterialTheme.padding.medium),
-                        trailingIcon = {
-                            IconButton(
-                                onClick = { screenModel.search(query) },
-                                enabled = query.isNotBlank(),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Search,
-                                    contentDescription = stringResource(MR.strings.action_search),
-                                )
+                items(items = sections, key = { it.sourceKey }) { section ->
+                    SourceSection(
+                        section = section,
+                        onPick = screenModel::showDialog,
+                        onBrowseSource = {
+                            if (!openDeepPicker(navigator, entry, section.sourceKey, query)) {
+                                context.toast(MR.strings.internal_error)
                             }
                         },
                     )
-                }
-                items(items = state.sections, key = { it.sourceKey }) { section ->
-                    SourceSection(section = section, onPick = screenModel::showDialog)
                 }
             }
         }
@@ -158,32 +186,22 @@ class EntryMigrationSearchScreen(
 private fun SourceSection(
     section: EntryMigrationSearchScreenModel.Section,
     onPick: (MigrationCandidate) -> Unit,
+    onBrowseSource: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-        Text(
-            text = section.sourceName,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium, vertical = 4.dp),
-        )
+    // The global-search section header. Tapping it (or the arrow) browses the whole source, for
+    // when the search cannot reach the title.
+    EntrySearchSection(
+        title = section.sourceName,
+        subtitle = LocaleHelper.getSourceDisplayName(section.sourceLang, LocalContext.current),
+        onClick = onBrowseSource,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+    ) {
         when {
-            section.loading -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-            }
+            section.loading -> GlobalSearchLoadingResultItem()
             // A source that threw says so; "no results" would be a different, wrong answer.
-            section.error != null -> Text(
-                text = section.error,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
-            )
+            section.error != null -> GlobalSearchErrorResultItem(message = section.error)
             section.candidates.isEmpty() -> Text(
                 text = stringResource(MR.strings.no_results_found),
                 style = MaterialTheme.typography.bodySmall,
@@ -225,6 +243,8 @@ class EntryMigrationSearchScreenModel(
         else -> Injekt.get<NovelMigrationFlowAdapter>()
     }
 
+    private val pickHandoff: MigrationPickHandoff = Injekt.get()
+
     private val permits = Semaphore(SEARCH_CONCURRENCY)
 
     @Volatile
@@ -250,7 +270,7 @@ class EntryMigrationSearchScreenModel(
         val sources = sourcesFor()
         searchJob?.cancel()
         mutableState.update { state ->
-            state.copy(sections = sources.map { Section(it.key, it.name, loading = true) })
+            state.copy(sections = sources.map { Section(it.key, it.name, it.lang, loading = true) })
         }
         searchJob = screenModelScope.launchIO {
             val myJob = coroutineContext[Job]
@@ -299,9 +319,30 @@ class EntryMigrationSearchScreenModel(
 
     fun dismissDialog() = mutableState.update { it.copy(dialogTarget = null) }
 
+    fun toggleOnlyResults() = mutableState.update { it.copy(onlyShowHasResults = !it.onlyShowHasResults) }
+
+    /**
+     * Open the migrate dialog for a target picked on a pushed browse screen, if one came back for
+     * this entry. Called when the screen returns to the foreground; the pick is a stored row
+     * already, so it wraps into a resolved candidate with no search.
+     */
+    fun collectPendingPick() {
+        val entry = state.value.entry ?: return
+        screenModelScope.launchIO {
+            val targetRawId = pickHandoff.take(entry.id) ?: return@launchIO
+            // The entry itself is never a target: the engines would no-op.
+            if (targetRawId == entry.id.rawId) return@launchIO
+            val candidate = runCatchingCancellable { adapter.storedCandidate(targetRawId) }.getOrNull()
+                ?: return@launchIO
+            mutableState.update { it.copy(dialogTarget = candidate) }
+        }
+    }
+
     data class Section(
         val sourceKey: String,
         val sourceName: String,
+        /** Raw language tag, localized at render (shared header shows it like global search). */
+        val sourceLang: String = "",
         val loading: Boolean = false,
         val candidates: List<MigrationCandidate> = emptyList(),
         val error: String? = null,
@@ -312,6 +353,7 @@ class EntryMigrationSearchScreenModel(
         val entry: MigrationEntry? = null,
         val sections: List<Section> = emptyList(),
         val dialogTarget: MigrationCandidate? = null,
+        val onlyShowHasResults: Boolean = false,
     ) {
         val searchedCount: Int get() = sections.count { !it.loading }
     }
