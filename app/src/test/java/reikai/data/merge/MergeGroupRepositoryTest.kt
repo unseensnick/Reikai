@@ -2,6 +2,7 @@ package reikai.data.merge
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -160,12 +161,68 @@ class MergeGroupRepositoryTest {
         val g1 = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
         val g2 = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
 
-        // Merging one member of each group pulls in every hidden member and dissolves the old groups.
+        // Merging one member of each group pulls in every hidden member.
         val merged = repository.merge(ContentType.MANGA, listOf(1, 3))!!
 
         repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(1L, 2L, 3L, 4L)
-        repository.getGroup(g1).shouldBeNull()
+        // The first id's group is the one that SURVIVES, keeping its row and everything on it; only
+        // the absorbed one goes. Rebuilding into a fresh row is what used to drop the group's own
+        // columns, so this pins the identity, not just the membership.
+        merged shouldBe g1
         repository.getGroup(g2).shouldBeNull()
+    }
+
+    @Test
+    fun `merge appends a newcomer to a hand-ordered group instead of re-trunking it`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        // The user dragged 2 to the trunk.
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 1))
+
+        // "Add to existing group" names the newcomer first, as every one of those call sites does.
+        val merged = repository.merge(ContentType.MANGA, listOf(3, 1))!!
+
+        // Argument order must NOT decide here: the newcomer goes last and the hand-set trunk stays.
+        repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(2L, 1L, 3L)
+        repository.getGroup(merged)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `merge does not turn an absorbed group's ranking into the merged group's`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val plain = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        val ranked = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+        repository.setSourceOrder(ContentType.MANGA, ranked, listOf(4, 3))
+
+        // The unranked group is named first, so it survives and its (absent) ranking wins.
+        val merged = repository.merge(ContentType.MANGA, listOf(1, 3))!!
+
+        // Carrying the flag across would hand 2 and 4 a per-group ranking nobody ever set, with no
+        // way back except discarding the real one too.
+        repository.getGroup(merged)!!.overrideSourceRanking shouldBe false
+        repository.getGroup(ranked).shouldBeNull()
+    }
+
+    @Test
+    fun `merge renumbers priorities so a later arrival cannot land mid-order`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(1, 2, 3))
+        // Leaves 1 at priority 0 and 3 at priority 2, with the 1 slot free.
+        repository.removeFromGroup(ContentType.MANGA, listOf(2))
+
+        repository.merge(ContentType.MANGA, listOf(1, 4))
+
+        // Without the renumber the newcomer takes the default priority and sorts into the hole.
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 3L, 4L)
     }
 
     @Test
@@ -227,6 +284,38 @@ class MergeGroupRepositoryTest {
 
         repository.getGroup(groupId).shouldBeNull()
         repository.getGroupId(ContentType.MANGA, 2).shouldBeNull()
+    }
+
+    @Test
+    fun `replaceInGroup hands a dissolving group to the hook, with the group as it stood`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        val handedOut = mutableListOf<List<Long>>()
+        repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        // Migrating onto a sibling really does break the group up, so each member has to be handed
+        // its own copy of the shared tracker binding first. The hook sees the PRE-state, including
+        // the departing member, since that is the group whose sharing is ending.
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 2) { handedOut += it }
+
+        handedOut shouldBe listOf(listOf(1L, 2L))
+    }
+
+    @Test
+    fun `replaceInGroup does not call the hook when it only absorbs a group`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val handedOut = mutableListOf<List<Long>>()
+        repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 3) { handedOut += it }
+
+        // The absorbed group's row goes, but its members stay merged, so nothing stopped sharing and
+        // handing out copies here would be noise.
+        handedOut.shouldBeEmpty()
     }
 
     @Test
@@ -384,13 +473,47 @@ class MergeGroupRepositoryTest {
         repository.setSourceOrder(ContentType.MANGA, groupId, listOf(3, 1, 2))
         val before = repository.getMembers(ContentType.MANGA, groupId)
 
-        // What the details screen does: split the middle source out, then Undo re-merges the prior
-        // group in the order it had.
+        // What the details screen does: capture the group, split the middle source out, then Undo
+        // materialises the captured group. Not a merge: a merge appends, so it would return the
+        // split member to the end instead of the middle it came from.
         repository.removeFromGroup(ContentType.MANGA, listOf(1))
-        val restored = repository.merge(ContentType.MANGA, before)!!
+        val restored = repository.materializeGroup(ContentType.MANGA, before, overrideSourceRanking = true)!!
 
         repository.getMembers(ContentType.MANGA, restored) shouldBe before
         repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `undoing a split of a PAIR restores the override the dissolve destroyed`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 1))
+        val before = repository.getMembers(ContentType.MANGA, groupId)
+
+        // The discriminating shape: a pair shrinks below two members, so the group ROW is deleted and
+        // the flag goes with it. Anything that reads the flag after the split reads nothing, which is
+        // why the caller has to have captured it first.
+        repository.removeFromGroup(ContentType.MANGA, listOf(1))
+        repository.getGroup(groupId).shouldBeNull()
+        val restored = repository.materializeGroup(ContentType.MANGA, before, overrideSourceRanking = true)!!
+
+        repository.getMembers(ContentType.MANGA, restored) shouldBe before
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `materializeGroup replaces a prior grouping rather than folding into it`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        // Stating the whole group is the point: a merge would have absorbed 2 as a hidden member.
+        val materialized = repository.materializeGroup(ContentType.MANGA, listOf(3, 1), false)!!
+
+        repository.getMembers(ContentType.MANGA, materialized) shouldBe listOf(3L, 1L)
+        repository.getGroupId(ContentType.MANGA, 2).shouldBeNull()
     }
 
     @Test
@@ -403,7 +526,8 @@ class MergeGroupRepositoryTest {
 
         val merged = repository.merge(ContentType.NOVELS, listOf(3, 2))!!
 
-        repository.getMembers(ContentType.NOVELS, merged) shouldBe listOf(3L, 2L, 1L)
+        // Same rule as manga: the group that survives keeps its trunk, the newcomer appends.
+        repository.getMembers(ContentType.NOVELS, merged) shouldBe listOf(2L, 1L, 3L)
         repository.getGroup(merged)!!.overrideSourceRanking shouldBe true
     }
 

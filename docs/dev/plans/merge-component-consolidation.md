@@ -66,6 +66,39 @@ Composition: `MangaScreenModel` builds the host inside a `// RK` island (its mer
 
 **Group ordering fixed in the repository (`412b95ba6`, 2026-08-04).** `merge()` rebuilt a group from scratch at the default priority, so it discarded both the hand-set manage-sources order and the group's `override_source_ranking`; reachable from a split Undo, adding a source to a group, and backup restore. It now takes its member order from the argument list, expanding an absorbed group in place, and ORs the override across the groups it absorbs. A **named** member keeps its argument position rather than being pulled forward by its group, which is what makes an undo an exact restoration: the scouted rule (expand each id's group at that id's position) fails when the split member sat in the middle, returning it to the end. `replaceInGroup` seats the arriving member in the outgoing one's slot, since a fresh row otherwise sorts last on the default priority, and member order is now written explicitly so `addMembers` appends rather than landing mid-order. No schema change: the insert queries already took a priority and the member reads already ordered by it. Eight new tests, each verified by deleting the clause it pins (one was vacuous until the case was changed to replace the LAST member, where the buggy and fixed behaviour actually differ). Device-verified: after a middle-source split and Undo, the group came back as `10, 505, 3` with the override still on, and the group id changed, proving the re-merge really ran.
 
+**One group-forming primitive, and one unit of work with the favorite swap (2026-08-04).** A whole-system
+audit of the migrate and merge systems found the ordering fix above had left two writers deciding the same
+group-owned facts. `merge()` still rebuilt the group into a fresh row, so it had to re-carry the override
+flag by hand and dropped `title_override` / `cover_override` by default, while `replaceInGroup` kept its
+row and carried them for free. What landed:
+
+- **`merge()` now reuses a surviving group row instead of rebuilding one.** The survivor is the group of
+  the first id that has one, so it keeps its id, its members' order and every group-owned column by
+  construction rather than by remembering to copy each. Arrivals are appended: argument order decides the
+  order only for a group that never had one, which stops "add to existing group" (every call site names
+  the newcomer first) from putting a never-ranked source on the trunk of a hand-ordered group.
+- **The override flag comes from the surviving group, not an OR across absorbed ones.** The OR turned one
+  flagged group into a fabricated ranking for everything it absorbed. `replaceInGroup` already followed
+  the survivor rule, so the two now agree.
+- **`materializeGroup(orderedIds, override)` is the new op for a caller that knows the whole answer**: it
+  replaces whatever grouping those members had with exactly that group, order and flag. Split-Undo uses
+  it, via a `GroupSnapshot` the action host captures BEFORE the split, since splitting a pair deletes the
+  group row and takes the flag with it. This is the "one repository operation rather than merge plus a
+  correction" the backup note below asks for, and backup restore should adopt it.
+- **`replaceInGroup` takes an `onDissolve` hook and runs it inside its transaction** for the one branch
+  that really breaks a group up (migrating onto a sibling, which leaves the target alone). Absorbing the
+  arriving member's group is not a break-up and does not fire it. The manager's old claim that a replace
+  never dissolves was false for two of four branches.
+- **Both migration engines now put the group rewrite and the favorite swap in one transaction, swap last**
+  (`Transactions`, a one-method seam so a use case can say "these commit together" and still be
+  constructible in a plain JVM test). They were two transactions with a suspension point between them, so
+  a cancelled batch could commit the swap and never reach the rewrite, leaving the source out of the
+  library but still in the group, feeding chapters into it while invisible there and unreachable to
+  unmerge.
+
+Eight new repository tests plus two per engine, each verified by deleting the production clause it pins.
+The audit that produced this is `docs/dev/audits/2026-08-04-migrate-and-merge-systems.md` (local).
+
 Backup still carries neither the order nor the flag, and that is a separate, parked gap (ROADMAP, Later -> Data & backup): the creator reads the unordered membership map instead of the ordered member query, and the group models have no flag field. The structural note recorded with it: restore should gain one repository operation that materialises a group with its order and flag, rather than calling `merge()` and then correcting its result, which would leave two writers deciding the same two facts.
 
 ## Decisions & tradeoffs

@@ -42,11 +42,35 @@ open class EntryMergeManager(
         repository.merge(contentType, ids)
     }
 
-    /** Atomically swap [oldId] out of its group and [newId] in (a replace migration); no-op when
-     *  [oldId] is ungrouped. No [onBeforeDissolve]: the group survives, only its membership changes,
-     *  and the departing entry is being removed from the library by the migration anyway. */
+    /**
+     * Atomically swap [oldId] out of its group and [newId] in (a replace migration); no-op when
+     * [oldId] is ungrouped.
+     *
+     * Usually the group survives and only its membership changes, but migrating onto a sibling of the
+     * same group leaves the target alone in it and really does break the group up, so the hook is
+     * handed to the repository rather than skipped. It has to run inside that transaction, while the
+     * departing entry is still favorited, which is why it goes down instead of being called here.
+     */
     suspend fun replaceInGroup(oldId: Long, newId: Long) {
-        repository.replaceInGroup(contentType, oldId, newId)
+        repository.replaceInGroup(contentType, oldId, newId, onBeforeDissolve)
+    }
+
+    /**
+     * What an exact undo of a split needs, read before the split runs: a group that shrinks below two
+     * members is deleted outright and takes its ranking with it, so the flag cannot be recovered
+     * afterwards. Empty for an ungrouped entry.
+     */
+    override suspend fun captureGroup(anchorId: Long): GroupSnapshot {
+        val groupId = repository.getGroupId(contentType, anchorId) ?: return GroupSnapshot.EMPTY
+        return GroupSnapshot(
+            orderedMemberIds = repository.getMembers(contentType, groupId),
+            overrideSourceRanking = repository.getGroup(groupId)?.overrideSourceRanking == true,
+        )
+    }
+
+    /** Put a captured group back exactly: same members, same order, same ranking. */
+    override suspend fun restoreGroup(snapshot: GroupSnapshot) {
+        repository.materializeGroup(contentType, snapshot.orderedMemberIds, snapshot.overrideSourceRanking)
     }
 
     override fun membershipChanges(): Flow<Map<Long, Long>> =

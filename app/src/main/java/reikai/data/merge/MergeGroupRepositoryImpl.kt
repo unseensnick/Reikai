@@ -101,38 +101,75 @@ class MergeGroupRepositoryImpl(
     override suspend fun merge(contentType: ContentType, ids: List<Long>): Long? {
         val distinct = ids.distinct()
         if (distinct.size < 2) return null
+        return database.transactionWithResult { absorb(contentType, distinct) }
+    }
+
+    override suspend fun materializeGroup(
+        contentType: ContentType,
+        orderedMemberIds: List<Long>,
+        overrideSourceRanking: Boolean,
+    ): Long? {
+        val distinct = orderedMemberIds.distinct()
+        if (distinct.size < 2) return null
         return database.transactionWithResult {
-            val groupIds = groupIdsForMembers(contentType, distinct)
-            val members = mergedOrder(contentType, distinct)
-            // The override survives if ANY absorbed group carried one. Rebuilding the group without
-            // it silently discarded a ranking the user set by hand, on every path that merges:
-            // undoing a source split, adding a source to a group, and backup restore.
-            val override = groupIds.any { getGroup(it)?.overrideSourceRanking == true }
-            groupIds.forEach { queries.deleteGroup(it) }
+            // Unlike a merge, this states the WHOLE truth about the group it produces, so every prior
+            // group of these members goes rather than being folded in. That is what makes undoing a
+            // split exact: one writer decides the membership, the order and the flag together,
+            // instead of a merge deciding them and a second call correcting the result.
+            groupIdsForMembers(contentType, distinct).forEach { queries.deleteGroup(it) }
             queries.insertGroup(contentType.toDbValue())
             val groupId = queries.selectLastInsertedRowId().awaitAsOne()
-            members.forEachIndexed { index, id -> insertMember(contentType, groupId, id, index.toLong()) }
-            if (override) queries.setOverrideSourceRanking(override = 1L, groupId = groupId)
+            distinct.forEachIndexed { index, id -> insertMember(contentType, groupId, id, index.toLong()) }
+            if (overrideSourceRanking) queries.setOverrideSourceRanking(override = 1L, groupId = groupId)
             groupId
         }
     }
 
     /**
-     * The member order a merge produces.
+     * Fold [ids], and every group they already belong to, into one group; returns it. Caller supplies
+     * the transaction.
      *
-     * Argument order decides it, because argument order is meaningful at every call site: undoing a
-     * split passes the prior group in its own trunk order, and adding to a group passes the anchor
-     * first. A member that is absorbed without being named (the rest of a group one of the ids
-     * belongs to) follows the id that brought it in, in its own group's order.
+     * A surviving group row is REUSED, never rebuilt. Every group-owned column then survives by
+     * construction (the override flag today, the title and cover overrides that have no writer yet)
+     * rather than having to be re-carried by hand wherever a group is formed, which is how rebuilding
+     * came to discard a ranking the user set. The survivor is the group of the first id that has one,
+     * so "add these sources to that group" keeps that group's identity and its ranking; a group that
+     * is absorbed loses its own flag, the same rule [replaceInGroup] has always followed.
      *
-     * A NAMED member keeps its argument position rather than being pulled forward by its group. That
-     * is what makes undoing a split an exact restoration: the split member is named in the middle of
-     * the prior order, and expanding its old group first would push it to the end instead.
-     *
-     * The old rule sorted by id, so the trunk of every merged group was an accident of insertion
-     * order and an undo was a reshuffle.
+     * The survivor's members keep their order and arrivals are APPENDED. Argument order decides the
+     * order only for a group that never had one: letting it re-order an existing group put a
+     * never-ranked newcomer on the trunk of every hand-ordered group it was added to. A caller that
+     * means to state an order outright wants [materializeGroup] instead.
      */
-    private suspend fun mergedOrder(contentType: ContentType, ids: List<Long>): List<Long> {
+    private suspend fun absorb(contentType: ContentType, ids: List<Long>): Long {
+        val survivorId = ids.firstNotNullOfOrNull { getGroupId(contentType, it) }
+        val kept = survivorId?.let { getMembers(contentType, it) }.orEmpty()
+        val keptSet = kept.toHashSet()
+        val order = kept + arrivalOrder(contentType, ids).filterNot { it in keptSet }
+
+        val groupId = survivorId ?: run {
+            queries.insertGroup(contentType.toDbValue())
+            queries.selectLastInsertedRowId().awaitAsOne()
+        }
+        absorbedGroups(contentType, ids, into = groupId).forEach { queries.deleteGroup(it) }
+        // Priorities are rewritten across the whole group, which also closes the holes a removal
+        // leaves behind, so a later default-priority insert cannot land in the middle of the order.
+        order.forEachIndexed { index, id ->
+            if (id in keptSet) {
+                setMemberPriority(contentType, id, index.toLong())
+            } else {
+                insertMember(contentType, groupId, id, index.toLong())
+            }
+        }
+        return groupId
+    }
+
+    /**
+     * The order arrivals are appended in: each named id, followed by the members it brings along from
+     * its own group in that group's order. A NAMED id keeps its argument position rather than being
+     * pulled forward by its group, so a caller naming members in a meaningful order gets it.
+     */
+    private suspend fun arrivalOrder(contentType: ContentType, ids: List<Long>): List<Long> {
         val named = ids.toHashSet()
         val ordered = LinkedHashSet<Long>()
         ids.forEach { id ->
@@ -144,6 +181,10 @@ class MergeGroupRepositoryImpl(
         }
         return ordered.toList()
     }
+
+    /** The group rows [ids] drag in that are not the survivor: emptied by the absorb, so deleted. */
+    private suspend fun absorbedGroups(contentType: ContentType, ids: List<Long>, into: Long): List<Long> =
+        groupIdsForMembers(contentType, ids).filterNot { it == into }
 
     override suspend fun removeFromGroup(contentType: ContentType, targetIds: List<Long>): List<Long> {
         if (targetIds.isEmpty()) return emptyList()
@@ -158,7 +199,12 @@ class MergeGroupRepositoryImpl(
         }
     }
 
-    override suspend fun replaceInGroup(contentType: ContentType, oldId: Long, newId: Long) {
+    override suspend fun replaceInGroup(
+        contentType: ContentType,
+        oldId: Long,
+        newId: Long,
+        onDissolve: suspend (memberIds: List<Long>) -> Unit,
+    ) {
         database.transaction {
             val groupId = getGroupId(contentType, oldId) ?: return@transaction
             val before = getMembers(contentType, groupId)
@@ -166,7 +212,9 @@ class MergeGroupRepositoryImpl(
             when (val newGroupId = getGroupId(contentType, newId)) {
                 groupId -> {}
                 null -> insertMember(contentType, groupId, newId)
-                // The new member brings its own group along, like merge() would.
+                // The new member brings its own group along, exactly as an absorb does: this group's
+                // row survives and keeps its own ranking, the absorbed one's row goes. Its members
+                // stay merged, so this is not a dissolve and the hook does not fire.
                 else -> {
                     getMembers(contentType, newGroupId).forEach { member ->
                         deleteMember(contentType, member)
@@ -177,9 +225,11 @@ class MergeGroupRepositoryImpl(
             }
             // A group of one is not a group. Migrating onto a sibling of the same group leaves the
             // target alone in it, and an empty group is left by a replace inside a pair; both are
-            // dissolved here, matching removeFromGroup.
+            // dissolved here, matching removeFromGroup. This one IS a break-up, so the hook runs
+            // with the group as it stood, while its members are still favorited.
             val remaining = getMembers(contentType, groupId)
             if (remaining.size < 2) {
+                onDissolve(before)
                 queries.deleteGroup(groupId)
                 return@transaction
             }

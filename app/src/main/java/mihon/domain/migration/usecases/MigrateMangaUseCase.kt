@@ -11,6 +11,7 @@ import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.db.Transactions
 import reikai.domain.manga.MangaMergeManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
@@ -47,6 +48,8 @@ class MigrateMangaUseCase(
     // RK: the repository, not UpdateChapter, because that interactor logs and swallows; the carry
     // has to be able to fail the row. Same reason the novel engine checks its own carry.
     private val chapterRepository: ChapterRepository = Injekt.get(),
+    // RK: so the favorite swap and the merge-group rewrite can share one transaction; see below.
+    private val transactions: Transactions = Injekt.get(),
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -170,21 +173,25 @@ class MigrateMangaUseCase(
                 notes = if (MigrationFlag.NOTES in flags) current.notes else null,
             )
 
-            // RK: checked, where upstream discards the result. The swap is the step that decides
-            // which entry is in the library; letting it fail quietly reports the row as Migrated
-            // with the source still favorited and the merge group already moved to the target.
-            check(updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))) {
-                "Migration favorite swap failed (${current.id} -> ${target.id})"
-            }
-
-            // RK --> keep the merge consistent: the target takes the source's place in the group on a
-            // replace, or joins it on a copy. Works for manual and same-title auto groups. The swap is
-            // one atomic repository call: split-then-merge as two calls left a cancellation window a
-            // retry could not heal (it saw the source already ungrouped and skipped the join).
-            if (replace) {
-                mangaMergeManager.replaceInGroup(current.id, target.id)
-            } else if (mergeGroup.size > 1) {
-                mangaMergeManager.merge(mergeGroup.toList() + target.id)
+            // RK --> the favorite swap and the merge-group rewrite are ONE unit of work, with the
+            // swap genuinely last inside it. They used to be two transactions with a suspension point
+            // between them, so a batch the user cancelled could commit the swap and never reach the
+            // rewrite: the source ended up out of the library but still in the group, feeding
+            // chapters into it while invisible there and unreachable to unmerge.
+            transactions.run {
+                // The target takes the source's place in the group on a replace, or joins it on a
+                // copy. Works for manual and same-title auto groups.
+                if (replace) {
+                    mangaMergeManager.replaceInGroup(current.id, target.id)
+                } else if (mergeGroup.size > 1) {
+                    mangaMergeManager.merge(mergeGroup.toList() + target.id)
+                }
+                // Checked, where upstream discards the result. The swap is the step that decides which
+                // entry is in the library; letting it fail quietly reports the row as Migrated with
+                // the source still favorited. Throwing here rolls the group rewrite back with it.
+                check(updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))) {
+                    "Migration favorite swap failed (${current.id} -> ${target.id})"
+                }
             }
             // RK <--
         } catch (e: Throwable) {

@@ -55,8 +55,30 @@ interface MergeGroupRepository {
      * Merge [ids] into one group, absorbing any groups they already belong to (so merging two collapsed
      * cards pulls in every hidden member). Atomic. Returns the resulting group id, or null when fewer
      * than two distinct entries would take part.
+     *
+     * The group of the first id that has one SURVIVES, keeping its id, its member order and its
+     * per-group ranking; arrivals are appended after its members. So adding a source to a group the
+     * user ordered by hand leaves that order alone and puts the newcomer last, and an absorbed group's
+     * own ranking does not follow it across. A caller stating a whole group outright, order and flag
+     * together, wants [materializeGroup] instead.
      */
     suspend fun merge(contentType: ContentType, ids: List<Long>): Long?
+
+    /**
+     * Replace whatever grouping [orderedMemberIds] currently have with exactly one group: these members,
+     * in this order, with this [overrideSourceRanking]. Atomic. Returns the group id, or null for fewer
+     * than two distinct ids.
+     *
+     * The counterpart to [merge] for a caller that knows the whole answer: undoing a source split, and
+     * materializing a backed-up group. Distinct from merge because a merge folds in members it was not
+     * given and cannot restore a flag whose group row is already gone, so restoring through it took a
+     * merge plus a correction, leaving two writers deciding the same two facts.
+     */
+    suspend fun materializeGroup(
+        contentType: ContentType,
+        orderedMemberIds: List<Long>,
+        overrideSourceRanking: Boolean,
+    ): Long?
 
     /**
      * Remove [targetIds] from their group and return the surviving members. If the removal leaves fewer
@@ -70,8 +92,19 @@ interface MergeGroupRepository {
      * half-swapped and a retry, seeing [oldId] already ungrouped, silently skipped the join. No-op
      * when [oldId] is ungrouped, which is also what makes a retry after full success harmless. As
      * with [removeFromGroup], a group left with fewer than two members is dissolved.
+     *
+     * [onDissolve] runs, inside the transaction, with the group's members as they stood, for the one
+     * case that really breaks a group up: migrating onto a sibling, which leaves the target alone.
+     * Absorbing the arriving member's group is not a break-up (those members stay merged) and does
+     * not call it. The hook exists because a dissolving group has to hand each member its own copy of
+     * the shared tracker binding first; see [EntryMergeManager].
      */
-    suspend fun replaceInGroup(contentType: ContentType, oldId: Long, newId: Long)
+    suspend fun replaceInGroup(
+        contentType: ContentType,
+        oldId: Long,
+        newId: Long,
+        onDissolve: suspend (memberIds: List<Long>) -> Unit = {},
+    )
 
     /** Dissolve the group [entryId] belongs to, if any (every member becomes standalone). */
     suspend fun dissolve(contentType: ContentType, entryId: Long)

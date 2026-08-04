@@ -13,6 +13,8 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.db.PassThroughTransactions
+import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -58,6 +60,7 @@ class MigrateNovelUseCaseTest {
         novelDownloadManager: NovelDownloadManager = mockk(relaxed = true),
         novelRepository: NovelRepository = defaultNovelRepo(),
         sourceManager: NovelSourceManager = mockk(relaxed = true),
+        transactions: Transactions = PassThroughTransactions,
     ) = MigrateNovelUseCase(
         novelChapterRepository = novelChapterRepository,
         getNovelCategories = mockk(relaxed = true),
@@ -73,7 +76,26 @@ class MigrateNovelUseCaseTest {
         sourceManager = sourceManager,
         novelRepository = novelRepository,
         database = mockk(relaxed = true),
+        transactions = transactions,
     )
+
+    /** Twin of the manga suite's: observes where the engine put its writes, which a pass-through
+     *  fake cannot tell apart from two separate transactions. */
+    private class RecordingTransactions : Transactions {
+        var entered = 0
+        var completed = 0
+        var inside = false
+
+        override suspend fun <T> run(block: suspend () -> T): T {
+            entered++
+            inside = true
+            try {
+                return block().also { completed++ }
+            } finally {
+                inside = false
+            }
+        }
+    }
 
     @Test
     fun `cover flag copies the custom cover onto the target and bumps its timestamp`() = runTest {
@@ -241,6 +263,59 @@ class MigrateNovelUseCaseTest {
         shouldThrow<IllegalStateException> {
             useCase(novelRepository = repo)(novel(1), novel(2), emptySet(), replace = true, skipTargetRefresh = true)
         }
+    }
+
+    @Test
+    fun `the group rewrite and the favorite swap are one unit of work`() = runTest {
+        val transactions = RecordingTransactions()
+        var groupMovedInsideUnit = false
+        var swapInsideUnit = false
+        val merge = mockk<NovelMergeManager>(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 3L)
+            coEvery { replaceInGroup(any(), any()) } answers { groupMovedInsideUnit = transactions.inside }
+        }
+        val repo = mockk<NovelRepository>(relaxed = true) {
+            coEvery { updateAll(any()) } answers {
+                swapInsideUnit = transactions.inside
+                true
+            }
+        }
+
+        useCase(novelMergeManager = merge, novelRepository = repo, transactions = transactions)(
+            novel(1),
+            novel(2),
+            emptySet(),
+            replace = true,
+            skipTargetRefresh = true,
+        )
+
+        // Manga's contract, and for the same reason: two transactions with a suspension point between
+        // them let a cancelled batch commit the swap and never reach the rewrite.
+        groupMovedInsideUnit shouldBe true
+        swapInsideUnit shouldBe true
+        transactions.completed shouldBe 1
+    }
+
+    @Test
+    fun `a failing swap aborts the unit that moved the merge group`() = runTest {
+        val transactions = RecordingTransactions()
+        val repo = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns false }
+        val merge = mockk<NovelMergeManager>(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 3L)
+        }
+
+        shouldThrow<IllegalStateException> {
+            useCase(novelMergeManager = merge, novelRepository = repo, transactions = transactions)(
+                novel(1),
+                novel(2),
+                emptySet(),
+                replace = true,
+                skipTargetRefresh = true,
+            )
+        }
+
+        transactions.entered shouldBe 1
+        transactions.completed shouldBe 0
     }
 
     @Test

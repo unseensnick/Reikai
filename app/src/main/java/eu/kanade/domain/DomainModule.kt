@@ -42,6 +42,7 @@ import mihon.domain.extension.repository.ExtensionStoreRepository
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.upcoming.interactor.GetUpcomingManga
+import reikai.data.db.SqlDelightTransactions
 import reikai.data.library.updateerror.LibraryUpdateErrorRepositoryImpl
 import reikai.data.merge.ChapterMatchKeyRepositoryImpl
 import reikai.data.merge.MergeGroupRepositoryImpl
@@ -53,6 +54,7 @@ import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.novel.updateerror.NovelUpdateErrorRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.db.Transactions
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
@@ -214,6 +216,7 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> merge-group persistence (storage only, no consumers yet)
         addSingletonFactory<MergeGroupRepository> { MergeGroupRepositoryImpl(get()) }
+        addSingletonFactory<Transactions> { SqlDelightTransactions(get()) }
         addSingletonFactory<ChapterMatchKeyRepository> { ChapterMatchKeyRepositoryImpl(get()) }
         addFactory { ReconcileChapterMatchKeys(get(), get(), get()) }
         // RK <--

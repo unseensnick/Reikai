@@ -84,6 +84,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Merged series**
 
+- **Adding a source to a grouped series no longer scrambles the order you set by hand.** The new source joins at the end and your chosen leading source stays where you put it.
+- **Merging two grouped series no longer invents a source order for the one that never had one.** Only a group you ordered yourself keeps a custom order through a merge.
+- **Undoing a source split now restores your custom order, even on a two-source series.** Undo used to bring the sources back but quietly revert to the global Preferred sources ranking.
 - **Change categories on a grouped series no longer drops categories that only some of its sources were in.** Those categories now show as partly ticked, and are left alone unless you change them.
 - **Bookmarking or marking a chapter read from the reader's chapter list now applies to every source of a grouped series, matching the series page.**
 - **A chapter you have read now shows as read under every source of a grouped series.**
@@ -94,6 +97,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**
 - **Adding a manga to an existing merged group now updates its details page right away, like novels.**
 - **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
+
+**Migration**
+
+- **Cancelling a migration part-way no longer leaves a grouped series half-moved.** The entry could disappear from your library while still counting toward a merged series, with no way to reach it and put it back.
+- **Migrating one source of a grouped series onto another now hands each remaining source its own tracking link, like splitting the group does.**
 
 **Library & updates**
 

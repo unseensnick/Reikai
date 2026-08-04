@@ -66,12 +66,14 @@ class EntryMergeActionHost(
         onClearSelectedSource()
         dismissDialog()
         scope.launchIO {
+            // Read the group BEFORE splitting it: splitting a pair deletes the group row, and with it
+            // the per-group ranking an undo has to put back. Re-merging can only recover the members.
+            val snapshot = mergeManager.captureGroup(anchorId())
             val newIds = mergeManager.removeFromGroup(prevRelated, targetIds)
             relatedIds.value = if (newIds.isEmpty()) longArrayOf(anchorId()) else newIds
             if (undoRequested(MR.strings.merge_sources_split)) {
-                // Undo re-merges the original group; the split wrote to the group tables, not prefs.
-                mergeManager.merge(prevRelated.toList())
-                relatedIds.value = prevRelated
+                mergeManager.restoreGroup(snapshot)
+                relatedIds.value = snapshot.orderedMemberIds.toLongArray()
             }
         }
     }
@@ -84,11 +86,16 @@ class EntryMergeActionHost(
         dismissDialog()
         scope.launchNonCancellable { setFavorite(targetIds, false) }
         scope.launchIO {
-            relatedIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
+            // Captured before the split, for the same reason as splitSources.
+            val snapshot = mergeManager.captureGroup(anchorId())
+            val newIds = mergeManager.removeFromGroup(prevRelated, targetIds)
+            // Removing every source empties the group; the anchor still stands alone in the library,
+            // and reporting an empty array contradicts "this entry plus its grouped siblings".
+            relatedIds.value = if (newIds.isEmpty()) longArrayOf(anchorId()) else newIds
             if (undoRequested(MR.strings.merge_sources_removed)) {
-                // Undo re-merges the original group and re-favorites the removed sources.
-                mergeManager.merge(prevRelated.toList())
-                relatedIds.value = prevRelated
+                // Undo puts the group back as it was and re-favorites the removed sources.
+                mergeManager.restoreGroup(snapshot)
+                relatedIds.value = snapshot.orderedMemberIds.toLongArray()
                 scope.launchNonCancellable { setFavorite(targetIds, true) }
             }
         }

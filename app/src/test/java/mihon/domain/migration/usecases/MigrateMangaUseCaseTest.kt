@@ -18,6 +18,8 @@ import kotlinx.coroutines.test.runTest
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.api.Test
+import reikai.domain.db.PassThroughTransactions
+import reikai.domain.db.Transactions
 import reikai.domain.manga.MangaMergeManager
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
@@ -55,6 +57,7 @@ class MigrateMangaUseCaseTest {
             coEvery { computeRelatedIds(any()) } returns longArrayOf()
         },
         coverCache: CoverCache = mockk(relaxed = true),
+        transactions: Transactions = PassThroughTransactions,
     ) = MigrateMangaUseCase(
         sourcePreferences = mockk(relaxed = true),
         trackerManager = mockk(relaxed = true) { every { trackers } returns emptyList() },
@@ -71,7 +74,26 @@ class MigrateMangaUseCaseTest {
         updateMangaFromRemote = mockk<UpdateMangaFromRemote>(relaxed = true),
         mangaMergeManager = mangaMergeManager,
         chapterRepository = chapterRepository,
+        transactions = transactions,
     )
+
+    /** Observes where the engine put its writes: a pass-through fake cannot tell the difference
+     *  between two transactions and one, which is the whole contract here. */
+    private class RecordingTransactions : Transactions {
+        var entered = 0
+        var completed = 0
+        var inside = false
+
+        override suspend fun <T> run(block: suspend () -> T): T {
+            entered++
+            inside = true
+            try {
+                return block().also { completed++ }
+            } finally {
+                inside = false
+            }
+        }
+    }
 
     /** The target's MangaUpdate out of the batched favorite swap. */
     private fun capturedTargetUpdate(updates: CapturingSlot<List<MangaUpdate>>): MangaUpdate =
@@ -115,14 +137,47 @@ class MigrateMangaUseCaseTest {
     }
 
     @Test
-    fun `the merge group is only touched after the swap has succeeded`() = runTest {
+    fun `the group rewrite and the favorite swap are one unit of work`() = runTest {
+        val transactions = RecordingTransactions()
+        var groupMovedInsideUnit = false
+        var swapInsideUnit = false
+        val merge = mockk<MangaMergeManager>(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 3L)
+            coEvery { replaceInGroup(any(), any()) } answers { groupMovedInsideUnit = transactions.inside }
+        }
+        val update = mockk<UpdateManga>(relaxed = true) {
+            coEvery { awaitAll(any<List<MangaUpdate>>()) } answers {
+                swapInsideUnit = transactions.inside
+                true
+            }
+        }
+
+        useCase(updateManga = update, mangaMergeManager = merge, transactions = transactions)(
+            manga(1),
+            manga(2),
+            flags = emptySet(),
+            replace = true,
+            skipTargetRefresh = true,
+        )
+
+        // Two transactions with a suspension point between them let a cancelled batch commit the swap
+        // and never reach the rewrite, leaving the source out of the library but still in the group,
+        // feeding chapters into it while invisible there.
+        groupMovedInsideUnit shouldBe true
+        swapInsideUnit shouldBe true
+        transactions.completed shouldBe 1
+    }
+
+    @Test
+    fun `a failing swap aborts the unit that moved the merge group`() = runTest {
+        val transactions = RecordingTransactions()
         val update = mockk<UpdateManga>(relaxed = true) { coEvery { awaitAll(any<List<MangaUpdate>>()) } returns false }
         val merge = mockk<MangaMergeManager>(relaxed = true) {
             coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 3L)
         }
 
         shouldThrow<IllegalStateException> {
-            useCase(updateManga = update, mangaMergeManager = merge)(
+            useCase(updateManga = update, mangaMergeManager = merge, transactions = transactions)(
                 manga(1),
                 manga(2),
                 flags = emptySet(),
@@ -131,7 +186,10 @@ class MigrateMangaUseCaseTest {
             )
         }
 
-        coVerify(exactly = 0) { merge.replaceInGroup(any(), any()) }
+        // The swap is last inside the unit, so its check throwing takes the group rewrite down with
+        // it rather than leaving the group pointing at an entry that never entered the library.
+        transactions.entered shouldBe 1
+        transactions.completed shouldBe 0
     }
 
     @Test

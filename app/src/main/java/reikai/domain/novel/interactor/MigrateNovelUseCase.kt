@@ -5,6 +5,7 @@ import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -47,6 +48,8 @@ class MigrateNovelUseCase(
     private val sourceManager: NovelSourceManager = Injekt.get(),
     private val novelRepository: NovelRepository = Injekt.get(),
     private val database: Database = Injekt.get(),
+    // So the favorite swap and the merge-group rewrite can share one transaction; see below.
+    private val transactions: Transactions = Injekt.get(),
 ) {
 
     suspend operator fun invoke(
@@ -129,11 +132,13 @@ class MigrateNovelUseCase(
                 updateNovel.awaitUpdateCoverLastModified(target.id)
             }
 
-            // The favorite swap comes LAST and is one atomic transaction, matching manga and the
-            // upstream ordering: everything above touches only satellite state, so a failure anywhere
-            // leaves both entries' library membership untouched. The repository swallows into a
-            // Boolean; a false MUST fail the row, or a half swap could drop the entry from the
-            // library with the row reading Migrated.
+            // The favorite swap and the merge-group rewrite are ONE unit of work, with the swap
+            // genuinely last inside it, matching manga. They used to be two transactions with a
+            // suspension point between them: a batch the user cancelled could commit the swap and
+            // never reach the rewrite, leaving the source out of the library but still in the group,
+            // feeding chapters into it while invisible there and unreachable to unmerge. Everything
+            // above touches only satellite state, so a failure there leaves both entries' library
+            // membership untouched.
             val currentUpdate = NovelUpdate(
                 id = current.id,
                 favorite = false,
@@ -155,17 +160,20 @@ class MigrateNovelUseCase(
                 lastReadAt = current.lastReadAt ?: target.lastReadAt,
                 notes = if (NovelMigrationFlag.NOTES in flags) current.notes else null,
             )
-            check(novelRepository.updateAll(listOfNotNull(currentUpdate, targetUpdate))) {
-                "Migration favorite swap failed (${current.id} -> ${target.id})"
-            }
-
-            // Keep the merge consistent: the target takes the source's place in the group on a replace
-            // (one atomic swap; split-then-merge as two calls left a window a retry could not heal),
-            // or joins it on a copy.
-            if (replace) {
-                novelMergeManager.replaceInGroup(current.id, target.id)
-            } else if (group.size > 1) {
-                novelMergeManager.merge(group.toList() + target.id)
+            transactions.run {
+                // Keep the merge consistent: the target takes the source's place in the group on a
+                // replace, or joins it on a copy.
+                if (replace) {
+                    novelMergeManager.replaceInGroup(current.id, target.id)
+                } else if (group.size > 1) {
+                    novelMergeManager.merge(group.toList() + target.id)
+                }
+                // The repository swallows into a Boolean; a false MUST fail the row, or a half swap
+                // could drop the entry from the library with the row reading Migrated. Throwing here
+                // rolls the group rewrite back with it, which is the point of the shared transaction.
+                check(novelRepository.updateAll(listOfNotNull(currentUpdate, targetUpdate))) {
+                    "Migration favorite swap failed (${current.id} -> ${target.id})"
+                }
             }
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
