@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -27,6 +26,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.selectedBackground
 
 /**
  * One merge-group member shown in the migrate-merge source picker. [coverData] is a Coil model (a
@@ -40,7 +40,7 @@ data class PickMember(
 )
 
 /**
- * Shared UI for the migrate-merge source picker (manga + novel): a checkable member list plus a
+ * Shared UI for the migrate-merge source picker (manga + novel): a selectable member list plus a
  * Continue action. The hosting `Screen` keeps the type-specific bits, resolving the group, skipping
  * when nothing's merged, and where Continue navigates.
  */
@@ -78,18 +78,29 @@ fun MigrationSourcePickContent(
     }
 }
 
+private val COVER_WIDTH = 40.dp
+
+/**
+ * One merge-group member to pick. Selection shows as the row's background rather than a checkbox,
+ * matching the favorites picker this step leads into, so the two picking screens of one flow do not
+ * read as different apps.
+ */
 @Composable
 private fun MemberRow(member: PickMember, checked: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .selectedBackground(checked)
             .clickable(onClick = onToggle)
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = 8.dp),
+            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
-        MangaCover.Book(data = member.coverData, modifier = Modifier.width(48.dp).padding(start = 4.dp))
-        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+        MangaCover.Book(data = member.coverData, modifier = Modifier.width(COVER_WIDTH))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = MaterialTheme.padding.medium),
+        ) {
             Text(
                 text = member.title,
                 style = MaterialTheme.typography.bodyMedium,
