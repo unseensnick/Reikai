@@ -71,7 +71,10 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 /**
  * The shared migration list: one row per entry being migrated, with the batch commit at the bottom.
@@ -87,7 +90,12 @@ class EntryMigrationListScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            EntryMigrationListScreenModel(contentType, entryIds, extraQuery)
+            EntryMigrationListScreenModel(
+                entryIds = entryIds,
+                extraQuery = extraQuery,
+                adapter = migrationAdapterFor(contentType),
+                pickHandoff = Injekt.get(),
+            )
         }
         val state by screenModel.state.collectAsState()
         var showTuning by rememberSaveable { mutableStateOf(false) }
@@ -173,9 +181,25 @@ class EntryMigrationListScreen(
                 }
             },
         ) { contentPadding ->
-            LazyColumn(contentPadding = contentPadding) {
-                items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
-                    MigrationRow(row = row, busy = state.isBusy, screenModel = screenModel)
+            val emptyReason = state.emptyReason
+            if (emptyReason != null) {
+                // Never a bare blank list: each way of ending up with nothing says which one it was.
+                EmptyScreen(
+                    stringRes = when (emptyReason) {
+                        EntryMigrationListScreenModel.EmptyReason.NoEntries ->
+                            MR.strings.migrationFlow_emptyNoEntries
+                        EntryMigrationListScreenModel.EmptyReason.AllFiltered ->
+                            MR.strings.migrationFlow_emptyAllFiltered
+                        EntryMigrationListScreenModel.EmptyReason.NoSources ->
+                            MR.strings.migrationFlow_emptyNoSources
+                    },
+                    modifier = Modifier.padding(contentPadding),
+                )
+            } else {
+                LazyColumn(contentPadding = contentPadding) {
+                    items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
+                        MigrationRow(row = row, busy = state.isBusy, screenModel = screenModel)
+                    }
                 }
             }
         }
@@ -253,6 +277,7 @@ private fun MigrationRow(
     // is how Retry, Skip, Migrate now and the accept toggle all came to render on rows whose
     // handlers refused them.
     val actions = MigrationRowRules.actions(search, acceptance, commit, skipped, busy)
+    val status = MigrationRowRules.status(search, acceptance, commit, skipped)
 
     Column {
         Row(
@@ -284,18 +309,7 @@ private fun MigrationRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // An override pick can land on a different source than the suggestion; the status
-                // line follows the chosen target, not the search cell.
-                val chosenSourceName = chosen?.let {
-                    remember(it.sourceKey) { screenModel.sourceDisplayName(it.sourceKey) }
-                }
-                RowStatusLine(
-                    row = row,
-                    search = search,
-                    commit = commit,
-                    skipped = skipped,
-                    chosenSourceName = chosenSourceName,
-                )
+                RowStatusLine(row = row, status = status, screenModel = screenModel)
                 RowCountLine(row = row, target = chosen ?: (search as? SearchPhase.Found)?.suggestion)
             }
             RowTrailing(
@@ -421,30 +435,30 @@ private fun OverrideStripRow(
 @Composable
 private fun RowStatusLine(
     row: MigratingEntryRow,
-    search: SearchPhase,
-    commit: CommitPhase,
-    skipped: Boolean,
-    chosenSourceName: String?,
+    status: MigrationRowRules.RowStatus,
+    screenModel: EntryMigrationListScreenModel,
 ) {
-    val isError = commit is CommitPhase.Failed || search is SearchPhase.Failed
-    val status = when {
-        commit is CommitPhase.Failed -> stringResource(MR.strings.migrationFlow_commitFailed)
-        commit is CommitPhase.Migrated -> stringResource(MR.strings.migrate)
-        // Skip outranks a failed search: the escape hatch has to confirm itself visibly.
-        skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
-        chosenSourceName != null -> chosenSourceName
-        search is SearchPhase.Failed -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
-        search is SearchPhase.Found -> search.sourceName
-        search is SearchPhase.Searching -> stringResource(MR.strings.loading)
-        search is SearchPhase.NoMatch -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
-        else -> null
+    // One case per meaning, so no two states can quietly share a rendering.
+    val text = when (status) {
+        MigrationRowRules.RowStatus.Idle -> null
+        MigrationRowRules.RowStatus.Searching -> stringResource(MR.strings.loading)
+        MigrationRowRules.RowStatus.NoMatch -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
+        MigrationRowRules.RowStatus.SearchFailed -> stringResource(MR.strings.migrationFlow_searchFailed)
+        is MigrationRowRules.RowStatus.Target ->
+            remember(status.sourceKey) { screenModel.sourceDisplayName(status.sourceKey) }
+        MigrationRowRules.RowStatus.Skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
+        MigrationRowRules.RowStatus.Committing -> stringResource(MR.strings.loading)
+        MigrationRowRules.RowStatus.CommitFailed -> stringResource(MR.strings.migrationFlow_commitFailed)
+        is MigrationRowRules.RowStatus.Migrated ->
+            remember(status.sourceKey) { screenModel.sourceDisplayName(status.sourceKey) }
     }
     Text(
-        text = listOfNotNull(row.entry.sourceName, status).joinToString(" → "),
+        text = listOfNotNull(row.entry.sourceName, text).joinToString(" → "),
         style = MaterialTheme.typography.bodySmall,
-        color = when {
-            isError -> MaterialTheme.colorScheme.error
-            commit is CommitPhase.Migrated -> MaterialTheme.colorScheme.primary
+        color = when (status) {
+            MigrationRowRules.RowStatus.CommitFailed, MigrationRowRules.RowStatus.SearchFailed ->
+                MaterialTheme.colorScheme.error
+            is MigrationRowRules.RowStatus.Migrated -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         maxLines = 1,

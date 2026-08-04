@@ -3,6 +3,8 @@ package reikai.presentation.migrate.flow
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -22,7 +24,6 @@ import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -40,17 +41,18 @@ private const val SOURCE_CONCURRENCY = 5
  * own detached scope ([MigratingEntryRow.scope]), so cancelling one row never reaches the loop.
  */
 class EntryMigrationListScreenModel(
-    contentType: ContentType,
     private val entryIds: List<Long>,
     private val extraQuery: String?,
+    // Injected rather than resolved in the initialiser, so the driver, the claim and the finish gate
+    // can be constructed in a plain JVM test. Resolving Injekt here made every one of them reachable
+    // only by reading the code, which is why each gate defect was found by an audit and never by a
+    // test. The screen resolves them and passes them in.
+    private val adapter: MigrationFlowAdapter,
+    private val pickHandoff: MigrationPickHandoff,
+    // Injected so a test can drive the driver and the commits on its own scheduler; production
+    // callers take the default, which is what launchIO would have used.
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : StateScreenModel<EntryMigrationListScreenModel.State>(State()) {
-
-    private val adapter: MigrationFlowAdapter = when (contentType) {
-        ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-        else -> Injekt.get<NovelMigrationFlowAdapter>()
-    }
-
-    private val pickHandoff: MigrationPickHandoff = Injekt.get()
 
     private val rows: List<MigratingEntryRow> get() = state.value.rows
 
@@ -78,11 +80,11 @@ class EntryMigrationListScreenModel(
     private var confirmScanId = 0
 
     init {
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             adapter.prepare()
             val tuning = adapter.readTuning().copy(extraQuery = extraQuery)
             val built = adapter.loadEntries(entryIds).map {
-                MigratingEntryRow(entry = it, parentContext = screenModelScope.coroutineContext)
+                MigratingEntryRow(it, screenModelScope.coroutineContext, io)
             }
             mutableState.update {
                 it.copy(
@@ -91,6 +93,7 @@ class EntryMigrationListScreenModel(
                     rows = built,
                     visibleRows = built,
                     matchStrategy = adapter.matchStrategy,
+                    hasSources = sourcesFor().isNotEmpty(),
                     savedFlags = adapter.savedFlags(),
                 )
             }
@@ -104,7 +107,7 @@ class EntryMigrationListScreenModel(
     @Synchronized
     private fun startDriver() {
         if (searchJob?.isActive == true) return
-        searchJob = screenModelScope.launchIO { drive() }
+        searchJob = screenModelScope.launch(io) { drive() }
     }
 
     /**
@@ -160,7 +163,7 @@ class EntryMigrationListScreenModel(
     private fun handOffIfWorkRemains() {
         val finishing = searchJob
         if (nextSearchable() == null) return
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             finishing?.join()
             startDriver()
         }
@@ -175,10 +178,10 @@ class EntryMigrationListScreenModel(
         val found = row.search.value as? SearchPhase.Found ?: return
         val suggestion = found.suggestion
         if (suggestion.latestChapter != null || suggestion.chapterCount != null) return
-        row.scope.launchIO {
+        row.scope.launch(io) {
             val peeked = interactiveSearches.withPermit {
                 runCatchingCancellable { adapter.peekCounts(suggestion) }.getOrNull()
-            } ?: return@launchIO
+            } ?: return@launch
             row.search.compareAndSet(found, SearchPhase.Found(peeked, found.sourceName))
             // An accept may have copied the un-peeked suggestion into chosen meanwhile; keep both in
             // step. CAS, so an un-accept landing in between is not resurrected.
@@ -259,8 +262,15 @@ class EntryMigrationListScreenModel(
      * this.
      */
     private fun syncCounts() = mutableState.update { state ->
+        val visible = state.rows.filter { it.isVisibleUnder(state.tuning) }
         state.copy(
-            visibleRows = state.rows.filter { it.isVisibleUnder(state.tuning) },
+            visibleRows = visible,
+            emptyReason = when {
+                state.rows.isNotEmpty() && visible.isEmpty() -> EmptyReason.AllFiltered
+                state.rows.isEmpty() && !state.hasSources -> EmptyReason.NoSources
+                state.rows.isEmpty() -> EmptyReason.NoEntries
+                else -> null
+            },
             searchedCount = state.rows.count { it.isSettled },
             allSearched = state.rows.isNotEmpty() && state.rows.all { it.isSettled },
             committableCount = state.rows.count {
@@ -309,7 +319,7 @@ class EntryMigrationListScreenModel(
                     row.scope.cancel()
                     // Skip is a user decision, not a search result: it survives the restart (and
                     // keeps the fresh row out of the driver), unlike the discarded accept.
-                    MigratingEntryRow(row.entry, screenModelScope.coroutineContext).also {
+                    MigratingEntryRow(row.entry, screenModelScope.coroutineContext, io).also {
                         it.skipped.value = row.skipped.value
                     }
                 }
@@ -387,7 +397,7 @@ class EntryMigrationListScreenModel(
      */
     fun collectPendingPick() {
         val snapshot = rows
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             snapshot.forEach { row ->
                 val targetRawId = pickHandoff.take(row.entry.id) ?: return@forEach
                 // The entry's own row is never a target: the engines would no-op and the row would
@@ -424,11 +434,11 @@ class EntryMigrationListScreenModel(
     private fun peekChosenCounts(row: MigratingEntryRow) {
         val candidate = row.acceptance.value.candidate ?: return
         if (candidate.latestChapter != null || candidate.chapterCount != null) return
-        row.scope.launchIO {
+        row.scope.launch(io) {
             val peeked = interactiveSearches.withPermit {
                 runCatchingCancellable { adapter.peekCounts(candidate) }.getOrNull()
-            } ?: return@launchIO
-            if (!MigrationRowRules.canChoose(row.commit.value)) return@launchIO
+            } ?: return@launch
+            if (!MigrationRowRules.canChoose(row.commit.value)) return@launch
             // CAS, not check-then-write: an un-accept landing between them would be resurrected by
             // a plain write, re-arming a target the user just declined.
             row.acceptance.compareAndSet(Acceptance.Accepted(candidate), Acceptance.Accepted(peeked))
@@ -515,7 +525,7 @@ class EntryMigrationListScreenModel(
         mutableState.update { it.copy(savedFlags = flags) }
         mutableState.update { it.copy(activity = CommitActivity.Batch(done = 0, total = targets.size)) }
         batchTargets = targets
-        commitJob = screenModelScope.launchIO {
+        commitJob = screenModelScope.launch(io) {
             try {
                 targets.forEachIndexed { index, row ->
                     ensureActive()
@@ -561,7 +571,7 @@ class EntryMigrationListScreenModel(
      */
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
         mutableState.update { it.copy(activity = CommitActivity.Single(row.entry.id)) }
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             try {
                 commitRow(row, replace, flags)
                 finishIfNothingFailed()
@@ -662,7 +672,7 @@ class EntryMigrationListScreenModel(
         mutableState.update {
             it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
         }
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             val targets = rows.filter {
                 MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
             }
@@ -718,6 +728,10 @@ class EntryMigrationListScreenModel(
         /** Rows a commit would leave alone: skipped, or with nothing to migrate onto. */
         val untouchedCount: Int = 0,
         val hasUnaccepted: Boolean = false,
+        /** False when the type has no source to migrate onto; separates two blank screens. */
+        val hasSources: Boolean = true,
+        /** Why the list is empty, so the screen explains itself instead of rendering nothing. */
+        val emptyReason: EmptyReason? = null,
         val matchStrategy: MatchStrategy = MatchStrategy.BestTitleMatch,
         val migratedCount: Int = 0,
         /** The one answer to "is a migration running", and which kind. */
@@ -729,6 +743,9 @@ class EntryMigrationListScreenModel(
         /** No commit may start, and nothing may rebuild rows, while another one is running. */
         val isBusy: Boolean get() = activity !is CommitActivity.Idle
     }
+
+    /** Why a migration list has nothing to show. */
+    enum class EmptyReason { NoEntries, AllFiltered, NoSources }
 
     /**
      * What the screen is committing, if anything.

@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,8 +25,12 @@ import kotlin.coroutines.CoroutineContext
 class MigratingEntryRow(
     val entry: MigrationEntry,
     parentContext: CoroutineContext,
+    // The row's work is a network search and its parsing, so it belongs on IO rather than the CPU
+    // pool the first cut used; taking it as a parameter also lets a test drive rows on its own
+    // scheduler.
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    val scope = CoroutineScope(parentContext + SupervisorJob() + Dispatchers.Default)
+    val scope = CoroutineScope(parentContext + SupervisorJob() + dispatcher)
 
     val search = MutableStateFlow<SearchPhase>(SearchPhase.Queued)
 
@@ -285,6 +290,50 @@ object MigrationRowRules {
         val canRetry: Boolean,
         val canCommitNow: Boolean,
     )
+
+    /**
+     * What the row's status line reports, as one case per meaning.
+     *
+     * Derived here rather than branched at the Text call, because two states sharing a rendering is
+     * invisible in a `when` that returns strings: a search that failed because every source threw
+     * read exactly like "no source has this title", and since the driver never re-searches a settled
+     * row, a passing outage looked like a permanent verdict.
+     */
+    sealed interface RowStatus {
+        /** Not searched yet; the row has nothing to report. */
+        data object Idle : RowStatus
+        data object Searching : RowStatus
+        data object NoMatch : RowStatus
+        data object SearchFailed : RowStatus
+
+        /** A target is in hand (suggested or accepted); [sourceKey] names where it came from. */
+        data class Target(val sourceKey: String) : RowStatus
+        data object Skipped : RowStatus
+        data object Committing : RowStatus
+        data object CommitFailed : RowStatus
+
+        /** Done. Carries the target it migrated onto, so the line still says where it went. */
+        data class Migrated(val sourceKey: String) : RowStatus
+    }
+
+    fun status(
+        search: MigratingEntryRow.SearchPhase,
+        acceptance: MigratingEntryRow.Acceptance,
+        commit: MigratingEntryRow.CommitPhase,
+        skipped: Boolean,
+    ): RowStatus = when {
+        commit is MigratingEntryRow.CommitPhase.Migrated -> RowStatus.Migrated(commit.target.sourceKey)
+        commit is MigratingEntryRow.CommitPhase.Failed -> RowStatus.CommitFailed
+        commit is MigratingEntryRow.CommitPhase.Committing -> RowStatus.Committing
+        // Skip outranks a search outcome: the escape hatch has to confirm itself visibly.
+        skipped -> RowStatus.Skipped
+        acceptance is MigratingEntryRow.Acceptance.Accepted -> RowStatus.Target(acceptance.candidate.sourceKey)
+        search is MigratingEntryRow.SearchPhase.Found -> RowStatus.Target(search.suggestion.sourceKey)
+        search is MigratingEntryRow.SearchPhase.Failed -> RowStatus.SearchFailed
+        search is MigratingEntryRow.SearchPhase.NoMatch -> RowStatus.NoMatch
+        search is MigratingEntryRow.SearchPhase.Searching -> RowStatus.Searching
+        else -> RowStatus.Idle
+    }
 
     fun actions(
         search: MigratingEntryRow.SearchPhase,

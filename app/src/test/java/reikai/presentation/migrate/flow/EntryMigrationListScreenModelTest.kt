@@ -1,0 +1,240 @@
+package reikai.presentation.migrate.flow
+
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
+import reikai.presentation.migrate.PickMember
+
+/**
+ * The driver, the row claim and the finish gate, which had no coverage at all until the ScreenModel
+ * took its dependencies as constructor parameters: every defect in them was found by reading the
+ * code in an audit, never by a test.
+ */
+class EntryMigrationListScreenModelTest {
+
+    // Voyager's screenModelScope is Main-based, and the model launches its work on the dispatcher it
+    // is given, so both go through one scheduler the test can advance.
+    private val dispatcher = StandardTestDispatcher()
+
+    @BeforeEach
+    fun setUp() = Dispatchers.setMain(dispatcher)
+
+    @AfterEach
+    fun tearDown() = Dispatchers.resetMain()
+
+    private fun entry(id: Long) = MigrationEntry(
+        id = EntryId.Manga(id),
+        title = "Entry $id",
+        sourceKey = "src",
+        sourceName = "Source",
+        chapterCount = 1,
+        latestChapter = 1.0,
+        cover = null,
+        payload = Any(),
+    )
+
+    private fun candidate(id: Long) = MigrationCandidate(
+        sourceKey = "target",
+        title = "Target $id",
+        chapterCount = 2,
+        latestChapter = 2.0,
+        key = "target:/$id",
+        handle = Any(),
+    )
+
+    /**
+     * An adapter whose search always finds a target and whose migrate is recorded. [failFor] makes
+     * that entry's commit throw, which is how the failure paths are reached.
+     */
+    private class FakeAdapter(
+        private val entries: List<MigrationEntry>,
+        private val failFor: Set<EntryId> = emptySet(),
+        /** Migrating this entry hangs until the test cancels the batch, so the rows after it in the
+         *  batch are left accepted and un-run, which is the state a cancelled batch really produces. */
+        private val blockOn: EntryId? = null,
+    ) : MigrationFlowAdapter {
+        val migrated = mutableListOf<EntryId>()
+        val blocked = CompletableDeferred<Unit>()
+
+        override val contentType = ContentType.MANGA
+        override val matchStrategy = MatchStrategy.BestTitleMatch
+
+        override fun enabledSources() = listOf(
+            MigrationSourceUi("target", "Target", "en", MigrationSourceIcon.NovelUrl(null)),
+        )
+
+        override fun savedSelection() = listOf("target")
+        override fun persistSelection(keys: List<String>) = Unit
+        override fun pinnedKeys(): Set<String> = emptySet()
+        override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> = emptyList()
+        override fun sourceDisplayName(sourceKey: String) = sourceKey
+        override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(emptyList())
+        override fun readTuning() = MigrationTuning()
+        override fun persistTuning(tuning: MigrationTuning) = Unit
+        override suspend fun loadEntries(ids: List<Long>) = entries
+
+        override suspend fun suggest(entry: MigrationEntry, sourceKey: String, tuning: MigrationTuning) =
+            candidateFor(entry)
+
+        override suspend fun candidates(entry: MigrationEntry, query: String, sourceKey: String) =
+            listOf(candidateFor(entry))
+
+        override suspend fun resolve(candidate: MigrationCandidate) = ResolvedTarget(candidate, syncedNow = true)
+        override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? = null
+        override suspend fun storedCandidate(id: Long): MigrationCandidate? = null
+        override fun savedFlags(): Set<MigrationDataFlag> = emptySet()
+        override fun persistFlags(flags: Set<MigrationDataFlag>) = Unit
+        override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = emptySet()
+
+        override suspend fun migrate(
+            entry: MigrationEntry,
+            target: MigrationCandidate,
+            replace: Boolean,
+            flags: Set<MigrationDataFlag>,
+            targetJustSynced: Boolean,
+        ) {
+            if (entry.id == blockOn) blocked.await()
+            if (entry.id in failFor) error("migrate failed for ${entry.id}")
+            migrated += entry.id
+        }
+
+        private fun candidateFor(entry: MigrationEntry) = MigrationCandidate(
+            sourceKey = "target",
+            title = "Target for ${entry.title}",
+            chapterCount = 2,
+            latestChapter = 2.0,
+            key = "target:${entry.id}",
+            handle = Any(),
+        )
+    }
+
+    private fun model(
+        entries: List<MigrationEntry>,
+        failFor: Set<EntryId> = emptySet(),
+        blockOn: EntryId? = null,
+    ) =
+        EntryMigrationListScreenModel(
+            entryIds = entries.map { it.id.rawId },
+            extraQuery = null,
+            adapter = FakeAdapter(entries, failFor, blockOn),
+            pickHandoff = MigrationPickHandoff(),
+            io = dispatcher,
+        )
+
+    @Test
+    fun `the driver searches every row and settles the list`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1), entry(2)))
+
+        advanceUntilIdle()
+
+        model.state.value.allSearched shouldBe true
+        model.state.value.searchedCount shouldBe 2
+    }
+
+    @Test
+    fun `a clean batch migrates every accepted row and finishes the screen`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1), entry(2)))
+        advanceUntilIdle()
+
+        model.acceptAll()
+        model.commit(replace = true, flags = emptySet())
+        advanceUntilIdle()
+
+        model.state.value.migratedCount shouldBe 2
+        model.state.value.finished shouldBe true
+    }
+
+    @Test
+    fun `a batch with a failure keeps the screen open on the failed row`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1), entry(2)), failFor = setOf(EntryId.Manga(2)))
+        advanceUntilIdle()
+
+        model.acceptAll()
+        model.commit(replace = true, flags = emptySet())
+        advanceUntilIdle()
+
+        model.state.value.migratedCount shouldBe 1
+        model.state.value.finished shouldBe false
+    }
+
+    @Test
+    fun `skipping the last failed row finishes what the batch started`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1), entry(2)), failFor = setOf(EntryId.Manga(2)))
+        advanceUntilIdle()
+        model.acceptAll()
+        model.commit(replace = true, flags = emptySet())
+        advanceUntilIdle()
+
+        model.toggleSkip(EntryId.Manga(2))
+        advanceUntilIdle()
+
+        model.state.value.finished shouldBe true
+    }
+
+    @Test
+    fun `a single commit on its own never finishes the screen`() = runTest(dispatcher.scheduler) {
+        // No batch ran, so the user is still working the list: the gate must not pop it.
+        val model = model(listOf(entry(1), entry(2)))
+        advanceUntilIdle()
+
+        model.toggleAccept(EntryId.Manga(1))
+        model.commitSingle(EntryId.Manga(1), replace = true)
+        advanceUntilIdle()
+
+        model.state.value.migratedCount shouldBe 1
+        model.state.value.finished shouldBe false
+    }
+
+    @Test
+    fun `a cancelled batch's un-run rows keep the screen open even once nothing is committable`() =
+        runTest(dispatcher.scheduler) {
+            // The case the batch-ownership clause exists for, and the one the other tests mask:
+            // rows the batch never reached are neither failed nor committable once the user declines
+            // them, so without that clause a later single commit would pop the list from under them.
+            val entries = listOf(entry(1), entry(2), entry(3), entry(4))
+            val model = model(entries, blockOn = EntryId.Manga(2))
+            advanceUntilIdle()
+
+            listOf(1L, 2L, 3L).forEach { model.toggleAccept(EntryId.Manga(it)) }
+            model.commit(replace = true, flags = emptySet())
+            advanceUntilIdle()
+
+            // Row 1 migrated, row 2 is stuck mid-commit, row 3 was never reached.
+            model.cancelCommit()
+            advanceUntilIdle()
+            model.toggleSkip(EntryId.Manga(2))
+            model.toggleAccept(EntryId.Manga(3))
+            advanceUntilIdle()
+
+            // Nothing is failed, busy or committable now, but row 3 is still the batch's business.
+            model.toggleAccept(EntryId.Manga(4))
+            model.commitSingle(EntryId.Manga(4), replace = true)
+            advanceUntilIdle()
+
+            model.state.value.finished shouldBe false
+        }
+
+    @Test
+    fun `an accepted row is committable and a declined one is not`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1)))
+        advanceUntilIdle()
+
+        model.toggleAccept(EntryId.Manga(1))
+        model.state.value.committableCount shouldBe 1
+
+        model.toggleAccept(EntryId.Manga(1))
+        model.state.value.committableCount shouldBe 0
+    }
+}

@@ -6,6 +6,8 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.source.model.Source
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 /** [runCatching] that rethrows [CancellationException]: the flow's search/commit coroutines must die
  *  on cancellation instead of reporting a cancelled call as "no match" or a row failure. */
@@ -268,4 +270,17 @@ sealed interface MatchStrategy {
 
     /** Mihon's smart-search engines: deep search and prioritize-by-chapters apply. */
     data object Smart : MatchStrategy
+}
+
+/**
+ * The adapter for one content type.
+ *
+ * Exhaustive on purpose. [ContentType.ALL] is a live value on the library and browse chips, and an
+ * `else` branch would quietly hand novel machinery a list of manga ids rather than failing where the
+ * mistake was made. The flow always runs on exactly one content type.
+ */
+fun migrationAdapterFor(contentType: ContentType): MigrationFlowAdapter = when (contentType) {
+    ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
+    ContentType.NOVELS -> Injekt.get<NovelMigrationFlowAdapter>()
+    ContentType.ALL -> error("The migration flow runs on one content type; ALL has no adapter")
 }
