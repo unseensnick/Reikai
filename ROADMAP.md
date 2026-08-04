@@ -4,8 +4,9 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. Remaining: a final confirmatory audit of the migrate flow ([surface plan](docs/dev/plans/content-layer-migrate-surface.md)), then the reader migration; global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
-- **Third (final) audit of the migration flow** `[S]` - the flow is device-verified and has been audited and hardened twice; one more same-scale pass over the hardening commits, and if nothing big surfaces it closes the surface. [Plan](docs/dev/plans/content-layer-migrate-surface.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. Remaining: device-verify the migrate flow's restructured state model, then the reader migration; global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Device-verify the restructured migration flow** `[S]` - the row state, commit activity and row status are now typed rather than guarded, and the ScreenModel is unit-testable; the last commit is compile and test green but not yet driven on a device. [Plan](docs/dev/plans/content-layer-migrate-surface.md).
+- **Preserve a merge group's source order through merge and replace** `[S]` - merging rebuilds a group at default priorities, so it silently discards the manual manage-sources order; reachable from a copy-migration, a split Undo (which is therefore not the no-op it claims) and a backup restore. No schema change needed. [Plan](docs/dev/plans/merge-component-consolidation.md).
 
 ## Next
 
