@@ -205,7 +205,10 @@ fun ManageMergeSourcesDialog(
                         ),
                     )
                 }
-                Row {
+                // Centered like the outer row: a label long enough to wrap ("Remove from library")
+                // makes this row taller than a single-line one, and top alignment would leave the
+                // short labels riding above the wrapped one.
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (selectionMode) {
                         TextButton(onClick = { onSplit(selection.toList()) }) {
                             Text(stringResource(MR.strings.merge_sources_split_action))
