@@ -211,7 +211,8 @@ class MergeGroupRepositoryTest {
 
         repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 3)
 
-        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 3L)
+        // The arriving entry takes the outgoing one's slot, so migrating the trunk keeps the trunk.
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(3L, 2L)
         repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
     }
 
@@ -239,7 +240,8 @@ class MergeGroupRepositoryTest {
 
         repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 3)
 
-        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 3L, 4L)
+        // The whole arriving group lands in the outgoing member's slot, keeping its own order.
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(3L, 4L, 2L)
         repository.getGroup(targetGroup).shouldBeNull()
     }
 
@@ -334,6 +336,105 @@ class MergeGroupRepositoryTest {
 
         repository.getGroup(other)!!.overrideSourceRanking shouldBe false
         repository.getMembers(ContentType.MANGA, other) shouldBe listOf(3L, 4L)
+    }
+
+    @Test
+    fun `merge keeps a hand-set source order and its override`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 1))
+
+        val merged = repository.merge(ContentType.MANGA, listOf(2, 3))!!
+
+        // Absorbing the group keeps its ranking, and the override survives instead of the merged
+        // group silently falling back to the global preferred-source list.
+        repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(2L, 1L, 3L)
+        repository.getGroup(merged)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `merge without an absorbed override leaves the override off`() = runTest {
+        insertManga(1)
+        insertManga(2)
+
+        val merged = repository.merge(ContentType.MANGA, listOf(1, 2))!!
+
+        repository.getGroup(merged)!!.overrideSourceRanking shouldBe false
+    }
+
+    @Test
+    fun `merge follows the order the ids are passed in`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+
+        val merged = repository.merge(ContentType.MANGA, listOf(3, 1, 2))!!
+
+        repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(3L, 1L, 2L)
+    }
+
+    @Test
+    fun `undoing a split restores the order and the override`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(3, 1, 2))
+        val before = repository.getMembers(ContentType.MANGA, groupId)
+
+        // What the details screen does: split the middle source out, then Undo re-merges the prior
+        // group in the order it had.
+        repository.removeFromGroup(ContentType.MANGA, listOf(1))
+        val restored = repository.merge(ContentType.MANGA, before)!!
+
+        repository.getMembers(ContentType.MANGA, restored) shouldBe before
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `merge keeps an absorbed order for novels too`() = runTest {
+        insertNovel(1)
+        insertNovel(2)
+        insertNovel(3)
+        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.NOVELS, groupId, listOf(2, 1))
+
+        val merged = repository.merge(ContentType.NOVELS, listOf(3, 2))!!
+
+        repository.getMembers(ContentType.NOVELS, merged) shouldBe listOf(3L, 2L, 1L)
+        repository.getGroup(merged)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `replaceInGroup keeps the rest of a hand-set order`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 3, 1))
+
+        // Replacing the LAST member is the discriminating case: an unseated fresh row carries the
+        // default priority, which would sort it to the front of the group instead of into the slot.
+        repository.replaceInGroup(ContentType.MANGA, oldId = 1, newId = 4)
+
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 3L, 4L)
+        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `addMembers appends to an ordered group`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 1))
+
+        repository.addMembers(ContentType.MANGA, groupId, listOf(3))
+
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 1L, 3L)
     }
 
     @Test

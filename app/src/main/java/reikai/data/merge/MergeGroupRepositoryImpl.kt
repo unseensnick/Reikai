@@ -47,7 +47,12 @@ class MergeGroupRepositoryImpl(
 
     override suspend fun addMembers(contentType: ContentType, groupId: Long, entryIds: List<Long>) {
         database.transaction {
-            entryIds.distinct().forEach { insertMember(contentType, groupId, it) }
+            val existing = getMembers(contentType, groupId)
+            val added = entryIds.distinct().filterNot { it in existing }
+            added.forEach { insertMember(contentType, groupId, it) }
+            // Appended, never interleaved: a group can carry explicit priorities, and a fresh row at
+            // the default would sort into the middle of one instead of onto the end.
+            writeOrder(contentType, existing + added)
         }
     }
 
@@ -98,15 +103,46 @@ class MergeGroupRepositoryImpl(
         if (distinct.size < 2) return null
         return database.transactionWithResult {
             val groupIds = groupIdsForMembers(contentType, distinct)
-            // Sorted so a fresh group has a deterministic member order; per-group priority
-            // overrides it later.
-            val members = (distinct + groupIds.flatMap { getMembers(contentType, it) }).distinct().sorted()
+            val members = mergedOrder(contentType, distinct)
+            // The override survives if ANY absorbed group carried one. Rebuilding the group without
+            // it silently discarded a ranking the user set by hand, on every path that merges:
+            // undoing a source split, adding a source to a group, and backup restore.
+            val override = groupIds.any { getGroup(it)?.overrideSourceRanking == true }
             groupIds.forEach { queries.deleteGroup(it) }
             queries.insertGroup(contentType.toDbValue())
             val groupId = queries.selectLastInsertedRowId().awaitAsOne()
-            members.forEach { insertMember(contentType, groupId, it) }
+            members.forEachIndexed { index, id -> insertMember(contentType, groupId, id, index.toLong()) }
+            if (override) queries.setOverrideSourceRanking(override = 1L, groupId = groupId)
             groupId
         }
+    }
+
+    /**
+     * The member order a merge produces.
+     *
+     * Argument order decides it, because argument order is meaningful at every call site: undoing a
+     * split passes the prior group in its own trunk order, and adding to a group passes the anchor
+     * first. A member that is absorbed without being named (the rest of a group one of the ids
+     * belongs to) follows the id that brought it in, in its own group's order.
+     *
+     * A NAMED member keeps its argument position rather than being pulled forward by its group. That
+     * is what makes undoing a split an exact restoration: the split member is named in the middle of
+     * the prior order, and expanding its old group first would push it to the end instead.
+     *
+     * The old rule sorted by id, so the trunk of every merged group was an accident of insertion
+     * order and an undo was a reshuffle.
+     */
+    private suspend fun mergedOrder(contentType: ContentType, ids: List<Long>): List<Long> {
+        val named = ids.toHashSet()
+        val ordered = LinkedHashSet<Long>()
+        ids.forEach { id ->
+            if (!ordered.add(id)) return@forEach
+            val groupId = getGroupId(contentType, id) ?: return@forEach
+            getMembers(contentType, groupId).forEach { member ->
+                if (member !in named) ordered.add(member)
+            }
+        }
+        return ordered.toList()
     }
 
     override suspend fun removeFromGroup(contentType: ContentType, targetIds: List<Long>): List<Long> {
@@ -125,6 +161,7 @@ class MergeGroupRepositoryImpl(
     override suspend fun replaceInGroup(contentType: ContentType, oldId: Long, newId: Long) {
         database.transaction {
             val groupId = getGroupId(contentType, oldId) ?: return@transaction
+            val before = getMembers(contentType, groupId)
             deleteMember(contentType, oldId)
             when (val newGroupId = getGroupId(contentType, newId)) {
                 groupId -> {}
@@ -141,7 +178,27 @@ class MergeGroupRepositoryImpl(
             // A group of one is not a group. Migrating onto a sibling of the same group leaves the
             // target alone in it, and an empty group is left by a replace inside a pair; both are
             // dissolved here, matching removeFromGroup.
-            if (getMembers(contentType, groupId).size < 2) queries.deleteGroup(groupId)
+            val remaining = getMembers(contentType, groupId)
+            if (remaining.size < 2) {
+                queries.deleteGroup(groupId)
+                return@transaction
+            }
+            // The arriving member takes the outgoing one's slot: a migration swaps one source for
+            // another, it does not re-rank the group. A fresh row otherwise sorts last (default
+            // priority, higher rowid), so migrating the trunk quietly demoted it to the bottom.
+            val beforeSet = before.toHashSet()
+            val arrived = remaining.filterNot { it in beforeSet }
+            val remainingSet = remaining.toHashSet()
+            writeOrder(
+                contentType,
+                before.flatMap { member ->
+                    when {
+                        member == oldId -> arrived
+                        member in remainingSet -> listOf(member)
+                        else -> emptyList()
+                    }
+                },
+            )
         }
     }
 
@@ -158,9 +215,15 @@ class MergeGroupRepositoryImpl(
 
     override suspend fun setSourceOrder(contentType: ContentType, groupId: Long, orderedMemberIds: List<Long>) {
         database.transaction {
-            orderedMemberIds.forEachIndexed { index, id -> setMemberPriority(contentType, id, index.toLong()) }
+            writeOrder(contentType, orderedMemberIds)
             queries.setOverrideSourceRanking(override = 1L, groupId = groupId)
         }
+    }
+
+    /** Persist [orderedMemberIds] as source_priority 0..n-1, making the order explicit instead of
+     *  leaving it to the rowid tiebreak that any later insert would land in the middle of. */
+    private suspend fun writeOrder(contentType: ContentType, orderedMemberIds: List<Long>) {
+        orderedMemberIds.forEachIndexed { index, id -> setMemberPriority(contentType, id, index.toLong()) }
     }
 
     override suspend fun clearSourceOrder(contentType: ContentType, groupId: Long) {
@@ -193,10 +256,15 @@ class MergeGroupRepositoryImpl(
         }
     }
 
-    private suspend fun insertMember(contentType: ContentType, groupId: Long, entryId: Long) {
+    private suspend fun insertMember(
+        contentType: ContentType,
+        groupId: Long,
+        entryId: Long,
+        priority: Long = DEFAULT_SOURCE_PRIORITY,
+    ) {
         when (contentType) {
-            ContentType.MANGA -> queries.insertMangaMember(groupId, entryId, DEFAULT_SOURCE_PRIORITY)
-            ContentType.NOVELS -> queries.insertNovelMember(groupId, entryId, DEFAULT_SOURCE_PRIORITY)
+            ContentType.MANGA -> queries.insertMangaMember(groupId, entryId, priority)
+            ContentType.NOVELS -> queries.insertNovelMember(groupId, entryId, priority)
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
     }
