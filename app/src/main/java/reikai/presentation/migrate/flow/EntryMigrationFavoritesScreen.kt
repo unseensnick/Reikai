@@ -1,19 +1,17 @@
 package reikai.presentation.migrate.flow
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -40,12 +38,14 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.selectedBackground
+import tachiyomi.presentation.core.util.shouldExpandFAB
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -66,6 +66,7 @@ class EntryMigrationFavoritesScreen(
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel { EntryMigrationFavoritesScreenModel(contentType, sourceKey) }
         val state by screenModel.state.collectAsState()
+        val listState = rememberLazyListState()
 
         if (state.isLoading) {
             LoadingScreen()
@@ -113,6 +114,7 @@ class EntryMigrationFavoritesScreen(
                                 EntryMigrationConfigScreen(contentType, state.selected.map { it.rawId }),
                             )
                         },
+                        expanded = listState.shouldExpandFAB(),
                     )
                 }
             },
@@ -124,12 +126,17 @@ class EntryMigrationFavoritesScreen(
                 )
                 return@Scaffold
             }
-            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
+            FastScrollLazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = contentPadding,
+            ) {
                 items(items = state.entries, key = { it.id.toString() }) { entry ->
                     FavoriteRow(
                         favorite = entry,
                         checked = entry.id in state.selected,
                         onToggle = { screenModel.toggle(entry.id) },
+                        onClickCover = { entry.openDetails(navigator) },
                     )
                 }
             }
@@ -137,39 +144,42 @@ class EntryMigrationFavoritesScreen(
     }
 }
 
+/** Cover width of one picker row; its height follows the 2:3 book ratio. */
+private val COVER_WIDTH = 40.dp
+
+/**
+ * One library entry to pick. Selection shows as the row's background rather than a checkbox, and the
+ * cover is its own tap target that opens the entry, so a title can be checked before it is picked.
+ */
 @Composable
 private fun FavoriteRow(
     favorite: MigrationFavorite,
     checked: Boolean,
     onToggle: () -> Unit,
+    onClickCover: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .selectedBackground(checked)
             .clickable(onClick = onToggle)
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = 8.dp),
+            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
         MangaCover.Book(
             data = favorite.cover,
-            modifier = Modifier
-                .width(48.dp)
-                .padding(start = 4.dp),
+            modifier = Modifier.width(COVER_WIDTH),
+            onClick = onClickCover,
         )
-        Column(
+        Text(
+            text = favorite.title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 12.dp),
-        ) {
-            Text(
-                text = favorite.title,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+                .padding(start = MaterialTheme.padding.medium),
+        )
     }
 }
 

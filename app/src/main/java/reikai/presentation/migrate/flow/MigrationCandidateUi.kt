@@ -14,10 +14,15 @@ import tachiyomi.domain.manga.model.Manga
  * screen is a per-type Voyager screen and there is no neutral one to push. Everything else about a
  * candidate travels through [MigrationFlowAdapter] as neutral data.
  */
-internal fun MigrationEntry.openDetails(navigator: Navigator) {
-    when (val payload = payload) {
-        is Manga -> navigator.push(MangaScreen(payload.id))
-        is Novel -> navigator.push(NovelScreen(payload.source, payload.url))
+internal fun MigrationEntry.openDetails(navigator: Navigator) = navigator.pushDetails(payload)
+
+/** The details page of a row in the entry picker, for checking an entry before selecting it. */
+internal fun MigrationFavorite.openDetails(navigator: Navigator) = navigator.pushDetails(payload)
+
+private fun Navigator.pushDetails(payload: Any) {
+    when (payload) {
+        is Manga -> push(MangaScreen(payload.id))
+        is Novel -> push(NovelScreen(payload.source, payload.url))
     }
 }
 

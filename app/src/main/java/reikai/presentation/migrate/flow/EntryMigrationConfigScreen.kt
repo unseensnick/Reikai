@@ -120,7 +120,10 @@ class EntryMigrationConfigScreen(
                             val next = entryIds.singleOrNull()
                                 ?.let { EntryMigrationSearchScreen(contentType, it) }
                                 ?: EntryMigrationListScreen(contentType, entryIds)
-                            navigator.push(next)
+                            // Replace, never push: back from the results belongs on the screen that
+                            // chose the entries, not on a config step whose answer is already spent.
+                            // Matches upstream, which replaces at this same point.
+                            navigator.replace(next)
                         },
                     )
                 }
