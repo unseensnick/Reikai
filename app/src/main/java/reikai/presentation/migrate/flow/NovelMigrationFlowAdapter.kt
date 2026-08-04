@@ -56,9 +56,9 @@ class NovelMigrationFlowAdapter(
 
     override val contentType = ContentType.NOVELS
 
-    /** Suggestions are title-matched (see [SmartNovelSearchEngine]); this gates only the two options
-     *  built on top of that, deep search and prioritize-by-chapters, which novels do not have yet. */
-    override val supportsSmartMatch = false
+    /** Suggestions are title-matched (see [SmartNovelSearchEngine]), but the two options built on top
+     *  of the smart-search engines, deep search and prioritize-by-chapters, have no novel equivalent. */
+    override val matchStrategy = MatchStrategy.BestTitleMatch
 
     override suspend fun prepare() {
         // Best-effort, like every other novel surface: a load failure falls through to empty sources.
@@ -215,7 +215,8 @@ class NovelMigrationFlowAdapter(
 
     override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null
-        if (candidate.resolved) return ResolvedTarget(candidate, syncedNow = false)
+        // The handle says whether this was already materialised: a stored row means resolve has run.
+        if (handle.stored != null) return ResolvedTarget(candidate, syncedNow = false)
         val source = sourceManager.get(candidate.sourceKey) ?: return null
         // The search hit already carries everything a row needs to exist (title, path, cover), so it
         // is stored straight from that; the refresh below is the one call that parses the source, and
@@ -244,7 +245,6 @@ class NovelMigrationFlowAdapter(
                 chapterCount = chapters.size.takeIf { it > 0 },
                 latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
                 cover = resolved.toCover(source.site, favorite = false),
-                resolved = true,
                 handle = handle.copy(stored = resolved),
             ),
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
@@ -285,7 +285,6 @@ class NovelMigrationFlowAdapter(
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
             key = "${novel.source}:${novel.url}",
             cover = novel.toCover(site, favorite = novel.favorite),
-            resolved = true,
             handle = NovelCandidateHandle(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
                 site = site,

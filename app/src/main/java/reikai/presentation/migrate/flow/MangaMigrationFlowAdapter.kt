@@ -43,7 +43,7 @@ class MangaMigrationFlowAdapter(
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.MANGA
-    override val supportsSmartMatch = true
+    override val matchStrategy = MatchStrategy.Smart
 
     override fun enabledSources(): List<MigrationSourceUi> {
         val languages = sourcePreferences.enabledLanguages.get()
@@ -214,7 +214,6 @@ class MangaMigrationFlowAdapter(
             candidate = refreshed.toCandidate(candidate.sourceKey).copy(
                 chapterCount = chapters.size.takeIf { it > 0 },
                 latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-                resolved = true,
             ),
             // A fetch that produced nothing is not a sync: claiming it would make the engine skip
             // its compensating refresh and migrate onto an empty row when the source flaked here.
@@ -225,8 +224,8 @@ class MangaMigrationFlowAdapter(
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
         // Manga candidates are already stored rows, so resolve is the peek: it fetches chapters
         // onto the existing row, the same best-effort work the commit would do anyway. The result
-        // carries resolved = true, which is correct (the row is stored) and safe only while this
-        // resolve() re-checks chapters instead of early-outing on the flag, as the seam documents.
+        // is safe only while this resolve() re-checks chapters rather than trusting the handle, which
+        // is what the seam documents for the manga side.
         return resolve(candidate)?.candidate
     }
 
@@ -236,7 +235,6 @@ class MangaMigrationFlowAdapter(
         return manga.toCandidate("${manga.source}").copy(
             chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-            resolved = true,
         )
     }
 

@@ -34,7 +34,7 @@ fun MigrationTuningSheet(
     query: String,
     onQueryChange: (String) -> Unit,
     onCommitQuery: () -> Unit,
-    supportsSmartMatch: Boolean,
+    matchStrategy: MatchStrategy,
     onApply: (MigrationTuning) -> Unit,
 ) {
     // LabeledCheckbox brings no horizontal inset of its own, so without this the boxes sit against
@@ -62,7 +62,7 @@ fun MigrationTuningSheet(
                 .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 8.dp),
         )
 
-        if (supportsSmartMatch) {
+        if (matchStrategy is MatchStrategy.Smart) {
             LabeledCheckbox(
                 label = stringResource(MR.strings.migrationConfigScreen_deepSearchModeTitle),
                 checked = tuning.deepSearch,

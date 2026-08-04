@@ -31,24 +31,13 @@ class MigratingEntryRow(
 
     val commit = MutableStateFlow<CommitPhase>(CommitPhase.Idle)
 
-    /** The accepted target: what a commit would migrate onto. Null until the user accepts. */
-    val chosen = MutableStateFlow<MigrationCandidate?>(null)
+    /** Where the user stands on this row's target: see [Acceptance]. */
+    val acceptance = MutableStateFlow<Acceptance>(Acceptance.Untouched)
 
     val skipped = MutableStateFlow(false)
 
     /** Whether the row's override picker is open. Pure UI, independent of every phase above. */
     val expanded = MutableStateFlow(false)
-
-    /**
-     * Keeps the row on screen whatever the hide toggles say, once the user has acted on it.
-     *
-     * Hiding a row the user just touched reads as it vanishing under their hands, and the hide
-     * toggles are about thinning a list you have not worked yet. Sticky rather than recomputed: the
-     * filter's inputs (the search outcome, the peeked counts) can arrive AFTER the interaction, so
-     * anything derived from them re-hides the row a moment later. A tuning re-search builds fresh
-     * rows and so clears it, which is correct: that is a new list.
-     */
-    val pinnedVisible = MutableStateFlow(false)
 
     /** The override picker's own little machine, unrelated to the batch search: a user can search by
      *  hand from any search outcome, including one that already found a match. */
@@ -58,6 +47,30 @@ class MigratingEntryRow(
      *  it. Held here rather than in a map keyed by row, since the row is the thing that owns it. */
     @Volatile
     var overrideJob: Job? = null
+
+    /**
+     * Where the user stands on this row's target, as a third axis beside the search and commit cells.
+     *
+     * A nullable target could not tell [Untouched] from [Declined], and the hide toggles need to:
+     * a row the user has never looked at is exactly what those toggles thin out, while a row whose
+     * target they just handed back must stay on screen. Carrying that as a null plus a sticky
+     * "keep visible" boolean is what the nullable-soup rule forbids, and it produced the same
+     * disappearing-row bug three times.
+     *
+     * [Accepted] carries the target rather than pointing at one, so "has a target" and "which
+     * target" cannot disagree (upstream's `SearchResult.Success` does the same). A tuning re-search
+     * builds fresh rows, so [Declined] does not survive it: that is a new list.
+     */
+    sealed interface Acceptance {
+        /** No target chosen yet. A suggestion may exist on the search cell; the user has not acted. */
+        data object Untouched : Acceptance
+
+        /** The commit target: what a commit would migrate onto. */
+        data class Accepted(val candidate: MigrationCandidate) : Acceptance
+
+        /** The user gave a target back. Not the same as never having had one. */
+        data object Declined : Acceptance
+    }
 
     /** The row's search for a target on the configured sources. */
     sealed interface SearchPhase {
@@ -123,6 +136,10 @@ class MigratingEntryRow(
 /** The suggestion when the search found one, else null. */
 val MigratingEntryRow.SearchPhase.suggestion: MigrationCandidate?
     get() = (this as? MigratingEntryRow.SearchPhase.Found)?.suggestion
+
+/** The accepted target, or null when the user has not accepted one. */
+val MigratingEntryRow.Acceptance.candidate: MigrationCandidate?
+    get() = (this as? MigratingEntryRow.Acceptance.Accepted)?.candidate
 
 /** True once the search has settled, whatever the outcome. The commit gate waits on this. */
 val MigratingEntryRow.SearchPhase.isSettled: Boolean
@@ -206,12 +223,15 @@ object MigrationRowRules {
      */
     fun isVisible(
         search: MigratingEntryRow.SearchPhase,
-        chosen: MigrationCandidate?,
+        acceptance: MigratingEntryRow.Acceptance,
         entryLatestChapter: Double?,
-        pinned: Boolean,
+        expanded: Boolean,
         tuning: MigrationTuning,
     ): Boolean {
-        if (chosen != null || pinned || !search.isSettled) return true
+        // Untouched is the only acceptance the toggles may hide: Accepted would commit invisibly and
+        // Declined is a row the user just acted on. Reading the state rather than a sticky flag is
+        // what stops a late search outcome or a late count from re-hiding it a moment later.
+        if (acceptance !is MigratingEntryRow.Acceptance.Untouched || expanded || !search.isSettled) return true
         if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return false
         if (tuning.hideWithoutUpdates && search is MigratingEntryRow.SearchPhase.Found) {
             val targetLatest = search.suggestion.latestChapter
@@ -224,10 +244,10 @@ object MigrationRowRules {
 
     /** A row the batch commit should include: accepted, not skipped, not already migrated. */
     fun isCommittable(
-        chosen: MigrationCandidate?,
+        acceptance: MigratingEntryRow.Acceptance,
         commit: MigratingEntryRow.CommitPhase,
         skipped: Boolean,
-    ): Boolean = chosen != null && !skipped && !commit.isDone && !commit.isBusy
+    ): Boolean = acceptance is MigratingEntryRow.Acceptance.Accepted && !skipped && !commit.isDone && !commit.isBusy
 
     /** A retry is offered only for a failed commit, only while nothing else is committing, and
      *  never on a skipped row: skip excludes the row from every commit, including this one. */
@@ -249,4 +269,37 @@ object MigrationRowRules {
     }
 
     enum class RestartOutcome { Keep, Requeue }
+
+    /**
+     * What this row currently offers the user.
+     *
+     * The single source of truth for the row's controls: the screen renders a control only where the
+     * matching flag is true, and the ScreenModel refuses anything else. Deriving both from here is
+     * what stops the two from disagreeing, which is how Retry, Skip, "Migrate now" and the accept
+     * toggle all came to render on rows whose handlers silently refused them.
+     */
+    data class RowActions(
+        val canAccept: Boolean,
+        val canUnaccept: Boolean,
+        val canToggleSkip: Boolean,
+        val canRetry: Boolean,
+        val canCommitNow: Boolean,
+    )
+
+    fun actions(
+        search: MigratingEntryRow.SearchPhase,
+        acceptance: MigratingEntryRow.Acceptance,
+        commit: MigratingEntryRow.CommitPhase,
+        skipped: Boolean,
+        anyCommitInFlight: Boolean,
+    ): RowActions = RowActions(
+        canAccept = acceptance !is MigratingEntryRow.Acceptance.Accepted && !skipped &&
+            search.suggestion != null && canChoose(commit),
+        canUnaccept = acceptance is MigratingEntryRow.Acceptance.Accepted && canUnchoose(commit),
+        canToggleSkip = canToggleSkip(commit),
+        canRetry = canRetry(commit, anyCommitInFlight, skipped),
+        // A single commit is offered only when the batch would take this row too, and only while
+        // nothing else is committing: commitSingle refuses both, so offering it would be a dead tap.
+        canCommitNow = isCommittable(acceptance, commit, skipped) && !anyCommitInFlight,
+    )
 }

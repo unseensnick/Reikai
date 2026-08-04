@@ -67,15 +67,6 @@ data class MigrationEntry(
  * [handle] is adapter-owned and round-trips through [MigrationFlowAdapter.resolve] into a
  * commit-ready target; the shared flow never inspects it, which is why [cover] and [key] are built
  * by the adapter instead of downcast in UI code.
- *
- * [resolved] means the candidate needs no further materialising before a commit, either because
- * [MigrationFlowAdapter.resolve] produced it or because it came from an already-stored row
- * (`storedCandidate`). It does NOT promise chapters: a stored row can still be empty,
- * and neither engine refuses a chapterless target outright, so treat it as "no work owed", never as
- * "ready to read". Novel candidates start unresolved (materialising every suggestion would fetch for
- * matches the user never accepts) and their `resolve` honours the flag with an early-out; manga's
- * candidates are stored rows already, and its `resolve` re-checks the chapter list regardless of the
- * flag rather than early-outing on it.
  */
 data class MigrationCandidate(
     val sourceKey: String,
@@ -87,7 +78,13 @@ data class MigrationCandidate(
     val key: String,
     /** Adapter-built Coil cover model for the candidate cell. */
     val cover: Any? = null,
-    val resolved: Boolean = false,
+    /**
+     * Adapter-owned, and the only place resolved-ness lives: whether a commit still owes this
+     * candidate a materialising [MigrationFlowAdapter.resolve] is a property of the handle, not of
+     * the shared model. It used to be a Boolean here whose meaning differed per adapter, which the
+     * surface's standing rules forbid. The novel handle answers it with its stored row; manga
+     * candidates are stored from search time, so its resolve re-checks chapters regardless.
+     */
     val handle: Any,
 )
 
@@ -117,7 +114,7 @@ data class MigrationFavorite(
 /**
  * The pre-list search options. [extraQuery] is transient per run (matching Mihon, which threads it
  * as a screen argument); the toggles persist per type. Smart-match options ([deepSearch],
- * [prioritizeByChapters]) only apply where [MigrationFlowAdapter.supportsSmartMatch].
+ * [prioritizeByChapters]) only apply under [MatchStrategy.Smart].
  *
  * Only [affectsSearch] options change what a search returns; the hide toggles are pure filters over
  * results already in hand, so changing one must never rebuild rows or re-hit the network.
@@ -157,8 +154,8 @@ data class MigrationTuning(
 interface MigrationFlowAdapter {
     val contentType: ContentType
 
-    /** Whether the smart-match tuning options (deep search, prioritize-by-chapters) apply. */
-    val supportsSmartMatch: Boolean
+    /** How this type finds a target: a typed slot, not a capability boolean. */
+    val matchStrategy: MatchStrategy
 
     /** One-time readiness work before sources are read (the novel side loads its plugin host here;
      *  without it, entering the flow before the host warms up shows empty sources with no error).
@@ -256,4 +253,19 @@ interface MigrationFlowAdapter {
         flags: Set<MigrationDataFlag>,
         targetJustSynced: Boolean,
     )
+}
+
+/**
+ * How a content type matches an entry to a target.
+ *
+ * A typed slot rather than a `supportsSmartMatch` Boolean: the two tuning options that ride on the
+ * smart-search engines are meaningless for a type that has none, and an exhaustive `when` says so at
+ * every call site instead of an AND that is easy to forget.
+ */
+sealed interface MatchStrategy {
+    /** The source's best title match, with no options on top (the novel plugin sources). */
+    data object BestTitleMatch : MatchStrategy
+
+    /** Mihon's smart-search engines: deep search and prioritize-by-chapters apply. */
+    data object Smart : MatchStrategy
 }

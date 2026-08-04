@@ -2,6 +2,7 @@ package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 
@@ -17,7 +18,6 @@ class MigrationRowRulesTest {
         chapterCount = 3,
         key = "s:/t",
         handle = Any(),
-        resolved = true,
     )
     private val found = SearchPhase.Found(candidate, "Source")
     private val failedCommit = CommitPhase.Failed(
@@ -28,13 +28,15 @@ class MigrationRowRulesTest {
 
     private val hideBoth = MigrationTuning(hideUnmatched = true, hideWithoutUpdates = true)
 
+    private val accepted = Acceptance.Accepted(candidate)
+
     private fun visible(
         search: SearchPhase,
-        chosen: MigrationCandidate? = null,
+        acceptance: Acceptance = Acceptance.Untouched,
         entryLatest: Double? = 10.0,
-        pinned: Boolean = false,
+        expanded: Boolean = false,
         tuning: MigrationTuning = hideBoth,
-    ) = MigrationRowRules.isVisible(search, chosen, entryLatest, pinned, tuning)
+    ) = MigrationRowRules.isVisible(search, acceptance, entryLatest, expanded, tuning)
 
     @Test
     fun `hide-unmatched hides a row that found nothing`() {
@@ -42,13 +44,29 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `a pinned row survives the hide toggles`() {
-        visible(SearchPhase.NoMatch, pinned = true) shouldBe true
+    fun `an open row survives the hide toggles`() {
+        visible(SearchPhase.NoMatch, expanded = true) shouldBe true
+    }
+
+    @Test
+    fun `a target the user gave back keeps the row on screen`() {
+        // The whole reason Declined exists: hiding a row the user just acted on reads as it
+        // vanishing under their hands, and Untouched cannot tell that case from "never looked at".
+        visible(SearchPhase.NoMatch, Acceptance.Declined) shouldBe true
+    }
+
+    @Test
+    fun `declining does not survive a search that has not settled either`() {
+        val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
+
+        // Late-arriving filter inputs are what re-hid the row three times: a declined row stays put
+        // whichever way the search lands.
+        visible(behind, Acceptance.Declined, entryLatest = 10.0) shouldBe true
     }
 
     @Test
     fun `an accepted row survives the hide toggles, or it would commit invisibly`() {
-        visible(SearchPhase.NoMatch, chosen = candidate) shouldBe true
+        visible(SearchPhase.NoMatch, accepted) shouldBe true
     }
 
     @Test
@@ -188,22 +206,22 @@ class MigrationRowRulesTest {
 
     @Test
     fun `a skipped row is excluded from a commit`() {
-        MigrationRowRules.isCommittable(candidate, CommitPhase.Idle, skipped = true) shouldBe false
+        MigrationRowRules.isCommittable(accepted, CommitPhase.Idle, skipped = true) shouldBe false
     }
 
     @Test
     fun `a targetless row is excluded from a commit`() {
-        MigrationRowRules.isCommittable(null, CommitPhase.Idle, skipped = false) shouldBe false
+        MigrationRowRules.isCommittable(Acceptance.Untouched, CommitPhase.Idle, skipped = false) shouldBe false
     }
 
     @Test
     fun `an already migrated row is excluded from a re-commit`() {
-        MigrationRowRules.isCommittable(candidate, migrated, skipped = false) shouldBe false
+        MigrationRowRules.isCommittable(accepted, migrated, skipped = false) shouldBe false
     }
 
     @Test
     fun `an accepted unskipped row is committable`() {
-        MigrationRowRules.isCommittable(candidate, CommitPhase.Idle, skipped = false) shouldBe true
+        MigrationRowRules.isCommittable(accepted, CommitPhase.Idle, skipped = false) shouldBe true
     }
 
     @Test
@@ -268,5 +286,60 @@ class MigrationRowRulesTest {
     fun `the suggestion is readable only from a found search`() {
         found.suggestion shouldBe candidate
         SearchPhase.NoMatch.suggestion shouldBe null
+    }
+
+    @Test
+    fun `the accepted target is readable only from an accepted row`() {
+        accepted.candidate shouldBe candidate
+        Acceptance.Untouched.candidate shouldBe null
+        Acceptance.Declined.candidate shouldBe null
+    }
+
+    private fun actions(
+        search: SearchPhase = found,
+        acceptance: Acceptance = Acceptance.Untouched,
+        commit: CommitPhase = CommitPhase.Idle,
+        skipped: Boolean = false,
+        busy: Boolean = false,
+    ) = MigrationRowRules.actions(search, acceptance, commit, skipped, busy)
+
+    @Test
+    fun `a suggested row offers accept and nothing to un-accept`() {
+        val offered = actions()
+
+        offered.canAccept shouldBe true
+        offered.canUnaccept shouldBe false
+    }
+
+    @Test
+    fun `an accepted row offers un-accept and a single commit`() {
+        val offered = actions(acceptance = accepted)
+
+        offered.canUnaccept shouldBe true
+        offered.canCommitNow shouldBe true
+    }
+
+    @Test
+    fun `nothing that commits is offered while another commit runs`() {
+        // The dead-control class: these all rendered while their handlers refused.
+        val offered = actions(acceptance = accepted, commit = failedCommit, busy = true)
+
+        offered.canCommitNow shouldBe false
+        offered.canRetry shouldBe false
+    }
+
+    @Test
+    fun `a row with no target never offers a single commit`() {
+        actions(search = SearchPhase.NoMatch).canCommitNow shouldBe false
+    }
+
+    @Test
+    fun `skip is not offered mid-commit`() {
+        actions(commit = CommitPhase.Committing(replace = true)).canToggleSkip shouldBe false
+    }
+
+    @Test
+    fun `a failed row offers retry when nothing else commits`() {
+        actions(acceptance = accepted, commit = failedCommit).canRetry shouldBe true
     }
 }

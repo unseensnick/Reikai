@@ -19,6 +19,7 @@ import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import tachiyomi.core.common.util.lang.launchIO
@@ -89,7 +90,7 @@ class EntryMigrationListScreenModel(
                     tuning = tuning,
                     rows = built,
                     visibleRows = built,
-                    supportsSmartMatch = adapter.supportsSmartMatch,
+                    matchStrategy = adapter.matchStrategy,
                     savedFlags = adapter.savedFlags(),
                 )
             }
@@ -182,7 +183,7 @@ class EntryMigrationListScreenModel(
             // An accept may have copied the un-peeked suggestion into chosen meanwhile; keep both in
             // step. CAS, so an un-accept landing in between is not resurrected.
             if (MigrationRowRules.canChoose(row.commit.value)) {
-                row.chosen.compareAndSet(suggestion, peeked)
+                row.acceptance.compareAndSet(Acceptance.Accepted(suggestion), Acceptance.Accepted(peeked))
             }
             // Hide-without-updates compares these counts, so visibility can change with them.
             syncCounts()
@@ -197,7 +198,7 @@ class EntryMigrationListScreenModel(
     ): SearchPhase {
         var errors = 0
         val hit: Pair<MigrationSourceUi, MigrationCandidate>? = if (
-            tuning.prioritizeByChapters && adapter.supportsSmartMatch
+            tuning.prioritizeByChapters && adapter.matchStrategy is MatchStrategy.Smart
         ) {
             val permits = Semaphore(SOURCE_CONCURRENCY)
             val probes = sources.map { source ->
@@ -263,15 +264,14 @@ class EntryMigrationListScreenModel(
             searchedCount = state.rows.count { it.isSettled },
             allSearched = state.rows.isNotEmpty() && state.rows.all { it.isSettled },
             committableCount = state.rows.count {
-                MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
+                MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
             },
             untouchedCount = state.rows.count {
-                !it.commit.value.isDone && (it.skipped.value || it.chosen.value == null)
+                !it.commit.value.isDone && (it.skipped.value || it.acceptance.value !is Acceptance.Accepted)
             },
             hasUnaccepted = state.rows.any {
-                it.chosen.value == null && !it.skipped.value && it.search.value.suggestion != null
+                it.acceptance.value !is Acceptance.Accepted && !it.skipped.value && it.search.value.suggestion != null
             },
-            singleCommitInFlight = state.rows.any { it.commit.value.isBusy },
         )
     }
 
@@ -288,7 +288,7 @@ class EntryMigrationListScreenModel(
      * what it is migrating.
      */
     fun applyTuning(tuning: MigrationTuning): Boolean {
-        if (state.value.isCommitting || state.value.singleCommitInFlight) return false
+        if (state.value.isBusy) return false
         val previous = state.value.tuning
         adapter.persistTuning(tuning)
         mutableState.update { it.copy(tuning = tuning) }
@@ -400,7 +400,7 @@ class EntryMigrationListScreenModel(
                 // not the snapshot it started from.
                 val live = rows.firstOrNull { it.entry.id == row.entry.id } ?: return@forEach
                 if (!MigrationRowRules.canChoose(live.commit.value)) return@forEach
-                live.chosen.value = candidate
+                live.acceptance.value = Acceptance.Accepted(candidate)
                 live.expanded.value = false
                 if (live.skipped.value) {
                     live.skipped.value = false
@@ -422,7 +422,7 @@ class EntryMigrationListScreenModel(
      * and a result whose row moved on (target swapped, commit started) is dropped, not applied.
      */
     private fun peekChosenCounts(row: MigratingEntryRow) {
-        val candidate = row.chosen.value ?: return
+        val candidate = row.acceptance.value.candidate ?: return
         if (candidate.latestChapter != null || candidate.chapterCount != null) return
         row.scope.launchIO {
             val peeked = interactiveSearches.withPermit {
@@ -431,7 +431,7 @@ class EntryMigrationListScreenModel(
             if (!MigrationRowRules.canChoose(row.commit.value)) return@launchIO
             // CAS, not check-then-write: an un-accept landing between them would be resurrected by
             // a plain write, re-arming a target the user just declined.
-            row.chosen.compareAndSet(candidate, peeked)
+            row.acceptance.compareAndSet(Acceptance.Accepted(candidate), Acceptance.Accepted(peeked))
         }
     }
 
@@ -439,7 +439,7 @@ class EntryMigrationListScreenModel(
     fun pick(id: EntryId, candidate: MigrationCandidate) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         if (!MigrationRowRules.canChoose(row.commit.value)) return
-        row.chosen.value = candidate
+        row.acceptance.value = Acceptance.Accepted(candidate)
         // A pick answers the question the picker was open for; leaving it open buries the result.
         row.expanded.value = false
         row.skipped.value = false
@@ -453,16 +453,14 @@ class EntryMigrationListScreenModel(
     /** Accept the suggestion, or give back an accepted target so the suggestion shows again. */
     fun toggleAccept(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
-        if (row.chosen.value != null) {
+        if (row.acceptance.value is Acceptance.Accepted) {
             if (!MigrationRowRules.canUnchoose(row.commit.value)) return
-            row.chosen.value = null
-            // Giving a target back must not make the row disappear. Pinning rather than testing
-            // visibility here, because the filter's inputs can still arrive later: a row whose
-            // search has not settled looks visible now and is hidden the moment NoMatch lands.
-            row.pinnedVisible.value = true
+            // Declined, not null: the hide toggles must be able to tell a target the user gave
+            // back from one they never had, or the row vanishes from under them.
+            row.acceptance.value = Acceptance.Declined
         } else {
             if (!MigrationRowRules.canChoose(row.commit.value)) return
-            row.chosen.value = row.search.value.suggestion ?: return
+            row.acceptance.value = Acceptance.Accepted(row.search.value.suggestion ?: return)
             peekChosenCounts(row)
         }
         syncCounts()
@@ -470,11 +468,11 @@ class EntryMigrationListScreenModel(
 
     /** Accept every row that found a match and has no target yet. */
     fun acceptAll() {
-        if (state.value.isCommitting || state.value.singleCommitInFlight) return
+        if (state.value.isBusy) return
         rows.forEach { row ->
-            if (row.chosen.value != null || row.skipped.value) return@forEach
+            if (row.acceptance.value is Acceptance.Accepted || row.skipped.value) return@forEach
             if (!MigrationRowRules.canChoose(row.commit.value)) return@forEach
-            row.chosen.value = row.search.value.suggestion ?: return@forEach
+            row.acceptance.value = Acceptance.Accepted(row.search.value.suggestion ?: return@forEach)
             peekChosenCounts(row)
         }
         syncCounts()
@@ -506,29 +504,29 @@ class EntryMigrationListScreenModel(
     fun commit(replace: Boolean, flags: Set<MigrationDataFlag>) {
         // The batch serializes with single commits the same way they serialize with it: two paths
         // committing at once would race on the rows and the flag preference.
-        if (state.value.isCommitting || state.value.singleCommitInFlight) return
+        if (state.value.isBusy) return
         val targets = rows.filter {
-            MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
+            MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
         }
         if (targets.isEmpty()) return
         // Persisted once, here, and then carried as a value: the per-row commits below must all use
         // the set the user just confirmed.
         adapter.persistFlags(flags)
         mutableState.update { it.copy(savedFlags = flags) }
-        mutableState.update { it.copy(dialog = Dialog.Progress(0, targets.size), isCommitting = true) }
+        mutableState.update { it.copy(activity = CommitActivity.Batch(done = 0, total = targets.size)) }
         batchTargets = targets
         commitJob = screenModelScope.launchIO {
             try {
                 targets.forEachIndexed { index, row ->
                     ensureActive()
                     commitRow(row, replace, flags)
-                    mutableState.update { it.copy(dialog = Dialog.Progress(index + 1, targets.size)) }
+                    mutableState.update { it.copy(activity = CommitActivity.Batch(index + 1, targets.size)) }
                 }
                 // Only a clean run leaves: a failure keeps the screen open so the row that failed
                 // stays visible with its retry, instead of vanishing with the rest.
                 finishIfNothingFailed()
             } finally {
-                mutableState.update { it.copy(dialog = null, isCommitting = false) }
+                mutableState.update { it.copy(activity = CommitActivity.Idle) }
                 commitJob = null
             }
         }
@@ -538,25 +536,38 @@ class EntryMigrationListScreenModel(
     fun commitSingle(id: EntryId, replace: Boolean) {
         // Single commits serialize with each other and with the batch: two at once would race on
         // the same rows and on the flag preference.
-        if (state.value.isCommitting || state.value.singleCommitInFlight) return
+        if (state.value.isBusy) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
-        if (!MigrationRowRules.isCommittable(row.chosen.value, row.commit.value, row.skipped.value)) return
+        if (!MigrationRowRules.isCommittable(row.acceptance.value, row.commit.value, row.skipped.value)) return
         val flags = state.value.savedFlags
         adapter.persistFlags(flags)
-        screenModelScope.launchIO {
-            commitRow(row, replace, flags)
-            finishIfNothingFailed()
-        }
+        runSingleCommit(row, replace, flags)
     }
 
     fun retry(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         val failure = row.commit.value as? CommitPhase.Failed ?: return
-        val busy = state.value.isCommitting || state.value.singleCommitInFlight
-        if (!MigrationRowRules.canRetry(failure, busy, row.skipped.value)) return
+        if (!MigrationRowRules.canRetry(failure, state.value.isBusy, row.skipped.value)) return
+        runSingleCommit(row, failure.replace, failure.flags)
+    }
+
+    /**
+     * Commit one row, marking the screen busy on the CALLER's thread.
+     *
+     * The mark used to land inside the coroutine, which left a dispatch-sized window where a second
+     * commit, or a tuning rebuild, passed its guard against a commit that had already been decided:
+     * the rebuild swapped in a fresh row while the commit migrated the old object, leaving the entry
+     * migrated in the database and shown as untouched.
+     */
+    private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
+        mutableState.update { it.copy(activity = CommitActivity.Single(row.entry.id)) }
         screenModelScope.launchIO {
-            commitRow(row, failure.replace, failure.flags)
-            finishIfNothingFailed()
+            try {
+                commitRow(row, replace, flags)
+                finishIfNothingFailed()
+            } finally {
+                mutableState.update { it.copy(activity = CommitActivity.Idle) }
+            }
         }
     }
 
@@ -580,7 +591,7 @@ class EntryMigrationListScreenModel(
         val anyFailed = rows.any { it.commit.value is CommitPhase.Failed && !it.skipped.value }
         val anyBusy = rows.any { it.commit.value.isBusy }
         val anyCommittable = rows.any {
-            MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
+            MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
         }
         if (!anyFailed && !anyBusy && !anyCommittable) {
             batchTargets = emptyList()
@@ -609,7 +620,7 @@ class EntryMigrationListScreenModel(
         // The target and skip state are read AFTER the claim: once Committing is visible every
         // chooser and skipper refuses, so a swap or skip that slipped in between the caller's guard
         // and the claim is caught here instead of being migrated and then overwritten.
-        val target = row.chosen.value
+        val target = row.acceptance.value.candidate
         if (target == null || row.skipped.value) {
             row.commit.value = previous
             // Releasing the claim can put an unsearched row back in the driver's reach, and the
@@ -624,7 +635,7 @@ class EntryMigrationListScreenModel(
             val resolved = adapter.commitMigration(row.entry, target, replace, flags)
             // CAS, not a plain write: if anything legitimately changed chosen mid-commit, the user's
             // choice wins over the bookkeeping copy.
-            row.chosen.compareAndSet(target, resolved)
+            row.acceptance.compareAndSet(Acceptance.Accepted(target), Acceptance.Accepted(resolved))
             row.commit.value = CommitPhase.Migrated(resolved, replace)
             mutableState.update { it.copy(migratedCount = it.migratedCount + 1) }
         } catch (e: CancellationException) {
@@ -646,14 +657,14 @@ class EntryMigrationListScreenModel(
     /** Opens immediately and fills the applicable flags behind it, so the button never looks dead
      *  while the per-entry scan (custom cover, notes, downloads) runs. */
     fun showConfirm(replace: Boolean) {
-        if (state.value.isCommitting || state.value.singleCommitInFlight) return
+        if (state.value.isBusy) return
         val scan = ++confirmScanId
         mutableState.update {
             it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
         }
         screenModelScope.launchIO {
             val targets = rows.filter {
-                MigrationRowRules.isCommittable(it.chosen.value, it.commit.value, it.skipped.value)
+                MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
             }
             val applicable = adapter.applicableFlags(targets.map { it.entry })
             // The saved set is re-read rather than reused: an earlier commit in this session rewrote
@@ -690,7 +701,6 @@ class EntryMigrationListScreenModel(
             val savedFlags: Set<MigrationDataFlag> = emptySet(),
             val loadingFlags: Boolean = true,
         ) : Dialog
-        data class Progress(val done: Int, val total: Int) : Dialog
         data object Exit : Dialog
     }
 
@@ -708,15 +718,32 @@ class EntryMigrationListScreenModel(
         /** Rows a commit would leave alone: skipped, or with nothing to migrate onto. */
         val untouchedCount: Int = 0,
         val hasUnaccepted: Boolean = false,
-        val singleCommitInFlight: Boolean = false,
-        val supportsSmartMatch: Boolean = false,
+        val matchStrategy: MatchStrategy = MatchStrategy.BestTitleMatch,
         val migratedCount: Int = 0,
-        val isCommitting: Boolean = false,
+        /** The one answer to "is a migration running", and which kind. */
+        val activity: CommitActivity = CommitActivity.Idle,
         val finished: Boolean = false,
         val savedFlags: Set<MigrationDataFlag> = emptySet(),
         val dialog: Dialog? = null,
     ) {
-        val rowIds: Set<EntryId> = rows.mapTo(HashSet()) { it.entry.id }
+        /** No commit may start, and nothing may rebuild rows, while another one is running. */
+        val isBusy: Boolean get() = activity !is CommitActivity.Idle
+    }
+
+    /**
+     * What the screen is committing, if anything.
+     *
+     * One cell rather than the `isCommitting` / `singleCommitInFlight` pair it replaces: those had to
+     * be ANDed at every guard and at every control, and a pair that must always be read together is
+     * the boolean-combination shape the surface's standing rules forbid. [Batch] carries its own
+     * progress, so "running" and "how far" cannot disagree either.
+     */
+    sealed interface CommitActivity {
+        data object Idle : CommitActivity
+
+        data class Batch(val done: Int, val total: Int) : CommitActivity
+
+        data class Single(val entryId: EntryId) : CommitActivity
     }
 }
 
@@ -725,16 +752,12 @@ private val MigratingEntryRow.isSettled: Boolean
     get() = MigrationRowRules.isSettled(search.value, commit.value, skipped.value)
 
 /**
- * Whether the hide toggles leave this row on screen. An accepted row is always shown: hiding one the
- * user has chosen would commit it invisibly. A failed search is shown too, since hide-unmatched is
- * about entries with no match, not about entries whose sources were unreachable. An expanded row is
- * shown whatever the toggles say: it is the row being worked on, and un-accepting inside it would
- * otherwise make it vanish under the user's hands.
+ * Whether the hide toggles leave this row on screen; the rule itself lives with the other rules.
  */
 private fun MigratingEntryRow.isVisibleUnder(tuning: MigrationTuning): Boolean = MigrationRowRules.isVisible(
     search = search.value,
-    chosen = chosen.value,
+    acceptance = acceptance.value,
     entryLatestChapter = entry.latestChapter,
-    pinned = pinnedVisible.value || expanded.value,
+    expanded = expanded.value,
     tuning = tuning,
 )

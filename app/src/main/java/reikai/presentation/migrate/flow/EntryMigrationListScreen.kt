@@ -132,7 +132,9 @@ class EntryMigrationListScreen(
                                     title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
                                     icon = Icons.Outlined.DoneAll,
                                     onClick = screenModel::acceptAll,
-                                    enabled = state.hasUnaccepted,
+                                    // Matches acceptAll's own guard: it refuses while anything is
+                                    // committing, so an enabled icon there would be a dead tap.
+                                    enabled = state.hasUnaccepted && !state.isBusy,
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
@@ -140,7 +142,7 @@ class EntryMigrationListScreen(
                                     onClick = { showTuning = true },
                                     // Matches what applyTuning itself allows, so the sheet cannot
                                     // open onto edits that would be refused.
-                                    enabled = !state.isCommitting && !state.singleCommitInFlight,
+                                    enabled = !state.isBusy,
                                 ),
                             ),
                         )
@@ -148,9 +150,7 @@ class EntryMigrationListScreen(
                 )
             },
             bottomBar = {
-                if (state.allSearched && state.committableCount > 0 && !state.isCommitting &&
-                    !state.singleCommitInFlight
-                ) {
+                if (state.allSearched && state.committableCount > 0 && !state.isBusy) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -175,7 +175,7 @@ class EntryMigrationListScreen(
         ) { contentPadding ->
             LazyColumn(contentPadding = contentPadding) {
                 items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
-                    MigrationRow(row = row, screenModel = screenModel)
+                    MigrationRow(row = row, busy = state.isBusy, screenModel = screenModel)
                 }
             }
         }
@@ -208,21 +208,22 @@ class EntryMigrationListScreen(
                     query = tuningQuery,
                     onQueryChange = { tuningQuery = it },
                     onCommitQuery = commitQuery,
-                    supportsSmartMatch = state.supportsSmartMatch,
+                    matchStrategy = state.matchStrategy,
                     onApply = onApply,
                 )
             }
         }
 
+        // A batch commit IS the progress dialog: reading it off the activity cell rather than a
+        // parallel Dialog case is what stops "running" and "how far" from disagreeing.
+        (state.activity as? EntryMigrationListScreenModel.CommitActivity.Batch)?.let {
+            ProgressDialog(done = it.done, total = it.total, onCancel = screenModel::cancelCommit)
+        }
         when (val dialog = state.dialog) {
             is EntryMigrationListScreenModel.Dialog.Confirm -> ConfirmDialog(
                 dialog = dialog,
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { flags -> screenModel.commit(dialog.replace, flags) },
-            )
-            is EntryMigrationListScreenModel.Dialog.Progress -> ProgressDialog(
-                dialog = dialog,
-                onCancel = screenModel::cancelCommit,
             )
             EntryMigrationListScreenModel.Dialog.Exit -> ExitDialog(
                 onDismissRequest = screenModel::dismissDialog,
@@ -238,14 +239,20 @@ class EntryMigrationListScreen(
 @Composable
 private fun MigrationRow(
     row: MigratingEntryRow,
+    busy: Boolean,
     screenModel: EntryMigrationListScreenModel,
 ) {
     // Collected inside the item so one row settling recomposes that row, not the whole list.
     val search by row.search.collectAsState()
     val commit by row.commit.collectAsState()
-    val chosen by row.chosen.collectAsState()
+    val acceptance by row.acceptance.collectAsState()
     val skipped by row.skipped.collectAsState()
     val expanded by row.expanded.collectAsState()
+    val chosen = acceptance.candidate
+    // The rules decide what this row offers; the screen only renders it. Two sources of truth here
+    // is how Retry, Skip, Migrate now and the accept toggle all came to render on rows whose
+    // handlers refused them.
+    val actions = MigrationRowRules.actions(search, acceptance, commit, skipped, busy)
 
     Column {
         Row(
@@ -293,10 +300,10 @@ private fun MigrationRow(
             }
             RowTrailing(
                 row = row,
-                search = search,
                 commit = commit,
                 chosen = chosen,
                 skipped = skipped,
+                actions = actions,
                 screenModel = screenModel,
             )
         }
@@ -467,10 +474,10 @@ private fun RowCountLine(row: MigratingEntryRow, target: MigrationCandidate?) {
 @Composable
 private fun RowTrailing(
     row: MigratingEntryRow,
-    search: SearchPhase,
     commit: CommitPhase,
     chosen: MigrationCandidate?,
     skipped: Boolean,
+    actions: MigrationRowRules.RowActions,
     screenModel: EntryMigrationListScreenModel,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -481,8 +488,9 @@ private fun RowTrailing(
         ) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp))
         }
-        // No retry on a skipped row: skip excludes it from every commit, and the model refuses too.
-        commit is CommitPhase.Failed && !skipped -> TextButton(onClick = { screenModel.retry(row.entry.id) }) {
+        // Offered only where the model would accept it, so Retry cannot render during another
+        // row.s commit and do nothing.
+        actions.canRetry -> TextButton(onClick = { screenModel.retry(row.entry.id) }) {
             Text(text = stringResource(MR.strings.action_retry))
         }
         commit is CommitPhase.Migrated -> Box(
@@ -497,8 +505,8 @@ private fun RowTrailing(
         }
         // Accept: filled once a target is accepted, outlined while it is only a suggestion. Tapping
         // an accepted row gives the target back, which is why it stays a control and not a chip.
-        !skipped && (chosen != null || search.suggestion != null) -> {
-            val accepted = chosen != null
+        actions.canAccept || actions.canUnaccept -> {
+            val accepted = actions.canUnaccept
             val description = stringResource(
                 if (accepted) MR.strings.migrationFlow_acceptedLabel else MR.strings.action_accept,
             )
@@ -533,7 +541,7 @@ private fun RowTrailing(
                     screenModel.toggleExpanded(row.entry.id)
                 },
             )
-            if (!skipped && commit !is CommitPhase.Committing) {
+            if (actions.canCommitNow) {
                 DropdownMenuItem(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel)) },
                     onClick = {
@@ -549,23 +557,25 @@ private fun RowTrailing(
                     },
                 )
             }
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = stringResource(
-                            if (skipped) {
-                                MR.strings.migrationFlow_restoreActionLabel
-                            } else {
-                                MR.strings.migrationListScreen_skipActionLabel
-                            },
-                        ),
-                    )
-                },
-                onClick = {
-                    menuExpanded = false
-                    screenModel.toggleSkip(row.entry.id)
-                },
-            )
+            if (actions.canToggleSkip) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(
+                                if (skipped) {
+                                    MR.strings.migrationFlow_restoreActionLabel
+                                } else {
+                                    MR.strings.migrationListScreen_skipActionLabel
+                                },
+                            ),
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        screenModel.toggleSkip(row.entry.id)
+                    },
+                )
+            }
         }
     }
 }
@@ -651,7 +661,8 @@ private fun ConfirmDialog(
 
 @Composable
 private fun ProgressDialog(
-    dialog: EntryMigrationListScreenModel.Dialog.Progress,
+    done: Int,
+    total: Int,
     onCancel: () -> Unit,
 ) {
     AlertDialog(
@@ -662,12 +673,12 @@ private fun ProgressDialog(
             Column {
                 LinearProgressIndicator(
                     progress = {
-                        if (dialog.total == 0) 0f else dialog.done.toFloat() / dialog.total
+                        if (total == 0) 0f else done.toFloat() / total
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    text = "${dialog.done} / ${dialog.total}",
+                    text = "$done / $total",
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                     modifier = Modifier.padding(top = 8.dp),
                 )
