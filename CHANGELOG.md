@@ -100,6 +100,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Migration**
 
+- **The confirm dialog now gets out of the way when a migration starts.** It used to sit on top of the progress dialog with a button that did nothing, hiding the Cancel underneath it.
+- **A migration that ends with failures no longer leaves a live Migrate button that would run the whole batch again.**
+- **Handing a match back now counts as a decision.** Declining one entry used to stop the migration screen from ever closing itself, and the next Accept all would quietly re-arm the entry you just declined.
+- **A skipped entry no longer disappears when the hide filters are on.** It stays dimmed in place, so Restore is still reachable.
+- **A finished entry no longer keeps an open search panel whose results do nothing when tapped.**
 - **Cancelling a migration part-way no longer leaves a grouped series half-moved.** The entry could disappear from your library while still counting toward a merged series, with no way to reach it and put it back.
 - **Migrating one source of a grouped series onto another now hands each remaining source its own tracking link, like splitting the group does.**
 

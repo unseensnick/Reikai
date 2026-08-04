@@ -33,10 +33,12 @@ class MigrationRowRulesTest {
     private fun visible(
         search: SearchPhase,
         acceptance: Acceptance = Acceptance.Untouched,
+        commit: CommitPhase = CommitPhase.Idle,
+        skipped: Boolean = false,
         entryLatest: Double? = 10.0,
         expanded: Boolean = false,
         tuning: MigrationTuning = hideBoth,
-    ) = MigrationRowRules.isVisible(search, acceptance, entryLatest, expanded, tuning)
+    ) = MigrationRowRules.isVisible(search, acceptance, commit, skipped, entryLatest, expanded, tuning)
 
     @Test
     fun `hide-unmatched hides a row that found nothing`() {
@@ -73,6 +75,32 @@ class MigrationRowRulesTest {
     fun `a row that has not settled is never hidden, since its outcome is unknown`() {
         visible(SearchPhase.Queued) shouldBe true
         visible(SearchPhase.Searching) shouldBe true
+    }
+
+    @Test
+    fun `a skipped row survives the hide toggles`() {
+        // Skip is an action on the row, so hiding it takes away the Restore the user needs. It used
+        // to vanish because only the acceptance cell was consulted, and skipping leaves that alone.
+        visible(SearchPhase.NoMatch, skipped = true) shouldBe true
+    }
+
+    @Test
+    fun `a migrated row survives the hide toggles`() {
+        visible(SearchPhase.NoMatch, commit = migrated) shouldBe true
+    }
+
+    @Test
+    fun `only an untouched row counts as untouched`() {
+        val disposition = { acceptance: Acceptance, commit: CommitPhase, skipped: Boolean ->
+            MigrationRowRules.disposition(acceptance, commit, skipped)
+        }
+
+        disposition(Acceptance.Untouched, CommitPhase.Idle, false) shouldBe MigrationRowRules.Disposition.Untouched
+        disposition(accepted, CommitPhase.Idle, false) shouldBe MigrationRowRules.Disposition.Armed
+        // The three ways a row is done with: the gate, accept-all and the hide toggles all read this.
+        disposition(Acceptance.Declined, CommitPhase.Idle, false) shouldBe MigrationRowRules.Disposition.Settled
+        disposition(accepted, CommitPhase.Idle, true) shouldBe MigrationRowRules.Disposition.Settled
+        disposition(accepted, migrated, false) shouldBe MigrationRowRules.Disposition.Settled
     }
 
     @Test
@@ -341,5 +369,18 @@ class MigrationRowRulesTest {
     @Test
     fun `a failed row offers retry when nothing else commits`() {
         actions(acceptance = accepted, commit = failedCommit).canRetry shouldBe true
+    }
+
+    @Test
+    fun `a migrated row offers no picker, and a committing one none either`() {
+        // The dead-control class again: the picker rendered off the row's own expanded flag, so a
+        // migrated row kept one whose every candidate was silently refused and could not be closed.
+        actions(commit = migrated).canPick shouldBe false
+        actions(commit = CommitPhase.Committing(replace = true)).canPick shouldBe false
+    }
+
+    @Test
+    fun `a failed row may still be re-targeted from the picker before its retry`() {
+        actions(commit = failedCommit).canPick shouldBe true
     }
 }

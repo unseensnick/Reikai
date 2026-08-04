@@ -232,24 +232,29 @@ class EntryMigrationListScreen(
             }
         }
 
-        // A batch commit IS the progress dialog: reading it off the activity cell rather than a
-        // parallel Dialog case is what stops "running" and "how far" from disagreeing.
-        (state.activity as? EntryMigrationListScreenModel.CommitActivity.Batch)?.let {
-            ProgressDialog(done = it.done, total = it.total, onCancel = screenModel::cancelCommit)
-        }
-        when (val dialog = state.dialog) {
-            is EntryMigrationListScreenModel.Dialog.Confirm -> ConfirmDialog(
-                dialog = dialog,
+        // One cell decides which modal is up, so a confirm dialog cannot outlive the commit it
+        // started and sit on top of the progress dialog with Cancel stranded behind it.
+        when (val activity = state.activity) {
+            is EntryMigrationListScreenModel.Activity.Confirm -> ConfirmDialog(
+                activity = activity,
                 onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { flags -> screenModel.commit(dialog.replace, flags) },
+                onConfirm = { flags -> screenModel.commit(activity.replace, flags) },
             )
-            EntryMigrationListScreenModel.Dialog.Exit -> ExitDialog(
+            EntryMigrationListScreenModel.Activity.ExitConfirm -> ExitDialog(
                 onDismissRequest = screenModel::dismissDialog,
                 // Stopping abandons the flow, so it unwinds to wherever the flow was started,
                 // the same as finishing: one pop would land on a stale flow step.
                 onConfirm = { navigator.popUntil { it !is MigrationFlowScreen } },
             )
-            null -> {}
+            is EntryMigrationListScreenModel.Activity.Batch -> ProgressDialog(
+                done = activity.done,
+                total = activity.total,
+                onCancel = screenModel::cancelCommit,
+            )
+            // A per-row commit shows its spinner on the row, not a modal.
+            is EntryMigrationListScreenModel.Activity.Single,
+            EntryMigrationListScreenModel.Activity.Idle,
+            -> {}
         }
     }
 }
@@ -315,7 +320,9 @@ private fun MigrationRow(
                 screenModel = screenModel,
             )
         }
-        if (expanded) {
+        // Gated on the rules, not on `expanded` alone: a row that can no longer take a target must
+        // not keep a picker whose candidates are all dead taps.
+        if (expanded && actions.canPick) {
             OverridePicker(row = row, screenModel = screenModel)
         }
     }
@@ -498,15 +505,18 @@ private fun RowTrailing(
             )
         }
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            // Offered in every state, including while the row is still searching: a match the user
-            // can already see is wrong should not have to wait for the search to give up.
-            DropdownMenuItem(
-                text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
-                onClick = {
-                    menuExpanded = false
-                    screenModel.toggleExpanded(row.entry.id)
-                },
-            )
+            // Offered while the row is still searching (a match the user can already see is wrong
+            // should not have to wait for the search to give up), but not once the row can no longer
+            // take a target: opening the picker there is a panel of dead taps.
+            if (actions.canPick) {
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
+                    onClick = {
+                        menuExpanded = false
+                        screenModel.toggleExpanded(row.entry.id)
+                    },
+                )
+            }
             if (actions.canCommitNow) {
                 DropdownMenuItem(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel)) },
@@ -548,34 +558,34 @@ private fun RowTrailing(
 
 @Composable
 private fun ConfirmDialog(
-    dialog: EntryMigrationListScreenModel.Dialog.Confirm,
+    activity: EntryMigrationListScreenModel.Activity.Confirm,
     onDismissRequest: () -> Unit,
     onConfirm: (Set<MigrationDataFlag>) -> Unit,
 ) {
     // Keyed on the saved set because it arrives with the async scan; re-keying seeds the checkboxes
     // once the real values land instead of leaving them on the empty first frame.
-    var selected by rememberSaveable(dialog.savedFlags, stateSaver = migrationFlagSaver) {
-        mutableStateOf(dialog.savedFlags)
+    var selected by rememberSaveable(activity.savedFlags, stateSaver = migrationFlagSaver) {
+        mutableStateOf(activity.savedFlags)
     }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = {
             Text(
                 text = pluralStringResource(
-                    if (dialog.replace) {
+                    if (activity.replace) {
                         MR.plurals.migrationListScreen_migrateDialog_migrateTitle
                     } else {
                         MR.plurals.migrationListScreen_migrateDialog_copyTitle
                     },
-                    dialog.count,
-                    dialog.count,
+                    activity.count,
+                    activity.count,
                 ),
             )
         },
         text = {
             Column {
                 MigrationFlagChecks(
-                    applicable = dialog.applicableFlags,
+                    applicable = activity.applicableFlags,
                     selected = selected,
                     onToggle = { flag ->
                         selected = if (flag in selected) selected - flag else selected + flag
@@ -587,12 +597,12 @@ private fun ConfirmDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                if (dialog.untouched > 0) {
+                if (activity.untouched > 0) {
                     Text(
                         text = pluralStringResource(
                             MR.plurals.migrationListScreen_migrateDialog_skipText,
-                            dialog.untouched,
-                            dialog.untouched,
+                            activity.untouched,
+                            activity.untouched,
                         ),
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -609,11 +619,11 @@ private fun ConfirmDialog(
                 onClick = { onConfirm(selected) },
                 // The scan decides which checkboxes exist, so confirming before it lands could
                 // migrate with a set the user never saw.
-                enabled = !dialog.loadingFlags,
+                enabled = !activity.loadingFlags,
             ) {
                 Text(
                     text = stringResource(
-                        if (dialog.replace) {
+                        if (activity.replace) {
                             MR.strings.migrationListScreen_migrateDialog_migrateLabel
                         } else {
                             MR.strings.migrationListScreen_migrateDialog_copyLabel

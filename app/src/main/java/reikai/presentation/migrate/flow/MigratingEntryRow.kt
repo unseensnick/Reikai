@@ -218,25 +218,56 @@ object MigrationRowRules {
     fun canToggleSkip(commit: MigratingEntryRow.CommitPhase): Boolean = !commit.isBusy && !commit.isDone
 
     /**
+     * What the user has settled about this row, as the one answer every consumer reads.
+     *
+     * The three axes say what the row IS; this says where the user stands on it, which is a
+     * different question and was previously answered three incompatible ways: the hide toggles read
+     * the acceptance cell, accept-all read "not accepted", and the finish gate read "migrated or
+     * skipped". Each of those collapsed [Acceptance.Declined] differently, so declining a row could
+     * re-arm it on the next accept-all and could wedge the gate for the rest of the session.
+     */
+    enum class Disposition {
+        /** Never acted on. The only state the hide toggles may thin out, and what accept-all arms. */
+        Untouched,
+
+        /** A target is in hand and a commit still owes it. */
+        Armed,
+
+        /** Nothing more is owed: it migrated, was skipped, or its target was handed back. */
+        Settled,
+    }
+
+    fun disposition(
+        acceptance: MigratingEntryRow.Acceptance,
+        commit: MigratingEntryRow.CommitPhase,
+        skipped: Boolean,
+    ): Disposition = when {
+        commit.isDone || skipped || acceptance is MigratingEntryRow.Acceptance.Declined -> Disposition.Settled
+        acceptance is MigratingEntryRow.Acceptance.Accepted -> Disposition.Armed
+        else -> Disposition.Untouched
+    }
+
+    /**
      * Whether the hide toggles leave this row on screen.
      *
-     * Always shown: an accepted row (hiding one the user has chosen would commit it invisibly), a
-     * [pinned] row (open, or acted on), and a row still searching (its outcome is not known yet, and
-     * hiding it the instant one lands is the vanishing-row bug this rule keeps producing). A failed
-     * search is shown too: hide-unmatched is about entries with no match, not about entries whose
-     * sources were unreachable.
+     * Only an untouched row may be hidden. Anything the user has acted on stays: an accepted row
+     * would otherwise commit invisibly, and a declined or skipped one would vanish from under the
+     * hand that just acted on it, which is the bug this rule keeps producing. An open row stays too.
+     * A failed search is shown regardless: hide-unmatched is about entries with no match, not about
+     * entries whose sources were unreachable.
      */
     fun isVisible(
         search: MigratingEntryRow.SearchPhase,
         acceptance: MigratingEntryRow.Acceptance,
+        commit: MigratingEntryRow.CommitPhase,
+        skipped: Boolean,
         entryLatestChapter: Double?,
         expanded: Boolean,
         tuning: MigrationTuning,
     ): Boolean {
-        // Untouched is the only acceptance the toggles may hide: Accepted would commit invisibly and
-        // Declined is a row the user just acted on. Reading the state rather than a sticky flag is
-        // what stops a late search outcome or a late count from re-hiding it a moment later.
-        if (acceptance !is MigratingEntryRow.Acceptance.Untouched || expanded || !search.isSettled) return true
+        // Reading the disposition rather than a sticky flag is what stops a late search outcome or a
+        // late chapter count from re-hiding a row a moment after the user acted on it.
+        if (disposition(acceptance, commit, skipped) != Disposition.Untouched || expanded) return true
         if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return false
         if (tuning.hideWithoutUpdates && search is MigratingEntryRow.SearchPhase.Found) {
             val targetLatest = search.suggestion.latestChapter
@@ -289,6 +320,13 @@ object MigrationRowRules {
         val canToggleSkip: Boolean,
         val canRetry: Boolean,
         val canCommitNow: Boolean,
+        /**
+         * Whether the override picker may be open and taken from. It belongs here for the same
+         * reason as the rest: the screen used to render it off the row's `expanded` flag alone, so a
+         * migrated row kept a picker whose every candidate was tappable and silently refused, with
+         * the overflow that could close it already gone.
+         */
+        val canPick: Boolean,
     )
 
     /**
@@ -350,5 +388,7 @@ object MigrationRowRules {
         // A single commit is offered only when the batch would take this row too, and only while
         // nothing else is committing: commitSingle refuses both, so offering it would be a dead tap.
         canCommitNow = isCommittable(acceptance, commit, skipped) && !anyCommitInFlight,
+        // Picking a target is the same permission as accepting one, so the picker follows canChoose.
+        canPick = canChoose(commit),
     )
 }

@@ -1,6 +1,7 @@
 package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -198,11 +199,10 @@ class EntryMigrationListScreenModelTest {
     }
 
     @Test
-    fun `a cancelled batch's un-run rows keep the screen open even once nothing is committable`() =
+    fun `a cancelled batch's un-run rows keep the screen open while they still hold a target`() =
         runTest(dispatcher.scheduler) {
-            // The case the batch-ownership clause exists for, and the one the other tests mask:
-            // rows the batch never reached are neither failed nor committable once the user declines
-            // them, so without that clause a later single commit would pop the list from under them.
+            // Rows the batch never reached are still its business: a later single commit must not
+            // pop the list from under a row that is still armed and waiting.
             val entries = listOf(entry(1), entry(2), entry(3), entry(4))
             val model = model(entries, blockOn = EntryId.Manga(2))
             advanceUntilIdle()
@@ -211,20 +211,92 @@ class EntryMigrationListScreenModelTest {
             model.commit(replace = true, flags = emptySet())
             advanceUntilIdle()
 
-            // Row 1 migrated, row 2 is stuck mid-commit, row 3 was never reached.
+            // Row 1 migrated, row 2 is stuck mid-commit, row 3 was never reached and stays armed.
             model.cancelCommit()
             advanceUntilIdle()
             model.toggleSkip(EntryId.Manga(2))
-            model.toggleAccept(EntryId.Manga(3))
             advanceUntilIdle()
 
-            // Nothing is failed, busy or committable now, but row 3 is still the batch's business.
             model.toggleAccept(EntryId.Manga(4))
             model.commitSingle(EntryId.Manga(4), replace = true)
             advanceUntilIdle()
 
             model.state.value.finished shouldBe false
         }
+
+    @Test
+    fun `declining an un-run row settles it, so the screen can finish`() = runTest(dispatcher.scheduler) {
+        // Declining says what should happen to the row. Counting it as unfinished business wedged
+        // the gate for the rest of the session: nothing that came later could ever resolve it.
+        val entries = listOf(entry(1), entry(2), entry(3))
+        val model = model(entries, blockOn = EntryId.Manga(2))
+        advanceUntilIdle()
+
+        listOf(1L, 2L, 3L).forEach { model.toggleAccept(EntryId.Manga(it)) }
+        model.commit(replace = true, flags = emptySet())
+        advanceUntilIdle()
+
+        model.cancelCommit()
+        advanceUntilIdle()
+        model.toggleSkip(EntryId.Manga(2))
+        // Row 3 was never reached; the user hands its target back rather than migrating it.
+        model.toggleAccept(EntryId.Manga(3))
+        advanceUntilIdle()
+
+        model.state.value.finished shouldBe true
+    }
+
+    @Test
+    fun `starting a batch replaces the confirm dialog rather than leaving it up`() =
+        runTest(dispatcher.scheduler) {
+            // Blocked on the FIRST row, so nothing has committed yet: a later row's progress update
+            // would otherwise write the cell and hide a dialog that was never cleared.
+            val model = model(listOf(entry(1), entry(2)), blockOn = EntryId.Manga(1))
+            advanceUntilIdle()
+            model.acceptAll()
+            model.showConfirm(replace = true)
+            advanceUntilIdle()
+            model.state.value.activity.shouldBeInstanceOf<EntryMigrationListScreenModel.Activity.Confirm>()
+
+            model.commit(replace = true, flags = emptySet())
+            advanceUntilIdle()
+
+            // The dialog used to be a second cell nothing cleared, so it sat on top of the progress
+            // dialog for the whole commit: its button looked live and did nothing, and Cancel, the
+            // only way to stop a batch, was behind the wrong window.
+            model.state.value.activity.shouldBeInstanceOf<EntryMigrationListScreenModel.Activity.Batch>()
+        }
+
+    @Test
+    fun `a failed batch leaves no confirm dialog behind to start a second one`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1), entry(2)), failFor = setOf(EntryId.Manga(2)))
+        advanceUntilIdle()
+        model.acceptAll()
+        model.showConfirm(replace = true)
+        advanceUntilIdle()
+
+        model.commit(replace = true, flags = emptySet())
+        advanceUntilIdle()
+
+        // The screen stays open on the failed row, but with no stale dialog whose button would run
+        // the whole batch again over the rows that just failed.
+        model.state.value.finished shouldBe false
+        model.state.value.activity shouldBe EntryMigrationListScreenModel.Activity.Idle
+    }
+
+    @Test
+    fun `accept-all leaves a declined row alone`() = runTest(dispatcher.scheduler) {
+        val model = model(listOf(entry(1), entry(2)))
+        advanceUntilIdle()
+
+        model.toggleAccept(EntryId.Manga(1))
+        model.toggleAccept(EntryId.Manga(1))
+        model.acceptAll()
+        advanceUntilIdle()
+
+        // Re-arming a target the user just handed back would migrate it on the next commit.
+        model.state.value.committableCount shouldBe 1
+    }
 
     @Test
     fun `an accepted row is committable and a declined one is not`() = runTest(dispatcher.scheduler) {

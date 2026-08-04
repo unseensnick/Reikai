@@ -161,6 +161,40 @@ What landed, in `6cfb8fdd8` (device-verified) and `2e2a8e395` (compile and unit-
 
 Four changes followed on the target-picking half. `5be2930e7`: the search screen's per-source strip and the list's override strip were near-identical composables and are now one `MigrationCandidateStrip`, long-pressing a candidate opens its page (the convention the deep picker already had), the migrate dialog's Show opens the target being decided on rather than the entry the user already knows, and a candidate already in the library is dimmed and badged like browse, filled by a new neutral `MigrationCandidate.inLibrary` (free on manga, one indexed lookup per hit on novels, deliberately not touching the novel handle's `stored`). An in-library candidate stays selectable: migrating onto one is the replace case. `df398a788`: the config step replaces itself instead of pushing, so back from the results lands on the screen that chose the entries, matching upstream at the same call site, and the favorites picker returns to the 0.3.0 shape (no checkbox, selection as row background, cover as its own tap target opening the entry, fast scroller, collapsing FAB) with a 40dp book cover. `1545b4b02`: the Manage sources dialog's action row is centred, since a wrapped label left the short ones riding above it. All device-verified on both content types.
 
+**Step 8, the last three shared-cell splits (2026-08-04).** A whole-system audit of the migrate and merge
+systems (six parallel auditors, every finding re-verified against code; report in `docs/dev/audits/`) found
+step 7 had not finished the job: three more places still held two answers to one question.
+
+- **`Disposition` (Untouched / Armed / Settled) is now the one reading of where the user stands on a row.**
+  The hide toggles read the acceptance cell, accept-all read "not accepted", and the finish gate read
+  "migrated or skipped", so each collapsed `Declined` differently. Declining a row therefore wedged the
+  gate for the rest of the session (nothing later could resolve it) and the next accept-all silently
+  re-armed the target the user had just handed back. Skipped and migrated rows now also survive the hide
+  toggles, which they did not: a skipped no-match row vanished under hide-unmatched, taking its Restore
+  with it.
+- **The confirm dialog is folded into the activity cell** (`Activity`: Idle / Confirm / ExitConfirm /
+  Batch / Single). Starting a batch set the commit cell and left the dialog cell alone, so the confirm
+  dialog sat on top of the progress dialog for the whole commit with a live-looking button that did
+  nothing and Cancel stranded behind it; on a partial failure it outlived the commit and its button would
+  start a second batch over the rows that had just failed. This is the same pair-of-truths shape step 7
+  removed for `isCommitting` / `singleCommitInFlight`; the dialog was simply missed.
+- **The override picker joined `RowActions` (`canPick`).** It rendered off the row's own `expanded` flag,
+  so a migrated row kept a picker whose every candidate was tappable and silently refused, with the
+  overflow that could close it already gone. `toggleExpanded` now reads the same rule the screen renders
+  under.
+- **The finish gate lost its per-batch scan.** It was redundant with the committable and busy checks (an
+  unresolved batch row is committable or busy by definition), verified by mutation, and it was the clause
+  that treated a decline as unfinished business. `batchTargets` became a plain `batchRan` flag, so the
+  gate no longer holds row references that a tuning rebuild can strand.
+- **`Migrated` and `skipped` can no longer both be true.** A skip landing between a commit's claim and its
+  read of the flag left a row dimmed as skipped while showing a migration that really happened, with skip
+  refused from then on. The commit clears the flag as the row goes terminal, so the combination is
+  unrepresentable rather than guarded against.
+
+Also from the same audit and fixed alongside: the migration engines' favorite swap and merge-group rewrite
+are now one transaction (see [merge-component-consolidation.md](merge-component-consolidation.md)). Open
+items from that report not yet actioned are listed there and in the audit file.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
