@@ -26,9 +26,6 @@ interface MergeGroupRepository {
      */
     suspend fun createGroup(contentType: ContentType, entryIds: List<Long>): Long?
 
-    /** Add [entryIds] to an existing [groupId]. */
-    suspend fun addMembers(contentType: ContentType, groupId: Long, entryIds: List<Long>)
-
     /** Remove [entryIds] from whatever group each is in. */
     suspend fun removeMembers(contentType: ContentType, entryIds: List<Long>)
 

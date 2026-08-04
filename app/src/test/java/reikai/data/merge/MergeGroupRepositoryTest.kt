@@ -413,7 +413,7 @@ class MergeGroupRepositoryTest {
     }
 
     @Test
-    fun `setSourceOrder is scoped to its own group`() = runTest {
+    fun `setSourceOrder turns the override on for its own group only`() = runTest {
         insertManga(1)
         insertManga(2)
         insertManga(3)
@@ -549,16 +549,20 @@ class MergeGroupRepositoryTest {
     }
 
     @Test
-    fun `addMembers appends to an ordered group`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        insertManga(3)
-        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
-        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 1))
+    fun `setSourceOrder ignores an id that is not in the group it is ordering`() = runTest {
+        (1L..4L).forEach { insertManga(it) }
+        val target = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        val other = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+        // 4 is the other group's trunk, so an unscoped write that demotes it is visible.
+        repository.setSourceOrder(ContentType.MANGA, other, listOf(4, 3))
 
-        repository.addMembers(ContentType.MANGA, groupId, listOf(3))
+        // A manage-sources dialog left open while a background migration re-homed one of its rows
+        // hands back an id that now belongs elsewhere. Priorities are written by entry id, so an
+        // unscoped write re-ranked the OTHER group while flipping this one's flag.
+        repository.setSourceOrder(ContentType.MANGA, target, listOf(2, 4, 1))
 
-        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L, 1L, 3L)
+        repository.getMembers(ContentType.MANGA, target) shouldBe listOf(2L, 1L)
+        repository.getMembers(ContentType.MANGA, other) shouldBe listOf(4L, 3L)
     }
 
     @Test

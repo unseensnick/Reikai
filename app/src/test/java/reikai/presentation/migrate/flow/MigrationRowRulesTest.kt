@@ -58,7 +58,7 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `declining does not survive a search that has not settled either`() {
+    fun `a declined row stays on screen whichever way its search landed`() {
         val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
 
         // Late-arriving filter inputs are what re-hid the row three times: a declined row stays put
@@ -321,6 +321,57 @@ class MigrationRowRulesTest {
         accepted.candidate shouldBe candidate
         Acceptance.Untouched.candidate shouldBe null
         Acceptance.Declined.candidate shouldBe null
+    }
+
+    private fun status(
+        search: SearchPhase = found,
+        acceptance: Acceptance = Acceptance.Untouched,
+        commit: CommitPhase = CommitPhase.Idle,
+        skipped: Boolean = false,
+    ) = MigrationRowRules.status(search, acceptance, commit, skipped)
+
+    @Test
+    fun `a search that failed does not read as no match`() {
+        // The regression this case exists for: every source throwing rendered exactly like "no source
+        // has this title", and since the driver never re-searches a settled row, a passing outage
+        // looked like a permanent verdict.
+        status(search = SearchPhase.Failed) shouldBe MigrationRowRules.RowStatus.SearchFailed
+        status(search = SearchPhase.NoMatch) shouldBe MigrationRowRules.RowStatus.NoMatch
+    }
+
+    @Test
+    fun `a migrated row reports where it went, whatever else is true of it`() {
+        status(commit = migrated, acceptance = accepted, search = SearchPhase.NoMatch) shouldBe
+            MigrationRowRules.RowStatus.Migrated(candidate.sourceKey)
+    }
+
+    @Test
+    fun `a commit outcome outranks the search outcome`() {
+        status(commit = failedCommit, search = found) shouldBe MigrationRowRules.RowStatus.CommitFailed
+        status(commit = CommitPhase.Committing(replace = true), search = found) shouldBe
+            MigrationRowRules.RowStatus.Committing
+    }
+
+    @Test
+    fun `skip outranks a search outcome but not a commit one`() {
+        // The escape hatch has to confirm itself visibly, so it beats what the search found; a commit
+        // that already ran is the more important fact and still wins.
+        status(skipped = true, search = found) shouldBe MigrationRowRules.RowStatus.Skipped
+        status(skipped = true, commit = migrated) shouldBe MigrationRowRules.RowStatus.Migrated(candidate.sourceKey)
+    }
+
+    @Test
+    fun `an accepted target is reported over the suggestion it replaced`() {
+        val other = candidate.copy(sourceKey = "picked")
+
+        status(acceptance = Acceptance.Accepted(other), search = found) shouldBe
+            MigrationRowRules.RowStatus.Target("picked")
+    }
+
+    @Test
+    fun `a row that has not been searched yet reports nothing`() {
+        status(search = SearchPhase.Queued) shouldBe MigrationRowRules.RowStatus.Idle
+        status(search = SearchPhase.Searching) shouldBe MigrationRowRules.RowStatus.Searching
     }
 
     private fun actions(

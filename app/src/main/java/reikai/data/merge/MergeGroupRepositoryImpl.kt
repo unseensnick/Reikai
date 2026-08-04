@@ -45,17 +45,6 @@ class MergeGroupRepositoryImpl(
         }
     }
 
-    override suspend fun addMembers(contentType: ContentType, groupId: Long, entryIds: List<Long>) {
-        database.transaction {
-            val existing = getMembers(contentType, groupId)
-            val added = entryIds.distinct().filterNot { it in existing }
-            added.forEach { insertMember(contentType, groupId, it) }
-            // Appended, never interleaved: a group can carry explicit priorities, and a fresh row at
-            // the default would sort into the middle of one instead of onto the end.
-            writeOrder(contentType, existing + added)
-        }
-    }
-
     override suspend fun removeMembers(contentType: ContentType, entryIds: List<Long>) {
         database.transaction {
             entryIds.forEach { id ->
@@ -265,7 +254,12 @@ class MergeGroupRepositoryImpl(
 
     override suspend fun setSourceOrder(contentType: ContentType, groupId: Long, orderedMemberIds: List<Long>) {
         database.transaction {
-            writeOrder(contentType, orderedMemberIds)
+            // Scoped to the group being ordered. Priorities are written by ENTRY id, so an id that
+            // has since moved elsewhere (a manage-sources dialog left open while a background
+            // migration re-homed one of its rows) would otherwise be re-ranked inside its new group
+            // while this group's flag was the one flipped, leaving two groups inconsistent.
+            val members = getMembers(contentType, groupId).toHashSet()
+            writeOrder(contentType, orderedMemberIds.filter { it in members })
             queries.setOverrideSourceRanking(override = 1L, groupId = groupId)
         }
     }
