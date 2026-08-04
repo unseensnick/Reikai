@@ -109,6 +109,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Handing a match back now counts as a decision.** Declining one entry used to stop the migration screen from ever closing itself, and the next Accept all would quietly re-arm the entry you just declined.
 - **A skipped entry no longer disappears when the hide filters are on.** It stays dimmed in place, so Restore is still reachable.
 - **A finished entry no longer keeps an open search panel whose results do nothing when tapped.**
+- **Picking a match from a source's full listing now tells you when it couldn't be used.** It used to be dropped in silence, leaving the entry unchanged with no way to tell.
+- **A migration with nothing to show now says why instead of showing an empty screen.**
+- **Tapping a match no longer downloads its chapter list into your library.** Chapter counts are read for display only, so only the entries you actually migrate are stored.
 - **A light-novel search result already in your library now shows the cover your library shows, including one you set yourself.**
 - **Updates grouped by series now regroup as soon as you merge or unmerge sources.** They used to wait until the screen was rebuilt.
 - **Cancelling a migration part-way no longer leaves a grouped series half-moved.** The entry could disappear from your library while still counting toward a merged series, with no way to reach it and put it back.

@@ -90,7 +90,9 @@ class EntryMigrationListScreenModel(
     init {
         screenModelScope.launch(io) {
             adapter.prepare()
-            val tuning = adapter.readTuning().copy(extraQuery = extraQuery)
+            val tuning = adapter.readTuning()
+                .copy(extraQuery = extraQuery)
+                .normalizedFor(adapter.matchStrategy)
             val built = adapter.loadEntries(entryIds).map {
                 MigratingEntryRow(it, screenModelScope.coroutineContext, io)
             }
@@ -99,12 +101,16 @@ class EntryMigrationListScreenModel(
                     isLoading = false,
                     tuning = tuning,
                     rows = built,
-                    visibleRows = built,
                     matchStrategy = adapter.matchStrategy,
                     hasSources = sourcesFor().isNotEmpty(),
                     savedFlags = adapter.savedFlags(),
                 )
             }
+            // Seeded through the same function every later change uses, rather than assigning
+            // visibleRows here. Setting it by hand left emptyReason unwritten, and a load that
+            // produced no rows never reached syncCounts (the driver breaks out before it), so the
+            // screen rendered a blank list instead of saying why it was empty.
+            syncCounts()
             startDriver()
         }
     }
@@ -303,8 +309,11 @@ class EntryMigrationListScreenModel(
      * Returns false when a commit is in flight, since rebuilding rows underneath one would blank
      * what it is migrating.
      */
-    fun applyTuning(tuning: MigrationTuning): Boolean {
+    fun applyTuning(edited: MigrationTuning): Boolean {
         if (state.value.isBusy) return false
+        // Dropped here, once, rather than relying on the sheet to hide the controls: an option this
+        // content type cannot run must not reach the comparison below and buy a rebuild for nothing.
+        val tuning = edited.normalizedFor(adapter.matchStrategy)
         val previous = state.value.tuning
         // Off the caller's thread: this is a preference write, and every one of these ran on main.
         screenModelScope.launch(io) { adapter.persistTuning(tuning) }
@@ -412,9 +421,15 @@ class EntryMigrationListScreenModel(
                 val targetRawId = pickHandoff.take(row.entry.id) ?: return@forEach
                 // The entry's own row is never a target: the engines would no-op and the row would
                 // read as migrated with nothing done.
-                if (targetRawId == row.entry.id.rawId) return@forEach
+                if (targetRawId == row.entry.id.rawId) {
+                    reportPick(PickOutcome.SameEntry)
+                    return@forEach
+                }
                 val candidate = runCatchingCancellable { adapter.storedCandidate(targetRawId) }.getOrNull()
-                    ?: return@forEach
+                    ?: run {
+                        reportPick(PickOutcome.Unavailable)
+                        return@forEach
+                    }
                 // A tuning re-run may have replaced the row objects while storedCandidate was in
                 // flight; the pick was already consumed, so it lands on the LIVE row for the entry,
                 // not the snapshot it started from.
@@ -432,6 +447,11 @@ class EntryMigrationListScreenModel(
             }
         }
     }
+
+    private fun reportPick(outcome: PickOutcome) = mutableState.update { it.copy(pickOutcome = outcome) }
+
+    /** Called once the screen has shown the outcome; see [PickOutcome]. */
+    fun consumePickOutcome() = mutableState.update { it.copy(pickOutcome = null) }
 
     /** Display name for a candidate's source, for the row status line. */
     fun sourceDisplayName(sourceKey: String): String = adapter.sourceDisplayName(sourceKey)
@@ -788,6 +808,8 @@ class EntryMigrationListScreenModel(
         val activity: Activity = Activity.Idle,
         val finished: Boolean = false,
         val savedFlags: Set<MigrationDataFlag> = emptySet(),
+        /** Consume-once: see [PickOutcome]. */
+        val pickOutcome: PickOutcome? = null,
     ) {
         /** No commit may start, and nothing may rebuild rows, while another one is running. An open
          *  dialog is not busy: the user is still deciding. */
@@ -796,6 +818,23 @@ class EntryMigrationListScreenModel(
 
     /** Why a migration list has nothing to show. */
     enum class EmptyReason { NoEntries, AllFiltered, NoSources }
+
+    /**
+     * Why a target picked on the pushed browse screen could not be applied, consumed once by the
+     * screen that shows it.
+     *
+     * The handoff clears on read, so a pick that failed after being taken had nowhere to go: the row
+     * simply stayed as it was and the user was told nothing, with no way to retry short of browsing
+     * again. Completion and navigation were already consume-once state; this is the third case the
+     * design called for and the one that was never built.
+     */
+    sealed interface PickOutcome {
+        /** The picked row could not be read back (deleted, or its source went away). */
+        data object Unavailable : PickOutcome
+
+        /** The entry was picked as its own target; migrating onto itself would do nothing. */
+        data object SameEntry : PickOutcome
+    }
 }
 
 /** Settled for progress purposes; the rule itself lives with the other transition rules. */

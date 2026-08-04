@@ -289,6 +289,27 @@ class MigrationRowRulesTest {
     }
 
     @Test
+    fun `a type without smart matching drops the options it cannot run`() {
+        val edited = MigrationTuning(deepSearch = true, prioritizeByChapters = true, extraQuery = "vol 2")
+
+        val normalized = edited.normalizedFor(MatchStrategy.BestTitleMatch)
+
+        // Accepted, persisted nowhere and read back as false, having already bought a full row
+        // rebuild on the way through: the sheet hiding the checkboxes was the only thing stopping it.
+        normalized.deepSearch shouldBe false
+        normalized.prioritizeByChapters shouldBe false
+        normalized.extraQuery shouldBe "vol 2"
+        normalized.affectsSearch(MigrationTuning(extraQuery = "vol 2")) shouldBe false
+    }
+
+    @Test
+    fun `smart matching keeps them`() {
+        val edited = MigrationTuning(deepSearch = true, prioritizeByChapters = true)
+
+        edited.normalizedFor(MatchStrategy.Smart) shouldBe edited
+    }
+
+    @Test
     fun `hide toggles alone never require a re-search`() {
         val base = MigrationTuning(hideUnmatched = false)
         base.affectsSearch(base.copy(hideUnmatched = true, hideWithoutUpdates = true)) shouldBe false

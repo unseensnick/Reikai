@@ -140,6 +140,21 @@ data class MigrationTuning(
             deepSearch != other.deepSearch ||
             prioritizeByChapters != other.prioritizeByChapters
     }
+
+    /**
+     * This tuning with the options [strategy] cannot express dropped.
+     *
+     * [deepSearch] and [prioritizeByChapters] run on the smart-search engines, so they mean nothing
+     * under [MatchStrategy.BestTitleMatch]. They stayed plain Booleans on the shared model while the
+     * only thing keeping them honest was the sheet hiding their checkboxes; a value set any other way
+     * was accepted, persisted nowhere, and read back as false, having already triggered a full row
+     * rebuild and re-search on the way through. Normalising here means the model compares and stores
+     * what the type can actually hold.
+     */
+    fun normalizedFor(strategy: MatchStrategy): MigrationTuning = when (strategy) {
+        MatchStrategy.Smart -> this
+        MatchStrategy.BestTitleMatch -> copy(deepSearch = false, prioritizeByChapters = false)
+    }
 }
 
 /**

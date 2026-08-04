@@ -285,6 +285,17 @@ class EntryMigrationListScreenModelTest {
     }
 
     @Test
+    fun `a list that loads no entries says why instead of rendering nothing`() = runTest(dispatcher.scheduler) {
+        val model = model(emptyList())
+        advanceUntilIdle()
+
+        // The driver breaks out before it reaches the counts, so nothing computed the reason and the
+        // screen painted an empty list with no explanation.
+        model.state.value.isLoading shouldBe false
+        model.state.value.emptyReason shouldBe EntryMigrationListScreenModel.EmptyReason.NoEntries
+    }
+
+    @Test
     fun `accept-all leaves a declined row alone`() = runTest(dispatcher.scheduler) {
         val model = model(listOf(entry(1), entry(2)))
         advanceUntilIdle()

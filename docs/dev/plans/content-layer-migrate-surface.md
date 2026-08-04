@@ -191,6 +191,27 @@ step 7 had not finished the job: three more places still held two answers to one
   refused from then on. The commit clears the flag as the row goes terminal, so the combination is
   unrepresentable rather than guarded against.
 
+**Step 9, the audit's remaining medium findings (2026-08-04).**
+
+- **`emptyReason` is computed by the one function that computes every other count.** The init block
+  assigned `visibleRows` by hand and never called `syncCounts`, and a load that produced no rows breaks
+  the driver out before it reaches one, so the screen rendered a blank list. `NoEntries` was as
+  unreachable as the already-recorded `NoSources`.
+- **A deep pick that cannot be applied now says so.** `MigrationPickHandoff.take` clears on read, so a
+  pick that failed after being taken had nowhere to go: the row stayed as it was and the user was told
+  nothing. `PickOutcome` (`Unavailable` / `SameEntry`) is the consume-once state the v2 law lists
+  alongside completion and navigation and that was never built.
+- **`peekCounts` is a peek again on the manga side.** It aliased `resolve()`, so tapping a candidate cost
+  up to two network round trips and permanently wrote chapter rows for an entry the user had not
+  committed to, multiplied by row count on a bulk accept. It now reads stored chapters, or asks the
+  source once with `fetchDetails = false` and stores nothing, which is the bounded display-only read the
+  seam documents and what the novel side already did.
+- **Tuning options a content type cannot run are dropped at the seam.** `deepSearch` and
+  `prioritizeByChapters` stayed plain Booleans on the shared model, kept honest only by the sheet hiding
+  their checkboxes; a value set any other way was accepted, discarded, and read back as false after
+  buying a full rebuild. `MigrationTuning.normalizedFor(strategy)` strips them once, where the model
+  reads and compares.
+
 Also from the same audit and fixed alongside: the migration engines' favorite swap and merge-group rewrite
 are now one transaction (see [merge-component-consolidation.md](merge-component-consolidation.md)). Open
 items from that report not yet actioned are listed there and in the audit file.

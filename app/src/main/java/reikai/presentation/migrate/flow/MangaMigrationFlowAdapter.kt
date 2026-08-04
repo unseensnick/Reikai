@@ -1,6 +1,7 @@
 package reikai.presentation.migrate.flow
 
 import eu.kanade.domain.manga.model.hasCustomCover
+import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -20,6 +21,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -222,11 +224,32 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
-        // Manga candidates are already stored rows, so resolve is the peek: it fetches chapters
-        // onto the existing row, the same best-effort work the commit would do anyway. The result
-        // is safe only while this resolve() re-checks chapters rather than trusting the handle, which
-        // is what the seam documents for the manga side.
-        return resolve(candidate)?.candidate
+        val manga = candidate.handle as? Manga ?: return null
+        // Display only, and bounded to one read, which is what the seam asks of a peek and what the
+        // novel side already does. This used to call resolve(), so merely tapping a candidate could
+        // cost two network round trips AND permanently write chapter rows for an entry the user had
+        // not committed to; on a bulk accept that multiplied by the row count.
+        val stored = getChaptersByMangaId.await(manga.id)
+        if (stored.isNotEmpty()) {
+            return candidate.copy(
+                chapterCount = stored.size,
+                latestChapter = stored.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+            )
+        }
+        // Nothing stored yet: read the source's chapter list and count it, without writing any of it
+        // back. The commit's own resolve() still does the fetch that has to persist.
+        val source = catalogueSource(candidate.sourceKey) ?: return null
+        val fetched = runCatchingCancellable {
+            source.getMangaUpdate(manga.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
+        }.getOrNull()
+        if (fetched.isNullOrEmpty()) return null
+        val latest = fetched.maxOfOrNull {
+            ChapterRecognition.parseChapterNumber(manga.title, it.name, it.chapter_number.toDouble())
+        }
+        return candidate.copy(
+            chapterCount = fetched.size,
+            latestChapter = latest?.takeIf { it >= 0.0 },
+        )
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {

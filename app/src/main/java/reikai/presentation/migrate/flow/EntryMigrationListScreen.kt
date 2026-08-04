@@ -105,6 +105,21 @@ class EntryMigrationListScreen(
             if (!state.isLoading) screenModel.collectPendingPick()
         }
 
+        // A pick that could not be applied says so once. The handoff clears on read, so without this
+        // the row just stayed as it was and the user was told nothing.
+        val pickOutcome = state.pickOutcome
+        val pickContext = LocalContext.current
+        val pickUnavailable = stringResource(MR.strings.migrationFlow_pickUnavailable)
+        val pickSameEntry = stringResource(MR.strings.migrationFlow_pickSameEntry)
+        LaunchedEffect(pickOutcome) {
+            when (pickOutcome) {
+                EntryMigrationListScreenModel.PickOutcome.Unavailable -> pickContext.toast(pickUnavailable)
+                EntryMigrationListScreenModel.PickOutcome.SameEntry -> pickContext.toast(pickSameEntry)
+                null -> return@LaunchedEffect
+            }
+            screenModel.consumePickOutcome()
+        }
+
         // Back is guarded all the way through the commit: rows are being mutated.
         val guardExit = !state.finished && state.rows.isNotEmpty()
         BackHandler(enabled = guardExit) { screenModel.showExitConfirm() }
