@@ -1,0 +1,69 @@
+package reikai.domain.merge
+
+import reikai.domain.library.ContentType
+
+/**
+ * Materialise backed-up merge groups against the library as it stands, in one pass.
+ *
+ * Restore used to call [MergeGroupRepository.merge] once per backup group, so each write landed on
+ * whatever the previous one had left behind: two series that were separate in the backup came back
+ * as one whenever the device already had a group bridging them. Backing up `{A,B}` and `{C,D}` and
+ * restoring onto a library where A had been merged with C produced a single four-member group whose
+ * card interleaved four sources, with nothing in the error log.
+ *
+ * Every group is therefore resolved against ONE snapshot of local membership, which removes the
+ * order dependence, and each is then written with [MergeGroupRepository.materializeGroup], which
+ * states the whole group rather than folding into an existing one.
+ *
+ * **The backup is authoritative for the entries it names**: an entry it groups leaves whatever local
+ * group it was in. Local members the backup says nothing about keep their own group when at least
+ * two of them remain, with their hand-set order and ranking, and are left standalone otherwise. So a
+ * restore rearranges only the entries it actually describes.
+ *
+ * The backup format carries neither member order nor the per-group ranking flag (a separate, parked
+ * gap), so a restored group takes the ref order and no override.
+ */
+class RestoreMergeGroups(
+    private val repository: MergeGroupRepository,
+) {
+
+    /**
+     * [groups] is one list of already-resolved local ids per backed-up group, in ref order. Groups
+     * with fewer than two resolvable members are dropped by the caller or here; either way they
+     * cannot form a group.
+     */
+    suspend operator fun invoke(contentType: ContentType, groups: List<List<Long>>) {
+        if (groups.isEmpty()) return
+        val memberships = repository.getAllMemberships(contentType)
+
+        // First backup group to name an entry keeps it: an entry can only be in one group, and
+        // deciding that here rather than letting the writes fight means the result does not depend
+        // on which order they happen to run in.
+        val claimed = HashSet<Long>()
+        val restored = groups.mapNotNull { group ->
+            val ids = group.distinct().filterNot { it in claimed }
+            ids.takeIf { it.size >= 2 }?.also { claimed += it }
+        }
+        if (restored.isEmpty()) return
+
+        // What the local groups losing members will be left with, read BEFORE anything is written,
+        // and carrying their ranking: these members are not part of the restore, so their grouping
+        // should survive it.
+        val remainders = memberships
+            .filterKeys { it in claimed }
+            .values.distinct()
+            .mapNotNull { groupId ->
+                val keep = repository.getMembers(contentType, groupId).filterNot { it in claimed }
+                keep.takeIf {
+                    it.size >= 2
+                }?.let { it to (repository.getGroup(groupId)?.overrideSourceRanking == true) }
+            }
+
+        restored.forEach { ids ->
+            repository.materializeGroup(contentType, ids, overrideSourceRanking = false)
+        }
+        remainders.forEach { (ids, override) ->
+            repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
+        }
+    }
+}

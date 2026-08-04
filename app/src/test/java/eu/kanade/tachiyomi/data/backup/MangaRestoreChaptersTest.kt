@@ -9,6 +9,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -62,7 +63,7 @@ class MangaRestoreChaptersTest {
             getTracks = mockk(relaxed = true),
             insertTrack = mockk(relaxed = true),
             fetchInterval = mockk(relaxed = true),
-            mergeGroupRepository = mockk(relaxed = true),
+            restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true)),
             mangaMetadataRepository = mockk(relaxed = true),
             setCustomMangaInfo = mockk(relaxed = true),
         )

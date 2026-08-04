@@ -15,7 +15,7 @@ import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ContentType
-import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
@@ -34,7 +34,7 @@ class NovelRestorer(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val categoryRepository: CategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
-    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
+    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get()),
     private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
     private val database: Database = Injekt.get(),
     private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
@@ -214,19 +214,16 @@ class NovelRestorer(
 
     /**
      * Materialize the backup's novel merge groups into the merge_group tables. Each ref is resolved to
-     * the restored novel's fresh id; a group with fewer than two resolved members is skipped. Additive:
-     * each backup group is merged in via the repository (which absorbs any overlapping local group);
-     * local-only groups are left alone.
+     * the restored novel's fresh id; the shared [RestoreMergeGroups] decides the rest, so both content
+     * types restore grouping the same way.
      */
     suspend fun restoreMerges(merges: List<BackupNovelMergeGroup>) {
-        merges.forEach { group ->
-            val ids = group.refs
-                .mapNotNull { novelRepository.getByUrlAndSource(it.url, it.source)?.id }
-                .distinct()
-            if (ids.size >= 2) {
-                mergeGroupRepository.merge(ContentType.NOVELS, ids)
-            }
-        }
+        restoreMergeGroups(
+            ContentType.NOVELS,
+            merges.map { group ->
+                group.refs.mapNotNull { novelRepository.getByUrlAndSource(it.url, it.source)?.id }
+            },
+        )
     }
 
     /** Apply the backup's novel custom-info overlay, re-keyed from {url,source} to the restored ids. */

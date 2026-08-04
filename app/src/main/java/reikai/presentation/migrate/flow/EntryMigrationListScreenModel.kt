@@ -56,6 +56,10 @@ class EntryMigrationListScreenModel(
 
     private val rows: List<MigratingEntryRow> get() = state.value.rows
 
+    /** Volatile like the other cross-thread fields: it is assigned on the caller's thread and nulled
+     *  from the commit coroutine, and a stale read left the progress dialog's Cancel cancelling a
+     *  job that had already finished, or nothing at all. */
+    @Volatile
     private var commitJob: Job? = null
 
     /**
@@ -302,7 +306,8 @@ class EntryMigrationListScreenModel(
     fun applyTuning(tuning: MigrationTuning): Boolean {
         if (state.value.isBusy) return false
         val previous = state.value.tuning
-        adapter.persistTuning(tuning)
+        // Off the caller's thread: this is a preference write, and every one of these ran on main.
+        screenModelScope.launch(io) { adapter.persistTuning(tuning) }
         mutableState.update { it.copy(tuning = tuning) }
         if (!tuning.affectsSearch(previous)) {
             syncCounts()
@@ -359,7 +364,6 @@ class EntryMigrationListScreenModel(
     fun searchOverrides(id: EntryId, query: String) {
         if (query.isBlank()) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
-        val sources = sourcesFor()
         val fullQuery = listOfNotNull(
             query.trim(),
             state.value.tuning.extraQuery?.takeIf { it.isNotBlank() },
@@ -369,6 +373,9 @@ class EntryMigrationListScreenModel(
         row.overrides.value = MigratingEntryRow.OverrideState.Loading
         row.overrideJob = row.scope.launch {
             val myJob = coroutineContext[Job]
+            // Resolved here rather than on the caller's thread: it reads three preferences, and this
+            // runs on every row expansion and every tap of the picker's search button.
+            val sources = sourcesFor()
             val strips = coroutineScope {
                 sources.map { source ->
                     async {
@@ -529,13 +536,14 @@ class EntryMigrationListScreenModel(
             MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
         }
         if (targets.isEmpty()) return
-        // Persisted once, here, and then carried as a value: the per-row commits below must all use
-        // the set the user just confirmed.
-        adapter.persistFlags(flags)
         mutableState.update { it.copy(savedFlags = flags) }
         mutableState.update { it.copy(activity = Activity.Batch(done = 0, total = targets.size)) }
         batchRan = true
         commitJob = screenModelScope.launch(io) {
+            // Persisted once, and then carried as a value: the per-row commits below all use the set
+            // the user just confirmed, so this write only seeds the NEXT migration and belongs here
+            // rather than on the caller's thread.
+            adapter.persistFlags(flags)
             try {
                 targets.forEachIndexed { index, row ->
                     ensureActive()
@@ -559,9 +567,7 @@ class EntryMigrationListScreenModel(
         if (state.value.isBusy) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         if (!MigrationRowRules.isCommittable(row.acceptance.value, row.commit.value, row.skipped.value)) return
-        val flags = state.value.savedFlags
-        adapter.persistFlags(flags)
-        runSingleCommit(row, replace, flags)
+        runSingleCommit(row, replace, state.value.savedFlags)
     }
 
     fun retry(id: EntryId) {
@@ -582,6 +588,7 @@ class EntryMigrationListScreenModel(
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
         mutableState.update { it.copy(activity = Activity.Single(row.entry.id)) }
         screenModelScope.launch(io) {
+            adapter.persistFlags(flags)
             try {
                 commitRow(row, replace, flags)
                 finishIfNothingFailed()

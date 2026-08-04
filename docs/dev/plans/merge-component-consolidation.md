@@ -99,6 +99,24 @@ row and carried them for free. What landed:
 Eight new repository tests plus two per engine, each verified by deleting the production clause it pins.
 The audit that produced this is `docs/dev/audits/2026-08-04-migrate-and-merge-systems.md` (local).
 
+**Restore resolved in one pass (2026-08-04).** `restoreMerges` called `merge()` once per backup group, so
+each write landed on what the previous one left behind: two series grouped separately in the backup came
+back as one whenever the device already had a group bridging them (backup `{A,B}` and `{C,D}` onto a
+library where A was merged with C gave one four-member group, silently). Both restorers now hand their
+resolved ids to one shared `RestoreMergeGroups`, which reads local membership ONCE and materialises each
+group with `materializeGroup`, so the result no longer depends on the order the backup lists its groups.
+
+The precedence rule is now stated rather than implied: **the backup is authoritative for the entries it
+names.** An entry it groups leaves whatever local group it was in; local members the backup says nothing
+about keep their own group, order and ranking when at least two remain, and go standalone otherwise. The
+old "additive, absorbs any overlapping local group" wording could not survive contact with two backup
+groups touching one local group, which is what produced the welding. Six tests, mutation-verified.
+
+Two more from the same audit: the manga backup creator dropped a merge ref whose row has gone instead of
+throwing (the novel creator already did, so one stale membership aborted the whole backup), and the
+post-loop restore phases (merges, custom info) are wrapped per phase, since a throw there cancelled the
+sibling content type's stream and escaped before the error log was written.
+
 Backup still carries neither the order nor the flag, and that is a separate, parked gap (ROADMAP, Later -> Data & backup): the creator reads the unordered membership map instead of the ordered member query, and the group models have no flag field. The structural note recorded with it: restore should gain one repository operation that materialises a group with its order and flag, rather than calling `merge()` and then correcting its result, which would leave two writers deciding the same two facts.
 
 ## Decisions & tradeoffs

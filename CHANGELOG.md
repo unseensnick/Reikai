@@ -84,6 +84,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Merged series**
 
+- **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.
+- **Restoring now leaves grouping it wasn't describing alone.** Sources in a group that the backup says nothing about keep their group and the order you set.
+- **A backup no longer fails outright because of one stale merge entry.** It is skipped, matching how novels already behaved.
+- **A problem while restoring merged series or edited details no longer stops the rest of the restore.** It is recorded in the restore log instead, and the other content type finishes.
 - **Adding a source to a grouped series no longer scrambles the order you set by hand.** The new source joins at the end and your chosen leading source stays where you put it.
 - **Merging two grouped series no longer invents a source order for the one that never had one.** Only a group you ordered yourself keeps a custom order through a merge.
 - **Undoing a source split now restores your custom order, even on a two-source series.** Undo used to bring the sources back but quietly revert to the global Preferred sources ranking.
@@ -105,6 +109,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Handing a match back now counts as a decision.** Declining one entry used to stop the migration screen from ever closing itself, and the next Accept all would quietly re-arm the entry you just declined.
 - **A skipped entry no longer disappears when the hide filters are on.** It stays dimmed in place, so Restore is still reachable.
 - **A finished entry no longer keeps an open search panel whose results do nothing when tapped.**
+- **A light-novel search result already in your library now shows the cover your library shows, including one you set yourself.**
+- **Updates grouped by series now regroup as soon as you merge or unmerge sources.** They used to wait until the screen was rebuilt.
 - **Cancelling a migration part-way no longer leaves a grouped series half-moved.** The entry could disappear from your library while still counting toward a merged series, with no way to reach it and put it back.
 - **Migrating one source of a grouped series onto another now hands each remaining source its own tracking link, like splitting the group does.**
 

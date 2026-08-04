@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Migrating from a duplicate: adding an entry that is already in the library from another source
@@ -130,10 +128,7 @@ internal class EntryMigrateHostScreenModel(
     contentType: ContentType,
 ) : StateScreenModel<EntryMigrateHostScreenModel.State>(State()) {
 
-    private val adapter: MigrationFlowAdapter = when (contentType) {
-        ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-        else -> Injekt.get<NovelMigrationFlowAdapter>()
-    }
+    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     fun load(request: EntryMigrateController.Request) {
         mutableState.update { State(request = request) }

@@ -204,20 +204,24 @@ class NovelMigrationFlowAdapter(
      * for the marker only and deliberately does NOT populate the handle's `stored`: that field is
      * what decides whether a commit still owes this candidate a materialising [resolve].
      */
-    private suspend fun NovelItem.toCandidate(sourceKey: String, site: String?) = MigrationCandidate(
-        sourceKey = sourceKey,
-        title = name,
-        chapterCount = null,
-        key = "$sourceKey:$path",
-        cover = NovelCover(
-            url = cover,
-            site = site,
-            isNovelFavorite = false,
-            lastModified = 0L,
-        ),
-        inLibrary = novelRepository.getByUrlAndSource(path, sourceKey)?.favorite == true,
-        handle = NovelCandidateHandle(this, site),
-    )
+    private suspend fun NovelItem.toCandidate(sourceKey: String, site: String?): MigrationCandidate {
+        val stored = novelRepository.getByUrlAndSource(path, sourceKey)
+        return MigrationCandidate(
+            sourceKey = sourceKey,
+            title = name,
+            chapterCount = null,
+            key = "$sourceKey:$path",
+            // Built from the stored row when there is one, so a candidate already in the library
+            // renders the cover the library renders: the custom-cover override is keyed on the id
+            // and the cache on the favorite flag, so a search-shaped cover showed the source's stock
+            // image instead, and no refresh could ever bust its Coil key. Manga candidates are stored
+            // rows by the time they reach here, which is why only this side was wrong.
+            cover = stored?.toCover(site)
+                ?: NovelCover(url = cover, site = site, isNovelFavorite = false, lastModified = 0L),
+            inLibrary = stored?.favorite == true,
+            handle = NovelCandidateHandle(this, site),
+        )
+    }
 
     override suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget? {
         val handle = candidate.handle as? NovelCandidateHandle ?: return null
@@ -250,7 +254,7 @@ class NovelMigrationFlowAdapter(
                 // Null, not 0, for an empty list, matching every other candidate builder.
                 chapterCount = chapters.size.takeIf { it > 0 },
                 latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
-                cover = resolved.toCover(source.site, favorite = false),
+                cover = resolved.toCover(source.site),
                 handle = handle.copy(stored = resolved),
             ),
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
@@ -290,7 +294,7 @@ class NovelMigrationFlowAdapter(
             chapterCount = chapters.size.takeIf { it > 0 },
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
             key = "${novel.source}:${novel.url}",
-            cover = novel.toCover(site, favorite = novel.favorite),
+            cover = novel.toCover(site),
             inLibrary = novel.favorite,
             handle = NovelCandidateHandle(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
@@ -352,7 +356,9 @@ class NovelMigrationFlowAdapter(
         )
     }
 
-    private fun Novel.toCover(site: String?, favorite: Boolean = true) = NovelCover(
+    /** The row's own cover identity. The favorite flag is read off the row rather than passed in:
+     *  callers guessed it, and a guess of false sends the fetcher past the library cover cache. */
+    private fun Novel.toCover(site: String?) = NovelCover(
         url = thumbnailUrl,
         site = site,
         isNovelFavorite = favorite,

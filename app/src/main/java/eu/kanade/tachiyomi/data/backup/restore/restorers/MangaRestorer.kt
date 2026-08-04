@@ -17,7 +17,7 @@ import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import reikai.domain.library.ContentType
-import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -49,7 +49,7 @@ class MangaRestorer(
     private val insertTrack: InsertTrack = Injekt.get(),
     fetchInterval: FetchInterval = Injekt.get(),
     // RK: target of the restored manga merge groups (see restoreMerges).
-    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
+    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get()),
     // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
     private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
     // RK: applies the restored manga custom-info overlay (re-keyed by url+source).
@@ -369,21 +369,17 @@ class MangaRestorer(
 
     /**
      * RK: materialize the backup's manga merge groups into the merge_group tables once the manga have
-     * been restored (their ids differ from the source device). The manga twin of
-     * NovelRestorer.restoreMerges. Additive: each backup group is merged in via the repository (which
-     * absorbs any overlapping local group); local-only groups are left alone. Members resolve from the
-     * backup's stable {url, source} refs; a group with fewer than two resolved members is skipped.
-     * Call this AFTER the manga loop completes.
+     * been restored (their ids differ from the source device). Members resolve from the backup's stable
+     * {url, source} refs; the shared [RestoreMergeGroups] decides the rest. Call this AFTER the manga
+     * loop completes.
      */
     suspend fun restoreMerges(merges: List<BackupMangaMergeGroup>) {
-        merges.forEach { group ->
-            val ids = group.refs
-                .mapNotNull { getMangaByUrlAndSourceId.await(it.url, it.source)?.id }
-                .distinct()
-            if (ids.size >= 2) {
-                mergeGroupRepository.merge(ContentType.MANGA, ids)
-            }
-        }
+        restoreMergeGroups(
+            ContentType.MANGA,
+            merges.map { group ->
+                group.refs.mapNotNull { getMangaByUrlAndSourceId.await(it.url, it.source)?.id }
+            },
+        )
     }
 
     // RK: apply the restored manga custom-info overlay. Each entry is re-keyed from its {url, source} ref

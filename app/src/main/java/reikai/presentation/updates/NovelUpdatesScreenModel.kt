@@ -97,23 +97,20 @@ class NovelUpdatesScreenModel(
 
     // Merge-aware grouping: each favorite's merge-group key (sources of one merged series share a key),
     // so group-by-series collapses a cross-source merged series into one group instead of one per source.
-    // Resolved only while grouping is on; re-resolves when the merge prefs change (favorite-add staleness
-    // until reopen is acceptable, like the category cache). Empty map => fall back to the per-source id.
+    // Resolved only while grouping is on. Re-resolves on the MEMBERSHIP flow: the keys have come from
+    // the merge-group tables since the pref-to-table cutover, but the triggers were left on the retired
+    // prefs, which no longer have a runtime writer, so merging or unmerging never refreshed the grouping.
     val mangaSeriesKeys: StateFlow<Map<Long, String>> = combine(
         sourcePreferences.updatesGroupBySeries.changes(),
-        libraryPreferences.mangaManualMerges.changes(),
-        libraryPreferences.mangaManualUnmerges.changes(),
-        libraryPreferences.autoMergeSameTitle.changes(),
-    ) { on, _, _, _ ->
+        mangaMergeManager.membershipChanges(),
+    ) { on, _ ->
         if (on) mangaMergeManager.seriesGroupKeys(getFavorites.await().map { it.id }) else emptyMap()
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
 
     val novelSeriesKeys: StateFlow<Map<Long, String>> = combine(
         sourcePreferences.updatesGroupBySeries.changes(),
-        libraryPreferences.novelManualMerges.changes(),
-        libraryPreferences.novelManualUnmerges.changes(),
-        libraryPreferences.novelAutoMergeSameTitle.changes(),
-    ) { on, _, _, _ ->
+        novelMergeManager.membershipChanges(),
+    ) { on, _ ->
         if (on) novelMergeManager.seriesGroupKeys(novelRepo.getFavorites().map { it.id }) else emptyMap()
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
 

@@ -29,8 +29,6 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * The shared single-item migrate dialog: flag checkboxes plus Copy and Migrate. Used by the routes
@@ -125,10 +123,7 @@ private class EntryMigrateDialogScreenModel(
     contentType: ContentType,
 ) : StateScreenModel<EntryMigrateDialogScreenModel.State>(State()) {
 
-    private val adapter: MigrationFlowAdapter = when (contentType) {
-        ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-        else -> Injekt.get<NovelMigrationFlowAdapter>()
-    }
+    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     /** Load the pair being shown. Never loads over a live commit: a rotation re-fires this for the
      *  same pair, and a host swapping arguments mid-migrate must not wipe the running commit's

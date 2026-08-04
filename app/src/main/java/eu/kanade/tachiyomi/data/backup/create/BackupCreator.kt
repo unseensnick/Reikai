@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.yield
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -265,8 +266,16 @@ class BackupCreator(
             .groupBy({ it.value }, { it.key })
             .values
             .mapNotNull { memberIds ->
-                val refs = memberIds.map { id ->
-                    val manga = mangaRepository.getMangaById(id)
+                // A member whose row has gone drops out, matching the novel creator: getMangaById
+                // throws on a missing row, so one stale membership aborted the WHOLE backup.
+                val refs = memberIds.mapNotNull { id ->
+                    val manga = try {
+                        mangaRepository.getMangaById(id)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        return@mapNotNull null
+                    }
                     BackupMangaSourceRef(url = manga.url, source = manga.source)
                 }
                 refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }

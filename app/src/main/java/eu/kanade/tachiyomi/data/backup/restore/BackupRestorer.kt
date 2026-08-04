@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
@@ -293,9 +294,12 @@ class BackupRestorer(
             }
             flush()
 
-            novelRestorer.restoreMerges(summary.backupNovelMerges)
-            // RK: apply the custom-info overlay, re-keyed from {url,source} to the fresh novel ids.
-            novelRestorer.restoreCustomNovelInfo(summary.backupCustomNovelInfo)
+            // Isolated for the same reason as the manga twin: a failure here used to cancel the
+            // sibling stream and escape before the error log was written.
+            restoreIsolated("novel merges") { novelRestorer.restoreMerges(summary.backupNovelMerges) }
+            restoreIsolated("novel custom info") {
+                novelRestorer.restoreCustomNovelInfo(summary.backupCustomNovelInfo)
+            }
         }
     }
 
@@ -349,12 +353,25 @@ class BackupRestorer(
         }
         flush()
 
-        // RK: with every manga restored (fresh IDs), materialize the backup's merge groups.
+        // RK: with every manga restored (fresh IDs), materialize the backup's merge groups, then
+        // apply the custom-info overlay re-keyed to those same IDs. Isolated like the entry loop
+        // above: these ran bare, so a failure here cancelled the novel stream mid-batch and escaped
+        // before the error log was written, leaving the user a half-restored library and no report.
         ensureActive()
-        mangaRestorer.restoreMerges(backupMangaMerges)
-        // RK: and apply the custom-info overlay, re-keyed to those same fresh IDs.
+        restoreIsolated("merges") { mangaRestorer.restoreMerges(backupMangaMerges) }
         ensureActive()
-        mangaRestorer.restoreCustomInfo(backupCustomMangaInfo)
+        restoreIsolated("custom info") { mangaRestorer.restoreCustomInfo(backupCustomMangaInfo) }
+    }
+
+    /** Run a post-loop restore phase, recording a failure instead of taking the whole restore down. */
+    private suspend fun restoreIsolated(phase: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            errors.add(Date() to "$phase: ${e.message}")
+        }
     }
 
     private fun CoroutineScope.restoreAppPreferences(

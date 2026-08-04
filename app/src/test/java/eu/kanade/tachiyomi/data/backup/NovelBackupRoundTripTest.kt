@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 
@@ -30,7 +31,7 @@ class NovelBackupRoundTripTest {
         novelChapterRepository = mockk(relaxed = true),
         categoryRepository = mockk(relaxed = true),
         novelTrackRepository = mockk(relaxed = true),
-        mergeGroupRepository = repository,
+        restoreMergeGroups = RestoreMergeGroups(repository),
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
         categoryIdPreferences = mockk(relaxed = true),
@@ -123,7 +124,7 @@ class NovelBackupRoundTripTest {
         restorer(restoreRepo, restoreMergeRepo).restoreMerges(merges)
 
         // The group is materialized against the restored ids via the repository.
-        coVerify { restoreMergeRepo.merge(ContentType.NOVELS, listOf(10L, 20L)) }
+        coVerify { restoreMergeRepo.materializeGroup(ContentType.NOVELS, listOf(10L, 20L), false) }
     }
 
     @Test
@@ -141,7 +142,7 @@ class NovelBackupRoundTripTest {
         restorer(restoreRepo, restoreMergeRepo).restoreMerges(listOf(group))
 
         // Only one member resolved, so no group is created.
-        coVerify(exactly = 0) { restoreMergeRepo.merge(any(), any()) }
+        coVerify(exactly = 0) { restoreMergeRepo.materializeGroup(any(), any(), any()) }
     }
 
     @Test

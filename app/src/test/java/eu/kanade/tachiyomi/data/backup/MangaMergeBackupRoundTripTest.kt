@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 
 /**
@@ -32,7 +33,7 @@ class MangaMergeBackupRoundTripTest {
         getTracks = mockk(relaxed = true),
         insertTrack = mockk(relaxed = true),
         fetchInterval = mockk(relaxed = true),
-        mergeGroupRepository = repository,
+        restoreMergeGroups = RestoreMergeGroups(repository),
         mangaMetadataRepository = mockk(relaxed = true),
         setCustomMangaInfo = mockk(relaxed = true),
     )
@@ -53,7 +54,7 @@ class MangaMergeBackupRoundTripTest {
         restorer(getByUrlSource, repository).restoreMerges(listOf(group))
 
         // Materialized against the new ids via the repository.
-        coVerify { repository.merge(ContentType.MANGA, listOf(10L, 20L)) }
+        coVerify { repository.materializeGroup(ContentType.MANGA, listOf(10L, 20L), false) }
     }
 
     @Test
@@ -71,6 +72,6 @@ class MangaMergeBackupRoundTripTest {
         restorer(getByUrlSource, repository).restoreMerges(listOf(group))
 
         // Only one member resolved, so no group is created.
-        coVerify(exactly = 0) { repository.merge(any(), any()) }
+        coVerify(exactly = 0) { repository.materializeGroup(any(), any(), any()) }
     }
 }
