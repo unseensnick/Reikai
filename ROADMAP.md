@@ -4,9 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. Remaining: device-verify the migrate flow's restructured state model, then the reader migration; global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
-- **Device-verify the restructured migration flow** `[S]` - the row state, commit activity and row status are now typed rather than guarded, and the ScreenModel is unit-testable; the last commit is compile and test green but not yet driven on a device. [Plan](docs/dev/plans/content-layer-migrate-surface.md).
-- **Preserve a merge group's source order through merge and replace** `[S]` - merging rebuilds a group at default priorities, so it silently discards the manual manage-sources order; reachable from a copy-migration, a split Undo (which is therefore not the no-op it claims) and a backup restore. No schema change needed. [Plan](docs/dev/plans/merge-component-consolidation.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. Remaining: the reader migration; global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Next
 
@@ -83,6 +81,7 @@ From the same audit.
 
 - **Give backups a format version, and close the last novel sort-flag residue** `[S]` - `NovelRestorer.restoreCategories` still inserts a backup's category flags verbatim, so a category sorted by Downloaded or Tracker score before the category unification can restore as the other one (the global-sort preference residue closed itself when the key retired with a restore skip). Backups carry no format version, so a restorer cannot tell an untranslated old value from a correct new one; adding one is the prerequisite that makes it fixable. [Plan](docs/dev/plans/category-schema-unification.md).
 - **Unify backup into one Entry-level emitter** `[M]` - collapse the twin manga/novel backup creators into one neutral emitter over `EntryId` so each backup field is written once for both content types, not by a per-type creator pair. Rides on the content-layer `EntryId` seam; the streamed create/validate/restore mechanism already lives once in the orchestrator, so this is the model-level half. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Restore a merge group's source order and ranking override** `[M]` - a backup stores a group as an unordered set of `{url, source}` refs with no override flag, so a restore rebuilds every group in arbitrary order with the hand-set manage-sources ranking off. Ordering needs no format change (the creator reads the unordered membership map instead of the priority-ordered member query); the flag needs a new proto field on both group models. Restore should gain one repository operation that materializes a group with its order and flag, rather than calling `merge()` and correcting its result afterwards, which would leave two writers deciding the same two facts. Open: whose order wins when a restored group overlaps a local group that already has one. Sequenced with the Entry-level emitter above, since both rework the same creators and restorers. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ### Trackers
 
