@@ -116,10 +116,11 @@ fun Screen.EntryMigrateFor(
         entry = entry,
         target = target,
         onDismissRequest = onDismissRequest,
-        // Show opens the entry being migrated away, which is the one the user is deciding about.
+        // Show opens the target, which is the one being decided about; the entry being migrated
+        // away is already the surface this dialog was raised from.
         onShowEntry = {
             onDismissRequest()
-            entry.openDetails(navigator)
+            target.openDetails(navigator)
         },
         onFinished = { replaced, _ -> onFinished?.invoke(replaced) ?: onDismissRequest() },
     )

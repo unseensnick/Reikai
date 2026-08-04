@@ -199,7 +199,12 @@ class NovelMigrationFlowAdapter(
         return distinctBy { it.path }.filterNot { it.path == currentPath }
     }
 
-    private fun NovelItem.toCandidate(sourceKey: String, site: String?) = MigrationCandidate(
+    /**
+     * A search hit has no stored row, so being in the library is a lookup, not a field. It is read
+     * for the marker only and deliberately does NOT populate the handle's `stored`: that field is
+     * what decides whether a commit still owes this candidate a materialising [resolve].
+     */
+    private suspend fun NovelItem.toCandidate(sourceKey: String, site: String?) = MigrationCandidate(
         sourceKey = sourceKey,
         title = name,
         chapterCount = null,
@@ -210,6 +215,7 @@ class NovelMigrationFlowAdapter(
             isNovelFavorite = false,
             lastModified = 0L,
         ),
+        inLibrary = novelRepository.getByUrlAndSource(path, sourceKey)?.favorite == true,
         handle = NovelCandidateHandle(this, site),
     )
 
@@ -285,6 +291,7 @@ class NovelMigrationFlowAdapter(
             latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
             key = "${novel.source}:${novel.url}",
             cover = novel.toCover(site, favorite = novel.favorite),
+            inLibrary = novel.favorite,
             handle = NovelCandidateHandle(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
                 site = site,

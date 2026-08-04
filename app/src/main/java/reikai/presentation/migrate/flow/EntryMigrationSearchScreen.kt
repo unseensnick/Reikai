@@ -1,20 +1,15 @@
 package reikai.presentation.migrate.flow
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,19 +20,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
-import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.components.SearchToolbar
-import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -47,13 +36,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
@@ -144,14 +131,22 @@ class EntryMigrationSearchScreen(
             }
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
                 items(items = sections, key = { it.sourceKey }) { section ->
-                    SourceSection(
-                        section = section,
+                    MigrationCandidateStrip(
+                        sourceName = section.sourceName,
+                        sourceLang = section.sourceLang,
+                        candidates = section.candidates,
+                        error = section.error,
                         onPick = screenModel::showDialog,
+                        onPreview = { it.openDetails(navigator) },
                         onBrowseSource = {
                             if (!openDeepPicker(navigator, entry, section.sourceKey, query)) {
                                 context.toast(MR.strings.internal_error)
                             }
                         },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = MaterialTheme.padding.small),
+                        loading = section.loading,
                     )
                 }
             }
@@ -164,9 +159,11 @@ class EntryMigrationSearchScreen(
                 entry = entry,
                 target = target,
                 onDismissRequest = screenModel::dismissDialog,
+                // Show opens the candidate, not the entry: the target is the thing being decided on,
+                // and the entry is the one the user already knows.
                 onShowEntry = {
                     screenModel.dismissDialog()
-                    entry.openDetails(navigator)
+                    target.openDetails(navigator)
                 },
                 onFinished = { replaced, resolved ->
                     screenModel.dismissDialog()
@@ -178,57 +175,6 @@ class EntryMigrationSearchScreen(
                     resolved.openDetailsAfterCommit(navigator, replaced, migrated = entry)
                 },
             )
-        }
-    }
-}
-
-@Composable
-private fun SourceSection(
-    section: EntryMigrationSearchScreenModel.Section,
-    onPick: (MigrationCandidate) -> Unit,
-    onBrowseSource: () -> Unit,
-) {
-    // The global-search section header. Tapping it (or the arrow) browses the whole source, for
-    // when the search cannot reach the title.
-    EntrySearchSection(
-        title = section.sourceName,
-        subtitle = LocaleHelper.getSourceDisplayName(section.sourceLang, LocalContext.current),
-        onClick = onBrowseSource,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-    ) {
-        when {
-            section.loading -> GlobalSearchLoadingResultItem()
-            // A source that threw says so; "no results" would be a different, wrong answer.
-            section.error != null -> GlobalSearchErrorResultItem(message = section.error)
-            section.candidates.isEmpty() -> Text(
-                text = stringResource(MR.strings.no_results_found),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
-            )
-            else -> LazyRow(
-                contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
-            ) {
-                items(items = section.candidates, key = { it.key }) { candidate ->
-                    Column(
-                        modifier = Modifier
-                            .width(96.dp)
-                            .padding(end = 8.dp)
-                            .clickable { onPick(candidate) },
-                    ) {
-                        MangaCover.Book(modifier = Modifier.fillMaxWidth(), data = candidate.cover)
-                        Text(
-                            text = candidate.title,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
-            }
         }
     }
 }

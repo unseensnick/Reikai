@@ -42,6 +42,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Matches are now offered rather than assumed: accept them one at a time, or all at once.** Tapping an accepted match gives it back so you can pick a different target.
 - **Leave an entry out of a migration and put it back later.** A source that never answers no longer holds up the rest of the batch.
 - **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
+- **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
 - **Change the search options from the migration list itself, without starting over.** Hiding entries only re-filters what is on screen; only the options that change results search again.
 
 **App & backup**

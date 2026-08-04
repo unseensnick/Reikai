@@ -81,6 +81,12 @@ data class MigrationCandidate(
     /** Adapter-built Coil cover model for the candidate cell. */
     val cover: Any? = null,
     /**
+     * This candidate is already a library entry. Adapter-filled, like [cover] and [key], because
+     * favourite-ness lives in the per-type row the UI must not downcast to. Marking only: a target
+     * already in the library is a legitimate pick (that is the replace case), so nothing gates on it.
+     */
+    val inLibrary: Boolean = false,
+    /**
      * Adapter-owned, and the only place resolved-ness lives: whether a commit still owes this
      * candidate a materialising [MigrationFlowAdapter.resolve] is a property of the handle, not of
      * the shared model. It used to be a Boolean here whose meaning differed per adapter, which the

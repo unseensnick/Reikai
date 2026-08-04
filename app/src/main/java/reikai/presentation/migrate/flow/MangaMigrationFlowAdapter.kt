@@ -291,6 +291,7 @@ class MangaMigrationFlowAdapter(
         chapterCount = null,
         key = "$sourceKey:$url",
         cover = toEntryBrowseUi().cover,
+        inLibrary = favorite,
         handle = this,
     )
 }

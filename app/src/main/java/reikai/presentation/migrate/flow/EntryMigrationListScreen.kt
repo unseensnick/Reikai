@@ -1,18 +1,15 @@
 package reikai.presentation.migrate.flow
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -53,17 +50,14 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.formatChapterNumber
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import tachiyomi.i18n.MR
@@ -371,61 +365,19 @@ private fun OverridePicker(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             }
             is MigratingEntryRow.OverrideState.Loaded -> state.strips.forEach { strip ->
-                OverrideStripRow(
-                    strip = strip,
+                MigrationCandidateStrip(
+                    sourceName = strip.sourceName,
+                    sourceLang = strip.sourceLang,
+                    candidates = strip.candidates,
+                    error = strip.error,
                     onPick = { screenModel.pick(row.entry.id, it) },
+                    onPreview = { it.openDetails(navigator) },
                     onBrowseSource = {
                         if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
                             context.toast(MR.strings.internal_error)
                         }
                     },
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverrideStripRow(
-    strip: MigratingEntryRow.OverrideStrip,
-    onPick: (MigrationCandidate) -> Unit,
-    onBrowseSource: () -> Unit,
-) {
-    // The global-search section header, so this reads like the search screens everywhere else.
-    // Tapping it (or the arrow) browses the whole source, which is the way out when the search
-    // cannot reach the title, which is exactly when the strip below has nothing in it.
-    EntrySearchSection(
-        title = strip.sourceName,
-        subtitle = LocaleHelper.getSourceDisplayName(strip.sourceLang, LocalContext.current),
-        onClick = onBrowseSource,
-    ) {
-        when {
-            // A source that threw says so, rather than looking like a source with nothing to offer.
-            strip.error != null -> GlobalSearchErrorResultItem(message = strip.error)
-            strip.candidates.isEmpty() -> Text(
-                text = stringResource(MR.strings.no_results_found),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            else -> LazyRow(contentPadding = PaddingValues(horizontal = 16.dp)) {
-                items(items = strip.candidates, key = { it.key }) { candidate ->
-                    Column(
-                        modifier = Modifier
-                            .width(96.dp)
-                            .padding(end = 8.dp)
-                            .clickable { onPick(candidate) },
-                    ) {
-                        MangaCover.Book(modifier = Modifier.fillMaxWidth(), data = candidate.cover)
-                        Text(
-                            text = candidate.title,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
             }
         }
     }
