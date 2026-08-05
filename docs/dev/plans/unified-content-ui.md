@@ -52,11 +52,16 @@ pager / webtoon, View-based) and the novel reader (`NovelReader*`, HTML / WebVie
 different machines; one abstraction over both costs more than it saves.
 
 **Wiring and the sync story.** The shared composable is net-new `reikai.*`, so it never conflicts
-with upstream. Mihon's own manga screens become unused-but-retained, routed around with a `// RK`
-redirect in the Voyager `Screen.Content()`; upstream updates to them land verbatim and inert
-(mark, don't delete). The only remaining upstream coupling is the **mapper** (`Manga.State →
+with upstream. The only remaining upstream coupling is the **mapper** (`Manga.State →
 EntryUiState`), which sits at the state seam and is compile-caught: a renamed upstream field
 fails to compile in the mapper, never a pixel hunt.
+
+**Superseded (2026-07-18): the mark-don't-delete half of this section.** This doc originally
+routed around Mihon's screens with a `// RK` redirect and kept them as unused-but-retained files,
+so upstream updates landed verbatim and inert. That rule is retired. A replaced pure-UI Mihon file
+is now deleted and given a row in [off-path-manifest.md](../off-path-manifest.md), which the sync
+script diffs and three hooks enforce; engine files stay live. Current policy:
+[.claude/rules/content-layer.md](../../../.claude/rules/content-layer.md).
 
 **Complementary theme layer.** A Reikai theme (custom `ColorScheme` / typography / shapes /
 component defaults through the single `TachiyomiTheme` → `MaterialExpressiveTheme` entry point)
@@ -85,7 +90,18 @@ the details screen (the large, highest-impact surface) in phases P1-P6. The down
 
 ## Status
 
-**The forward architecture now lives in [content-layer-architecture.md](content-layer-architecture.md).** This doc records the shipped UI-leaf seam (the Entry* composables both content types render); the deeper unification that extends that seam down into the ScreenModel behavior, the delete-and-manifest dead-file policy, and the folded-in reader migration are specified there. Read that first for anything forward-looking; the record below is the foundation it builds on.
+**This file is history, not a plan.** It records the UI-leaf seam era: the Entry* composables both
+content types render, and the surfaces that got only that depth. Nothing here is forward-looking and
+nothing here binds current work.
+
+- The **rules that bind** are [.claude/rules/content-layer.md](../../../.claude/rules/content-layer.md),
+  always-on, including the per-surface seam-depth table.
+- The **forward program** is [content-layer-architecture.md](content-layer-architecture.md): the deeper
+  seam through the ScreenModel behavior, the delete-and-manifest policy, and the reader migration.
+
+Two surfaces are still at this file's depth and are scheduled to be redone at the behavior seam
+(History and Updates, plus Downloads which never started). Read the architecture doc for that
+sequencing, not this file.
 
 **Shipped in full for this doc's scope: list surfaces, cover dialog, and the details screen (P1-P6,
 editor + custom-info overlay + Fill-from-tracker included).** Captured from a design discussion (2026-07-05) while finishing the MD
