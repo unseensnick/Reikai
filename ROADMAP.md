@@ -8,7 +8,6 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Next
 
-- **Audit the migration and merge systems whole, a second time** `[M]` - the 2026-08-05 bug hunt found 8 High and 14 Medium defects across both surfaces and all were fixed in six commits; this surface has repeatedly found defects inside the previous round's fixes, so it gets another pass at the SAME whole-system scope (not scoped to that diff), to see the complete picture with the fixes in place. Hold the standing rules in [content-layer-migrate-surface.md](docs/dev/plans/content-layer-migrate-surface.md) (typed capability slots, never nullable fields or boolean-flag combinations) and plan structurally rather than patch per finding.
 - **Fix two Statistics miscounts** `[S]` - novel downloads never reach the Downloaded stat, and merged series count once per source instead of once (so the title count reads higher than the library). Both promised publicly in `unseensnick/Reikai#56`; detail in the 2026-07-23 stats-fixes audit note (local).
 - **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift (Tsundoku's single-subsystem model). A code merge, not a data migration; touches Mihon's download files (`// RK`), sequenced within the content-layer program. [Plan](docs/dev/plans/content-layer-architecture.md).
 
