@@ -311,6 +311,18 @@ class MigrationRowRulesTest {
     }
 
     @Test
+    fun `an accepted row offers nothing more to accept`() {
+        // Its search still carries a suggestion, so only the already-accepted clause refuses this.
+        actions(acceptance = accepted, search = found).canAccept shouldBe false
+    }
+
+    @Test
+    fun `a row with no target offers nothing to accept`() {
+        actions(search = SearchPhase.NoMatch).canAccept shouldBe false
+        actions(search = SearchPhase.Failed).canAccept shouldBe false
+    }
+
+    @Test
     fun `nothing that commits is offered while another commit runs`() {
         // The dead-control class: these all rendered while their handlers refused.
         val offered = actions(acceptance = accepted, commit = failedCommit, busy = true)

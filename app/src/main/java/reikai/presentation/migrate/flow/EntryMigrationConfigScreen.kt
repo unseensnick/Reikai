@@ -45,6 +45,7 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceIcon
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -379,7 +380,7 @@ class EntryMigrationConfigScreenModel(
         screenModelScope.launchIO { adapter.persistTuning(tuning) }
     }
 
-    fun toggleSelection(key: String) = mutableState.update { state ->
+    fun toggleSelection(key: String) = editSelection { state ->
         val selected = state.selected.toMutableList()
         val available = state.available.toMutableList()
         val fromSelected = selected.indexOfFirst { it.key == key }
@@ -387,41 +388,52 @@ class EntryMigrationConfigScreenModel(
             available += selected.removeAt(fromSelected)
         } else {
             val fromAvailable = available.indexOfFirst { it.key == key }
-            if (fromAvailable < 0) return@update state
+            if (fromAvailable < 0) return@editSelection state
             selected += available.removeAt(fromAvailable)
         }
         state.copy(
             selected = selected,
             available = available.sortedBy { it.name.lowercase() },
-        ).also { persist(it.selected) }
+        )
     }
 
-    fun reorder(fromKey: Any?, toKey: Any?) = mutableState.update { state ->
+    fun reorder(fromKey: Any?, toKey: Any?) = editSelection { state ->
         val from = state.selected.indexOfFirst { it.key == fromKey }
         val to = state.selected.indexOfFirst { it.key == toKey }
-        if (from < 0 || to < 0) return@update state
+        if (from < 0 || to < 0) return@editSelection state
         val reordered = state.selected.toMutableList().apply { add(to, removeAt(from)) }
-        state.copy(selected = reordered).also { persist(reordered) }
+        state.copy(selected = reordered)
     }
 
-    fun selectAll() = mutableState.update { state ->
-        val all = state.selected + state.available
-        state.copy(selected = all, available = emptyList()).also { persist(all) }
+    fun selectAll() = editSelection { state ->
+        state.copy(selected = state.selected + state.available, available = emptyList())
     }
 
-    fun selectNone() = mutableState.update { state ->
+    fun selectNone() = editSelection { state ->
         val all = (state.selected + state.available).sortedBy { it.name.lowercase() }
-        state.copy(selected = emptyList(), available = all).also { persist(emptyList()) }
+        state.copy(selected = emptyList(), available = all)
     }
 
-    fun selectPinned() = mutableState.update { state ->
+    fun selectPinned() = editSelection { state ->
         val pinned = adapter.pinnedKeys()
         val all = state.selected + state.available
-        val selected = all.filter { it.key in pinned }
         state.copy(
-            selected = selected,
+            selected = all.filter { it.key in pinned },
             available = all.filterNot { it.key in pinned }.sortedBy { it.name.lowercase() },
-        ).also { persist(selected) }
+        )
+    }
+
+    /**
+     * Apply a selection edit, then save the settled order off the caller's thread.
+     *
+     * A state update re-runs its block when a write races it (the init load is the one that can), so
+     * a save inside the block repeats. [persist] reads the on-screen sources from the new state;
+     * every edit here only moves sources between the two lists, so their union is the same either
+     * way.
+     */
+    private fun editSelection(edit: (State) -> State) {
+        val settled = mutableState.updateAndGet(edit)
+        screenModelScope.launchIO { persist(settled.selected) }
     }
 
     /**
