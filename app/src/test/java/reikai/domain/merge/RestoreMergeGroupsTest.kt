@@ -121,6 +121,22 @@ class RestoreMergeGroupsTest {
     }
 
     @Test
+    fun `a remainder drops a ranking whose leading source the restore takes away`() = runTest {
+        (1L..4L).forEach { insertManga(it) }
+        // Locally A, B and C are one group with A in front; the backup names A, so the remainder is
+        // left as B and C with the source the user ranked first gone.
+        val local = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.setSourceOrder(ContentType.MANGA, local, listOf(1, 2, 3))
+
+        restore(ContentType.MANGA, listOf(listOf(1, 4)))
+
+        groupOf(2) shouldContainExactly listOf(2L, 3L)
+        // Same rule a restored group follows: B did not become the trunk by anyone's choice.
+        val remainder = repository.getGroupId(ContentType.MANGA, 2)!!
+        repository.getGroup(remainder)!!.overrideSourceRanking shouldBe false
+    }
+
+    @Test
     fun `a local group left with one member is dissolved rather than kept as a group of one`() = runTest {
         (1L..3L).forEach { insertManga(it) }
         repository.createGroup(ContentType.MANGA, listOf(1, 3))

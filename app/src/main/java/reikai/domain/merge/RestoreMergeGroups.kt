@@ -17,8 +17,10 @@ import reikai.domain.library.ContentType
  *
  * **The backup is authoritative for the entries it names**: an entry it groups leaves whatever local
  * group it was in. Local members the backup says nothing about keep their own group when at least
- * two of them remain, with their hand-set order and ranking, and are left standalone otherwise. So a
- * restore rearranges only the entries it actually describes.
+ * two of them remain, with their hand-set order, and are left standalone otherwise. So a restore
+ * rearranges only the entries it actually describes. The ranking is the one thing that does not
+ * always survive: a group only keeps it while it still leads with the source the user put in front,
+ * which holds for a restored group and a remainder alike.
  *
  * **It is authoritative for membership only.** The backup format carries neither member order nor
  * the per-group ranking flag (a separate, parked gap), so where the entries already had a local
@@ -53,17 +55,22 @@ class RestoreMergeGroups(
         }
         if (restored.isEmpty()) return
 
-        // What the local groups losing members will be left with, read BEFORE anything is written,
-        // and carrying their ranking: these members are not part of the restore, so their grouping
-        // should survive it.
+        // What the local groups losing members will be left with, read BEFORE anything is written:
+        // these members are not part of the restore, so their grouping should survive it.
         val remainders = memberships
             .filterKeys { it in claimed }
             .values.distinct()
             .mapNotNull { groupId ->
-                val keep = repository.getMembers(contentType, groupId).filterNot { it in claimed }
-                keep.takeIf {
-                    it.size >= 2
-                }?.let { it to (repository.getGroup(groupId)?.overrideSourceRanking == true) }
+                val members = repository.getMembers(contentType, groupId)
+                val keep = members.filterNot { it in claimed }
+                keep.takeIf { it.size >= 2 }?.let {
+                    // Same trunk rule the plans below apply, and for the same reason: a remainder
+                    // whose leading source the restore just took away is no longer the order the
+                    // user set, so presenting it as theirs would move the library cover and the
+                    // details trunk onto a source they never put in front.
+                    val keepsTrunk = members.firstOrNull() in it
+                    it to (keepsTrunk && repository.getGroup(groupId)?.overrideSourceRanking == true)
+                }
             }
 
         // Resolved BEFORE anything is written, like the remainders above: the first write deletes the
