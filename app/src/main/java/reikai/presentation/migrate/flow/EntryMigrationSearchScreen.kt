@@ -41,6 +41,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
@@ -84,6 +85,18 @@ class EntryMigrationSearchScreen(
         // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
         LaunchedEffect(state.isLoading) {
             if (!state.isLoading) screenModel.collectPendingPick()
+        }
+
+        val pickOutcome = state.pickOutcome
+        val pickUnavailable = stringResource(MR.strings.migrationFlow_pickUnavailable)
+        val pickSameEntry = stringResource(MR.strings.migrationFlow_pickSameEntry)
+        LaunchedEffect(pickOutcome) {
+            when (pickOutcome) {
+                PickOutcome.Unavailable -> context.toast(pickUnavailable)
+                PickOutcome.SameEntry -> context.toast(pickSameEntry)
+                null -> return@LaunchedEffect
+            }
+            screenModel.consumePickOutcome()
         }
 
         Scaffold(
@@ -184,10 +197,7 @@ class EntryMigrationSearchScreenModel(
     private val entryId: Long,
 ) : StateScreenModel<EntryMigrationSearchScreenModel.State>(State()) {
 
-    private val adapter: MigrationFlowAdapter = when (contentType) {
-        ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-        else -> Injekt.get<NovelMigrationFlowAdapter>()
-    }
+    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     private val pickHandoff: MigrationPickHandoff = Injekt.get()
 
@@ -283,13 +293,26 @@ class EntryMigrationSearchScreenModel(
         val entry = state.value.entry ?: return
         screenModelScope.launchIO {
             val targetRawId = pickHandoff.take(entry.id) ?: return@launchIO
-            // The entry itself is never a target: the engines would no-op.
-            if (targetRawId == entry.id.rawId) return@launchIO
+            // The entry itself is never a target: the engines would no-op. Both failures below say
+            // so: the pick is already consumed, so returning quietly leaves the user staring at an
+            // unchanged screen with nothing to explain it.
+            if (targetRawId == entry.id.rawId) {
+                reportPick(PickOutcome.SameEntry)
+                return@launchIO
+            }
             val candidate = runCatchingCancellable { adapter.storedCandidate(targetRawId) }.getOrNull()
-                ?: return@launchIO
+                ?: run {
+                    reportPick(PickOutcome.Unavailable)
+                    return@launchIO
+                }
             mutableState.update { it.copy(dialogTarget = candidate) }
         }
     }
+
+    private fun reportPick(outcome: PickOutcome) = mutableState.update { it.copy(pickOutcome = outcome) }
+
+    /** Called once the screen has shown the outcome; see [PickOutcome]. */
+    fun consumePickOutcome() = mutableState.update { it.copy(pickOutcome = null) }
 
     data class Section(
         val sourceKey: String,
@@ -306,6 +329,8 @@ class EntryMigrationSearchScreenModel(
         val entry: MigrationEntry? = null,
         val sections: List<Section> = emptyList(),
         val dialogTarget: MigrationCandidate? = null,
+        /** Consume-once: see [PickOutcome]. */
+        val pickOutcome: PickOutcome? = null,
         val onlyShowHasResults: Boolean = false,
     ) {
         val searchedCount: Int get() = sections.count { !it.loading }

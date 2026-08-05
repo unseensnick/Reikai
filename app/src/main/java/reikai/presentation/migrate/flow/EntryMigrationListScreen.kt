@@ -113,8 +113,8 @@ class EntryMigrationListScreen(
         val pickSameEntry = stringResource(MR.strings.migrationFlow_pickSameEntry)
         LaunchedEffect(pickOutcome) {
             when (pickOutcome) {
-                EntryMigrationListScreenModel.PickOutcome.Unavailable -> pickContext.toast(pickUnavailable)
-                EntryMigrationListScreenModel.PickOutcome.SameEntry -> pickContext.toast(pickSameEntry)
+                PickOutcome.Unavailable -> pickContext.toast(pickUnavailable)
+                PickOutcome.SameEntry -> pickContext.toast(pickSameEntry)
                 null -> return@LaunchedEffect
             }
             screenModel.consumePickOutcome()
@@ -247,29 +247,34 @@ class EntryMigrationListScreen(
             }
         }
 
-        // One cell decides which modal is up, so a confirm dialog cannot outlive the commit it
-        // started and sit on top of the progress dialog with Cancel stranded behind it.
-        when (val activity = state.activity) {
-            is EntryMigrationListScreenModel.Activity.Confirm -> ConfirmDialog(
-                activity = activity,
-                onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { flags -> screenModel.commit(activity.replace, flags) },
+        // Both of these are derived in the state (see visibleProgress / visibleDialog), so at most one
+        // is non-null: the screen renders the rule, it does not decide it. A per-row commit shows its
+        // spinner on the row and no modal at all.
+        state.visibleProgress?.let { batch ->
+            ProgressDialog(
+                done = batch.done,
+                total = batch.total,
+                onCancel = screenModel::cancelCommit,
             )
-            EntryMigrationListScreenModel.Activity.ExitConfirm -> ExitDialog(
+        }
+        when (val dialog = state.visibleDialog) {
+            is EntryMigrationListScreenModel.Dialog.Confirm -> ConfirmDialog(
+                dialog = dialog,
+                onDismissRequest = screenModel::dismissDialog,
+                onConfirm = { flags -> screenModel.commit(dialog.replace, flags) },
+            )
+            EntryMigrationListScreenModel.Dialog.ExitConfirm -> ExitDialog(
                 onDismissRequest = screenModel::dismissDialog,
                 // Stopping abandons the flow, so it unwinds to wherever the flow was started,
                 // the same as finishing: one pop would land on a stale flow step.
-                onConfirm = { navigator.popUntil { it !is MigrationFlowScreen } },
+                onConfirm = {
+                    // A commit still running would otherwise be cancelled halfway by the pop, with
+                    // nothing said about what had already been written.
+                    screenModel.cancelCommit()
+                    navigator.popUntil { it !is MigrationFlowScreen }
+                },
             )
-            is EntryMigrationListScreenModel.Activity.Batch -> ProgressDialog(
-                done = activity.done,
-                total = activity.total,
-                onCancel = screenModel::cancelCommit,
-            )
-            // A per-row commit shows its spinner on the row, not a modal.
-            is EntryMigrationListScreenModel.Activity.Single,
-            EntryMigrationListScreenModel.Activity.Idle,
-            -> {}
+            null -> {}
         }
     }
 }
@@ -573,34 +578,34 @@ private fun RowTrailing(
 
 @Composable
 private fun ConfirmDialog(
-    activity: EntryMigrationListScreenModel.Activity.Confirm,
+    dialog: EntryMigrationListScreenModel.Dialog.Confirm,
     onDismissRequest: () -> Unit,
     onConfirm: (Set<MigrationDataFlag>) -> Unit,
 ) {
     // Keyed on the saved set because it arrives with the async scan; re-keying seeds the checkboxes
     // once the real values land instead of leaving them on the empty first frame.
-    var selected by rememberSaveable(activity.savedFlags, stateSaver = migrationFlagSaver) {
-        mutableStateOf(activity.savedFlags)
+    var selected by rememberSaveable(dialog.savedFlags, stateSaver = migrationFlagSaver) {
+        mutableStateOf(dialog.savedFlags)
     }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = {
             Text(
                 text = pluralStringResource(
-                    if (activity.replace) {
+                    if (dialog.replace) {
                         MR.plurals.migrationListScreen_migrateDialog_migrateTitle
                     } else {
                         MR.plurals.migrationListScreen_migrateDialog_copyTitle
                     },
-                    activity.count,
-                    activity.count,
+                    dialog.count,
+                    dialog.count,
                 ),
             )
         },
         text = {
             Column {
                 MigrationFlagChecks(
-                    applicable = activity.applicableFlags,
+                    applicable = dialog.applicableFlags,
                     selected = selected,
                     onToggle = { flag ->
                         selected = if (flag in selected) selected - flag else selected + flag
@@ -612,12 +617,12 @@ private fun ConfirmDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                if (activity.untouched > 0) {
+                if (dialog.untouched > 0) {
                     Text(
                         text = pluralStringResource(
                             MR.plurals.migrationListScreen_migrateDialog_skipText,
-                            activity.untouched,
-                            activity.untouched,
+                            dialog.untouched,
+                            dialog.untouched,
                         ),
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -634,11 +639,11 @@ private fun ConfirmDialog(
                 onClick = { onConfirm(selected) },
                 // The scan decides which checkboxes exist, so confirming before it lands could
                 // migrate with a set the user never saw.
-                enabled = !activity.loadingFlags,
+                enabled = !dialog.loadingFlags,
             ) {
                 Text(
                     text = stringResource(
-                        if (activity.replace) {
+                        if (dialog.replace) {
                             MR.strings.migrationListScreen_migrateDialog_migrateLabel
                         } else {
                             MR.strings.migrationListScreen_migrateDialog_copyLabel

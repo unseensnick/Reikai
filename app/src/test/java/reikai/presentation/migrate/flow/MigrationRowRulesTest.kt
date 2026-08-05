@@ -72,7 +72,10 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `a row that has not settled is never hidden, since its outcome is unknown`() {
+    fun `a row still being searched is never hidden`() {
+        // A guard, not a clause pin: no branch of isVisible can hide an unsettled row today, and
+        // deleting any one of them leaves this green. It is here so that adding such a branch, which
+        // reads as a reasonable thing to do, fails instead of blanking rows mid-search.
         visible(SearchPhase.Queued) shouldBe true
         visible(SearchPhase.Searching) shouldBe true
     }

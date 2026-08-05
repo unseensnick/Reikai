@@ -333,9 +333,17 @@ class EntryMigrationListScreenModel(
                 MigrationRowRules.RestartOutcome.Requeue -> {
                     row.scope.cancel()
                     // Skip is a user decision, not a search result: it survives the restart (and
-                    // keeps the fresh row out of the driver), unlike the discarded accept.
+                    // keeps the fresh row out of the driver).
                     MigratingEntryRow(row.entry, screenModelScope.coroutineContext, io).also {
                         it.skipped.value = row.skipped.value
+                        // So is a target the user picked by hand. Accepting the suggestion is a
+                        // verdict on a result this restart is discarding, so that one goes; a target
+                        // chosen from an override strip or the browse picker did not come from the
+                        // batch search at all, and a re-search cannot reproduce a browse pick.
+                        val chosen = row.acceptance.value as? Acceptance.Accepted
+                        if (chosen != null && chosen.candidate != row.search.value.suggestion) {
+                            it.acceptance.value = chosen
+                        }
                     }
                 }
             }
@@ -436,6 +444,10 @@ class EntryMigrationListScreenModel(
                 val live = rows.firstOrNull { it.entry.id == row.entry.id } ?: return@forEach
                 if (!MigrationRowRules.canChoose(live.commit.value)) return@forEach
                 live.acceptance.value = Acceptance.Accepted(candidate)
+                // Same follow-up every other accept path runs: a browsed candidate carries no counts
+                // until something asks, and without this the row read unknown forever and the
+                // chapter-shortfall warning could never fire on a deep pick.
+                peekChosenCounts(live)
                 live.expanded.value = false
                 if (live.skipped.value) {
                     live.skipped.value = false
@@ -538,7 +550,15 @@ class EntryMigrationListScreenModel(
         when {
             // Skipping the row being searched abandons that search now, rather than after whatever
             // the source is doing finally returns.
-            skipping && row.search.value is SearchPhase.Searching -> row.scope.coroutineContext.cancelChildren()
+            skipping && row.search.value is SearchPhase.Searching -> {
+                row.scope.coroutineContext.cancelChildren()
+                // That takes the row's manual picker down with it: its only write of Loaded is past
+                // the await, so an open picker would sit on a spinner nothing ever clears. Back to
+                // Idle, which is the state a re-expand searches from.
+                if (row.overrides.value == MigratingEntryRow.OverrideState.Loading) {
+                    row.overrides.value = MigratingEntryRow.OverrideState.Idle
+                }
+            }
             // Restoring a row that never searched puts the driver back to work.
             !skipping && row.search.value is SearchPhase.Queued -> startDriver()
         }
@@ -556,8 +576,15 @@ class EntryMigrationListScreenModel(
             MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
         }
         if (targets.isEmpty()) return
-        mutableState.update { it.copy(savedFlags = flags) }
-        mutableState.update { it.copy(activity = Activity.Batch(done = 0, total = targets.size)) }
+        // The confirm request is consumed by the batch it started, in the same write that starts it,
+        // so it cannot come back when the batch ends on a partial failure.
+        mutableState.update {
+            it.copy(
+                savedFlags = flags,
+                dialog = null,
+                commit = CommitActivity.Batch(done = 0, total = targets.size),
+            )
+        }
         batchRan = true
         commitJob = screenModelScope.launch(io) {
             // Persisted once, and then carried as a value: the per-row commits below all use the set
@@ -568,13 +595,13 @@ class EntryMigrationListScreenModel(
                 targets.forEachIndexed { index, row ->
                     ensureActive()
                     commitRow(row, replace, flags)
-                    mutableState.update { it.copy(activity = Activity.Batch(index + 1, targets.size)) }
+                    mutableState.update { it.copy(commit = CommitActivity.Batch(index + 1, targets.size)) }
                 }
                 // Only a clean run leaves: a failure keeps the screen open so the row that failed
                 // stays visible with its retry, instead of vanishing with the rest.
                 finishIfNothingFailed()
             } finally {
-                mutableState.update { it.copy(activity = Activity.Idle) }
+                mutableState.update { it.copy(commit = CommitActivity.Idle) }
                 commitJob = null
             }
         }
@@ -606,14 +633,16 @@ class EntryMigrationListScreenModel(
      * migrated in the database and shown as untouched.
      */
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
-        mutableState.update { it.copy(activity = Activity.Single(row.entry.id)) }
+        mutableState.update { it.copy(commit = CommitActivity.Single(row.entry.id)) }
         screenModelScope.launch(io) {
-            adapter.persistFlags(flags)
+            // No persistFlags here: only a confirm may move the preference. A retry re-runs with the
+            // exact set its row failed under, which is older than whatever the user has confirmed
+            // since, so writing it back reverted a choice they had already made.
             try {
                 commitRow(row, replace, flags)
                 finishIfNothingFailed()
             } finally {
-                mutableState.update { it.copy(activity = Activity.Idle) }
+                mutableState.update { it.copy(commit = CommitActivity.Idle) }
             }
         }
     }
@@ -624,23 +653,24 @@ class EntryMigrationListScreenModel(
      * sites, because guarding it per caller is how the screen has both popped early and failed to
      * pop at all: one predicate cannot disagree with itself. The screen finishes only when a batch
      * ran, something actually migrated, every row is settled (a pop mid-search would abandon rows
-     * still being searched), no NON-SKIPPED row is failed (skipping a failed row is giving up on it,
-     * which should not hold the screen open forever), nothing is still committing (finishing would
-     * cancel it half-applied), and nothing committable remains (a cancelled batch leaves accepted
-     * rows behind; finishing over them would silently drop their migrations).
+     * still being searched), nothing is still committing (finishing would cancel it half-applied),
+     * and nothing committable remains (a cancelled batch leaves accepted rows behind; finishing over
+     * them would silently drop their migrations).
      *
-     * That last check is also what keeps a batch's un-run rows in play, so the gate needs no
-     * separate per-batch scan: a row the batch never reached is committable or busy by definition.
+     * That last check carries more than it looks. A failed row is committable by definition (it kept
+     * its target, and un-accepting is refused while a commit is in play), which is what holds the
+     * screen open on a partial failure; skipping a failed row is giving up on it, and drops it out of
+     * the same check. A row the batch never reached is committable or busy too, so the gate needs no
+     * separate per-batch scan. A stated failure test used to sit beside this and pinned nothing.
      */
     private fun finishIfNothingFailed() {
         if (!batchRan || state.value.migratedCount == 0) return
         if (rows.any { !it.isSettled }) return
-        val anyFailed = rows.any { it.commit.value is CommitPhase.Failed && !it.skipped.value }
         val anyBusy = rows.any { it.commit.value.isBusy }
         val anyCommittable = rows.any {
             MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
         }
-        if (!anyFailed && !anyBusy && !anyCommittable) {
+        if (!anyBusy && !anyCommittable) {
             batchRan = false
             mutableState.update { it.copy(finished = true) }
         }
@@ -712,7 +742,7 @@ class EntryMigrationListScreenModel(
         if (state.value.isBusy) return
         val scan = ++confirmScanId
         mutableState.update {
-            it.copy(activity = Activity.Confirm(replace, it.committableCount, it.untouchedCount))
+            it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
         }
         screenModelScope.launch(io) {
             val targets = rows.filter {
@@ -723,24 +753,19 @@ class EntryMigrationListScreenModel(
             // the preference, and the seed has to match what the next migration will actually use.
             val saved = adapter.savedFlags()
             mutableState.update {
-                val open = it.activity
-                if (scan != confirmScanId || open !is Activity.Confirm) return@update it
-                it.copy(activity = open.copy(applicableFlags = applicable, savedFlags = saved, loadingFlags = false))
+                val open = it.dialog
+                if (scan != confirmScanId || open !is Dialog.Confirm) return@update it
+                it.copy(dialog = open.copy(applicableFlags = applicable, savedFlags = saved, loadingFlags = false))
             }
         }
     }
 
-    fun showExitConfirm() = mutableState.update { it.copy(activity = Activity.ExitConfirm) }
+    /** Ask before leaving. Allowed mid-commit, and it cannot touch the commit cell: back used to
+     *  overwrite the one cell that held both, which cleared the busy state under a running migration. */
+    fun showExitConfirm() = mutableState.update { it.copy(dialog = Dialog.ExitConfirm) }
 
-    /** Close an open dialog. Only a dialog: a commit is not something a dismissal may cancel, and
-     *  reading the same cell is what stops one from being dropped by the other. */
-    fun dismissDialog() = mutableState.update {
-        if (it.activity is Activity.Confirm || it.activity is Activity.ExitConfirm) {
-            it.copy(activity = Activity.Idle)
-        } else {
-            it
-        }
-    }
+    /** Close an open dialog. Only a dialog: a commit is not something a dismissal may cancel. */
+    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
 
     override fun onDispose() {
         super.onDispose()
@@ -751,19 +776,31 @@ class EntryMigrationListScreenModel(
     }
 
     /**
-     * What the screen is doing: which modal is up, and which commit is running. ONE cell, because
-     * these are one question.
+     * What is actually running. The truth about the commit, and nothing else.
      *
-     * They used to be two, and starting a batch set the commit one without clearing the dialog one,
-     * so the confirm dialog stayed on top of the progress dialog for the whole commit: its button
-     * looked live and did nothing, and Cancel, the only way to stop a batch, sat behind the wrong
-     * window. On a partial failure the stale dialog outlived the commit with a live button that
-     * started a second batch over the rows that had just failed. Same shape as the `isCommitting` /
-     * `singleCommitInFlight` pair this surface already replaced; the dialog was simply missed.
+     * A dialog request is deliberately NOT in here. It was, and the exit-confirm writer overwrote
+     * this cell unconditionally, so pressing back during a per-row commit cleared the busy state
+     * while the migration ran on: the commit bar came back live, and Stop unwound the flow mid-write
+     * with nothing said to the user. A modal is something the user asked to see; a commit is
+     * something the app is doing. Two facts, so two cells, with the render rules in [State] deciding
+     * what is shown rather than one writer clobbering the other.
      */
-    sealed interface Activity {
-        data object Idle : Activity
+    sealed interface CommitActivity {
+        data object Idle : CommitActivity
 
+        /** Carries its own progress, so "running" and "how far" cannot disagree. */
+        data class Batch(val done: Int, val total: Int) : CommitActivity
+
+        /** A per-row commit: busy, but no modal (the row shows its own spinner). */
+        data class Single(val entryId: EntryId) : CommitActivity
+    }
+
+    /**
+     * A modal the user asked for. Held apart from [CommitActivity] and shown through
+     * [State.visibleDialog], which is what stops a confirm dialog outliving the commit it started
+     * and sitting on top of the progress dialog with Cancel stranded behind it.
+     */
+    sealed interface Dialog {
         data class Confirm(
             val replace: Boolean,
             val count: Int,
@@ -773,15 +810,9 @@ class EntryMigrationListScreenModel(
              *  is hidden for this batch keeps its saved state instead of being cleared. */
             val savedFlags: Set<MigrationDataFlag> = emptySet(),
             val loadingFlags: Boolean = true,
-        ) : Activity
+        ) : Dialog
 
-        data object ExitConfirm : Activity
-
-        /** Carries its own progress, so "running" and "how far" cannot disagree. */
-        data class Batch(val done: Int, val total: Int) : Activity
-
-        /** A per-row commit: busy, but no modal (the row shows its own spinner). */
-        data class Single(val entryId: EntryId) : Activity
+        data object ExitConfirm : Dialog
     }
 
     /** Counts are stored, not derived: see [syncCounts]. */
@@ -804,8 +835,10 @@ class EntryMigrationListScreenModel(
         val emptyReason: EmptyReason? = null,
         val matchStrategy: MatchStrategy = MatchStrategy.BestTitleMatch,
         val migratedCount: Int = 0,
-        /** The one answer to what the screen is doing: which modal is up and what is committing. */
-        val activity: Activity = Activity.Idle,
+        /** What the app is doing; see [CommitActivity]. */
+        val commit: CommitActivity = CommitActivity.Idle,
+        /** What the user asked to see; see [Dialog]. */
+        val dialog: Dialog? = null,
         val finished: Boolean = false,
         val savedFlags: Set<MigrationDataFlag> = emptySet(),
         /** Consume-once: see [PickOutcome]. */
@@ -813,28 +846,25 @@ class EntryMigrationListScreenModel(
     ) {
         /** No commit may start, and nothing may rebuild rows, while another one is running. An open
          *  dialog is not busy: the user is still deciding. */
-        val isBusy: Boolean get() = activity is Activity.Batch || activity is Activity.Single
+        val isBusy: Boolean get() = commit != CommitActivity.Idle
+
+        /**
+         * Which modal is on screen, decided here rather than by whichever writer went last. At most
+         * one of these two is ever non-null.
+         *
+         * A running batch owns the screen, so its progress window wins over a confirm dialog that is
+         * now answered. The exit confirm outranks even that: back has to stay answerable during a
+         * commit, and refusing it would leave no way out of a source that never returns.
+         */
+        val visibleProgress: CommitActivity.Batch?
+            get() = (commit as? CommitActivity.Batch)?.takeIf { dialog !is Dialog.ExitConfirm }
+
+        val visibleDialog: Dialog?
+            get() = dialog?.takeIf { it is Dialog.ExitConfirm || commit == CommitActivity.Idle }
     }
 
     /** Why a migration list has nothing to show. */
     enum class EmptyReason { NoEntries, AllFiltered, NoSources }
-
-    /**
-     * Why a target picked on the pushed browse screen could not be applied, consumed once by the
-     * screen that shows it.
-     *
-     * The handoff clears on read, so a pick that failed after being taken had nowhere to go: the row
-     * simply stayed as it was and the user was told nothing, with no way to retry short of browsing
-     * again. Completion and navigation were already consume-once state; this is the third case the
-     * design called for and the one that was never built.
-     */
-    sealed interface PickOutcome {
-        /** The picked row could not be read back (deleted, or its source went away). */
-        data object Unavailable : PickOutcome
-
-        /** The entry was picked as its own target; migrating onto itself would do nothing. */
-        data object SameEntry : PickOutcome
-    }
 }
 
 /** Settled for progress purposes; the rule itself lives with the other transition rules. */

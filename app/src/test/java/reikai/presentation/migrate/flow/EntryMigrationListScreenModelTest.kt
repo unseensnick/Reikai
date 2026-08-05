@@ -1,5 +1,7 @@
 package reikai.presentation.migrate.flow
 
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
@@ -158,17 +160,22 @@ class EntryMigrationListScreenModelTest {
     }
 
     @Test
-    fun `a batch with a failure keeps the screen open on the failed row`() = runTest(dispatcher.scheduler) {
-        val model = model(listOf(entry(1), entry(2)), failFor = setOf(EntryId.Manga(2)))
-        advanceUntilIdle()
+    fun `a batch with a failure keeps the screen open, with the failed row still committable`() =
+        runTest(dispatcher.scheduler) {
+            val model = model(listOf(entry(1), entry(2)), failFor = setOf(EntryId.Manga(2)))
+            advanceUntilIdle()
 
-        model.acceptAll()
-        model.commit(replace = true, flags = emptySet())
-        advanceUntilIdle()
+            model.acceptAll()
+            model.commit(replace = true, flags = emptySet())
+            advanceUntilIdle()
 
-        model.state.value.migratedCount shouldBe 1
-        model.state.value.finished shouldBe false
-    }
+            model.state.value.migratedCount shouldBe 1
+            model.state.value.finished shouldBe false
+            // Why it stays open, and the reason the gate needs no failure clause of its own: the row
+            // kept its target and cannot be un-accepted mid-commit, so it is still committable and a
+            // retry has something to run.
+            model.state.value.committableCount shouldBe 1
+        }
 
     @Test
     fun `skipping the last failed row finishes what the batch started`() = runTest(dispatcher.scheduler) {
@@ -256,15 +263,36 @@ class EntryMigrationListScreenModelTest {
             model.acceptAll()
             model.showConfirm(replace = true)
             advanceUntilIdle()
-            model.state.value.activity.shouldBeInstanceOf<EntryMigrationListScreenModel.Activity.Confirm>()
+            model.state.value.visibleDialog
+                .shouldBeInstanceOf<EntryMigrationListScreenModel.Dialog.Confirm>()
 
             model.commit(replace = true, flags = emptySet())
             advanceUntilIdle()
 
-            // The dialog used to be a second cell nothing cleared, so it sat on top of the progress
-            // dialog for the whole commit: its button looked live and did nothing, and Cancel, the
-            // only way to stop a batch, was behind the wrong window.
-            model.state.value.activity.shouldBeInstanceOf<EntryMigrationListScreenModel.Activity.Batch>()
+            // The dialog used to sit on top of the progress dialog for the whole commit: its button
+            // looked live and did nothing, and Cancel, the only way to stop a batch, was behind the
+            // wrong window.
+            model.state.value.visibleDialog.shouldBeNull()
+            model.state.value.visibleProgress.shouldNotBeNull()
+        }
+
+    @Test
+    fun `pressing back during a per-row commit asks, without letting go of the commit`() =
+        runTest(dispatcher.scheduler) {
+            val model = model(listOf(entry(1), entry(2)), blockOn = EntryId.Manga(1))
+            advanceUntilIdle()
+            model.acceptAll()
+            model.commitSingle(EntryId.Manga(1), replace = true)
+            advanceUntilIdle()
+
+            // A per-row commit shows no modal, so back stays live. Answering it used to overwrite the
+            // one cell that also held the commit, so dismissing left the screen idle with the
+            // migration still running: a second commit could then start on top of it.
+            model.showExitConfirm()
+            model.state.value.isBusy shouldBe true
+            model.dismissDialog()
+
+            model.state.value.isBusy shouldBe true
         }
 
     @Test
@@ -281,7 +309,8 @@ class EntryMigrationListScreenModelTest {
         // The screen stays open on the failed row, but with no stale dialog whose button would run
         // the whole batch again over the rows that just failed.
         model.state.value.finished shouldBe false
-        model.state.value.activity shouldBe EntryMigrationListScreenModel.Activity.Idle
+        model.state.value.visibleDialog.shouldBeNull()
+        model.state.value.commit shouldBe EntryMigrationListScreenModel.CommitActivity.Idle
     }
 
     @Test

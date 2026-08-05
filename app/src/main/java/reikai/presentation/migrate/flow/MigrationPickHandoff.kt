@@ -40,3 +40,20 @@ class MigrationPickHandoff {
 
     private data class Pick(val entryId: EntryId, val targetRawId: Long)
 }
+
+/**
+ * Why a target picked on the pushed browse screen could not be applied, consumed once by the screen
+ * that shows it.
+ *
+ * [MigrationPickHandoff.take] clears on read, so a pick that failed after being taken has nowhere to
+ * go: without this the screen simply stayed as it was and the user was told nothing, with no way to
+ * retry short of browsing again. It lives beside the handoff rather than on one screen model because
+ * both screens that collect a pick can fail to apply it the same two ways.
+ */
+sealed interface PickOutcome {
+    /** The picked row could not be read back (deleted, or its source went away). */
+    data object Unavailable : PickOutcome
+
+    /** The entry was picked as its own target; migrating onto itself would do nothing. */
+    data object SameEntry : PickOutcome
+}

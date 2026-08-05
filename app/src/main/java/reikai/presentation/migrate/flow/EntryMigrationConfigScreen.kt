@@ -298,10 +298,7 @@ class EntryMigrationConfigScreenModel(
     contentType: ContentType,
 ) : StateScreenModel<EntryMigrationConfigScreenModel.State>(State()) {
 
-    private val adapter: MigrationFlowAdapter = when (contentType) {
-        ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-        else -> Injekt.get<NovelMigrationFlowAdapter>()
-    }
+    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     init {
         screenModelScope.launchIO {
