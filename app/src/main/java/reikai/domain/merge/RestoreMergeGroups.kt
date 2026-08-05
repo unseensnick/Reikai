@@ -27,6 +27,8 @@ import reikai.domain.library.ContentType
  * the details trunk onto whatever the global preferred-source list ranks first. Survivor and append
  * rule match [MergeGroupRepository.merge]: the group of the first named id that has one decides the
  * order and the flag, its members keep their relative order, and entries it did not contain go last.
+ * Members of that group the backup does NOT name are not dragged along; they fall to the remainder
+ * rule above, and the ranking is dropped when the one it led with is among them.
  */
 class RestoreMergeGroups(
     private val repository: MergeGroupRepository,
@@ -72,7 +74,13 @@ class RestoreMergeGroups(
             val local = localOrder.toHashSet()
             val named = ids.toHashSet()
             val ordered = localOrder.filter { it in named } + ids.filterNot { it in local }
-            val override = localGroupId?.let { repository.getGroup(it)?.overrideSourceRanking } == true
+            // The ranking is carried only while the group it came from still leads with the source the
+            // user put in front. A backup group can span two local groups, taking some members from a
+            // ranked one and leaving its trunk behind; carrying the flag there would present an order
+            // nobody chose as the user's own, and the library cover and chapter trunk would follow it.
+            val keepsTrunk = localOrder.firstOrNull()?.let { it in named } == true
+            val override = keepsTrunk &&
+                localGroupId?.let { repository.getGroup(it)?.overrideSourceRanking } == true
             ordered to override
         }
 

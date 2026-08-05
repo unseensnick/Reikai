@@ -172,6 +172,37 @@ class RestoreMergeGroupsTest {
     }
 
     @Test
+    fun `a restored group drops a ranking whose leading source it does not keep`() = runTest {
+        (1L..4L).forEach { insertManga(it) }
+        // Locally A, B and C are one group and the user put C in front; the backup groups A with D,
+        // so the restored group takes some of that group's members but leaves its trunk behind.
+        val local = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.setSourceOrder(ContentType.MANGA, local, listOf(3, 1, 2))
+
+        restore(ContentType.MANGA, listOf(listOf(1, 4)))
+
+        groupOf(1) shouldContainExactly listOf(1L, 4L)
+        // Carrying the flag here would present an order nobody chose as the user's own, and the
+        // library cover and chapter trunk would follow it.
+        val restored = repository.getGroupId(ContentType.MANGA, 1)!!
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe false
+    }
+
+    @Test
+    fun `a restored group keeps a ranking when it still leads with the same source`() = runTest {
+        (1L..3L).forEach { insertManga(it) }
+        val local = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.MANGA, local, listOf(2, 1))
+
+        // The backup adds a member but the trunk stays, so the ranking is still the user's.
+        restore(ContentType.MANGA, listOf(listOf(1, 2, 3)))
+
+        groupOf(1) shouldContainExactly listOf(2L, 1L, 3L)
+        val restored = repository.getGroupId(ContentType.MANGA, 1)!!
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
     fun `a group the device never had takes the backup order and no ranking`() = runTest {
         (1L..2L).forEach { insertManga(it) }
 
