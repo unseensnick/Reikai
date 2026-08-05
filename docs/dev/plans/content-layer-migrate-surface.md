@@ -216,6 +216,23 @@ Also from the same audit and fixed alongside: the migration engines' favorite sw
 are now one transaction (see [merge-component-consolidation.md](merge-component-consolidation.md)). Open
 items from that report not yet actioned are listed there and in the audit file.
 
+**Steps 10 and 11, two more whole-system rounds (2026-08-05).** The surface was audited twice more at the
+same scope, each round deliberately not scoped to the previous round's diff, and each found defects inside
+those fixes. Round 2 (3 High, 6 Medium) split `Activity` into `CommitActivity` and a `Dialog` request with
+the modal derived from both, since the fold of the two into one cell let the exit-confirm writer erase a
+running commit; it also gave the deep-pick accept path the counts peek its siblings had, stopped `retry`
+moving the flag preference, and reported a failed pick on the single-entry route.
+
+Round 3 (1 High, 5 Medium) found the shape had changed. Two-answers-to-one-question is retired here; what
+replaced it is **a rule applied to some members of a family but not all**, and four of the five instances
+were not manga versus novel at all. Skip was honoured by three of the four accept-side rules; the
+loading-flags gate existed on the batch confirm dialog and not the single-item one; `cancelCommit` covered
+the batch job and not the per-row one; the picker published all its strips at once while the search screen
+streamed them. The durable process change is the grounding pass: before editing, enumerate the real family
+for each fix (list versus search screen, batch versus single commit, rule versus handler) rather than
+assuming it is the two content types. That pass caught a member the audit itself had missed, both branches
+of `toggleAccept` ignoring skip where the auditor reported only the render rule.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
