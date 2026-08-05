@@ -1315,6 +1315,7 @@
     <string name="migrationFlow.emptyNoEntries">Nothing left to migrate</string>
     <string name="migrationFlow.emptyAllFiltered">Every entry is hidden by the search options</string>
     <string name="migrationFlow.emptyNoSources">No sources are enabled to migrate to</string>
+    <string name="migrationFlow.emptySourcesFiltered">Every source is hidden by the results filter</string>
     <string name="migrationFlow.pickUnavailable">That entry couldn\'t be opened, so it wasn\'t used</string>
     <string name="migrationFlow.pickSameEntry">Pick a different entry to migrate onto</string>
 

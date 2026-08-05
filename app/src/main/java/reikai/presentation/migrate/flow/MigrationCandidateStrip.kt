@@ -47,14 +47,13 @@ private val CANDIDATE_WIDTH = 96.dp
 internal fun MigrationCandidateStrip(
     sourceName: String,
     sourceLang: String,
-    candidates: List<MigrationCandidate>,
-    error: String?,
+    result: StripResult,
     onPick: (MigrationCandidate) -> Unit,
     onPreview: (MigrationCandidate) -> Unit,
     onBrowseSource: () -> Unit,
     modifier: Modifier = Modifier,
-    loading: Boolean = false,
 ) {
+    val candidates = result.candidates
     EntrySearchSection(
         title = sourceName,
         subtitle = LocaleHelper.getSourceDisplayName(sourceLang, LocalContext.current),
@@ -62,9 +61,9 @@ internal fun MigrationCandidateStrip(
         modifier = modifier,
     ) {
         when {
-            loading -> GlobalSearchLoadingResultItem()
+            result is StripResult.Loading -> GlobalSearchLoadingResultItem()
             // A source that threw says so; "no results" would be a different, wrong answer.
-            error != null -> GlobalSearchErrorResultItem(message = error)
+            result is StripResult.Failed -> GlobalSearchErrorResultItem(message = result.error)
             candidates.isEmpty() -> Text(
                 text = stringResource(MR.strings.no_results_found),
                 style = MaterialTheme.typography.bodySmall,

@@ -102,7 +102,7 @@ class EntryMigrationListScreenModel(
                     tuning = tuning,
                     rows = built,
                     matchStrategy = adapter.matchStrategy,
-                    hasSources = sourcesFor().isNotEmpty(),
+                    hasSources = adapter.sourcesFor().isNotEmpty(),
                     savedFlags = adapter.savedFlags(),
                 )
             }
@@ -130,7 +130,7 @@ class EntryMigrationListScreenModel(
      * restored row is picked up without a second driver.
      */
     private suspend fun drive() {
-        val sources = sourcesFor()
+        val sources = adapter.sourcesFor()
         val tuning = state.value.tuning
         while (currentCoroutineContext().isActive) {
             val row = nextSearchable() ?: break
@@ -250,20 +250,6 @@ class EntryMigrationListScreenModel(
             // still a real "no match" for the sources that did answer.
             sources.isNotEmpty() && errors == sources.size -> SearchPhase.Failed
             else -> SearchPhase.NoMatch
-        }
-    }
-
-    /** The saved target order resolved against the enabled set. The fallback for an empty saved
-     *  selection is pinned-only, mirroring what the config screen seeds as Selected, so what that
-     *  screen showed is what gets searched; everything enabled only when nothing is pinned either.
-     *  An explicit deselect-all also persists an empty list and reads as unset BY DESIGN: the config
-     *  screen hides Continue on an empty selection, so a list can never be reached under one. */
-    private fun sourcesFor(): List<MigrationSourceUi> {
-        val enabled = adapter.enabledSources()
-        val byKey = enabled.associateBy { it.key }
-        return adapter.savedSelection().mapNotNull { byKey[it] }.ifEmpty {
-            val pinned = adapter.pinnedKeys()
-            enabled.filter { it.key in pinned }.ifEmpty { enabled }
         }
     }
 
@@ -392,42 +378,30 @@ class EntryMigrationListScreenModel(
             val myJob = coroutineContext[Job]
             // Resolved here rather than on the caller's thread: it reads three preferences, and this
             // runs on every row expansion and every tap of the picker's search button.
-            val sources = sourcesFor()
+            val sources = adapter.sourcesFor()
             if (row.overrideJob !== myJob) return@launch
-            // Published BEFORE the searches run, so every source shows itself immediately and fills in
-            // when it answers. Waiting for all of them meant one dead source hid the rest.
             row.overrides.value = MigratingEntryRow.OverrideState.Strips(
                 sources.map {
                     MigratingEntryRow.OverrideStrip(
                         sourceKey = it.key,
                         sourceName = it.name,
                         sourceLang = it.lang,
-                        result = MigratingEntryRow.StripResult.Loading,
+                        result = StripResult.Loading,
                     )
                 },
             )
-            coroutineScope {
-                sources.forEach { source ->
-                    launch {
-                        val result = interactiveSearches.withPermit {
-                            runCatchingCancellable { adapter.candidates(row.entry, fullQuery, source.key) }
-                        }
-                        // Same guard the single write had: cancellation cannot stop a coroutine that
-                        // is already past its last suspension point.
-                        if (row.overrideJob !== myJob) return@launch
-                        val landed = result.fold(
-                            onSuccess = { MigratingEntryRow.StripResult.Loaded(it) },
-                            onFailure = {
-                                MigratingEntryRow.StripResult.Failed(it.message ?: it.javaClass.simpleName)
-                            },
-                        )
-                        row.overrides.update { current ->
-                            val open = current as? MigratingEntryRow.OverrideState.Strips ?: return@update current
-                            MigratingEntryRow.OverrideState.Strips(
-                                open.strips.map { if (it.sourceKey == source.key) it.copy(result = landed) else it },
-                            )
-                        }
-                    }
+            adapter.fanOutCandidates(
+                entry = row.entry,
+                query = fullQuery,
+                sources = sources,
+                permits = interactiveSearches,
+                isCurrent = { row.overrideJob === myJob },
+            ) { sourceKey, landed ->
+                row.overrides.update { current ->
+                    val open = current as? MigratingEntryRow.OverrideState.Strips ?: return@update current
+                    MigratingEntryRow.OverrideState.Strips(
+                        open.strips.map { if (it.sourceKey == sourceKey) it.copy(result = landed) else it },
+                    )
                 }
             }
         }
@@ -444,18 +418,14 @@ class EntryMigrationListScreenModel(
         val snapshot = rows
         screenModelScope.launch(io) {
             snapshot.forEach { row ->
-                val targetRawId = pickHandoff.take(row.entry.id) ?: return@forEach
-                // The entry's own row is never a target: the engines would no-op and the row would
-                // read as migrated with nothing done.
-                if (targetRawId == row.entry.id.rawId) {
-                    reportPick(PickOutcome.SameEntry)
-                    return@forEach
-                }
-                val candidate = runCatchingCancellable { adapter.storedCandidate(targetRawId) }.getOrNull()
-                    ?: run {
-                        reportPick(PickOutcome.Unavailable)
+                val candidate = when (val pick = adapter.takePendingPick(pickHandoff, row.entry.id)) {
+                    null -> return@forEach
+                    is PendingPick.Rejected -> {
+                        reportPick(pick.outcome)
                         return@forEach
                     }
+                    is PendingPick.Ready -> pick.candidate
+                }
                 // A tuning re-run may have replaced the row objects while storedCandidate was in
                 // flight; the pick was already consumed, so it lands on the LIVE row for the entry,
                 // not the snapshot it started from.

@@ -105,20 +105,7 @@ class EntryMigrationListScreen(
             if (!state.isLoading) screenModel.collectPendingPick()
         }
 
-        // A pick that could not be applied says so once. The handoff clears on read, so without this
-        // the row just stayed as it was and the user was told nothing.
-        val pickOutcome = state.pickOutcome
-        val pickContext = LocalContext.current
-        val pickUnavailable = stringResource(MR.strings.migrationFlow_pickUnavailable)
-        val pickSameEntry = stringResource(MR.strings.migrationFlow_pickSameEntry)
-        LaunchedEffect(pickOutcome) {
-            when (pickOutcome) {
-                PickOutcome.Unavailable -> pickContext.toast(pickUnavailable)
-                PickOutcome.SameEntry -> pickContext.toast(pickSameEntry)
-                null -> return@LaunchedEffect
-            }
-            screenModel.consumePickOutcome()
-        }
+        PickOutcomeToast(state.pickOutcome, screenModel::consumePickOutcome)
 
         // Back is guarded all the way through the commit: rows are being mutated.
         val guardExit = !state.finished && state.rows.isNotEmpty()
@@ -392,13 +379,10 @@ private fun OverridePicker(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             }
             is MigratingEntryRow.OverrideState.Strips -> state.strips.forEach { strip ->
-                val result = strip.result
                 MigrationCandidateStrip(
                     sourceName = strip.sourceName,
                     sourceLang = strip.sourceLang,
-                    candidates = (result as? MigratingEntryRow.StripResult.Loaded)?.candidates.orEmpty(),
-                    error = (result as? MigratingEntryRow.StripResult.Failed)?.error,
-                    loading = result is MigratingEntryRow.StripResult.Loading,
+                    result = strip.result,
                     onPick = { screenModel.pick(row.entry.id, it) },
                     onPreview = { it.openDetails(navigator) },
                     onBrowseSource = {

@@ -29,19 +29,14 @@ import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
@@ -87,17 +82,7 @@ class EntryMigrationSearchScreen(
             if (!state.isLoading) screenModel.collectPendingPick()
         }
 
-        val pickOutcome = state.pickOutcome
-        val pickUnavailable = stringResource(MR.strings.migrationFlow_pickUnavailable)
-        val pickSameEntry = stringResource(MR.strings.migrationFlow_pickSameEntry)
-        LaunchedEffect(pickOutcome) {
-            when (pickOutcome) {
-                PickOutcome.Unavailable -> context.toast(pickUnavailable)
-                PickOutcome.SameEntry -> context.toast(pickSameEntry)
-                null -> return@LaunchedEffect
-            }
-            screenModel.consumePickOutcome()
-        }
+        PickOutcomeToast(state.pickOutcome, screenModel::consumePickOutcome)
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -137,18 +122,33 @@ class EntryMigrationSearchScreen(
                 }
             },
         ) { contentPadding ->
+            // A source that failed is kept even under the filter, matching the batch list: the user
+            // needs to tell "could not answer" from "answered nothing", and hiding it takes the
+            // retry with it.
             val sections = if (state.onlyShowHasResults) {
-                state.sections.filter { it.loading || it.candidates.isNotEmpty() }
+                state.sections.filter { it.result.hasSomethingToSay }
             } else {
                 state.sections
+            }
+            if (sections.isEmpty()) {
+                // Never a bare blank body: with every source filtered away there is nothing on
+                // screen to explain where the results went.
+                EmptyScreen(
+                    stringRes = if (state.sections.isEmpty()) {
+                        MR.strings.migrationFlow_emptyNoSources
+                    } else {
+                        MR.strings.migrationFlow_emptySourcesFiltered
+                    },
+                    modifier = Modifier.padding(contentPadding),
+                )
+                return@Scaffold
             }
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
                 items(items = sections, key = { it.sourceKey }) { section ->
                     MigrationCandidateStrip(
                         sourceName = section.sourceName,
                         sourceLang = section.sourceLang,
-                        candidates = section.candidates,
-                        error = section.error,
+                        result = section.result,
                         onPick = screenModel::showDialog,
                         onPreview = { it.openDetails(navigator) },
                         onBrowseSource = {
@@ -159,7 +159,6 @@ class EntryMigrationSearchScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = MaterialTheme.padding.small),
-                        loading = section.loading,
                     )
                 }
             }
@@ -223,50 +222,28 @@ class EntryMigrationSearchScreenModel(
     fun search(query: String) {
         val entry = state.value.entry ?: return
         if (query.isBlank()) return
-        val sources = sourcesFor()
+        val sources = adapter.sourcesFor()
         searchJob?.cancel()
         mutableState.update { state ->
-            state.copy(sections = sources.map { Section(it.key, it.name, it.lang, loading = true) })
+            state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
         }
         searchJob = screenModelScope.launchIO {
             val myJob = coroutineContext[Job]
-            coroutineScope {
-                sources.map { source ->
-                    async {
-                        val result = permits.withPermit {
-                            runCatchingCancellable { adapter.candidates(entry, query, source.key) }
-                        }
-                        if (searchJob !== myJob) return@async
-                        mutableState.update { state ->
-                            state.copy(
-                                sections = state.sections.map { section ->
-                                    if (section.sourceKey != source.key) {
-                                        section
-                                    } else {
-                                        section.copy(
-                                            loading = false,
-                                            candidates = result.getOrDefault(emptyList()),
-                                            error = result.exceptionOrNull()
-                                                ?.let { it.message ?: it.javaClass.simpleName },
-                                        )
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }.awaitAll()
+            adapter.fanOutCandidates(
+                entry = entry,
+                query = query,
+                sources = sources,
+                permits = permits,
+                isCurrent = { searchJob === myJob },
+            ) { sourceKey, landed ->
+                mutableState.update { state ->
+                    state.copy(
+                        sections = state.sections.map {
+                            if (it.sourceKey == sourceKey) it.copy(result = landed) else it
+                        },
+                    )
+                }
             }
-        }
-    }
-
-    /** The chosen sources, resolved against what is enabled. The empty-selection fallback is
-     *  pinned-only, mirroring the config screen's seed, so what it showed is what gets searched. */
-    private fun sourcesFor(): List<MigrationSourceUi> {
-        val enabled = adapter.enabledSources()
-        val byKey = enabled.associateBy { it.key }
-        return adapter.savedSelection().mapNotNull { byKey[it] }.ifEmpty {
-            val pinned = adapter.pinnedKeys()
-            enabled.filter { it.key in pinned }.ifEmpty { enabled }
         }
     }
 
@@ -292,24 +269,13 @@ class EntryMigrationSearchScreenModel(
     fun collectPendingPick() {
         val entry = state.value.entry ?: return
         screenModelScope.launchIO {
-            val targetRawId = pickHandoff.take(entry.id) ?: return@launchIO
-            // The entry itself is never a target: the engines would no-op. Both failures below say
-            // so: the pick is already consumed, so returning quietly leaves the user staring at an
-            // unchanged screen with nothing to explain it.
-            if (targetRawId == entry.id.rawId) {
-                reportPick(PickOutcome.SameEntry)
-                return@launchIO
+            when (val pick = adapter.takePendingPick(pickHandoff, entry.id)) {
+                null -> return@launchIO
+                is PendingPick.Ready -> mutableState.update { it.copy(dialogTarget = pick.candidate) }
+                is PendingPick.Rejected -> mutableState.update { it.copy(pickOutcome = pick.outcome) }
             }
-            val candidate = runCatchingCancellable { adapter.storedCandidate(targetRawId) }.getOrNull()
-                ?: run {
-                    reportPick(PickOutcome.Unavailable)
-                    return@launchIO
-                }
-            mutableState.update { it.copy(dialogTarget = candidate) }
         }
     }
-
-    private fun reportPick(outcome: PickOutcome) = mutableState.update { it.copy(pickOutcome = outcome) }
 
     /** Called once the screen has shown the outcome; see [PickOutcome]. */
     fun consumePickOutcome() = mutableState.update { it.copy(pickOutcome = null) }
@@ -319,9 +285,7 @@ class EntryMigrationSearchScreenModel(
         val sourceName: String,
         /** Raw language tag, localized at render (shared header shows it like global search). */
         val sourceLang: String = "",
-        val loading: Boolean = false,
-        val candidates: List<MigrationCandidate> = emptyList(),
-        val error: String? = null,
+        val result: StripResult = StripResult.Loading,
     )
 
     data class State(
@@ -333,6 +297,6 @@ class EntryMigrationSearchScreenModel(
         val pickOutcome: PickOutcome? = null,
         val onlyShowHasResults: Boolean = false,
     ) {
-        val searchedCount: Int get() = sections.count { !it.loading }
+        val searchedCount: Int get() = sections.count { it.result !is StripResult.Loading }
     }
 }

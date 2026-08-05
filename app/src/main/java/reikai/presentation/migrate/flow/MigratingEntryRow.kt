@@ -127,12 +127,8 @@ class MigratingEntryRow(
     }
 
     /**
-     * One source's strip in the override picker.
-     *
-     * The whole picker used to be published once, after every source had answered, so a single
-     * unreachable source withheld every other source's results behind one spinner. The strips are
-     * published up front and each fills in as it lands, which is what the single-entry search screen
-     * already did with the same shared composable.
+     * One source's strip in the override picker. Strips are published before their searches run, so
+     * a single unreachable source cannot withhold every other source's results behind one spinner.
      */
     data class OverrideStrip(
         val sourceKey: String,
@@ -141,19 +137,6 @@ class MigratingEntryRow(
         val sourceLang: String = "",
         val result: StripResult,
     )
-
-    /**
-     * What one source has to say. Sealed rather than a candidate list beside a nullable error and a
-     * loading flag: of those eight combinations only three mean anything, and the picker read the
-     * other five as "this source has nothing", which is a different and wrong answer.
-     */
-    sealed interface StripResult {
-        data object Loading : StripResult
-
-        data class Loaded(val candidates: List<MigrationCandidate>) : StripResult
-
-        data class Failed(val error: String) : StripResult
-    }
 }
 
 /** The suggestion when the search found one, else null. */
