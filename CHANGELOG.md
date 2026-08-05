@@ -40,7 +40,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A migration now names the entries that failed and offers to retry them.** A failure used to be logged and reported as a success, leaving entries silently where they were.
 - **Choose what a migration carries at the moment you confirm it, on both manga and novels.** Only the options the selected entries can actually use are offered.
 - **Matches are now offered rather than assumed: accept them one at a time, or all at once.** Tapping an accepted match gives it back so you can pick a different target.
-- **Leave an entry out of a migration and put it back later.** A source that never answers no longer holds up the rest of the batch.
+- **Leave an entry out of a migration, so a source that never answers can't hold up the rest.** Skipping takes it off the list, as does migrating it, so what's left is always what still needs you.
+- **A finished migration tells you how many entries moved.**
 - **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
 - **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
 - **Change the search options from the migration list itself, without starting over.** Hiding entries only re-filters what is on screen; only the options that change results search again.
@@ -111,14 +112,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The confirm dialog now gets out of the way when a migration starts.** It used to sit on top of the progress dialog with a button that did nothing, hiding the Cancel underneath it.
 - **A migration that ends with failures no longer leaves a live Migrate button that would run the whole batch again.**
 - **Handing a match back now counts as a decision.** Declining one entry used to stop the migration screen from ever closing itself, and the next Accept all would quietly re-arm the entry you just declined.
-- **A skipped entry no longer disappears when the hide filters are on.** It stays dimmed in place, so Restore is still reachable.
-- **A finished entry no longer keeps an open search panel whose results do nothing when tapped.**
 - **Picking a match from a source's full listing now tells you when it couldn't be used.** It used to be dropped in silence, leaving the entry unchanged with no way to tell. This now covers migrating a single entry too, where it still went unsaid.
 - **A match you picked from a source's full listing now shows its chapter count, so the shortfall warning works on it.**
-- **Changing the search options no longer throws away a match you chose by hand.** A target picked from a source strip or its full listing survives the new search, the way skipping an entry already did.
+- **Changing the search options no longer throws away a match you chose by hand.** A target picked from a source strip or its full listing survives the new search.
 - **Going back during a single entry's migration no longer lets a second migration start on top of it.** The screen looked idle again while the first one was still running.
-- **Skipping an entry while its search panel is open no longer leaves that panel spinning for good.**
-- **Skipping an entry no longer risks losing the target you picked for it.** The accept control stayed live on a skipped entry, and tapping it threw the target away with no way to choose it again until you restored the entry.
 - **The migrate dialog's Copy and Migrate now wait for its options to appear.** Tapping straight through migrated with none of them, and quietly made that the default for every later migration.
 - **The manual search panel now fills in each source as it answers.** One slow source used to hold back every result that had already arrived.
 - **A migration with nothing to show now says why instead of showing an empty screen.**

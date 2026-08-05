@@ -24,7 +24,6 @@ class MigrationRowRulesTest {
         replace = false,
         flags = setOf(MigrationDataFlag.CHAPTER),
     )
-    private val migrated = CommitPhase.Migrated(candidate, replace = true)
 
     private val hideBoth = MigrationTuning(hideUnmatched = true, hideWithoutUpdates = true)
 
@@ -33,12 +32,10 @@ class MigrationRowRulesTest {
     private fun visible(
         search: SearchPhase,
         acceptance: Acceptance = Acceptance.Untouched,
-        commit: CommitPhase = CommitPhase.Idle,
-        skipped: Boolean = false,
         entryLatest: Double? = 10.0,
         expanded: Boolean = false,
         tuning: MigrationTuning = hideBoth,
-    ) = MigrationRowRules.isVisible(search, acceptance, commit, skipped, entryLatest, expanded, tuning)
+    ) = MigrationRowRules.isVisible(search, acceptance, entryLatest, expanded, tuning)
 
     @Test
     fun `hide-unmatched hides a row that found nothing`() {
@@ -81,29 +78,14 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `a skipped row survives the hide toggles`() {
-        // Skip is an action on the row, so hiding it takes away the Restore the user needs. It used
-        // to vanish because only the acceptance cell was consulted, and skipping leaves that alone.
-        visible(SearchPhase.NoMatch, skipped = true) shouldBe true
-    }
-
-    @Test
-    fun `a migrated row survives the hide toggles`() {
-        visible(SearchPhase.NoMatch, commit = migrated) shouldBe true
-    }
-
-    @Test
     fun `only an untouched row counts as untouched`() {
-        val disposition = { acceptance: Acceptance, commit: CommitPhase, skipped: Boolean ->
-            MigrationRowRules.disposition(acceptance, commit, skipped)
-        }
+        val disposition = MigrationRowRules::disposition
 
-        disposition(Acceptance.Untouched, CommitPhase.Idle, false) shouldBe MigrationRowRules.Disposition.Untouched
-        disposition(accepted, CommitPhase.Idle, false) shouldBe MigrationRowRules.Disposition.Armed
-        // The three ways a row is done with: the gate, accept-all and the hide toggles all read this.
-        disposition(Acceptance.Declined, CommitPhase.Idle, false) shouldBe MigrationRowRules.Disposition.Settled
-        disposition(accepted, CommitPhase.Idle, true) shouldBe MigrationRowRules.Disposition.Settled
-        disposition(accepted, migrated, false) shouldBe MigrationRowRules.Disposition.Settled
+        disposition(Acceptance.Untouched) shouldBe MigrationRowRules.Disposition.Untouched
+        disposition(accepted) shouldBe MigrationRowRules.Disposition.Armed
+        // A decided row leaves the list, so a handed-back target is the only thing left to settle
+        // one in place. The gate, accept-all and the hide toggles all read this.
+        disposition(Acceptance.Declined) shouldBe MigrationRowRules.Disposition.Settled
     }
 
     @Test
@@ -141,58 +123,33 @@ class MigrationRowRulesTest {
 
     @Test
     fun `a queued row the driver can still reach is not settled`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle, skipped = false) shouldBe false
+        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle) shouldBe false
     }
 
     @Test
     fun `a row searching right now is not settled`() {
-        MigrationRowRules.isSettled(SearchPhase.Searching, CommitPhase.Idle, skipped = false) shouldBe false
-    }
-
-    @Test
-    fun `a queued row that migrated is settled, since it can never be searched again`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, migrated, skipped = false) shouldBe true
+        MigrationRowRules.isSettled(SearchPhase.Searching, CommitPhase.Idle) shouldBe false
     }
 
     @Test
     fun `a queued row whose commit failed is settled, since it can never be searched again`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, failedCommit, skipped = false) shouldBe true
+        MigrationRowRules.isSettled(SearchPhase.Queued, failedCommit) shouldBe true
     }
 
     @Test
     fun `a queued row mid-commit is settled, since the driver cannot touch it`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Committing(replace = true), skipped = false)
+        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Committing(replace = true))
             .shouldBe(true)
     }
 
     @Test
-    fun `a queued skipped row is settled`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle, skipped = true) shouldBe true
-    }
-
-    @Test
-    fun `a queued unskipped row is searchable`() {
-        MigrationRowRules.canSearch(SearchPhase.Queued, CommitPhase.Idle, skipped = false) shouldBe true
-    }
-
-    @Test
-    fun `a skipped row is not searched`() {
-        MigrationRowRules.canSearch(SearchPhase.Queued, CommitPhase.Idle, skipped = true) shouldBe false
+    fun `a queued row with an idle commit is searchable`() {
+        MigrationRowRules.canSearch(SearchPhase.Queued, CommitPhase.Idle) shouldBe true
     }
 
     @Test
     fun `a settled row is not searched again`() {
-        MigrationRowRules.canSearch(found, CommitPhase.Idle, skipped = false) shouldBe false
-    }
-
-    @Test
-    fun `a migrated row is never re-searched`() {
-        MigrationRowRules.canSearch(SearchPhase.Queued, migrated, skipped = false) shouldBe false
-    }
-
-    @Test
-    fun `a migrated row takes no new target`() {
-        MigrationRowRules.canChoose(migrated) shouldBe false
+        MigrationRowRules.canSearch(found, CommitPhase.Idle) shouldBe false
     }
 
     @Test
@@ -207,103 +164,57 @@ class MigrationRowRulesTest {
 
     @Test
     fun `un-accept is offered while the commit is idle, whatever the search found`() {
-        MigrationRowRules.canUnchoose(CommitPhase.Idle, skipped = false) shouldBe true
+        MigrationRowRules.canUnchoose(CommitPhase.Idle) shouldBe true
     }
 
     @Test
     fun `un-accept is blocked on a failed row so its retry keeps a target`() {
-        MigrationRowRules.canUnchoose(failedCommit, skipped = false) shouldBe false
+        MigrationRowRules.canUnchoose(failedCommit) shouldBe false
     }
 
     @Test
     fun `un-accept is blocked mid-commit`() {
-        MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false), skipped = false) shouldBe false
-    }
-
-    @Test
-    fun `un-accept is blocked on a skipped row, which is holding the target for a restore`() {
-        // The accept control has always read !skipped; this one did not, so a skipped row rendered a
-        // live un-accept that threw the target away with no way to put it back.
-        MigrationRowRules.canUnchoose(CommitPhase.Idle, skipped = true) shouldBe false
-    }
-
-    @Test
-    fun `neither accept control is offered on a skipped row`() {
-        val skippedAndAccepted = MigrationRowRules.actions(
-            SearchPhase.Found(candidate, "Source"),
-            accepted,
-            CommitPhase.Idle,
-            skipped = true,
-            anyCommitInFlight = false,
-        )
-
-        skippedAndAccepted.canAccept shouldBe false
-        skippedAndAccepted.canUnaccept shouldBe false
+        MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false)) shouldBe false
     }
 
     @Test
     fun `skip is blocked while the row is committing`() {
-        MigrationRowRules.canToggleSkip(CommitPhase.Committing(replace = false)) shouldBe false
-    }
-
-    @Test
-    fun `skip is blocked once the row has migrated`() {
-        MigrationRowRules.canToggleSkip(migrated) shouldBe false
+        MigrationRowRules.canSkip(CommitPhase.Committing(replace = false)) shouldBe false
     }
 
     @Test
     fun `skip is allowed on a failed row`() {
-        MigrationRowRules.canToggleSkip(failedCommit) shouldBe true
-    }
-
-    @Test
-    fun `a skipped row is excluded from a commit`() {
-        MigrationRowRules.isCommittable(accepted, CommitPhase.Idle, skipped = true) shouldBe false
+        MigrationRowRules.canSkip(failedCommit) shouldBe true
     }
 
     @Test
     fun `a targetless row is excluded from a commit`() {
-        MigrationRowRules.isCommittable(Acceptance.Untouched, CommitPhase.Idle, skipped = false) shouldBe false
+        MigrationRowRules.isCommittable(Acceptance.Untouched, CommitPhase.Idle) shouldBe false
     }
 
     @Test
-    fun `an already migrated row is excluded from a re-commit`() {
-        MigrationRowRules.isCommittable(accepted, migrated, skipped = false) shouldBe false
-    }
-
-    @Test
-    fun `an accepted unskipped row is committable`() {
-        MigrationRowRules.isCommittable(accepted, CommitPhase.Idle, skipped = false) shouldBe true
+    fun `an accepted row with an idle commit is committable`() {
+        MigrationRowRules.isCommittable(accepted, CommitPhase.Idle) shouldBe true
     }
 
     @Test
     fun `retry is offered only for a failed commit`() {
-        MigrationRowRules.canRetry(CommitPhase.Idle, anyCommitInFlight = false, skipped = false) shouldBe false
+        MigrationRowRules.canRetry(CommitPhase.Idle, anyCommitInFlight = false) shouldBe false
     }
 
     @Test
     fun `retry waits while another commit runs`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = true, skipped = false) shouldBe false
+        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = true) shouldBe false
     }
 
     @Test
     fun `retry is offered on a failed row when nothing else commits`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false, skipped = false) shouldBe true
-    }
-
-    @Test
-    fun `retry is not offered on a skipped row`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false, skipped = true) shouldBe false
+        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false) shouldBe true
     }
 
     @Test
     fun `a search restart re-queues an idle row`() {
         MigrationRowRules.onSearchRestart(CommitPhase.Idle) shouldBe MigrationRowRules.RestartOutcome.Requeue
-    }
-
-    @Test
-    fun `a search restart spares a migrated row`() {
-        MigrationRowRules.onSearchRestart(migrated) shouldBe MigrationRowRules.RestartOutcome.Keep
     }
 
     @Test
@@ -372,8 +283,7 @@ class MigrationRowRulesTest {
         search: SearchPhase = found,
         acceptance: Acceptance = Acceptance.Untouched,
         commit: CommitPhase = CommitPhase.Idle,
-        skipped: Boolean = false,
-    ) = MigrationRowRules.status(search, acceptance, commit, skipped)
+    ) = MigrationRowRules.status(search, acceptance, commit)
 
     @Test
     fun `a search that failed does not read as no match`() {
@@ -385,24 +295,10 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `a migrated row reports where it went, whatever else is true of it`() {
-        status(commit = migrated, acceptance = accepted, search = SearchPhase.NoMatch) shouldBe
-            MigrationRowRules.RowStatus.Migrated(candidate.sourceKey)
-    }
-
-    @Test
     fun `a commit outcome outranks the search outcome`() {
         status(commit = failedCommit, search = found) shouldBe MigrationRowRules.RowStatus.CommitFailed
         status(commit = CommitPhase.Committing(replace = true), search = found) shouldBe
             MigrationRowRules.RowStatus.Committing
-    }
-
-    @Test
-    fun `skip outranks a search outcome but not a commit one`() {
-        // The escape hatch has to confirm itself visibly, so it beats what the search found; a commit
-        // that already ran is the more important fact and still wins.
-        status(skipped = true, search = found) shouldBe MigrationRowRules.RowStatus.Skipped
-        status(skipped = true, commit = migrated) shouldBe MigrationRowRules.RowStatus.Migrated(candidate.sourceKey)
     }
 
     @Test
@@ -423,9 +319,8 @@ class MigrationRowRulesTest {
         search: SearchPhase = found,
         acceptance: Acceptance = Acceptance.Untouched,
         commit: CommitPhase = CommitPhase.Idle,
-        skipped: Boolean = false,
         busy: Boolean = false,
-    ) = MigrationRowRules.actions(search, acceptance, commit, skipped, busy)
+    ) = MigrationRowRules.actions(search, acceptance, commit, busy)
 
     @Test
     fun `a suggested row offers accept and nothing to un-accept`() {
@@ -459,7 +354,7 @@ class MigrationRowRulesTest {
 
     @Test
     fun `skip is not offered mid-commit`() {
-        actions(commit = CommitPhase.Committing(replace = true)).canToggleSkip shouldBe false
+        actions(commit = CommitPhase.Committing(replace = true)).canSkip shouldBe false
     }
 
     @Test
@@ -468,10 +363,9 @@ class MigrationRowRulesTest {
     }
 
     @Test
-    fun `a migrated row offers no picker, and a committing one none either`() {
-        // The dead-control class again: the picker rendered off the row's own expanded flag, so a
-        // migrated row kept one whose every candidate was silently refused and could not be closed.
-        actions(commit = migrated).canPick shouldBe false
+    fun `a committing row offers no picker`() {
+        // The dead-control class again: the picker rendered off the row own expanded flag, so a row
+        // mid-commit kept one whose every candidate was silently refused and could not be closed.
         actions(commit = CommitPhase.Committing(replace = true)).canPick shouldBe false
     }
 

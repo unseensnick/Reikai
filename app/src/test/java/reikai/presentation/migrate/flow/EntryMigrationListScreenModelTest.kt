@@ -185,7 +185,7 @@ class EntryMigrationListScreenModelTest {
         model.commit(replace = true, flags = emptySet())
         advanceUntilIdle()
 
-        model.toggleSkip(EntryId.Manga(2))
+        model.skipRow(EntryId.Manga(2))
         advanceUntilIdle()
 
         model.state.value.finished shouldBe true
@@ -221,7 +221,7 @@ class EntryMigrationListScreenModelTest {
             // Row 1 migrated, row 2 is stuck mid-commit, row 3 was never reached and stays armed.
             model.cancelCommit()
             advanceUntilIdle()
-            model.toggleSkip(EntryId.Manga(2))
+            model.skipRow(EntryId.Manga(2))
             advanceUntilIdle()
 
             model.toggleAccept(EntryId.Manga(4))
@@ -245,7 +245,7 @@ class EntryMigrationListScreenModelTest {
 
         model.cancelCommit()
         advanceUntilIdle()
-        model.toggleSkip(EntryId.Manga(2))
+        model.skipRow(EntryId.Manga(2))
         // Row 3 was never reached; the user hands its target back rather than migrating it.
         model.toggleAccept(EntryId.Manga(3))
         advanceUntilIdle()
@@ -366,5 +366,33 @@ class EntryMigrationListScreenModelTest {
 
         model.toggleAccept(EntryId.Manga(1))
         model.state.value.committableCount shouldBe 0
+    }
+
+    @Test
+    fun `a row skipped while the batch works ahead of it is not migrated`() = runTest(dispatcher.scheduler) {
+        // The batch iterates a snapshot taken before it started, so it still holds a row the user has
+        // since removed. The claim re-checks membership for exactly this: without it the migration
+        // runs anyway and the entry the user took out is migrated behind their back.
+        val entries = listOf(entry(1), entry(2), entry(3))
+        val adapter = FakeAdapter(entries, blockOn = EntryId.Manga(1))
+        val model = EntryMigrationListScreenModel(
+            entryIds = entries.map { it.id.rawId },
+            extraQuery = null,
+            adapter = adapter,
+            pickHandoff = MigrationPickHandoff(),
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+        model.acceptAll()
+        model.commit(replace = true, flags = emptySet())
+        advanceUntilIdle()
+
+        // Row 1 is hanging mid-commit, so rows 2 and 3 are still ahead of the batch in its snapshot.
+        model.skipRow(EntryId.Manga(2))
+        advanceUntilIdle()
+        adapter.blocked.complete(Unit)
+        advanceUntilIdle()
+
+        adapter.migrated shouldBe listOf(EntryId.Manga(1), EntryId.Manga(3))
     }
 }

@@ -131,6 +131,10 @@
         <item quantity="one">An entry was skipped</item>
         <item quantity="other">%1$d entries were skipped</item>
     </plurals>
+    <plurals name="migrationFlow.migratedCount">
+        <item quantity="one">%1$d entry migrated</item>
+        <item quantity="other">%1$d entries migrated</item>
+    </plurals>
 
     <plurals name="notification_update_error">
         <item quantity="one">%1$d update failed</item>

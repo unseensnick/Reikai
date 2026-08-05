@@ -14,10 +14,12 @@ import kotlin.coroutines.CoroutineContext
  *
  * - [search] and [commit] are orthogonal axes: a row can be re-searching while a previous commit
  *   failed, so folding them into one cell would be lossy.
- * - [chosen] sits beside the search cell rather than inside it: an accepted target is often not the
- *   suggestion (an override strip or deep-browse pick), and un-accepting restores the suggestion.
- * - [skipped] is orthogonal rather than a removal: a skipped row stays in place, dimmed, keeping its
- *   chosen target so restoring is exact.
+ * - [acceptance] sits beside the search cell rather than inside it: an accepted target is often not
+ *   the suggestion (an override strip or deep-browse pick), and un-accepting restores the suggestion.
+ * - A decided row is REMOVED from the list rather than kept wearing a terminal state, as upstream
+ *   does: skipping drops it, and so does a commit that succeeds. Only a failed commit keeps its row,
+ *   because a failure is the one outcome that still needs the user. So there is no skipped flag and
+ *   no migrated phase for every other rule to remember to consult.
  * - [scope] is detached (its own [SupervisorJob]), so cancelling one row can never cancel the batch
  *   driver. Abandoning a whole search generation is done by cancelling rows and building new
  *   objects, which is why the driver needs no lock or epoch counter.
@@ -38,8 +40,6 @@ class MigratingEntryRow(
 
     /** Where the user stands on this row's target: see [Acceptance]. */
     val acceptance = MutableStateFlow<Acceptance>(Acceptance.Untouched)
-
-    val skipped = MutableStateFlow(false)
 
     /** Whether the row's override picker is open. Pure UI, independent of every phase above. */
     val expanded = MutableStateFlow(false)
@@ -111,8 +111,6 @@ class MigratingEntryRow(
             val replace: Boolean,
             val flags: Set<MigrationDataFlag>,
         ) : CommitPhase
-
-        data class Migrated(val target: MigrationCandidate, val replace: Boolean) : CommitPhase
     }
 
     /** The override picker's state. */
@@ -155,10 +153,6 @@ val MigratingEntryRow.SearchPhase.isSettled: Boolean
 val MigratingEntryRow.CommitPhase.isBusy: Boolean
     get() = this is MigratingEntryRow.CommitPhase.Committing
 
-/** True once the row has migrated: terminal, and the reason most actions stop being offered. */
-val MigratingEntryRow.CommitPhase.isDone: Boolean
-    get() = this is MigratingEntryRow.CommitPhase.Migrated
-
 /**
  * The pure transition rules. Every state change goes through these, so the legal transition graph
  * lives in one testable place instead of as guards spread across call sites. A rule answering false
@@ -167,38 +161,36 @@ val MigratingEntryRow.CommitPhase.isDone: Boolean
 object MigrationRowRules {
 
     /**
-     * Whether the driver may search this row now. A settled row is not re-searched; a migrated or
-     * committing row must never have its result blanked underneath the commit.
+     * Whether the driver may search this row now. A settled row is not re-searched; a committing row
+     * must never have its result blanked underneath the commit.
      *
      * [isSettled] reads this as "the driver will not pick this row up", so a clause that can flip
-     * back must have someone who restarts the driver when it does. Both current ones do: un-skipping
-     * calls startDriver, and releasing a commit claim does too. A clause with no such waker (a pause
-     * flag, a source-availability probe) would strand queued rows as settled with the commit bar
-     * open over them; put that in the driver's own loop head, next to its scope-liveness check.
+     * back must have someone who restarts the driver when it does. The one that can does: releasing
+     * a commit claim calls startDriver. A clause with no such waker (a pause flag, a source
+     * availability probe) would strand queued rows as settled with the commit bar open over them;
+     * put that in the driver's own loop head, next to its scope-liveness check.
      */
     fun canSearch(
         search: MigratingEntryRow.SearchPhase,
         commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
     ): Boolean =
-        search is MigratingEntryRow.SearchPhase.Queued && !skipped && commit == MigratingEntryRow.CommitPhase.Idle
+        search is MigratingEntryRow.SearchPhase.Queued && commit == MigratingEntryRow.CommitPhase.Idle
 
     /**
      * Whether the row's search has reached a resting point, for progress counts and the all-searched
      * gate. Derived from [canSearch] rather than listing terminal phases, because a row the driver
-     * will never pick up again is settled whatever the reason: a still-queued row that migrated, or
-     * failed, or is committing, can never be searched (canSearch demands an idle commit), and listing
-     * the phases instead has twice left such a row unsettled, holding the commit bar shut forever.
+     * will never pick up again is settled whatever the reason: a still-queued row that failed or is
+     * committing can never be searched (canSearch demands an idle commit), and listing the phases
+     * instead has twice left such a row unsettled, holding the commit bar shut forever.
      */
     fun isSettled(
         search: MigratingEntryRow.SearchPhase,
         commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
     ): Boolean = search.isSettled ||
-        (search is MigratingEntryRow.SearchPhase.Queued && !canSearch(search, commit, skipped))
+        (search is MigratingEntryRow.SearchPhase.Queued && !canSearch(search, commit))
 
-    /** Accepting a candidate. Rejected once the row has migrated or while it is committing, so a
-     *  late pick cannot re-arm a finished row. */
+    /** Accepting a candidate. Rejected while the row is committing, so a late pick cannot re-arm a
+     *  commit already in flight. A row that migrated is not here to ask. */
     fun canChoose(commit: MigratingEntryRow.CommitPhase): Boolean = commit == MigratingEntryRow.CommitPhase.Idle ||
         commit is MigratingEntryRow.CommitPhase.Failed
 
@@ -208,30 +200,25 @@ object MigrationRowRules {
      * target picked from an override strip or the deep picker is exactly the case where the search
      * found nothing, and that control must not render as a no-op. Blocked once a commit is in play:
      * un-accepting a failed row would strand its retry, which needs the target it failed on.
-     *
-     * Blocked on a skipped row too, which is the clause [canAccept] always had and this one lacked:
-     * skip's contract is that restoring puts the row back exactly as it was, so a control that throws
-     * the target away while the row is skipped breaks the promise, and with the accept control hidden
-     * (it also reads `!skipped`) there was no way to put it back short of restoring first.
      */
-    fun canUnchoose(
-        commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
-    ): Boolean = commit == MigratingEntryRow.CommitPhase.Idle && !skipped
+    fun canUnchoose(commit: MigratingEntryRow.CommitPhase): Boolean =
+        commit == MigratingEntryRow.CommitPhase.Idle
 
-    /** Skip and restore. Blocked mid-commit and after migrating: the completion write does not
-     *  clear [MigratingEntryRow.skipped], so a skip landing there leaves a dimmed migrated row with
-     *  no way back. */
-    fun canToggleSkip(commit: MigratingEntryRow.CommitPhase): Boolean = !commit.isBusy && !commit.isDone
+    /** Skipping drops the row from the list. Blocked mid-commit: the commit would finish against a
+     *  row nobody can see, and its own liveness check would then discard the result. */
+    fun canSkip(commit: MigratingEntryRow.CommitPhase): Boolean = !commit.isBusy
 
     /**
      * What the user has settled about this row, as the one answer every consumer reads.
      *
-     * The three axes say what the row IS; this says where the user stands on it, which is a
-     * different question and was previously answered three incompatible ways: the hide toggles read
-     * the acceptance cell, accept-all read "not accepted", and the finish gate read "migrated or
+     * The two axes say what the row IS; this says where the user stands on it, which is a different
+     * question and was previously answered three incompatible ways: the hide toggles read the
+     * acceptance cell, accept-all read "not accepted", and the finish gate read "migrated or
      * skipped". Each of those collapsed [Acceptance.Declined] differently, so declining a row could
      * re-arm it on the next accept-all and could wedge the gate for the rest of the session.
+     *
+     * A decided row leaves the list, so the only thing still settling a row in place is a target the
+     * user handed back.
      */
     enum class Disposition {
         /** Never acted on. The only state the hide toggles may thin out, and what accept-all arms. */
@@ -240,41 +227,35 @@ object MigrationRowRules {
         /** A target is in hand and a commit still owes it. */
         Armed,
 
-        /** Nothing more is owed: it migrated, was skipped, or its target was handed back. */
+        /** Nothing more is owed: the target was handed back. */
         Settled,
     }
 
-    fun disposition(
-        acceptance: MigratingEntryRow.Acceptance,
-        commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
-    ): Disposition = when {
-        commit.isDone || skipped || acceptance is MigratingEntryRow.Acceptance.Declined -> Disposition.Settled
-        acceptance is MigratingEntryRow.Acceptance.Accepted -> Disposition.Armed
-        else -> Disposition.Untouched
+    fun disposition(acceptance: MigratingEntryRow.Acceptance): Disposition = when (acceptance) {
+        is MigratingEntryRow.Acceptance.Declined -> Disposition.Settled
+        is MigratingEntryRow.Acceptance.Accepted -> Disposition.Armed
+        is MigratingEntryRow.Acceptance.Untouched -> Disposition.Untouched
     }
 
     /**
      * Whether the hide toggles leave this row on screen.
      *
      * Only an untouched row may be hidden. Anything the user has acted on stays: an accepted row
-     * would otherwise commit invisibly, and a declined or skipped one would vanish from under the
-     * hand that just acted on it, which is the bug this rule keeps producing. An open row stays too.
-     * A failed search is shown regardless: hide-unmatched is about entries with no match, not about
-     * entries whose sources were unreachable.
+     * would otherwise commit invisibly, and a declined one would vanish from under the hand that
+     * just acted on it, which is the bug this rule keeps producing. An open row stays too. A failed
+     * search is shown regardless: hide-unmatched is about entries with no match, not about entries
+     * whose sources were unreachable.
      */
     fun isVisible(
         search: MigratingEntryRow.SearchPhase,
         acceptance: MigratingEntryRow.Acceptance,
-        commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
         entryLatestChapter: Double?,
         expanded: Boolean,
         tuning: MigrationTuning,
     ): Boolean {
         // Reading the disposition rather than a sticky flag is what stops a late search outcome or a
         // late chapter count from re-hiding a row a moment after the user acted on it.
-        if (disposition(acceptance, commit, skipped) != Disposition.Untouched || expanded) return true
+        if (disposition(acceptance) != Disposition.Untouched || expanded) return true
         if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return false
         if (tuning.hideWithoutUpdates && search is MigratingEntryRow.SearchPhase.Found) {
             val targetLatest = search.suggestion.latestChapter
@@ -285,29 +266,25 @@ object MigrationRowRules {
         return true
     }
 
-    /** A row the batch commit should include: accepted, not skipped, not already migrated. */
+    /** A row the batch commit should include: accepted, and not already committing. */
     fun isCommittable(
         acceptance: MigratingEntryRow.Acceptance,
         commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
-    ): Boolean = acceptance is MigratingEntryRow.Acceptance.Accepted && !skipped && !commit.isDone && !commit.isBusy
+    ): Boolean = acceptance is MigratingEntryRow.Acceptance.Accepted && !commit.isBusy
 
-    /** A retry is offered only for a failed commit, only while nothing else is committing, and
-     *  never on a skipped row: skip excludes the row from every commit, including this one. */
+    /** A retry is offered only for a failed commit, and only while nothing else is committing. */
     fun canRetry(
         commit: MigratingEntryRow.CommitPhase,
         anyCommitInFlight: Boolean,
-        skipped: Boolean,
-    ): Boolean = commit is MigratingEntryRow.CommitPhase.Failed && !anyCommitInFlight && !skipped
+    ): Boolean = commit is MigratingEntryRow.CommitPhase.Failed && !anyCommitInFlight
 
     /**
-     * The row state a search restart produces. A migrated row keeps everything (its result is
-     * history, not a suggestion); every other row returns to [MigratingEntryRow.SearchPhase.Queued]
-     * with its accepted target and failure memory cleared, because both referred to results this
-     * restart is discarding.
+     * The row state a search restart produces. A committing row keeps everything, since the commit
+     * owns it; every other row returns to [MigratingEntryRow.SearchPhase.Queued] with its accepted
+     * target and failure memory cleared, because both referred to results this restart is discarding.
      */
     fun onSearchRestart(commit: MigratingEntryRow.CommitPhase): RestartOutcome = when {
-        commit.isDone || commit.isBusy -> RestartOutcome.Keep
+        commit.isBusy -> RestartOutcome.Keep
         else -> RestartOutcome.Requeue
     }
 
@@ -324,14 +301,14 @@ object MigrationRowRules {
     data class RowActions(
         val canAccept: Boolean,
         val canUnaccept: Boolean,
-        val canToggleSkip: Boolean,
+        val canSkip: Boolean,
         val canRetry: Boolean,
         val canCommitNow: Boolean,
         /**
          * Whether the override picker may be open and taken from. It belongs here for the same
          * reason as the rest: the screen used to render it off the row's `expanded` flag alone, so a
-         * migrated row kept a picker whose every candidate was tappable and silently refused, with
-         * the overflow that could close it already gone.
+         * row whose commit was in flight kept a picker whose every candidate was tappable and
+         * silently refused.
          */
         val canPick: Boolean,
     )
@@ -353,25 +330,17 @@ object MigrationRowRules {
 
         /** A target is in hand (suggested or accepted); [sourceKey] names where it came from. */
         data class Target(val sourceKey: String) : RowStatus
-        data object Skipped : RowStatus
         data object Committing : RowStatus
         data object CommitFailed : RowStatus
-
-        /** Done. Carries the target it migrated onto, so the line still says where it went. */
-        data class Migrated(val sourceKey: String) : RowStatus
     }
 
     fun status(
         search: MigratingEntryRow.SearchPhase,
         acceptance: MigratingEntryRow.Acceptance,
         commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
     ): RowStatus = when {
-        commit is MigratingEntryRow.CommitPhase.Migrated -> RowStatus.Migrated(commit.target.sourceKey)
         commit is MigratingEntryRow.CommitPhase.Failed -> RowStatus.CommitFailed
         commit is MigratingEntryRow.CommitPhase.Committing -> RowStatus.Committing
-        // Skip outranks a search outcome: the escape hatch has to confirm itself visibly.
-        skipped -> RowStatus.Skipped
         acceptance is MigratingEntryRow.Acceptance.Accepted -> RowStatus.Target(acceptance.candidate.sourceKey)
         search is MigratingEntryRow.SearchPhase.Found -> RowStatus.Target(search.suggestion.sourceKey)
         search is MigratingEntryRow.SearchPhase.Failed -> RowStatus.SearchFailed
@@ -384,17 +353,16 @@ object MigrationRowRules {
         search: MigratingEntryRow.SearchPhase,
         acceptance: MigratingEntryRow.Acceptance,
         commit: MigratingEntryRow.CommitPhase,
-        skipped: Boolean,
         anyCommitInFlight: Boolean,
     ): RowActions = RowActions(
-        canAccept = acceptance !is MigratingEntryRow.Acceptance.Accepted && !skipped &&
+        canAccept = acceptance !is MigratingEntryRow.Acceptance.Accepted &&
             search.suggestion != null && canChoose(commit),
-        canUnaccept = acceptance is MigratingEntryRow.Acceptance.Accepted && canUnchoose(commit, skipped),
-        canToggleSkip = canToggleSkip(commit),
-        canRetry = canRetry(commit, anyCommitInFlight, skipped),
+        canUnaccept = acceptance is MigratingEntryRow.Acceptance.Accepted && canUnchoose(commit),
+        canSkip = canSkip(commit),
+        canRetry = canRetry(commit, anyCommitInFlight),
         // A single commit is offered only when the batch would take this row too, and only while
         // nothing else is committing: commitSingle refuses both, so offering it would be a dead tap.
-        canCommitNow = isCommittable(acceptance, commit, skipped) && !anyCommitInFlight,
+        canCommitNow = isCommittable(acceptance, commit) && !anyCommitInFlight,
         // Picking a target is the same permission as accepting one, so the picker follows canChoose.
         canPick = canChoose(commit),
     )

@@ -9,7 +9,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -87,6 +86,11 @@ class EntryMigrationListScreenModel(
     @Volatile
     private var confirmScanId = 0
 
+    /** Whether this list ever held a row, so an empty list can say whether it started that way or
+     *  was worked down to nothing. Only the first tells the user anything useful. */
+    @Volatile
+    private var everHadRows = false
+
     init {
         screenModelScope.launch(io) {
             adapter.prepare()
@@ -96,6 +100,7 @@ class EntryMigrationListScreenModel(
             val built = adapter.loadEntries(entryIds).map {
                 MigratingEntryRow(it, screenModelScope.coroutineContext, io)
             }
+            everHadRows = built.isNotEmpty()
             mutableState.update {
                 it.copy(
                     isLoading = false,
@@ -115,7 +120,7 @@ class EntryMigrationListScreenModel(
         }
     }
 
-    /** Run the search driver unless it is already running. Restoring a skipped row calls this too,
+    /** Run the search driver unless it is already running. Releasing a commit claim calls this too,
      *  since the driver stops once nothing is left to search. Synchronized so two callers on
      *  different threads cannot both pass the liveness check and start twin drivers. */
     @Synchronized
@@ -163,7 +168,7 @@ class EntryMigrationListScreenModel(
 
     /** The row the driver should search next, or null when nothing is eligible. */
     private fun nextSearchable(): MigratingEntryRow? = rows.firstOrNull {
-        MigrationRowRules.canSearch(it.search.value, it.commit.value, it.skipped.value) && it.scope.isActive
+        MigrationRowRules.canSearch(it.search.value, it.commit.value) && it.scope.isActive
     }
 
     /**
@@ -267,17 +272,20 @@ class EntryMigrationListScreenModel(
             visibleRows = visible,
             emptyReason = when {
                 state.rows.isNotEmpty() && visible.isEmpty() -> EmptyReason.AllFiltered
-                state.rows.isEmpty() && !state.hasSources -> EmptyReason.NoSources
-                state.rows.isEmpty() -> EmptyReason.NoEntries
+                // Only a list that never had rows can blame the sources. One emptied by working
+                // through it is on its way out via the pop, and reporting "no sources are enabled"
+                // over it would be a plain lie.
+                state.rows.isEmpty() && !everHadRows && !state.hasSources -> EmptyReason.NoSources
+                state.rows.isEmpty() && !everHadRows -> EmptyReason.NoEntries
                 else -> null
             },
             searchedCount = state.rows.count { it.isSettled },
             allSearched = state.rows.isNotEmpty() && state.rows.all { it.isSettled },
             committableCount = state.rows.count {
-                MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
+                MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value)
             },
             untouchedCount = state.rows.count {
-                !it.commit.value.isDone && it.disposition != MigrationRowRules.Disposition.Armed
+                it.disposition != MigrationRowRules.Disposition.Armed
             },
             hasUnaccepted = state.rows.any { it.isUntouched && it.search.value.suggestion != null },
         )
@@ -318,10 +326,7 @@ class EntryMigrationListScreenModel(
                 MigrationRowRules.RestartOutcome.Keep -> row
                 MigrationRowRules.RestartOutcome.Requeue -> {
                     row.scope.cancel()
-                    // Skip is a user decision, not a search result: it survives the restart (and
-                    // keeps the fresh row out of the driver).
                     MigratingEntryRow(row.entry, screenModelScope.coroutineContext, io).also {
-                        it.skipped.value = row.skipped.value
                         // So is a target the user picked by hand. Accepting the suggestion is a
                         // verdict on a result this restart is discarding, so that one goes; a target
                         // chosen from an override strip or the browse picker did not come from the
@@ -437,12 +442,6 @@ class EntryMigrationListScreenModel(
                 // chapter-shortfall warning could never fire on a deep pick.
                 peekChosenCounts(live)
                 live.expanded.value = false
-                if (live.skipped.value) {
-                    live.skipped.value = false
-                    // Un-skipping a row the driver never reached must hand it back, like toggleSkip
-                    // does, or it sits Queued forever and allSearched never turns true.
-                    if (live.search.value is SearchPhase.Queued) startDriver()
-                }
                 syncCounts()
             }
         }
@@ -482,10 +481,6 @@ class EntryMigrationListScreenModel(
         row.acceptance.value = Acceptance.Accepted(candidate)
         // A pick answers the question the picker was open for; leaving it open buries the result.
         row.expanded.value = false
-        row.skipped.value = false
-        // Un-skipping a row the driver never reached puts the driver back to work, or it sits Queued
-        // forever and allSearched never turns true.
-        if (row.search.value is SearchPhase.Queued) startDriver()
         peekChosenCounts(row)
         syncCounts()
     }
@@ -504,7 +499,6 @@ class EntryMigrationListScreenModel(
             row.search.value,
             row.acceptance.value,
             row.commit.value,
-            row.skipped.value,
             anyCommitInFlight = state.value.isBusy,
         )
         if (row.acceptance.value is Acceptance.Accepted) {
@@ -540,33 +534,30 @@ class EntryMigrationListScreenModel(
     }
 
     /**
-     * Skip a row out of the migration, or restore it. A skipped row keeps its accepted target and
-     * stays in place, so restoring puts it back exactly as it was, and it stops counting toward the
-     * commit gate, which is what makes skip the way out of a source that will not answer.
+     * Skip a row out of the migration: it leaves the list, as it does upstream, which is what makes
+     * skip the way out of a source that will not answer. There is no restore, so this is the one
+     * place a row is dropped on the user's say-so.
      */
-    fun toggleSkip(id: EntryId) {
+    fun skipRow(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
-        if (!MigrationRowRules.canToggleSkip(row.commit.value)) return
-        val skipping = !row.skipped.value
-        row.skipped.value = skipping
-        when {
-            // Skipping the row being searched abandons that search now, rather than after whatever
-            // the source is doing finally returns.
-            skipping && row.search.value is SearchPhase.Searching -> {
-                row.scope.coroutineContext.cancelChildren()
-                // That takes the row's manual picker down with it, mid-stream, so any strip still
-                // waiting would sit on a spinner nothing ever clears. Back to Idle unconditionally,
-                // which is the state a re-expand searches from; keeping half a result set would be
-                // presenting a cancelled search as a finished one.
-                row.overrides.value = MigratingEntryRow.OverrideState.Idle
-            }
-            // Restoring a row that never searched puts the driver back to work.
-            !skipping && row.search.value is SearchPhase.Queued -> startDriver()
-        }
+        if (!MigrationRowRules.canSkip(row.commit.value)) return
+        removeRow(row)
+    }
+
+    /**
+     * Drop a decided row: the user skipped it, or its commit succeeded. The single place rows leave
+     * the list, so removal, the counters and the finish check cannot disagree, which is how upstream
+     * keeps this honest with one function.
+     *
+     * The row's whole scope goes, not just its children: a peek, an override search or an abandoned
+     * search would otherwise outlive the row with nothing left to cancel them, since onDispose only
+     * reaches rows still in the list.
+     */
+    private fun removeRow(row: MigratingEntryRow) {
+        row.scope.cancel()
+        mutableState.update { it.copy(rows = it.rows.filterNot { candidate -> candidate === row }) }
         syncCounts()
-        // Skipping settles the row, whatever state it was in; if it was the last thing holding the
-        // screen open, the batch is done. The gate decides that, not this call site.
-        if (skipping) finishIfNothingFailed()
+        finishIfNothingFailed()
     }
 
     fun commit(replace: Boolean, flags: Set<MigrationDataFlag>) {
@@ -574,7 +565,7 @@ class EntryMigrationListScreenModel(
         // committing at once would race on the rows and the flag preference.
         if (state.value.isBusy) return
         val targets = rows.filter {
-            MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
+            MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value)
         }
         if (targets.isEmpty()) return
         // The confirm request is consumed by the batch it started, in the same write that starts it,
@@ -614,14 +605,14 @@ class EntryMigrationListScreenModel(
         // the same rows and on the flag preference.
         if (state.value.isBusy) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
-        if (!MigrationRowRules.isCommittable(row.acceptance.value, row.commit.value, row.skipped.value)) return
+        if (!MigrationRowRules.isCommittable(row.acceptance.value, row.commit.value)) return
         runSingleCommit(row, replace, state.value.savedFlags)
     }
 
     fun retry(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         val failure = row.commit.value as? CommitPhase.Failed ?: return
-        if (!MigrationRowRules.canRetry(failure, state.value.isBusy, row.skipped.value)) return
+        if (!MigrationRowRules.canRetry(failure, state.value.isBusy)) return
         runSingleCommit(row, failure.replace, failure.flags)
     }
 
@@ -654,26 +645,33 @@ class EntryMigrationListScreenModel(
 
     /**
      * Called unconditionally by every path that can settle the last outstanding row: a commit
-     * finishing, a retry, a skip, a decline. EVERY condition lives here rather than at the call
+     * finishing, a retry, a removal, a decline. EVERY condition lives here rather than at the call
      * sites, because guarding it per caller is how the screen has both popped early and failed to
-     * pop at all: one predicate cannot disagree with itself. The screen finishes only when a batch
-     * ran, something actually migrated, every row is settled (a pop mid-search would abandon rows
-     * still being searched), nothing is still committing (finishing would cancel it half-applied),
-     * and nothing committable remains (a cancelled batch leaves accepted rows behind; finishing over
-     * them would silently drop their migrations).
+     * pop at all: one predicate cannot disagree with itself.
+     *
+     * An empty list finishes on its own, whatever got it there, which is upstream's rule and the
+     * reason removal needs no second opinion: nothing is left to decide, so there is nothing to
+     * stay for. Otherwise the screen finishes only when a batch ran and migrated something, every
+     * remaining row is settled (a pop mid-search would abandon rows still being searched), nothing
+     * is still committing (finishing would cancel it half-applied), and nothing committable remains
+     * (a cancelled batch leaves accepted rows behind; finishing over them would drop their
+     * migrations silently).
      *
      * That last check carries more than it looks. A failed row is committable by definition (it kept
      * its target, and un-accepting is refused while a commit is in play), which is what holds the
-     * screen open on a partial failure; skipping a failed row is giving up on it, and drops it out of
-     * the same check. A row the batch never reached is committable or busy too, so the gate needs no
-     * separate per-batch scan. A stated failure test used to sit beside this and pinned nothing.
+     * screen open on a partial failure; skipping a failed row is giving up on it, and takes the row
+     * out of the list entirely.
      */
     private fun finishIfNothingFailed() {
+        if (everHadRows && rows.isEmpty()) {
+            mutableState.update { it.copy(finished = true) }
+            return
+        }
         if (!batchRan || state.value.migratedCount == 0) return
         if (rows.any { !it.isSettled }) return
         val anyBusy = rows.any { it.commit.value.isBusy }
         val anyCommittable = rows.any {
-            MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
+            MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value)
         }
         if (!anyBusy && !anyCommittable) {
             batchRan = false
@@ -697,13 +695,17 @@ class EntryMigrationListScreenModel(
         // double-tap on Retry (or a batch racing a single commit) could commit the same row twice.
         // The loser of the claim no-ops.
         val previous = row.commit.value
-        if (previous.isBusy || previous.isDone) return
+        if (previous.isBusy) return
         if (!row.commit.compareAndSet(previous, CommitPhase.Committing(replace))) return
-        // The target and skip state are read AFTER the claim: once Committing is visible every
-        // chooser and skipper refuses, so a swap or skip that slipped in between the caller's guard
-        // and the claim is caught here instead of being migrated and then overwritten.
+        // The target and the row's membership are read AFTER the claim: once Committing is visible
+        // every chooser refuses and skip is blocked, so a swap or a skip that slipped in between the
+        // caller's guard and the claim is caught here instead of being migrated anyway.
+        //
+        // The membership check is what the skip flag used to do. The batch iterates a snapshot taken
+        // before it started, so without this a row the user skipped while the batch was working
+        // through the rows ahead of it would still be migrated.
         val target = row.acceptance.value.candidate
-        if (target == null || row.skipped.value) {
+        if (target == null || rows.none { it === row }) {
             row.commit.value = previous
             // Releasing the claim can put an unsearched row back in the driver's reach, and the
             // driver may already have run out of work and exited. Every other path back into
@@ -718,13 +720,12 @@ class EntryMigrationListScreenModel(
             // CAS, not a plain write: if anything legitimately changed chosen mid-commit, the user's
             // choice wins over the bookkeeping copy.
             row.acceptance.compareAndSet(Acceptance.Accepted(target), Acceptance.Accepted(resolved))
-            // A skip that landed between this commit's claim and its read of the flag lost the race:
-            // the migration has already happened. Clearing the flag as the row goes terminal is what
-            // makes "migrated AND skipped" unrepresentable, rather than leaving a row dimmed as
-            // skipped, showing a migration that did happen, with skip refused from here on.
-            row.skipped.value = false
-            row.commit.value = CommitPhase.Migrated(resolved, replace)
             mutableState.update { it.copy(migratedCount = it.migratedCount + 1) }
+            // The row is done, so it leaves, as upstream does. Only a failure keeps its row, because
+            // a failure is the one outcome that still needs the user. This is also what releases the
+            // claim: there is no terminal phase to write it to.
+            removeRow(row)
+            return
         } catch (e: CancellationException) {
             row.commit.value = CommitPhase.Failed(replace, flags)
             throw e
@@ -751,7 +752,7 @@ class EntryMigrationListScreenModel(
         }
         screenModelScope.launch(io) {
             val targets = rows.filter {
-                MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value, it.skipped.value)
+                MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value)
             }
             val applicable = adapter.applicableFlags(targets.map { it.entry })
             // The saved set is re-read rather than reused: an earlier commit in this session rewrote
@@ -831,7 +832,7 @@ class EntryMigrationListScreenModel(
         /** Every row has settled, so the totals the commit bar shows are final. */
         val allSearched: Boolean = false,
         val committableCount: Int = 0,
-        /** Rows a commit would leave alone: skipped, or with nothing to migrate onto. */
+        /** Rows a commit would leave alone: nothing accepted to migrate onto. */
         val untouchedCount: Int = 0,
         val hasUnaccepted: Boolean = false,
         /** False when the type has no source to migrate onto; separates two blank screens. */
@@ -874,11 +875,11 @@ class EntryMigrationListScreenModel(
 
 /** Settled for progress purposes; the rule itself lives with the other transition rules. */
 private val MigratingEntryRow.isSettled: Boolean
-    get() = MigrationRowRules.isSettled(search.value, commit.value, skipped.value)
+    get() = MigrationRowRules.isSettled(search.value, commit.value)
 
 /** Where the user stands on this row; the rule itself lives with the other rules. */
 private val MigratingEntryRow.disposition: MigrationRowRules.Disposition
-    get() = MigrationRowRules.disposition(acceptance.value, commit.value, skipped.value)
+    get() = MigrationRowRules.disposition(acceptance.value)
 
 private val MigratingEntryRow.isUntouched: Boolean
     get() = disposition == MigrationRowRules.Disposition.Untouched
@@ -889,8 +890,6 @@ private val MigratingEntryRow.isUntouched: Boolean
 private fun MigratingEntryRow.isVisibleUnder(tuning: MigrationTuning): Boolean = MigrationRowRules.isVisible(
     search = search.value,
     acceptance = acceptance.value,
-    commit = commit.value,
-    skipped = skipped.value,
     entryLatestChapter = entry.latestChapter,
     expanded = expanded.value,
     tuning = tuning,

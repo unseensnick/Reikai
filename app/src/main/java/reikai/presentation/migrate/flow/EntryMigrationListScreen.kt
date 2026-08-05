@@ -42,7 +42,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,8 +94,19 @@ class EntryMigrationListScreen(
         var showTuning by rememberSaveable { mutableStateOf(false) }
 
         if (state.finished) {
-            // Unwind the whole flow, not one step: the screen below is a stale flow step.
-            LaunchedEffect(Unit) { navigator.popUntil { it !is MigrationFlowScreen } }
+            // A migrated row leaves the list as it succeeds, so by the time the flow pops there is
+            // nothing on screen that says what happened. The count is the only report the user gets,
+            // and it goes out as a toast because the screen this pops back to varies (details,
+            // library, browse, history) and none of them offers a snackbar host to reach.
+            val migratedCount = state.migratedCount
+            val migratedMessage =
+                pluralStringResource(MR.plurals.migrationFlow_migratedCount, migratedCount, migratedCount)
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                if (migratedCount > 0) context.toast(migratedMessage)
+                // Unwind the whole flow, not one step: the screen below is a stale flow step.
+                navigator.popUntil { it !is MigrationFlowScreen }
+            }
             return
         }
 
@@ -276,20 +286,18 @@ private fun MigrationRow(
     val search by row.search.collectAsState()
     val commit by row.commit.collectAsState()
     val acceptance by row.acceptance.collectAsState()
-    val skipped by row.skipped.collectAsState()
     val expanded by row.expanded.collectAsState()
     val chosen = acceptance.candidate
     // The rules decide what this row offers; the screen only renders it. Two sources of truth here
     // is how Retry, Skip, Migrate now and the accept toggle all came to render on rows whose
     // handlers refused them.
-    val actions = MigrationRowRules.actions(search, acceptance, commit, skipped, busy)
-    val status = MigrationRowRules.status(search, acceptance, commit, skipped)
+    val actions = MigrationRowRules.actions(search, acceptance, commit, busy)
+    val status = MigrationRowRules.status(search, acceptance, commit)
 
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .alpha(if (skipped) 0.5f else 1f)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -322,7 +330,6 @@ private fun MigrationRow(
                 row = row,
                 commit = commit,
                 chosen = chosen,
-                skipped = skipped,
                 actions = actions,
                 screenModel = screenModel,
             )
@@ -411,11 +418,8 @@ private fun RowStatusLine(
         MigrationRowRules.RowStatus.SearchFailed -> stringResource(MR.strings.migrationFlow_searchFailed)
         is MigrationRowRules.RowStatus.Target ->
             remember(status.sourceKey) { screenModel.sourceDisplayName(status.sourceKey) }
-        MigrationRowRules.RowStatus.Skipped -> stringResource(MR.strings.migrationFlow_skippedChip)
         MigrationRowRules.RowStatus.Committing -> stringResource(MR.strings.loading)
         MigrationRowRules.RowStatus.CommitFailed -> stringResource(MR.strings.migrationFlow_commitFailed)
-        is MigrationRowRules.RowStatus.Migrated ->
-            remember(status.sourceKey) { screenModel.sourceDisplayName(status.sourceKey) }
     }
     Text(
         text = listOfNotNull(row.entry.sourceName, text).joinToString(" → "),
@@ -423,7 +427,6 @@ private fun RowStatusLine(
         color = when (status) {
             MigrationRowRules.RowStatus.CommitFailed, MigrationRowRules.RowStatus.SearchFailed ->
                 MaterialTheme.colorScheme.error
-            is MigrationRowRules.RowStatus.Migrated -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         maxLines = 1,
@@ -455,7 +458,6 @@ private fun RowTrailing(
     row: MigratingEntryRow,
     commit: CommitPhase,
     chosen: MigrationCandidate?,
-    skipped: Boolean,
     actions: MigrationRowRules.RowActions,
     screenModel: EntryMigrationListScreenModel,
 ) {
@@ -471,16 +473,6 @@ private fun RowTrailing(
         // row.s commit and do nothing.
         actions.canRetry -> TextButton(onClick = { screenModel.retry(row.entry.id) }) {
             Text(text = stringResource(MR.strings.action_retry))
-        }
-        commit is CommitPhase.Migrated -> Box(
-            modifier = Modifier.size(48.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = stringResource(MR.strings.migrate),
-                tint = MaterialTheme.colorScheme.primary,
-            )
         }
         // Accept: filled once a target is accepted, outlined while it is only a suggestion. Tapping
         // an accepted row gives the target back, which is why it stays a control and not a chip.
@@ -500,9 +492,8 @@ private fun RowTrailing(
             }
         }
     }
-    // The menu renders in every non-terminal row state: skip has to stay reachable while a row is
-    // still searching, which is exactly when a hung source needs escaping.
-    if (commit is CommitPhase.Migrated) return
+    // The menu renders in every row state it has an item for: skip has to stay reachable while a row
+    // is still searching, which is exactly when a hung source needs escaping.
     Box {
         IconButton(onClick = { menuExpanded = true }) {
             Icon(
@@ -539,22 +530,12 @@ private fun RowTrailing(
                     },
                 )
             }
-            if (actions.canToggleSkip) {
+            if (actions.canSkip) {
                 DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = stringResource(
-                                if (skipped) {
-                                    MR.strings.migrationFlow_restoreActionLabel
-                                } else {
-                                    MR.strings.migrationListScreen_skipActionLabel
-                                },
-                            ),
-                        )
-                    },
+                    text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
                     onClick = {
                         menuExpanded = false
-                        screenModel.toggleSkip(row.entry.id)
+                        screenModel.skipRow(row.entry.id)
                     },
                 )
             }
