@@ -27,12 +27,10 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Resolve the novel library's per-item metadata (source, language, status, tracking status) into a
  * [DynamicGroupingFeed] for the shared [LibraryDynamicGrouping] kernel, keyed by [EntryId]. The twin of
- * [mangaDynamicGroupingFeed][reikai.presentation.library.mangaDynamicGroupingFeed]: the two are separate
- * only because they resolve metadata off different source managers and track tables, so any change to one
- * is a question about the other. The engine concatenates this with the manga feed for one kernel call.
- *
- * Operates on the merge-collapsed representatives. Tracking status uses each representative's unioned
- * merge-group tracks.
+ * [mangaDynamicGroupingFeed][reikai.presentation.library.mangaDynamicGroupingFeed], separate only
+ * because the two resolve metadata off different source managers and track tables, so any change to one
+ * is a question about the other. Operates on the merge-collapsed representatives, whose tracking status
+ * uses the unioned merge-group tracks.
  */
 @Suppress("LongParameterList")
 fun novelDynamicGroupingFeed(

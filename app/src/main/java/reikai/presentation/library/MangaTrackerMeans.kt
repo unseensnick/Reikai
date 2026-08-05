@@ -6,13 +6,11 @@ import tachiyomi.domain.track.model.Track
 
 /**
  * Mean 0-10 tracker score per manga row, keyed by the row's own id, unscored rows absent (callers
- * default to -1.0). Scored over the row's whole merged group (relatedMangaIds), deduped by tracker and
- * dropping unrated (<= 0) scores, so a tracker on any grouped source contributes once, matching the
- * novel library. Guarding on the mapped scores (not the raw track list) fixes the upstream bug where an
- * all-logged-out track list averaged to NaN and sorted above every real score.
- *
- * The one computation behind both the manga model's sort and the provider seam ([LibraryProvider.trackerMeans]),
- * so the scoring rule cannot drift between them. [trackers] is the logged-in trackers keyed by id.
+ * default to -1.0). Scored over the row's whole merged group, deduped by tracker and dropping unrated
+ * (<= 0) scores, so a tracker on any grouped source contributes once, matching novels. Guarding on the
+ * mapped scores rather than the raw track list fixes the upstream bug where an all-logged-out list
+ * averaged to NaN and sorted above every real score. The one computation behind both the manga model's
+ * sort and [LibraryProvider.trackerMeans], so the rule cannot drift between them.
  */
 fun mangaTrackerMeans(
     items: Collection<LibraryItem>,

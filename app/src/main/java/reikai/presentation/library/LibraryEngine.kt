@@ -39,21 +39,12 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
 /**
- * Orchestrates the library over its per-type [LibraryProvider]s: it owns the selection and everything
- * derived from it, dispatches the bulk actions, and decides which provider drives a view, so the tab does
- * none of that itself.
- *
- * The selection lives here rather than in either content type's model because a combined list can hold
- * entries of both types at once, and a range-select can span them, which neither model can compute since
- * neither sees the other's rows. Entries are identified by [EntryId] for the same reason: a manga and a
- * novel can share a raw row id. Each provider narrows a dispatched selection to its own content type, so
- * handing every provider the whole selection is always safe.
- *
- * Shaped for a mixed list: [providersFor] answers with every provider whose rows belong in a view, which
- * is one provider for Manga or Novels and both for [ContentType.ALL]. [behaviorFor] still fails loudly on
- * ALL by design, because a single behaviour cannot answer for two content types; everything a mixed view
- * needs (the assembly, the settings binding, the dialogs) has a real ALL answer instead, and only explicit
- * per-type callers reach [behaviorFor].
+ * Orchestrates the library over its per-type [LibraryProvider]s: owns the selection, dispatches the
+ * bulk actions, and decides which provider drives a view. The selection lives here because a combined
+ * list holds both types and a range-select can span them, which neither model can compute; entries are
+ * keyed by [EntryId] for the same reason, a manga and a novel being able to share a raw row id.
+ * [providersFor] answers with every provider whose rows belong in a view, both under [ContentType.ALL];
+ * [behaviorFor] still fails loudly there, since one behaviour cannot answer for two content types.
  */
 class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel {
 
@@ -211,10 +202,9 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
      * Dynamic grouping over the union: concatenate the active providers' feeds and run the shared kernel
      * ONCE, so a tag or tracking status shared by a manga and a novel lands in one bucket. The feeds are
      * EntryId-keyed and the two id spaces are disjoint, so plain list and map concatenation is safe.
-     *
-     * Two deliberate divergences from the category path: hidden categories are not consulted (a synthetic
-     * group cannot be hidden), and the category-sort-order preference goes to the kernel, which orders the
-     * groups itself. Both match what the per-type builders did.
+     * Two deliberate divergences from the category path, both matching the per-type builders: hidden
+     * categories are not consulted (a synthetic group cannot be hidden), and the category-sort-order
+     * preference goes to the kernel, which orders the groups itself.
      */
     private fun assembleDynamicGroups(
         active: List<LibraryProvider>,

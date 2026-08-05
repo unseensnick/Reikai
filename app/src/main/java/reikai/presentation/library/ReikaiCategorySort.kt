@@ -4,12 +4,9 @@ import tachiyomi.domain.category.model.Category
 
 /**
  * Orders a category list by the Reikai category-sort-order pref, so every surface that lists
- * categories (library sections, jump-to-category, the filter include/exclude picker, the category
- * manager) shows them in the same order.
- *
- * 0 = manual (leave as-is, i.e. the caller's `Category.order`); 1 = A->Z; 2 = Z->A. The system
- * (uncategorized) category is always pinned to the top. Sorts by display name so it works for both
- * real DB categories and synthetic dynamic-grouping categories.
+ * categories shows them in the same order. 0 = manual (the caller's `Category.order`), 1 = A to Z,
+ * 2 = Z to A, with the system category always pinned to the top. Sorts by display name so it works
+ * for both real DB categories and synthetic dynamic-grouping ones.
  */
 fun reikaiSortCategories(categories: List<Category>, sortOrder: Int): List<Category> =
     reikaiSortCategories(

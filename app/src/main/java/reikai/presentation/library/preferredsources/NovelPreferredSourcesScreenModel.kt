@@ -16,12 +16,10 @@ import uy.kohesive.injekt.api.get
 
 /**
  * Light-novel counterpart of [PreferredSourcesScreenModel]. Ranks installed novel sources highest
- * priority first; [reikai.domain.novel.NovelChapterAggregation] reads the ranking to pick the trunk
- * of a merged chapter list. Novel source ids are Strings (plugin slugs), so the ranking and the
- * shared [PreferredSourcesContent] key are Strings directly (no Long bridging needed).
- *
- * Sources are resolved from the plugin host (loaded once via the installer); state rebuilds reactively
- * from the registered sources and the stored ranking.
+ * priority first; [reikai.domain.novel.NovelChapterAggregation] reads the ranking to pick the trunk of
+ * a merged chapter list. Novel source ids are Strings (plugin slugs), so the ranking and the shared
+ * [PreferredSourcesContent] key are Strings directly. Sources are resolved from the plugin host, and
+ * state rebuilds reactively from the registered sources and the stored ranking.
  */
 class NovelPreferredSourcesScreenModel(
     private val sourceManager: NovelSourceManager = Injekt.get(),

@@ -16,18 +16,12 @@ import java.time.ZoneId
 import kotlin.math.abs
 
 /**
- * Per-entry accessors [libraryQueryMatches] reads, so the search never depends on the concrete row type.
- * The twin of [LibraryFilterFields]: each library supplies getters over its own row, and the grammar
- * (Mihon's lexer / parser / AST) stays upstream and unpatched, so one typed query means one thing on
- * every row of the mixed list.
- *
- * **A null return means the content type cannot answer that field at all**, which is not the same as an
- * absent value. An inapplicable field makes the whole term false BEFORE negation, so neither `nu<x` nor
- * `-nu<x` pulls those rows in. Upstream's own convention (absent, then negate, so `-author:x` keeps a
- * row with no author) still applies to fields the type *can* answer but this row leaves empty.
- *
- * [sourceKey] is the source's own identity, a numeric id for manga and a plugin slug for novels, which
- * is why it is a String on both sides.
+ * Per-entry accessors [libraryQueryMatches] reads, so search never depends on the concrete row type.
+ * The twin of [LibraryFilterFields]: each library supplies getters over its own row while the grammar
+ * stays upstream and unpatched, so one typed query means one thing on every row of the mixed list.
+ * A null return means the content type CANNOT ANSWER that field at all, which is not an absent value:
+ * it makes the whole term false before negation, so neither `nu<x` nor `-nu<x` pulls those rows in.
+ * Upstream's absent-then-negate convention still applies to fields the type can answer.
  */
 class LibraryQueryFields<T>(
     val id: (T) -> Long,

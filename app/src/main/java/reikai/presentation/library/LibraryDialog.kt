@@ -6,16 +6,12 @@ import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 
 /**
- * The library dialogs, built by [LibraryEngine] rather than by either content type's model.
- *
- * Anything derived from the selection has to be derived where the selection lives. A combined list can
- * hold both content types at once, and two independently computed change-categories preselections cannot
- * be merged after the fact, only recomputed over the union of the entries, so the engine builds these the
- * same way it owns the selection.
- *
- * [ChangeCategory] and [Delete] carry the entries they act on rather than reading the live selection at
- * confirm time: both dialog composables call their dismiss callback *before* their confirm callback, so
- * the dialog is already gone by the time the confirm runs.
+ * The library dialogs, built by [LibraryEngine] rather than by either content type's model, because
+ * anything derived from the selection must be derived where the selection lives: a combined list holds
+ * both types, and two independently computed change-categories preselections cannot be merged after the
+ * fact, only recomputed over the union. [ChangeCategory] and [Delete] carry the entries they act on
+ * rather than reading the live selection at confirm time, since both dialog composables dismiss before
+ * they confirm, so the dialog is already gone by the time the confirm runs.
  */
 sealed interface LibraryDialog {
 

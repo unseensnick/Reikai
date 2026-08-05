@@ -3,14 +3,11 @@ package reikai.presentation.library
 import tachiyomi.domain.category.model.Category
 
 /**
- * Mihon's [Category] is immutable with only id/name/order/flags, so a dynamic-grouping category
- * (group by source / language / tag / etc.) cannot store the extra fields the Yōkai-era fork kept
- * (sourceId, langId, isDynamic). Instead a synthetic dynamic category gets a **negative id** and
- * encodes its metadata into [Category.name]; this object decodes it.
- *
- * The encoded name doubles as the stable collapse key persisted in
- * `collapsedDynamicCategories` (so it survives across rebuilds). Splitter strings are kept
- * identical to the fork for in-place-upgrade continuity of that preference.
+ * Mihon's [Category] is immutable with only id/name/order/flags, so a dynamic-grouping category has
+ * nowhere to store its source id, language or dynamic marker. A synthetic one gets a NEGATIVE id and
+ * encodes its metadata into [Category.name]; this object decodes it. The encoded name doubles as the
+ * collapse key persisted in `collapsedDynamicCategories`, so it survives rebuilds, and the splitter
+ * strings match the Yokai-era fork's for in-place-upgrade continuity of that preference.
  */
 object ReikaiDynamicCategory {
 

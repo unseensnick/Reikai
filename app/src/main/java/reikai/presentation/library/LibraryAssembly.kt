@@ -24,24 +24,12 @@ data class LibraryAssemblyInputs(
 )
 
 /**
- * One list assembly for every chip: bucket the rows into categories, order the categories, sort within
- * each (per-category override or the global sort), and apply the empty-category rules. The chips only
- * change what [rows] and [categories] contain; the algorithm is chip-blind.
- *
- * Buckets before sorting because the sort is per category (each can carry its own override), so there is
- * no single ordering to apply first. Values are the [LibraryItem]s themselves, never raw ids: a manga and
- * a novel can share a raw table id, so any Long-keyed structure over a mixed list silently cross-wires.
- * The custom-info overlay is NOT applied here; it stays at the display read.
- *
- * Behaviour rules, pinned by LibraryAssemblyTest:
- * - Bucketing: a row's non-zero category ids, or the system bucket when it has none. Manga rows carry
- *   [0] when uncategorized and novels may carry 0 or nothing, so ids are normalized first.
- * - An empty category is hidden, always (the step 4 ruling): whether the chip, a filter, a search or
- *   simple emptiness left it without rows, nothing renders an empty header. This also covers the
- *   system Default row, which only shows when some row in view is actually uncategorized.
- * - Category order is explicit (order column, then the category-sort-order pref): a list unioned from
- *   two queries is not DB-ordered, so nothing may rely on incoming order. [categories] is deduped by id
- *   because every universal row appears in both per-type lists.
+ * One list assembly for every chip: bucket into categories, order them, sort within each (per-category
+ * override or the global sort), then apply the empty-category rules. The chips only change what [rows]
+ * and [categories] contain; the algorithm is chip-blind, and buckets before sorting because the sort is
+ * per category. Values are [LibraryItem]s, never raw ids: a manga and a novel can share a raw table id,
+ * so any Long-keyed structure over a mixed list silently cross-wires. The custom-info overlay is NOT
+ * applied here. Rules pinned by LibraryAssemblyTest; record: docs/dev/plans/library-all-chip.md.
  */
 fun assembleLibrary(
     rows: List<LibraryItem>,

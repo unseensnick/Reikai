@@ -111,14 +111,12 @@ fun reikaiRowStartIndices(
 }
 
 /**
- * Reikai's single-list library renderer: every category is a section in one scrolling grid
- * with a collapsible header. Honors Mihon's global display mode ([displayMode]) by switching the
- * per-cell composable, reusing Mihon's grid cell and badge composables. List mode renders as a
- * 1-column grid so the hopper's single [gridState] keeps working across every mode. The hopper and
- * picker are hosted by the library tab (so they overlay both this and Mihon's pager).
- *
- * [columns] is Mihon's column preference (0 = adaptive). It is resolved here to a concrete count so
- * the row structure is known (for the fast-scroller) and the grid uses exactly that many columns.
+ * Reikai's single-list library renderer: every category is a section in one scrolling grid with a
+ * collapsible header. Honors Mihon's global display mode ([displayMode]) by switching the per-cell
+ * composable, reusing Mihon's grid cell and badge composables. List mode renders as a 1-column grid so
+ * the hopper's single [gridState] keeps working across every mode; the hopper and picker are hosted by
+ * the tab, so they overlay both this and Mihon's pager. [columns] is Mihon's column preference
+ * (0 = adaptive), resolved here so the row structure is known for the fast-scroller.
  */
 @Composable
 fun ReikaiLibraryContent(

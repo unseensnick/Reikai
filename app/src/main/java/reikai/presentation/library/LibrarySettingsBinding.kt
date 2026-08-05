@@ -31,22 +31,12 @@ data class LibraryCategoryFilter(
 )
 
 /**
- * One view's settings sheet, described rather than rendered: the shared sheet renders whatever binding
- * the active view describes, so a sheet change is written once for manga and novels.
- *
- * Since the filter unification (2026-07-31) every filter axis, the tracker filters and the category
- * include/exclude write ONE library-wide preference; the binding still exists for what genuinely
- * differs per view: which axes are offered (novels omit manga's debug interval axis), the category
- * list the pickers show, the group mode, and the local badge. A provider omits an axis it does not
- * have, instead of the shared sheet branching on content type.
- *
- * [filterAxes] is a flow rather than a plain list because manga's interval-custom row appears and
- * disappears with an auto-update preference the sheet does not own.
- *
- * A null category id in [setSort] is the global scope. [categories] is the view's full category list,
- * not the filtered list the grid renders, because the picker must offer categories the current filters
- * hide. [groupMode] is the one library-wide grouping preference on every chip, since the assembly
- * groups manga and novels in a single kernel call.
+ * One view's settings sheet, described rather than rendered, so a sheet change is written once for
+ * both content types. Every filter axis now writes ONE library-wide preference, leaving the binding
+ * for what genuinely differs per view; a provider omits an axis it lacks rather than the sheet
+ * branching on content type. [filterAxes] is a flow because manga's interval-custom row comes and goes
+ * with a preference. A null category id in [setSort] is the global scope, and [categories] is the FULL
+ * list, since the picker must offer categories the current filters hide.
  */
 data class LibrarySettingsBinding(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,

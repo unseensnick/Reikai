@@ -52,18 +52,12 @@ import kotlin.math.roundToInt
 
 /**
  * A fast-scroll [LazyVerticalGrid] for Reikai's single-list library.
- *
  * Mihon's [tachiyomi.presentation.core.components.FastScrollLazyVerticalGrid] positions its thumb as
- * `rowsBefore * averageRowHeight`, which is unstable when a grid mixes tall cover rows with short
- * full-span category headers: the average wobbles as headers scroll through the viewport and, scaled
- * by the row count, the thumb jitters. Mihon documents this and ships the stable algorithm only for
- * plain lists.
- *
- * This grid borrows that stable approach: the thumb tracks a smooth proportion of rows scrolled past
- * ([LazyGridItemInfo.row] is span-aware), never averaging heights. The one input the proportion
- * approach can't infer through span headers, the total row count, is supplied by the caller
- * ([totalRows]) from the category data, along with [itemIndexForRow] so dragging the thumb can map a
- * target row back to a grid item.
+ * `rowsBefore * averageRowHeight`, which jitters when a grid mixes tall cover rows with short
+ * full-span headers, and it ships the stable algorithm only for plain lists. This borrows that stable
+ * approach: the thumb tracks a proportion of rows scrolled past ([LazyGridItemInfo.row] is span-aware),
+ * never averaging heights. The caller supplies [totalRows] and [itemIndexForRow], which a proportion
+ * cannot infer through span headers.
  */
 @Composable
 fun ReikaiFastScrollLazyVerticalGrid(

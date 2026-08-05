@@ -45,16 +45,11 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * The library settings sheet, shared by both content types. Filter, Sort and Group render whatever the
- * active [LibrarySettingsBinding] describes, so a change to any of them reaches manga and novels at once
- * and neither can gain an option the other silently misses.
- *
- * [settingsScreenModel] backs the Display tab, which is one library-wide setting on both content types
- * rather than a per-type one, plus the logged-in tracker list and the global "Downloaded only" mode, which
- * are likewise shared.
- *
- * A null [categoryId] is the global scope. The Default category resolves to it as well: that row is
- * universal (one row serving both libraries), so a sort override stored on it could not mean one thing for
- * manga and another for novels.
+ * active [LibrarySettingsBinding] describes, so a change reaches manga and novels at once and neither
+ * can gain an option the other silently misses. [settingsScreenModel] backs the Display tab, the
+ * logged-in tracker list and the global "Downloaded only" mode, all library-wide. A null [categoryId]
+ * is the global scope, and the Default category resolves to it too: that row is universal, so a sort
+ * override on it could not mean one thing for manga and another for novels.
  */
 @Composable
 fun LibrarySettingsSheet(

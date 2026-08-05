@@ -14,14 +14,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * Manga "preferred sources" ranking, highest priority first. The ranking is stored in
- * [ReikaiLibraryPreferences.preferredMangaSources]; [reikai.domain.manga.ChapterAggregation] reads
- * it to pick the trunk of a merged chapter list (it falls back to a most-chapters heuristic when the
- * ranking is empty). The novel counterpart is [NovelPreferredSourcesScreenModel]; both render the
- * shared [PreferredSourcesContent] over a String key, so this model stringifies its Long ids at the edge.
- *
- * State is rebuilt reactively from the installed catalogue sources and the stored ranking, so it
- * stays correct when an extension is installed/removed or the ranking changes elsewhere.
+ * Manga "preferred sources" ranking, highest priority first, stored in
+ * [ReikaiLibraryPreferences.preferredMangaSources] and read by
+ * [reikai.domain.manga.ChapterAggregation] to pick the trunk of a merged chapter list (falling back to
+ * most-chapters when empty). The novel counterpart is [NovelPreferredSourcesScreenModel]; both render
+ * the shared [PreferredSourcesContent] over a String key, so this model stringifies its Long ids at the
+ * edge. State is rebuilt reactively from the installed sources and the stored ranking.
  */
 class PreferredSourcesScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),

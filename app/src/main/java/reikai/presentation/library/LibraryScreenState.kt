@@ -3,16 +3,12 @@ package reikai.presentation.library
 import reikai.domain.entry.EntryId
 
 /**
- * The neutral, per-content-type library state the shared [LibraryTab][eu.kanade.tachiyomi.ui.library.LibraryTab]
- * renders, so the tab reads one state instead of branching manga-vs-novel for every field. Each adapter
- * (manga over the live `LibraryScreenModel`, novel over `NovelLibraryScreenModel`) maps its own state into
- * this. Only the genuinely per-type content lives here. Anything library-wide (the display config, which
- * categories are collapsed) belongs to [LibraryEngine] instead, because the chips filter one list rather
- * than selecting between two, so those values describe the list and not the content type being listed.
- *
- * The list itself is NOT here: categories, the per-category rows and their counts all come off
- * [LibraryEngine.assembled], which is the only thing that can bucket both content types into one list.
- * What remains is per-type status the tab needs before or alongside that assembly.
+ * The neutral, per-content-type library state the shared LibraryTab renders, so the tab reads one state
+ * instead of branching manga-vs-novel for every field. Each adapter maps its own model's state into
+ * this. Only genuinely per-type content lives here; anything library-wide (the display config, which
+ * categories are collapsed) belongs to [LibraryEngine], because the chips filter one list rather than
+ * selecting between two. The list itself is NOT here: categories, rows and counts come off
+ * [LibraryEngine.assembled], the only thing that can bucket both content types into one list.
  */
 data class LibraryScreenState(
     val isLoading: Boolean,

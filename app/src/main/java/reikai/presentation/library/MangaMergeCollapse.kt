@@ -4,20 +4,12 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.source.model.Source
 
 /**
- * Collapses persisted merge groups in the library so the same series favorited from several sources
- * renders as ONE cover with combined counts. Buckets items by their group id (from the merge group
- * tables); each multi-member bucket keeps a single primary (the group's trunk source) stamped with the
- * group ids, summed download counts, and the grouped sources for the badge. Ungrouped items and, when
- * merging is disabled, every item pass through untouched.
- *
- * The primary is the same trunk the merged chapter list uses (see [reikai.domain.manga.ChapterAggregation]),
- * so the library row leads on the same source the details "All" chapter list trunks on: the per-group
- * override position wins, else the global preferred-source position, else the most chapters, then the
- * lowest id. Because the primary now honours the user's chosen trunk, its own `isLocal` (which drives the
- * Local badge and whether Download is offered) correctly reflects that choice: pick a local source as the
- * trunk and Download locks; pick a remote one and it stays available.
- *
- * Pure: reads only its arguments and the [resolveSource] lambda; the caller supplies the [membership] map.
+ * Collapses persisted merge groups so a series favorited from several sources renders as ONE library
+ * cover with combined counts: each multi-member bucket keeps one primary stamped with the group ids,
+ * summed downloads and the grouped sources. Ungrouped items, and all items when merging is off, pass
+ * through. The primary is the trunk the merged chapter list uses ([reikai.domain.manga.ChapterAggregation]),
+ * so its `isLocal` follows the chosen source: a local trunk locks Download, a remote one does not.
+ * Pure; the caller supplies [membership].
  */
 object MangaMergeCollapse {
 

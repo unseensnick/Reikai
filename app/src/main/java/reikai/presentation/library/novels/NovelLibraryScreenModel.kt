@@ -79,15 +79,12 @@ import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Drives the novel half of the Library tab. It reads the favorited novels + novel categories
- * reactively, shapes each novel into the library's manga-shaped [LibraryItem], filters
- * and per-category-sorts them, and exposes the same accessor surface
- * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.State] does so `LibraryTab` can feed the existing
- * views from either model based on the content-type chip. Mihon's library core is untouched.
- *
- * Selection lives in the shared LibraryEngine, which hands this model the novel ids to act on for the
- * multi-select actions (download / delete / change-category / mark-read). Display settings stay
- * shared with manga; tracker filter/sort/group reuse the shared tracker machinery via [getNovelTracks].
+ * Drives the novel half of the Library tab: reads favorited novels and categories reactively, shapes
+ * each into the shared [LibraryItem], filters and per-category-sorts them, and exposes the same
+ * accessor surface the manga model does so `LibraryTab` can feed either. Mihon's library core is
+ * untouched. Selection lives in the shared LibraryEngine, which hands this model the novel ids to act
+ * on; display settings are shared with manga, and tracker filter/sort/group reuse the shared tracker
+ * machinery via [getNovelTracks].
  */
 class NovelLibraryScreenModel :
     StateScreenModel<NovelLibraryScreenModel.State>(State()) {

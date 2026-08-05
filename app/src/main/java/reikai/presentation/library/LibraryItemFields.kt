@@ -10,11 +10,10 @@ import tachiyomi.domain.manga.model.CustomMangaInfo
 /**
  * The one binding of the shared filter and sort kernels onto the library's row type, used by both
  * content types, so a filter or sort behaviour change is written once and reaches manga and novels.
- *
- * Every axis that reads the row itself is shared verbatim. That works because a novel already renders as
- * a manga-shaped [LibraryItem] carrying its own status, genre, categories, counts and dates, and because
- * the novel status codes line up 1:1 with [SManga]'s. Only axes needing something the row cannot carry
- * are seams, and both are here rather than in either content type's model.
+ * Every axis that reads the row itself is shared verbatim, because a novel already renders as a
+ * manga-shaped [LibraryItem] carrying its own status, genre, categories, counts and dates, and the
+ * novel status codes line up 1:1 with [SManga]'s. Only axes needing something the row cannot carry are
+ * seams.
  */
 fun libraryItemFilterFields(
     /**
@@ -43,18 +42,11 @@ fun libraryItemFilterFields(
 
 /**
  * The search twin of [libraryItemFilterFields], binding the shared query kernel onto the library row.
- * Most fields read the row directly, including `sourceName` and `sourceLanguage`, which both content
- * types now populate when they build it.
- *
- * Five seams: [sourceKey] is a numeric source id for manga and a plugin slug for novels, so it is a
- * String on both sides; [fetchInterval] and [nextUpdate] are null for novels, which have neither concept,
- * and a null makes the term false before negation so an inapplicable comparison never pulls a novel in
- * from either direction; [chapterMatches] is the per-term id set each side resolved once for this query,
- * since the two content types keep separate chapter tables; and [overlay] supplies each row's custom-info
- * overrides, keyed by the row's own id, so search matches the values shown on the card.
- *
- * The overlay is a plain map lookup per field rather than a copied row, because the rows themselves stay
- * override-free on purpose: filter, sort and grouping all read the source values.
+ * Five seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
+ * [fetchInterval] and [nextUpdate] are null for novels, and a null makes the term false before negation
+ * so an inapplicable comparison never pulls a novel in from either direction; [chapterMatches] is the
+ * per-term id set each side resolved once; and [overlay] supplies custom-info overrides by row id, as a
+ * map lookup rather than a copied row, since filter, sort and grouping all read the source values.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,

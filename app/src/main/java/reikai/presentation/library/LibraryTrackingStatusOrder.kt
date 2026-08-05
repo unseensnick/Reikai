@@ -8,9 +8,8 @@ import eu.kanade.tachiyomi.data.track.Tracker
  * groups in reading-progress order (Reading first, Dropped last) instead of alphabetically. The order is
  * each logged-in tracker's own [Tracker.getStatusList] order, localized to the same display names the
  * grouping buckets by; a name from no tracker (e.g. "Not tracked") sorts last. Shared by the manga and
- * novel libraries so both order their track-status groups identically.
- *
- * Pure over its inputs (the [localize] lambda resolves a StringResource, injected so this stays testable).
+ * novel libraries so both order their track-status groups identically. Pure over its inputs, with
+ * [localize] injected so this stays testable.
  */
 object LibraryTrackingStatusOrder {
 

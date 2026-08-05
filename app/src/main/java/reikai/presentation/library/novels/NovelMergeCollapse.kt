@@ -4,12 +4,10 @@ import reikai.domain.novel.model.LibraryNovel
 
 /**
  * Collapses persisted merged-novel groups into one rendered entry per group, the novel analogue of
- * [reikai.presentation.library.MangaMergeCollapse]. Pure (reads only its arguments), so it's
- * unit-testable. Buckets by group id (from the merge group tables, supplied as [membership]); the
- * representative is the group's trunk source, the same trunk the merged chapter list uses
- * ([reikai.domain.novel.NovelChapterAggregation]): the per-group override position wins, else the global
- * preferred-novel-source position, else the most chapters, then the lowest id. Ungrouped novels and, when
- * merging is disabled, every novel pass through as their own single-member entry.
+ * [reikai.presentation.library.MangaMergeCollapse]. Pure; the caller supplies [membership]. The
+ * representative is the group's trunk, the same one the merged chapter list uses
+ * ([reikai.domain.novel.NovelChapterAggregation]). Ungrouped novels, and all novels when merging is
+ * off, pass through as their own single-member entry.
  */
 object NovelMergeCollapse {
 

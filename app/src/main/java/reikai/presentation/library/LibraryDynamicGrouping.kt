@@ -6,15 +6,12 @@ import reikai.presentation.library.ReikaiDynamicCategory.SOURCE_SPLITTER
 import tachiyomi.domain.category.model.Category
 
 /**
- * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types
- * so one kernel serves both libraries. The caller maps its favorites (LibraryManga or LibraryNovel)
- * into these.
- *
- * [id] is generic because a row id is only unique WITHIN one content type: a manga and a novel can
- * share the id 12. A single-content-type caller buckets by its own `Long` row id; a mixed
- * manga-plus-novel caller buckets by the neutral [EntryId][reikai.domain.entry.EntryId]. Keying a
- * mixed call by `Long` would silently merge the two rows (the kernel de-duplicates by id) and would
- * cross-read one's metadata for the other, since every metadata map below is keyed by this id.
+ * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types so
+ * one kernel serves both libraries. [id] is generic because a row id is only unique WITHIN a content
+ * type: a manga and a novel can share the id 12. A single-type caller buckets by its own `Long` row
+ * id; a mixed caller buckets by the neutral [EntryId][reikai.domain.entry.EntryId]. Keying a mixed
+ * call by `Long` would silently merge the two rows and cross-read one's metadata for the other, since
+ * every metadata map below is keyed by this id.
  */
 data class DynItem<K>(
     val id: K,
@@ -40,20 +37,12 @@ class DynamicGroupingFeed(
 )
 
 /**
- * Buckets library items into synthetic categories for dynamic grouping: group by source,
- * language, tag, author, status, or tracking status. Re-typed onto Mihon's immutable models from
- * the Yōkai-era `MangaLibraryDynamicGrouping`, and generalized over [DynItem] so the manga and novel
- * libraries share one kernel.
- *
- * Pure function: all per-item metadata that needs a SourceManager / tracker / status lookup is
- * pre-resolved by the caller and passed in as maps keyed by item id, so this stays unit-testable.
- *
- * Synthetic categories get **negative ids** (so they never collide with real DB categories) and
- * carry [inheritedSortFlag] in [Category.flags] (so the caller's sort orders their items).
- * Metadata is encoded into [Category.name]; decode with [ReikaiDynamicCategory].
- *
- * BY_DEFAULT (and any non-dynamic type) returns empty; the caller routes those through its own
- * category bucketing.
+ * Buckets library items into synthetic categories for dynamic grouping: by source, language, tag,
+ * author, status or tracking status. Generalized over [DynItem] so the manga and novel libraries share
+ * one kernel. Pure: every lookup needing a SourceManager, tracker or status is pre-resolved by the
+ * caller and passed in as maps keyed by item id. Synthetic categories get NEGATIVE ids so they never
+ * collide with real ones, carry [inheritedSortFlag] in [Category.flags], and encode their metadata in
+ * [Category.name]; decode with [ReikaiDynamicCategory]. BY_DEFAULT returns empty.
  */
 object LibraryDynamicGrouping {
 
@@ -100,13 +89,10 @@ object LibraryDynamicGrouping {
         // Step 1: per-item, the encoded bucket name(s) it belongs to. An item can land in several
         // buckets (multiple tags / authors); distinct guards against the same bucket twice.
         //
-        // Buckets are keyed by [bucketKey], not the name itself, and the first spelling seen becomes the
-        // display name. Sources spell the same tag differently ("Adult" against "ADULT", "Sci-Fi" against
-        // "Sci Fi"), and an exact-string key renders those as two adjacent groups holding what a reader
-        // sees as one tag. Normalizing the display name instead would mangle acronyms (BL, NTR) and pick
-        // a separator arbitrarily, so the first spelling wins; callers concatenate the manga feed first,
-        // which keeps that choice stable. Source and language names carry a disambiguator (id / code), so
-        // this can never merge two of those; status names are app-localized and already canonical.
+        // Keyed by [bucketKey] rather than the name, with the first spelling seen winning the display
+        // name: sources spell one tag several ways ("Adult" against "ADULT"), and an exact-string key
+        // renders those as two adjacent groups. Normalizing the display name would mangle acronyms
+        // (BL, NTR). Callers concatenate the manga feed first, which keeps the choice stable.
         val bucketsByName = LinkedHashMap<String, MutableList<K>>()
         val displayNames = LinkedHashMap<String, String>()
         for (item in deduplicated) {
