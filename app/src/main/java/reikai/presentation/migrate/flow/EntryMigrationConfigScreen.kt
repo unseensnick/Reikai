@@ -120,9 +120,10 @@ class EntryMigrationConfigScreen(
                             val next = entryIds.singleOrNull()
                                 ?.let { EntryMigrationSearchScreen(contentType, it) }
                                 ?: EntryMigrationListScreen(contentType, entryIds)
-                            // Replace, never push: back from the results belongs on the screen that
-                            // chose the entries, not on a config step whose answer is already spent.
-                            // Matches upstream, which replaces at this same point.
+                            // Replace, never push, as upstream does at this same point. Every step of
+                            // the flow replaces itself, so back from the results leaves the migration
+                            // entirely and returns to whatever opened it; changing the target sources
+                            // means entering Migrate again rather than stepping back.
                             navigator.replace(next)
                         },
                     )
