@@ -11,6 +11,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -126,6 +127,45 @@ class MigrateMangaUseCaseTest {
     }
 
     @Test
+    fun `a copy onto a merged entry adds the target to the group`() = runTest {
+        val merge = mockk<MangaMergeManager>(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 7L)
+        }
+
+        useCase(mangaMergeManager = merge)(
+            manga(1),
+            manga(2),
+            replace = false,
+            flags = emptySet(),
+            skipTargetRefresh = true,
+        )
+
+        // The copy keeps the source in the library, so the group gains a member rather than swapping
+        // one: every existing member plus the target. The novel engine pins both halves of this fork;
+        // the manga half had no test, and every case that reached it stubbed the group away.
+        coVerify(exactly = 1) { merge.merge(listOf(1L, 7L, 2L)) }
+        coVerify(exactly = 0) { merge.replaceInGroup(any(), any()) }
+    }
+
+    @Test
+    fun `a copy leaves an ungrouped entry ungrouped`() = runTest {
+        val merge = mockk<MangaMergeManager>(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } returns longArrayOf(1L)
+        }
+
+        useCase(mangaMergeManager = merge)(
+            manga(1),
+            manga(2),
+            replace = false,
+            flags = emptySet(),
+            skipTargetRefresh = true,
+        )
+
+        // A lone entry is its own "group" of one; copying it must not invent a real one.
+        coVerify(exactly = 0) { merge.merge(any()) }
+    }
+
+    @Test
     fun `a failed favorite swap fails the migration instead of passing silently`() = runTest {
         val update = mockk<UpdateManga>(relaxed = true) { coEvery { awaitAll(any<List<MangaUpdate>>()) } returns false }
 
@@ -166,6 +206,14 @@ class MigrateMangaUseCaseTest {
         groupMovedInsideUnit shouldBe true
         swapInsideUnit shouldBe true
         transactions.completed shouldBe 1
+        // Ordered, because "both inside one unit" does not pin the half that matters: the swap has to
+        // be LAST. Swap first and the departing member is already unfavorited when the group
+        // dissolves, so the tracker hand-out skips it and the surviving sibling loses the shared
+        // binding, which is the loss this whole arrangement exists to prevent.
+        coVerifyOrder {
+            merge.replaceInGroup(1L, 2L)
+            update.awaitAll(any<List<MangaUpdate>>())
+        }
     }
 
     @Test

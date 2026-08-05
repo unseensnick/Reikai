@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -294,6 +295,13 @@ class MigrateNovelUseCaseTest {
         groupMovedInsideUnit shouldBe true
         swapInsideUnit shouldBe true
         transactions.completed shouldBe 1
+        // Ordered, like manga's twin: "both inside one unit" leaves the half that matters unpinned.
+        // The swap has to be LAST, or the departing member is unfavorited before the group dissolves
+        // and the tracker hand-out skips it.
+        coVerifyOrder {
+            merge.replaceInGroup(1L, 2L)
+            repo.updateAll(any())
+        }
     }
 
     @Test

@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -86,7 +87,12 @@ class MangaMergeManagerTest {
         manager(repo).unmerge(listOf(1L))
 
         dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
-        coVerify { repo.dissolve(ContentType.MANGA, 1L) }
+        // Ordered: the hook has to read the members while the group still has them. Run it after the
+        // dissolve and it sees nothing, so nobody gets their own copy of the shared tracker link.
+        coVerifyOrder {
+            repo.getMembers(ContentType.MANGA, 7L)
+            repo.dissolve(ContentType.MANGA, 1L)
+        }
     }
 
     @Test
