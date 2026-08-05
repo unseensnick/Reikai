@@ -20,6 +20,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.PickMember
+import reikai.presentation.migrate.memberSubtitle
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.interactor.GetFavorites
@@ -92,13 +93,14 @@ class MangaMigrationFlowAdapter(
         }
         return memberIds.mapNotNull { id ->
             getManga.await(id)?.let { manga ->
-                val sourceName = sourceManager.get(manga.source)?.name ?: "${manga.source}"
-                val chapters = getChaptersByMangaId.await(manga.id).size
                 PickMember(
                     id = manga.id,
                     title = manga.title,
                     coverData = manga,
-                    subtitle = "$sourceName  $chapters",
+                    subtitle = memberSubtitle(
+                        sourceName = sourceDisplayName(manga.source.toString()),
+                        chapterCount = getChaptersByMangaId.await(manga.id).size,
+                    ),
                 )
             }
         }
@@ -147,7 +149,7 @@ class MangaMigrationFlowAdapter(
                 sourceKey = "${manga.source}",
                 sourceName = sourceManager.get(manga.source)?.name,
                 chapterCount = chapters.size,
-                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = manga.toEntryBrowseUi().cover,
                 payload = manga,
             )
@@ -179,7 +181,7 @@ class MangaMigrationFlowAdapter(
             // Null, not 0, when the fetch produced nothing: 0 reads as a settled count and blocks
             // the display peek from retrying, while null leaves the count honestly unknown.
             chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+            latestChapter = chapters.latestChapterNumber { it.chapterNumber },
         )
     }
 
@@ -215,7 +217,7 @@ class MangaMigrationFlowAdapter(
         return ResolvedTarget(
             candidate = refreshed.toCandidate(candidate.sourceKey).copy(
                 chapterCount = chapters.size.takeIf { it > 0 },
-                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                latestChapter = chapters.latestChapterNumber { it.chapterNumber },
             ),
             // A fetch that produced nothing is not a sync: claiming it would make the engine skip
             // its compensating refresh and migrate onto an empty row when the source flaked here.
@@ -233,7 +235,7 @@ class MangaMigrationFlowAdapter(
         if (stored.isNotEmpty()) {
             return candidate.copy(
                 chapterCount = stored.size,
-                latestChapter = stored.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                latestChapter = stored.latestChapterNumber { it.chapterNumber },
             )
         }
         // Nothing stored yet: read the source's chapter list and count it, without writing any of it
@@ -243,12 +245,11 @@ class MangaMigrationFlowAdapter(
             source.getMangaUpdate(manga.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
         }.getOrNull()
         if (fetched.isNullOrEmpty()) return null
-        val latest = fetched.maxOfOrNull {
-            ChapterRecognition.parseChapterNumber(manga.title, it.name, it.chapter_number.toDouble())
-        }
         return candidate.copy(
             chapterCount = fetched.size,
-            latestChapter = latest?.takeIf { it >= 0.0 },
+            latestChapter = fetched.latestChapterNumber {
+                ChapterRecognition.parseChapterNumber(manga.title, it.name, it.chapter_number.toDouble())
+            },
         )
     }
 
@@ -257,7 +258,7 @@ class MangaMigrationFlowAdapter(
         val chapters = getChaptersByMangaId.await(id)
         return manga.toCandidate("${manga.source}").copy(
             chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+            latestChapter = chapters.latestChapterNumber { it.chapterNumber },
         )
     }
 

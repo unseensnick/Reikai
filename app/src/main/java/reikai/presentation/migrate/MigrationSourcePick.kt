@@ -39,6 +39,9 @@ data class PickMember(
     val subtitle: String,
 )
 
+/** The [PickMember.subtitle] line, so both content types read the same. */
+fun memberSubtitle(sourceName: String, chapterCount: Int): String = "$sourceName  $chapterCount"
+
 /**
  * Shared UI for the migrate-merge source picker (manga + novel): a selectable member list plus a
  * Continue action. The hosting `Screen` keeps the type-specific bits, resolving the group, skipping

@@ -24,6 +24,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.SmartNovelSearchEngine
 import reikai.presentation.migrate.PickMember
+import reikai.presentation.migrate.memberSubtitle
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
 
@@ -94,13 +95,14 @@ class NovelMigrationFlowAdapter(
         }
         return memberIds.mapNotNull { id ->
             novelRepository.getById(id)?.let { novel ->
-                val source = sourceManager.get(novel.source)
-                val chapters = chapterRepository.getByNovelId(novel.id).size
                 PickMember(
                     id = novel.id,
                     title = novel.title,
-                    coverData = novel.toCover(source?.site),
-                    subtitle = "${source?.name ?: novel.source}  $chapters",
+                    coverData = novel.toCover(sourceManager.get(novel.source)?.site),
+                    subtitle = memberSubtitle(
+                        sourceName = sourceDisplayName(novel.source),
+                        chapterCount = chapterRepository.getByNovelId(novel.id).size,
+                    ),
                 )
             }
         }
@@ -152,7 +154,7 @@ class NovelMigrationFlowAdapter(
                 sourceKey = novel.source,
                 sourceName = source?.name,
                 chapterCount = chapters.size,
-                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = novel.toCover(source?.site),
                 payload = novel,
             )
@@ -253,7 +255,7 @@ class NovelMigrationFlowAdapter(
                 title = resolved.title,
                 // Null, not 0, for an empty list, matching every other candidate builder.
                 chapterCount = chapters.size.takeIf { it > 0 },
-                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+                latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = resolved.toCover(source.site),
                 handle = handle.copy(stored = resolved),
             ),
@@ -292,7 +294,7 @@ class NovelMigrationFlowAdapter(
             // A browsed row may be stored without a chapter sync; null rather than 0, so the compare
             // line reads unknown instead of a full shortfall. The engine refreshes it at migrate.
             chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.takeIf { it >= 0.0 },
+            latestChapter = chapters.latestChapterNumber { it.chapterNumber },
             key = "${novel.source}:${novel.url}",
             cover = novel.toCover(site),
             inLibrary = novel.favorite,

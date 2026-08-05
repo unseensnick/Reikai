@@ -41,6 +41,16 @@ val StripResult.hasSomethingToSay: Boolean
     get() = this !is StripResult.Loaded || candidates.isNotEmpty()
 
 /**
+ * The highest chapter number in [this], or null when there is none to show.
+ *
+ * A negative number is the recognizer saying it could not read one off the chapter, so it is not a
+ * count the user should be shown or compared against. Both adapters state that rule at eight call
+ * sites between them, which is eight places to miss it.
+ */
+inline fun <T> List<T>.latestChapterNumber(number: (T) -> Double): Double? =
+    maxOfOrNull(number)?.takeIf { it >= 0.0 }
+
+/**
  * The chosen target sources, resolved against what is enabled. The empty-selection fallback is
  * pinned-only, mirroring the config screen's seed, so what it showed is what gets searched.
  */
