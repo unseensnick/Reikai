@@ -4,8 +4,9 @@
 #
 #   pwsh scripts/comment-census.ps1 -Roots app/src/main/java/reikai | Sort-Object Pct -Descending
 #
-# MaxBlock is the longest run of consecutive comment lines and MaxBlockAt is where it starts, which
-# is what the hook rejects past 10. Point -Roots at refs/mihon to compare against upstream.
+# MaxBlock is the longest run of consecutive comment lines and MaxBlockAt is where it starts. It is
+# the RAW run: unlike the hook, it keeps counting through a KDoc tag list, so a heavily-parameterized
+# function reads higher here than the hook scores it. Point -Roots at refs/mihon to compare upstream.
 param([string[]]$Roots)
 
 function Measure-File($path) {
