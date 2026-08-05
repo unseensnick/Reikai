@@ -3,16 +3,11 @@ package reikai.util
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * Heuristic "is this adult content?" check for the library lewd filter.
- *
- * Ported from Komikku's `exh.util.LewdMangaChecker` (`Manga.isLewd`), re-typed onto Mihon's
- * immutable [Manga]. The E-Hentai/nHentai/delegated-source branches of the original are
- * deliberately omitted: they hang off Komikku's EXH subsystem, which Reikai does not have. The
- * precise adult-source handling is deferred to a later sprint; this keeps the portable core
- * (genre-tag + source-name heuristics), which already recognizes the common adult sources by
- * name when installed as third-party extensions.
- *
- * Pure function: the caller resolves [sourceName] (no Injekt here) so this stays unit-testable.
+ * Heuristic "is this adult content?" check for the library lewd filter, ported from Komikku's
+ * `LewdMangaChecker` and re-typed onto Mihon's immutable [Manga]. The original's delegated-source
+ * branches are deliberately omitted; what remains is the portable genre-tag and source-name core,
+ * which already recognizes the common adult sources by name when installed as extensions. Pure: the
+ * caller resolves [sourceName], so this stays unit-testable.
  */
 fun Manga.isLewd(sourceName: String?): Boolean {
     return (sourceName != null && isHentaiSource(sourceName)) ||

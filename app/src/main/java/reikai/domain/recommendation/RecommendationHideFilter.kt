@@ -2,17 +2,12 @@ package reikai.domain.recommendation
 
 /**
  * Decides whether a related-manga candidate should be hidden because the user already has or tracks
- * it. Pure: built once per details/browse open by [BuildRecommendationHideFilter] from the library's
- * tracks and the taste-library cache, then queried per candidate.
- *
- * Matching is identity-first, title-fallback: a candidate from a tracker recs endpoint carries a
- * `(trackerId, remoteId)`, matched exactly against the user's lists (and cross-tracker via the AniList
- * / MAL id a tracked entry recorded). Source-native candidates carry no id, so they fall back to
- * normalized-title matching ([RelatedMangaCandidate.titleKeys]).
- *
- * Two independent indexes back the two opt-in filter groups: [inLibrary] (hide manga already in the
- * library) and [hiddenStatus] (hide manga tracked with a status the user chose to suppress). Each is
- * empty when its filter is off, so [shouldHide] is a cheap no-op when nothing is enabled ([isNoOp]).
+ * it. Pure, built once per open from the library's tracks and the taste-library cache. Matching is
+ * identity-first, title-fallback: a tracker-recs candidate carries a `(trackerId, remoteId)` matched
+ * exactly, and cross-tracker through a recorded AniList or MAL id; source-native candidates carry no
+ * id and fall back to normalized-title matching. Two independent indexes back the two opt-in filter
+ * groups, [inLibrary] and [hiddenStatus], each empty when its filter is off, so [shouldHide] is a
+ * cheap no-op when nothing is enabled ([isNoOp]).
  */
 class RecommendationHideFilter(
     private val inLibrary: Index,

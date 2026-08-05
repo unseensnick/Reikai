@@ -10,16 +10,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * RK: one-shot merge group resolver for the manga reader. Given the manga a chapter was opened from,
- * it resolves the whole merge group and returns the unified cross-source chapter list (reading
- * ordered), plus the group's manga keyed by id so the reader can build a per-source page loader.
- *
- * Reuses the same [MangaMergeManager] group math and [ChapterAggregation] stitcher the manga details
- * screen uses, so the reader's list matches what the user tapped. When the manga is not merged it
- * returns exactly the single-source list (zero behaviour change for the common case).
- *
- * [aggregate] is the shared aggregate + reading-order policy, also called by the details screen's
- * reactive flow so the ordering lives in one place.
+ * One-shot merge group resolver for the manga reader: given the manga a chapter was opened from, it
+ * resolves the whole group and returns the unified cross-source chapter list in reading order, plus
+ * the group's manga keyed by id so the reader can build a per-source page loader. Reuses the same
+ * [MangaMergeManager] math and [ChapterAggregation] stitcher the details screen uses, so the reader's
+ * list matches what the user tapped, and returns exactly the single-source list when not merged.
+ * [aggregate] is the shared aggregate plus reading-order policy, also called by the details flow.
  */
 class MergedChapterProvider(
     private val getMangaWithChapters: GetMangaWithChapters = Injekt.get(),
@@ -139,16 +135,12 @@ class MergedChapterProvider(
             .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
 
     /**
-     * Re-add the [opened] chapter when the cross-source dedup dropped it (opened from history /
-     * updates, or from a non-preferred source's chip).
-     *
-     * Restamped, because the re-added row still carries its own source's `sourceOrder` while the
-     * unified list was renumbered to a single 0..N-1 scale, and the reader sorts on `sourceOrder`
-     * alone. Two scales under one comparator drop it at an arbitrary index, which breaks prev/next
-     * and leaves the reader describing a different chapter than it is showing.
-     *
-     * Returns [unified] untouched when there is nothing to add, so a single-source list never gets
-     * renumbered over its own source's ordering.
+     * Re-add the [opened] chapter when the cross-source dedup dropped it. Restamped, because the
+     * re-added row carries its own source's `sourceOrder` while the unified list was renumbered onto a
+     * single 0..N-1 scale, and the reader sorts on `sourceOrder` alone: two scales under one
+     * comparator drop it at an arbitrary index, breaking prev/next and leaving the reader describing a
+     * different chapter than it shows. Returns [unified] untouched when there is nothing to add, so a
+     * single-source list is never renumbered over its own source's ordering.
      */
     fun withOpenedChapter(unified: List<Chapter>, opened: Chapter?): List<Chapter> = when {
         opened == null || unified.any { it.id == opened.id } -> unified

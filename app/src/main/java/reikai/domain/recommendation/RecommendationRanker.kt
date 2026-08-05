@@ -7,27 +7,12 @@ import kotlin.math.ln
 import kotlin.math.min
 
 /**
- * Reorders the merged carousel pool against the user's taste profile. The input is the already
- * merged + library-filtered pool (tracker reserve + round-robin fairness baked in upstream); this
- * class only reorders, it never adds or drops candidates. Steps:
- *
- * 1. **Partition.** Source-origin vs tracker-origin ([RECOMMENDS_SOURCE]). The tracker slice passes
- *    through untouched (round-robin fairness isn't taste business, and tracker entries rarely carry
- *    parseable tags).
- * 2. **Score the source slice** by `final = (1 − w_personal) × popularity + w_personal ×
- *    (taste + novelty_boost) + agreement_boost`. Untagged candidates score 0 on the taste axis; the
- *    agreement boost (ln of how many streams surfaced the title) floats up cross-source agreement
- *    independent of taste (and applies even with an empty profile).
- * 3. **Exploration reservation.** `⌈sourceSize × w_serendipity⌉` slots stay in their original
- *    popularity order, guaranteeing a baseline of "what the source thinks is broadly relevant" no
- *    matter how strong the taste signal.
- * 4. **Diversity cap.** No more than [maxPerDominantTag] kept candidates may share the same dominant
- *    tag; offenders are demoted past the next non-conflicting candidate (single pass, no re-sort).
- *
- * **Empty profile path.** When [TasteProfile.totalEntries] is 0 or the score map is empty, returns
- * the input with only the agreement boost applied (the feature degrades silently with no profile).
- *
- * Pure compute (no I/O, not suspend), safe to invoke on every push since the input is capped.
+ * Reorders the merged carousel pool against the user's taste profile: it only reorders, never adds or
+ * drops candidates. The tracker slice passes through untouched. The source slice scores as
+ * `(1 - w_personal) * popularity + w_personal * (taste + novelty) + agreement`, then a serendipity
+ * reservation keeps `ceil(sourceSize * w_serendipity)` slots in popularity order, and a diversity cap
+ * demotes any candidate past [maxPerDominantTag] sharing a dominant tag. With an empty profile only
+ * the agreement boost applies, so the feature degrades silently. Pure compute, safe on every push.
  */
 class RecommendationRanker(
     private val wPersonal: Double = DEFAULT_W_PERSONAL,

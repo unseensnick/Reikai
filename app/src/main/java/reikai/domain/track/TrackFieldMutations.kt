@@ -4,14 +4,11 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.Tracker
 
 /**
- * Status/chapter/score transitions shared by the manga writer
+ * Status, chapter and score transitions shared by the manga writer
  * ([eu.kanade.tachiyomi.data.track.BaseTracker]) and the novel writer
- * ([reikai.domain.novel.track.NovelTrackUpdater]), so a change behaves identically for both and an
- * upstream tweak to the logic reaches novels automatically instead of drifting from a hand-copy.
- *
- * Only the field mutation lives here; each writer keeps its own remote push and persistence sink
- * (`manga_sync` vs `novel_tracks`). The trivial date/private setters have no logic to share and stay
- * inline in each writer.
+ * ([reikai.domain.novel.track.NovelTrackUpdater]), so an upstream tweak reaches novels automatically
+ * instead of drifting from a hand-copy. Only the field mutation lives here; each writer keeps its own
+ * remote push and persistence sink. The trivial date and private setters stay inline in each writer.
  */
 object TrackFieldMutations {
 

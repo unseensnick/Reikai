@@ -6,16 +6,12 @@ import uy.kohesive.injekt.injectLazy
 
 /**
  * Base contract for a tracker-backed recommendation provider: given a manga the user is viewing,
- * return titles that tracker considers similar. Dispatch mirrors the tracker UIs: prefer an
- * id-based lookup when the user already tracks this manga, otherwise resolve the id via one title
- * search (never a fan-out).
- *
- * Concrete providers target a single public "similar / recommendations" endpoint and use the
- * shared rate-limited client from [RecommendationsFetcher]; they do not use the tracker's
- * authenticated client (Shikimori's would throw for a logged-out user, see [ShikimoriRecommendations]).
- *
- * Candidates are tagged [RECOMMENDS_SOURCE] (their URL belongs to no installed extension, so a tap
- * routes through global search) and carry [RecommendationOrigin.Tracker] for the recommendations grouping.
+ * return titles that tracker considers similar. Dispatch prefers an id-based lookup when the user
+ * already tracks the manga, otherwise resolving the id through ONE title search, never a fan-out.
+ * Providers target a single public recommendations endpoint over the shared rate-limited client from
+ * [RecommendationsFetcher], never the tracker's authenticated client, which would throw for a
+ * logged-out user. Candidates are tagged [RECOMMENDS_SOURCE], their URL belonging to no installed
+ * extension, so a tap routes through global search.
  */
 abstract class TrackerRecommendations {
 

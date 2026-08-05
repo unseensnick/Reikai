@@ -26,16 +26,13 @@ import uy.kohesive.injekt.api.get
 import java.io.File
 
 /**
- * Recovers a library left behind when a user updates in place from the old Yōkai-based build.
- *
- * Both forks ship the same `tachiyomi.db` filename so installs upgrade in place, but the Yōkai
- * schema sits at a higher (and otherwise unrelated) version than Mihon's. SQLDelight therefore
- * treats the on-disk DB as "newer than the code", runs no migrations, and crashes on the first
- * query against a table Yōkai never had (e.g. `extension_store`). To recover instead of crash, we
- * read the old library out with plain SQL, write it as a normal backup, and move the old DB aside
- * so a fresh Mihon DB is created. The restore is enqueued by [eu.kanade.tachiyomi.App] once DI is
- * ready. Settings and tracker logins are untouched: those live in SharedPreferences, which survive
- * the in-place update.
+ * Recovers a library left behind when a user updates in place from the old Yokai-based build. Both
+ * forks ship the same `tachiyomi.db` filename, but the Yokai schema sits at a higher and unrelated
+ * version, so SQLDelight treats the on-disk DB as newer than the code, runs no migrations, and crashes
+ * on the first query against a table Yokai never had. To recover instead, the old library is read out
+ * with plain SQL, written as a normal backup, and the old DB moved aside so a fresh one is created;
+ * [eu.kanade.tachiyomi.App] enqueues the restore once DI is ready. Settings and tracker logins are
+ * untouched, living in SharedPreferences, which survive the update.
  */
 object LegacyYokaiDbImporter {
 

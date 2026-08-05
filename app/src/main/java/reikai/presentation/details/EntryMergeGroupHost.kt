@@ -13,22 +13,12 @@ import reikai.domain.merge.EntryMergeManager
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
- * The shared read side of a merged entry's details screen: the group ids, the selected-source chip, the
- * membership observer that keeps them live, and the source-switcher chips. Both details models compose this,
- * so the read wiring that drifted before (the group-refresh observer existed novel-side and was missing
- * manga-side, so a manga chip only appeared after reopening) is written once and can't diverge. Mirrors the
- * write-side [EntryMergeActionHost].
- *
- * The two per-type differences are injected, exactly as the action host injects its two:
- * - [anchorChanges] emits the current anchor id whenever the anchor or group membership changes (manga: a
- *   constant re-emitted on every membership change; novel: the url+source lookup combined with membership,
- *   whose closure also updates the novel model's own anchor field).
- * - [resolveSources] maps the grouped ids to the switcher chips (manga: synchronous `getOrStub`; novel:
- *   async plugin-load plus the sibling-source map its reader routing needs, populated inside the closure).
- *   It owns the not-merged case too (size <= 1 returns empty), so the novel side can clear its sibling map.
- *
- * [observe] is called from each model's init once its own fields are set (the injected closures capture
- * model state), never from this class's constructor, to avoid touching not-yet-initialized fields.
+ * The shared read side of a merged entry's details screen: the group ids, the selected-source chip,
+ * the membership observer keeping them live, and the source-switcher chips. Mirrors the write-side
+ * [EntryMergeActionHost]. Two per-type differences are injected: [anchorChanges] emits the anchor id
+ * whenever the anchor or membership changes, and [resolveSources] maps the grouped ids to chips,
+ * owning the not-merged case so the novel side can clear its sibling map. [observe] is called from
+ * each model's init once its fields are set, never here, since the closures capture model state.
  */
 class EntryMergeGroupHost(
     private val mergeManager: EntryMergeManager,
@@ -40,14 +30,12 @@ class EntryMergeGroupHost(
     /**
      * The group and the chip chosen inside it, as ONE cell.
      *
-     * [selected] is only ever an id present in [ids]. Keeping them apart made that impossible to hold:
-     * membership and selection were two flows, so a consumer combining them saw the pair disagree for
-     * one emission whenever a member left, and the two details models each papered over it their own
-     * way. Migrating a selected source out of the group crashed the manga chapter pipeline on an
-     * unguarded lookup, and silently rendered the migrated-away source on novels.
-     *
-     * [ids] compares by identity ([LongArray] has no structural equals), which the re-aggregate paths
-     * rely on: writing a `copyOf()` re-emits without changing membership.
+     * [selected] is only ever an id present in [ids], which two separate flows could not hold: a
+     * consumer combining them saw the pair disagree for one emission whenever a member left. Migrating
+     * a selected source out crashed the manga chapter pipeline on an unguarded lookup and silently
+     * rendered the migrated-away source on novels. [ids] compares by IDENTITY ([LongArray] has no
+     * structural equals), which the re-aggregate paths rely on: writing a `copyOf()` re-emits without
+     * changing membership.
      */
     data class GroupState(val ids: LongArray, val selected: Long?)
 
@@ -102,11 +90,10 @@ class EntryMergeGroupHost(
      * Re-read [anchorId]'s group from storage and publish it.
      *
      * The one way a caller that just changed the grouping updates this cell. Callers used to state the
-     * new membership themselves, from whatever their operation returned, and a split returns the
-     * SURVIVORS: split the anchor's own source out of a three-member group and the cell became the two
-     * OTHER entries, so the screen kept the anchor's title and cover over their chapter list. Reading
-     * the same source of truth [observe] reads means an optimistic update cannot disagree with the
-     * membership emission that follows it, whichever lands last.
+     * new membership from whatever their operation returned, and a split returns the SURVIVORS: split
+     * the anchor's own source out of a three-member group and the cell became the two OTHER entries.
+     * Reading the same source of truth [observe] reads means an optimistic update cannot disagree with
+     * the membership emission that follows it.
      */
     suspend fun refresh(anchorId: Long) = setRelated(mergeManager.computeRelatedIds(anchorId))
 

@@ -17,15 +17,12 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
 
 /**
- * The shared bulk "add to library" engine for every browse surface, manga and novel: selection
- * state (toggle / select-all / reverse), the default-category-or-prompt decision, and the one-shot
- * category dialog live here once, so the two content types cannot drift. The per-type facades
- * ([BulkFavoriteScreenModel], [reikai.presentation.novel.browse.NovelBulkFavoriteScreenModel])
- * supply only what genuinely differs: the selection key, the category source, the default-category
- * preference, and the add-to-library verb.
- *
- * One category choice applies to the whole selection, already-favorited entries are skipped, and
- * there is no per-duplicate prompt.
+ * The shared bulk "add to library" engine for every browse surface: selection state, the
+ * default-category-or-prompt decision and the one-shot category dialog live here once, so the two
+ * content types cannot drift. The per-type facades supply only what genuinely differs: the selection
+ * key, the category source, the default-category preference and the add-to-library verb. One category
+ * choice applies to the whole selection, already-favorited entries are skipped, and there is no
+ * per-duplicate prompt.
  */
 abstract class EntryBulkFavoriteScreenModel<T : Any> :
     StateScreenModel<EntryBulkFavoriteScreenModel.State<T>>(State()) {

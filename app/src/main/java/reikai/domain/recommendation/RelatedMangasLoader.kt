@@ -22,18 +22,13 @@ import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Orchestrates the related-mangas carousel: fetches candidates from every stream, dedups them into
- * one pool, and ranks it, pushing intermediate snapshots so the UI renders progressively.
- *
- * Two streams run concurrently into a single shared [Accumulator]: the source-native path (the
- * `getRelatedMangaList` contract) and the tracker recommendation path ([RecommendationsFetcher],
- * one stream per enabled tracker). Sharing one accumulator means a title surfaced by both a source
- * and a tracker dedups to a single candidate and its cross-stream agreement counts across both.
- *
- * Dedup is two-keyed: by [SManga.url] (a source's own duplicate rows) and by normalized title set
- * (the same series listed under different titles across streams, via [TitleNormalizer] + each
- * candidate's [RelatedMangaCandidate.titleKeys]). Agreement (how many times a title key appeared
- * before dedup) is counted and fed to the ranker.
+ * Orchestrates the related-mangas carousel: fetches candidates from every stream, dedups them into one
+ * pool and ranks it, pushing intermediate snapshots so the UI renders progressively. The source-native
+ * and tracker-recommendation streams run concurrently into ONE shared [Accumulator], so a title
+ * surfaced by both dedups to a single candidate whose cross-stream agreement counts across both.
+ * Dedup is two-keyed: by [SManga.url] for a source's own duplicate rows, and by normalized title set
+ * for the same series listed under different titles. Agreement, the number of times a title key
+ * appeared before dedup, is counted and fed to the ranker.
  */
 class RelatedMangasLoader(
     private val fetcher: RecommendationsFetcher = Injekt.get(),

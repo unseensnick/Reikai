@@ -3,23 +3,12 @@ package reikai.domain.recommendation.taste
 import kotlin.math.abs
 
 /**
- * Pure (no I/O) reduction: `List<TrackedEntry>` to `TasteProfile`.
- *
- * **Status weights:** COMPLETED +1.0, READING +0.7, ON_HOLD +0.3, PLAN_TO_READ 0.0 (signal-free),
- * DROPPED -1.0, UNKNOWN 0.0 (signal-free).
- *
- * **Formula** (per tag `t`):
- * ```
- *   score(t) = Σ (rating × status_weight)  /  Σ |status_weight|
- *               over manga tagged with t and with non-zero status_weight
- * ```
- *
- * - `rating` is the normalized 0..1 tracker score. Unrated entries (`-1.0`) substitute `0.5` so
- *   status still signals direction with neutral magnitude.
- * - The denominator uses `|status_weight|` rather than `Σ status_weight` so a tag with equal
- *   COMPLETED and DROPPED counts doesn't divide by zero, while still weighting completed over
- *   reading.
- * - The result is clamped to `[-1.0, +1.0]`.
+ * Pure reduction of `List<TrackedEntry>` to a `TasteProfile`. Per tag, the score is the sum of
+ * `rating * status_weight` over entries carrying it, divided by the sum of `|status_weight|`, clamped
+ * to [-1, +1]. Status weights run COMPLETED +1.0, READING +0.7, ON_HOLD +0.3, DROPPED -1.0, with
+ * PLAN_TO_READ and UNKNOWN signal-free at 0. An unrated entry substitutes a rating of 0.5, so status
+ * still signals direction at neutral magnitude. The denominator takes the ABSOLUTE weight so a tag
+ * with equal completed and dropped counts cannot divide by zero.
  */
 class ComputeTasteProfile {
 

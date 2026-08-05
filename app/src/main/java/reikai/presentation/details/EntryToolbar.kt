@@ -28,14 +28,11 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.active
 
 /**
- * Shared details toolbar for manga and novels: a Filter action (tinted when a filter is active), the
+ * Shared details toolbar for manga and novels: a Filter action tinted when a filter is active, the
  * Download menu, one overflow, and the action-mode select-all / invert / hide-or-unhide. Each per-type
- * capability is a nullable slot, so a content type lights up only what it supports and the two toolbars
- * cannot drift. Title + background fade with scroll via the alpha providers, which the details shell feeds.
- *
- * Type-specific slots: [onClickMetadataViewer] (manga gallery sources only), [onClickEditInfo] and the
- * hide/unhide cluster ([onHide] / [onUnhide] / [onToggleShowHidden]) are the novel additions; a null
- * callback hides its item, so manga can leave them off until it wires them in a later phase.
+ * capability is a nullable slot, so a content type lights up only what it supports and the two cannot
+ * drift; a null callback hides its item. Title and background fade with scroll through the alpha
+ * providers the details shell feeds.
  */
 @Composable
 fun EntryToolbar(

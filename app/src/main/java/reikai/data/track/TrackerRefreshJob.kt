@@ -43,19 +43,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Pulls fresh remote state for every tracker bound to a library entry, both content types.
+ * Pulls fresh remote state for every tracker bound to a library entry, both content types. Without it
+ * a track row only refreshes when its details screen is opened, so the library's tracker-score sort
+ * and tracker filter read whatever happened to be cached.
  *
- * Reikai only refreshed a tracker when its entry's details screen was opened, so the local track rows
- * (score, status, remote progress) drifted, and the library's tracker-score sort and tracker filter read
- * whatever happened to be cached. This is the library-wide catch-up for that.
- *
- * Manual only, and deliberately not folded into the library chapter update: a chapter update runs on a
- * schedule and per source, while this is one network call per bound tracker per entry against services
- * that rate-limit, so attaching it would multiply every update's remote traffic invisibly.
- *
- * Only entries that actually carry a track are visited, so an untracked library costs two local queries
- * and nothing else. Both interactors are merge-group aware, so a grouped entry refreshes every tracker
- * bound anywhere in its group.
+ * Manual only, and deliberately NOT folded into the library chapter update: that runs on a schedule
+ * per source, while this is one rate-limited network call per bound tracker per entry, so attaching it
+ * would multiply every update's remote traffic invisibly. Only entries carrying a track are visited.
+ * Both interactors are merge-group aware, so a grouped entry refreshes every tracker in its group.
  */
 class TrackerRefreshJob(
     private val context: Context,

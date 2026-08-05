@@ -23,20 +23,12 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Taste-driven extra candidates for the related-mangas carousel, pushed into the shared accumulator
- * alongside the source-native and tracker-recs streams. Gated on the current manga (M) being tracked
- * on a recommendations-capable tracker: the loader hands over M's [TrackerRecommendations.MediaContext]
- * per such tracker (M's recommendations + genres), fetched once and shared with the carousel.
- *
- * Two sub-flows, each behind its user pref:
- * - **Cross-recommendation** ([injectCrossRecommendationCandidates]): seeds only from the user's
- *   highly-rated tracked titles that appear in M's own recommendation list (the tracker itself says
- *   they're similar to M), then surfaces each seed's recommendations, tagged
- *   [RecommendationOrigin.CrossRec]. No genre heuristics: the tracker graph decides similarity.
- * - **Tag search** ([injectTagSearchCandidates]): searches the current source for M's tracker genres
- *   the user scores positively (falling back to the source's genres when the tracker reports none),
- *   tagged [RecommendationOrigin.TagSearch].
- *
- * One sub-task failing never blocks the other.
+ * alongside the source-native and tracker-recs streams. Gated on the current manga being tracked on a
+ * recommendations-capable tracker, whose [TrackerRecommendations.MediaContext] the loader fetches once
+ * and shares. Two sub-flows, each behind its own preference and neither blocking the other:
+ * cross-recommendation seeds from highly-rated tracked titles that appear in this manga's own
+ * recommendation list, so the tracker graph decides similarity rather than genre heuristics; tag
+ * search queries the current source for the tracker genres the user scores positively.
  */
 class TasteCandidateFetcher(
     private val repository: TasteLibraryRepository = Injekt.get(),

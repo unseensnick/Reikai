@@ -37,6 +37,8 @@ Short, concise, useful: as brief as possible **without losing vital info**. Vita
 
 **Write to 8 lines. Over 10 is rejected by the `pre-commit` hook.** The unit is a run of consecutive comment lines, so a KDoc header and an inline paragraph are each measured whole; 9 or 10 lines is allowed but wants a reason you would say out loud. Scoped to the Reikai-owned trees (`reikai/`, `exh/`). Mihon's own files keep upstream shape, and the `// RK` islands in them already sit far under this.
 
+A KDoc tag list (`@param`, `@return`, `@property`) stops the count for the rest of its block: tags are an enumeration keyed to the signature, not narrative, and a function with six documented parameters is not the wall this cap is aimed at. Tags come last in a KDoc, so the prose above them is still measured in full. This is not a loophole to route prose through: a `@param` whose text is three sentences of rationale is the same wall, and belongs in the plan doc like any other.
+
 **The cap is a ceiling almost nothing should approach, not a budget to spend.** Most comments are one to three lines and belong that way. Never lengthen a comment because there is room left, never add a comment to a line that did not need one, and never split one long comment into two capped ones with a blank line between them: that is the same wall of text, hiding from the hook.
 
 **A comment that wants more room is telling you something.** Usually the code needs the work, not the comment: a name that explains itself, a function split at the seam the comment was describing, a type that makes the invariant unstateable-wrong. Reach for that first.

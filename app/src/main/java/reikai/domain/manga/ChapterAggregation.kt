@@ -3,49 +3,27 @@ package reikai.domain.manga
 import tachiyomi.domain.chapter.model.Chapter
 
 /**
- * Pure cross-source chapter stitcher for merged manga groups. Given each sibling source's chapters,
- * produces ONE unified list:
- *
- * 1. **Trunk = the source with the most _distinct recognized_ chapter numbers** (not the most rows).
- *    Counting distinct numbers (so a source listing one chapter under several scanlators collapses to
- *    one number for the count) stops a scanlator-heavy source from winning the trunk on raw row count
- *    alone. This is the Comick case: it lists each chapter many times but covers fewer real numbers.
- * 2. **Gap-fill:** every recognized number the trunk lacks is borrowed from the next source (in
- *    distinct-count order) that has it.
- *
- * The result holds **one row per recognized chapter number**: a source's own scanlator variants
- * collapse to one, and a number already supplied by an earlier source isn't repeated. The trunk's
- * unrecognized-number chapters (< 0) are kept (they can't be matched by number); siblings'
- * unrecognized chapters are dropped to avoid unmatchable duplicates. Each returned [Chapter] keeps
- * its own [Chapter.mangaId], so the caller can read a chapter from its origin source. Output is
- * unsorted: callers apply their own sort.
- *
- * **Dedup key is the chapter number narrowed to [Float].** The source API stores
- * `SChapter.chapter_number` as a 32-bit float, so a source that reports a number hands back e.g.
- * `1.1f` (≈ 1.10000002384), while a source that doesn't falls through to [ChapterRecognition], which
- * parses in [Double] and yields exact `1.1`. Those differ by ~2.4e-8, so an exact-double key would
- * leave the same logical chapter duplicated across sources. Narrowing both to [Float] snaps them
- * onto one grid (`1.1.toFloat() == 1.1f`) while keeping real sub-chapters (`x.005`, `x.1`, `x.2`)
- * distinct, since their spacing is far wider than a float ULP at realistic chapter magnitudes.
- *
- * Stateless and side-effect-free so it can be unit-tested in isolation.
+ * Pure cross-source chapter stitcher for merged manga groups. Trunk = the source with the most
+ * DISTINCT recognized chapter numbers, not the most rows, so a source listing one chapter under many
+ * scanlators cannot win on row count; every number the trunk lacks is gap-filled from the next source
+ * in that order. One row per recognized number, with the trunk's unrecognized chapters kept and
+ * siblings' dropped. The dedup key is the number narrowed to [Float], because a source-reported number
+ * is a 32-bit float where a parsed one is a double: an exact double key duplicates a chapter across
+ * sources, and float spacing still keeps real sub-chapters distinct.
  */
 object ChapterAggregation {
 
     /**
-     * @param chaptersBySource each sibling manga's id mapped to that source's chapters.
-     * @param sourceIdByManga each sibling manga's id mapped to its source id (for the priority rank).
-     *   Empty (the default) means no source priority: pure distinct-count, unchanged behavior.
-     * @param preferredSourceIds the global preferred-source ranking, highest priority first. A source
-     *   on this list wins the trunk over distinct-count; unranked sources fall back to distinct-count
-     *   among themselves.
-     * @param gallerySourceMangaIds manga ids whose source treats each chapter as a whole standalone
-     *   gallery (adult / metadata sources). Their chapters bypass the cross-source number dedup, since
-     *   every gallery source numbers its primary chapter 1 and would otherwise collide across sources.
-     * @param memberRanking a per-group override: the member manga ids in the group's own trunk order.
-     *   When non-empty it ranks members directly (by position here) and [preferredSourceIds] is ignored,
-     *   so two members sharing a source still order distinctly. Empty (the default) uses the source list.
-     * @return the unified chapter list (unsorted). For 0 or 1 source, returns the input unchanged.
+     * Each returned [Chapter] keeps its own [Chapter.mangaId], so a caller can read it from its origin
+     * source; the output is unsorted.
+     *
+     * @param preferredSourceIds the global ranking, highest first. A listed source wins the trunk over
+     *   distinct-count; unranked ones fall back to distinct-count among themselves.
+     * @param gallerySourceMangaIds ids whose source treats each chapter as a standalone gallery. Their
+     *   chapters bypass the number dedup, since every gallery source numbers its first chapter 1.
+     * @param memberRanking a per-group override ranking members by position, which ignores
+     *   [preferredSourceIds] so two members sharing a source still order distinctly.
+     * @return the unified list; for 0 or 1 source, the input unchanged.
      */
     fun aggregate(
         chaptersBySource: Map<Long, List<Chapter>>,

@@ -10,14 +10,11 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 
 /**
- * Pulls the enabled trackers' libraries and writes them into the taste cache. Each tracker is
- * fetched in parallel and replaces only its own rows, so one tracker failing leaves the others'
- * cached data intact. The pull is the only thing that hits the network; the profile itself is
- * recomputed locally from the cache ([GetTasteProfile]).
- *
- * Registered as a singleton so the [mutex] and the staleness check coalesce concurrent triggers
- * (e.g. several details screens opening at once) into a single pull. A user schedule (never / 7d /
- * 30d) and a cooldown-guarded manual [refreshNow] sit on top of [await].
+ * Pulls the enabled trackers' libraries and writes them into the taste cache. Each tracker is fetched
+ * in parallel and replaces only its own rows, so one failing leaves the others' cached data intact.
+ * The pull is the only thing that hits the network; the profile is recomputed locally from the cache.
+ * Registered as a singleton so the [mutex] and the staleness check coalesce concurrent triggers into
+ * one pull. A user schedule and a cooldown-guarded manual [refreshNow] sit on top of [await].
  */
 class RefreshTrackerLibrary(
     private val fetchers: List<TrackerLibraryFetcher>,

@@ -25,19 +25,13 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.track.model.Track
 
 /**
- * Adapts the live [MangaScreenModel] to the neutral [EntryDetailsBehavior]. Mihon's model stays live and
- * upstream-tracked (never made to implement a Reikai interface); this maps its [MangaScreenModel.State.Success]
- * to the neutral [EntryDetailsScreenState] and forwards the neutral action calls to the model's own methods.
- *
- * Where the manga engine's shapes differ from the neutral ids, the mapping reconciles here, never in the
- * model: a neutral chapter id resolves back to a [ChapterList.Item] or [Chapter]; the no-arg selection actions
- * gather the model's per-item `selected` flags; the merge-display anchor collapses to a single display entry;
- * and the manga-only capability slots are filled from the loaded state. Symmetric with [NovelEntryAdapter],
- * so a single shared `EntryDetailsContent` can drive both content types through this one interface.
- *
- * Manga-only actions (page-preview loading, scanlator filtering) stay off the shared interface. Consumed once
- * the manga body UI migrates onto the shared scaffold; today it compile-proves the interface against the real
- * manga model.
+ * Adapts the live [MangaScreenModel] to the neutral [EntryDetailsBehavior]. Mihon's model stays live
+ * and upstream-tracked, never made to implement a Reikai interface, so this maps its success state to
+ * [EntryDetailsScreenState] and forwards neutral actions to the model's own methods. Every shape
+ * mismatch reconciles HERE, never in the model: neutral chapter ids resolve back to the manga types,
+ * the no-arg selection actions gather the model's per-item flags, and the manga-only capability slots
+ * are filled from loaded state. Symmetric with [NovelEntryAdapter], so one shared
+ * `EntryDetailsContent` can drive both types. Manga-only actions stay off the shared interface.
  */
 class MangaEntryAdapter(
     private val model: MangaScreenModel,

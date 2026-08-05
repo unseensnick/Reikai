@@ -182,15 +182,22 @@ fi
 #
 # The whole staged file is measured, not just its added lines: a comment block is contiguous, so a
 # diff shows fragments of one and a wall added over two commits would slip through.
+#
+# A KDoc tag list (@param, @return, @property, ...) stops the count for the rest of its block. Tags
+# are an enumeration keyed to the signature, not narrative, so a function with six documented
+# parameters is not the wall this cap is aimed at. Tags always come last in a KDoc, so the prose
+# above them is still measured in full.
 blocks=""
 for f in $(git diff --cached --name-only --diff-filter=ACM -- '*.kt' | grep -E '(^|/)(reikai|exh)/' || true); do
   blocks="$blocks$(git show ":$f" | awk -v file="$f" '
     { line = $0; sub(/^[ \t]+/, "", line); isc = 0
       if (inblock)               { isc = 1; if (line ~ /\*\//) inblock = 0 }
-      else if (line ~ /^\/\*/)   { isc = 1; if (line !~ /\*\//) inblock = 1 }
+      else if (line ~ /^\/\*/)   { isc = 1; if (line !~ /\*\//) inblock = 1; tagged = 0 }
       else if (line ~ /^\/\//)   { isc = 1 }
-      if (isc) { if (run == 0) start = NR; run++ }
-      else     { if (run > 8) print file ":" start ": " run " lines"; run = 0 } }
+      if (isc && line ~ /^\*[ \t]*@/) tagged = 1
+      if (isc && !tagged) { if (run == 0) start = NR; run++ }
+      else { if (run > 8) print file ":" start ": " run " lines"; run = 0 }
+      if (!isc) tagged = 0 }
     END      { if (run > 8) print file ":" start ": " run " lines" }
   ')
 "

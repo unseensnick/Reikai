@@ -4,16 +4,12 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * RK: long-strip detection behind auto webtoon mode, ported from Komikku (exh/util/MangaType),
- * which inherited it from TachiyomiSY. Classification reads an entry's genre tags and its source's
- * display name only, never image dimensions, so it costs nothing at page-load time.
- *
- * The tag tokens are not guesswork: the Madara and MangaThemesia extension themes scrape each
- * site's own series-type field and append it to the genre list, so several hundred sources emit
- * "Manga" / "Manhwa" / "Manhua" as a genre directly. That injection is what makes this work.
- *
- * [sourceName] is required rather than resolved from a SourceManager default, so this stays a pure
- * function: no DI to fail invisibly at the call site, and it is directly unit-testable.
+ * Long-strip detection behind auto webtoon mode, ported from Komikku. Classification reads an entry's
+ * genre tags and its source's display name only, never image dimensions, so it costs nothing at
+ * page-load time. The tag tokens are not guesswork: the Madara and MangaThemesia extension themes
+ * scrape each site's own series-type field into the genre list, so several hundred sources emit
+ * "Manga" / "Manhwa" / "Manhua" as a genre directly, and that injection is what makes this work.
+ * [sourceName] is required rather than resolved from a SourceManager, so this stays a pure function.
  */
 fun Manga.mangaType(sourceName: String?): MangaType {
     val currentTags = genre.orEmpty()

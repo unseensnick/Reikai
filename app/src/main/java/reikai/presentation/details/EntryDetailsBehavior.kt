@@ -10,14 +10,11 @@ import tachiyomi.domain.track.model.Track
 
 /**
  * The neutral behaviour both content types expose to the shared details UI: the state stream plus the
- * action set the shared toolbar, action row, info column and chapter rows call. The shared screen shell
- * drives a details screen entirely through this, so a body change reaches manga and novels at once.
- *
- * Only genuinely shared actions live here. Novel-only actions (the page selector, plugin reload) and per-type
- * navigation (opening the reader, share and WebView intents) stay on the concrete adapter or the thin screen,
- * so the shared spine never rots into no-op methods. Each adapter maps its own model onto these signatures:
- * ids are neutral `Long`s and the adapter fans them back out to its model's own shapes (a manga chapter id to
- * a `Chapter`, the three-TriState filter call back to its packed form).
+ * action set the shared toolbar, action row, info column and chapter rows call, so a body change
+ * reaches manga and novels at once. Only genuinely shared actions live here; novel-only actions and
+ * per-type navigation stay on the concrete adapter or the thin screen, so the shared spine never rots
+ * into no-op methods. Ids are neutral `Long`s, and each adapter fans them back out to its model's own
+ * shapes.
  */
 interface EntryDetailsBehavior {
     val state: StateFlow<EntryDetailsScreenState>

@@ -20,14 +20,11 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
 /**
- * Adapts the live [NovelDetailsScreenModel] to the neutral [EntryDetailsBehavior]. The model keeps its own
- * novel-typed state machine; this maps its [NovelDetailsState] to the neutral [EntryDetailsScreenState] and
- * forwards the neutral action calls to the model's methods, resolving a neutral chapter id back to a
- * [NovelChapter] where a model method needs one. Symmetric with the manga adapter, so a single shared
- * `EntryDetailsContent` can drive both content types through this interface.
- *
- * Novel-only actions ([selectPage]) stay off the shared interface. Consumed by the shared Content once the
- * details screen unifies; today it exists to compile-prove the interface against the real novel model.
+ * Adapts the live [NovelDetailsScreenModel] to the neutral [EntryDetailsBehavior]. The model keeps its
+ * own novel-typed state machine; this maps [NovelDetailsState] to [EntryDetailsScreenState] and
+ * forwards neutral actions to the model's methods, resolving a neutral chapter id back to a
+ * [NovelChapter] where one is needed. Symmetric with the manga adapter, so one shared
+ * `EntryDetailsContent` can drive both content types. Novel-only actions stay off the interface.
  */
 class NovelEntryAdapter(
     private val model: NovelDetailsScreenModel,
