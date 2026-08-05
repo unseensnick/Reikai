@@ -233,6 +233,39 @@ for each fix (list versus search screen, batch versus single commit, rule versus
 assuming it is the two content types. That pass caught a member the audit itself had missed, both branches
 of `toggleAccept` ignoring skip where the auditor reported only the render rule.
 
+**Step 12, the fourth round and the realignment on upstream (2026-08-05).** Round 4 found the round-3 shape
+and nothing else: both Highs were families whose other half an earlier round had already fixed (the restore
+trunk rule applied to the named-group branch but not the remainder; the merge-group departure tied to the
+unfavorite on one of five paths). That prompted the owner to ask how far the flow had drifted from upstream,
+which produced two measurements worth keeping. Upstream's equivalent surface is 2353 code lines against our
+3781, and the gap is mostly capabilities we ruled in rather than machinery we invented. And upstream has
+made **zero behavioral commits** to `mihon/feature/migration` since the revision v2 was copied from: three
+commits, all plumbing, 82 insertions. The takeover's accepted churn price has cost nothing so far.
+
+The owner then ruled two divergences away, both toward upstream:
+
+- **A decided row leaves the list.** Skipping removes it and so does a successful commit; only a failure
+  keeps its row, because a failure is the one outcome that still needs the user. This deleted the `skipped`
+  flag and the `Migrated` phase, an orthogonal axis that eight rules had to consult and that rounds 3 and 4
+  each caught a rule forgetting. `Disposition` survives for `Declined` alone. Removal, the counters and the
+  finish check are now one path, which is how upstream keeps them from disagreeing. The load-bearing detail:
+  the batch iterates a snapshot taken before it starts, so its claim re-checks list membership; without that
+  it migrates an entry the user removed while it worked the rows ahead.
+- **The search options are settled before the list runs**, on the config screen, as upstream asks for them.
+  This deleted `applyTuning`'s row-rebuild, `onSearchRestart`, `RestartOutcome` and
+  `MigrationTuning.affectsSearch`. The list reads its tuning once, so nothing can change what a search
+  returns while one is running, and the standing hazard of rows being replaced underneath live work is gone.
+  The cost, accepted: changing an option means entering Migrate again.
+
+**A regression this produced, recorded because the tests could not see it.** Stripping the tuning sheet out
+with a lazy multi-line regex also deleted the block below it, taking the progress dialog and the whole
+`visibleDialog` render with it. Back and the toolbar up arrow went dead and Stop became unreachable. It
+compiled, because only the call sites went and the composables remained, and the full unit suite stayed
+green, because the ScreenModel was correct throughout. There is no Compose UI test here, so a screen can
+stop rendering a modal with nothing failing. After a bulk deletion on this surface, diff the function
+inventory of each touched file against a pre-session commit, and check that every model API has a caller and
+every `State` field a consumer; that pair found both this and a dead `State.matchStrategy` left behind.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
@@ -242,5 +275,6 @@ of `toggleAccept` ignoring skip where the auditor reported only the render rule.
 - Deep-search and prioritize-by-chapters stay manga-gated at first: they run on the manga smart-search engine; leveling novels up is future work, not faked in the shared sheet. **Owner ruling (2026-08-03): level the novel side up wherever the plugin host can actually support it**, rather than leaving `supportsSmartMatch` gated forever. The tuning-sheet slice decides per capability, and a capability novels genuinely cannot support stays a typed gate with a one-line note, never a disabled row.
 - The bulk-migration-tuning gate for novels (5B in [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md)) is partially superseded: the shared sheet gives novels extra-query and the hide toggles; the smart-matching half stays gated as above.
 - The migrate-tab source list is out of the mandatory delete set: it is consumed by Reikai-owned `ReikaiMigrateSourceTab` and is a browse-surface artifact, not flow; absorbing it is a design-pass option, not a requirement.
+- **Measure against upstream before adding machinery (owner, 2026-08-05).** Two of the capabilities added over upstream (restorable skip, mid-list tuning) cost more in cross-cutting state than they returned, and both produced audit findings. Upstream declines them and keeps a 31-line row and a lock-free sequential driver. When a capability here needs a new axis on the row or the ability to rebuild rows underneath live work, price it against what upstream gives up, and prefer upstream's answer unless the capability clearly earns the difference. Per-row commit is the counter-example worth remembering: it looked like ours and was upstream's all along.
 - **v2 over v1 (2026-08-03): rebuild on upstream's architecture instead of continuing to patch.** v1 wrote a new orchestration whose row was ten lifecycle booleans plus nullable payloads on copied value objects; eight audit rounds of recurring defect classes showed the guards could not converge. v2 neutralizes upstream's proven machine (stable row objects, sealed cells, per-row scopes, sequential driver) and adds each v1 capability back as a separately audited diff. The alternative, a ninth repair round, was declined on the recurrence evidence.
 - **Durable v2 rules, enforced by representation:** no boolean lifecycle flags on shared rows (sealed cells; the nullable-soup rule applied to state); no lock held while awaiting foreign code, and no lock at all in the row machine (identity-based isolation via new row objects replaces epochs); no rendezvous channels for user-visible outcomes (consume-once state); adapter fetch timing is contract, not convention.
