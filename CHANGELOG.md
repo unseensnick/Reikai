@@ -86,6 +86,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.
 - **Restoring now leaves grouping it wasn't describing alone.** Sources in a group that the backup says nothing about keep their group and the order you set.
+- **Splitting or removing the source you are currently viewing no longer leaves its page showing the other sources' chapters.** The title and cover stayed the one you opened while the chapter list quietly became someone else's.
 - **Restoring a backup now keeps the source order and leading source of the groups it does describe.** A group you had dragged into order came back on whichever source happened to be listed first, taking the library cover with it.
 - **Migrating one source of a grouped series no longer breaks its page.** With that source's chip selected, the chapter list could crash on manga and show the old source on novels.
 - **Removing a source from the library no longer costs the rest of the group its tracking.** The remaining sources now get their own copy of the shared tracker link before the removal lands.

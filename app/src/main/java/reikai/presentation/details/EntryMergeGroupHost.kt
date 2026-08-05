@@ -99,6 +99,18 @@ class EntryMergeGroupHost(
     }
 
     /**
+     * Re-read [anchorId]'s group from storage and publish it.
+     *
+     * The one way a caller that just changed the grouping updates this cell. Callers used to state the
+     * new membership themselves, from whatever their operation returned, and a split returns the
+     * SURVIVORS: split the anchor's own source out of a three-member group and the cell became the two
+     * OTHER entries, so the screen kept the anchor's title and cover over their chapter list. Reading
+     * the same source of truth [observe] reads means an optimistic update cannot disagree with the
+     * membership emission that follows it, whichever lands last.
+     */
+    suspend fun refresh(anchorId: Long) = setRelated(mergeManager.computeRelatedIds(anchorId))
+
+    /**
      * Resolve the group + chips once for the first-render seed (manga's eager load), setting [relatedIds]
      * and returning the chips so the caller seeds them into the initial state atomically, before the
      * reactive collectors fire.

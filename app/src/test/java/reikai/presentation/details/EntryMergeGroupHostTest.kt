@@ -75,6 +75,22 @@ class EntryMergeGroupHostTest {
     }
 
     @Test
+    fun `refresh re-reads the group instead of trusting what a caller hands it`() = runTest {
+        val manager = mockk<EntryMergeManager> {
+            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L)
+        }
+        val host = host(manager)
+        host.seed(1L)
+
+        // The anchor is split out of its own group, so the split returns the SURVIVORS, which are the
+        // two entries the screen is NOT showing. Re-reading gives the anchor standing alone instead.
+        coEvery { manager.computeRelatedIds(1L) } returns longArrayOf(1L)
+        host.refresh(1L)
+
+        host.relatedIds.toList() shouldBe listOf(1L)
+    }
+
+    @Test
     fun `selecting a source outside the group is refused`() = runTest {
         val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
         val host = host(manager)
