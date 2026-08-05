@@ -80,6 +80,36 @@ class MigrateNovelUseCaseTest {
         transactions = transactions,
     )
 
+    // The twins of the manga suite's two engine guards. Both guards existed here already; neither was
+    // pinned, and the target-source one was sitting inside a branch the commit path skips.
+
+    @Test
+    fun `migrating an entry onto itself does nothing at all`() = runTest {
+        val repo = defaultNovelRepo()
+
+        useCase(novelRepository = repo)(novel(1), novel(1), emptySet(), replace = true, skipTargetRefresh = true)
+
+        coVerify(exactly = 0) { repo.updateAll(any()) }
+    }
+
+    @Test
+    fun `a missing target source fails the row instead of returning as if migrated`() = runTest {
+        val sources = mockk<NovelSourceManager>()
+        every { sources.get(any<String>()) } returns null
+
+        shouldThrow<IllegalStateException> {
+            useCase(sourceManager = sources)(
+                novel(1),
+                novel(2),
+                emptySet(),
+                replace = true,
+                // The point of the twin: the check has to hold on the path the flow actually uses,
+                // which skips the refresh the check used to be nested inside.
+                skipTargetRefresh = true,
+            )
+        }
+    }
+
     /** Twin of the manga suite's: observes where the engine put its writes, which a pass-through
      *  fake cannot tell apart from two separate transactions. */
     private class RecordingTransactions : Transactions {

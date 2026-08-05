@@ -63,6 +63,13 @@ class MigrateNovelUseCase(
     ) {
         if (current.id == target.id) return
         try {
+            // Checked before anything is written, and outside the refresh branch below, so the engine
+            // fails the same way manga's does whether or not the caller pre-fetched. It used to sit
+            // inside that branch, which is skipped on the normal commit path, so the engine would
+            // happily migrate onto a source it could not resolve and leave the entry unreadable.
+            val targetSource = checkNotNull(sourceManager.get(target.source)) {
+                "Target source ${target.source} unavailable"
+            }
             // Capture the source's merge group up front, before the target is favorited, so it's the
             // source plus its existing siblings, not the target (which shares the title on a clean match).
             val group = novelMergeManager.computeRelatedIds(current.id)
@@ -74,9 +81,6 @@ class MigrateNovelUseCase(
             // target whose chapter list could not be brought up to date would carry read state onto
             // whatever stale rows happen to be there. The row's retry is the recovery path.
             if (!skipTargetRefresh) {
-                val targetSource = checkNotNull(sourceManager.get(target.source)) {
-                    "Target source ${target.source} unavailable"
-                }
                 refreshNovelFromSource(
                     target,
                     targetSource,

@@ -33,6 +33,8 @@ import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.domain.track.model.Track
+import java.io.File
 
 /**
  * The manga migration engine's safety contracts, the twins of MigrateNovelUseCaseTest's: the
@@ -59,18 +61,21 @@ class MigrateMangaUseCaseTest {
         },
         coverCache: CoverCache = mockk(relaxed = true),
         transactions: Transactions = PassThroughTransactions,
+        downloadManager: DownloadManager = mockk(relaxed = true),
+        getTracks: GetTracks = mockk { coEvery { await(any<Long>()) } returns emptyList() },
+        insertTrack: InsertTrack = mockk(relaxed = true),
     ) = MigrateMangaUseCase(
         sourcePreferences = mockk(relaxed = true),
         trackerManager = mockk(relaxed = true) { every { trackers } returns emptyList() },
         sourceManager = sourceManager,
-        downloadManager = mockk<DownloadManager>(relaxed = true),
+        downloadManager = downloadManager,
         updateManga = updateManga,
         getChaptersByMangaId = getChaptersByMangaId,
         updateChapter = mockk<UpdateChapter>(relaxed = true),
         getCategories = mockk { coEvery { await(any<Long>()) } returns emptyList() },
         setMangaCategories = mockk<SetMangaCategories>(relaxed = true),
-        getTracks = mockk { coEvery { await(any<Long>()) } returns emptyList() },
-        insertTrack = mockk<InsertTrack>(relaxed = true),
+        getTracks = getTracks,
+        insertTrack = insertTrack,
         coverCache = coverCache,
         updateMangaFromRemote = mockk<UpdateMangaFromRemote>(relaxed = true),
         mangaMergeManager = mangaMergeManager,
@@ -163,6 +168,160 @@ class MigrateMangaUseCaseTest {
 
         // A lone entry is its own "group" of one; copying it must not invent a real one.
         coVerify(exactly = 0) { merge.merge(any()) }
+    }
+
+    // The twins of MigrateNovelUseCaseTest's flag-carry cases. The engines are deliberately separate,
+    // so a behaviour pinned on one side and not the other is where they drift; the cover-timestamp
+    // bump below is an RK fix that had no test at all.
+
+    @Test
+    fun `cover flag copies the custom cover onto the target and bumps its timestamp`() = runTest {
+        val src = File.createTempFile("mig-src", ".0").apply {
+            writeText("COVER-BYTES")
+            deleteOnExit()
+        }
+        val covers = mockk<CoverCache>(relaxed = true) {
+            every { getCustomCoverFile(1L) } returns src
+        }
+        val update = mockk<UpdateManga>(relaxed = true) {
+            coEvery { awaitAll(any<List<MangaUpdate>>()) } returns true
+        }
+
+        useCase(updateManga = update, coverCache = covers)(
+            manga(1).copy(thumbnailUrl = "custom"),
+            manga(2),
+            replace = false,
+            flags = setOf(MigrationFlag.CUSTOM_COVER),
+            skipTargetRefresh = true,
+        )
+
+        // Without the timestamp bump a target that already had a custom cover keeps showing the old
+        // one: the file changes but Coil's cache key does not.
+        coVerify { covers.setCustomCoverToCache(any(), any()) }
+        coVerify { update.awaitUpdateCoverLastModified(2L) }
+    }
+
+    @Test
+    fun `notes flag carries the source notes onto the target`() = runTest {
+        val updates = slot<List<MangaUpdate>>()
+        val update = mockk<UpdateManga>(relaxed = true) { coEvery { awaitAll(capture(updates)) } returns true }
+
+        useCase(updateManga = update)(
+            manga(1).copy(notes = "my note"),
+            manga(2),
+            replace = false,
+            flags = setOf(MigrationFlag.NOTES),
+            skipTargetRefresh = true,
+        )
+
+        capturedTargetUpdate(updates).notes shouldBe "my note"
+    }
+
+    @Test
+    fun `without the notes flag the note is not carried`() = runTest {
+        val updates = slot<List<MangaUpdate>>()
+        val update = mockk<UpdateManga>(relaxed = true) { coEvery { awaitAll(capture(updates)) } returns true }
+
+        useCase(updateManga = update)(
+            manga(1).copy(notes = "my note"),
+            manga(2),
+            replace = false,
+            flags = emptySet(),
+            skipTargetRefresh = true,
+        )
+
+        capturedTargetUpdate(updates).notes shouldBe null
+    }
+
+    @Test
+    fun `migration carries the chapter and viewer flags onto the target`() = runTest {
+        val updates = slot<List<MangaUpdate>>()
+        val update = mockk<UpdateManga>(relaxed = true) { coEvery { awaitAll(capture(updates)) } returns true }
+
+        useCase(updateManga = update)(
+            manga(1).copy(chapterFlags = 42L, viewerFlags = 7L),
+            manga(2),
+            replace = false,
+            flags = emptySet(),
+            skipTargetRefresh = true,
+        )
+
+        capturedTargetUpdate(updates).let {
+            it.chapterFlags shouldBe 42L
+            it.viewerFlags shouldBe 7L
+        }
+    }
+
+    @Test
+    fun `migration carries tracker links onto the target`() = runTest {
+        val track = Track(
+            id = 5L,
+            mangaId = 1L,
+            trackerId = 3L,
+            remoteId = 9L,
+            libraryId = null,
+            title = "t",
+            lastChapterRead = 0.0,
+            totalChapters = 0L,
+            status = 0L,
+            score = 0.0,
+            remoteUrl = "",
+            startDate = 0L,
+            finishDate = 0L,
+            private = false,
+        )
+        val getTracks = mockk<GetTracks> { coEvery { await(1L) } returns listOf(track) }
+        val insertTrack = mockk<InsertTrack>(relaxed = true)
+        val inserted = slot<List<Track>>()
+        coEvery { insertTrack.awaitAll(capture(inserted)) } returns Unit
+
+        useCase(getTracks = getTracks, insertTrack = insertTrack)(
+            manga(1),
+            manga(2),
+            replace = true,
+            flags = emptySet(),
+            skipTargetRefresh = true,
+        )
+
+        // Re-pointed at the target, not duplicated onto it: the row keeps its id so the tracker
+        // binding moves rather than gaining a second copy.
+        inserted.captured.single().let {
+            it.mangaId shouldBe 2L
+            it.id shouldBe 5L
+        }
+    }
+
+    @Test
+    fun `remove-download flag deletes the source's downloaded chapters`() = runTest {
+        val source = mockk<Source>(relaxed = true)
+        val downloads = mockk<DownloadManager>(relaxed = true)
+
+        useCase(sourceManager = sourceManagerReturning(source), downloadManager = downloads)(
+            manga(1),
+            manga(2),
+            replace = true,
+            flags = setOf(MigrationFlag.REMOVE_DOWNLOAD),
+            skipTargetRefresh = true,
+        )
+
+        coVerify { downloads.deleteManga(any(), source) }
+    }
+
+    @Test
+    fun `migration never auto re-downloads chapters onto the target`() = runTest {
+        val downloads = mockk<DownloadManager>(relaxed = true)
+
+        useCase(downloadManager = downloads)(
+            manga(1),
+            manga(2),
+            replace = true,
+            flags = emptySet(),
+            skipTargetRefresh = true,
+        )
+
+        // The novel engine pins this as an owner ruling (metered data); manga gets it by having no
+        // download call at all, and this is what keeps it that way.
+        coVerify(exactly = 0) { downloads.downloadChapters(any(), any(), any()) }
     }
 
     @Test
