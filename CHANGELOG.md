@@ -86,6 +86,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.
 - **Restoring now leaves grouping it wasn't describing alone.** Sources in a group that the backup says nothing about keep their group and the order you set.
+- **Restoring a backup now keeps the source order and leading source of the groups it does describe.** A group you had dragged into order came back on whichever source happened to be listed first, taking the library cover with it.
 - **A backup no longer fails outright because of one stale merge entry.** It is skipped, matching how novels already behaved.
 - **A problem while restoring merged series or edited details no longer stops the rest of the restore.** It is recorded in the restore log instead, and the other content type finishes.
 - **Adding a source to a grouped series no longer scrambles the order you set by hand.** The new source joins at the end and your chosen leading source stays where you put it.

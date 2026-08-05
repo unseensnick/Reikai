@@ -143,6 +143,46 @@ class RestoreMergeGroupsTest {
     }
 
     @Test
+    fun `a restored group keeps the hand-set order and ranking it already had locally`() = runTest {
+        (1L..2L).forEach { insertManga(it) }
+        val local = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.MANGA, local, listOf(2, 1))
+
+        // The backup carries membership only, so restoring one it already describes must not reset
+        // the order the user dragged into place, nor the flag that makes the app read that order.
+        restore(ContentType.MANGA, listOf(listOf(1, 2)))
+
+        groupOf(1) shouldContainExactly listOf(2L, 1L)
+        val restored = repository.getGroupId(ContentType.MANGA, 1)!!
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `a member the backup adds to a hand-ordered group goes last`() = runTest {
+        (1L..3L).forEach { insertManga(it) }
+        val local = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        repository.setSourceOrder(ContentType.MANGA, local, listOf(2, 1))
+
+        restore(ContentType.MANGA, listOf(listOf(1, 2, 3)))
+
+        // Same append rule as a merge: an arrival never takes the trunk of a group someone ranked.
+        groupOf(1) shouldContainExactly listOf(2L, 1L, 3L)
+        val restored = repository.getGroupId(ContentType.MANGA, 1)!!
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
+    }
+
+    @Test
+    fun `a group the device never had takes the backup order and no ranking`() = runTest {
+        (1L..2L).forEach { insertManga(it) }
+
+        restore(ContentType.MANGA, listOf(listOf(2, 1)))
+
+        groupOf(1) shouldContainExactly listOf(2L, 1L)
+        val restored = repository.getGroupId(ContentType.MANGA, 1)!!
+        repository.getGroup(restored)!!.overrideSourceRanking shouldBe false
+    }
+
+    @Test
     fun `a group with fewer than two resolvable members is not created`() = runTest {
         insertManga(1)
 

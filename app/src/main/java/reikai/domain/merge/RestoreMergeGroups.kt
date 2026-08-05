@@ -20,8 +20,13 @@ import reikai.domain.library.ContentType
  * two of them remain, with their hand-set order and ranking, and are left standalone otherwise. So a
  * restore rearranges only the entries it actually describes.
  *
- * The backup format carries neither member order nor the per-group ranking flag (a separate, parked
- * gap), so a restored group takes the ref order and no override.
+ * **It is authoritative for membership only.** The backup format carries neither member order nor
+ * the per-group ranking flag (a separate, parked gap), so where the entries already had a local
+ * group, that group's answer to both is the only one anybody has and it is carried across. Resetting
+ * instead would flatten an order the user dragged into place, silently moving the library cover and
+ * the details trunk onto whatever the global preferred-source list ranks first. Survivor and append
+ * rule match [MergeGroupRepository.merge]: the group of the first named id that has one decides the
+ * order and the flag, its members keep their relative order, and entries it did not contain go last.
  */
 class RestoreMergeGroups(
     private val repository: MergeGroupRepository,
@@ -59,8 +64,20 @@ class RestoreMergeGroups(
                 }?.let { it to (repository.getGroup(groupId)?.overrideSourceRanking == true) }
             }
 
-        restored.forEach { ids ->
-            repository.materializeGroup(contentType, ids, overrideSourceRanking = false)
+        // Resolved BEFORE anything is written, like the remainders above: the first write deletes the
+        // very group rows the rest would read their order and flag from.
+        val plans = restored.map { ids ->
+            val localGroupId = ids.firstNotNullOfOrNull { memberships[it] }
+            val localOrder = localGroupId?.let { repository.getMembers(contentType, it) }.orEmpty()
+            val local = localOrder.toHashSet()
+            val named = ids.toHashSet()
+            val ordered = localOrder.filter { it in named } + ids.filterNot { it in local }
+            val override = localGroupId?.let { repository.getGroup(it)?.overrideSourceRanking } == true
+            ordered to override
+        }
+
+        plans.forEach { (ids, override) ->
+            repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
         }
         remainders.forEach { (ids, override) ->
             repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
