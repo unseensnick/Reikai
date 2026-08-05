@@ -5,19 +5,12 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 
 /**
- * Source-grouping operations for the details / library / updates screens of one content type, backed by
- * the persisted merge group tables ([MergeGroupRepository]). Holds no per-screen state: callers keep their
- * own group ids and pass them in. One class serves both manga and novels; the content type is fixed at
- * construction by the thin [reikai.domain.manga.MangaMergeManager] / [reikai.domain.novel.NovelMergeManager]
- * subclasses, so injectors still resolve a manager by content type while the logic lives here once.
- *
- * The [ReikaiLibraryPreferences.seriesMergingEnabled] master switch gates resolution: when off, every
- * entry resolves standalone (groups are preserved, just not shown), so flipping it back on restores them.
- *
- * [onBeforeDissolve] runs on every path that breaks a group up, with that group's members. A merged group
- * shares one tracker binding rather than a copy per source, so the copies have to be handed out here, at
- * the one moment the sharing ends. Keeping it in the manager instead of at each call site is deliberate:
- * three separate call sites had already forgotten it.
+ * Source-grouping operations for one content type, backed by [MergeGroupRepository]. One class serves
+ * both, with the type fixed at construction by the thin [reikai.domain.manga.MangaMergeManager] /
+ * [reikai.domain.novel.NovelMergeManager] subclasses. [ReikaiLibraryPreferences.seriesMergingEnabled]
+ * gates resolution: off resolves every entry standalone, preserving groups. [onBeforeDissolve] runs
+ * on every path that breaks a group up, since a merged group shares one tracker binding whose copies
+ * must be handed out at that moment; it lives here, not at call sites, three of which forgot it.
  */
 open class EntryMergeManager(
     private val contentType: ContentType,
@@ -46,10 +39,9 @@ open class EntryMergeManager(
      * Atomically swap [oldId] out of its group and [newId] in (a replace migration); no-op when
      * [oldId] is ungrouped.
      *
-     * Usually the group survives and only its membership changes, but migrating onto a sibling of the
-     * same group leaves the target alone in it and really does break the group up, so the hook is
-     * handed to the repository rather than skipped. It has to run inside that transaction, while the
-     * departing entry is still favorited, which is why it goes down instead of being called here.
+     * Usually only membership changes, but migrating onto a sibling of the same group leaves the
+     * target alone and really does break the group up, so the hook is handed to the repository. It
+     * has to run inside that transaction, while the departing entry is still favorited.
      */
     suspend fun replaceInGroup(oldId: Long, newId: Long) {
         repository.replaceInGroup(contentType, oldId, newId, onBeforeDissolve)

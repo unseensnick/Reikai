@@ -8,20 +8,11 @@ import tachiyomi.domain.source.service.SourceManager
 
 /**
  * Brings the stored cross-source chapter identities back in step with the chapter rows, for both
- * content types.
- *
- * This is the only thing that writes those keys. Chapter rows are created from several unrelated
- * places (the source sync, the gallery-chain reconciler, backup restore, the novel chapter sync), so
- * hooking each one would mean every future write path has to remember, and a forgotten one is a
- * silently wrong unread badge with nothing to signal it. Reconciling from the difference instead is
- * self-correcting and covers paths that do not exist yet.
- *
- * It is also the one-time backfill: on a database that has never had keys, every chapter of a merged
- * entry reads as stale, so the first run fills them all. There is no separate backfill code to keep
- * in step with this.
- *
- * Cheap when there is nothing to do (one indexed query per content type returning no rows), so
- * callers can run it freely: after a library update, after a merge or unmerge, and at startup.
+ * content types, and is the only thing that writes those keys.
+ * Reconciling from the difference rather than hooking each chapter-writing path is self-correcting
+ * and covers paths that do not exist yet; a forgotten hook is a silently wrong unread badge. It
+ * doubles as the one-time backfill, so no separate backfill code exists. Cheap when there is nothing
+ * to do (one indexed query per content type), so callers may run it freely.
  */
 class ReconcileChapterMatchKeys(
     private val repository: ChapterMatchKeyRepository,

@@ -41,11 +41,10 @@ internal fun MigrationCandidate.openDetails(navigator: Navigator) {
 /**
  * Land on the target after migrating onto it.
  *
- * A replace leaves the entry that was migrated away behind on the stack, showing a page that no
- * longer describes anything in the library, so the target replaces it. A copy keeps it, since both
- * entries are still there. The check is by identity, not just type: a migration launched from a
- * merged entry's details can migrate a member that is NOT the page below, and replacing that page
- * would discard a details screen that still describes a live entry.
+ * A replace leaves the entry migrated away behind on the stack, showing a page that no longer
+ * describes anything in the library, so the target replaces it; a copy keeps it. The check is by
+ * identity, not type: a migration launched from a merged entry's details can migrate a member that
+ * is NOT the page below, and replacing that page would discard a live details screen.
  */
 internal fun MigrationCandidate.openDetailsAfterCommit(
     navigator: Navigator,

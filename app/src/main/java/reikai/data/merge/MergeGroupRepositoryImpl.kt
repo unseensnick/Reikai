@@ -116,19 +116,11 @@ class MergeGroupRepositoryImpl(
 
     /**
      * Fold [ids], and every group they already belong to, into one group; returns it. Caller supplies
-     * the transaction.
-     *
-     * A surviving group row is REUSED, never rebuilt. Every group-owned column then survives by
-     * construction (the override flag today, the title and cover overrides that have no writer yet)
-     * rather than having to be re-carried by hand wherever a group is formed, which is how rebuilding
-     * came to discard a ranking the user set. The survivor is the group of the first id that has one,
-     * so "add these sources to that group" keeps that group's identity and its ranking; a group that
-     * is absorbed loses its own flag, the same rule [replaceInGroup] has always followed.
-     *
-     * The survivor's members keep their order and arrivals are APPENDED. Argument order decides the
-     * order only for a group that never had one: letting it re-order an existing group put a
-     * never-ranked newcomer on the trunk of every hand-ordered group it was added to. A caller that
-     * means to state an order outright wants [materializeGroup] instead.
+     * the transaction. The surviving group row is REUSED, never rebuilt, so every group-owned column
+     * survives by construction. The survivor is the group of the first id that has one, and an
+     * absorbed group loses its own flag. Its members keep their order and arrivals are APPENDED, so
+     * argument order decides the order only for a group that never had one. To state a whole group
+     * outright, order and flag together, use [materializeGroup].
      */
     private suspend fun absorb(contentType: ContentType, ids: List<Long>): Long {
         val survivorId = ids.firstNotNullOfOrNull { getGroupId(contentType, it) }

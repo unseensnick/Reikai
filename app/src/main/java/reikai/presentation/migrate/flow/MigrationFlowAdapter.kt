@@ -138,11 +138,8 @@ data class MigrationTuning(
      * This tuning with the options [strategy] cannot express dropped.
      *
      * [deepSearch] and [prioritizeByChapters] run on the smart-search engines, so they mean nothing
-     * under [MatchStrategy.BestTitleMatch]. They stayed plain Booleans on the shared model while the
-     * only thing keeping them honest was the sheet hiding their checkboxes; a value set any other way
-     * was accepted, persisted nowhere, and read back as false, having already triggered a full row
-     * rebuild and re-search on the way through. Normalising here means the model compares and stores
-     * what the type can actually hold.
+     * under [MatchStrategy.BestTitleMatch]. Normalising here means the model compares and stores what
+     * the type can hold, rather than trusting the sheet to hide the checkboxes.
      */
     fun normalizedFor(strategy: MatchStrategy): MigrationTuning = when (strategy) {
         MatchStrategy.Smart -> this
@@ -151,21 +148,12 @@ data class MigrationTuning(
 }
 
 /**
- * The per-type seam of the unified migration flow. Everything above this interface is shared and
- * written once; implementations bottom out at the per-type engines (`MigrateMangaUseCase` /
- * `MigrateNovelUseCase`, the smart-search engines, `searchNovels`) and the per-type prefs, and are
- * the only place the flow touches a content type. Design record:
+ * The per-type seam of the unified migration flow: everything above it is shared and written once,
+ * and implementations are the only place it touches a content type. Fetch timing is part of the
+ * contract: [resolve] is the expensive one and the only one a commit depends on, since it alone
+ * guarantees the candidate is materialised and populated. Storing is not the distinction, as
+ * [suggest] and [candidates] insert rows on manga too. Design record:
  * docs/dev/plans/content-layer-migrate-surface.md.
- *
- * **Fetch timing is part of the contract.** [resolve] is the expensive one and the only one a commit
- * depends on having run: it puts the target's full chapter list on the row that will be migrated
- * onto, and it is slow and cancellable. [suggest] enriches the source's winning match alone and
- * [peekCounts] fetches counts for one already-chosen candidate, so both are bounded per row.
- * [candidates] runs one search page. Every other method is local and callers may treat it as free.
- *
- * Storing is NOT the distinction: on the manga side `suggest` and `candidates` also insert rows (via
- * `networkToLocalManga`), and `suggest` syncs chapters. What only [resolve] guarantees is that the
- * candidate a commit is handed is materialised and populated.
  */
 interface MigrationFlowAdapter {
     val contentType: ContentType
@@ -218,14 +206,10 @@ interface MigrationFlowAdapter {
 
     /**
      * Materialise a picked candidate into a commit-ready target (row inserted, chapters fetched,
-     * count known), returning it with `resolved = true`. Fails as null OR by throwing (the novel
-     * side lets its refresh throw); callers must catch as well as null-check. [migrate] requires a
-     * resolved candidate.
-     *
-     * Idempotent, which the commit path relies on: it resolves unconditionally
-     * (a bulk-accepted row still carries an unresolved suggestion), so resolving an already-resolved
-     * candidate must be cheap. Implementations report through [ResolvedTarget.syncedNow] whether
-     * this call fetched, which is what lets the commit avoid a second identical fetch.
+     * count known), returning it with `resolved = true`. Fails as null OR by throwing (the novel side
+     * lets its refresh throw), so callers must catch as well as null-check. Idempotent, since the
+     * commit path resolves unconditionally. [ResolvedTarget.syncedNow] reports whether this call
+     * fetched, which is what lets the commit skip a second identical fetch.
      */
     suspend fun resolve(candidate: MigrationCandidate): ResolvedTarget?
 
@@ -254,13 +238,12 @@ interface MigrationFlowAdapter {
     suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag>
 
     /**
-     * Commit one entry onto a [resolve]d target with exactly [flags]. Writes no preferences.
-     * Throws on failure; the shared model owns retry surfacing.
-     *
-     * Both engines re-fetch the target's chapters before carrying read state, so that a migration
-     * works from any add path. [targetJustSynced] says the caller's [resolve] already did that fetch
-     * moments ago, so repeating it would only cost the source another request; pass it through and
-     * skip. It describes this call alone, never a remembered freshness window.
+     * Commit one entry onto a [resolve]d target with exactly [flags]. Writes no preferences. Throws
+     * on failure; the shared model owns retry surfacing.
+     * Both engines re-fetch the target's chapters before carrying read state, so a migration works
+     * from any add path. [targetJustSynced] says the caller's [resolve] already did that fetch
+     * moments ago, so the engine skips it. It describes this call alone, never a remembered
+     * freshness window.
      */
     suspend fun migrate(
         entry: MigrationEntry,

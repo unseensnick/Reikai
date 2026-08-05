@@ -1,17 +1,12 @@
 package reikai.domain.merge
 
 /**
- * Pure reconstruction of today's pref-based grouping into a clean partition, for the one-time
+ * Pure reconstruction of the old pref-based grouping into a clean partition, for the one-time
  * migration ([mihon.core.migration.migrations.MigrateMergePrefsToGroupsMigration]).
- *
- * Builds connected components over the manual-merge entries (which always group, overriding unmerges)
- * plus, when auto-merge-by-title is on, the same-title candidates (novels also matching author when the
- * author guard is on), with explicit unmerge pairs excluded so a pair the user deliberately split is not
- * re-grouped. Each entry lands in exactly one group, matching the new schema's one-group-per-entry rule.
- *
- * Where today's two grouping definitions (library collapse vs details/reader) disagree, this levels up:
- * transitively connected same-title members end up in one group rather than half-grouped, so nothing that
- * was grouped becomes ungrouped.
+ * Connected components over the manual-merge entries (which always group, overriding unmerges) plus,
+ * when auto-merge-by-title is on, the same-title candidates (novels also matching author under the
+ * author guard), with explicit unmerge pairs excluded. Each entry lands in exactly one group. Where
+ * the old library-collapse and details definitions disagreed this levels up.
  */
 object MergeGroupReconstruction {
 

@@ -12,15 +12,11 @@ import reikai.presentation.browse.EntrySearchSection
 
 /**
  * One source's migration candidates, under the shared global-search section header and rendering the
- * same result cards global search does.
- *
- * Both surfaces that offer a target render this: the single-entry search screen and the batch list's
- * override strip. They were separate near-identical composables, and the drift showed: long-press to
- * preview a candidate reached the deep picker but neither strip.
- *
+ * same result cards global search does. Both surfaces that offer a target render this: the
+ * single-entry search screen and the batch list's override strip.
  * Tapping a candidate picks it; long-pressing opens its details, so a match can be checked before it
- * is committed to. Tapping the header browses the whole source, which is the way out when the search
- * cannot reach the title.
+ * is committed to. Tapping the header browses the whole source, the way out when search cannot reach
+ * the title.
  */
 @Composable
 internal fun MigrationCandidateStrip(

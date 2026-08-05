@@ -32,12 +32,10 @@ private const val SOURCE_CONCURRENCY = 5
 
 /**
  * Drives a migration batch for one content type over [MigrationFlowAdapter].
- *
  * Rows are searched one at a time in list order, so a source never sees more than one request from
  * the batch and rows settle top-down. The loop re-checks each row at its head instead of holding a
- * lock: a row can be skipped, committed or abandoned while the loop is awaiting the previous one,
- * and every one of those shows up as a state the head check reads. Per-row work runs on the row's
- * own detached scope ([MigratingEntryRow.scope]), so cancelling one row never reaches the loop.
+ * lock, since a row skipped, committed or abandoned mid-await shows up as a state that check reads.
+ * Per-row work runs on the row's own detached scope, so cancelling one row never reaches the loop.
  */
 class EntryMigrationListScreenModel(
     private val entryIds: List<Long>,
@@ -63,11 +61,6 @@ class EntryMigrationListScreenModel(
     /**
      * Whether a batch commit has run on this list. The screen never finishes itself without one, so
      * a lone "Migrate now" cannot close a list the user is still working.
-     *
-     * This used to hold the batch's row objects and check each one had been resolved. That scan was
-     * redundant with the committable and busy checks below (an unresolved batch row is committable
-     * or busy by definition) and it was the clause that treated a declined row as unfinished
-     * business, wedging the gate for the rest of the session.
      */
     @Volatile
     private var batchRan = false
@@ -488,12 +481,9 @@ class EntryMigrationListScreenModel(
 
     /**
      * Drop a decided row: the user skipped it, or its commit succeeded. The single place rows leave
-     * the list, so removal, the counters and the finish check cannot disagree, which is how upstream
-     * keeps this honest with one function.
-     *
+     * the list, so removal, the counters and the finish check cannot disagree.
      * The row's whole scope goes, not just its children: a peek, an override search or an abandoned
-     * search would otherwise outlive the row with nothing left to cancel them, since onDispose only
-     * reaches rows still in the list.
+     * search would otherwise outlive the row, since onDispose only reaches rows still in the list.
      */
     private fun removeRow(row: MigratingEntryRow) {
         row.scope.cancel()
@@ -585,23 +575,12 @@ class EntryMigrationListScreenModel(
     }
 
     /**
-     * Called unconditionally by every path that can settle the last outstanding row: a commit
-     * finishing, a retry, a removal, a decline. EVERY condition lives here rather than at the call
-     * sites, because guarding it per caller is how the screen has both popped early and failed to
-     * pop at all: one predicate cannot disagree with itself.
+     * The single finish gate. Every path that can settle the last row calls it unconditionally and
+     * EVERY condition lives here, because one predicate cannot disagree with itself.
      *
-     * An empty list finishes on its own, whatever got it there, which is upstream's rule and the
-     * reason removal needs no second opinion: nothing is left to decide, so there is nothing to
-     * stay for. Otherwise the screen finishes only when a batch ran and migrated something, every
-     * remaining row is settled (a pop mid-search would abandon rows still being searched), nothing
-     * is still committing (finishing would cancel it half-applied), and nothing committable remains
-     * (a cancelled batch leaves accepted rows behind; finishing over them would drop their
-     * migrations silently).
-     *
-     * That last check carries more than it looks. A failed row is committable by definition (it kept
-     * its target, and un-accepting is refused while a commit is in play), which is what holds the
-     * screen open on a partial failure; skipping a failed row is giving up on it, and takes the row
-     * out of the list entirely.
+     * An empty list finishes on its own. Otherwise a batch must have run and migrated something,
+     * with every row settled, nothing committing, and nothing still committable. A failed row is
+     * committable by definition, which is what holds the screen open on a partial failure.
      */
     private fun finishIfNothingFailed() {
         if (everHadRows && rows.isEmpty()) {
@@ -725,12 +704,10 @@ class EntryMigrationListScreenModel(
     /**
      * What is actually running. The truth about the commit, and nothing else.
      *
-     * A dialog request is deliberately NOT in here. It was, and the exit-confirm writer overwrote
-     * this cell unconditionally, so pressing back during a per-row commit cleared the busy state
-     * while the migration ran on: the commit bar came back live, and Stop unwound the flow mid-write
-     * with nothing said to the user. A modal is something the user asked to see; a commit is
-     * something the app is doing. Two facts, so two cells, with the render rules in [State] deciding
-     * what is shown rather than one writer clobbering the other.
+     * A dialog request is deliberately NOT in here. It was, and the exit-confirm writer clobbered
+     * this cell, so back during a per-row commit cleared the busy state while the migration ran on.
+     * A modal is something the user asked to see, a commit is something the app is doing: two facts,
+     * two cells, with the render rules in [State] deciding what is shown.
      */
     sealed interface CommitActivity {
         data object Idle : CommitActivity

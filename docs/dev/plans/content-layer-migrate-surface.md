@@ -186,6 +186,16 @@ step 7 had not finished the job: three more places still held two answers to one
   unresolved batch row is committable or busy by definition), verified by mutation, and it was the clause
   that treated a decline as unfinished business. `batchTargets` became a plain `batchRan` flag, so the
   gate no longer holds row references that a tuning rebuild can strand.
+
+  **What each surviving condition is holding back**, since the screen has both popped early and failed to
+  pop at all: an empty list finishes on its own, whatever emptied it, which is upstream's rule and why
+  removal needs no second opinion. Past that, a pop mid-search would abandon rows still being searched;
+  finishing while a commit runs would cancel it half-applied; and finishing over a committable row would
+  silently drop the migration a cancelled batch left accepted. The last one carries the most: a failed row
+  is committable by definition, because it kept its target and un-accepting is refused while a commit is in
+  play, so that clause is what holds the screen open on a partial failure. Skipping a failed row is giving
+  up on it and takes the row out of the list entirely. Every condition lives in the gate rather than at its
+  call sites, so one predicate cannot disagree with itself.
 - **`Migrated` and `skipped` can no longer both be true.** A skip landing between a commit's claim and its
   read of the flag left a row dimmed as skipped while showing a migration that really happened, with skip
   refused from then on. The commit clears the flag as the row goes terminal, so the combination is

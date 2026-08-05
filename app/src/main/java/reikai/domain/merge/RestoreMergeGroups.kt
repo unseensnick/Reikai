@@ -3,34 +3,12 @@ package reikai.domain.merge
 import reikai.domain.library.ContentType
 
 /**
- * Materialise backed-up merge groups against the library as it stands, in one pass.
+ * Materialise backed-up merge groups against the library as it stands, in one pass, resolved against
+ * ONE snapshot of local membership so the result cannot depend on write order.
  *
- * Restore used to call [MergeGroupRepository.merge] once per backup group, so each write landed on
- * whatever the previous one had left behind: two series that were separate in the backup came back
- * as one whenever the device already had a group bridging them. Backing up `{A,B}` and `{C,D}` and
- * restoring onto a library where A had been merged with C produced a single four-member group whose
- * card interleaved four sources, with nothing in the error log.
- *
- * Every group is therefore resolved against ONE snapshot of local membership, which removes the
- * order dependence, and each is then written with [MergeGroupRepository.materializeGroup], which
- * states the whole group rather than folding into an existing one.
- *
- * **The backup is authoritative for the entries it names**: an entry it groups leaves whatever local
- * group it was in. Local members the backup says nothing about keep their own group when at least
- * two of them remain, with their hand-set order, and are left standalone otherwise. So a restore
- * rearranges only the entries it actually describes. The ranking is the one thing that does not
- * always survive: a group only keeps it while it still leads with the source the user put in front,
- * which holds for a restored group and a remainder alike.
- *
- * **It is authoritative for membership only.** The backup format carries neither member order nor
- * the per-group ranking flag (a separate, parked gap), so where the entries already had a local
- * group, that group's answer to both is the only one anybody has and it is carried across. Resetting
- * instead would flatten an order the user dragged into place, silently moving the library cover and
- * the details trunk onto whatever the global preferred-source list ranks first. Survivor and append
- * rule match [MergeGroupRepository.merge]: the group of the first named id that has one decides the
- * order and the flag, its members keep their relative order, and entries it did not contain go last.
- * Members of that group the backup does NOT name are not dragged along; they fall to the remainder
- * rule above, and the ranking is dropped when the one it led with is among them.
+ * The backup is authoritative for the entries it names; local members it does not name keep their own
+ * group while two or more remain. Order and the ranking flag come from the surviving local group,
+ * since the backup format carries neither. Rules and history: docs/dev/plans/merge-system-rebuild.md.
  */
 class RestoreMergeGroups(
     private val repository: MergeGroupRepository,

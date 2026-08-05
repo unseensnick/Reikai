@@ -11,18 +11,10 @@ import kotlin.coroutines.CoroutineContext
 /**
  * One entry being migrated: a stable object, never a value copied through a list, so a coroutine
  * holding a row reference can always be told apart from the row the UI renders.
- *
- * - [search] and [commit] are orthogonal axes: a row can be re-searching while a previous commit
- *   failed, so folding them into one cell would be lossy.
- * - [acceptance] sits beside the search cell rather than inside it: an accepted target is often not
- *   the suggestion (an override strip or deep-browse pick), and un-accepting restores the suggestion.
- * - A decided row is REMOVED from the list rather than kept wearing a terminal state, as upstream
- *   does: skipping drops it, and so does a commit that succeeds. Only a failed commit keeps its row,
- *   because a failure is the one outcome that still needs the user. So there is no skipped flag and
- *   no migrated phase for every other rule to remember to consult.
- * - [scope] is detached (its own [SupervisorJob]), so cancelling one row can never cancel the batch
- *   driver. Abandoning a whole search generation is done by cancelling rows and building new
- *   objects, which is why the driver needs no lock or epoch counter.
+ * [search], [commit] and [acceptance] are orthogonal axes, and folding any pair into one cell is
+ * lossy. A decided row is REMOVED from the list rather than kept wearing a terminal state, as
+ * upstream does, so no skipped flag or migrated phase exists for other rules to forget. [scope] is
+ * detached (its own [SupervisorJob]), so cancelling one row can never cancel the batch driver.
  */
 class MigratingEntryRow(
     val entry: MigrationEntry,
@@ -54,15 +46,11 @@ class MigratingEntryRow(
     var overrideJob: Job? = null
 
     /**
-     * Where the user stands on this row's target, as a third axis beside the search and commit cells.
+     * Where the user stands on this row's target, a third axis beside the search and commit cells.
      *
-     * A nullable target could not tell [Untouched] from [Declined], and the hide toggles need to:
-     * a row the user has never looked at is exactly what those toggles thin out, while a row whose
-     * target they just handed back must stay on screen. Carrying that as a null plus a sticky
-     * "keep visible" boolean is what the nullable-soup rule forbids, and it produced the same
-     * disappearing-row bug three times.
-     *
-     * [Accepted] carries the target rather than pointing at one, so "has a target" and "which
+     * A nullable target could not tell [Untouched] from [Declined], and the hide toggles need to: an
+     * untouched row is what they thin out, while a row whose target was just handed back must stay on
+     * screen. [Accepted] carries the target rather than pointing at one, so "has a target" and "which
      * target" cannot disagree (upstream's `SearchResult.Success` does the same).
      */
     sealed interface Acceptance {
@@ -163,11 +151,9 @@ object MigrationRowRules {
      * Whether the driver may search this row now. A settled row is not re-searched; a committing row
      * must never have its result blanked underneath the commit.
      *
-     * [isSettled] reads this as "the driver will not pick this row up", so a clause that can flip
-     * back must have someone who restarts the driver when it does. The one that can does: releasing
-     * a commit claim calls startDriver. A clause with no such waker (a pause flag, a source
-     * availability probe) would strand queued rows as settled with the commit bar open over them;
-     * put that in the driver's own loop head, next to its scope-liveness check.
+     * [isSettled] reads this as "the driver will not pick this row up", so a clause that can flip back
+     * needs someone to restart the driver when it does; releasing a commit claim calls startDriver. A
+     * clause with no such waker belongs in the driver's own loop head instead.
      */
     fun canSearch(
         search: MigratingEntryRow.SearchPhase,
@@ -210,14 +196,10 @@ object MigrationRowRules {
     /**
      * What the user has settled about this row, as the one answer every consumer reads.
      *
-     * The two axes say what the row IS; this says where the user stands on it, which is a different
-     * question and was previously answered three incompatible ways: the hide toggles read the
-     * acceptance cell, accept-all read "not accepted", and the finish gate read "migrated or
-     * skipped". Each of those collapsed [Acceptance.Declined] differently, so declining a row could
-     * re-arm it on the next accept-all and could wedge the gate for the rest of the session.
-     *
-     * A decided row leaves the list, so the only thing still settling a row in place is a target the
-     * user handed back.
+     * The two axes say what the row IS; this says where the user stands on it. It was previously
+     * answered three incompatible ways that each collapsed [Acceptance.Declined] differently, so
+     * declining a row could re-arm it on the next accept-all and wedge the finish gate. A decided row
+     * leaves the list, so the only thing still settling a row in place is a target handed back.
      */
     enum class Disposition {
         /** Never acted on. The only state the hide toggles may thin out, and what accept-all arms. */
@@ -239,11 +221,10 @@ object MigrationRowRules {
     /**
      * Whether the hide toggles leave this row on screen.
      *
-     * Only an untouched row may be hidden. Anything the user has acted on stays: an accepted row
-     * would otherwise commit invisibly, and a declined one would vanish from under the hand that
-     * just acted on it, which is the bug this rule keeps producing. An open row stays too. A failed
-     * search is shown regardless: hide-unmatched is about entries with no match, not about entries
-     * whose sources were unreachable.
+     * Only an untouched row may be hidden. Anything the user acted on stays: an accepted row would
+     * otherwise commit invisibly and a declined one would vanish from under the hand that just acted
+     * on it. An open row stays too. A failed search is shown regardless, since hide-unmatched is
+     * about entries with no match, not entries whose sources were unreachable.
      */
     fun isVisible(
         search: MigratingEntryRow.SearchPhase,

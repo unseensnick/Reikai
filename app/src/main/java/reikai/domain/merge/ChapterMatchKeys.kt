@@ -6,25 +6,21 @@ import exh.source.getMainSource
 import tachiyomi.domain.source.service.SourceManager
 
 /**
- * The cross-source identity of a manga chapter, as stored in `chapter_match_key`. Two chapters from
+ * The cross-source identity of a manga chapter, as stored in `chapter_match_key`: two chapters from
  * different sources share a key when they are the same chapter, which is what lets a merged entry
- * count them once.
- *
- * Mirrors the rule [reikai.domain.manga.ChapterAggregation] applies when it stitches the merged
- * chapter list, so the library badge and that list agree on what "the same chapter" means. The novel
- * equivalent is `NovelChapterAggregation.matchKey`, which keys on the normalized title instead.
+ * count them once. Mirrors the rule [reikai.domain.manga.ChapterAggregation] applies when it
+ * stitches the merged chapter list, so the library badge and that list agree on what "the same
+ * chapter" means. The novel twin is `NovelChapterAggregation.matchKey`, keyed on normalized title.
  */
 object ChapterMatchKeys {
 
     /**
      * Null when the chapter has no cross-source identity and must never dedup: an unrecognized
-     * number (which cannot be matched against anything), or a gallery source's chapter (each is a
-     * standalone work, and every gallery source numbers its first one 1, so keying by number would
-     * collapse different works into one).
-     *
-     * Narrowed to Float for the same reason the aggregation does it: a source that reports its own
-     * number hands back a 32-bit float while a parsed one is a double, and the two differ by about
-     * 2.4e-8, so an exact double key would leave the same chapter duplicated across sources.
+     * number, or a gallery source's chapter (each is a standalone work, and every gallery source
+     * numbers its first one 1, so keying by number would collapse different works into one).
+     * Narrowed to Float for the same reason the aggregation does it: a source-reported number is a
+     * 32-bit float where a parsed one is a double, and the two differ by about 2.4e-8, so an exact
+     * double key would leave the same chapter duplicated across sources.
      */
     fun manga(chapterNumber: Double, isGallerySource: Boolean): String? = when {
         isGallerySource -> null

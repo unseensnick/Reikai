@@ -19,14 +19,11 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * The search options behind the migration list: an extra query, the smart-match options, and the two
- * hide toggles. The toggles apply as they are made; the extra query is hosted state that the CALLER
- * commits on IME done and real sheet dismissal, because applying a search-affecting change rebuilds
- * every non-migrated row and restarts the batch. Hosting it (rather than committing on dispose)
- * keeps a rotation from applying and persisting a half-typed query.
- *
- * Options that need the smart-search engine are simply absent for a content type that has none,
- * with a line saying so, rather than rendered as switches that do nothing.
+ * The search options settled before a migration runs: an extra query, the smart-match options, and
+ * the two hide toggles. The toggles apply as they are made; the extra query is hosted by the CALLER,
+ * which commits it on IME done and on a real dismissal, so a rotation neither loses the draft nor
+ * persists a half-typed one. Options that need the smart-search engine are absent for a content type
+ * that has none, with a line saying so, rather than switches that do nothing.
  */
 @Composable
 fun MigrationTuningSheet(

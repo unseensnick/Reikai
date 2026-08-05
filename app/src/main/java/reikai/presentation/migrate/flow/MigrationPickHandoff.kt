@@ -4,16 +4,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import reikai.domain.entry.EntryId
 
 /**
- * Carries a target picked on a browse screen back to the migration screen that asked for it.
- *
- * The two screens cannot talk directly: browsing a source in full is a separate screen that gets
- * pushed on top, and Voyager has no return value. So the pick is left here and collected by the
- * screen underneath once it is back on screen.
- *
- * This is a single consume-once slot rather than an event stream, and it lives outside both screens
- * rather than on either. Nothing is lost while the asking screen is off-composition, a pick that
- * arrives twice is still one pick, and a stale pick cannot be delivered to a screen it was not
- * meant for, since the reader checks the entry it belongs to.
+ * Carries a target picked on a browse screen back to the migration screen that asked for it. The two
+ * cannot talk directly: browsing a source in full is a pushed screen and Voyager has no return
+ * value, so the pick is left here and collected once the asking screen is back on screen.
+ * A single consume-once slot rather than an event stream, living outside both screens: nothing is
+ * lost while the asking screen is off-composition, a pick that arrives twice is still one pick, and
+ * the reader checks the entry it belongs to, so a stale pick cannot land on the wrong screen.
  */
 class MigrationPickHandoff {
 
@@ -43,12 +39,10 @@ class MigrationPickHandoff {
 
 /**
  * Why a target picked on the pushed browse screen could not be applied, consumed once by the screen
- * that shows it.
- *
- * [MigrationPickHandoff.take] clears on read, so a pick that failed after being taken has nowhere to
- * go: without this the screen simply stayed as it was and the user was told nothing, with no way to
- * retry short of browsing again. It lives beside the handoff rather than on one screen model because
- * both screens that collect a pick can fail to apply it the same two ways.
+ * that shows it. [MigrationPickHandoff.take] clears on read, so a pick that failed after being taken
+ * has nowhere to go, and without this the screen stayed as it was with nothing said to the user. It
+ * lives beside the handoff rather than on one screen model because both screens that collect a pick
+ * can fail to apply it the same two ways.
  */
 sealed interface PickOutcome {
     /** The picked row could not be read back (deleted, or its source went away). */
