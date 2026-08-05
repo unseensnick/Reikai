@@ -44,7 +44,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A finished migration tells you how many entries moved.**
 - **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
 - **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
-- **Change the search options from the migration list itself, without starting over.** Hiding entries only re-filters what is on screen; only the options that change results search again.
+- **Set how a migration searches before it runs: an extra search term, deep search, and filters for unmatched entries or ones already up to date.** Novels get the options their sources can support.
 
 **App & backup**
 

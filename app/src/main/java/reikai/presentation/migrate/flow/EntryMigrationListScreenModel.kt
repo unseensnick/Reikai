@@ -41,7 +41,6 @@ private const val SOURCE_CONCURRENCY = 5
  */
 class EntryMigrationListScreenModel(
     private val entryIds: List<Long>,
-    private val extraQuery: String?,
     // Injected rather than resolved in the initialiser, so the driver, the claim and the finish gate
     // can be constructed in a plain JVM test. Resolving Injekt here made every one of them reachable
     // only by reading the code, which is why each gate defect was found by an audit and never by a
@@ -63,8 +62,7 @@ class EntryMigrationListScreenModel(
 
     /**
      * Whether a batch commit has run on this list. The screen never finishes itself without one, so
-     * a lone "Migrate now" cannot close a list the user is still working; a tuning re-search clears
-     * it, since that is a new list.
+     * a lone "Migrate now" cannot close a list the user is still working.
      *
      * This used to hold the batch's row objects and check each one had been resolved. That scan was
      * redundant with the committable and busy checks below (an unresolved batch row is committable
@@ -94,9 +92,9 @@ class EntryMigrationListScreenModel(
     init {
         screenModelScope.launch(io) {
             adapter.prepare()
-            val tuning = adapter.readTuning()
-                .copy(extraQuery = extraQuery)
-                .normalizedFor(adapter.matchStrategy)
+            // Read once, as upstream does: the options were settled on the config screen before any
+            // row existed, so nothing can change what a search returns while one is running.
+            val tuning = adapter.readTuning().normalizedFor(adapter.matchStrategy)
             val built = adapter.loadEntries(entryIds).map {
                 MigratingEntryRow(it, screenModelScope.coroutineContext, io)
             }
@@ -106,7 +104,6 @@ class EntryMigrationListScreenModel(
                     isLoading = false,
                     tuning = tuning,
                     rows = built,
-                    matchStrategy = adapter.matchStrategy,
                     hasSources = adapter.sourcesFor().isNotEmpty(),
                     savedFlags = adapter.savedFlags(),
                 )
@@ -148,14 +145,13 @@ class EntryMigrationListScreenModel(
             val outcome = try {
                 deferred.await()
             } catch (_: CancellationException) {
-                // The row was abandoned mid-search (skipped, or this driver was cancelled under a
-                // tuning re-run). Stop the search itself too, and put the row back in the queue.
+                // The row was abandoned mid-search: skipping it cancels its scope. Stop the search
+                // itself too, and put the row back in the queue in case the row is still here.
                 deferred.cancel()
                 row.search.compareAndSet(SearchPhase.Searching, SearchPhase.Queued)
                 syncCounts()
-                // A cancelled driver can have claimed a row rebuilt by tuning between its liveness
-                // check and the claim, after the new driver already scanned past it. Handing the
-                // row to a live driver (no-op when one is running) keeps it from queueing forever.
+                // Only hand it back if it is still in the list: a removed row is gone for good, and
+                // a driver that already scanned past a re-queued one would leave it queued forever.
                 if (rows.any { it === row }) startDriver()
                 continue
             }
@@ -291,60 +287,6 @@ class EntryMigrationListScreenModel(
         )
     }
 
-    /**
-     * Save edited search options and, when they change what a search would return, run the batch
-     * again under them. The hide toggles are pure filters over results already in hand, so they
-     * never re-hit the network.
-     *
-     * A re-run replaces each unfinished row with a fresh object and cancels the old one's scope.
-     * Any work still running against a replaced row writes to an object no longer in the list, so
-     * abandoned searches need no epoch counter to be told apart from live ones.
-     *
-     * Returns false when a commit is in flight, since rebuilding rows underneath one would blank
-     * what it is migrating.
-     */
-    fun applyTuning(edited: MigrationTuning): Boolean {
-        if (state.value.isBusy) return false
-        // Dropped here, once, rather than relying on the sheet to hide the controls: an option this
-        // content type cannot run must not reach the comparison below and buy a rebuild for nothing.
-        val tuning = edited.normalizedFor(adapter.matchStrategy)
-        val previous = state.value.tuning
-        // Off the caller's thread: this is a preference write, and every one of these ran on main.
-        screenModelScope.launch(io) { adapter.persistTuning(tuning) }
-        mutableState.update { it.copy(tuning = tuning) }
-        if (!tuning.affectsSearch(previous)) {
-            syncCounts()
-            return true
-        }
-        searchJob?.cancel()
-        // A re-search is a new list, so the previous batch is no longer what the gate waits on.
-        batchRan = false
-        val rebuilt = rows.map { row ->
-            when (MigrationRowRules.onSearchRestart(row.commit.value)) {
-                // A migrated row's result is history, not a suggestion: re-searching it would blank
-                // what it migrated onto.
-                MigrationRowRules.RestartOutcome.Keep -> row
-                MigrationRowRules.RestartOutcome.Requeue -> {
-                    row.scope.cancel()
-                    MigratingEntryRow(row.entry, screenModelScope.coroutineContext, io).also {
-                        // So is a target the user picked by hand. Accepting the suggestion is a
-                        // verdict on a result this restart is discarding, so that one goes; a target
-                        // chosen from an override strip or the browse picker did not come from the
-                        // batch search at all, and a re-search cannot reproduce a browse pick.
-                        val chosen = row.acceptance.value as? Acceptance.Accepted
-                        if (chosen != null && chosen.candidate != row.search.value.suggestion) {
-                            it.acceptance.value = chosen
-                        }
-                    }
-                }
-            }
-        }
-        mutableState.update { it.copy(rows = rebuilt) }
-        syncCounts()
-        startDriver()
-        return true
-    }
-
     /** Open or close a row's override picker. Opening runs the first search for it, so the picker
      *  never opens onto an empty panel the user has to prod. */
     fun toggleExpanded(id: EntryId) {
@@ -431,9 +373,9 @@ class EntryMigrationListScreenModel(
                     }
                     is PendingPick.Ready -> pick.candidate
                 }
-                // A tuning re-run may have replaced the row objects while storedCandidate was in
-                // flight; the pick was already consumed, so it lands on the LIVE row for the entry,
-                // not the snapshot it started from.
+                // The row may have left the list while storedCandidate was in flight; the pick was
+                // already consumed, so it lands on the LIVE row for the entry, not the snapshot it
+                // started from.
                 val live = rows.firstOrNull { it.entry.id == row.entry.id } ?: return@forEach
                 if (!MigrationRowRules.canChoose(live.commit.value)) return@forEach
                 live.acceptance.value = Acceptance.Accepted(candidate)
@@ -620,9 +562,8 @@ class EntryMigrationListScreenModel(
      * Commit one row, marking the screen busy on the CALLER's thread.
      *
      * The mark used to land inside the coroutine, which left a dispatch-sized window where a second
-     * commit, or a tuning rebuild, passed its guard against a commit that had already been decided:
-     * the rebuild swapped in a fresh row while the commit migrated the old object, leaving the entry
-     * migrated in the database and shown as untouched.
+     * commit passed its guard against a commit that had already been decided, migrating the same
+     * entry twice.
      */
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
         mutableState.update { it.copy(commit = CommitActivity.Single(row.entry.id)) }
@@ -839,7 +780,6 @@ class EntryMigrationListScreenModel(
         val hasSources: Boolean = true,
         /** Why the list is empty, so the screen explains itself instead of rendering nothing. */
         val emptyReason: EmptyReason? = null,
-        val matchStrategy: MatchStrategy = MatchStrategy.BestTitleMatch,
         val migratedCount: Int = 0,
         /** What the app is doing; see [CommitActivity]. */
         val commit: CommitActivity = CommitActivity.Idle,
@@ -850,8 +790,8 @@ class EntryMigrationListScreenModel(
         /** Consume-once: see [PickOutcome]. */
         val pickOutcome: PickOutcome? = null,
     ) {
-        /** No commit may start, and nothing may rebuild rows, while another one is running. An open
-         *  dialog is not busy: the user is still deciding. */
+        /** No commit may start while another one is running. An open dialog is not busy: the user
+         *  is still deciding. */
         val isBusy: Boolean get() = commit != CommitActivity.Idle
 
         /**

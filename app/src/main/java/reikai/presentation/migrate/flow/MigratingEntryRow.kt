@@ -63,8 +63,7 @@ class MigratingEntryRow(
      * disappearing-row bug three times.
      *
      * [Accepted] carries the target rather than pointing at one, so "has a target" and "which
-     * target" cannot disagree (upstream's `SearchResult.Success` does the same). A tuning re-search
-     * builds fresh rows, so [Declined] does not survive it: that is a new list.
+     * target" cannot disagree (upstream's `SearchResult.Success` does the same).
      */
     sealed interface Acceptance {
         /** No target chosen yet. A suggestion may exist on the search cell; the user has not acted. */
@@ -277,18 +276,6 @@ object MigrationRowRules {
         commit: MigratingEntryRow.CommitPhase,
         anyCommitInFlight: Boolean,
     ): Boolean = commit is MigratingEntryRow.CommitPhase.Failed && !anyCommitInFlight
-
-    /**
-     * The row state a search restart produces. A committing row keeps everything, since the commit
-     * owns it; every other row returns to [MigratingEntryRow.SearchPhase.Queued] with its accepted
-     * target and failure memory cleared, because both referred to results this restart is discarding.
-     */
-    fun onSearchRestart(commit: MigratingEntryRow.CommitPhase): RestartOutcome = when {
-        commit.isBusy -> RestartOutcome.Keep
-        else -> RestartOutcome.Requeue
-    }
-
-    enum class RestartOutcome { Keep, Requeue }
 
     /**
      * What this row currently offers the user.

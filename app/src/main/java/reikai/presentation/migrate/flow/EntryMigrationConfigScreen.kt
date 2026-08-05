@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,7 +24,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,6 +39,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.SourceIcon
+import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
@@ -61,8 +66,8 @@ import uy.kohesive.injekt.api.get
  * Choose which sources a migration searches, and in what order. Shared by both content types over
  * [MigrationFlowAdapter]; only the adapter knows what a source is.
  *
- * Continue leads to the migration list. The search options are not asked for here: they live on the
- * list itself, where their effect is visible, so this screen is only about sources.
+ * Continue leads to the migration list. The search options are asked for here too, before any row
+ * exists, which is what keeps the list free of the machinery a mid-search change would need.
  */
 class EntryMigrationConfigScreen(
     private val contentType: ContentType,
@@ -75,6 +80,7 @@ class EntryMigrationConfigScreen(
         val screenModel = rememberScreenModel { EntryMigrationConfigScreenModel(contentType) }
         val state by screenModel.state.collectAsState()
         val listState = rememberLazyListState()
+        var showTuning by rememberSaveable { mutableStateOf(false) }
 
         if (state.isLoading) {
             LoadingScreen()
@@ -90,6 +96,11 @@ class EntryMigrationConfigScreen(
                     actions = {
                         AppBarActions(
                             listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
+                                    icon = Icons.Outlined.Tune,
+                                    onClick = { showTuning = true },
+                                ),
                                 AppBar.OverflowAction(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
                                     onClick = { screenModel.selectAll() },
@@ -175,6 +186,35 @@ class EntryMigrationConfigScreen(
                         )
                     }
                 }
+            }
+        }
+
+        if (showTuning) {
+            // The query draft is hosted here rather than inside the sheet so a rotation neither
+            // loses it nor commits a half-typed one; only IME done and a real dismissal commit it.
+            var tuningQuery by rememberSaveable(state.tuning.extraQuery) {
+                mutableStateOf(state.tuning.extraQuery.orEmpty())
+            }
+            val commitQuery = {
+                val trimmed = tuningQuery.trim().takeIf(String::isNotBlank)
+                if (trimmed != state.tuning.extraQuery) {
+                    screenModel.applyTuning(state.tuning.copy(extraQuery = trimmed))
+                }
+            }
+            AdaptiveSheet(
+                onDismissRequest = {
+                    commitQuery()
+                    showTuning = false
+                },
+            ) {
+                MigrationTuningSheet(
+                    tuning = state.tuning,
+                    query = tuningQuery,
+                    onQueryChange = { tuningQuery = it },
+                    onCommitQuery = commitQuery,
+                    matchStrategy = screenModel.matchStrategy,
+                    onApply = screenModel::applyTuning,
+                )
             }
         }
     }
@@ -301,6 +341,8 @@ class EntryMigrationConfigScreenModel(
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
+    val matchStrategy: MatchStrategy get() = adapter.matchStrategy
+
     init {
         screenModelScope.launchIO {
             adapter.prepare()
@@ -317,9 +359,24 @@ class EntryMigrationConfigScreenModel(
                     isLoading = false,
                     selected = selected,
                     available = enabled.filterNot { source -> source.key in selectedKeys },
+                    tuning = adapter.readTuning().normalizedFor(adapter.matchStrategy),
                 )
             }
         }
+    }
+
+    /**
+     * Save the search options. They are asked for here, before the list exists, so nothing can
+     * change what a search returns while one is running: the list reads them once and never rebuilds
+     * a row underneath live work.
+     *
+     * Normalized on the way in rather than trusted from the sheet, so an option this content type
+     * cannot run is never persisted.
+     */
+    fun applyTuning(edited: MigrationTuning) {
+        val tuning = edited.normalizedFor(adapter.matchStrategy)
+        mutableState.update { it.copy(tuning = tuning) }
+        screenModelScope.launchIO { adapter.persistTuning(tuning) }
     }
 
     fun toggleSelection(key: String) = mutableState.update { state ->
@@ -395,5 +452,6 @@ class EntryMigrationConfigScreenModel(
         val isLoading: Boolean = true,
         val selected: List<MigrationSourceUi> = emptyList(),
         val available: List<MigrationSourceUi> = emptyList(),
+        val tuning: MigrationTuning = MigrationTuning(),
     )
 }

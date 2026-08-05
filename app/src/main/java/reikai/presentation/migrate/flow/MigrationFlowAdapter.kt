@@ -124,8 +124,8 @@ data class MigrationFavorite(
  * as a screen argument); the toggles persist per type. Smart-match options ([deepSearch],
  * [prioritizeByChapters]) only apply under [MatchStrategy.Smart].
  *
- * Only [affectsSearch] options change what a search returns; the hide toggles are pure filters over
- * results already in hand, so changing one must never rebuild rows or re-hit the network.
+ * Settled on the config screen before the list exists, and read once from there, so no search can
+ * have its options changed underneath it.
  */
 data class MigrationTuning(
     val extraQuery: String? = null,
@@ -134,13 +134,6 @@ data class MigrationTuning(
     val hideUnmatched: Boolean = false,
     val hideWithoutUpdates: Boolean = false,
 ) {
-    /** True when moving to [other] requires re-running searches rather than re-filtering. */
-    fun affectsSearch(other: MigrationTuning): Boolean {
-        return extraQuery != other.extraQuery ||
-            deepSearch != other.deepSearch ||
-            prioritizeByChapters != other.prioritizeByChapters
-    }
-
     /**
      * This tuning with the options [strategy] cannot express dropped.
      *

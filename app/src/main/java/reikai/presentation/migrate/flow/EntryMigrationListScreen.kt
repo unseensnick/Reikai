@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
@@ -76,7 +74,6 @@ import uy.kohesive.injekt.api.get
 class EntryMigrationListScreen(
     private val contentType: ContentType,
     private val entryIds: List<Long>,
-    private val extraQuery: String? = null,
 ) : Screen(), MigrationFlowScreen {
 
     @Composable
@@ -85,13 +82,11 @@ class EntryMigrationListScreen(
         val screenModel = rememberScreenModel {
             EntryMigrationListScreenModel(
                 entryIds = entryIds,
-                extraQuery = extraQuery,
                 adapter = migrationAdapterFor(contentType),
                 pickHandoff = Injekt.get(),
             )
         }
         val state by screenModel.state.collectAsState()
-        var showTuning by rememberSaveable { mutableStateOf(false) }
 
         if (state.finished) {
             // A migrated row leaves the list as it succeeds, so by the time the flow pops there is
@@ -150,14 +145,6 @@ class EntryMigrationListScreen(
                                     // committing, so an enabled icon there would be a dead tap.
                                     enabled = state.hasUnaccepted && !state.isBusy,
                                 ),
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
-                                    icon = Icons.Outlined.Tune,
-                                    onClick = { showTuning = true },
-                                    // Matches what applyTuning itself allows, so the sheet cannot
-                                    // open onto edits that would be refused.
-                                    enabled = !state.isBusy,
-                                ),
                             ),
                         )
                     },
@@ -207,40 +194,6 @@ class EntryMigrationListScreen(
                         MigrationRow(row = row, busy = state.isBusy, screenModel = screenModel)
                     }
                 }
-            }
-        }
-
-        if (showTuning) {
-            val context = LocalContext.current
-            val busyMessage = stringResource(MR.strings.migrationFlow_busyToast)
-            val onApply: (MigrationTuning) -> Unit = {
-                if (!screenModel.applyTuning(it)) context.toast(busyMessage)
-            }
-            // Hosted here (saveable) so a rotation neither loses the draft nor applies it; only IME
-            // done and a real dismissal commit, and each commit is one batch restart at most.
-            var tuningQuery by rememberSaveable(state.tuning.extraQuery) {
-                mutableStateOf(state.tuning.extraQuery.orEmpty())
-            }
-            val commitQuery = {
-                val trimmed = tuningQuery.trim().takeIf(String::isNotBlank)
-                if (trimmed != state.tuning.extraQuery) {
-                    onApply(state.tuning.copy(extraQuery = trimmed))
-                }
-            }
-            AdaptiveSheet(
-                onDismissRequest = {
-                    commitQuery()
-                    showTuning = false
-                },
-            ) {
-                MigrationTuningSheet(
-                    tuning = state.tuning,
-                    query = tuningQuery,
-                    onQueryChange = { tuningQuery = it },
-                    onCommitQuery = commitQuery,
-                    matchStrategy = state.matchStrategy,
-                    onApply = onApply,
-                )
             }
         }
 

@@ -130,7 +130,6 @@ class EntryMigrationListScreenModelTest {
     ) =
         EntryMigrationListScreenModel(
             entryIds = entries.map { it.id.rawId },
-            extraQuery = null,
             adapter = FakeAdapter(entries, failFor, blockOn),
             pickHandoff = MigrationPickHandoff(),
             io = dispatcher,
@@ -377,7 +376,6 @@ class EntryMigrationListScreenModelTest {
         val adapter = FakeAdapter(entries, blockOn = EntryId.Manga(1))
         val model = EntryMigrationListScreenModel(
             entryIds = entries.map { it.id.rawId },
-            extraQuery = null,
             adapter = adapter,
             pickHandoff = MigrationPickHandoff(),
             io = dispatcher,
