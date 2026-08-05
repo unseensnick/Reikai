@@ -20,14 +20,11 @@ import tachiyomi.core.common.util.system.logcat
 import java.net.URLDecoder
 
 /**
- * Engine-agnostic host services for LN plugins: HTTP via OkHttp, per-plugin storage via the
- * shared [PreferenceStore], and logging. [LnPluginHost] binds these to the JS runtime as host
- * functions (`__lnFetch` / `__lnGetStorage` / `__lnSetStorage` / `__lnLog`). Nothing here touches
- * a WebView.
- *
- * RK: per-plugin storage is namespaced keys over the injected [PreferenceStore] (the project
- * forbids raw SharedPreferences), keyed `ln_storage::<pluginId>::<key>`; clearing a scope deletes
- * every key with that prefix.
+ * Engine-agnostic host services for LN plugins: HTTP over OkHttp, per-plugin storage over the shared
+ * [PreferenceStore], and logging. [LnPluginHost] binds these to the JS runtime as host functions
+ * (`__lnFetch` / `__lnGetStorage` / `__lnSetStorage` / `__lnLog`); nothing here touches a WebView.
+ * Storage is namespaced keys rather than raw SharedPreferences, which the project forbids, keyed
+ * `ln_storage::<pluginId>::<key>`; clearing a scope deletes every key with that prefix.
  */
 class LnHostBridge(
     private val preferenceStore: PreferenceStore,

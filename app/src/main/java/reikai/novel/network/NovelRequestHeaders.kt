@@ -5,14 +5,12 @@ import android.webkit.WebSettings
 import okhttp3.Request
 
 /**
- * Single source of truth for the request headers a light-novel network call should carry when the
- * caller (not a plugin) builds the request. Used by both [reikai.novel.host.LnHostBridge] (chapter /
- * metadata fetches) and the novel cover fetcher, so per-source header handling lives in one place.
- *
- * Mihon's shared network client otherwise injects a stripped, generic "Android 10; K" User-Agent
- * (anti-fingerprint), which some LN hosts answer with a degraded page or a thumbnail-only cover.
- * LNReader and the Yokai-era fork send the device's real WebView UA, so we mirror that here. Cookies
- * ride the shared OkHttp `cookieJar` (the same jar FlareSolverr populates) and need no handling here.
+ * The request headers a light-novel network call carries when the caller, not a plugin, builds the
+ * request. Used by [reikai.novel.host.LnHostBridge] and the novel cover fetcher, so per-source header
+ * handling lives in one place. Mihon's shared network client otherwise injects a stripped, generic
+ * "Android 10; K" User-Agent, which some LN hosts answer with a degraded page or a thumbnail-only
+ * cover; LNReader sends the device's real WebView UA, mirrored here. Cookies ride the shared OkHttp
+ * `cookieJar`, the same jar FlareSolverr populates, and need no handling here.
  */
 
 @Volatile

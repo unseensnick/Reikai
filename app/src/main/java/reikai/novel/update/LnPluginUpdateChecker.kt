@@ -13,15 +13,11 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Detects light-novel plugin updates by diffing each [NovelPreferences.addedRepoUrls] registry's
- * latest `version` against the version stored on each [NovelPreferences.installedPluginMetadata]
- * record at install time, using a single comparator ([LnPluginVersion.compare]).
- *
- * `check` is the pure diff. [runIfStale] wraps it with a 6-hour cache for an on-launch / on-resume
- * path (the future Browse-tab badge); the WorkManager job (lands with the Browse UI) bypasses the
- * cache on its own schedule.
- *
- * Individual repo fetch failures don't fail the batch: a typo'd repo URL or a temporarily-down
- * registry should not hide updates from the working repos.
+ * latest `version` against the one stored on each [NovelPreferences.installedPluginMetadata] record at
+ * install time, through a single comparator ([LnPluginVersion.compare]). `check` is the pure diff;
+ * [runIfStale] wraps it with a 6-hour cache for the on-launch path, while the WorkManager job bypasses
+ * the cache on its own schedule. Individual repo fetch failures do not fail the batch, so a typo'd or
+ * temporarily-down registry cannot hide updates from the working ones.
  */
 class LnPluginUpdateChecker(
     private val installer: LnPluginInstaller,

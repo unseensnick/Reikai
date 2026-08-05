@@ -5,14 +5,11 @@ import org.json.JSONObject
 
 /**
  * Android side of the reader's JS bridge, exposed to the WebView as `window.NativeReader`. The
- * vendored `core.js` posts JSON messages through `window.ReactNativeWebView.postMessage`, which a
- * shim in [buildReaderHtml] forwards here.
- *
- * Messages run on a WebView background thread, so UI-affecting callbacks marshal to the main thread
- * at the call site ([onSave] is safe off-thread: it only triggers a DB write). The surface is small
- * (parse + dispatch known types); unknown types are ignored. We handle `hide` (toggle the Compose
- * chrome), `save` (scroll progress), `console` (debug log), the `core.js` TTS messages, and the
- * bundled `reikai-ready` ping emitted once a chapter document is up; prev/next are Compose buttons.
+ * vendored `core.js` posts JSON through `window.ReactNativeWebView.postMessage`, which a shim in
+ * [buildReaderHtml] forwards here. Messages arrive on a WebView background thread, so UI-affecting
+ * callbacks marshal to the main thread at the call site; [onSave] is safe off-thread, being only a DB
+ * write. Handled: `hide`, `save`, `console`, the `core.js` TTS messages, and the `reikai-ready` ping
+ * emitted once a chapter document is up. Unknown types are ignored; prev/next are Compose buttons.
  */
 class NovelReaderWebInterface(
     private val onHide: () -> Unit,

@@ -72,13 +72,11 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 import tachiyomi.presentation.core.util.selectedBackground
 
 /**
- * Novel twin of `DuplicateMangaDialog`: shown when a similarly-named novel is already in the library.
- * Tapping a card migrates that duplicate onto the novel being added (like manga) when [onMigrate] is set,
- * else it opens the duplicate; long-press opens it. "Add anyway" proceeds with the add. Trimmed vs the
- * manga dialog (no per-card text-measured height).
- *
- * Grouping mirrors the manga twin: same-group duplicates collapse into one card and the user picks which
- * ones the new copy belongs with, since duplicate matching is fuzzy enough to list a different series.
+ * Novel twin of `DuplicateMangaDialog`, shown when a similarly-named novel is already in the library.
+ * Tapping a card migrates that duplicate onto the novel being added when [onMigrate] is set, else it
+ * opens the duplicate; long-press opens it, and "Add anyway" proceeds. Grouping mirrors the manga twin:
+ * same-group duplicates collapse into one card and the user picks which ones the new copy belongs with,
+ * since duplicate matching is fuzzy enough to list a different series.
  */
 @Composable
 fun DuplicateNovelDialog(

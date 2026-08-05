@@ -11,10 +11,8 @@ import tachiyomi.data.Database
  * Walk a paged source's chapter pages [fromPage]..[toPage] inclusive, syncing each into the novel's
  * stored chapters (tagged with its transport index). Callers pass `fromPage = oldTotalPages` so the
  * previously-last page is re-fetched too, surfacing chapters appended to it before a new page opened.
- * Page 1 is the caller's responsibility (it comes from `parseNovel`, not `parsePage`).
- *
- * Net-new and self-contained so the background update job can reuse the same walk. A page that
- * throws or returns nothing is skipped, not fatal: one flaky page shouldn't abort the rest.
+ * Page 1 is the caller's responsibility, coming from `parseNovel` rather than `parsePage`. A page that
+ * throws or returns nothing is skipped rather than fatal, so one flaky page cannot abort the rest.
  */
 suspend fun walkNovelPages(
     novel: Novel,

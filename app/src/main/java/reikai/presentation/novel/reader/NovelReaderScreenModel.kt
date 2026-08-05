@@ -71,9 +71,9 @@ private const val MAX_CACHED_CHAPTERS = 5
  * (Updates, a source chip, notifications) uses just [novelId]'s own chapters; group scope (the default:
  * details All chip, Library resume, History) resolves the merge group from [novelId] and aggregates the
  * unified cross-source order in-reader, the novel twin of the manga reader, so no caller passes a list.
- * Each chapter loads through its own source (resolved per `chapter.novelId`), so a merged session walks
- * across sources. [initialChapterId] is the entry point. Chapters load live via `parseChapter` (offline
- * downloads read from disk). Reading at >=97% auto-marks the chapter read.
+ * Each chapter loads through its own source, resolved per `chapter.novelId`, so a merged session walks
+ * across sources. Chapters load live via `parseChapter`, offline ones from disk, and reading past 97%
+ * auto-marks the chapter read.
  */
 class NovelReaderScreenModel(
     private val novelId: Long,

@@ -13,24 +13,13 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
 import java.util.TreeSet
 
 /**
- * Novel-side parallel of the manga `syncChaptersWithSource`: reconcile a freshly-parsed source
- * chapter list against the stored `novel_chapters` rows, in one transaction. Stripped of manga-only
- * concerns (no scanlators, no download-manager hook, no duplicate-read library pref).
- *
- * Re-typed from the Yōkai helper onto the novel repos + [Database] directly. Chapter-number recognition
- * runs only when the plugin gave none (drives sort + display); plugin-supplied numbers are trusted.
- * A re-added chapter (same recognized number as a just-deleted one) inherits its read/bookmark state
- * and original `dateFetch`, so it doesn't bubble up as "new".
- *
- * [page] scopes the sync to one page of a paged source: reconciliation runs against that page's stored
- * rows plus any leftover unpaged ("") rows (so a novel that flipped from unpaged to paged re-tags
- * those rows in place instead of duplicating them, e.g. a source whose pagination is a toggleable
- * setting), and each synced chapter is tagged with [page] as its transport index. Other numbered
- * pages are left untouched. Null = whole-novel sync (the unpaged / parseNovel path), which keeps each
- * chapter's own `ChapterItem.page` (volume label or empty).
- *
- * @return (newly inserted chapters, deleted chapters), each excluding entries whose only change was a
- *   duplicate-read carry-over, so a caller's "new chapters" signal doesn't fire on reorders.
+ * Novel-side parallel of the manga `syncChaptersWithSource`: reconcile a freshly-parsed source chapter
+ * list against the stored `novel_chapters` rows, in one transaction, without the manga-only concerns.
+ * A re-added chapter inherits the read/bookmark state and `dateFetch` of the one it replaces, so it
+ * does not bubble up as new. [page] scopes the sync to one page of a paged source, reconciling against
+ * that page's rows plus any leftover unpaged ones, so a novel that flips from unpaged to paged re-tags
+ * in place instead of duplicating; null syncs the whole novel. Returns (inserted, deleted), each
+ * excluding a pure duplicate-read carry-over so a new-chapter signal does not fire on reorders.
  */
 suspend fun syncChaptersWithNovelSource(
     rawSourceChapters: List<ChapterItem>,

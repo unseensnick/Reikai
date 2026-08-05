@@ -37,19 +37,13 @@ import java.util.concurrent.Executors
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Hosts lnreader plugins in headless QuickJS engines (no WebView, no Activity), so novel sources
- * run the same on a screen or on a background worker.
- *
- * Isolation is per plugin: each plugin gets its own engine on its own confinement thread, created
- * lazily on first call and closed again after [IDLE_CLOSE_MS] of disuse, so concurrent calls to
- * different sources (global search, browse while the update job runs) no longer serialize behind
- * one app-wide lane, and an idle plugin holds no native engine. [loadPlugin] (info extraction at
- * install / app start) runs on a shared loader engine instead, so a bulk `ensureLoaded` still costs
- * one engine, not one per installed plugin; the load args are retained and replayed into the
- * plugin's own engine on its first real call.
- *
- * Each plugin method call is suspending: success returns a strongly-typed Kotlin value, failure
- * throws [LnPluginException]. Per-call timeouts guard against runaway plugins.
+ * Hosts lnreader plugins in headless QuickJS engines (no WebView, no Activity), so novel sources run
+ * the same on a screen or on a background worker. Isolation is per plugin: each gets its own engine on
+ * its own confinement thread, created lazily and closed after [IDLE_CLOSE_MS] idle, so calls to
+ * different sources no longer serialize behind one app-wide lane. [loadPlugin] runs on a shared loader
+ * engine instead, so a bulk `ensureLoaded` costs one engine rather than one per plugin; its args are
+ * replayed into the plugin's own engine on the first real call. Every call suspends, returning a typed
+ * value or throwing [LnPluginException], with per-call timeouts.
  */
 class LnPluginHost(
     context: Context,
@@ -334,15 +328,13 @@ class LnPluginHost(
         slot.mutex.withLock {
             val q = slot.engine()
             val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
-            // __lnCallMethod is async (it fetches). evaluate returns the Promise, not its value, so the
-            // settled result is parked on a global that the engine fills while evaluate pumps the job
-            // queue (including the suspend __lnFetch binding), then read back.
+            // __lnCallMethod is async, and evaluate returns the Promise rather than its value, so the
+            // settled result parks on a global the engine fills while evaluate pumps the job queue.
             //
-            // Each call parks in its OWN slot, keyed by a call id. A single shared slot was not safe
-            // despite the mutex: a promise outlives the call that created it, so a slow call that gave
-            // up could settle later and land in the slot the NEXT call then read, handing one novel the
-            // parsed metadata of another and writing it over that novel's row. Keying by call id makes
-            // a late settle land somewhere nobody reads.
+            // Each call parks in its OWN slot, keyed by a call id. One shared slot was not safe despite
+            // the mutex: a promise outlives the call that created it, so a slow call that gave up could
+            // settle later into the slot the NEXT call read, handing one novel another's parsed
+            // metadata and writing it over that novel's row.
             val callId = "c${++slot.callSeq}"
             q.evaluate<Any?>(
                 "globalThis.__lnResults=globalThis.__lnResults||{};" +

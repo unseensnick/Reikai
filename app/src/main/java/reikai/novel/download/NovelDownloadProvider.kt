@@ -16,22 +16,13 @@ import tachiyomi.domain.storage.service.StorageManager
 import uy.kohesive.injekt.injectLazy
 
 /**
- * Resolves on-disk locations for downloaded novel chapter text. Stable-name scheme mirroring the manga
- * [DownloadProvider]: `<novel downloads dir>/<source>/<novel title>/<chapter name>_<url hash>.html`.
- * Because the path is derived from stable metadata (not the row's numeric DB ids), a downloaded chapter
- * survives reinstall / restore / storage-move, and the folders are human-readable (the old
- * `<novelId>/<chapterId>.html` scheme broke on any id reshuffle and was opaque).
- *
- * The `<source>` segment keys on the **plugin id** ([Novel.source]) rather than a display name: a novel
- * source's display name can change on a plugin update, so the id is the hardier folder key (the manga
- * side keys on display name because its numeric source ids are stable). Title + chapter naming is
- * **reused** from the manga [DownloadProvider]: this class delegates to `getMangaDirName` /
- * `getChapterDirName` rather than copying the logic, so the two schemes can never drift by
- * construction, which a later unified download layer depends on.
- *
- * Text-only: one self-contained HTML file per chapter (inline images embedded as `data:` URIs). Writes
- * land on a `<name>.html<TMP_DIR_SUFFIX>` temp file and rename on success, so a [NovelDownloadCache]
- * scan mid-download never counts a half-written file (mirrors the manga Downloader's tmp-then-rename).
+ * Resolves on-disk locations for downloaded novel chapter text, mirroring the manga [DownloadProvider]:
+ * `<novel downloads dir>/<source>/<novel title>/<chapter name>_<url hash>.html`. Derived from stable
+ * metadata rather than numeric DB ids, so a download survives reinstall, restore and storage moves.
+ * The `<source>` segment keys on the PLUGIN ID, not a display name, which a plugin update can change
+ * (the manga side keys on display name because its numeric source ids are stable). Title and chapter
+ * naming delegate to the manga provider rather than copying it, so the two cannot drift. One
+ * self-contained HTML file per chapter, written to a temp name and renamed on success.
  */
 class NovelDownloadProvider {
 

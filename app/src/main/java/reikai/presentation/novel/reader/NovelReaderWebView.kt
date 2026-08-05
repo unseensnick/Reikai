@@ -26,14 +26,12 @@ import logcat.logcat
 import kotlin.math.roundToInt
 
 /**
- * Renders a novel chapter's text in a WebView using the bundled `index.css` + `core.js` (typography,
- * the scroll-save + center-tap bridge, font loading). This is the reader's text canvas ONLY, the
- * toolbar / prev-next / settings chrome is Compose ([NovelReaderScreen]). A center tap posts a `hide`
- * message over the native bridge, firing [onToggleMenu].
- *
- * [settings] changes are pushed live via `reader.readerSettings.val` (no reload), so font, spacing,
- * alignment, padding, and theme update in place. The document is rebuilt only when the chapter [html]
- * or the app [MaterialTheme] colors change.
+ * Renders a novel chapter's text in a WebView using the bundled `index.css` and `core.js`. The
+ * reader's text canvas ONLY: the toolbar, prev/next and settings chrome are Compose
+ * ([NovelReaderScreen]), and a center tap posts a `hide` message over the native bridge, firing
+ * [onToggleMenu]. [settings] changes push live through `reader.readerSettings.val` with no reload, so
+ * font, spacing, alignment, padding and theme update in place; the document is rebuilt only when the
+ * chapter [html] or the app [MaterialTheme] colors change.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable

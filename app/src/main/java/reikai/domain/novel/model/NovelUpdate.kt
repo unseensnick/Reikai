@@ -2,15 +2,11 @@ package reikai.domain.novel.model
 
 /**
  * Partial-update patch for the `novels` table, the novel twin of
- * [tachiyomi.domain.manga.model.MangaUpdate]. Every field but [id] is nullable; null means "leave
- * unchanged" (the repo routes it through the `coalesce`-based `partialUpdate` query). Use this for
- * surgical single/multi-field writes instead of the full-row `update(Novel)`, which stays for the
- * restore / edit-info paths that legitimately write a column back to null (something `coalesce`
- * can't express).
- *
- * `genre` and `updateStrategy` are intentionally absent: SQLDelight does not preserve those custom
- * column adapters through the `coalesce` partial-update for the novels table, so patch them via the
- * full-row [reikai.domain.novel.NovelRepository.update] (Novel) instead.
+ * [tachiyomi.domain.manga.model.MangaUpdate]. Every field but [id] is nullable, null meaning leave
+ * unchanged, through the repo's `coalesce`-based `partialUpdate`. The full-row `update(Novel)` stays
+ * for the restore and edit-info paths that legitimately write a column back to null, which `coalesce`
+ * cannot express. `genre` and `updateStrategy` are deliberately absent: SQLDelight does not preserve
+ * their column adapters through that partial update, so patch them through the full-row write.
  */
 data class NovelUpdate(
     val id: Long,

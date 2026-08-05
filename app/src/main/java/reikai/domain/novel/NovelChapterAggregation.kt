@@ -4,23 +4,12 @@ import reikai.domain.novel.model.NovelChapter
 
 /**
  * Pure cross-source chapter stitcher for merged novel groups, the novel analogue of
- * [reikai.domain.manga.ChapterAggregation]. Given each grouped novel's chapters, produces ONE unified
- * list.
- *
- * **Trunk = the preferred source if one is in the group, else the source with the most chapters.**
- *
- * Chapters are matched across sources by [matchKey]: the normalized **title text** when the name has
- * any (e.g. "Chapter 1 - 0 Surviving Just To Die" and "0 Surviving Just to Die" both reduce to
- * `surviving just to die`), otherwise the recognized **chapter number** (for numeric-only names like
- * "Chapter 5"). Title-first is more forgiving than raw numbers, which often disagree across sources
- * (an off-by-one from a prologue), and survives the title-only MTL sources that ship no number at all.
- * **Every trunk chapter is kept** (novels have no scanlator variants, so each row is a distinct
- * chapter); a sibling chapter is added only when its key isn't already present (gap-fill), and a
- * sibling with no usable key is dropped (it can't be matched). So the unified list always contains at
- * least the whole trunk. Each returned [NovelChapter] keeps its own `novelId`, so the caller can read
- * a chapter from its origin source. Output is unsorted.
- *
- * Stateless and side-effect-free for unit testing.
+ * [reikai.domain.manga.ChapterAggregation]. Trunk = the preferred source if one is in the group, else
+ * the source with the most chapters. Chapters match across sources by [matchKey]: normalized TITLE
+ * TEXT when the name has any, else the recognized number. Title-first survives the off-by-one numbers
+ * sources disagree on and the title-only MTL sources that ship no number. EVERY trunk chapter is kept,
+ * a sibling is added only when its key is absent, and a sibling with no usable key is dropped. Each
+ * [NovelChapter] keeps its own `novelId`, so it can be read from its origin source; output unsorted.
  */
 object NovelChapterAggregation {
 
@@ -28,10 +17,10 @@ object NovelChapterAggregation {
      * @param chaptersByNovel each grouped novel's id mapped to that novel's chapters.
      * @param sourceIdByNovel each grouped novel's id mapped to its source id (for the priority rank).
      * @param preferredSourceIds the global preferred-source ranking, highest priority first.
-     * @param memberRanking a per-group override: the member novel ids in the group's own trunk order.
-     *   When non-empty it ranks members directly (by position here) and [preferredSourceIds] is ignored,
-     *   so two members sharing a source still order distinctly. Empty (the default) uses the source list.
-     * @return the unified chapter list (unsorted). For 0 or 1 novel, returns the input unchanged.
+     * @param memberRanking a per-group override: the member novel ids in the group's trunk order. When
+     *   non-empty it ranks members by position and [preferredSourceIds] is ignored, so two members
+     *   sharing a source still order distinctly. Empty uses the source list.
+     * @return the unified chapter list, unsorted; for 0 or 1 novel, the input unchanged.
      */
     fun aggregate(
         chaptersByNovel: Map<Long, List<NovelChapter>>,

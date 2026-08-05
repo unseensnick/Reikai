@@ -5,11 +5,9 @@ import reikai.domain.novel.NovelPreferences
 /**
  * Per-novel chapter sort / filter / display settings, packed into [Novel.chapterFlags]. Self-contained
  * (its own constants rather than borrowing the manga `Manga.CHAPTER_*` layout) because the novel
- * filter/sort sheet is net-new and nothing shares the encoding.
- *
- * A novel either uses its own (local) settings or falls back to the global defaults in
- * [NovelPreferences]; the [SORT_LOCAL] / [FILTER_LOCAL] bits pick which. [Novel] is immutable, so
- * mutation goes through [setFlag], which returns the new flags value.
+ * filter/sort sheet is net-new and nothing shares the encoding. A novel either uses its own local
+ * settings or falls back to the global defaults in [NovelPreferences], picked by the [SORT_LOCAL] /
+ * [FILTER_LOCAL] bits. [Novel] is immutable, so mutation goes through [setFlag].
  */
 object NovelChapterFlags {
     // Sort direction (bit 0). DESC = bit clear (newest/highest first), matching the manga default.

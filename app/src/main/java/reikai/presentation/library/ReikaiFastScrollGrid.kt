@@ -51,13 +51,12 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * A fast-scroll [LazyVerticalGrid] for Reikai's single-list library.
- * Mihon's [tachiyomi.presentation.core.components.FastScrollLazyVerticalGrid] positions its thumb as
+ * A fast-scroll [LazyVerticalGrid] for Reikai's single-list library. Mihon's
+ * [tachiyomi.presentation.core.components.FastScrollLazyVerticalGrid] positions its thumb as
  * `rowsBefore * averageRowHeight`, which jitters when a grid mixes tall cover rows with short
- * full-span headers, and it ships the stable algorithm only for plain lists. This borrows that stable
- * approach: the thumb tracks a proportion of rows scrolled past ([LazyGridItemInfo.row] is span-aware),
- * never averaging heights. The caller supplies [totalRows] and [itemIndexForRow], which a proportion
- * cannot infer through span headers.
+ * full-span headers, so this borrows Mihon's stable list algorithm: the thumb tracks a proportion of
+ * rows scrolled past ([LazyGridItemInfo.row] is span-aware), never averaging heights. The caller
+ * supplies [totalRows] and [itemIndexForRow], which a proportion cannot infer through span headers.
  */
 @Composable
 fun ReikaiFastScrollLazyVerticalGrid(

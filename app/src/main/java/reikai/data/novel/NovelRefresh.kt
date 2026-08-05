@@ -33,13 +33,10 @@ fun mergeRefreshedNovel(existing: Novel, parsed: Novel): Novel = existing.copy(
 
 /**
  * Re-parse a favorited [novel] from its [source] and bring its stored data up to date: merge the
- * freshly parsed metadata (persisting only when it changed), sync the first page's chapters, then walk
- * any pages opened since the novel's previous [Novel.totalPages]. Returns the merged novel (carrying the
- * new totalPages).
- *
- * Shared by the background update job ([reikai.data.novel.update.NovelUpdateJob]) and the details
- * refresh. The browse-open path stays on `insertOrGet` in the details model: that inserts a
- * non-favorite shadow row and does not walk, a genuinely different operation.
+ * parsed metadata (persisting only on a change), sync the first page's chapters, then walk any pages
+ * opened since the previous [Novel.totalPages]. Returns the merged novel. Shared by the background
+ * update job and the details refresh. The browse-open path stays on `insertOrGet` in the details
+ * model: that inserts a non-favorite shadow row and does not walk, a genuinely different operation.
  */
 suspend fun refreshNovelFromSource(
     novel: Novel,

@@ -29,10 +29,9 @@ import tachiyomi.domain.library.service.LibraryPreferences
  * In-reader "view all chapters" sheet for the novel reader, the novel twin of the manga reader's
  * [eu.kanade.presentation.reader.ChapterListDialog]. Reuses [MangaChapterListItem] so the rows (read
  * dot, date, bookmark, download button) match the novel details list and the manga reader exactly.
- * Tap to jump, swipe to bookmark, start/cancel/delete a download from the row. For a merged novel the
- * unified cross-source list shows a per-source label ([sourceNames]); single-source novels pass an
- * empty map, so no label appears. Swipe runs the configured chapter-swipe action (mark read/unread,
- * bookmark, or download, per direction), matching the details and manga-reader lists.
+ * Tap to jump, and swipe runs the configured chapter-swipe action per direction, as on the details and
+ * manga-reader lists. For a merged novel the unified cross-source list shows a per-source label
+ * ([sourceNames]); single-source novels pass an empty map, so no label appears.
  */
 @Composable
 fun NovelReaderChapterListDialog(

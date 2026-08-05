@@ -55,13 +55,11 @@ import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 /**
- * RK: periodic background check for new chapters in favorited light novels. The novel analog
- * of Mihon's [eu.kanade.tachiyomi.data.library.LibraryUpdateJob]: a configurable WorkManager schedule
- * (interval + device restrictions live in [NovelPreferences]) that re-parses each favorite, syncs its
- * chapter list, optionally auto-downloads the new chapters, and posts progress + result notifications.
- *
- * Per-novel logic is the shared [refreshNovelFromSource] (parse + sync page 1 + page walk), the same
- * helper the details refresh uses; new chapters are captured by a before/after chapter-id diff around it.
+ * Periodic background check for new chapters in favorited light novels, the novel analog of Mihon's
+ * [eu.kanade.tachiyomi.data.library.LibraryUpdateJob]: a configurable WorkManager schedule that
+ * re-parses each favorite, syncs its chapter list, optionally auto-downloads the new chapters, and
+ * posts progress and result notifications. Per-novel logic is the shared [refreshNovelFromSource], the
+ * same helper the details refresh uses; new chapters come from a before/after chapter-id diff.
  */
 class NovelUpdateJob(
     private val context: Context,

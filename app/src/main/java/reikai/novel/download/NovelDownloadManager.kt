@@ -31,17 +31,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 /**
- * App-scoped, text-only download engine for light-novel chapters. A single sequential queue writes one
- * self-contained HTML file per chapter on disk (inline images embedded as `data:` URIs) under a
- * stable-name path ([NovelDownloadProvider]); "downloaded" is decided from a disk scan
- * ([NovelDownloadCache]), so downloads survive reinstall / restore / storage-move. Lighter than the
- * manga [eu.kanade.tachiyomi.data.download.DownloadManager] / Downloader stack (no pages, no CBZ, no
- * tall-image splitting), but shares its naming + disk-cache approach.
- *
- * The actual draining runs inside [NovelDownloadJob] (a foreground worker) so downloads survive
- * backgrounding and resume after a restart; [downloadChapters] enqueues + persists, then starts the
- * job. Self-contained: each chapter's owning source is resolved from its `novelId` (chapter row ->
- * sibling Novel -> plugin id), so the same entry points work from a cold background process.
+ * App-scoped, text-only download engine for light-novel chapters. One sequential queue writes a
+ * self-contained HTML file per chapter under a stable-name path ([NovelDownloadProvider]), and
+ * "downloaded" is decided from a disk scan ([NovelDownloadCache]), so downloads survive reinstall,
+ * restore and storage moves. Lighter than the manga stack (no pages, no CBZ, no tall-image splitting)
+ * but sharing its naming and disk-cache approach. Draining runs inside [NovelDownloadJob], a
+ * foreground worker, so downloads survive backgrounding. Each chapter's source is resolved from its
+ * `novelId`, so the entry points work from a cold background process.
  */
 class NovelDownloadManager(private val context: Context) {
 

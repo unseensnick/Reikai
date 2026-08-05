@@ -4,19 +4,13 @@ import eu.kanade.presentation.manga.DownloadAction
 import reikai.domain.novel.model.NovelChapter
 
 /**
- * Resolve a toolbar/library [DownloadAction] to the novel chapters it should enqueue, the single
- * source of truth shared by the novel library (multi-select) and the novel details toolbar. NEXT_N
- * counts the next unread chapters in reading (source) order; UNREAD is every unread chapter;
- * BOOKMARKED is every bookmarked chapter.
+ * Resolve a toolbar or library [DownloadAction] to the novel chapters it should enqueue, shared by the
+ * novel library's multi-select and the details toolbar. NEXT_N takes the next unread chapters in
+ * source order, UNREAD every unread one, BOOKMARKED every bookmarked one.
  *
- * Already-downloaded and already-queued chapters are excluded up front (mirroring manga, which drops
- * both before picking targets). This must happen BEFORE NEXT_N's take(N): otherwise, once the first N
- * unread chapters are downloaded or queued, take(N) keeps returning those same chapters (which the
- * downloader then skips), so repeated NEXT_N never advances past them and short-changes the batch.
- *
- * [excludedChapterIds] carries the already-downloaded (from NovelDownloadCache) plus already-queued
- * (from NovelDownloadManager.queueState) membership; the caller resolves and unions it, since this
- * pure selector has no DB / cache / queue access.
+ * Already-downloaded and already-queued chapters are excluded BEFORE NEXT_N's take(N), as on manga.
+ * Otherwise, once the first N are downloaded, take(N) keeps returning them and repeated NEXT_N never
+ * advances. [excludedChapterIds] is that union, resolved by the caller.
  */
 fun selectChaptersForDownloadAction(
     chapters: List<NovelChapter>,

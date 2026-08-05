@@ -23,15 +23,11 @@ import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Installs and uninstalls light-novel plugins.
- *
- * - [installFromUrl] downloads + loads + registers + persists the plugin URL.
- * - [loadInstalled] / [ensureLoaded] re-load every previously-installed plugin into the app-scoped
- *   host on app start, registering the sources with [NovelSourceManager].
- * - [fetchRepo] downloads + parses an lnreader registry's `plugins.min.json` index.
- *
- * The installer owns the app-scoped [LnPluginHost]; [ensureLoaded] populates the shared
- * [NovelSourceManager] from persistence once per process.
+ * Installs and uninstalls light-novel plugins, and owns the app-scoped [LnPluginHost].
+ * [installFromUrl] downloads, loads, registers and persists a plugin URL; [loadInstalled] and
+ * [ensureLoaded] re-load every installed plugin into the host on app start, populating the shared
+ * [NovelSourceManager] from persistence once per process; [fetchRepo] parses a registry's
+ * `plugins.min.json` index.
  */
 class LnPluginInstaller(
     private val networkHelper: NetworkHelper,
@@ -277,12 +273,10 @@ class LnPluginInstaller(
 
 /**
  * Normalize a plugin URL so equality compares predictably across the install/uninstall surface.
- *
- * Registry-emitted URLs leave reserved path characters like `[` and `]` literal (e.g.
- * `NovelBin[readnovelfull].js`); pasted URLs historically had them percent-encoded. Both forms
- * fetch fine, but the `entry.url in installedPluginUrls` check is exact string equality, so the
- * registry form would miss against a stored encoded form. Forcing `[` / `]` to their percent forms
- * collapses the only mismatch observed.
+ * Registry-emitted URLs leave reserved path characters like `[` and `]` literal, where pasted URLs had
+ * them percent-encoded. Both fetch fine, but `entry.url in installedPluginUrls` is exact string
+ * equality, so the registry form missed against a stored encoded one. Forcing `[` and `]` to their
+ * percent forms collapses the only mismatch observed.
  */
 fun canonicalizePluginUrl(url: String): String =
     url.replace("[", "%5B").replace("]", "%5D")

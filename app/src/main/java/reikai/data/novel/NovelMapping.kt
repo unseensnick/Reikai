@@ -50,10 +50,7 @@ object NovelStatusCode {
  * Translate a freshly-parsed [SourceNovel] (lnreader plugin output) into a domain [Novel] ready for
  * the novels table. `id = -1L` (the unsaved sentinel) because the caller routes through
  * [reikai.domain.novel.NovelRepository.insertOrGet], which inserts by (url, source) and returns the
- * stored row.
- *
- * `genres` on SourceNovel is a comma-joined string per the lnreader convention; split to a clean
- * `List<String>` here.
+ * stored row. `genres` is a comma-joined string per the lnreader convention, split to a list here.
  */
 fun SourceNovel.toNovel(
     sourceId: String,

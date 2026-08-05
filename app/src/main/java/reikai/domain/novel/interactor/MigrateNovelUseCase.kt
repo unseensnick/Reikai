@@ -25,15 +25,11 @@ import java.time.Instant
 
 /**
  * Move a favorited novel's state onto a [target] novel from another source, the novel twin of
- * [mihon.domain.migration.usecases.MigrateMangaUseCase] (and modelled on LNReader's `migrateNovel`).
- *
- * The target is already materialised + chapter-synced by the picker, so this is mostly DB-only: it
- * copies per-chapter read / bookmark / scroll-progress (matched by chapter number), moves categories,
- * carries the custom cover + notes when their flags are set, favorites the target, carries tracker
- * links (re-pointed to the target, like manga), and keeps any merge group consistent: the target takes
- * the source's place on [replace], or joins it on copy, for manual and same-title auto groups alike.
- * History-tab rows are intentionally not carried (parity with Mihon, which carries tracks but not
- * history).
+ * [mihon.domain.migration.usecases.MigrateMangaUseCase]. The target is already materialised and
+ * chapter-synced by the picker, so this is mostly DB work: per-chapter read, bookmark and progress
+ * matched by chapter number, categories, the custom cover and notes when their flags are set,
+ * favoriting, tracker links re-pointed to the target, and the merge group kept consistent (the target
+ * takes the source's place on [replace], or joins it on copy). History is not carried, matching Mihon.
  */
 class MigrateNovelUseCase(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
@@ -191,17 +187,11 @@ class MigrateNovelUseCase(
 
 /**
  * Pure core: given the source novel's chapters and the target's, return the target chapters whose
- * read / bookmark / progress / dateFetch should change. A target chapter takes its matched (same
- * chapter number) source chapter's state; additionally every target chapter at or below the highest read source
- * number is marked read (mirrors Mihon's `maxChapterRead` sweep, so coarser target numbering still
- * reflects how far you'd read). Unrecognized numbers (< 0) are skipped, matching the sync convention.
- *
- * **Progress only ever rises.** Read and position are merged, never overwritten, so migrating onto a
- * target that was in the library before (and still holds its own progress) cannot un-read it. Manga
- * migration has the same property by construction: it raises read through the sweep alone.
- * [NovelChapter.bookmark] is deliberately NOT merged: it is taken from the matched source chapter
- * either way, matching manga migration, so a migration moves the bookmark set rather than unioning
- * two of them.
+ * read, bookmark, progress or dateFetch should change. A target chapter takes its matched (same
+ * number) source chapter's state, and every target chapter at or below the highest read source number
+ * is marked read, mirroring Mihon's `maxChapterRead` sweep. Unrecognized numbers are skipped.
+ * PROGRESS ONLY EVER RISES: read and position are merged, never overwritten, so migrating onto a
+ * target already in the library cannot un-read it. [NovelChapter.bookmark] is deliberately NOT merged.
  */
 internal fun computeChapterMigration(
     currentChapters: List<NovelChapter>,

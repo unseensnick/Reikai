@@ -4,14 +4,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * One entry from an lnreader plugin registry's `plugins.min.json` (or `plugins.json`).
- *
- * Reference shape:
- * `https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json`
- * (the user pastes a repo URL at runtime; nothing is bundled in the APK).
- *
- * Required fields ([id], [name], [version], [site], [lang], [url]) are present on every plugin in
- * the upstream registry. Optional fields are present only on a subset.
+ * One entry from an lnreader plugin registry's `plugins.min.json` (or `plugins.json`). The user pastes
+ * a repo URL at runtime; nothing is bundled in the APK. Reference shape:
+ * `https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json`.
+ * The required fields ([id], [name], [version], [site], [lang], [url]) are present on every plugin in
+ * the upstream registry; the optional ones only on a subset.
  */
 @Serializable
 data class LnRegistryEntry(

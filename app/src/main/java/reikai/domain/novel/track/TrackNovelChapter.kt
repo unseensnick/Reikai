@@ -14,10 +14,9 @@ import tachiyomi.core.common.util.system.logcat
  * Novel twin of [eu.kanade.domain.track.interactor.TrackChapter]: pushes a freshly read chapter number
  * to every bound, logged-in tracker that is behind, persisting to `novel_tracks`. On failure the update
  * is queued in [NovelDelayedTrackingStore] for [NovelDelayedTrackingUpdateJob] to retry when online.
- *
  * Merge-aware via [GetNovelTracks.awaitGroup]: a track bound on one source of a merged novel still
- * advances when a chapter from a sibling source is read (the reader keys on the chapter's owning novel
- * id, which differs across the group).
+ * advances when a chapter from a sibling source is read, the reader keying on the chapter's own novel
+ * id, which differs across the group.
  */
 class TrackNovelChapter(
     private val getNovelTracks: GetNovelTracks,

@@ -13,13 +13,11 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * Finds library novels that are showing another novel's details and re-fetches them from their own
- * source.
- *
+ * Finds library novels showing another novel's details and re-fetches them from their own source.
  * A plugin-host bug let a slow call's result land on the next novel in a bulk run, so that entry kept
- * its own url and chapters but wore a same-source neighbour's title, cover, author and description. The
- * host no longer does that, but rows written before the fix stay wrong until something refreshes them,
- * and the only visible symptom is a cover the user happens to recognise.
+ * its own url and chapters but wore a same-source neighbour's title, cover, author and description.
+ * The host no longer does that, but rows written before the fix stay wrong until something refreshes
+ * them, and the only visible symptom is a cover the user happens to recognise.
  */
 class RepairNovelDetails(
     private val novelRepository: NovelRepository = Injekt.get(),
@@ -57,18 +55,13 @@ class RepairNovelDetails(
 
     companion object {
         /**
-         * Two novels on the **same** source sharing a title *and* author but sitting at different urls:
-         * one of them is wearing the other's details.
+         * Two novels on the SAME source sharing a title and author but sitting at different urls: one
+         * is wearing the other's details.
          *
-         * Author is part of the key because title alone is not enough on a user-generated source: an
-         * AO3 library holds different works by different authors under the same title, which the title
-         * rule flagged every time. It costs nothing in sensitivity, since the mix-up copies the whole
-         * metadata block, so a victim always carries its donor's author too.
-         *
-         * Both members are returned rather than a guess at which is the victim: re-fetching resolves it
-         * either way, and refreshing an already-correct novel just re-reads what it already has, so a
-         * false positive costs one request. Same title across *different* sources is the normal
-         * multi-source case and is never flagged.
+         * Author is part of the key because title alone flags every same-titled work on a
+         * user-generated source, and it costs no sensitivity: the mix-up copies the whole metadata
+         * block, so a victim carries its donor's author too. Both members are returned rather than a
+         * guess at the victim, since re-fetching resolves it either way for one wasted request.
          */
         fun findSuspects(novels: List<Novel>): List<Novel> =
             novels

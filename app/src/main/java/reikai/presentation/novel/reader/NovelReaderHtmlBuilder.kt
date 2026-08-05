@@ -27,17 +27,11 @@ data class ReaderThemeColors(
 
 /**
  * Build the reader document for a single chapter: the `#LNReader-chapter` scaffold, the `:root`
- * settings/theme CSS variables, the injected `initialReaderConfig`, and the bundled `index.css` +
- * `core.js` (which handle typography, the live-settings reactivity, the scroll-save + tap-to-hide
- * bridge, and font loading).
- *
- * **Cohesion guardrail:** unlike Yōkai's port, the in-page chrome (`index.js` ToolWrapper / scrollbar
- * / buttons) and its CSS are NOT loaded, all chrome (toolbar, prev/next, settings) is Compose. Only
- * the text canvas lives in the WebView.
- *
- * The native bridge replaces upstream's react-native-webview `postMessage` with a shim that forwards
- * to an Android `@JavascriptInterface` named `NativeReader`, so the vendored `core.js` stays
- * byte-identical to upstream.
+ * settings and theme CSS variables, the injected `initialReaderConfig`, and the bundled `index.css`
+ * plus `core.js`. The in-page chrome (`index.js` ToolWrapper, scrollbar, buttons) and its CSS are
+ * deliberately NOT loaded: every piece of chrome is Compose, and only the text canvas lives in the
+ * WebView. The native bridge replaces upstream's react-native-webview `postMessage` with a shim
+ * forwarding to `NativeReader`, so the vendored `core.js` stays byte-identical to upstream.
  */
 fun buildReaderHtml(
     chapterHtml: String,

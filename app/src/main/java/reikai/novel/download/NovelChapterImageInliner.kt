@@ -6,15 +6,12 @@ import okhttp3.Request
 import org.jsoup.Jsoup
 
 /**
- * Inlines a downloaded chapter's inline images as `data:` URIs so the saved HTML is fully
- * self-contained and reads offline without file access.
- *
- * We embed (Base64 into the HTML) rather than save images as separate files + rewrite `src` to
- * `file://` (LNReader's scheme): the reader loads chapter HTML via `loadDataWithBaseURL` with a
- * remote/null base, so `file://` images would be cross-origin-blocked unless the WebView enabled
- * `setAllowFileAccessFromFileURLs` (forbidden by our security rules). A `data:` URI sidesteps that and
- * keeps the one-file-per-chapter provider scheme. Light-novel chapters are mostly text, so the ~33%
- * Base64 inflation is negligible; per-image failures leave the original `src` (online fallback).
+ * Inlines a downloaded chapter's images as `data:` URIs so the saved HTML is self-contained and reads
+ * offline without file access. Base64 into the HTML rather than LNReader's separate files plus a
+ * `file://` src: the reader loads chapter HTML through `loadDataWithBaseURL` with a remote or null
+ * base, so `file://` images would be cross-origin-blocked unless the WebView enabled
+ * `setAllowFileAccessFromFileURLs`, which the security rules forbid. Chapters are mostly text, so the
+ * roughly 33% inflation is negligible; a per-image failure leaves the original `src`.
  */
 private const val MAX_INLINE_BYTES = 5L * 1024 * 1024
 

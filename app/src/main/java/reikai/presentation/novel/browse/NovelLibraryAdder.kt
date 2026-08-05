@@ -104,13 +104,11 @@ class NovelLibraryAdder(
     }
 
     /**
-     * Add the item and merge it into the group of the duplicates the user picked. Only the picks: the
-     * duplicate list is fuzzy, and one member is enough since the merge absorbs that member's whole group.
-     * The new source joins the group's own categories when it has any; only an uncategorized group falls
-     * back to the default (or the picker).
-     *
-     * Favorites first, unlike the manga twin: a browse item has no library row until [favoriteReturningId]
-     * inserts one, and both the merge and the category seeding need its id.
+     * Add the item and merge it into the group of the duplicates the user picked. Only the picks, since
+     * the duplicate list is fuzzy, and one member is enough because the merge absorbs that member's
+     * whole group. The new source joins the group's own categories when it has any. Favorites first,
+     * unlike the manga twin: a browse item has no library row until [favoriteReturningId] inserts one,
+     * and both the merge and the category seeding need its id.
      */
     suspend fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>): NovelBrowseDialog? {
         val storedId = favoriteReturningId(item, sourceId) ?: return null

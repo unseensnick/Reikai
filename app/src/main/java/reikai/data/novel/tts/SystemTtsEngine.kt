@@ -10,11 +10,10 @@ import reikai.domain.novel.tts.TtsVoice
 /**
  * [NovelTtsEngine] backed by Android's [TextToSpeech]. Initialization is asynchronous, so callers
  * must wait for [onReady] (or check [isReady]) before [speak]; a speak before then no-ops its
- * `onDone` so the caller doesn't spin the chapter forward silently.
- *
- * One utterance is in flight at a time (each [speak] flushes the previous), so a single pending
- * callback slot is enough. [TextToSpeech] fires its progress callbacks on a binder thread; the
- * caller marshals to the main thread itself before touching the WebView.
+ * `onDone` so the caller does not spin the chapter forward silently. One utterance is in flight at a
+ * time (each [speak] flushes the previous), so a single pending callback slot is enough.
+ * [TextToSpeech] fires its progress callbacks on a binder thread, and the caller marshals to the main
+ * thread itself before touching the WebView.
  */
 class SystemTtsEngine(
     context: Context,

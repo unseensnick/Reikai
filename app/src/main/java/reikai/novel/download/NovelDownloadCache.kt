@@ -22,18 +22,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * In-memory index of which novel chapters are downloaded, derived from a disk scan rather than a DB
  * flag, mirroring the manga [eu.kanade.tachiyomi.data.download.DownloadCache]. Disk is the source of
- * truth, so downloaded state survives reinstall / restore / storage-move and can't drift out of sync.
- *
- * The tree is `source dir -> novel dir -> chapter file names present on disk`. Queries answer from the
- * current (possibly stale) tree synchronously and kick a background [renew] when it is past
- * [RENEW_INTERVAL_MS]; the renew is a full scan and emits [changes], so the UI re-queries with fresh
- * data (eventually consistent, exactly like the manga cache). Files ending in the downloader's
- * [Downloader.TMP_DIR_SUFFIX] are skipped so a half-written chapter isn't counted. There is no proto
- * snapshot (a scan is always the fallback); startup does a full scan.
- *
- * Keyed on strings internally; the typed [isChapterDownloaded] / [getDownloadCount] shims derive the
- * folder + file names through [NovelDownloadProvider] (which reuses the manga naming), so a future
- * unified download layer can lift this string core across both content types.
+ * truth, so downloaded state survives reinstall, restore and storage moves. The tree is
+ * `source dir -> novel dir -> chapter file names`. Queries answer from the possibly-stale tree
+ * synchronously and kick a background [renew] past [RENEW_INTERVAL_MS], which rescans and emits
+ * [changes]: eventually consistent, like the manga cache. Files carrying the downloader's
+ * [Downloader.TMP_DIR_SUFFIX] are skipped, so a half-written chapter is never counted.
  */
 class NovelDownloadCache {
 
