@@ -329,12 +329,11 @@ class NovelDetailsScreenModel(
             combine(
                 combine(
                     novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-                    mergeGroup.relatedIds,
-                    mergeGroup.selectedSource,
+                    mergeGroup.state,
                     pageIndex,
                     // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
                     mergeGroup.chips,
-                ) { anchor, related, selected, idx, _ -> ChapterInputs(anchor, related, selected, idx) },
+                ) { anchor, group, idx, _ -> ChapterInputs(anchor, group.ids, group.selected, idx) },
                 // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
                 hiddenChaptersPref.changes(),
                 showHiddenFlow,
@@ -514,7 +513,7 @@ class NovelDetailsScreenModel(
                 downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeGroup.chips.value,
-                selectedSourceNovelId = mergeGroup.selectedSource.value,
+                selectedSourceNovelId = mergeGroup.selectedSource,
                 // RK: match manga's swipe mapping (MangaScreenModel): the start/end action fields cross
                 // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
                 chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),
@@ -662,20 +661,19 @@ class NovelDetailsScreenModel(
         scope = screenModelScope,
         snackbarHostState = snackbarHostState,
         context = context,
-        relatedIds = mergeGroup.relatedIds,
+        group = mergeGroup,
         anchorId = { anchorNovelId },
         mergeManager = mergeManager,
-        onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateNovel.await(NovelUpdate(id = it, favorite = favorite)) } },
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
     fun selectSource(novelId: Long?) {
-        if (mergeGroup.selectedSource.value == novelId) return
+        if (mergeGroup.selectedSource == novelId) return
         clearSelection()
         pageIndex.value = 0
-        mergeGroup.selectedSource.value = novelId
+        mergeGroup.selectSource(novelId)
     }
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the source
@@ -747,7 +745,7 @@ class NovelDetailsScreenModel(
                 // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
                 // every other grouped source so the unified list picks up new chapters everywhere.
                 val anchorUpdated = refreshNovel(anchorSrc, loaded.novel)
-                for (id in mergeGroup.relatedIds.value) {
+                for (id in mergeGroup.relatedIds) {
                     if (id == loaded.novel.id) continue
                     val novel = novelRepo.getById(id) ?: continue
                     val src = siblingSources.value[id] ?: continue
@@ -1078,7 +1076,7 @@ class NovelDetailsScreenModel(
      *  MangaScreenModel.expandToGroup; the recognized-number predicate is `chapterNumber >= 0.0`,
      *  matching manga's `Chapter.isRecognizedNumber` (NovelChapter has no such property). */
     private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> {
-        val ids = mergeGroup.relatedIds.value
+        val ids = mergeGroup.relatedIds
         if (ids.size <= 1) return chapters
         val numbers = chapters.asSequence().filter { it.chapterNumber >= 0.0 }.map { it.chapterNumber }.toHashSet()
         if (numbers.isEmpty()) return chapters

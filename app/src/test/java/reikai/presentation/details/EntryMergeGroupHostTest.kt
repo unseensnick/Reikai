@@ -45,7 +45,44 @@ class EntryMergeGroupHostTest {
         val host = host(manager)
         host.seed(1L)
 
-        host.relatedIds.value.toList() shouldBe listOf(1L, 2L)
+        host.relatedIds.toList() shouldBe listOf(1L, 2L)
+    }
+
+    @Test
+    fun `a selected source that leaves the group is dropped`() = runTest {
+        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
+        val host = host(manager)
+        host.seed(1L)
+        host.selectSource(2L)
+
+        // Migrating source 2 away seats its replacement in the group; the chip must not survive it,
+        // or the chapter pipeline looks up a member that is gone.
+        host.setRelated(longArrayOf(1L, 3L))
+
+        host.selectedSource shouldBe null
+    }
+
+    @Test
+    fun `a selected source that survives a split stays selected`() = runTest {
+        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L) }
+        val host = host(manager)
+        host.seed(1L)
+        host.selectSource(2L)
+
+        host.setRelated(longArrayOf(1L, 2L))
+
+        host.selectedSource shouldBe 2L
+    }
+
+    @Test
+    fun `selecting a source outside the group is refused`() = runTest {
+        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
+        val host = host(manager)
+        host.seed(1L)
+
+        host.selectSource(9L)
+
+        host.selectedSource shouldBe null
     }
 
     @Test

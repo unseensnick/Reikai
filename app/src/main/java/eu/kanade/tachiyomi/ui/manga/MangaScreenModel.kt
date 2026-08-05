@@ -320,12 +320,11 @@ class MangaScreenModel(
             combine(
                 combine(
                     getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
-                    mergeGroup.relatedIds,
-                    mergeGroup.selectedSource,
+                    mergeGroup.state,
                     downloadCache.changes,
                     downloadManager.queueState,
-                ) { mangaAndChapters, relatedIds, selectedSource, _, _ ->
-                    ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, relatedIds, selectedSource)
+                ) { mangaAndChapters, group, _, _ ->
+                    ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, group.ids, group.selected)
                 },
                 // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
                 hiddenChaptersPref.changes(),
@@ -407,7 +406,7 @@ class MangaScreenModel(
             }
         }
         screenModelScope.launchIO {
-            mergeGroup.selectedSource.collectLatest { selected ->
+            mergeGroup.selectedSourceChanges.collectLatest { selected ->
                 updateSuccessState { it.copy(selectedSourceMangaId = selected) }
             }
         }
@@ -417,7 +416,7 @@ class MangaScreenModel(
         // without needing to back out and re-enter. Also refreshes on a source-chip switch or when
         // a gallery-update rewrites the metadata.
         screenModelScope.launchIO {
-            mergeGroup.selectedSource
+            mergeGroup.selectedSourceChanges
                 .flatMapLatest { selected ->
                     val targetId = selected ?: mangaId
                     getFlatMetadataById.subscribe(targetId).map { flat -> targetId to flat }
@@ -545,7 +544,7 @@ class MangaScreenModel(
         //     chip stays stale on refresh; each member goes through its own source's fetch (the same
         //     path Browse uses), populating details, chapters and gallery metadata. Just the primary
         //     when not merged, so non-grouped entries behave exactly as before.
-        val groupIds = mergeGroup.relatedIds.value
+        val groupIds = mergeGroup.relatedIds
         try {
             withUIContext {
                 val newChapters = mutableListOf<Chapter>()
@@ -1038,7 +1037,7 @@ class MangaScreenModel(
      *  a 32-bit float while a parsed one is a double, and the two differ by about 2.4e-8, so comparing
      *  exact doubles silently failed to match a fractional chapter across sources. */
     private suspend fun expandToGroup(chapters: List<Chapter>): List<Chapter> {
-        val ids = mergeGroup.relatedIds.value
+        val ids = mergeGroup.relatedIds
         if (ids.size <= 1) return chapters
         val numbers = chapters.asSequence()
             .filter { it.isRecognizedNumber }
@@ -1729,17 +1728,16 @@ class MangaScreenModel(
         scope = screenModelScope,
         snackbarHostState = snackbarHostState,
         context = context,
-        relatedIds = mergeGroup.relatedIds,
+        group = mergeGroup,
         anchorId = { mangaId },
         mergeManager = mergeManager,
-        onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateManga.awaitUpdateFavorite(it, favorite) } },
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {
-        mergeGroup.selectedSource.value = sourceMangaId
+        mergeGroup.selectSource(sourceMangaId)
     }
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the active
