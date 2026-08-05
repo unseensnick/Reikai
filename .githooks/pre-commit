@@ -8,6 +8,8 @@
 #     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
 #   .kt comments - no plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, plan-style
 #     Step N) in newly added lines; they rot. State the durable fact instead (R8 and M3 are spared).
+#   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped; write to
+#     8, over 10 is rejected. See .claude/rules/code-quality.md "Comments".
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
@@ -168,6 +170,44 @@ if [ -f "$manifest" ]; then
   elif [ -n "$(git diff --cached --name-only --diff-filter=D)" ]; then
     echo "off-path manifest: no refs/mihon clone, skipping the undeclared-reroute check."
   fi
+fi
+
+# ===== comment blocks (.kt under reikai/ or exh/): no wall of text =====
+# See .claude/rules/code-quality.md "Comments". A run of consecutive comment lines is capped: write to
+# 8, 9 or 10 needs a reason, over 10 is rejected. Over the cap the invariant stays in the code as a
+# sentence or two and the narrative moves to the feature's record in docs/dev/plans/.
+#
+# Scoped to the Reikai-owned trees. Mihon's own files keep upstream shape, and the // RK islands in
+# them already sit far under the cap (259 islands, none over 10 lines).
+#
+# The whole staged file is measured, not just its added lines: a comment block is contiguous, so a
+# diff shows fragments of one and a wall added over two commits would slip through.
+blocks=""
+for f in $(git diff --cached --name-only --diff-filter=ACM -- '*.kt' | grep -E '(^|/)(reikai|exh)/' || true); do
+  blocks="$blocks$(git show ":$f" | awk -v file="$f" '
+    { line = $0; sub(/^[ \t]+/, "", line); isc = 0
+      if (inblock)               { isc = 1; if (line ~ /\*\//) inblock = 0 }
+      else if (line ~ /^\/\*/)   { isc = 1; if (line !~ /\*\//) inblock = 1 }
+      else if (line ~ /^\/\//)   { isc = 1 }
+      if (isc) { if (run == 0) start = NR; run++ }
+      else     { if (run > 8) print file ":" start ": " run " lines"; run = 0 } }
+    END      { if (run > 8) print file ":" start ": " run " lines" }
+  ')
+"
+done
+over_cap=$(printf '%s' "$blocks" | grep -E ': (1[1-9]|[2-9][0-9]|[0-9]{3,}) lines$' || true)
+near_cap=$(printf '%s' "$blocks" | grep -E ': (9|10) lines$' || true)
+if [ -n "$over_cap" ]; then
+  echo "code comments: a comment block runs past the hard cap of 10 lines."
+  echo "Keep the invariant, the trap or the coupling in the code as a sentence or two; move the"
+  echo "narrative to the feature's record in docs/dev/plans/ and point at it by filename:"
+  echo "$over_cap"
+  fail=1
+fi
+if [ -n "$near_cap" ]; then
+  echo "code comments: a block is at 9 or 10 lines, over the 8 you should be writing to."
+  echo "Allowed, but only with a reason you would say out loud; otherwise trim it:"
+  echo "$near_cap"
 fi
 
 if [ "$fail" -ne 0 ]; then

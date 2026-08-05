@@ -30,8 +30,20 @@ Short, concise, useful: as brief as possible **without losing vital info**. Vita
 - **The ban is restating the adjacent code.** A comment a reader with the code open learns nothing from is dead weight; rename the symbol instead if it needed explaining.
 - **WHY is the highest-value content**: why this approach, why not the obvious alternative, what breaks otherwise.
 - **WHAT is allowed, and often required, when the what is not visible in the code at hand**: an invariant, the behavior of an upstream or foreign dependency, what a magic value means, how this piece couples to a distant one. `EntryId.kt`'s id-space KDoc is the model, not a violation.
-- **Never a wall of text.** An explanation that needs paragraphs belongs in a plan/dev doc; the comment states the rule and points there.
+- **Never a wall of text.** An explanation that needs paragraphs belongs in a plan/dev doc; the comment states the rule and points there. The line is drawn below.
 - Reserve KDoc for module boundaries (public APIs of `source-api`, repository interfaces) and genuinely non-obvious classes, not every internal function.
+
+### The length cap
+
+**Write to 8 lines. Over 10 is rejected by the `pre-commit` hook.** The unit is a run of consecutive comment lines, so a KDoc header and an inline paragraph are each measured whole; 9 or 10 lines is allowed but wants a reason you would say out loud. Scoped to the Reikai-owned trees (`reikai/`, `exh/`). Mihon's own files keep upstream shape, and the `// RK` islands in them already sit far under this.
+
+**The cap is a ceiling almost nothing should approach, not a budget to spend.** Most comments are one to three lines and belong that way. Never lengthen a comment because there is room left, never add a comment to a line that did not need one, and never split one long comment into two capped ones with a blank line between them: that is the same wall of text, hiding from the hook.
+
+**A comment that wants more room is telling you something.** Usually the code needs the work, not the comment: a name that explains itself, a function split at the seam the comment was describing, a type that makes the invariant unstateable-wrong. Reach for that first.
+
+**When the explanation is genuinely irreducible, it splits in two places.** The part that stops the next reader from writing a bug (the invariant, the coupling, the trap that already bit, the deliberate divergence from upstream) stays in the code as a sentence or two. The narrative (why this approach, what else was tried, what broke, how the design got here) moves into the feature's record in `docs/dev/plans/`, and the comment points at it by filename. If no such record exists, that is the signal to write one, not to keep the paragraph in the source.
+
+Measure a tree with `pwsh scripts/comment-census.ps1 -Roots app/src/main/java/reikai`. A file above roughly 30% comments is a smell worth a look, not a hook failure.
 
 ## Naming (Kotlin)
 
