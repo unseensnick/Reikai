@@ -276,6 +276,30 @@ stop rendering a modal with nothing failing. After a bulk deletion on this surfa
 inventory of each touched file against a pre-session commit, and check that every model API has a caller and
 every `State` field a consumer; that pair found both this and a dead `State.matchStrategy` left behind.
 
+**Step 13, round 4's leftovers and the comment debt (2026-08-06).** Three of the four open items closed.
+The config screen saved its source order on the click handler's thread from inside `mutableState.update`,
+so a racing write repeated it; the five selection edits now settle the state first and save in `launchIO`
+(`652568ffd`). `canAccept` gained the two tests its clauses lacked, both mutation-verified; its third
+clause is deliberately unpinned, because a row whose commit is not Idle is always `Accepted` and the
+clause therefore never decides. The single-entry dialog test gap was **ruled closed without a test**: the
+model is `private` and resolves its adapter in its initialiser, so covering it means adding a constructor
+seam purely for testability, and what it would cover are two re-entry guards rather than logic.
+
+The **merged-unread badge SQL is not independently fixable** and is parked with the aggregation fix it
+belongs to. `computeRelatedIds` has no favorite filter either, so the badge and the details chapter list
+agree with each other today; filtering only the SQL would make the library badge disagree with the list it
+summarises.
+
+The comment debt closed too, and widened past this surface into a rule. Reikai-owned code carried 10.0%
+comment lines against upstream Mihon's 5.8%, with blocks up to 30 lines; the cap in
+[code-quality.md](../../../.claude/rules/code-quality.md) is now hook-enforced, and the trim took the tree
+to 9.3% with no block over 10. Two stale comments fell out: the tuning sheet still justified itself with
+the row rebuild step 12 deleted, and `merge-system-rebuild.md` still described restore as a per-group
+additive write. The `EntryMigrateController` trio went with it: all four novel surfaces now raise the
+migrate dialog from their own ScreenModel's `Migrate` dialog case, exactly as manga's `Dialog.Migrate`
+does, which also moved two composable-side coroutines into the models (`14c0aec8c`). One accepted
+behaviour change: the duplicate dialog now closes as the migrate dialog opens, matching manga.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
