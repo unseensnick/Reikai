@@ -31,12 +31,14 @@ import tachiyomi.presentation.core.util.selectedBackground
 /**
  * One merge-group member shown in the migrate-merge source picker. [coverData] is a Coil model (a
  * `NovelCover` for novels, the `Manga` itself for manga); [subtitle] is the "source name . N ch" line.
+ * [payload] is the domain entry behind the row, which is what opening its details page needs.
  */
 data class PickMember(
     val id: Long,
     val title: String,
     val coverData: Any?,
     val subtitle: String,
+    val payload: Any,
 )
 
 /** The [PickMember.subtitle] line, so both content types read the same. */
@@ -52,6 +54,7 @@ fun MigrationSourcePickContent(
     members: List<PickMember>,
     checked: Set<Long>,
     onToggle: (Long) -> Unit,
+    onClickCover: (PickMember) -> Unit,
     onContinue: () -> Unit,
     navigateUp: () -> Unit,
 ) {
@@ -75,7 +78,12 @@ fun MigrationSourcePickContent(
     ) { contentPadding ->
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
             items(items = members, key = { it.id }) { member ->
-                MemberRow(member = member, checked = member.id in checked, onToggle = { onToggle(member.id) })
+                MemberRow(
+                    member = member,
+                    checked = member.id in checked,
+                    onToggle = { onToggle(member.id) },
+                    onClickCover = { onClickCover(member) },
+                )
             }
         }
     }
@@ -85,11 +93,16 @@ private val COVER_WIDTH = 40.dp
 
 /**
  * One merge-group member to pick. Selection shows as the row's background rather than a checkbox,
- * matching the favorites picker this step leads into, so the two picking screens of one flow do not
- * read as different apps.
+ * and the cover is its own tap target that opens the entry, both matching the favorites picker this
+ * step leads into, so the two picking screens of one flow do not read as different apps.
  */
 @Composable
-private fun MemberRow(member: PickMember, checked: Boolean, onToggle: () -> Unit) {
+private fun MemberRow(
+    member: PickMember,
+    checked: Boolean,
+    onToggle: () -> Unit,
+    onClickCover: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -98,7 +111,11 @@ private fun MemberRow(member: PickMember, checked: Boolean, onToggle: () -> Unit
             .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MangaCover.Book(data = member.coverData, modifier = Modifier.width(COVER_WIDTH))
+        MangaCover.Book(
+            data = member.coverData,
+            modifier = Modifier.width(COVER_WIDTH),
+            onClick = onClickCover,
+        )
         Column(
             modifier = Modifier
                 .weight(1f)

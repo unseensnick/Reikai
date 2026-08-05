@@ -51,6 +51,7 @@ class EntryMigrationSourcePickScreen(
             members = state.members,
             checked = state.checked,
             onToggle = screenModel::toggle,
+            onClickCover = { it.openDetails(navigator) },
             onContinue = {
                 navigator.replace(EntryMigrationConfigScreen(contentType, state.checked.toList()))
             },

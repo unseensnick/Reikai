@@ -97,6 +97,7 @@ class MangaMigrationFlowAdapter(
                     id = manga.id,
                     title = manga.title,
                     coverData = manga,
+                    payload = manga,
                     subtitle = memberSubtitle(
                         sourceName = sourceDisplayName(manga.source.toString()),
                         chapterCount = getChaptersByMangaId.await(manga.id).size,

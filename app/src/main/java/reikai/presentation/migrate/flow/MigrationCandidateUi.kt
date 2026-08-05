@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.novel.model.Novel
+import reikai.presentation.migrate.PickMember
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.domain.manga.model.Manga
 
@@ -18,6 +19,9 @@ internal fun MigrationEntry.openDetails(navigator: Navigator) = navigator.pushDe
 
 /** The details page of a row in the entry picker, for checking an entry before selecting it. */
 internal fun MigrationFavorite.openDetails(navigator: Navigator) = navigator.pushDetails(payload)
+
+/** The details page of a merged source, for checking which one it is before migrating it. */
+internal fun PickMember.openDetails(navigator: Navigator) = navigator.pushDetails(payload)
 
 private fun Navigator.pushDetails(payload: Any) {
     when (payload) {

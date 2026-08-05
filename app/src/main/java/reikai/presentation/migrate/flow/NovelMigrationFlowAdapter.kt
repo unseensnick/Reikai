@@ -99,6 +99,7 @@ class NovelMigrationFlowAdapter(
                     id = novel.id,
                     title = novel.title,
                     coverData = novel.toCover(sourceManager.get(novel.source)?.site),
+                    payload = novel,
                     subtitle = memberSubtitle(
                         sourceName = sourceDisplayName(novel.source),
                         chapterCount = chapterRepository.getByNovelId(novel.id).size,
