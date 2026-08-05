@@ -118,6 +118,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Changing the search options no longer throws away a match you chose by hand.** A target picked from a source strip or its full listing survives the new search, the way skipping an entry already did.
 - **Going back during a single entry's migration no longer lets a second migration start on top of it.** The screen looked idle again while the first one was still running.
 - **Skipping an entry while its search panel is open no longer leaves that panel spinning for good.**
+- **Skipping an entry no longer risks losing the target you picked for it.** The accept control stayed live on a skipped entry, and tapping it threw the target away with no way to choose it again until you restored the entry.
+- **The migrate dialog's Copy and Migrate now wait for its options to appear.** Tapping straight through migrated with none of them, and quietly made that the default for every later migration.
+- **The manual search panel now fills in each source as it answers.** One slow source used to hold back every result that had already arrived.
 - **A migration with nothing to show now says why instead of showing an empty screen.**
 - **Tapping a match no longer downloads its chapter list into your library.** Chapter counts are read for display only, so only the entries you actually migrate are stored.
 - **A light-novel search result already in your library now shows the cover your library shows, including one you set yourself.**

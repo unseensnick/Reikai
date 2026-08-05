@@ -107,10 +107,16 @@ fun Screen.EntryMigrateDialog(
                             Text(text = stringResource(MR.strings.migrationFlow_showEntry))
                         }
                     }
-                    OutlinedButton(onClick = { screenModel.migrate(entry, target, replace = false) }) {
+                    OutlinedButton(
+                        onClick = { screenModel.migrate(entry, target, replace = false) },
+                        enabled = !state.loadingFlags,
+                    ) {
                         Text(text = stringResource(MR.strings.copy))
                     }
-                    Button(onClick = { screenModel.migrate(entry, target, replace = true) }) {
+                    Button(
+                        onClick = { screenModel.migrate(entry, target, replace = true) },
+                        enabled = !state.loadingFlags,
+                    ) {
                         Text(text = stringResource(MR.strings.migrate))
                     }
                 }
@@ -140,7 +146,7 @@ private class EntryMigrateDialogScreenModel(
                 if (it.pairKey != pairKey) return@update it
                 // Seeded with the FULL saved set: only applicable flags render, so a hidden flag
                 // keeps its saved state instead of being cleared for the next migration.
-                it.copy(applicableFlags = applicable, selectedFlags = saved)
+                it.copy(applicableFlags = applicable, selectedFlags = saved, loadingFlags = false)
             }
         }
     }
@@ -184,6 +190,10 @@ private class EntryMigrateDialogScreenModel(
         val pairKey: String? = null,
         val applicableFlags: Set<MigrationDataFlag> = emptySet(),
         val selectedFlags: Set<MigrationDataFlag> = emptySet(),
+        /** True until the flag scan lands. The verbs stay disabled meanwhile: committing before it
+         *  arrives migrates with an empty set the user never saw AND persists it, so the next
+         *  migration silently carries nothing either. The batch confirm dialog has the same gate. */
+        val loadingFlags: Boolean = true,
         val isMigrating: Boolean = false,
         val failed: Boolean = false,
         /** Set on success; consumed exactly once by the composable. */

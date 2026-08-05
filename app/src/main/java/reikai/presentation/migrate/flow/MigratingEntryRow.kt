@@ -115,27 +115,45 @@ class MigratingEntryRow(
         data class Migrated(val target: MigrationCandidate, val replace: Boolean) : CommitPhase
     }
 
-    /** The override picker's state: one strip per searched source once results land. */
+    /** The override picker's state. */
     sealed interface OverrideState {
         data object Idle : OverrideState
 
-        data object Loading : OverrideState
+        /** Working out which sources to ask. Brief and network-free; the strips take over from here. */
+        data object Preparing : OverrideState
 
-        data class Loaded(val strips: List<OverrideStrip>) : OverrideState
+        /** One strip per configured source, each carrying its own [StripResult]. */
+        data class Strips(val strips: List<OverrideStrip>) : OverrideState
     }
 
     /**
-     * One source's override results. A source that threw keeps its strip carrying [error] instead of
-     * disappearing, so a failure reads as a failure rather than as "this source has nothing".
+     * One source's strip in the override picker.
+     *
+     * The whole picker used to be published once, after every source had answered, so a single
+     * unreachable source withheld every other source's results behind one spinner. The strips are
+     * published up front and each fills in as it lands, which is what the single-entry search screen
+     * already did with the same shared composable.
      */
     data class OverrideStrip(
         val sourceKey: String,
         val sourceName: String,
         /** Raw language tag, localized at render (shared header shows it like global search). */
         val sourceLang: String = "",
-        val candidates: List<MigrationCandidate>,
-        val error: String? = null,
+        val result: StripResult,
     )
+
+    /**
+     * What one source has to say. Sealed rather than a candidate list beside a nullable error and a
+     * loading flag: of those eight combinations only three mean anything, and the picker read the
+     * other five as "this source has nothing", which is a different and wrong answer.
+     */
+    sealed interface StripResult {
+        data object Loading : StripResult
+
+        data class Loaded(val candidates: List<MigrationCandidate>) : StripResult
+
+        data class Failed(val error: String) : StripResult
+    }
 }
 
 /** The suggestion when the search found one, else null. */
@@ -207,10 +225,16 @@ object MigrationRowRules {
      * target picked from an override strip or the deep picker is exactly the case where the search
      * found nothing, and that control must not render as a no-op. Blocked once a commit is in play:
      * un-accepting a failed row would strand its retry, which needs the target it failed on.
+     *
+     * Blocked on a skipped row too, which is the clause [canAccept] always had and this one lacked:
+     * skip's contract is that restoring puts the row back exactly as it was, so a control that throws
+     * the target away while the row is skipped breaks the promise, and with the accept control hidden
+     * (it also reads `!skipped`) there was no way to put it back short of restoring first.
      */
     fun canUnchoose(
         commit: MigratingEntryRow.CommitPhase,
-    ): Boolean = commit == MigratingEntryRow.CommitPhase.Idle
+        skipped: Boolean,
+    ): Boolean = commit == MigratingEntryRow.CommitPhase.Idle && !skipped
 
     /** Skip and restore. Blocked mid-commit and after migrating: the completion write does not
      *  clear [MigratingEntryRow.skipped], so a skip landing there leaves a dimmed migrated row with
@@ -382,7 +406,7 @@ object MigrationRowRules {
     ): RowActions = RowActions(
         canAccept = acceptance !is MigratingEntryRow.Acceptance.Accepted && !skipped &&
             search.suggestion != null && canChoose(commit),
-        canUnaccept = acceptance is MigratingEntryRow.Acceptance.Accepted && canUnchoose(commit),
+        canUnaccept = acceptance is MigratingEntryRow.Acceptance.Accepted && canUnchoose(commit, skipped),
         canToggleSkip = canToggleSkip(commit),
         canRetry = canRetry(commit, anyCommitInFlight, skipped),
         // A single commit is offered only when the batch would take this row too, and only while

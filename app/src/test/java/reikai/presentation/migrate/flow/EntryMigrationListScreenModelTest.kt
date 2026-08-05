@@ -263,17 +263,35 @@ class EntryMigrationListScreenModelTest {
             model.acceptAll()
             model.showConfirm(replace = true)
             advanceUntilIdle()
-            model.state.value.visibleDialog
-                .shouldBeInstanceOf<EntryMigrationListScreenModel.Dialog.Confirm>()
+            model.state.value.dialog.shouldBeInstanceOf<EntryMigrationListScreenModel.Dialog.Confirm>()
 
             model.commit(replace = true, flags = emptySet())
             advanceUntilIdle()
 
-            // The dialog used to sit on top of the progress dialog for the whole commit: its button
-            // looked live and did nothing, and Cancel, the only way to stop a batch, was behind the
-            // wrong window.
-            model.state.value.visibleDialog.shouldBeNull()
+            // The RAW cell, not visibleDialog: the derivation hides a confirm dialog under a running
+            // batch anyway, so asserting the derived value passed with the request left in place and
+            // pinned nothing. What matters is that starting the batch consumed the request, which is
+            // why it cannot come back when the batch ends on a partial failure.
+            model.state.value.dialog.shouldBeNull()
             model.state.value.visibleProgress.shouldNotBeNull()
+        }
+
+    @Test
+    fun `stopping from the exit dialog cancels a per-row commit, not just a batch`() =
+        runTest(dispatcher.scheduler) {
+            val model = model(listOf(entry(1), entry(2)), blockOn = EntryId.Manga(1))
+            advanceUntilIdle()
+            model.acceptAll()
+            model.commitSingle(EntryId.Manga(1), replace = true)
+            advanceUntilIdle()
+            model.state.value.isBusy shouldBe true
+
+            // The handle was only ever recorded for the batch, so this reached nothing and the exit
+            // dialog's Stop fell through to the pop, cancelling the commit by tearing the screen down.
+            model.cancelCommit()
+            advanceUntilIdle()
+
+            model.state.value.isBusy shouldBe false
         }
 
     @Test

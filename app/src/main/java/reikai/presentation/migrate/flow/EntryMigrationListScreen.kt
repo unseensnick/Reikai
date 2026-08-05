@@ -383,7 +383,7 @@ private fun OverridePicker(
 
         when (val state = overrides) {
             MigratingEntryRow.OverrideState.Idle -> {}
-            MigratingEntryRow.OverrideState.Loading -> Box(
+            MigratingEntryRow.OverrideState.Preparing -> Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp),
@@ -391,12 +391,14 @@ private fun OverridePicker(
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             }
-            is MigratingEntryRow.OverrideState.Loaded -> state.strips.forEach { strip ->
+            is MigratingEntryRow.OverrideState.Strips -> state.strips.forEach { strip ->
+                val result = strip.result
                 MigrationCandidateStrip(
                     sourceName = strip.sourceName,
                     sourceLang = strip.sourceLang,
-                    candidates = strip.candidates,
-                    error = strip.error,
+                    candidates = (result as? MigratingEntryRow.StripResult.Loaded)?.candidates.orEmpty(),
+                    error = (result as? MigratingEntryRow.StripResult.Failed)?.error,
+                    loading = result is MigratingEntryRow.StripResult.Loading,
                     onPick = { screenModel.pick(row.entry.id, it) },
                     onPreview = { it.openDetails(navigator) },
                     onBrowseSource = {

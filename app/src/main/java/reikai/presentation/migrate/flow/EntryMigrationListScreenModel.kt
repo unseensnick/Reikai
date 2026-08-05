@@ -387,30 +387,48 @@ class EntryMigrationListScreenModel(
         ).joinToString(" ")
 
         row.overrideJob?.cancel()
-        row.overrides.value = MigratingEntryRow.OverrideState.Loading
+        row.overrides.value = MigratingEntryRow.OverrideState.Preparing
         row.overrideJob = row.scope.launch {
             val myJob = coroutineContext[Job]
             // Resolved here rather than on the caller's thread: it reads three preferences, and this
             // runs on every row expansion and every tap of the picker's search button.
             val sources = sourcesFor()
-            val strips = coroutineScope {
-                sources.map { source ->
-                    async {
+            if (row.overrideJob !== myJob) return@launch
+            // Published BEFORE the searches run, so every source shows itself immediately and fills in
+            // when it answers. Waiting for all of them meant one dead source hid the rest.
+            row.overrides.value = MigratingEntryRow.OverrideState.Strips(
+                sources.map {
+                    MigratingEntryRow.OverrideStrip(
+                        sourceKey = it.key,
+                        sourceName = it.name,
+                        sourceLang = it.lang,
+                        result = MigratingEntryRow.StripResult.Loading,
+                    )
+                },
+            )
+            coroutineScope {
+                sources.forEach { source ->
+                    launch {
                         val result = interactiveSearches.withPermit {
                             runCatchingCancellable { adapter.candidates(row.entry, fullQuery, source.key) }
                         }
-                        MigratingEntryRow.OverrideStrip(
-                            sourceKey = source.key,
-                            sourceName = source.name,
-                            sourceLang = source.lang,
-                            candidates = result.getOrDefault(emptyList()),
-                            error = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
+                        // Same guard the single write had: cancellation cannot stop a coroutine that
+                        // is already past its last suspension point.
+                        if (row.overrideJob !== myJob) return@launch
+                        val landed = result.fold(
+                            onSuccess = { MigratingEntryRow.StripResult.Loaded(it) },
+                            onFailure = {
+                                MigratingEntryRow.StripResult.Failed(it.message ?: it.javaClass.simpleName)
+                            },
                         )
+                        row.overrides.update { current ->
+                            val open = current as? MigratingEntryRow.OverrideState.Strips ?: return@update current
+                            MigratingEntryRow.OverrideState.Strips(
+                                open.strips.map { if (it.sourceKey == source.key) it.copy(result = landed) else it },
+                            )
+                        }
                     }
-                }.awaitAll()
-            }
-            if (row.overrideJob === myJob) {
-                row.overrides.value = MigratingEntryRow.OverrideState.Loaded(strips)
+                }
             }
         }
     }
@@ -502,11 +520,25 @@ class EntryMigrationListScreenModel(
         syncCounts()
     }
 
-    /** Accept the suggestion, or give back an accepted target so the suggestion shows again. */
+    /**
+     * Accept the suggestion, or give back an accepted target so the suggestion shows again.
+     *
+     * Both branches read the same [MigrationRowRules.actions] the screen renders the control under, so
+     * neither can drift from it. Checking a hand-picked subset of the rules here is how this pair went
+     * wrong: both branches ignored `skipped` while the screen's accept control honoured it, so the
+     * un-accept control rendered on a skipped row and threw away the target skip exists to preserve.
+     */
     fun toggleAccept(id: EntryId) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
+        val actions = MigrationRowRules.actions(
+            row.search.value,
+            row.acceptance.value,
+            row.commit.value,
+            row.skipped.value,
+            anyCommitInFlight = state.value.isBusy,
+        )
         if (row.acceptance.value is Acceptance.Accepted) {
-            if (!MigrationRowRules.canUnchoose(row.commit.value)) return
+            if (!actions.canUnaccept) return
             // Declined, not null: the hide toggles must be able to tell a target the user gave
             // back from one they never had, or the row vanishes from under them.
             row.acceptance.value = Acceptance.Declined
@@ -516,7 +548,7 @@ class EntryMigrationListScreenModel(
             finishIfNothingFailed()
             return
         } else {
-            if (!MigrationRowRules.canChoose(row.commit.value)) return
+            if (!actions.canAccept) return
             row.acceptance.value = Acceptance.Accepted(row.search.value.suggestion ?: return)
             peekChosenCounts(row)
         }
@@ -552,12 +584,11 @@ class EntryMigrationListScreenModel(
             // the source is doing finally returns.
             skipping && row.search.value is SearchPhase.Searching -> {
                 row.scope.coroutineContext.cancelChildren()
-                // That takes the row's manual picker down with it: its only write of Loaded is past
-                // the await, so an open picker would sit on a spinner nothing ever clears. Back to
-                // Idle, which is the state a re-expand searches from.
-                if (row.overrides.value == MigratingEntryRow.OverrideState.Loading) {
-                    row.overrides.value = MigratingEntryRow.OverrideState.Idle
-                }
+                // That takes the row's manual picker down with it, mid-stream, so any strip still
+                // waiting would sit on a spinner nothing ever clears. Back to Idle unconditionally,
+                // which is the state a re-expand searches from; keeping half a result set would be
+                // presenting a cancelled search as a finished one.
+                row.overrides.value = MigratingEntryRow.OverrideState.Idle
             }
             // Restoring a row that never searched puts the driver back to work.
             !skipping && row.search.value is SearchPhase.Queued -> startDriver()
@@ -634,7 +665,10 @@ class EntryMigrationListScreenModel(
      */
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
         mutableState.update { it.copy(commit = CommitActivity.Single(row.entry.id)) }
-        screenModelScope.launch(io) {
+        // Recorded like the batch's, so [cancelCommit] reaches BOTH commit shapes. It only ever held
+        // the batch job, which made the exit dialog's cancel a no-op on the per-row path: Stop fell
+        // through to the pop, and the migration was cancelled by the scope teardown mid-write instead.
+        commitJob = screenModelScope.launch(io) {
             // No persistFlags here: only a confirm may move the preference. A retry re-runs with the
             // exact set its row failed under, which is older than whatever the user has confirmed
             // since, so writing it back reverted a choice they had already made.
@@ -643,6 +677,7 @@ class EntryMigrationListScreenModel(
                 finishIfNothingFailed()
             } finally {
                 mutableState.update { it.copy(commit = CommitActivity.Idle) }
+                commitJob = null
             }
         }
     }

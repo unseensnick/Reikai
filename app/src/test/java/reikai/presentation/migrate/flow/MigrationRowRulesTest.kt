@@ -207,17 +207,38 @@ class MigrationRowRulesTest {
 
     @Test
     fun `un-accept is offered while the commit is idle, whatever the search found`() {
-        MigrationRowRules.canUnchoose(CommitPhase.Idle) shouldBe true
+        MigrationRowRules.canUnchoose(CommitPhase.Idle, skipped = false) shouldBe true
     }
 
     @Test
     fun `un-accept is blocked on a failed row so its retry keeps a target`() {
-        MigrationRowRules.canUnchoose(failedCommit) shouldBe false
+        MigrationRowRules.canUnchoose(failedCommit, skipped = false) shouldBe false
     }
 
     @Test
     fun `un-accept is blocked mid-commit`() {
-        MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false)) shouldBe false
+        MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false), skipped = false) shouldBe false
+    }
+
+    @Test
+    fun `un-accept is blocked on a skipped row, which is holding the target for a restore`() {
+        // The accept control has always read !skipped; this one did not, so a skipped row rendered a
+        // live un-accept that threw the target away with no way to put it back.
+        MigrationRowRules.canUnchoose(CommitPhase.Idle, skipped = true) shouldBe false
+    }
+
+    @Test
+    fun `neither accept control is offered on a skipped row`() {
+        val skippedAndAccepted = MigrationRowRules.actions(
+            SearchPhase.Found(candidate, "Source"),
+            accepted,
+            CommitPhase.Idle,
+            skipped = true,
+            anyCommitInFlight = false,
+        )
+
+        skippedAndAccepted.canAccept shouldBe false
+        skippedAndAccepted.canUnaccept shouldBe false
     }
 
     @Test
