@@ -30,9 +30,8 @@ import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
-import reikai.presentation.migrate.flow.EntryMigrateHost
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
@@ -175,7 +174,6 @@ class NovelScreen(
 @Composable
 private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
     val navigator = LocalNavigator.currentOrThrow
-    val migrateController = rememberEntryMigrateController()
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
             dialog = dialog,
@@ -189,9 +187,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenMo
             onDismissRequest = screenModel::dismissDialog,
             onConfirm = screenModel::addFavoriteAnyway,
             onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-            onMigrate = {
-                migrateController.start(ContentType.NOVELS, currentId = it.id, targetId = state.novel.id)
-            },
+            onMigrate = { screenModel.startMigrate(it.id) },
             groupIdByNovelId = dialog.groupIdByNovelId,
             onAddToGroup = { selectedIds: List<Long> ->
                 screenModel.addToExistingGroup(selectedIds)
@@ -217,9 +213,14 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenMo
             onSelect = screenModel::selectPage,
             onDismiss = screenModel::dismissDialog,
         )
+        is NovelDetailsDialog.Migrate -> EntryMigrateFor(
+            contentType = ContentType.NOVELS,
+            currentId = dialog.currentId,
+            targetId = dialog.targetId,
+            onDismissRequest = screenModel::dismissDialog,
+        )
         else -> {}
     }
-    EntryMigrateHost(migrateController)
 }
 
 // Map a novel dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);

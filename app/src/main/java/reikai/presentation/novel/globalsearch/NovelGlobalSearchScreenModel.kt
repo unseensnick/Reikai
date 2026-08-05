@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.model.Novel
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
@@ -88,9 +87,16 @@ class NovelGlobalSearchScreenModel(
         }
     }
 
-    /** Materialize a browsed result as a target row for the migrate-from-duplicate flow. */
-    suspend fun materializeForMigrate(item: NovelItem, sourceId: String): Novel? =
-        libraryAdder.materialize(item, sourceId)
+    /** Materialize the browsed result as a target row, then raise the migrate dialog on it. The
+     *  materialize is a source round trip, so it runs here rather than in a composable's own scope. */
+    fun startMigrate(duplicateId: Long, item: NovelItem, sourceId: String) {
+        screenModelScope.launchIO {
+            val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
+            mutableState.update {
+                it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
+            }
+        }
+    }
 
     /** "Add to existing group": add, then merge it with the duplicates the user picked. */
     fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>) {

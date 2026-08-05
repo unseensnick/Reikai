@@ -174,8 +174,16 @@ class NovelBrowseScreenModel(
         }
     }
 
-    /** Materialize a browsed item as a target row for the migrate-from-duplicate flow. */
-    suspend fun materializeForMigrate(item: NovelItem): Novel? = libraryAdder.materialize(item, sourceId)
+    /** Materialize the browsed result as a target row, then raise the migrate dialog on it. The
+     *  materialize is a source round trip, so it runs here rather than in a composable's own scope. */
+    fun startMigrate(duplicateId: Long, item: NovelItem) {
+        screenModelScope.launchIO {
+            val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
+            mutableState.update {
+                it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
+            }
+        }
+    }
 
     /** "Add to existing group": add, then merge it with the duplicates the user picked. */
     fun addToExistingGroup(item: NovelItem, selectedIds: List<Long>) {
@@ -416,6 +424,10 @@ sealed interface NovelBrowseDialog {
         val currentCategoryIds: Set<Long>,
     ) : NovelBrowseDialog
     data class RemoveNovel(val item: NovelItem, val sourceId: String) : NovelBrowseDialog
+
+    /** Migrating the library's copy onto the one just browsed to, both already stored by id. Replaces
+     *  [AddDuplicate] in the same slot, as the manga twin does. */
+    data class Migrate(val currentId: Long, val targetId: Long) : NovelBrowseDialog
 }
 
 /**

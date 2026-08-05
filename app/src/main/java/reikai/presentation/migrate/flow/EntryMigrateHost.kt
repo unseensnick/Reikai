@@ -24,58 +24,12 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 
 /**
- * Migrating from a duplicate: adding an entry that is already in the library from another source
- * offers to move the old one onto it, and every surface that can hit that case (details, browse,
- * global search, history) shares this wiring rather than repeating the dialog.
- *
- * A surface remembers a controller, points its duplicate dialog at [EntryMigrateController.start]
- * with the two entries, and renders [EntryMigrateHost].
- */
-@Stable
-class EntryMigrateController(private val state: MutableState<Request?>) {
-    /** Non-null while the dialog is open, or its rows are still loading. */
-    val request: Request? get() = state.value
-
-    /** [currentId] is the entry already in the library; [targetId] the one just added. */
-    fun start(contentType: ContentType, currentId: Long, targetId: Long) {
-        state.value = Request(contentType, currentId, targetId)
-    }
-
-    fun dismiss() {
-        state.value = null
-    }
-
-    /** Serializable so the open request survives a configuration change: losing it mid-migrate
-     *  detaches a running commit from its dialog, which then finishes with no feedback. */
-    data class Request(
-        val contentType: ContentType,
-        val currentId: Long,
-        val targetId: Long,
-    ) : java.io.Serializable
-}
-
-@Composable
-fun rememberEntryMigrateController(): EntryMigrateController {
-    val request = rememberSaveable(stateSaver = autoSaver()) {
-        mutableStateOf<EntryMigrateController.Request?>(null)
-    }
-    return remember { EntryMigrateController(request) }
-}
-
-@Composable
-fun Screen.EntryMigrateHost(controller: EntryMigrateController) {
-    val request = controller.request ?: return
-    EntryMigrateFor(
-        contentType = request.contentType,
-        currentId = request.currentId,
-        targetId = request.targetId,
-        onDismissRequest = controller::dismiss,
-    )
-}
-
-/**
- * The dialog for two entries already stored, by id. Surfaces that keep their own dialog state can
- * render this directly instead of holding a controller.
+ * Migrating from a duplicate: adding an entry already in the library from another source offers to
+ * move the old one onto it, and every surface that can hit that case (details, browse, global search,
+ * history) renders this rather than repeating the dialog. The two entries are already stored, so a
+ * surface raises it from its own ScreenModel's dialog state, by id, exactly as manga's `Dialog.Migrate`
+ * does. That state must survive a configuration change: losing it mid-migrate detaches a running
+ * commit from its dialog, which then finishes with no feedback.
  */
 @Composable
 fun Screen.EntryMigrateFor(
@@ -92,9 +46,7 @@ fun Screen.EntryMigrateFor(
     val screenModel = rememberScreenModel(tag = "migrateHost-$contentType") {
         EntryMigrateHostScreenModel(contentType)
     }
-    val request = remember(contentType, currentId, targetId) {
-        EntryMigrateController.Request(contentType, currentId, targetId)
-    }
+    val request = remember(currentId, targetId) { EntryMigratePair(currentId, targetId) }
     LaunchedEffect(request) { screenModel.load(request) }
     val state by screenModel.state.collectAsState()
 
@@ -124,13 +76,16 @@ fun Screen.EntryMigrateFor(
     )
 }
 
+/** The two entries this host is currently loading, so a cached model cannot serve a stale pair. */
+internal data class EntryMigratePair(val currentId: Long, val targetId: Long)
+
 internal class EntryMigrateHostScreenModel(
     contentType: ContentType,
 ) : StateScreenModel<EntryMigrateHostScreenModel.State>(State()) {
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
-    fun load(request: EntryMigrateController.Request) {
+    fun load(request: EntryMigratePair) {
         mutableState.update { State(request = request) }
         screenModelScope.launchIO {
             // The novel source layer has to be warm before names and covers resolve; this is often
@@ -146,7 +101,7 @@ internal class EntryMigrateHostScreenModel(
     }
 
     data class State(
-        val request: EntryMigrateController.Request? = null,
+        val request: EntryMigratePair? = null,
         val loaded: Boolean = false,
         val entry: MigrationEntry? = null,
         val target: MigrationCandidate? = null,

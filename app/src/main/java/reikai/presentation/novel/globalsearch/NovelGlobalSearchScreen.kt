@@ -67,8 +67,7 @@ import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
-import reikai.presentation.migrate.flow.EntryMigrateHost
-import reikai.presentation.migrate.flow.rememberEntryMigrateController
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
@@ -164,8 +163,6 @@ class NovelGlobalSearchScreen(
             )
         }
 
-        val migrateScope = rememberCoroutineScope()
-        val migrateController = rememberEntryMigrateController()
         when (val dialog = state.dialog) {
             is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
                 duplicates = dialog.duplicates,
@@ -174,13 +171,7 @@ class NovelGlobalSearchScreen(
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.addFromDuplicate(dialog.item, dialog.sourceId) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                onMigrate = { dup ->
-                    migrateScope.launch {
-                        screenModel.materializeForMigrate(dialog.item, dialog.sourceId)?.let {
-                            migrateController.start(ContentType.NOVELS, currentId = dup.id, targetId = it.id)
-                        }
-                    }
-                },
+                onMigrate = { dup -> screenModel.startMigrate(dup.id, dialog.item, dialog.sourceId) },
                 groupIdByNovelId = dialog.groupIdByNovelId,
                 onAddToGroup = { selectedIds: List<Long> ->
                     screenModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
@@ -196,9 +187,14 @@ class NovelGlobalSearchScreen(
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.confirmRemove(dialog.item, dialog.sourceId) },
             )
+            is NovelBrowseDialog.Migrate -> EntryMigrateFor(
+                contentType = ContentType.NOVELS,
+                currentId = dialog.currentId,
+                targetId = dialog.targetId,
+                onDismissRequest = screenModel::dismissDialog,
+            )
             null -> {}
         }
-        EntryMigrateHost(migrateController)
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {

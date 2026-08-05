@@ -1232,6 +1232,12 @@ class NovelDetailsScreenModel(
 
     fun dismissDialog() = updateLoaded { it.copy(dialog = null) }
 
+    /** Raise the migrate dialog for the duplicate the user picked, onto this novel. Both rows already
+     *  exist, so there is nothing to materialize first. */
+    fun startMigrate(duplicateId: Long) = updateLoaded {
+        it.copy(dialog = NovelDetailsDialog.Migrate(currentId = duplicateId, targetId = it.novel.id))
+    }
+
     private inline fun updateLoaded(crossinline transform: (NovelDetailsState.Loaded) -> NovelDetailsState.Loaded) {
         mutableState.update { (it as? NovelDetailsState.Loaded)?.let(transform) ?: it }
     }
@@ -1368,4 +1374,8 @@ sealed interface NovelDetailsDialog {
 
     // novel trackers. Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
     data object TrackSheet : NovelDetailsDialog
+
+    /** Migrating the library's copy onto this one, both already stored by id. Replaces
+     *  [DuplicateNovel] in the same slot, as the manga twin does. */
+    data class Migrate(val currentId: Long, val targetId: Long) : NovelDetailsDialog
 }

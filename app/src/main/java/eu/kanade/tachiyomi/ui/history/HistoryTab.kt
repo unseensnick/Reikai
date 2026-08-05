@@ -37,8 +37,6 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryScreenModel
 import reikai.presentation.history.ReikaiHistoryScreen
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.migrate.flow.EntryMigrateHost
-import reikai.presentation.migrate.flow.rememberEntryMigrateController
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
@@ -159,8 +157,6 @@ data object HistoryTab : Tab {
 
         // RK --> novel history dialogs (delete one / delete all from novel / clear all)
         val onDismissNovelDialog = { novelScreenModel.setDialog(null) }
-        val novelMigrateScope = rememberCoroutineScope()
-        val novelMigrateController = rememberEntryMigrateController()
         when (val dialog = novelState.dialog) {
             is NovelHistoryScreenModel.Dialog.Delete -> {
                 HistoryDeleteDialog(
@@ -188,17 +184,7 @@ data object HistoryTab : Tab {
                     onDismissRequest = onDismissNovelDialog,
                     onConfirm = { novelScreenModel.addFavoriteAnyway(dialog.novelId) },
                     onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                    onMigrate = { dup ->
-                        novelMigrateScope.launch {
-                            novelScreenModel.novelForMigrate(dialog.novelId)?.let {
-                                novelMigrateController.start(
-                                    ContentType.NOVELS,
-                                    currentId = dup.id,
-                                    targetId = it.id,
-                                )
-                            }
-                        }
-                    },
+                    onMigrate = { dup -> novelScreenModel.startMigrate(dup.id, dialog.novelId) },
                     groupIdByNovelId = dialog.groupIdByNovelId,
                     onAddToGroup = { selectedIds: List<Long> ->
                         novelScreenModel.addToExistingGroup(dialog.novelId, selectedIds)
@@ -212,9 +198,16 @@ data object HistoryTab : Tab {
                     onConfirm = { ids -> novelScreenModel.applyCategories(dialog.novelId, ids) },
                 )
             }
+            is NovelHistoryScreenModel.Dialog.Migrate -> {
+                EntryMigrateFor(
+                    contentType = ContentType.NOVELS,
+                    currentId = dialog.currentId,
+                    targetId = dialog.targetId,
+                    onDismissRequest = onDismissNovelDialog,
+                )
+            }
             null -> {}
         }
-        EntryMigrateHost(novelMigrateController)
         // RK <--
 
         LaunchedEffect(state.list) {

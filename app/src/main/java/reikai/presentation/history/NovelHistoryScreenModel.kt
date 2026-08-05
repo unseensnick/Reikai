@@ -143,8 +143,14 @@ class NovelHistoryScreenModel(
         screenModelScope.launchIO { addToLibrary(novelId) }
     }
 
-    /** The target for the migrate-from-duplicate flow: a history novel is already a chapter-synced row. */
-    suspend fun novelForMigrate(novelId: Long): Novel? = novelRepository.getById(novelId)
+    /** Raise the migrate dialog for the duplicate the user picked, onto the history novel. The lookup
+     *  confirms the row is still there; a history novel is already chapter-synced, so nothing is fetched. */
+    fun startMigrate(duplicateId: Long, novelId: Long) {
+        screenModelScope.launchIO {
+            val target = novelRepository.getById(novelId) ?: return@launchIO
+            setDialog(Dialog.Migrate(currentId = duplicateId, targetId = target.id))
+        }
+    }
 
     /** Add-time grouping. Merge the novel with the duplicates the user picked, then add it (only the
      *  picks: the duplicate list is fuzzy, so merging every match would fuse distinct series). Seeding
@@ -222,6 +228,10 @@ class NovelHistoryScreenModel(
             val categories: List<Category>,
             val currentIds: Set<Long>,
         ) : Dialog
+
+        /** Migrating the library's copy onto the history novel, both already stored by id. Replaces
+         *  [DuplicateNovel] in the same slot, as the manga twin does. */
+        data class Migrate(val currentId: Long, val targetId: Long) : Dialog
     }
 
     sealed interface Event {
