@@ -23,8 +23,11 @@ import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
 import reikai.presentation.novel.browse.NovelBrowseScreen
@@ -117,7 +120,14 @@ class MigrationDeepPickerScreen(
                 useEhentaiView = false,
                 snackbarHostState = snackbarHostState,
                 contentPadding = contentPadding,
-                onWebViewClick = {},
+                // Live, not an empty lambda: this is the error screen's only way out of a source that
+                // is blocking the request, and the picker is exactly where a user meets one.
+                onWebViewClick = f@{
+                    val http = screenModel.source as? HttpSource ?: return@f
+                    navigator.push(
+                        WebViewScreen(url = http.getHomeUrl(), initialTitle = http.name, sourceId = http.id),
+                    )
+                },
                 onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
                 onLocalSourceHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) },
                 onMangaClick = {
@@ -126,6 +136,18 @@ class MigrationDeepPickerScreen(
                 },
                 // Long-press opens the entry, so a candidate can be checked before choosing it.
                 onMangaLongClick = { navigator.push(MangaScreen(it.id, true)) },
+            )
+        }
+
+        // The Filter button set this and nothing rendered it, so filtering a source while picking a
+        // target silently did nothing.
+        if (state.dialog is BrowseSourceScreenModel.Dialog.Filter) {
+            SourceFilterDialog(
+                onDismissRequest = { screenModel.setDialog(null) },
+                filters = state.filters,
+                onReset = screenModel::resetFilters,
+                onFilter = { screenModel.search(filters = state.filters) },
+                onUpdate = screenModel::setFilters,
             )
         }
     }

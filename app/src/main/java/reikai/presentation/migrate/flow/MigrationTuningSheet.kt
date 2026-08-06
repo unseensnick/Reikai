@@ -1,14 +1,20 @@
 package reikai.presentation.migrate.flow
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -60,6 +66,9 @@ fun MigrationTuningSheet(
         )
 
         if (matchStrategy is MatchStrategy.Smart) {
+            // Upstream's warning, and it belongs to these two options only: both multiply the
+            // requests one row makes, which is what gets a source to start refusing them.
+            WarningLine(text = stringResource(MR.strings.migrationConfigScreen_enhancedOptionsWarning))
             LabeledCheckbox(
                 label = stringResource(MR.strings.migrationConfigScreen_deepSearchModeTitle),
                 checked = tuning.deepSearch,
@@ -98,6 +107,26 @@ fun MigrationTuningSheet(
             checked = tuning.hideWithoutUpdates,
             onCheckedChange = { onApply(tuning.copy(hideWithoutUpdates = it)) },
             modifier = checkboxRow,
+        )
+    }
+}
+
+@Composable
+private fun WarningLine(text: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Warning,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
         )
     }
 }

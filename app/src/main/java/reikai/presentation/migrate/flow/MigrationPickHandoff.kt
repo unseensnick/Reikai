@@ -38,11 +38,11 @@ class MigrationPickHandoff {
 }
 
 /**
- * Why a target picked on the pushed browse screen could not be applied, consumed once by the screen
- * that shows it. [MigrationPickHandoff.take] clears on read, so a pick that failed after being taken
- * has nowhere to go, and without this the screen stayed as it was with nothing said to the user. It
- * lives beside the handoff rather than on one screen model because both screens that collect a pick
- * can fail to apply it the same two ways.
+ * Why a manually picked target could not be applied, consumed once by the screen that shows it.
+ * [MigrationPickHandoff.take] clears on read, so a pick that failed after being taken has nowhere to
+ * go, and without this the screen stayed as it was with nothing said to the user. It lives beside the
+ * handoff rather than on one screen model because every screen that takes a pick, from a result strip
+ * or from the pushed browse screen, can fail to apply it the same ways.
  */
 sealed interface PickOutcome {
     /** The picked row could not be read back (deleted, or its source went away). */
@@ -50,4 +50,7 @@ sealed interface PickOutcome {
 
     /** The entry was picked as its own target; migrating onto itself would do nothing. */
     data object SameEntry : PickOutcome
+
+    /** The target came back with no chapters, so there is nothing to migrate onto. */
+    data object NoChapters : PickOutcome
 }

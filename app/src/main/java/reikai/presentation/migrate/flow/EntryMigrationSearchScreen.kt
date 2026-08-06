@@ -159,6 +159,7 @@ class EntryMigrationSearchScreen(
                     MigrationCandidateStrip(
                         sourceName = section.sourceName,
                         sourceLang = section.sourceLang,
+                        isCurrentSource = section.sourceKey == entry.sourceKey,
                         result = section.result,
                         onPick = screenModel::showDialog,
                         onPreview = { it.openDetails(navigator) },

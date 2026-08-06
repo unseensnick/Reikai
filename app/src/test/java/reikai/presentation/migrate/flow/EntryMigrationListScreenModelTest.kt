@@ -78,6 +78,21 @@ class EntryMigrationListScreenModelTest {
     }
 
     @Test
+    fun `the picker's strips are on screen before any source is asked`() = runTest(dispatcher.scheduler) {
+        // They were published inside the search coroutine, behind a check against a job handle that
+        // is only assigned after launch returns, so a search that got going first threw its own
+        // results away and left the picker spinning for good.
+        val model = model(listOf(entry(1)))
+        advanceUntilIdle()
+
+        model.searchOverrides(EntryId.Manga(1), "some title")
+
+        val overrides = model.state.value.rows.single().overrides.value
+        overrides.shouldBeInstanceOf<MigratingEntryRow.OverrideState.Strips>()
+        overrides.strips.map { it.result } shouldBe listOf(StripResult.Loading)
+    }
+
+    @Test
     fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
         val model = EntryMigrationListScreenModel(

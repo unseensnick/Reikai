@@ -1,6 +1,7 @@
 package reikai.presentation.migrate.flow
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -236,6 +237,7 @@ private fun MigrationRow(
     busy: Boolean,
     screenModel: EntryMigrationListScreenModel,
 ) {
+    val navigator = LocalNavigator.currentOrThrow
     // Collected inside the item so one row settling recomposes that row, not the whole list.
     val search by row.search.collectAsState()
     val commit by row.commit.collectAsState()
@@ -252,6 +254,9 @@ private fun MigrationRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // The entry being migrated, as upstream's row tap opens: checking what a row is
+                // before deciding its target is the reason to tap it at all.
+                .clickable { row.entry.openDetails(navigator) }
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -331,18 +336,11 @@ private fun OverridePicker(
 
         when (val state = overrides) {
             MigratingEntryRow.OverrideState.Idle -> {}
-            MigratingEntryRow.OverrideState.Preparing -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-            }
             is MigratingEntryRow.OverrideState.Strips -> state.strips.forEach { strip ->
                 MigrationCandidateStrip(
                     sourceName = strip.sourceName,
                     sourceLang = strip.sourceLang,
+                    isCurrentSource = strip.sourceKey == row.entry.sourceKey,
                     result = strip.result,
                     onPick = { screenModel.pick(row.entry.id, it) },
                     onPreview = { it.openDetails(navigator) },

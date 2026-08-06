@@ -45,6 +45,12 @@ class MigratingEntryRow(
     @Volatile
     var overrideJob: Job? = null
 
+    /** Which override search a landing result belongs to. Bumped on the caller's thread before the
+     *  search starts: the job handle is only assigned after `launch` returns, so a coroutine that
+     *  got going first compared itself against the previous job and discarded its own results. */
+    @Volatile
+    var overrideGeneration: Int = 0
+
     /**
      * Where the user stands on this row's target, a third axis beside the search and commit cells.
      *
@@ -103,9 +109,6 @@ class MigratingEntryRow(
     /** The override picker's state. */
     sealed interface OverrideState {
         data object Idle : OverrideState
-
-        /** Working out which sources to ask. Brief and network-free; the strips take over from here. */
-        data object Preparing : OverrideState
 
         /** One strip per configured source, each carrying its own [StripResult]. */
         data class Strips(val strips: List<OverrideStrip>) : OverrideState

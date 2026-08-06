@@ -319,42 +319,38 @@ class EntryMigrationListScreenModel(
     }
 
     /**
-     * Search every configured source for [query] and fill the row's override strips.
+     * Search every configured source for [query] and fill the row's override strips. These run off
+     * the batch driver on their own bound, so opening a row answers immediately.
      *
-     * These run off the batch driver on their own bound, so opening a row answers immediately
-     * instead of queueing behind the batch. A re-search cancels its predecessor, and the write
-     * checks it is still the row's current search, since cancellation cannot stop a coroutine that
-     * has already left its last suspension point.
+     * A re-search cancels its predecessor and each write checks its generation, since cancellation
+     * cannot stop a coroutine past its last suspension point. Everything up to the search runs on
+     * the caller's thread, so the strips are on screen before any source is asked.
      */
     fun searchOverrides(id: EntryId, query: String) {
         if (query.isBlank()) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         val fullQuery = query.withExtraQuery(state.value.tuning.extraQuery)
+        val sources = adapter.sourcesFor()
+        val generation = ++row.overrideGeneration
 
         row.overrideJob?.cancel()
-        row.overrides.value = MigratingEntryRow.OverrideState.Preparing
+        row.overrides.value = MigratingEntryRow.OverrideState.Strips(
+            sources.map {
+                MigratingEntryRow.OverrideStrip(
+                    sourceKey = it.key,
+                    sourceName = it.name,
+                    sourceLang = it.lang,
+                    result = StripResult.Loading,
+                )
+            },
+        )
         row.overrideJob = row.scope.launch {
-            val myJob = coroutineContext[Job]
-            // Resolved here rather than on the caller's thread: it reads three preferences, and this
-            // runs on every row expansion and every tap of the picker's search button.
-            val sources = adapter.sourcesFor()
-            if (row.overrideJob !== myJob) return@launch
-            row.overrides.value = MigratingEntryRow.OverrideState.Strips(
-                sources.map {
-                    MigratingEntryRow.OverrideStrip(
-                        sourceKey = it.key,
-                        sourceName = it.name,
-                        sourceLang = it.lang,
-                        result = StripResult.Loading,
-                    )
-                },
-            )
             adapter.fanOutCandidates(
                 entry = row.entry,
                 query = fullQuery,
                 sources = sources,
                 permits = interactiveSearches,
-                isCurrent = { row.overrideJob === myJob },
+                isCurrent = { row.overrideGeneration == generation },
             ) { sourceKey, landed ->
                 row.overrides.update { current ->
                     val open = current as? MigratingEntryRow.OverrideState.Strips ?: return@update current
@@ -389,14 +385,11 @@ class EntryMigrationListScreenModel(
                 // already consumed, so it lands on the LIVE row for the entry, not the snapshot it
                 // started from.
                 val live = rows.firstOrNull { it.entry.id == row.entry.id } ?: return@forEach
-                if (!MigrationRowRules.canChoose(live.commit.value)) return@forEach
-                live.acceptance.value = Acceptance.Accepted(candidate)
-                // Same follow-up every other accept path runs: a browsed candidate carries no counts
-                // until something asks, and without this the row read unknown forever and the
+                // The same path a strip pick takes: a browsed candidate carries no counts until
+                // something asks, and it is exactly the pick upstream refuses when it has no
+                // chapters. Without the resolve the row read unknown forever and the
                 // chapter-shortfall warning could never fire on a deep pick.
-                peekChosenCounts(live)
-                live.expanded.value = false
-                syncCounts()
+                acceptPicked(live, candidate)
             }
         }
     }
@@ -432,10 +425,36 @@ class EntryMigrationListScreenModel(
     fun pick(id: EntryId, candidate: MigrationCandidate) {
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         if (!MigrationRowRules.canChoose(row.commit.value)) return
-        row.acceptance.value = Acceptance.Accepted(candidate)
+        row.scope.launch(io) { acceptPicked(row, candidate) }
+    }
+
+    /**
+     * Take a manually picked target: resolve it first, and accept it only if it came back with
+     * chapters, which is upstream's refusal. A pick is the one target nothing else verified, and a
+     * chapterless one is what the commit would throw on, leaving the row failed for no reason the
+     * user could act on. A refusal puts the row back where it was and says so.
+     */
+    private suspend fun acceptPicked(row: MigratingEntryRow, candidate: MigrationCandidate) {
+        if (!MigrationRowRules.canChoose(row.commit.value)) return
         // A pick answers the question the picker was open for; leaving it open buries the result.
         row.expanded.value = false
-        peekChosenCounts(row)
+        // The cell is borrowed only from a settled row, so the row reads as working while the fetch
+        // runs. A row the driver is still searching owns its own cell, and writing this back
+        // afterwards would bury the outcome the driver produced.
+        val previous = row.search.value.takeIf { it.isSettled }
+        if (previous != null) {
+            row.search.value = SearchPhase.Searching
+            syncCounts()
+        }
+        val resolved = runCatchingCancellable { adapter.resolve(candidate) }.getOrNull()
+        // The counts come from the resolve, so no peek follows this.
+        val target = resolved?.candidate?.takeIf { it.chapterCount != null }
+        when {
+            target == null -> reportPick(PickOutcome.NoChapters)
+            // Re-checked after the fetch: a commit may have claimed the row while it ran.
+            MigrationRowRules.canChoose(row.commit.value) -> row.acceptance.value = Acceptance.Accepted(target)
+        }
+        if (previous != null) row.search.value = previous
         syncCounts()
     }
 

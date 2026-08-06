@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
@@ -140,10 +141,12 @@ fun PickOutcomeToast(outcome: PickOutcome?, onConsumed: () -> Unit) {
     val context = LocalContext.current
     val unavailable = stringResource(MR.strings.migrationFlow_pickUnavailable)
     val sameEntry = stringResource(MR.strings.migrationFlow_pickSameEntry)
+    val noChapters = stringResource(MR.strings.migrationListScreen_matchWithoutChapterToast)
     LaunchedEffect(outcome) {
         when (outcome) {
             PickOutcome.Unavailable -> context.toast(unavailable)
             PickOutcome.SameEntry -> context.toast(sameEntry)
+            PickOutcome.NoChapters -> context.toast(noChapters, Toast.LENGTH_LONG)
             null -> return@LaunchedEffect
         }
         onConsumed()

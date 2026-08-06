@@ -32,11 +32,14 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import logcat.LogPriority
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -121,7 +124,9 @@ class EntryMigrationFavoritesScreen(
         ) { contentPadding ->
             if (state.entries.isEmpty()) {
                 EmptyScreen(
-                    stringRes = MR.strings.information_empty_library,
+                    // A failed read is not an empty source, and saying "no entries" would send the
+                    // user looking for a library problem that isn't there.
+                    stringRes = if (state.failed) MR.strings.internal_error else MR.strings.information_empty_library,
                     modifier = Modifier.padding(contentPadding),
                 )
                 return@Scaffold
@@ -196,17 +201,23 @@ class EntryMigrationFavoritesScreenModel(
             val sourceName = adapter.sourceDisplayName(sourceKey)
             mutableState.update { it.copy(sourceName = sourceName) }
             // Kept subscribed: migrating an entry away removes it from this source's library, and
-            // the list should say so rather than offering it again.
-            adapter.favorites(sourceKey).collectLatest { entries ->
-                mutableState.update { state ->
-                    val present = entries.mapTo(HashSet()) { it.id }
-                    state.copy(
-                        isLoading = false,
-                        entries = entries,
-                        selected = state.selected.intersect(present),
-                    )
+            // the list should say so rather than offering it again. A throw here used to escape and
+            // leave the screen on its spinner for good, since nothing else ever clears isLoading.
+            adapter.favorites(sourceKey)
+                .catch { e ->
+                    logcat(LogPriority.ERROR, e) { "Failed to read favorites for $sourceKey" }
+                    mutableState.update { it.copy(isLoading = false, failed = true) }
                 }
-            }
+                .collectLatest { entries ->
+                    mutableState.update { state ->
+                        val present = entries.mapTo(HashSet()) { it.id }
+                        state.copy(
+                            isLoading = false,
+                            entries = entries,
+                            selected = state.selected.intersect(present),
+                        )
+                    }
+                }
         }
     }
 
@@ -222,6 +233,8 @@ class EntryMigrationFavoritesScreenModel(
 
     data class State(
         val isLoading: Boolean = true,
+        /** The read failed. Distinct from an empty list, which is a source with no favorites. */
+        val failed: Boolean = false,
         val sourceName: String = "",
         val entries: List<MigrationFavorite> = emptyList(),
         val selected: Set<EntryId> = emptySet(),

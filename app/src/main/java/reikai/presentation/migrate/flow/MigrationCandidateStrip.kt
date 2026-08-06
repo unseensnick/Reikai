@@ -27,10 +27,13 @@ internal fun MigrationCandidateStrip(
     onPreview: (MigrationCandidate) -> Unit,
     onBrowseSource: () -> Unit,
     modifier: Modifier = Modifier,
+    /** This is the source the entry is on now. Marked, as upstream marks it, because a hit here is
+     *  the entry itself far more often than it is a target worth having. */
+    isCurrentSource: Boolean = false,
 ) {
     val candidates = result.candidates
     EntrySearchSection(
-        title = sourceName,
+        title = if (isCurrentSource) "▶ $sourceName" else sourceName,
         subtitle = LocaleHelper.getSourceDisplayName(sourceLang, LocalContext.current),
         onClick = onBrowseSource,
         modifier = modifier,
