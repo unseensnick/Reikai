@@ -66,6 +66,10 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/search/MigrateSourceSearchScreen.kt | mihon | reikai/presentation/migrate/flow/MigrationDeepPicker.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/manga/MigrateMangaScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationFavoritesScreen.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/manga/MigrateMangaViewModel.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationFavoritesScreen.kt |
+| app/src/main/java/eu/kanade/presentation/history/HistoryviewModelStateProvider.kt | mihon | reikai/presentation/history/ReikaiHistoryScreen.kt |
+| app/src/main/java/eu/kanade/presentation/history/components/HistoryItem.kt | mihon | reikai/presentation/history/EntryHistoryRow.kt |
+| app/src/main/java/eu/kanade/presentation/history/components/HistoryWithRelationsProvider.kt | mihon | reikai/presentation/history/EntryHistoryRow.kt |
+| app/src/main/java/eu/kanade/presentation/updates/UpdatesScreen.kt | mihon | reikai/presentation/updates/ReikaiUpdatesScreen.kt |
 
 **A row tracks the file's CURRENT upstream path, not the name Reikai deleted.** When upstream renames a
 manifested file, repoint the row at the new path, because the check `cat-file`s the path at upstream HEAD and,
@@ -84,5 +88,7 @@ deferred ViewModel migration's crash fix, which lands with that bundle rather th
 now BELOW the synced base, so the off-path check reports the row clean and no longer nags; the deferred-changes
 record in [upstream-sync.md](upstream-sync.md) is the only tracker of it until the migration is ported. On a
 sync, still confirm nothing new touched the file (`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`).
+
+The history and updates rows are the surfaces' UI leaves, replaced when the shared row composables took over both feeds. Two of their files are only partially collapsed and therefore stay live and unlisted: `eu/kanade/presentation/history/HistoryScreen.kt` still holds `HistoryUiModel`, which Mihon's own screen model emits and the shared screen consumes, and `eu/kanade/presentation/updates/UpdatesUiItem.kt` still holds the type-neutral last-updated line. The state provider's row names upstream's current filename, `HistoryviewModelStateProvider.kt`; Reikai deleted it as `HistoryScreenModelStateProvider.kt`, before the deferred ViewModel migration (mihon `c3b99aea0`) renamed it. Deleting `UpdatesScreen.kt` also dropped `UpdatesScreenModel.State.getUiModel()`, which nothing else called, marked `// RK` where it was.
 
 The three category interactors each scoped themselves to the manga-visible rows. Once a category can span both libraries those rows overlap the novel-visible ones, so a create, reorder or delete that only sees one library writes an order or a preference scrub that is wrong for the other. `CategoryActions` does all three over the whole table instead.

@@ -66,8 +66,7 @@ fun NovelHistoryWithRelations.toEntryHistoryRowUi() = EntryHistoryRowUi(
 /**
  * One History row, shared by manga and novels. Cover opens details; the row resumes reading; the
  * trash icon deletes the entry; a not-yet-library entry also shows an add-to-library button. The
- * shared twin of Mihon's [eu.kanade.presentation.history.components.HistoryItem], which it replaces
- * for both content types.
+ * shared twin of Mihon's `HistoryItem`, which it replaced for both content types.
  */
 @Composable
 fun EntryHistoryRow(
