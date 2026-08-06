@@ -129,9 +129,11 @@ abstract class EntryCoverScreenModel<T : Any>(
         val entry = entry.value ?: return
         screenModelScope.launchIO {
             try {
-                context.contentResolver.openInputStream(data)?.use { input ->
-                    persistCustomCover(entry, input)
-                }
+                // Not a null-safe call with the notify after it: an unreadable Uri gives no stream,
+                // and the success snackbar fired anyway over a cover that was never written.
+                val input = context.contentResolver.openInputStream(data)
+                    ?: error("Could not open the chosen image")
+                input.use { persistCustomCover(entry, it) }
                 notifyCoverUpdated(context)
             } catch (e: Exception) {
                 notifyFailed(context, e)

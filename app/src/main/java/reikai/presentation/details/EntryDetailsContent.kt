@@ -432,7 +432,14 @@ private fun LazyListScope.entryChapterItems(
                     } else {
                         item.name
                     },
-                    date = item.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
+                    date = when {
+                        item.dateUpload > 0L -> relativeDateText(item.dateUpload)
+                        // Upstream's formatter answers "N/A" for an undated chapter; whether that
+                        // reads as information or as noise is the content type's call.
+                        state.chapters.undatedChapterDate == UndatedChapterDate.NotApplicable ->
+                            relativeDateText(item.dateUpload)
+                        else -> null
+                    },
                     readProgress = item.readProgress,
                     scanlator = item.scanlator?.takeIf { it.isNotBlank() },
                     read = item.read,

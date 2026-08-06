@@ -67,6 +67,9 @@ class NovelEntryAdapter(
                 showHidden = showHidden,
                 hasHiddenChapters = hasHiddenChapters,
                 hiddenChapterIds = hiddenChapterIds,
+                // Novel sources hardly ever date a chapter, so upstream's "N/A" would land on nearly
+                // every row and say nothing.
+                undatedChapterDate = UndatedChapterDate.Blank,
             ),
             capabilities = EntryCapabilities(
                 novelPageSelector = if (pages.size > 1) {

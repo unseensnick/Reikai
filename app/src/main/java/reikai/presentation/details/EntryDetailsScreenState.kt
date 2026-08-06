@@ -69,7 +69,20 @@ data class EntryChapterListUiState(
     /** Ids of displayed rows that are hidden (non-empty only when [showHidden]); drives dimming and
      *  whether the selection offers Hide vs Unhide. */
     val hiddenChapterIds: Set<Long>,
+    /** How a chapter the source dated nothing reads; see [UndatedChapterDate]. */
+    val undatedChapterDate: UndatedChapterDate,
 )
+
+/**
+ * What a chapter with no date from the source shows. A typed slot rather than the row deciding for
+ * itself, because the two types want opposite answers from the same missing value: manga says "N/A"
+ * as upstream does, and a novel would say it on nearly every row, since novel sources hardly ever
+ * date a chapter. Naming it here keeps that a stated divergence instead of a silent one.
+ */
+enum class UndatedChapterDate {
+    NotApplicable,
+    Blank,
+}
 
 /**
  * One row in the neutral chapter list: a chapter or a "N missing chapters" separator. The neutral twin of

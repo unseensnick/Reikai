@@ -81,7 +81,9 @@ fun LazyListScope.entryInfoItems(
     }
     item(key = "entry-description") {
         ExpandableEntryDescription(
-            defaultExpandState = state.descriptionDefaultExpanded,
+            // Expansion is a layout input as well as a state one: the two-pane layout always opens
+            // expanded, since the description has its own pane to fill and nothing to crowd.
+            defaultExpandState = isTabletUi || state.descriptionDefaultExpanded,
             description = state.description,
             tagsProvider = { state.tags },
             notes = state.notes,

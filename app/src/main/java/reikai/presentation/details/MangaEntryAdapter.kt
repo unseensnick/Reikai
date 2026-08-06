@@ -86,6 +86,7 @@ class MangaEntryAdapter(
                 showHidden = showHidden,
                 hasHiddenChapters = hasHiddenChapters,
                 hiddenChapterIds = hiddenChapterIds,
+                undatedChapterDate = UndatedChapterDate.NotApplicable,
             ),
             capabilities = EntryCapabilities(
                 mangaPagePreviews = if (pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
