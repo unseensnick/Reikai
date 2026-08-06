@@ -1,12 +1,12 @@
 package reikai.presentation.browse.source
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -22,14 +22,14 @@ import uy.kohesive.injekt.api.get
  * Mihon's manga sources filter). A disabled source or language is hidden from the Sources tab and
  * global search, so this screen is where they are re-enabled.
  */
-class NovelSourcesFilterScreenModel(
+class NovelSourcesFilterViewModel(
     manager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-) : StateScreenModel<NovelSourcesFilterScreenModel.State>(State.Loading) {
+) : StateViewModel<NovelSourcesFilterViewModel.State>(State.Loading) {
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             installer.ensureLoaded()
             combine(
                 manager.sources,

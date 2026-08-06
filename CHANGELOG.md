@@ -217,6 +217,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Code comments across Reikai's own files are capped in length and enforced on commit, with the longer explanations moved into the developer docs.
+- Screens are moving off Voyager's ScreenModel onto AndroidX ViewModel, matching Mihon, so future upstream changes to any screen apply cleanly instead of being hand-translated.
 
 ## [0.3.0]
 

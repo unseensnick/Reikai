@@ -8,7 +8,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -35,7 +35,7 @@ class NovelSourcesFilterScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { NovelSourcesFilterScreenModel() }
+        val screenModel = viewModel<NovelSourcesFilterViewModel>()
         val state by screenModel.state.collectAsState()
 
         Scaffold(
@@ -48,8 +48,8 @@ class NovelSourcesFilterScreen : Screen() {
             },
         ) { contentPadding ->
             when (val s = state) {
-                NovelSourcesFilterScreenModel.State.Loading -> LoadingScreen(Modifier.padding(contentPadding))
-                is NovelSourcesFilterScreenModel.State.Success -> {
+                NovelSourcesFilterViewModel.State.Loading -> LoadingScreen(Modifier.padding(contentPadding))
+                is NovelSourcesFilterViewModel.State.Success -> {
                     if (s.isEmpty) {
                         EmptyScreen(stringRes = MR.strings.ln_no_sources, modifier = Modifier.padding(contentPadding))
                     } else {
