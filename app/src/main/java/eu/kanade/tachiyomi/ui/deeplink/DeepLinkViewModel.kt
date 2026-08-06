@@ -1,13 +1,16 @@
 package eu.kanade.tachiyomi.ui.deeplink
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.ResolvableSource
 import eu.kanade.tachiyomi.source.online.UriType
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import tachiyomi.core.common.util.lang.launchIO
@@ -19,16 +22,28 @@ import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class DeepLinkScreenModel(
-    query: String = "",
+class DeepLinkViewModel(
+    query: String,
     private val sourceManager: SourceManager = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getChapterByUrlAndMangaId: GetChapterByUrlAndMangaId = Injekt.get(),
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
-) : StateScreenModel<DeepLinkScreenModel.State>(State.Loading) {
+) : StateViewModel<DeepLinkViewModel.State>(State.Loading) {
+
+    companion object {
+        val QUERY_KEY = CreationExtras.Key<String>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                DeepLinkViewModel(
+                    query = get(QUERY_KEY)!!,
+                )
+            }
+        }
+    }
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val source = sourceManager.getAll()
                 .filterIsInstance<ResolvableSource>()
                 .firstOrNull { it.getUriType(query) != UriType.Unknown }

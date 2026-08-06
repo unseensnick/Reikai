@@ -30,9 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.SourceIcon
@@ -43,6 +42,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelRepository
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.NovelSourceIcon
@@ -71,13 +71,13 @@ class ClearDatabaseScreen : Screen() {
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val model = rememberScreenModel { ClearDatabaseScreenModel() }
-        val state by model.state.collectAsState()
+        val viewModel = viewModel<ClearDatabaseViewModel>()
+        val state by viewModel.state.collectAsState()
         val scope = rememberCoroutineScope()
 
         when (val s = state) {
-            is ClearDatabaseScreenModel.State.Loading -> LoadingScreen()
-            is ClearDatabaseScreenModel.State.Ready -> {
+            is ClearDatabaseViewModel.State.Loading -> LoadingScreen()
+            is ClearDatabaseViewModel.State.Ready -> {
                 if (s.showConfirmation) {
                     var keepReadManga by remember { mutableStateOf(true) }
                     AlertDialog(
@@ -112,14 +112,14 @@ class ClearDatabaseScreen : Screen() {
                                 }
                             }
                         },
-                        onDismissRequest = model::hideConfirmation,
+                        onDismissRequest = viewModel::hideConfirmation,
                         confirmButton = {
                             TextButton(
                                 onClick = {
                                     scope.launchUI {
-                                        model.removeMangaBySourceId(keepReadManga)
-                                        model.clearSelection()
-                                        model.hideConfirmation()
+                                        viewModel.removeMangaBySourceId(keepReadManga)
+                                        viewModel.clearSelection()
+                                        viewModel.hideConfirmation()
                                         context.toast(MR.strings.clear_database_completed)
                                     }
                                 },
@@ -128,7 +128,7 @@ class ClearDatabaseScreen : Screen() {
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = model::hideConfirmation) {
+                            TextButton(onClick = viewModel::hideConfirmation) {
                                 Text(text = stringResource(MR.strings.action_cancel))
                             }
                         },
@@ -149,12 +149,12 @@ class ClearDatabaseScreen : Screen() {
                                             AppBar.Action(
                                                 title = stringResource(MR.strings.action_select_all),
                                                 icon = Icons.Outlined.SelectAll,
-                                                onClick = model::selectAll,
+                                                onClick = viewModel::selectAll,
                                             ),
                                             AppBar.Action(
                                                 title = stringResource(MR.strings.action_select_inverse),
                                                 icon = Icons.Outlined.FlipToBack,
-                                                onClick = model::invertSelection,
+                                                onClick = viewModel::invertSelection,
                                             ),
                                         ),
                                     )
@@ -178,7 +178,7 @@ class ClearDatabaseScreen : Screen() {
                             // RK -->
                             actionEnabled = s.selection.isNotEmpty() || s.novelSelection.isNotEmpty(),
                             // RK <--
-                            onClickAction = model::showConfirmation,
+                            onClickAction = viewModel::showConfirmation,
                         ) {
                             // RK --> section headers only when both content types are present
                             val showHeaders = s.items.isNotEmpty() && s.novelItems.isNotEmpty()
@@ -191,7 +191,7 @@ class ClearDatabaseScreen : Screen() {
                                     source = sourceWithCount.source,
                                     count = sourceWithCount.count,
                                     isSelected = s.selection.contains(sourceWithCount.id),
-                                    onClickSelect = { model.toggleSelection(sourceWithCount.source) },
+                                    onClickSelect = { viewModel.toggleSelection(sourceWithCount.source) },
                                 )
                             }
                             // RK --> novel sources with non-library rows
@@ -202,7 +202,7 @@ class ClearDatabaseScreen : Screen() {
                                 ClearDatabaseNovelItem(
                                     item = novelSource,
                                     isSelected = s.novelSelection.contains(novelSource.id),
-                                    onClickSelect = { model.toggleNovelSelection(novelSource.id) },
+                                    onClickSelect = { viewModel.toggleNovelSelection(novelSource.id) },
                                 )
                             }
                             // RK <--
@@ -261,7 +261,7 @@ class ClearDatabaseScreen : Screen() {
 
     @Composable
     private fun ClearDatabaseNovelItem(
-        item: ClearDatabaseScreenModel.NovelSourceWithCount,
+        item: ClearDatabaseViewModel.NovelSourceWithCount,
         isSelected: Boolean,
         onClickSelect: () -> Unit,
     ) {
@@ -294,7 +294,7 @@ class ClearDatabaseScreen : Screen() {
     // RK <--
 }
 
-private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenModel.State>(State.Loading) {
+class ClearDatabaseViewModel : StateViewModel<ClearDatabaseViewModel.State>(State.Loading) {
     private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga = Injekt.get()
     private val database: Database = Injekt.get()
 
@@ -304,7 +304,7 @@ private class ClearDatabaseScreenModel : StateScreenModel<ClearDatabaseScreenMod
     // RK <--
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // RK --> fold the novel-side source counts into the same Ready state
             combine(
                 getSourcesWithNonLibraryManga.subscribe(),

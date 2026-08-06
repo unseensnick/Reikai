@@ -1,8 +1,7 @@
 package eu.kanade.tachiyomi.ui.browse.extension
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.extension.interactor.GetExtensionLanguages
 import eu.kanade.domain.source.interactor.ToggleLanguage
 import eu.kanade.domain.source.service.SourcePreferences
@@ -15,21 +14,22 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class ExtensionFilterScreenModel(
+class ExtensionFilterViewModel(
     private val preferences: SourcePreferences = Injekt.get(),
     private val getExtensionLanguages: GetExtensionLanguages = Injekt.get(),
     private val toggleLanguage: ToggleLanguage = Injekt.get(),
-) : StateScreenModel<ExtensionFilterState>(ExtensionFilterState.Loading) {
+) : StateViewModel<ExtensionFilterState>(ExtensionFilterState.Loading) {
 
     private val _events: Channel<ExtensionFilterEvent> = Channel()
     val events: Flow<ExtensionFilterEvent> = _events.receiveAsFlow()
 
     init {
-        screenModelScope.launch {
+        viewModelScope.launch {
             combine(
                 getExtensionLanguages.subscribe(),
                 preferences.enabledLanguages.changes(),
