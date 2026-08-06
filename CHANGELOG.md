@@ -81,6 +81,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Browse**
 
 - **The Hide entries already in library setting now applies to novel sources too.** Browsing keeps loading further pages when everything on a page is already in your library.
+- **Light-novel source icons are no longer larger than manga ones in the same list.** Most noticeable on the Migrate tab, where both appear one under the other.
 - **Migrating a novel no longer searches sources or languages you have disabled.** The migration search now respects the same source filter as global search.
 
 **Light novels**

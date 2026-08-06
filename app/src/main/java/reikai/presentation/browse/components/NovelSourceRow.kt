@@ -127,17 +127,25 @@ fun BrowseSectionHeader(
     }
 }
 
-/** Shared with the Clear-database screen's novel rows; renders a placeholder when the URL is absent. */
+/**
+ * Shared with the Clear-database screen's novel rows; renders a placeholder when the URL is absent.
+ *
+ * The 4.dp inset is what keeps a novel row lined up with a manga one. Both icons occupy the same
+ * [size] box, but a manga source icon is an Android app icon carrying its own transparent margin,
+ * while a novel icon is a full-bleed web image that would otherwise fill the box edge to edge and
+ * read as noticeably larger next to it.
+ */
 @Composable
 fun NovelSourceIcon(iconUrl: String?, size: Dp = 40.dp) {
     val modifier = Modifier
         .size(size)
+        .padding(4.dp)
         .clip(RoundedCornerShape(4.dp))
     if (iconUrl.isNullOrEmpty()) {
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.MenuBook,
             contentDescription = null,
-            modifier = modifier.padding(4.dp),
+            modifier = modifier,
         )
     } else {
         AsyncImage(
