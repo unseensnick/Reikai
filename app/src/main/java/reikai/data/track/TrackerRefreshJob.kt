@@ -29,6 +29,7 @@ import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.dedupeByMergeGroup
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
@@ -119,17 +120,19 @@ class TrackerRefreshJob(
 
         // Intersect favorites with the entries carrying a live track: a track row survives removing an
         // entry from the library, so refreshing straight off the track table would hit entries nobody sees.
+        // One refresh per merge group: the interactors refresh the group's canonical rows, so two members
+        // that each carry track rows would refresh the same rows twice.
         val mangaTracks = getTracksPerManga.subscribe().first()
         val mangaIds = getLibraryManga.await()
             .map { it.id }
             .filter { id -> mangaTracks[id]?.any { it.trackerId in loggedIn } == true }
-            .dedupeByGroup(mergeGroupRepository.getAllMemberships(ContentType.MANGA))
+            .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.MANGA)) { it }
 
         val novelTracks = getNovelTracks.subscribeAll().first()
         val novelIds = novelRepository.getLibraryNovelAsFlow().first()
             .map { it.novel.id }
             .filter { id -> novelTracks[id]?.any { it.trackerId in loggedIn } == true }
-            .dedupeByGroup(mergeGroupRepository.getAllMemberships(ContentType.NOVELS))
+            .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.NOVELS)) { it }
 
         val total = mangaIds.size + novelIds.size
         if (total == 0) {
@@ -172,13 +175,6 @@ class TrackerRefreshJob(
             failed = failed.get(),
             failedTrackers = failedTrackers.sorted(),
         )
-    }
-
-    /** One refresh per merge group: the interactors refresh the group's canonical rows, so two
-     *  members that each carry track rows would refresh the same rows twice. */
-    private fun List<Long>.dedupeByGroup(membership: Map<Long, Long>): List<Long> {
-        val seenGroups = HashSet<Long>()
-        return filter { id -> membership[id]?.let(seenGroups::add) ?: true }
     }
 
     companion object {

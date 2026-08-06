@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.dedupeByMergeGroup
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -25,6 +27,7 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
@@ -52,6 +55,8 @@ class StatsScreenModel(
     private val novelHistoryRepository: NovelHistoryRepository = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     // RK <--
 ) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
 
@@ -67,11 +72,21 @@ class StatsScreenModel(
     init {
         screenModelScope.launchIO {
             val libraryManga = getLibraryManga.await()
+            // RK: two dedup passes, not one. getLibraryManga repeats an entry per category, so the id
+            //     pass is upstream's. The group pass is ours: a series favorited from three sources is
+            //     three rows here and one card in the library, so every per-title stat read high.
+            //     Sorted by id first so which member represents the group is deterministic rather than
+            //     whatever the library sort left; see the note on the ingredients below.
             val distinctLibraryManga = libraryManga.fastDistinctBy { it.id }
+                .sortedBy { it.id }
+                .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.MANGA)) { it.id }
 
             // RK --> compute manga + novel ingredients once, then fold per selected type on chip change.
             // Novels are already one row per title (categories are aggregated), so no distinct pass.
-            val distinctLibraryNovels = novelRepository.getLibraryNovelAsFlow().first().distinctBy { it.id }
+            val distinctLibraryNovels = novelRepository.getLibraryNovelAsFlow().first()
+                .distinctBy { it.id }
+                .sortedBy { it.novel.id }
+                .dedupeByMergeGroup(mergeGroupRepository.getAllMemberships(ContentType.NOVELS)) { it.novel.id }
 
             val ingredients = StatsIngredients(
                 mangaListRaw = libraryManga,
@@ -82,7 +97,12 @@ class StatsScreenModel(
                 mangaReadDuration = getTotalReadDuration.await(),
                 novelReadDuration = novelHistoryRepository.getTotalReadDuration(),
                 mangaDownloadCount = downloadManager.getDownloadCount(),
-                novelDownloadCount = distinctLibraryNovels.sumOf { it.downloadCount }.toInt(),
+                // RK: asked of the download cache, as manga asks its own manager. The library-view row
+                //     carries a hardcoded 0 (NovelMapper), filled in only by the library screen's own
+                //     overlay, so reading it here reported no novel downloads at all.
+                novelDownloadCount = distinctLibraryNovels.sumOf {
+                    novelDownloadManager.getDownloadCount(it.novel)
+                },
             )
 
             sourcePreferences.statsContentType.changes()
@@ -248,7 +268,13 @@ class StatsScreenModel(
 
     // RK --> precomputed manga + novel stat ingredients, folded per content-type chip selection.
     // mangaListRaw keeps category-membership duplicates (the global-update count matches upstream over it);
-    // mangaList is deduped by id for every other stat.
+    // mangaList is deduped by id AND by merge group for every other stat.
+    //
+    // A merged series is one item here, represented by its lowest-id member. That member's own status,
+    // started state and local-ness are what the status stats read, so they can differ from the library
+    // card, which leads on the ranked trunk. Re-deriving that ranking here would be a third copy of it.
+    // The chapter totals still sum every source's rows, so a merged series counts its shared chapters
+    // once per source there; deduplicating those needs the match-key identities, not a group count.
     private data class StatsIngredients(
         val mangaListRaw: List<LibraryManga>,
         val mangaList: List<LibraryManga>,
