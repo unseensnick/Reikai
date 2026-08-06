@@ -12,7 +12,12 @@ It is the one unported upstream change, and it is not a routine sync. Upstream r
 
 ## Status
 
-**Resuming, as of 2026-08-06.** The migration was attempted once on `feat/0.4.0`: the foundation, the leaf screens, and part of the browse cluster were built and verified on a minified `preview` build on-device. That attempt was reverted off the branch and preserved in a **local-only backup branch** (`backup/feat-0.4.0-viewmodel-migration`). It predates the released upstream shape, so treat it as a source of lessons, not of code.
+**In progress. Phases 0 and 1 are done; phase 2 (browse) is next.**
+
+- **Phase 0** (`fa06232cd`): `core/viewmodel` taken verbatim, catalog and settings wired, both systems live side by side, two pilots migrated (`NovelSourcesFilterViewModel` bare, `MetadataViewViewModel` factory-backed). R8 settled, see below.
+- **Phase 1** (`ca1fd1096`): fifteen leaf-screen files, thirteen taken verbatim and two hand-merged (`ClearDatabaseScreen`, `RestoreBackupScreen`). Includes mihon `98705910e`.
+
+An earlier attempt on `feat/0.4.0` was reverted and preserved in a **local-only backup branch** (`backup/feat-0.4.0-viewmodel-migration`). It predates the released upstream shape, so treat it as a source of lessons, not of code.
 
 **Both halves of the trigger are met.** The migration `c3b99aea0` shipped in **v0.20.2** (2026-08-01), with v0.20.3 and v0.20.4 on top; the `private`-model crash fix `98705910e` (mihonapp/mihon#3609) shipped in the same release. Take the fix wholesale rather than hand-widening an enumerated list to `internal`.
 
@@ -117,3 +122,23 @@ Phases 7 and 8 of the old plan (off-path debt, surfacing buried Reikai logic) ar
 ### How each phase is executed
 
 Verbatim upstream blobs where the file is marker-free, hand-merge inside the `// RK` islands where it is not, drift-check every hand-merge against the upstream post-commit blob so only RK-attributable hunks remain, and open every migrated screen on a minified `preview` build before calling the phase done. A green build does not prove a screen opens.
+
+**Start every phase with the drift check.** For each candidate path, compare Reikai's file to upstream at `c3b99aea0^` (the last pre-migration commit). Byte-identical means no Reikai drift and no intervening hand-port, so the file can be replaced wholesale with upstream's blob at the synced base `45b1e781e` under its new name. Anything else is a hand-merge. This is cheap, it decides the method per file instead of per phase, and it also tells you which other upstream commits ride in with the copy: run `git log c3b99aea0..45b1e781e -- <new path>` per file and read the list before taking it. In phase 1 that split was thirteen clean against two drifted, and the only rider was `98705910e` itself.
+
+Take the blob from the **synced base**, not from `refs/mihon` HEAD, or the copy silently ports unsynced commits from above the base.
+
+### Gotchas learned in execution
+
+- **Never blanket-replace `model.` with `viewModel.`.** Upstream renames the composable's local `val model` to `val viewModel`, and following it keeps future diffs small, but a file-wide replacement also rewrites `androidx.lifecycle.viewmodel.compose.viewModel`, `mihon.core.viewmodel.StateViewModel` and `tachiyomi.domain.source.model.Source` into nonsense, because those paths contain the same characters. The compiler catches it, but it costs a cycle and it will recur in every phase. Anchor the replacement or fix the import block afterwards.
+- **`git mv` stages immediately.** A rename done early sits in the index and rides along in whatever unrelated commit is made next. Check `git diff --cached --name-status` before every commit in this initiative, because it is nearly all renames.
+- **Verifying R8 needs every dex file, not just the first.** `dexdump -d` on the APK reads `classes.dex` only, and the app spans four. Extract the APK, dump each `classes*.dex`, then search for `Class descriptor` and the constructor entry. A bare-resolved model must show `<init>` with type `()V` and `PUBLIC CONSTRUCTOR`; the factory-backed one shows its real argument signature. Both were present in phase 0, so the existing package keeps are enough and no ViewModel-specific keep is needed.
+- **`run-as` is refused on preview builds** (`package not debuggable`), so the database cannot be pulled from the build the migration is verified on. Verify data effects through the UI there, or reproduce on `debugY2k`, accepting that a debug build proves nothing about R8.
+- **Some screens cannot be reached on a preview build at all.** `WorkerInfoScreen` sits behind a debug-only settings section, so its Context-factory shape stays unverified on a minified build. Its mechanism is the same as any other factory model, but record it as unproven rather than assumed.
+- **Grepping logcat for `FATAL EXCEPTION` matches the adbd line echoing your own command**, so a count of one means nothing. Filter out lines matching `adbd`, or grep the app's pid with `logcat --pid=`.
+
+### Verification coverage so far
+
+Recorded so a later session knows what is actually proven rather than assumed. All on a minified `preview` build on the Fold.
+
+- **Opened and rendered:** the novel sources filter and gallery info screens (phase 0 pilots, one bare and one factory), clear database (hand-merged, bare, un-privated), create backup (bare, un-privated), manga notes (factory taking a domain object). Clear database was additionally exercised through its delete path, which works once "Keep entries with read chapters" is unticked; with it ticked an entry with any read chapter or non-zero last-page-read is kept, which is upstream's rule and not a defect.
+- **Not opened:** deep link, webview, extension filter, extension details, upcoming, restore backup (needs a real backup file picked first), worker info (unreachable, see above).
