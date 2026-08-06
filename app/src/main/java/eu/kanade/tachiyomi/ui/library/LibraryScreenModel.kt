@@ -694,6 +694,9 @@ class LibraryScreenModel(
                 mangas
             }
             if (deleteFromLibrary) {
+                // RK: an entry leaving the library keeps its group, so it has to be handed its own
+                //     copy of the group's shared tracker first; the hand-out skips non-favorites.
+                mergeManager.handOutTrackersBeforeRemoval(targets.map { it.id })
                 val toDelete = targets.map {
                     it.removeCovers(coverCache)
                     MangaUpdate(

@@ -37,10 +37,55 @@ class MangaMergeManagerTest {
     fun `computeRelatedIds returns the group members`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(ContentType.MANGA, 1L) } returns 7L
-            coEvery { getMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
+            coEvery { getFavoriteMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
         }
 
         manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
+    }
+
+    @Test
+    fun `computeRelatedIds leaves out a member that is no longer in the library`() = runTest {
+        // The group is preserved so a re-add rejoins it, but a removed source must stop feeding what
+        // the group shows: its chapters, its counts, its chip. Every display read comes through here.
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.MANGA, 1L) } returns 7L
+            coEvery { getFavoriteMembers(ContentType.MANGA, 7L) } returns listOf(1L, 3L)
+        }
+
+        manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L, 3L)
+    }
+
+    @Test
+    fun `computeRelatedIds falls back to the target when the whole group has left the library`() = runTest {
+        // A caller resolving an entry it is already holding must never get an empty list back.
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.MANGA, 1L) } returns 7L
+            coEvery { getFavoriteMembers(ContentType.MANGA, 7L) } returns emptyList()
+        }
+
+        manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `handOutTrackersBeforeRemoval hands each group its members once`() = runTest {
+        // Two members of one group are being removed together; the hand-out is per group, not per entry.
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getGroupId(ContentType.MANGA, 1L) } returns 7L
+            coEvery { getGroupId(ContentType.MANGA, 2L) } returns 7L
+            coEvery { getFavoriteMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
+        }
+
+        manager(repo).handOutTrackersBeforeRemoval(listOf(1L, 2L))
+
+        dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
+    }
+
+    @Test
+    fun `handOutTrackersBeforeRemoval does nothing while merging is disabled`() = runTest {
+        // Nothing resolves as a group with the switch off, so no tracker was ever shared to hand out.
+        manager(mergingEnabled = false).handOutTrackersBeforeRemoval(listOf(1L))
+
+        dissolved.isEmpty() shouldBe true
     }
 
     @Test
@@ -101,7 +146,7 @@ class MangaMergeManagerTest {
     fun `unmerge hands the whole group to the dissolve hook before dissolving`() = runTest {
         val repo = mockk<MergeGroupRepository>(relaxed = true) {
             coEvery { getGroupId(ContentType.MANGA, 1L) } returns 7L
-            coEvery { getMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
+            coEvery { getFavoriteMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
         }
 
         manager(repo).unmerge(listOf(1L))
@@ -110,7 +155,7 @@ class MangaMergeManagerTest {
         // Ordered: the hook has to read the members while the group still has them. Run it after the
         // dissolve and it sees nothing, so nobody gets their own copy of the shared tracker link.
         coVerifyOrder {
-            repo.getMembers(ContentType.MANGA, 7L)
+            repo.getFavoriteMembers(ContentType.MANGA, 7L)
             repo.dissolve(ContentType.MANGA, 1L)
         }
     }

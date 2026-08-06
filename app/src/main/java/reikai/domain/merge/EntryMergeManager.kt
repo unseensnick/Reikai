@@ -21,11 +21,23 @@ open class EntryMergeManager(
 
     private val isNovel: Boolean get() = contentType == ContentType.NOVELS
 
-    /** The group [targetId] belongs to, or just itself when it is ungrouped or merging is disabled. */
+    /**
+     * The group [targetId] belongs to, or just itself when it is ungrouped or merging is disabled.
+     *
+     * Library members only. Removing an entry from the library keeps its group, so a re-add rejoins
+     * it, but the entry must stop feeding what the group shows: its chapters, its counts, its source
+     * chip. Every display and aggregation read resolves through here, so that holds everywhere rather
+     * than at each call site. Data operations read [MergeGroupRepository.getMembers] instead.
+     */
     suspend fun computeRelatedIds(targetId: Long): LongArray {
         if (!preferences.seriesMergingEnabled.get()) return longArrayOf(targetId)
         val groupId = repository.getGroupId(contentType, targetId) ?: return longArrayOf(targetId)
-        return repository.getMembers(contentType, groupId).toLongArray()
+        // A group whose members have all left the library still answers with the target, so a caller
+        // resolving an entry it is holding never gets an empty list back.
+        return repository.getFavoriteMembers(contentType, groupId)
+            .takeIf { it.isNotEmpty() }
+            ?.toLongArray()
+            ?: longArrayOf(targetId)
     }
 
     /** [computeRelatedIds] as a `List` for callers (the novel reader / tracking path) that want one. */
@@ -131,6 +143,23 @@ open class EntryMergeManager(
     override suspend fun clearSourceOrder(anchorId: Long) {
         val groupId = repository.getGroupId(contentType, anchorId) ?: return
         repository.clearSourceOrder(contentType, groupId)
+    }
+
+    /**
+     * Hand each member of [entryIds]' groups its own copy of the shared tracker binding, for entries
+     * about to leave the library while their group stays.
+     *
+     * Must run BEFORE the unfavorite: the hand-out skips non-favorites, so afterwards the leaving
+     * entry is precisely who it misses. No-op with merging off, where nothing was shared to hand out.
+     */
+    suspend fun handOutTrackersBeforeRemoval(entryIds: List<Long>) {
+        if (!preferences.seriesMergingEnabled.get()) return
+        val handled = HashSet<Long>()
+        entryIds.distinct().forEach { id ->
+            val groupId = repository.getGroupId(contentType, id) ?: return@forEach
+            if (!handled.add(groupId)) return@forEach
+            onBeforeDissolve(repository.getFavoriteMembers(contentType, groupId))
+        }
     }
 
     /** Fully dissolve the group of each of [targetIds] (the library bulk "Unmerge"). Ungrouped targets

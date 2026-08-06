@@ -159,13 +159,15 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Long-pressing a novel's WebView button now copies its link, like manga.**
 - **Tapping a novel's source name now searches within that source.** It ran a cross-source global search for the source's name as a title.
 - **Deleting a category now clears it from the library and Updates filters.** No filter is left pointing at a category that no longer exists.
+- **Statistics now counts a merged series once instead of once per source.** The title, completed, started and tracked figures all read higher than the library they describe.
+- **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.
 
 **Tracking**
 
 - **A tracker set on one source of a merged series now shows and updates on all of its sources.** The chip, reading progress, mark-as-read and refresh all follow the whole group instead of the one source the tracker happens to be bound to.
 - **Reading an older chapter from another source of a merged series can no longer push your tracker's progress backwards.**
 - **Removing a tracker from a merged series now removes it everywhere.** It used to stay bound on the other sources and keep the series in the Tracked filter.
-- **Breaking up a merged series now hands each source its own copy of the tracker.** Splitting from Manage sources did it; removing sources from your library and Settings' "Clear merges" did not, so those sources came out untracked.
+- **Breaking up a merged series now hands each source its own copy of the tracker.** Every way out of the library does it: splitting from Manage sources, removing from the library, the series page, browse, and Settings' "Clear merges".
 - **A merged manga is now filtered and sorted by a tracker bound on any of its sources, not just its main one.**
 - **Grouping the library by tracking status now looks at every source of a merged series, not only the one it leads with.**
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**

@@ -94,6 +94,9 @@ WHERE K.chapter_id IS NULL OR K.derived_name != C.name OR K.derived_number != C.
 -- id, so each counts once and a real unread chapter is never hidden. Excluded scanlators are
 -- dropped, matching libraryView's per-entry counts so the two numbers stay comparable.
 --
+-- Members that have left the library are excluded, matching every other read of a group: the group is
+-- preserved so a re-add rejoins it, but a removed source must not keep feeding the badge.
+--
 -- Manga dedups WITHIN a source as well as across: one source can list the same chapter under several
 -- scanlators, and ChapterAggregation collapses those. The novel twin below deliberately does not,
 -- which is why the two queries are not symmetric.
@@ -105,6 +108,8 @@ FROM (
         coalesce(K.match_key, 'c' || C._id) AS unitKey,
         sum(CASE WHEN C.read = 1 THEN 1 ELSE 0 END) AS readCopies
     FROM merge_group_manga MGM
+    JOIN mangas M
+    ON M._id = MGM.manga_id
     JOIN chapters C
     ON C.manga_id = MGM.manga_id
     LEFT JOIN chapter_match_key K
@@ -113,6 +118,7 @@ FROM (
     ON C.manga_id = ES.manga_id
     AND C.scanlator = ES.scanlator
     WHERE ES.scanlator IS NULL
+    AND M.favorite = 1
     GROUP BY MGM.group_id, coalesce(K.match_key, 'c' || C._id)
 ) AS U
 WHERE U.readCopies = 0
@@ -122,11 +128,13 @@ GROUP BY U.group_id;
 -- trunk on, read here so the collapsed library row and the details chapter list lead on the SAME
 -- source. The library's own row count cannot stand in: a source listing one chapter under several
 -- scanlators wins on rows while losing on identities, so the two surfaces picked different members.
--- Excluded scanlators are dropped, matching the unread query above and the scanlator-filtered list
--- the aggregation is fed. A manga with no identifiable chapter produces NO ROW, read as zero.
+-- Excluded scanlators and members that have left the library are dropped, matching the unread query
+-- above. A manga with no identifiable chapter produces NO ROW, read as zero.
 mergedDistinctChapterCounts:
 SELECT MGM.manga_id AS mangaId, count(DISTINCT K.match_key) AS distinctCount
 FROM merge_group_manga MGM
+JOIN mangas M
+ON M._id = MGM.manga_id
 JOIN chapters C
 ON C.manga_id = MGM.manga_id
 JOIN chapter_match_key K
@@ -136,6 +144,7 @@ ON C.manga_id = ES.manga_id
 AND C.scanlator = ES.scanlator
 WHERE ES.scanlator IS NULL
 AND K.match_key IS NOT NULL
+AND M.favorite = 1
 GROUP BY MGM.manga_id;
 
 -- Novel twin. Two deliberate differences from the manga query above.
@@ -168,10 +177,13 @@ FROM (
             END AS unitKey,
             CASE WHEN C.read = 1 THEN 1 ELSE 0 END AS isRead
         FROM merge_group_novel MGN
+        JOIN novels N
+        ON N._id = MGN.novel_id
         JOIN novel_chapters C
         ON C.novel_id = MGN.novel_id
         LEFT JOIN novel_chapter_match_key K
         ON K.chapter_id = C._id
+        WHERE N.favorite = 1
     ) AS R
     GROUP BY R.group_id, R.unitKey
 ) AS U

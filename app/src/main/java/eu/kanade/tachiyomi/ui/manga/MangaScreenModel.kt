@@ -634,6 +634,9 @@ class MangaScreenModel(
 
             if (isFavorited) {
                 // Remove from library
+                // RK: hand this entry its own copy of the group's shared tracker before it goes; the
+                //     hand-out skips non-favorites, so after the write it would miss exactly this one.
+                mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
                 if (updateManga.awaitUpdateFavorite(manga.id, false)) {
                     // Remove covers and update last modified in db
                     if (manga.removeCovers() != manga) {

@@ -555,6 +555,9 @@ class NovelLibraryScreenModel :
     ) {
         screenModelScope.launchNonCancellable {
             val targets = if (removeGroupedSources) state.value.memberIdsFor(novelIds) else novelIds
+            // An entry leaving the library keeps its group, so it has to be handed its own copy of the
+            // group's shared tracker first; the hand-out skips non-favorites.
+            if (deleteFromLibrary) mergeManager.handOutTrackersBeforeRemoval(targets)
             targets.forEach { novelId ->
                 if (deleteFromLibrary) {
                     updateNovel.awaitUpdateFavorite(novelId, favorite = false)

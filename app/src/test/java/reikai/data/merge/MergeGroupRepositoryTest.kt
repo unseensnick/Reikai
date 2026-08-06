@@ -82,6 +82,48 @@ class MergeGroupRepositoryTest {
     }
 
     @Test
+    fun `getFavoriteMembers leaves out a member removed from the library`() = runTest {
+        insertManga(1)
+        insertManga(2, favorite = false)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+
+        repository.getFavoriteMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 3L)
+    }
+
+    @Test
+    fun `getFavoriteMembers keeps the whole group's order`() = runTest {
+        // Same ordering as getMembers (source_priority, then insertion), so scoping to the library
+        // cannot quietly re-rank a group the user ordered by hand.
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.materializeGroup(ContentType.MANGA, listOf(3, 1, 2), false)!!
+
+        repository.getFavoriteMembers(ContentType.MANGA, groupId) shouldBe listOf(3L, 1L, 2L)
+    }
+
+    @Test
+    fun `getFavoriteMembers leaves out a novel removed from the library`() = runTest {
+        insertNovel(1)
+        insertNovel(2, favorite = false)
+        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
+
+        repository.getFavoriteMembers(ContentType.NOVELS, groupId) shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `getMembers still reports the whole group, library or not`() = runTest {
+        // The data half: the split undo, a backup and the repository's own rewrites all need the full
+        // membership, so scoping this one would silently drop a removed member from a restored group.
+        insertManga(1)
+        insertManga(2, favorite = false)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 2L)
+    }
+
+    @Test
     fun `createGroup returns null for fewer than two distinct ids`() = runTest {
         insertManga(1)
 
@@ -578,21 +620,23 @@ class MergeGroupRepositoryTest {
     }
 
     // Minimal valid parent rows: only the NOT NULL columns without a default need values.
-    private suspend fun insertManga(id: Long) {
+    // Favorited by default, since a group is made of library entries; favorite = false is an entry the
+    // user removed while its group was preserved.
+    private suspend fun insertManga(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
             "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
                 "chapter_flags, cover_last_modified, date_added) " +
-                "VALUES ($id, 1, 'm-url-$id', 'title', 0, 0, 0, 0, 0, 0, 0)",
+                "VALUES ($id, 1, 'm-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0, 0, 0, 0)",
             0,
         ).await()
     }
 
-    private suspend fun insertNovel(id: Long) {
+    private suspend fun insertNovel(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
             "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                "VALUES ($id, 'src', 'n-url-$id', 'title', 0, 0, 0, 0)",
+                "VALUES ($id, 'src', 'n-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0)",
             0,
         ).await()
     }

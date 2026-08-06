@@ -34,6 +34,13 @@ class MergeGroupRepositoryImpl(
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
 
+    override suspend fun getFavoriteMembers(contentType: ContentType, groupId: Long): List<Long> =
+        when (contentType) {
+            ContentType.MANGA -> queries.mangaFavoriteMembers(groupId).awaitAsList()
+            ContentType.NOVELS -> queries.novelFavoriteMembers(groupId).awaitAsList()
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
     override suspend fun createGroup(contentType: ContentType, entryIds: List<Long>): Long? {
         val distinct = entryIds.distinct()
         if (distinct.size < 2) return null

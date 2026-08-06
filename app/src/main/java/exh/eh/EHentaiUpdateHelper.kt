@@ -7,6 +7,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import mihon.core.common.extensions.EMPTY
+import reikai.domain.manga.MangaMergeManager
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
@@ -43,6 +44,9 @@ class EHentaiUpdateHelper(context: Context) {
     private val upsertHistory: UpsertHistory by injectLazy()
     private val removeHistory: RemoveHistory by injectLazy()
     private val getHistory: GetHistory by injectLazy()
+
+    // A superseded gallery is unfavorited below, which is a library removal like any other.
+    private val mangaMergeManager: MangaMergeManager by injectLazy()
 
     /**
      * @param chapters Cannot be an empty list!
@@ -94,6 +98,9 @@ class EHentaiUpdateHelper(context: Context) {
             // Copy chain chapters to curChapters
             val (chapterUpdates, newChapters) = getChapterList(accepted, toDiscard, chainsAsChapters)
 
+            // The discarded galleries leave the library, so each is handed its own copy of its group's
+            // shared tracker first; the hand-out skips non-favorites.
+            mangaMergeManager.handOutTrackersBeforeRemoval(toDiscard.map { it.manga.id })
             toDiscard.forEach {
                 mangaUpdates += MangaUpdate(
                     id = it.manga.id,

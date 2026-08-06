@@ -16,8 +16,18 @@ interface MergeGroupRepository {
     /** The group [entryId] belongs to, or null if it is in none. */
     suspend fun getGroupId(contentType: ContentType, entryId: Long): Long?
 
-    /** Member entry ids of [groupId], ordered by source priority then insertion order. */
+    /**
+     * Member entry ids of [groupId], ordered by source priority then insertion order. The WHOLE group,
+     * library or not, so a data operation (the split undo, a backup, a rewrite) sees all of it.
+     */
     suspend fun getMembers(contentType: ContentType, groupId: Long): List<Long>
+
+    /**
+     * [getMembers] restricted to members still in the library, same order. What every read that
+     * displays or aggregates a group asks for: removing an entry from the library preserves its group
+     * (so a re-add rejoins it) but must stop it feeding the chapter list, the counts and the chips.
+     */
+    suspend fun getFavoriteMembers(contentType: ContentType, groupId: Long): List<Long>
 
     /**
      * Create a group over [entryIds] and return its id. Returns null for fewer than two distinct ids

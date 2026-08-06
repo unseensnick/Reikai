@@ -37,7 +37,7 @@ class NovelMergeManagerTest {
     fun `computeRelatedIds returns the group members`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
-            coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L, 3L)
+            coEvery { getFavoriteMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L, 3L)
         }
 
         manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
@@ -47,10 +47,51 @@ class NovelMergeManagerTest {
     fun `relatedIdsList returns the group members`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
-            coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
+            coEvery { getFavoriteMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
         }
 
         manager(repo).relatedIdsList(1L) shouldBe listOf(1L, 2L)
+    }
+
+    @Test
+    fun `computeRelatedIds leaves out a member that is no longer in the library`() = runTest {
+        // Twin of the manga case: the scoping lives on the shared base, so both types stay pinned.
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
+            coEvery { getFavoriteMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 3L)
+        }
+
+        manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L, 3L)
+    }
+
+    @Test
+    fun `computeRelatedIds falls back to the target when the whole group has left the library`() = runTest {
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
+            coEvery { getFavoriteMembers(ContentType.NOVELS, 7L) } returns emptyList()
+        }
+
+        manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `handOutTrackersBeforeRemoval hands each group its members once`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
+            coEvery { getGroupId(ContentType.NOVELS, 2L) } returns 7L
+            coEvery { getFavoriteMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L, 3L)
+        }
+
+        manager(repo).handOutTrackersBeforeRemoval(listOf(1L, 2L))
+
+        dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
+    }
+
+    @Test
+    fun `handOutTrackersBeforeRemoval does nothing while merging is disabled`() = runTest {
+        manager(mergingEnabled = false).handOutTrackersBeforeRemoval(listOf(1L))
+
+        dissolved.isEmpty() shouldBe true
     }
 
     @Test
@@ -103,7 +144,7 @@ class NovelMergeManagerTest {
     fun `unmerge hands the whole group to the dissolve hook before dissolving`() = runTest {
         val repo = mockk<MergeGroupRepository>(relaxed = true) {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
-            coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
+            coEvery { getFavoriteMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
         }
 
         manager(repo).unmerge(listOf(1L))
@@ -112,7 +153,7 @@ class NovelMergeManagerTest {
         // Ordered, like manga's twin: the hook has to read the members while the group still has
         // them, or nobody gets their own copy of the shared tracker link.
         coVerifyOrder {
-            repo.getMembers(ContentType.NOVELS, 7L)
+            repo.getFavoriteMembers(ContentType.NOVELS, 7L)
             repo.dissolve(ContentType.NOVELS, 1L)
         }
     }

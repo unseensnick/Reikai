@@ -111,6 +111,9 @@ class MangaLibraryAdder(
             dateAdded = if (manga.favorite) 0 else Instant.now().toEpochMilli(),
         )
         if (!new.favorite) {
+            // RK: its own copy of the group's shared tracker, before it leaves; the hand-out skips
+            //     non-favorites, so after the write it would miss exactly this entry.
+            mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
             new = new.removeCovers(coverCache)
         } else {
             setMangaDefaultChapterFlags.await(manga)

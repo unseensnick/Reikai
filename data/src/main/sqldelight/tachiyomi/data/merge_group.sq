@@ -77,6 +77,20 @@ FROM merge_group_manga
 WHERE group_id = :groupId
 ORDER BY source_priority, _id;
 
+-- RK: the members still in the library, in the same trunk order as mangaMembers. Every read that
+-- DISPLAYS or aggregates a group resolves through this, so an entry removed from the library stops
+-- feeding the chapter list, the badge and the source chips while its group is preserved for a
+-- re-add. Data operations (the split undo, backup create and restore, the repository's own rewrites)
+-- keep using mangaMembers, which is the whole truth about the group and must stay that way.
+mangaFavoriteMembers:
+SELECT MGM.manga_id
+FROM merge_group_manga MGM
+JOIN mangas M
+ON M._id = MGM.manga_id
+WHERE MGM.group_id = :groupId
+AND M.favorite = 1
+ORDER BY MGM.source_priority, MGM._id;
+
 deleteMangaMember:
 DELETE FROM merge_group_manga
 WHERE manga_id = :mangaId;
@@ -95,6 +109,16 @@ SELECT novel_id
 FROM merge_group_novel
 WHERE group_id = :groupId
 ORDER BY source_priority, _id;
+
+-- RK: novel twin of mangaFavoriteMembers.
+novelFavoriteMembers:
+SELECT MGN.novel_id
+FROM merge_group_novel MGN
+JOIN novels N
+ON N._id = MGN.novel_id
+WHERE MGN.group_id = :groupId
+AND N.favorite = 1
+ORDER BY MGN.source_priority, MGN._id;
 
 deleteNovelMember:
 DELETE FROM merge_group_novel

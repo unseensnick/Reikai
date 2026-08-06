@@ -201,6 +201,58 @@ class MergedUnreadCountTest {
         novelCounts()[group] shouldBe null
     }
 
+    private fun distinctChapterCounts(): Map<Long, Long> = database.chapter_match_keyQueries
+        .mergedDistinctChapterCounts()
+        .executeAsList()
+        .associate { it.mangaId to it.distinctCount }
+
+    @Test
+    fun `a member removed from the library stops feeding the group's unread count`() = runTest {
+        insertManga(1)
+        insertManga(2, favorite = false)
+        val group = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        // Only the removed source has this chapter, and it is unread. Counting it would badge a group
+        // with a chapter the user cannot reach from any entry in their library.
+        insertChapter(id = 20, mangaId = 2, number = 1.0, read = false, key = "1.0")
+
+        mangaCounts()[group] shouldBe null
+    }
+
+    @Test
+    fun `a removed member's unread chapter is counted again once it is re-added`() = runTest {
+        insertManga(1)
+        insertManga(2, favorite = false)
+        val group = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        insertChapter(id = 20, mangaId = 2, number = 1.0, read = false, key = "1.0")
+        driver.execute(null, "UPDATE mangas SET favorite = 1 WHERE _id = 2", 0).await()
+
+        mangaCounts()[group] shouldBe 1L
+    }
+
+    @Test
+    fun `a novel removed from the library stops feeding its group's unread count`() = runTest {
+        insertNovel(1)
+        insertNovel(2, favorite = false)
+        val group = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
+        insertNovelChapter(id = 20, novelId = 2, read = false, key = "c1")
+
+        novelCounts()[group] shouldBe null
+    }
+
+    @Test
+    fun `a member removed from the library cannot win the trunk rank`() = runTest {
+        insertManga(1)
+        insertManga(2, favorite = false)
+        repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        insertChapter(id = 10, mangaId = 1, number = 1.0, read = false, key = "1.0")
+        // The removed source covers more chapters, so without the filter it would lead the library row
+        // on a source the user no longer has.
+        insertChapter(id = 20, mangaId = 2, number = 1.0, read = false, key = "1.0")
+        insertChapter(id = 21, mangaId = 2, number = 2.0, read = false, key = "2.0")
+
+        distinctChapterCounts() shouldBe mapOf(1L to 1L)
+    }
+
     private fun staleMangaChapterIds(): List<Long> = database.chapter_match_keyQueries
         .staleMergedChapters()
         .executeAsList()
@@ -270,22 +322,24 @@ class MergedUnreadCountTest {
         mangaCounts().size shouldBe 0
     }
 
-    // Minimal valid parent rows: only the NOT NULL columns without a default need values.
-    private suspend fun insertManga(id: Long) {
+    // Minimal valid parent rows: only the NOT NULL columns without a default need values. Favorited by
+    // default, because the queries under test count library entries; [favorite] = false is an entry the
+    // user removed while its group was preserved.
+    private suspend fun insertManga(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
             "INSERT INTO mangas(_id, source, url, title, status, favorite, initialized, viewer, " +
                 "chapter_flags, cover_last_modified, date_added) " +
-                "VALUES ($id, 1, 'm-url-$id', 'title', 0, 0, 0, 0, 0, 0, 0)",
+                "VALUES ($id, 1, 'm-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0, 0, 0, 0)",
             0,
         ).await()
     }
 
-    private suspend fun insertNovel(id: Long) {
+    private suspend fun insertNovel(id: Long, favorite: Boolean = true) {
         driver.execute(
             null,
             "INSERT INTO novels(_id, source, url, title, status, favorite, initialized, chapter_flags) " +
-                "VALUES ($id, 'src', 'n-url-$id', 'title', 0, 0, 0, 0)",
+                "VALUES ($id, 'src', 'n-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0)",
             0,
         ).await()
     }
