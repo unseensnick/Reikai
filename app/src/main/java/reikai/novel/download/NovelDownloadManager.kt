@@ -205,6 +205,24 @@ class NovelDownloadManager(private val context: Context) {
         deleteChapterFiles(chapters)
     }
 
+    /**
+     * Drop the whole novel: everything it has queued, then its folder. The manga twin of this is
+     * [eu.kanade.tachiyomi.data.download.DownloadManager.deleteManga].
+     *
+     * Chapter-by-chapter deletion cannot do this job. It only reaches what the disk cache already
+     * reports, and a queued chapter is by definition not downloaded yet, so migrating away with
+     * remove-downloads on left the worker still fetching into the source just left behind.
+     */
+    suspend fun awaitDeleteNovel(novel: Novel) {
+        val queued = _queueState.value.filter { it.novelId == novel.id }.map { it.chapterId }
+        _queueState.update { q -> q.filterNot { it.novelId == novel.id } }
+        withIOContext {
+            queued.forEach { store.remove(it) }
+            provider.deleteNovel(novel)
+        }
+        cache.removeNovel(novel)
+    }
+
     private fun dequeueChapters(chapters: List<NovelChapter>) {
         val ids = chapters.map { it.id }.toSet()
         _queueState.update { q -> q.filter { it.chapterId !in ids } }
@@ -237,13 +255,12 @@ class NovelDownloadManager(private val context: Context) {
             if (_queueState.value.isEmpty()) {
                 store.restore().takeIf { it.isNotEmpty() }?.let { _queueState.value = it }
             }
-            // Re-queue any chapter a previous drain left DOWNLOADING when it was cancelled (a user pause,
-            // a crash, or a force-kill); the loop below only picks QUEUE, so otherwise it would be stuck.
-            _queueState.update { q ->
-                q.map {
-                    if (it.state == NovelDownload.State.DOWNLOADING) it.copy(state = NovelDownload.State.QUEUE) else it
-                }
-            }
+            // Everything still in the queue goes back to QUEUE, matching manga's Downloader.start. A
+            // finished download leaves the queue, so what is left is either DOWNLOADING from a drain
+            // that was cancelled (a user pause, a crash, a force-kill) or ERROR, which is exactly what
+            // Resume is for. The loop below only picks QUEUE, so an ERROR row used to sit there
+            // untouched with Resume doing nothing for it.
+            _queueState.update { q -> q.map { it.copy(state = NovelDownload.State.QUEUE) } }
             var done = 0
             while (true) {
                 val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE }

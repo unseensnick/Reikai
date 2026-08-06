@@ -115,12 +115,11 @@ class MigrateNovelUseCase(
             // file delete is a no-op when nothing is downloaded. Downloads are never auto re-fetched
             // onto the target: parity with manga, and a silent re-download costs metered data.
             if (NovelMigrationFlag.REMOVE_DOWNLOAD in flags) {
-                val currentChapters = novelChapterRepository.getByNovelId(current.id)
-                // Awaited, matching manga: a detached delete returns before the files are gone and
-                // cannot fail the row.
-                novelDownloadManager.awaitDeleteChapters(
-                    currentChapters.filter { novelDownloadManager.isChapterDownloaded(current, it) },
-                )
+                // The whole entry, not its downloaded chapters: filtering by the disk cache misses
+                // everything still queued, which then keeps downloading into the source being left,
+                // and misses everything on disk when the cache has not warmed up yet. Awaited, unlike
+                // manga's detached delete, so a failure can fail the row.
+                novelDownloadManager.awaitDeleteNovel(current)
             }
 
             if (NovelMigrationFlag.COVER in flags && current.hasCustomCover(coverCache)) {

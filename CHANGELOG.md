@@ -196,6 +196,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Installing an extension through Shizuku works again.**
 - **Updating a privately installed extension no longer switches it to a shared install.**
 - **A resumed image download now shows the right progress instead of restarting from zero.**
+- **Migrating a novel with "delete downloaded" now stops the downloads it still had queued.** They used to keep downloading into the source you had just moved away from, and the files they wrote stayed behind.
+- **Cancel on the novel download notification now cancels instead of pausing.** The queue came back and carried on the next time you opened the app.
+- **A novel chapter that failed to download can be retried again.** Resume skipped it, so it sat in the queue as an error with no way to get it going short of queueing it afresh.
 
 ### Other
 

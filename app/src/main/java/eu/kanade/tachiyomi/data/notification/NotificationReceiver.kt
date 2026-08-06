@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.runBlocking
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.novel.download.NovelDownloadJob
+import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -48,6 +49,10 @@ class NotificationReceiver : BroadcastReceiver() {
     private val updateChapter: UpdateChapter by injectLazy()
     private val downloadManager: DownloadManager by injectLazy()
 
+    // RK: the novel downloader's own manager, so its notification actions clear the queue rather than
+    // only stopping the worker, which left a cancelled queue to restart on the next app open.
+    private val novelDownloadManager: NovelDownloadManager by injectLazy()
+
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             // Dismiss notification
@@ -74,8 +79,10 @@ class NotificationReceiver : BroadcastReceiver() {
             ACTION_CANCEL_RESTORE -> cancelRestore(context)
             // Cancel library update and dismiss notification
             ACTION_CANCEL_LIBRARY_UPDATE -> cancelLibraryUpdate(context)
-            // RK: cancel the novel chapter downloader
-            ACTION_CANCEL_NOVEL_DOWNLOAD -> NovelDownloadJob.stop(context)
+            // RK: cancel the novel chapter downloader. Clears the queue too: stopping only the worker
+            // left the queue and its store intact, and the manager restarts a stored queue on the next
+            // app open, so Cancel deferred the downloads rather than cancelling them.
+            ACTION_CANCEL_NOVEL_DOWNLOAD -> novelDownloadManager.cancelAllDownloads()
             // RK: cancel the background novel library update
             ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> NovelUpdateJob.stop(context)
             // Start downloading app update

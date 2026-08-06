@@ -370,15 +370,12 @@ class MigrateNovelUseCaseTest {
     }
 
     @Test
-    fun `remove-download flag deletes the source's downloaded chapters`() = runTest {
+    fun `remove-download flag drops the whole source entry, not its downloaded chapters`() = runTest {
         val repo = mockk<NovelChapterRepository>(relaxed = true) {
             coEvery { getByNovelId(1L) } returns listOf(chapter(1, 1.0), chapter(2, 2.0))
             coEvery { getByNovelId(2L) } returns emptyList()
         }
-        // Downloaded state now comes from the cache via the manager, not a chapter flag.
-        val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
-            every { isChapterDownloaded(any(), match { it.id == 1L }) } returns true
-        }
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
 
         useCase(novelChapterRepository = repo, novelDownloadManager = downloadManager)(
             novel(1),
@@ -388,8 +385,10 @@ class MigrateNovelUseCaseTest {
             skipTargetRefresh = true,
         )
 
-        // Awaited, not the fire-and-forget variant: a detached delete returns before the files go.
-        coVerify { downloadManager.awaitDeleteChapters(match { chapters -> chapters.map { it.id } == listOf(1L) }) }
+        // The whole entry, awaited. Per chapter it only reached what the disk cache already reported,
+        // so anything still queued survived and kept downloading into the source just left behind.
+        coVerify { downloadManager.awaitDeleteNovel(match { it.id == 1L }) }
+        coVerify(exactly = 0) { downloadManager.awaitDeleteChapters(any()) }
         verify(exactly = 0) { downloadManager.deleteChapters(any()) }
     }
 

@@ -80,6 +80,7 @@ From the same audit.
 
 ### Downloads & updates
 
+- **Pause and resume novel downloads from the notification** `[S]` - the novel downloader's notification offers only Cancel, where manga also offers Pause and Resume. The actions themselves are trivial; what is missing first is a paused-state notification, since pausing today stops the worker and takes the ongoing notification with it, leaving nothing to resume from.
 - **Novel download/update pacing controls** `[M]` - per-source throttle, update staggering, and a per-source override map for novel scrapers (tsundoku's `NovelDownloadPreferences`), a more complete anti-detection pacing layer than Reikai's current per-chapter backoff. Independent of Road B.
 
 ### Data & backup
