@@ -8,7 +8,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Next
 
-- **Redo browse, history and updates at the behaviour seam** `[L]` - these three got only the UI-leaf seam, so their behaviour is still forked and each restates rules its siblings own. Measured cost is low: browse and history have had zero upstream behaviour commits in twelve months, updates three, one of them a direct collision where upstream moved category filters into SQL and the Reikai patch duplicates them in Kotlin. Scout before starting. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Redo history and updates at the behaviour seam** `[M]` - both got only the UI-leaf seam, so their behaviour is still forked and each restates rules its siblings own. Measured cost is low: history has had zero upstream behaviour commits in twelve months, updates three, one of them a direct collision where upstream moved category filters into SQL and the Reikai patch duplicates them in Kotlin. Browse was scouted out of this item: its two engines diverge in pagination and filter dispatch, so it got the add-to-library verb collapse instead. Scout before starting. [Plan](docs/dev/plans/content-layer-architecture.md).
 - **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift. A code merge, not a data migration; touches Mihon's download files (`// RK`), sequenced last of the redo surfaces since its upstream churn is the heaviest. Tsundoku is not the reference: it gets one subsystem by making novels manga rows and branching inside the engine, both ruled out here. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Later
