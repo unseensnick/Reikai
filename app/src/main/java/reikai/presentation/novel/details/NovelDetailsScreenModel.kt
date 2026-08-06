@@ -854,16 +854,9 @@ class NovelDetailsScreenModel(
 
     private suspend fun addToLibrary(novel: Novel) {
         updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
-        val categories = reikaiSortCategories(
-            categories = getNovelCategories.await().filter { it.id > 0L },
-            sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
-            isSystem = { it.id <= 0L },
-            displayName = { it.name },
-        )
-        if (categories.isNotEmpty()) {
-            val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }
-        }
+        // A configured default category applies silently; only a novel with no usable default reaches
+        // the picker, which showChangeCategoryDialog orders. Mirrors MangaScreenModel.toggleFavorite.
+        if (novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id) != null) showChangeCategoryDialog()
     }
 
     fun showChangeCategoryDialog() {

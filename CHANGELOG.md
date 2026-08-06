@@ -83,6 +83,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Hide entries already in library setting now applies to novel sources too.** Browsing keeps loading further pages when everything on a page is already in your library.
 - **Migrating a novel no longer searches sources or languages you have disabled.** The migration search now respects the same source filter as global search.
 
+**Light novels**
+
+- **Adding a novel from its details page now files it in your default novel category.** It opened the category picker every time instead, even with a default set, the one add path that ignored the setting.
+
 **Merged series**
 
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.

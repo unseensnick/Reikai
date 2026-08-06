@@ -23,11 +23,15 @@ import tachiyomi.domain.category.model.Category
  */
 class NovelLibraryAdderTest {
 
+    private fun category(id: Long) = Category(id = id, name = "category $id", order = 0L, flags = 0L)
+
     private fun adder(
         favoriteWriteSucceeds: Boolean = true,
         alreadyFavorite: Boolean = false,
         rowExists: Boolean = true,
         groupCategories: List<Category> = emptyList(),
+        userCategories: List<Category> = emptyList(),
+        defaultCategoryId: Int = -1,
         mergeManager: NovelMergeManager = mockk(relaxed = true),
         setNovelCategories: SetNovelCategories = mockk(relaxed = true),
         updateNovel: UpdateNovel = mockk {
@@ -40,11 +44,14 @@ class NovelLibraryAdderTest {
         },
         manager = mockk(relaxed = true),
         getNovelCategories = mockk<GetNovelCategories> {
+            coEvery { await() } returns userCategories
             coEvery { awaitByNovelId(any()) } returns groupCategories
         },
         setNovelCategories = setNovelCategories,
         updateNovel = updateNovel,
-        novelPreferences = mockk(relaxed = true),
+        novelPreferences = mockk(relaxed = true) {
+            every { defaultNovelCategory() } returns mockk { every { get() } returns defaultCategoryId }
+        },
         mergeManager = mergeManager,
         transactions = PassThroughTransactions,
     )
@@ -89,6 +96,33 @@ class NovelLibraryAdderTest {
     @Test
     fun `an uncategorized group reports back so the caller can fall back to its own prompt`() = runTest {
         adder(groupCategories = emptyList()).addToGroup(1L, listOf(2L)) shouldBe false
+    }
+
+    /*
+     * The default-category step, which the novel details screen reaches directly and every other novel
+     * add path reaches through this class. Its manga twin goes through addToExistingGroup, because
+     * manga's equivalent step is private.
+     */
+
+    @Test
+    fun `a configured default category files the novel without prompting`() = runTest {
+        val setNovelCategories = mockk<SetNovelCategories>(relaxed = true)
+
+        adder(
+            userCategories = listOf(category(3L)),
+            defaultCategoryId = 3,
+            setNovelCategories = setNovelCategories,
+        ).applyDefaultCategoryOrPrompt(1L) shouldBe null
+
+        coVerify { setNovelCategories.await(1L, listOf(3L)) }
+    }
+
+    @Test
+    fun `no usable default hands the picker back to the caller`() = runTest {
+        val prompt = adder(userCategories = listOf(category(3L)), defaultCategoryId = -1)
+            .applyDefaultCategoryOrPrompt(1L)
+
+        prompt?.categories shouldBe listOf(category(3L))
     }
 
     @Test
