@@ -147,7 +147,4 @@ data class NovelPageSelectorCapability(
     val pages: List<String>,
     val pageIndex: Int,
     val isPageLoading: Boolean,
-) {
-    /** More than one page/volume to choose between, so the selector is shown. */
-    val isPaged: Boolean get() = pages.size > 1
-}
+)

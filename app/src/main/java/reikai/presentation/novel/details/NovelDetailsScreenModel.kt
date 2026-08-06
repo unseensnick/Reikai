@@ -1338,9 +1338,6 @@ sealed interface NovelDetailsState {
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 
-        /** More than one page/volume to choose between, so the page selector is shown. */
-        val isPaged: Boolean get() = pages.size > 1
-
         /** A chapter's download state: a live queue state if present, else DOWNLOADED / NOT_DOWNLOADED
          *  from the on-disk cache. */
         fun downloadStateOf(chapterId: Long): Download.State =
