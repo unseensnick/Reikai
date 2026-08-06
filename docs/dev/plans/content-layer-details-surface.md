@@ -57,6 +57,29 @@ Step 4 shipped (`a347fc204`): the shared `EntryDetailsContent` now drives the ma
 
 Step 5 shipped (`13a70cfac`) and has been exercised on-device continuously since: the library program's device passes all render details through the shared body, and the surface picked up follow-up fixes without structural change. The novel details screen now builds `NovelEntryAdapter` and delegates its whole body to `EntryDetailsContent`; the novel twin body (`NovelDetailsSmallImpl` / `LargeImpl`, `NovelSelectionBar`, `NovelDetailsToolbar`, the novel chapter and header rows, and the local page bar) is deleted, and `NovelDetailsScreenModel` stays live behind the adapter. A neutral `EntryDetailsDialog` union plus a shared `Screen.EntryDetailsDialogHost` render the five genuinely-shared dialogs (edit-info, cover, manage-sources, track-sheet, delete-chapters) for both types, driven through `EntryDetailsBehavior` (which gained `createCoverScreenModel` and `deleteChapters`, the latter because `deleteSelected` only shows the confirm); the per-type dialogs stay in each screen's own dispatcher, so the union never carries a case one side can't fill. The two per-type cover ScreenModels collapsed into a shared `EntryCoverScreenModel<T>` base (save / share / edit / delete boilerplate) with thin manga/novel subclasses supplying the four seams (identity + subscription, coil model, cache key, custom-cover write), and Mihon's `MangaCoverScreenModel` was deleted and manifested. The novel page bar moved into the shared body (rendered from the `novelPageSelector` capability), and the shared chapter row gained an `isRecognizedNumber` guard so a novel in number-mode localizes its "Chapter N" titles without regressing an unrecognized (negative) number. Parity resolved: the novel keeps its action-row Share (matching LNReader); leveling it to the manga row instead needs the smart-update interval feature novels lack, filed as a separate roadmap item.
 
+**The upstream-gap close-out, done (2026-08-06).** The behaviour inventory against the replaced Mihon
+code found three losses; all three are fixed in `dc8322a0b`, and a dead-member sweep followed in
+`9a502046c`.
+
+- **Description expansion is a layout input as well as a state field.** Upstream hardcodes it in the
+  two-pane layout and takes `isFromSource` only on the phone; the takeover folded both into one adapter
+  field, so a tablet or unfolded phone opened the synopsis collapsed.
+- **An undated chapter says so on manga**, as upstream's formatter answers, and stays blank on novels.
+  That divergence is a typed `UndatedChapterDate` slot on the chapter state rather than an inference
+  from a zero: novel sources hardly ever date a chapter, so upstream's answer would read "N/A" down the
+  whole list. Owner-ruled after seeing it live.
+- **A cover pick that yields no stream reports the failure.** The success snackbar sat outside the
+  stream's scope and fired over a cover that was never written.
+
+Two items the surface review listed could not be actioned as written, and were closed on evidence
+instead. Its "two library query deltas" resolve to exactly two behavioural differences from upstream's
+matcher, both already deliberate and commented (`srcid:` compares a string where upstream parses a
+Long, since novel source keys are slugs; `interval:` and `nextupdate:` return false for a type that
+cannot answer them, where upstream has no such case). Its "five dead `EntryDetailsBehavior` members"
+do not reproduce: every member and every `EntryDetailsScreenState` property has a live reader. The
+sweep did find three genuinely dead members, two `isPaged` properties (deleted) and Mihon's
+`isAnySelected` (marked rather than deleted, since upstream still has it).
+
 ## Decisions & tradeoffs
 
 - **Full migration, 0 to 5, not behavior-only.** Behavior-only would dedup the ScreenModels but leave the manga body UI in Mihon's composable, so a body-UI change would still not reach both types. Going all the way is what delivers the anti-divergence goal for the body. The risk is contained by shipping 0 to 3 first and isolating the manga UI migration as a separate verified checkpoint.

@@ -300,6 +300,34 @@ migrate dialog from their own ScreenModel's `Migrate` dialog case, exactly as ma
 does, which also moved two composable-side coroutines into the models (`14c0aec8c`). One accepted
 behaviour change: the duplicate dialog now closes as the migrate dialog opens, matching manga.
 
+**Step 9, the upstream-gap close-out, done (2026-08-06).** The behaviour inventory against the replaced
+Mihon code had found nine losses; all nine are now fixed, in four commits (`c8aed5665`, `21aa2e606`,
+`89f2d6da6`, `2c94b93a3`), and the surface is closed.
+
+- **The additional search query travels as a screen argument**, which is upstream's split, instead of
+  through a tuning field no adapter reads or writes. It had been collected on the config screen and
+  dropped there, so the option did nothing on any route for either content type.
+- **Hidden rows are removed, not filtered.** `isVisible` became `shouldHide`, and `visibleRows`, the
+  `AllFiltered` empty reason and its string are gone. The check runs at both points its inputs land,
+  the search outcome and the count peek, because our target counts arrive from the peek where
+  upstream's arrive during the search. A list the toggles empty now pops, as upstream's does.
+- **A manually picked target is resolved before it is accepted** and refused with upstream's toast when
+  it has no chapters. Both manual routes, a result strip and the pushed browse screen, take that one
+  path now.
+- The deep picker's **Filter dialog** and **Open in WebView** are wired (both were dead taps), the row
+  tap opens the entry, the entry's own source is marked `▶` in the result strips, the enhanced-options
+  warning renders above the two options it describes, and the override search publishes its strips
+  before launching, which retired `OverrideState.Preparing`.
+- The config screen adopted **Mihon's toolbar controls** (select-all and deselect as icons, the pinned
+  filter in the overflow, an arrow on a collapsing Continue). Upstream's "select enabled sources" is
+  deliberately not taken: it filters out sources disabled in settings, and `enabledSources()` never
+  offers one.
+
+Verified on the emulator, including an A/B that proves the extra query reaches the source on both
+routes. Two paths are not device-verified because they cannot be provoked by hand: the chapterless
+refusal needs a target that resolves with no chapters, and the favorites screen's read failure needs a
+failing DB read.
+
 ## Decisions & tradeoffs
 
 - Takeover over parity-patching: options assessed were (a) full flow takeover, (b) partial UI-only takeover, (c) no takeover with parity fixes, (d) reshape Mihon's flow in place via `// RK`. (b) keeps the step fork because the fork lives in orchestration; (d) is maximum sync tax on the highest-churn files; (c) leaves the divergence permanent, and history shows the novel side never receives flow improvements. (a) accepted with the churn price stated in the amendment.
