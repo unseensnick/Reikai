@@ -22,7 +22,7 @@ common way to mis-plan work here.
 | Surface | Depth | What is actually shared | Record |
 |---|---|---|---|
 | Details | Deep | Neutral state and behavior contract, two adapters; Mihon composables deleted and manifested | content-layer-details-surface |
-| Library | Full takeover | Shared engine owns assembly, selection and the action verbs; `LibraryScreenModel` deleted and manifested | content-layer-library-surface |
+| Library | Takeover of orchestration | Shared engine owns assembly, selection and the action verbs. `LibraryScreenModel` is **live**, 930 lines, still the manga provider: the amendment's plan to delete and manifest it has not shipped, and the surface doc says it stays live as an engine file. The two docs disagree; unresolved | content-layer-library-surface |
 | Migrate | Full takeover | The whole flow, screens and orchestration; seventeen Mihon files deleted and manifested | content-layer-migrate-surface |
 | Browse | Behavior-partial | Shared bulk-favorite generic, shared dialogs and the default-category kernel. Verbs stay per-type, no takeover, and one neutral adder contract was assessed and declined | content-layer-browse-surface |
 | History, Updates | UI leaf only | Shared row composables over per-type feeds; behavior never unified | unified-content-ui |
