@@ -74,6 +74,8 @@ import uy.kohesive.injekt.api.get
 class EntryMigrationListScreen(
     private val contentType: ContentType,
     private val entryIds: List<Long>,
+    /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
+    private val extraQuery: String?,
 ) : Screen(), MigrationFlowScreen {
 
     @Composable
@@ -84,6 +86,7 @@ class EntryMigrationListScreen(
                 entryIds = entryIds,
                 adapter = migrationAdapterFor(contentType),
                 pickHandoff = Injekt.get(),
+                extraQuery = extraQuery,
             )
         }
         val state by screenModel.state.collectAsState()

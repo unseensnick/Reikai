@@ -4,10 +4,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -17,8 +14,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
-import reikai.presentation.migrate.PickMember
 
 /**
  * The driver, the row claim and the finish gate, which had no coverage at all until the ScreenModel
@@ -37,101 +32,19 @@ class EntryMigrationListScreenModelTest {
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun entry(id: Long) = MigrationEntry(
-        id = EntryId.Manga(id),
-        title = "Entry $id",
-        sourceKey = "src",
-        sourceName = "Source",
-        chapterCount = 1,
-        latestChapter = 1.0,
-        cover = null,
-        payload = Any(),
-    )
-
-    private fun candidate(id: Long) = MigrationCandidate(
-        sourceKey = "target",
-        title = "Target $id",
-        chapterCount = 2,
-        latestChapter = 2.0,
-        key = "target:/$id",
-        handle = Any(),
-    )
-
-    /**
-     * An adapter whose search always finds a target and whose migrate is recorded. [failFor] makes
-     * that entry's commit throw, which is how the failure paths are reached.
-     */
-    private class FakeAdapter(
-        private val entries: List<MigrationEntry>,
-        private val failFor: Set<EntryId> = emptySet(),
-        /** Migrating this entry hangs until the test cancels the batch, so the rows after it in the
-         *  batch are left accepted and un-run, which is the state a cancelled batch really produces. */
-        private val blockOn: EntryId? = null,
-    ) : MigrationFlowAdapter {
-        val migrated = mutableListOf<EntryId>()
-        val blocked = CompletableDeferred<Unit>()
-
-        override val contentType = ContentType.MANGA
-        override val matchStrategy = MatchStrategy.BestTitleMatch
-
-        override fun enabledSources() = listOf(
-            MigrationSourceUi("target", "Target", "en", MigrationSourceIcon.NovelUrl(null)),
-        )
-
-        override fun savedSelection() = listOf("target")
-        override fun persistSelection(keys: List<String>) = Unit
-        override fun pinnedKeys(): Set<String> = emptySet()
-        override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> = emptyList()
-        override fun sourceDisplayName(sourceKey: String) = sourceKey
-        override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(emptyList())
-        override fun readTuning() = MigrationTuning()
-        override fun persistTuning(tuning: MigrationTuning) = Unit
-        override suspend fun loadEntries(ids: List<Long>) = entries
-
-        override suspend fun suggest(entry: MigrationEntry, sourceKey: String, tuning: MigrationTuning) =
-            candidateFor(entry)
-
-        override suspend fun candidates(entry: MigrationEntry, query: String, sourceKey: String) =
-            listOf(candidateFor(entry))
-
-        override suspend fun resolve(candidate: MigrationCandidate) = ResolvedTarget(candidate, syncedNow = true)
-        override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? = null
-        override suspend fun storedCandidate(id: Long): MigrationCandidate? = null
-        override fun savedFlags(): Set<MigrationDataFlag> = emptySet()
-        override fun persistFlags(flags: Set<MigrationDataFlag>) = Unit
-        override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = emptySet()
-
-        override suspend fun migrate(
-            entry: MigrationEntry,
-            target: MigrationCandidate,
-            replace: Boolean,
-            flags: Set<MigrationDataFlag>,
-            targetJustSynced: Boolean,
-        ) {
-            if (entry.id == blockOn) blocked.await()
-            if (entry.id in failFor) error("migrate failed for ${entry.id}")
-            migrated += entry.id
-        }
-
-        private fun candidateFor(entry: MigrationEntry) = MigrationCandidate(
-            sourceKey = "target",
-            title = "Target for ${entry.title}",
-            chapterCount = 2,
-            latestChapter = 2.0,
-            key = "target:${entry.id}",
-            handle = Any(),
-        )
-    }
+    private fun entry(id: Long) = migrationEntry(id)
 
     private fun model(
         entries: List<MigrationEntry>,
         failFor: Set<EntryId> = emptySet(),
         blockOn: EntryId? = null,
+        extraQuery: String? = null,
     ) =
         EntryMigrationListScreenModel(
             entryIds = entries.map { it.id.rawId },
-            adapter = FakeAdapter(entries, failFor, blockOn),
+            adapter = FakeMigrationFlowAdapter(entries, failFor, blockOn),
             pickHandoff = MigrationPickHandoff(),
+            extraQuery = extraQuery,
             io = dispatcher,
         )
 
@@ -143,6 +56,42 @@ class EntryMigrationListScreenModelTest {
 
         model.state.value.allSearched shouldBe true
         model.state.value.searchedCount shouldBe 2
+    }
+
+    @Test
+    fun `the extra query reaches the search the batch runs`() = runTest(dispatcher.scheduler) {
+        // It was typed on the config screen and then dropped: no adapter persists it, so the tuning
+        // the model read back always had a null one and the option did nothing on this route.
+        val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
+        EntryMigrationListScreenModel(
+            entryIds = listOf(1L),
+            adapter = adapter,
+            pickHandoff = MigrationPickHandoff(),
+            extraQuery = "vol 2",
+            io = dispatcher,
+        )
+
+        advanceUntilIdle()
+
+        adapter.suggestedWith.map { it.extraQuery } shouldBe listOf("vol 2")
+    }
+
+    @Test
+    fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
+        val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
+        val model = EntryMigrationListScreenModel(
+            entryIds = listOf(1L),
+            adapter = adapter,
+            pickHandoff = MigrationPickHandoff(),
+            extraQuery = "vol 2",
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+
+        model.searchOverrides(EntryId.Manga(1), "some title")
+        advanceUntilIdle()
+
+        adapter.candidateQueries shouldBe listOf("some title vol 2")
     }
 
     @Test
@@ -373,7 +322,7 @@ class EntryMigrationListScreenModelTest {
         // since removed. The claim re-checks membership for exactly this: without it the migration
         // runs anyway and the entry the user took out is migrated behind their back.
         val entries = listOf(entry(1), entry(2), entry(3))
-        val adapter = FakeAdapter(entries, blockOn = EntryId.Manga(1))
+        val adapter = FakeMigrationFlowAdapter(entries, blockOn = EntryId.Manga(1))
         val model = EntryMigrationListScreenModel(
             entryIds = entries.map { it.id.rawId },
             adapter = adapter,

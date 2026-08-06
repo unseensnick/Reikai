@@ -45,6 +45,8 @@ class EntryMigrationListScreenModel(
     // test. The screen resolves them and passes them in.
     private val adapter: MigrationFlowAdapter,
     private val pickHandoff: MigrationPickHandoff,
+    /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
+    private val extraQuery: String? = null,
     // Injected so a test can drive the driver and the commits on its own scheduler; production
     // callers take the default, which is what launchIO would have used.
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -86,8 +88,11 @@ class EntryMigrationListScreenModel(
         screenModelScope.launch(io) {
             adapter.prepare()
             // Read once, as upstream does: the options were settled on the config screen before any
-            // row existed, so nothing can change what a search returns while one is running.
-            val tuning = adapter.readTuning().normalizedFor(adapter.matchStrategy)
+            // row existed, so nothing can change what a search returns while one is running. The
+            // extra query is not one the adapter holds, so it is folded back in from the argument.
+            val tuning = adapter.readTuning()
+                .normalizedFor(adapter.matchStrategy)
+                .copy(extraQuery = extraQuery)
             val built = adapter.loadEntries(entryIds).map {
                 MigratingEntryRow(it, screenModelScope.coroutineContext, io)
             }
@@ -307,10 +312,7 @@ class EntryMigrationListScreenModel(
     fun searchOverrides(id: EntryId, query: String) {
         if (query.isBlank()) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
-        val fullQuery = listOfNotNull(
-            query.trim(),
-            state.value.tuning.extraQuery?.takeIf { it.isNotBlank() },
-        ).joinToString(" ")
+        val fullQuery = query.withExtraQuery(state.value.tuning.extraQuery)
 
         row.overrideJob?.cancel()
         row.overrides.value = MigratingEntryRow.OverrideState.Preparing

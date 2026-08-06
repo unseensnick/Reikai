@@ -44,15 +44,19 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceIcon
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.Pill
@@ -78,7 +82,9 @@ class EntryMigrationConfigScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { EntryMigrationConfigScreenModel(contentType) }
+        val screenModel = rememberScreenModel {
+            EntryMigrationConfigScreenModel(migrationAdapterFor(contentType))
+        }
         val state by screenModel.state.collectAsState()
         val listState = rememberLazyListState()
         var showTuning by rememberSaveable { mutableStateOf(false) }
@@ -128,10 +134,13 @@ class EntryMigrationConfigScreen(
                         icon = {},
                         onClick = {
                             // One entry has nothing to accept in bulk and no progress worth a list,
-                            // so it goes straight to its results.
+                            // so it goes straight to its results. The extra query travels with the
+                            // screen rather than through the adapter: it belongs to this run only,
+                            // and no preference should remember it for the next one.
+                            val extraQuery = state.tuning.extraQuery
                             val next = entryIds.singleOrNull()
-                                ?.let { EntryMigrationSearchScreen(contentType, it) }
-                                ?: EntryMigrationListScreen(contentType, entryIds)
+                                ?.let { EntryMigrationSearchScreen(contentType, it, extraQuery) }
+                                ?: EntryMigrationListScreen(contentType, entryIds, extraQuery)
                             // Replace, never push, as upstream does at this same point. Every step of
                             // the flow replaces itself, so back from the results leaves the migration
                             // entirely and returns to whatever opened it; changing the target sources
@@ -337,23 +346,36 @@ private fun SourceRowIcon(icon: MigrationSourceIcon) {
 }
 
 class EntryMigrationConfigScreenModel(
-    contentType: ContentType,
+    // Injected rather than resolved here, as the list model's are: the source seed and the order
+    // writes are otherwise reachable only by reading the code. The screen resolves and passes them.
+    private val adapter: MigrationFlowAdapter,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : StateScreenModel<EntryMigrationConfigScreenModel.State>(State()) {
-
-    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     val matchStrategy: MatchStrategy get() = adapter.matchStrategy
 
+    /** Serializes the order writes; see [editSelection]. */
+    private val persistLock = Mutex()
+
+    /** Versions them too, so a superseded write is dropped rather than saved after the one that
+     *  replaced it. Assigned on the caller's thread, like the confirm scan's id. */
+    @Volatile
+    private var selectionVersion = 0
+
     init {
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             adapter.prepare()
             val enabled = adapter.enabledSources()
             val saved = adapter.savedSelection()
             val pinned = adapter.pinnedKeys()
             val byKey = enabled.associateBy { it.key }
-            // Saved order first, then anything enabled that is not in it. With nothing saved, the
-            // pinned sources lead, matching what the list itself would search.
-            val selected = saved.mapNotNull { byKey[it] }.ifEmpty { enabled.filter { it.key in pinned } }
+            // Saved order first, else the pinned sources, else everything enabled: upstream's three
+            // tiers, and the same ladder sourcesFor() searches under. Stopping at pinned left a
+            // profile with nothing pinned and no saved selection looking at an empty screen with the
+            // Continue button hidden, while the search layer would have used every enabled source.
+            val selected = saved.mapNotNull { byKey[it] }
+                .ifEmpty { enabled.filter { it.key in pinned } }
+                .ifEmpty { enabled }
             val selectedKeys = selected.mapTo(HashSet()) { it.key }
             mutableState.update {
                 it.copy(
@@ -377,7 +399,7 @@ class EntryMigrationConfigScreenModel(
     fun applyTuning(edited: MigrationTuning) {
         val tuning = edited.normalizedFor(adapter.matchStrategy)
         mutableState.update { it.copy(tuning = tuning) }
-        screenModelScope.launchIO { adapter.persistTuning(tuning) }
+        screenModelScope.launch(io) { adapter.persistTuning(tuning) }
     }
 
     fun toggleSelection(key: String) = editSelection { state ->
@@ -427,22 +449,30 @@ class EntryMigrationConfigScreenModel(
      * Apply a selection edit, then save the settled order off the caller's thread.
      *
      * A state update re-runs its block when a write races it (the init load is the one that can), so
-     * a save inside the block repeats. [persist] reads the on-screen sources from the new state;
-     * every edit here only moves sources between the two lists, so their union is the same either
-     * way.
+     * a save inside the block repeats. The writes are serialized and versioned instead: two quick
+     * edits used to race, and the older order could land last and be what the flow then searched.
      */
     private fun editSelection(edit: (State) -> State) {
         val settled = mutableState.updateAndGet(edit)
-        screenModelScope.launchIO { persist(settled.selected) }
+        val version = ++selectionVersion
+        screenModelScope.launch(io) {
+            persistLock.withLock {
+                if (version == selectionVersion) persist(settled)
+            }
+        }
     }
 
     /**
      * Persist the order, keeping saved sources that are not on screen in their existing slots. A
      * source that is currently disabled or uninstalled is not listed here, and appending it on every
      * save would walk it to the back of the priority order for no reason the user can see.
+     *
+     * Reads the on-screen sources from the state it was handed, never a live one: a later edit
+     * landing mid-write would otherwise decide which sources this write treats as hidden.
      */
-    private fun persist(selected: List<MigrationSourceUi>) {
-        val visible = (state.value.selected + state.value.available).mapTo(HashSet()) { it.key }
+    private fun persist(settled: State) {
+        val selected = settled.selected
+        val visible = (settled.selected + settled.available).mapTo(HashSet()) { it.key }
         val hidden = adapter.savedSelection().filterTo(HashSet()) { it !in visible }
         if (hidden.isEmpty()) {
             adapter.persistSelection(selected.map { it.key })

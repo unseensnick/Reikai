@@ -51,8 +51,9 @@ inline fun <T> List<T>.latestChapterNumber(number: (T) -> Double): Double? =
     maxOfOrNull(number)?.takeIf { it >= 0.0 }
 
 /**
- * The chosen target sources, resolved against what is enabled. The empty-selection fallback is
- * pinned-only, mirroring the config screen's seed, so what it showed is what gets searched.
+ * The chosen target sources, resolved against what is enabled. Saved selection, else pinned, else
+ * everything enabled: the same three tiers the config screen seeds from, so what it showed is what
+ * gets searched.
  */
 fun MigrationFlowAdapter.sourcesFor(): List<MigrationSourceUi> {
     val enabled = enabledSources()
@@ -62,6 +63,16 @@ fun MigrationFlowAdapter.sourcesFor(): List<MigrationSourceUi> {
         enabled.filter { it.key in pinned }.ifEmpty { enabled }
     }
 }
+
+/**
+ * The user's [query] plus the run's extra query, which the config screen asks for and the flow
+ * carries as a screen argument. Only the manual searches need this: [MigrationFlowAdapter.suggest]
+ * takes the whole tuning and its engines fold the extra query in themselves.
+ */
+fun String.withExtraQuery(extraQuery: String?): String = listOfNotNull(
+    trim().takeIf(String::isNotBlank),
+    extraQuery?.trim()?.takeIf(String::isNotBlank),
+).joinToString(" ")
 
 /**
  * Search every source for [query] at once, reporting each as it lands.

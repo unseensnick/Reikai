@@ -120,12 +120,12 @@ data class MigrationFavorite(
 )
 
 /**
- * The pre-list search options. [extraQuery] is transient per run (matching Mihon, which threads it
- * as a screen argument); the toggles persist per type. Smart-match options ([deepSearch],
- * [prioritizeByChapters]) only apply under [MatchStrategy.Smart].
+ * The pre-list search options, settled on the config screen before the list exists and read once
+ * from there, so no search can have its options changed underneath it.
  *
- * Settled on the config screen before the list exists, and read once from there, so no search can
- * have its options changed underneath it.
+ * [extraQuery] is transient per run and no adapter reads or writes it: the config screen hands it to
+ * the next screen as a constructor argument, as Mihon does, and the model folds it back in. The
+ * toggles persist per type, and the smart-match pair only applies under [MatchStrategy.Smart].
  */
 data class MigrationTuning(
     val extraQuery: String? = null,

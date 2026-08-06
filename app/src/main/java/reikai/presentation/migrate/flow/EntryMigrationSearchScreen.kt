@@ -28,12 +28,14 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -55,13 +57,22 @@ private const val SEARCH_CONCURRENCY = 5
 class EntryMigrationSearchScreen(
     private val contentType: ContentType,
     private val entryId: Long,
+    /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
+    private val extraQuery: String?,
 ) : Screen(), MigrationFlowScreen {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { EntryMigrationSearchScreenModel(contentType, entryId) }
+        val screenModel = rememberScreenModel {
+            EntryMigrationSearchScreenModel(
+                entryId = entryId,
+                adapter = migrationAdapterFor(contentType),
+                pickHandoff = Injekt.get(),
+                extraQuery = extraQuery,
+            )
+        }
         val state by screenModel.state.collectAsState()
         var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
 
@@ -192,13 +203,16 @@ class EntryMigrationSearchScreen(
 }
 
 class EntryMigrationSearchScreenModel(
-    contentType: ContentType,
     private val entryId: Long,
+    // Injected rather than resolved here, the same reason the list model takes its own: the search
+    // this route runs is otherwise reachable only by reading the code, which is how the extra query
+    // came to be dropped on it without a test noticing.
+    private val adapter: MigrationFlowAdapter,
+    private val pickHandoff: MigrationPickHandoff,
+    /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
+    private val extraQuery: String? = null,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : StateScreenModel<EntryMigrationSearchScreenModel.State>(State()) {
-
-    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
-
-    private val pickHandoff: MigrationPickHandoff = Injekt.get()
 
     private val permits = Semaphore(SEARCH_CONCURRENCY)
 
@@ -206,7 +220,7 @@ class EntryMigrationSearchScreenModel(
     private var searchJob: Job? = null
 
     init {
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             adapter.prepare()
             val entry = adapter.loadEntries(listOf(entryId)).firstOrNull()
             mutableState.update { it.copy(isLoading = false, entry = entry) }
@@ -223,15 +237,16 @@ class EntryMigrationSearchScreenModel(
         val entry = state.value.entry ?: return
         if (query.isBlank()) return
         val sources = adapter.sourcesFor()
+        val fullQuery = query.withExtraQuery(extraQuery)
         searchJob?.cancel()
         mutableState.update { state ->
             state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
         }
-        searchJob = screenModelScope.launchIO {
+        searchJob = screenModelScope.launch(io) {
             val myJob = coroutineContext[Job]
             adapter.fanOutCandidates(
                 entry = entry,
-                query = query,
+                query = fullQuery,
                 sources = sources,
                 permits = permits,
                 isCurrent = { searchJob === myJob },
@@ -268,9 +283,9 @@ class EntryMigrationSearchScreenModel(
      */
     fun collectPendingPick() {
         val entry = state.value.entry ?: return
-        screenModelScope.launchIO {
+        screenModelScope.launch(io) {
             when (val pick = adapter.takePendingPick(pickHandoff, entry.id)) {
-                null -> return@launchIO
+                null -> return@launch
                 is PendingPick.Ready -> mutableState.update { it.copy(dialogTarget = pick.candidate) }
                 is PendingPick.Rejected -> mutableState.update { it.copy(pickOutcome = pick.outcome) }
             }
