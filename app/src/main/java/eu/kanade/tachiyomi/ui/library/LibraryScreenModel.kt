@@ -514,6 +514,13 @@ class LibraryScreenModel(
                 showUnreadBadge = preferences.unreadBadge,
                 overrideRankings = mergePrefs.overrideRankings,
                 preferredSourceIds = mergePrefs.preferredSources,
+                // RK: the same chapter count the details list ranks its trunk on, so both surfaces
+                //     lead on one source. Read here for the same reason as the unread counts above.
+                distinctChapterCounts = if (mergePrefs.mergingEnabled) {
+                    chapterMatchKeyRepository.getMergedDistinctChapterCounts()
+                } else {
+                    emptyMap()
+                },
             )
         }
     }

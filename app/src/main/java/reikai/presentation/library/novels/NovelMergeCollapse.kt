@@ -80,7 +80,8 @@ object NovelMergeCollapse {
     // The trunk order [NovelChapterAggregation.rank] applies, so the library row and the details chapter
     // list lead on the same source. minWith picks the smallest: override position first (0 = trunk), else
     // the global preferred-source position, else the most chapters, then the lowest id. Novel source ids
-    // are Strings (plugin slugs). Uses totalChapters as the count, which only breaks a shared-rank tie.
+    // are Strings (plugin slugs). totalChapters needs no match-key count as its manga twin does: that
+    // aggregation ranks on row count too, because novels have no scanlator variants to collapse.
     private fun rankComparator(
         overrideOrder: List<Long>,
         preferredSourceIds: List<String>,

@@ -54,6 +54,7 @@ class MangaMergeCollapseTest {
         mergingEnabled: Boolean = true,
         overrideRankings: Map<Long, List<Long>> = emptyMap(),
         preferredSourceIds: List<Long> = emptyList(),
+        distinctChapterCounts: Map<Long, Long> = emptyMap(),
     ) = MangaMergeCollapse.collapse(
         items,
         membership,
@@ -62,6 +63,7 @@ class MangaMergeCollapseTest {
         resolveSource,
         overrideRankings = overrideRankings,
         preferredSourceIds = preferredSourceIds,
+        distinctChapterCounts = distinctChapterCounts,
     )
 
     @Test
@@ -87,6 +89,53 @@ class MangaMergeCollapseTest {
         merged.unreadCount shouldBe 3L // primary's unread (not summed), closer to the deduped count
         merged.relatedMangaIds shouldContainExactlyInAnyOrder listOf(1L, 2L)
         merged.badges.mergedSources.map { it.id } shouldContainExactlyInAnyOrder listOf(100L, 200L)
+    }
+
+    @Test
+    fun `distinct chapter identities decide the primary, not the row count`() {
+        // Member 1 lists more chapter ROWS (its source repeats chapters under several scanlators) but
+        // covers fewer distinct chapters. ChapterAggregation trunks the details list on the distinct
+        // count, so the library row has to pick the same member or the two surfaces lead on different
+        // sources: the card would show member 1 while its chapter list came from member 2.
+        val result = collapse(
+            listOf(
+                item(1, source = 100L, totalChapters = 10),
+                item(2, source = 200L, totalChapters = 6),
+            ),
+            membership = mapOf(1L to 7L, 2L to 7L),
+            distinctChapterCounts = mapOf(1L to 4L, 2L to 6L),
+        )
+        result.single().id shouldBe 2L
+    }
+
+    @Test
+    fun `the row count stands in until the match keys are reconciled`() {
+        // An empty map is the backfill not having run, not "every member has zero": falling through to
+        // zero would flatten the ranking onto the id tiebreak and move every merged cover at once.
+        val result = collapse(
+            listOf(
+                item(1, source = 100L, totalChapters = 3),
+                item(2, source = 200L, totalChapters = 9),
+            ),
+            membership = mapOf(1L to 7L, 2L to 7L),
+            distinctChapterCounts = emptyMap(),
+        )
+        result.single().id shouldBe 2L
+    }
+
+    @Test
+    fun `a member with no identified chapter ranks last once the keys exist`() {
+        // A populated map with no row for a member means it has no identifiable chapter, which the
+        // schema's consumer contract reads as zero rather than as unknown.
+        val result = collapse(
+            listOf(
+                item(1, source = 100L, totalChapters = 20),
+                item(2, source = 200L, totalChapters = 2),
+            ),
+            membership = mapOf(1L to 7L, 2L to 7L),
+            distinctChapterCounts = mapOf(2L to 2L),
+        )
+        result.single().id shouldBe 2L
     }
 
     @Test

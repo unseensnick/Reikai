@@ -118,6 +118,26 @@ FROM (
 WHERE U.readCopies = 0
 GROUP BY U.group_id;
 
+-- Distinct cross-source chapter identities per merged manga: the count ChapterAggregation ranks the
+-- trunk on, read here so the collapsed library row and the details chapter list lead on the SAME
+-- source. The library's own row count cannot stand in: a source listing one chapter under several
+-- scanlators wins on rows while losing on identities, so the two surfaces picked different members.
+-- Excluded scanlators are dropped, matching the unread query above and the scanlator-filtered list
+-- the aggregation is fed. A manga with no identifiable chapter produces NO ROW, read as zero.
+mergedDistinctChapterCounts:
+SELECT MGM.manga_id AS mangaId, count(DISTINCT K.match_key) AS distinctCount
+FROM merge_group_manga MGM
+JOIN chapters C
+ON C.manga_id = MGM.manga_id
+JOIN chapter_match_key K
+ON K.chapter_id = C._id
+LEFT JOIN excluded_scanlators ES
+ON C.manga_id = ES.manga_id
+AND C.scanlator = ES.scanlator
+WHERE ES.scanlator IS NULL
+AND K.match_key IS NOT NULL
+GROUP BY MGM.manga_id;
+
 -- Novel twin. Two deliberate differences from the manga query above.
 --
 -- No scanlator join: novels have no scanlators (see novelLibraryView).

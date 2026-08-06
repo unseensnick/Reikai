@@ -39,4 +39,7 @@ class ChapterMatchKeyRepositoryImpl(
 
     override suspend fun getMergedUnreadCountsNovel(): Map<Long, Long> =
         queries.mergedUnreadCountsNovel().awaitAsList().associate { it.groupId to it.unreadCount }
+
+    override suspend fun getMergedDistinctChapterCounts(): Map<Long, Long> =
+        queries.mergedDistinctChapterCounts().awaitAsList().associate { it.mangaId to it.distinctCount }
 }

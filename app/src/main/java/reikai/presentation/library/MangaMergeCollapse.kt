@@ -36,6 +36,9 @@ object MangaMergeCollapse {
         // Global preferred-source ids, highest priority first; the fallback ranking when a group has no
         // override. Empty means no preference, so ranking falls through to chapter count then id.
         preferredSourceIds: List<Long> = emptyList(),
+        // Manga id -> distinct cross-source chapter identities, the count the details chapter list ranks
+        // its trunk on. Empty means the match keys are not reconciled yet; see [rankComparator].
+        distinctChapterCounts: Map<Long, Long> = emptyMap(),
     ): List<LibraryItem> {
         if (items.size <= 1 || !mergingEnabled) return items
 
@@ -69,6 +72,7 @@ object MangaMergeCollapse {
                             null
                         },
                         showUnreadBadge = showUnreadBadge,
+                        distinctChapterCounts = distinctChapterCounts,
                     ),
                 )
             }
@@ -78,13 +82,14 @@ object MangaMergeCollapse {
 
     // The trunk order [ChapterAggregation.rank] applies, so the library row and the details chapter list
     // lead on the same source. minWith picks the smallest: override position first (0 = trunk), else the
-    // global preferred-source position, else the source with the most chapters, then the lowest id. Uses
-    // the library's own totalChapters as the count (the details path's distinct-recognized count needs
-    // chapter rows the library deliberately never loads per emission), which only matters as a tiebreak
-    // between members that share a rank.
+    // global preferred-source position, else the most distinct chapter identities, then the lowest id.
+    // With neither an override nor a preferred list configured every member ties on rank, so the count
+    // IS the decision rather than a tiebreak, which is why it has to be the same count the details path
+    // uses; the library's own row count let a source with scanlator duplicates win here and lose there.
     private fun rankComparator(
         overrideOrder: List<Long>,
         preferredSourceIds: List<Long>,
+        distinctChapterCounts: Map<Long, Long>,
     ): Comparator<LibraryItem> = compareBy<LibraryItem> { item ->
         val mangaId = item.libraryManga.manga.id
         if (overrideOrder.isNotEmpty()) {
@@ -93,7 +98,15 @@ object MangaMergeCollapse {
             preferredSourceIds.indexOf(item.libraryManga.manga.source).takeIf { it >= 0 } ?: Int.MAX_VALUE
         }
     }
-        .thenByDescending { it.libraryManga.totalChapters }
+        .thenByDescending { item ->
+            // An empty map is the backfill not having run, where the row count is the only count there
+            // is; once keys exist an absent manga genuinely has none, per chapter_match_key.sq.
+            if (distinctChapterCounts.isEmpty()) {
+                item.libraryManga.totalChapters
+            } else {
+                distinctChapterCounts[item.libraryManga.manga.id] ?: 0L
+            }
+        }
         .thenBy { it.libraryManga.manga.id }
 
     private fun mergePrimary(
@@ -104,8 +117,9 @@ object MangaMergeCollapse {
         resolveSource: (Long) -> Source,
         mergedUnread: Long?,
         showUnreadBadge: Boolean,
+        distinctChapterCounts: Map<Long, Long>,
     ): LibraryItem {
-        val primary = subGroup.minWith(rankComparator(overrideOrder, preferredSourceIds))
+        val primary = subGroup.minWith(rankComparator(overrideOrder, preferredSourceIds, distinctChapterCounts))
         // The real count is one unit per chapter the group covers, unread only when no source's copy is
         // read (see chapter_match_key.sq). Summing the members instead would double-count every chapter
         // they share. Falls back to the primary's own count when the identities are not available yet,

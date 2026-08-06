@@ -23,6 +23,14 @@ interface ChapterMatchKeyRepository {
 
     suspend fun getMergedUnreadCountsNovel(): Map<Long, Long>
 
+    /**
+     * Distinct cross-source chapter identities per merged manga, keyed by manga id: the count
+     * [reikai.domain.manga.ChapterAggregation] ranks the trunk on, so the library collapse can pick
+     * the same primary. An absent manga means zero, as with the unread counts; an empty map means the
+     * keys have not been reconciled yet, which callers must tell apart.
+     */
+    suspend fun getMergedDistinctChapterCounts(): Map<Long, Long>
+
     data class StaleChapter(val chapterId: Long, val mangaId: Long, val chapterNumber: Double)
 
     data class StaleNovelChapter(
