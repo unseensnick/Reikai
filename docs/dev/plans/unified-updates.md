@@ -41,7 +41,7 @@ Confirmed in `app/src/main/java/`:
 - `reikai/presentation/updates/NovelUpdatesScreenModel.kt`: the novel side: recent-updates feed, shared filters, by-category filter, merge-aware series keys, selection, and chapter actions. Defines `NovelUpdatesItem`.
 - `reikai/presentation/updates/EntryUpdatesRow.kt`: the shared flat update row for both content types (replaced the separate manga `UpdatesUiItem` / novel `NovelUpdatesUiItem`; grouped children already share `UpdatesGroupChildRow`).
 - `reikai/presentation/updates/ReikaiUpdatesCategoryFilter.kt`: the include/exclude category control and the group-by-series toggle mounted into the filter sheet.
-- `eu/kanade/tachiyomi/ui/updates/UpdatesScreenModel.kt`: Mihon's stock manga model, left untouched so it ports verbatim; the shell reads its state and calls its public actions.
+- `eu/kanade/tachiyomi/ui/updates/UpdatesScreenModel.kt`: Mihon's manga model, kept close to stock so it hand-ports cleanly; the shell reads its state and calls its public actions. It carries three `// RK` islands: the category filter and custom-info overlay sharing the fifth `combine` slot, the category flow feeding the active-filter tint, and `applyReikaiCategoryFilter` with its membership cache.
 - `eu/kanade/tachiyomi/ui/updates/UpdatesSettingsScreenModel.kt`: the filter-sheet model; carries the Reikai category-preference accessors and category flows.
 - `eu/kanade/presentation/updates/UpdatesFilterDialog.kt`: Mihon's filter sheet, with two `// RK` slots (`reikaiCategoryRow`, `reikaiAfterFilters`) for the category row and group toggle.
 
@@ -67,9 +67,21 @@ Shipped and on-device verified (Z Fold / Fold6): all four pieces of the in-app f
 
 ## Decisions & tradeoffs
 
-- **Manga drives off Mihon's untouched model, not a Reikai copy.** The hard requirement is hand-portability from `refs/mihon`. Keeping Mihon's model, queries, prefs, and row composable verbatim means a future upstream change to the manga Updates path ports cleanly; the cost is that the Reikai shell has to mirror what Mihon's own screen did (pull-to-refresh, the last-updated line, the calendar action), which it does.
+- **Manga drives off Mihon's own model, not a Reikai copy.** The hard requirement is hand-portability from `refs/mihon`. Keeping Mihon's model, queries, prefs, and row composable close to stock means a future upstream change to the manga Updates path ports cleanly; the cost is that the Reikai shell has to mirror what Mihon's own screen did (pull-to-refresh, the last-updated line, the calendar action), which it does. The Reikai additions to that model are three `// RK` islands, all of them the category filter.
 - **Two `// RK` islands in Mihon's filter sheet, not a parallel Reikai sheet.** The category row and the group toggle are added through two slot parameters in `UpdatesFilterDialog`. A separate Reikai sheet would orphan Mihon's dialog and duplicate its four filters; two greppable islands are the smaller divergence and match the project's marker convention.
 - **One filter sheet drives both types.** Reusing Mihon's `UpdatesPreferences` for the four core filters means a single toggle filters manga and novels together. Tradeoff: the excluded-scanlators switch is manga-only and sits inert on the Novels chip (acceptable for v1; can be hidden later behind a small `// RK` if it proves confusing).
 - **Group-by-series is merge-aware and defaults off.** Resolving merge-group keys lets a cross-source merged series collapse into one group instead of one per source. The keys are resolved only while grouping is on and re-resolve when the merge prefs change; a favorite added mid-session is not reflected until reopen (same staleness window as the category cache, accepted). Default off keeps the familiar flat feed unless the user opts in.
 - **The calendar (Upcoming) stays manga-only.** It only shows where manga rows appear. Light-novel sources rarely expose a reliable release cadence, so a novel upcoming feed would be mostly empty (see novel-parity-backlog.md).
-- **In-memory merge, bounded feed.** Interleaving and per-row category lookups happen in memory rather than via a combined SQL view, kept cheap by the 3-month / 500-row bound. This avoids a new cross-table SQLDelight view spanning two independent schemas, at the cost of doing the merge in Kotlin on each emission.
+- **In-memory merge, bounded feed.** Interleaving happens in memory rather than via a combined SQL view, kept cheap by the 3-month / 500-row bound. This avoids a new cross-table SQLDelight view spanning two independent schemas, at the cost of doing the merge in Kotlin on each emission.
+
+### Decided, not yet built: both feeds filter in SQL
+
+Upstream moved the Updates category filter into SQL in mihonapp/mihon#3589 (mihon `1d8a2b05d`), adding included and excluded category parameters to `getRecentUpdatesWithFilters`. That commit sits above Reikai's synced base and is owed. **Owner ruling: take it, and give novels the same treatment rather than leaving them in Kotlin.** Scope, settled at the same time:
+
+- `getRecentNovelUpdates` gains the category predicate written against `novels_categories`, mirroring upstream's shape including its uncategorized case (category id 0 matches a series with no rows in the membership table).
+- Novels also move unread, started and bookmarked into SQL, so the two feeds filter the same way end to end. Downloaded stays in Kotlin on both, because download state is not in the database.
+- The picker UI and the preferences do not move. The four per-type keys on `ReikaiSourcePreferences` already hold manga and novel selections separately, so each query takes its own id set and `ReikaiUpdatesCategoryFilter` keeps its per-type sections unchanged. Only where the filtering runs changes.
+- `applyReikaiCategoryFilter` and both screen-lifetime membership caches are deleted. That fixes a real behaviour wart for free: today, re-categorizing a series while Updates is open does not reflect until the screen is reopened, on both content types.
+- `reikai/domain/category/CategoryFilter.kt` stays. It loses its two Updates callers and keeps its library ones.
+
+Sequenced after the ViewModel migration and the upstream sync backlog, because upstream's version of this change lands in a file that migration renames.
