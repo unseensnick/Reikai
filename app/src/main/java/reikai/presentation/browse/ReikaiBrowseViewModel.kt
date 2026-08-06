@@ -1,7 +1,7 @@
 package reikai.presentation.browse
 
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ContentType
@@ -18,19 +18,19 @@ import uy.kohesive.injekt.api.get
  * that feeds the Extensions tab badge. Kicks the cache-gated update check on Browse open so the
  * badge is fresh without the user opening the Novels chip.
  */
-class ReikaiBrowseScreenModel(
+class ReikaiBrowseViewModel(
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
     private val getIncognitoState: GetIncognitoState = Injekt.get(),
     updateChecker: LnPluginUpdateChecker = Injekt.get(),
-) : ScreenModel {
+) : ViewModel() {
 
-    val contentType: StateFlow<ContentType> = sourcePreferences.browseContentType.stateIn(screenModelScope)
+    val contentType: StateFlow<ContentType> = sourcePreferences.browseContentType.stateIn(viewModelScope)
 
-    val lnUpdatesCount: StateFlow<Int> = novelPreferences.pluginUpdatesCount().stateIn(screenModelScope)
+    val lnUpdatesCount: StateFlow<Int> = novelPreferences.pluginUpdatesCount().stateIn(viewModelScope)
 
     init {
-        screenModelScope.launchIO { updateChecker.runIfStale() }
+        viewModelScope.launchIO { updateChecker.runIfStale() }
     }
 
     fun setContentType(type: ContentType) {

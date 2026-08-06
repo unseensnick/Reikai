@@ -15,7 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -26,7 +26,7 @@ import eu.kanade.presentation.browse.SourcesScreen
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterScreen
-import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntrySourceOptionsDialog
-import reikai.presentation.browse.ReikaiBrowseScreenModel
+import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
@@ -62,17 +62,17 @@ import tachiyomi.source.local.isLocal
  * is deleted (see the off-path manifest).
  */
 @Composable
-fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabContent {
+fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val navigator = LocalNavigator.currentOrThrow
-    val sourcesModel = rememberScreenModel { SourcesScreenModel() }
+    val sourcesModel = viewModel<SourcesViewModel>()
     val sourcesState by sourcesModel.state.collectAsState()
-    val novelModel = rememberScreenModel { NovelSourcesScreenModel() }
+    val novelModel = viewModel<NovelSourcesViewModel>()
     val novelState by novelModel.state.collectAsState()
-    val contentType by browseScreenModel.contentType.collectAsState()
+    val contentType by browseViewModel.contentType.collectAsState()
 
     // Open a novel source's browse grid, recording it as last-used so the sources list populates.
     val openNovelSource: (String) -> Unit = { id ->
-        browseScreenModel.setLastUsedNovelSource(id)
+        browseViewModel.setLastUsedNovelSource(id)
         navigator.push(NovelBrowseScreen(id))
     }
 
@@ -105,7 +105,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
             Column {
                 ContentTypeFilterChips(
                     selected = contentType,
-                    onSelect = browseScreenModel::setContentType,
+                    onSelect = browseViewModel::setContentType,
                 )
                 when (contentType) {
                     ContentType.MANGA -> SourcesScreen(
@@ -177,7 +177,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
             LaunchedEffect(Unit) {
                 sourcesModel.events.collectLatest { event ->
                     when (event) {
-                        SourcesScreenModel.Event.FailedFetchingSources ->
+                        SourcesViewModel.Event.FailedFetchingSources ->
                             launch { snackbarHostState.showSnackbar(internalErrString) }
                     }
                 }
@@ -188,7 +188,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
 
 @Composable
 private fun NovelSourcesList(
-    state: NovelSourcesScreenModel.State,
+    state: NovelSourcesViewModel.State,
     contentPadding: PaddingValues,
     onClickItem: (String) -> Unit,
     onClickPin: (String) -> Unit,
@@ -218,9 +218,9 @@ private fun NovelSourcesList(
  */
 @Composable
 private fun CombinedSourcesContent(
-    sourcesState: SourcesScreenModel.State,
-    novelState: NovelSourcesScreenModel.State,
-    sourcesModel: SourcesScreenModel,
+    sourcesState: SourcesViewModel.State,
+    novelState: NovelSourcesViewModel.State,
+    sourcesModel: SourcesViewModel,
     contentPadding: PaddingValues,
     onClickMangaItem: (Source, Listing) -> Unit,
     onClickNovelItem: (String) -> Unit,

@@ -1,13 +1,13 @@
 package reikai.presentation.browse.migrate
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -22,13 +22,13 @@ import uy.kohesive.injekt.api.get
  * stub parity): the live installed source, else the last-known [NovelPreferences.seenNovelSources]
  * cache, else the raw plugin id. Tapping a row opens the shared migration favorites picker for that source.
  */
-class MigrateNovelSourcesScreenModel(
+class MigrateNovelSourcesViewModel(
     private val novelRepository: NovelRepository = Injekt.get(),
     private val sourceManager: NovelSourceManager = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
     private val sourcePreferences: SourcePreferences = Injekt.get(),
     private val setMigrateSorting: SetMigrateSorting = Injekt.get(),
-) : StateScreenModel<MigrateNovelSourcesScreenModel.State>(State()) {
+) : StateViewModel<MigrateNovelSourcesViewModel.State>(State()) {
 
     init {
         combine(
@@ -54,7 +54,7 @@ class MigrateNovelSourcesScreenModel(
             )
         }
             .onEach { mutableState.value = it }
-            .launchIn(screenModelScope)
+            .launchIn(viewModelScope)
     }
 
     fun toggleSortingMode() {

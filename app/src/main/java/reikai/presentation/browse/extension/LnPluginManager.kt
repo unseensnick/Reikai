@@ -41,7 +41,7 @@ import tachiyomi.presentation.core.util.plus
  */
 @Composable
 fun LnPluginManager(
-    state: LnPluginManagerScreenModel.State,
+    state: LnPluginManagerViewModel.State,
     contentPadding: PaddingValues,
     onInstall: (LnRegistryEntry) -> Unit,
     onUpdate: (LnPluginUpdate) -> Unit,
@@ -96,7 +96,7 @@ fun LnPluginManager(
 
 /** The Updates / Installed / Available sections, for composition into any parent lazy list. */
 fun LazyListScope.lnPluginManagerItems(
-    state: LnPluginManagerScreenModel.State,
+    state: LnPluginManagerViewModel.State,
     onInstall: (LnRegistryEntry) -> Unit,
     onUpdate: (LnPluginUpdate) -> Unit,
     onUninstall: (NovelSource) -> Unit,

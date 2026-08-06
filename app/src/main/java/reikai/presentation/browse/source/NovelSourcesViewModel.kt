@@ -1,12 +1,12 @@
 package reikai.presentation.browse.source
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
@@ -22,15 +22,15 @@ import uy.kohesive.injekt.api.get
  * grouping by language like Mihon's manga sources list. Tapping a source opens its browse screen
  * (wired in ReikaiSourcesTab).
  */
-class NovelSourcesScreenModel(
+class NovelSourcesViewModel(
     manager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
-) : StateScreenModel<NovelSourcesScreenModel.State>(State()) {
+) : StateViewModel<NovelSourcesViewModel.State>(State()) {
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             installer.ensureLoaded()
             combine(
                 manager.sources,
@@ -115,7 +115,7 @@ class NovelSourcesScreenModel(
     data class Dialog(val source: NovelSource, val isPinned: Boolean)
 
     companion object {
-        // Match Mihon's SourcesScreenModel keys so LocaleHelper renders the "Pinned" / "Last used" headers.
+        // Match Mihon's SourcesViewModel keys so LocaleHelper renders the "Pinned" / "Last used" headers.
         const val PINNED_KEY = "pinned"
         const val LAST_USED_KEY = "last_used"
     }

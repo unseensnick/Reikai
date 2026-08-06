@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -16,12 +16,12 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionFilterScreen
-import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
+import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.ReikaiBrowseScreenModel
+import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
@@ -39,15 +39,15 @@ import tachiyomi.presentation.core.util.plus
  */
 @Composable
 fun Screen.reikaiExtensionsTab(
-    extensionsScreenModel: ExtensionsScreenModel,
-    browseScreenModel: ReikaiBrowseScreenModel,
+    extensionsViewModel: ExtensionsViewModel,
+    browseViewModel: ReikaiBrowseViewModel,
 ): TabContent {
     val navigator = LocalNavigator.currentOrThrow
-    val mihonTab = extensionsTab(extensionsScreenModel)
-    val extState by extensionsScreenModel.state.collectAsState()
-    val contentType by browseScreenModel.contentType.collectAsState()
-    val lnCount by browseScreenModel.lnUpdatesCount.collectAsState()
-    val lnModel = rememberScreenModel { LnPluginManagerScreenModel() }
+    val mihonTab = extensionsTab(extensionsViewModel)
+    val extState by extensionsViewModel.state.collectAsState()
+    val contentType by browseViewModel.contentType.collectAsState()
+    val lnCount by browseViewModel.lnUpdatesCount.collectAsState()
+    val lnModel = viewModel<LnPluginManagerViewModel>()
     val lnState by lnModel.state.collectAsState()
     val openRepos = { navigator.push(ExtensionStoresScreen()) }
 
@@ -73,20 +73,20 @@ fun Screen.reikaiExtensionsTab(
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.action_recheck_extensions),
                 onClick = {
-                    extensionsScreenModel.reloadInstalledExtensions()
+                    extensionsViewModel.reloadInstalledExtensions()
                     lnModel.reloadInstalled()
                 },
             ),
         ),
         content = { contentPadding, snackbarHostState ->
-            // The shared Browse search bar drives extensionsScreenModel (manga only); apply the same
+            // The shared Browse search bar drives extensionsViewModel (manga only); apply the same
             // query to the novel plugin list so searching filters both sides, not just manga.
             val query = extState.searchQuery
             val filteredLnState = lnState.filteredBy(query)
             Column {
                 ContentTypeFilterChips(
                     selected = contentType,
-                    onSelect = browseScreenModel::setContentType,
+                    onSelect = browseViewModel::setContentType,
                     // Show where the pending updates are: a count on the Manga / Novels chip. The All
                     // chip stays clean; the tab badge already carries the combined total.
                     badges = mapOf(
@@ -110,7 +110,7 @@ fun Screen.reikaiExtensionsTab(
                     ContentType.ALL -> CombinedExtensionsContent(
                         extState = extState,
                         lnState = filteredLnState,
-                        extensionsScreenModel = extensionsScreenModel,
+                        extensionsViewModel = extensionsViewModel,
                         lnModel = lnModel,
                         contentPadding = contentPadding,
                     )
@@ -128,10 +128,10 @@ fun Screen.reikaiExtensionsTab(
  */
 @Composable
 private fun CombinedExtensionsContent(
-    extState: ExtensionsScreenModel.State,
-    lnState: LnPluginManagerScreenModel.State,
-    extensionsScreenModel: ExtensionsScreenModel,
-    lnModel: LnPluginManagerScreenModel,
+    extState: ExtensionsViewModel.State,
+    lnState: LnPluginManagerViewModel.State,
+    extensionsViewModel: ExtensionsViewModel,
+    lnModel: LnPluginManagerViewModel,
     contentPadding: PaddingValues,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -147,23 +147,23 @@ private fun CombinedExtensionsContent(
                     item = item,
                     onClickItem = { extension ->
                         when (extension) {
-                            is Extension.Available -> extensionsScreenModel.installExtension(extension)
+                            is Extension.Available -> extensionsViewModel.installExtension(extension)
                             is Extension.Installed -> navigator.push(ExtensionDetailsScreen(extension.pkgName))
                             is Extension.Untrusted -> navigator.push(ExtensionDetailsScreen(extension.pkgName))
                         }
                     },
                     onLongClickItem = { extension ->
                         when (extension) {
-                            is Extension.Available -> extensionsScreenModel.installExtension(extension)
-                            else -> extensionsScreenModel.uninstallExtension(extension)
+                            is Extension.Available -> extensionsViewModel.installExtension(extension)
+                            else -> extensionsViewModel.uninstallExtension(extension)
                         }
                     },
-                    onClickItemCancel = extensionsScreenModel::cancelInstallUpdateExtension,
+                    onClickItemCancel = extensionsViewModel::cancelInstallUpdateExtension,
                     onClickItemAction = { extension ->
                         when (extension) {
-                            is Extension.Available -> extensionsScreenModel.installExtension(extension)
+                            is Extension.Available -> extensionsViewModel.installExtension(extension)
                             is Extension.Installed -> if (extension.hasUpdate) {
-                                extensionsScreenModel.updateExtension(extension)
+                                extensionsViewModel.updateExtension(extension)
                             } else {
                                 navigator.push(ExtensionDetailsScreen(extension.pkgName))
                             }
@@ -201,7 +201,7 @@ private fun CombinedExtensionsContent(
 }
 
 /** Filter the novel plugin sections by the Browse search query, matching the manga side's behavior. */
-private fun LnPluginManagerScreenModel.State.filteredBy(query: String?): LnPluginManagerScreenModel.State {
+private fun LnPluginManagerViewModel.State.filteredBy(query: String?): LnPluginManagerViewModel.State {
     val q = query?.trim().orEmpty()
     if (q.isEmpty()) return this
     return copy(

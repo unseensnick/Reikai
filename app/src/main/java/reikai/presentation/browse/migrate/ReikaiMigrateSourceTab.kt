@@ -23,7 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -32,9 +32,9 @@ import eu.kanade.presentation.browse.MigrateSourceScreen
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
-import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrateSourceScreenModel
+import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrateSourceViewModel
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.ReikaiBrowseScreenModel
+import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
@@ -62,14 +62,14 @@ import tachiyomi.presentation.core.util.plus
  * [reikai.presentation.browse.source.reikaiSourcesTab].
  */
 @Composable
-fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): TabContent {
+fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val uriHandler = LocalUriHandler.current
     val navigator = LocalNavigator.currentOrThrow
-    val mangaModel = rememberScreenModel { MigrateSourceScreenModel() }
+    val mangaModel = viewModel<MigrateSourceViewModel>()
     val mangaState by mangaModel.state.collectAsState()
-    val novelModel = rememberScreenModel { MigrateNovelSourcesScreenModel() }
+    val novelModel = viewModel<MigrateNovelSourcesViewModel>()
     val novelState by novelModel.state.collectAsState()
-    val contentType by browseScreenModel.contentType.collectAsState()
+    val contentType by browseViewModel.contentType.collectAsState()
 
     return TabContent(
         titleRes = MR.strings.label_migration,
@@ -84,7 +84,7 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
             Column {
                 ContentTypeFilterChips(
                     selected = contentType,
-                    onSelect = browseScreenModel::setContentType,
+                    onSelect = browseViewModel::setContentType,
                 )
                 when (contentType) {
                     ContentType.MANGA -> MigrateSourceScreen(
@@ -118,7 +118,7 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
 
 @Composable
 private fun NovelMigrateSourceList(
-    state: MigrateNovelSourcesScreenModel.State,
+    state: MigrateNovelSourcesViewModel.State,
     contentPadding: PaddingValues,
     onClickItem: (NovelMigrateSource) -> Unit,
     onToggleSortingMode: () -> Unit,
@@ -151,8 +151,8 @@ private fun NovelMigrateSourceList(
  */
 @Composable
 private fun CombinedMigrateSourcesContent(
-    mangaState: MigrateSourceScreenModel.State,
-    novelState: MigrateNovelSourcesScreenModel.State,
+    mangaState: MigrateSourceViewModel.State,
+    novelState: MigrateNovelSourcesViewModel.State,
     contentPadding: PaddingValues,
     onClickMangaItem: (Source) -> Unit,
     onClickNovelItem: (NovelMigrateSource) -> Unit,

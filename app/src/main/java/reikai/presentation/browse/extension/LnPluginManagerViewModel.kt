@@ -1,13 +1,13 @@
 package reikai.presentation.browse.extension
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
@@ -23,19 +23,19 @@ import uy.kohesive.injekt.api.get
 
 /**
  * Drives the light-novel plugin manager on the Browse → Extensions tab (Novels chip). Mirrors
- * Mihon's [eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel] sections (Updates /
+ * Mihon's [eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel] sections (Updates /
  * Installed / Available) over the plugin host: [NovelSourceManager] for what's installed,
  * [LnPluginInstaller.fetchRepo] across the added repos for what's available, and a version diff for
  * what has updates. Single source of network truth so one fetch feeds both Available and Updates.
  */
-class LnPluginManagerScreenModel(
+class LnPluginManagerViewModel(
     manager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val prefs: NovelPreferences = Injekt.get(),
-) : StateScreenModel<LnPluginManagerScreenModel.State>(State()) {
+) : StateViewModel<LnPluginManagerViewModel.State>(State()) {
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             installer.ensureLoaded()
             manager.sources.collectLatest { sources ->
                 mutableState.update { it.copy(installed = sources) }
@@ -44,14 +44,14 @@ class LnPluginManagerScreenModel(
         // Re-fetch when the added-repos set changes (e.g. a backup restore or adding a repo on another
         // screen), so the tab reflects a restored repo without needing to be reopened. The pref's
         // changes() doesn't replay the current value, so do an explicit first refresh below.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             prefs.addedRepoUrls().changes().collectLatest { refresh() }
         }
         refresh()
     }
 
     fun refresh() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val repos = prefs.addedRepoUrls().get()
             mutableState.update { it.copy(isRefreshing = true, hasRepos = repos.isNotEmpty()) }
             val installedUrls = prefs.installedPluginUrls().get()
@@ -98,12 +98,12 @@ class LnPluginManagerScreenModel(
      * extensions" action on this tab so it re-checks both verticals.
      */
     fun reloadInstalled() {
-        screenModelScope.launchIO { installer.loadInstalled() }
+        viewModelScope.launchIO { installer.loadInstalled() }
     }
 
     fun install(entry: LnRegistryEntry) {
         val key = canonicalizePluginUrl(entry.url)
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mutableState.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
             try {
                 installer.installFromUrl(entry.url, entry.toMetadata())
@@ -124,7 +124,7 @@ class LnPluginManagerScreenModel(
     }
 
     fun uninstall(source: NovelSource) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Uninstall by plugin id; the installer resolves the URL(s) from fresh metadata. A cached
             // id->url map lags a same-session install (install registers the source before persisting
             // metadata), which silently no-op'd the trash button until an app restart.

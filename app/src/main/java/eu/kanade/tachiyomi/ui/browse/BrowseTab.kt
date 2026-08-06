@@ -9,21 +9,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
+import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
-import reikai.presentation.browse.ReikaiBrowseScreenModel
+import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
 import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
@@ -59,17 +59,17 @@ data object BrowseTab : Tab {
         val context = LocalContext.current
 
         // Hoisted for extensions tab's search bar
-        val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
-        val extensionsState by extensionsScreenModel.state.collectAsState()
+        val extensionsViewModel = viewModel<ExtensionsViewModel>()
+        val extensionsState by extensionsViewModel.state.collectAsState()
         // RK: shared content-type filter + LN update badge across the Sources/Extensions tabs.
-        val browseScreenModel = rememberScreenModel { ReikaiBrowseScreenModel() }
+        val browseViewModel = viewModel<ReikaiBrowseViewModel>()
 
         val tabs = listOf(
             // RK: chip-switched manga + light-novel sources / extensions.
-            reikaiSourcesTab(browseScreenModel),
-            reikaiExtensionsTab(extensionsScreenModel, browseScreenModel),
+            reikaiSourcesTab(browseViewModel),
+            reikaiExtensionsTab(extensionsViewModel, browseViewModel),
             // RK: chip-switched manga + light-novel migrate-source list.
-            reikaiMigrateSourceTab(browseScreenModel),
+            reikaiMigrateSourceTab(browseViewModel),
         )
 
         val state = rememberPagerState { tabs.size }
@@ -79,7 +79,7 @@ data object BrowseTab : Tab {
             tabs = tabs,
             state = state,
             searchQuery = extensionsState.searchQuery,
-            onChangeSearchQuery = extensionsScreenModel::search,
+            onChangeSearchQuery = extensionsViewModel::search,
         )
         LaunchedEffect(Unit) {
             switchToExtensionTabChannel.receiveAsFlow()
