@@ -69,6 +69,25 @@ class NovelMergeManagerTest {
     }
 
     @Test
+    fun `merge is refused when merging is disabled`() = runTest {
+        // Twin of the manga case: the gate lives on the shared base, so both types must stay pinned.
+        val repo = mockk<MergeGroupRepository>(relaxed = true)
+
+        manager(repo, mergingEnabled = false).merge(listOf(1L, 2L))
+
+        coVerify(exactly = 0) { repo.merge(any(), any()) }
+    }
+
+    @Test
+    fun `merge reaches the repository when merging is enabled`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true)
+
+        manager(repo).merge(listOf(1L, 2L))
+
+        coVerify { repo.merge(ContentType.NOVELS, listOf(1L, 2L)) }
+    }
+
+    @Test
     fun `seriesGroupKeys shares a key within a group and separates the rest`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 7L, 2L to 7L)

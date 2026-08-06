@@ -27,6 +27,8 @@ data class ReikaiLibraryState(
     val hopperLongPressAction: Int = 0,
     val trackUpdateErrors: Boolean = false,
     val trackNovelUpdateErrors: Boolean = false,
+    /** Gates the bulk Merge action: with grouping off the write is refused, so offering it is a dead tap. */
+    val seriesMergingEnabled: Boolean = true,
 )
 
 /**
@@ -54,6 +56,7 @@ fun ReikaiLibraryPreferences.libraryStateFlow(): Flow<ReikaiLibraryState> = comb
     hopperLongPressAction.changes(),
     trackUpdateErrors.changes(),
     trackNovelUpdateErrors.changes(),
+    seriesMergingEnabled.changes(),
 ) {
     ReikaiLibraryState(
         collapsedCategories = it[0] as Set<String>,
@@ -66,6 +69,7 @@ fun ReikaiLibraryPreferences.libraryStateFlow(): Flow<ReikaiLibraryState> = comb
         hopperLongPressAction = it[7] as Int,
         trackUpdateErrors = it[8] as Boolean,
         trackNovelUpdateErrors = it[9] as Boolean,
+        seriesMergingEnabled = it[10] as Boolean,
     )
 }
 

@@ -59,6 +59,26 @@ class MangaMergeManagerTest {
     }
 
     @Test
+    fun `merge is refused when merging is disabled`() = runTest {
+        // Nothing renders a group written while the switch is off, and the library's Unmerge action only
+        // appears for a row the collapse marked, so the write had no undo on the surface that made it.
+        val repo = mockk<MergeGroupRepository>(relaxed = true)
+
+        manager(repo, mergingEnabled = false).merge(listOf(1L, 2L))
+
+        coVerify(exactly = 0) { repo.merge(any(), any()) }
+    }
+
+    @Test
+    fun `merge reaches the repository when merging is enabled`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true)
+
+        manager(repo).merge(listOf(1L, 2L))
+
+        coVerify { repo.merge(ContentType.MANGA, listOf(1L, 2L)) }
+    }
+
+    @Test
     fun `seriesGroupKeys shares a key within a group and separates the rest`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getAllMemberships(ContentType.MANGA) } returns mapOf(1L to 7L, 2L to 7L)

@@ -538,10 +538,13 @@ data object LibraryTab : Tab {
                     },
                     // RK: manual merge of the selected entries (needs at least two OF ONE TYPE: a merge
                     // group is per content type, and a mixed gesture would silently create two groups)
-                    // + unmerge (only when the selection includes a merged one).
+                    // + unmerge (only when the selection includes a merged one). Both follow the
+                    // grouping switch: with it off the manager refuses the merge and the collapse never
+                    // marks a row, so Unmerge could not offer a way back out of what Merge wrote.
                     onMergeClicked = { engine.mergeSelection(libraryContentType) }
                         .takeIf {
-                            activeSelection.size >= 2 &&
+                            display.reikai.seriesMergingEnabled &&
+                                activeSelection.size >= 2 &&
                                 activeSelection.mapTo(mutableSetOf()) { it.contentType }.size == 1
                         },
                     onUnmergeClicked = { engine.unmergeSelection(libraryContentType) }

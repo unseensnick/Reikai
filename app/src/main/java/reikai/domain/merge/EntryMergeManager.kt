@@ -31,7 +31,15 @@ open class EntryMergeManager(
     /** [computeRelatedIds] as a `List` for callers (the novel reader / tracking path) that want one. */
     suspend fun relatedIdsList(targetId: Long): List<Long> = computeRelatedIds(targetId).toList()
 
+    /**
+     * Fold [ids] into one group. Refused while merging is off: nothing renders the group, and the
+     * library's Unmerge only appears for a row the collapse marked, so the write had no undo.
+     *
+     * Only this verb is gated. Maintaining a group that exists (replace, remove, dissolve, reorder,
+     * restore) stays live, because the switch hides grouping rather than discarding it.
+     */
     override suspend fun merge(ids: List<Long>) {
+        if (!preferences.seriesMergingEnabled.get()) return
         repository.merge(contentType, ids)
     }
 
