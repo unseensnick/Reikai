@@ -2,6 +2,7 @@ package reikai.presentation.novel.browse
 
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.db.Transactions
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -27,6 +28,7 @@ class NovelLibraryAdder(
     private val updateNovel: UpdateNovel,
     private val novelPreferences: NovelPreferences,
     private val mergeManager: NovelMergeManager,
+    private val transactions: Transactions,
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
@@ -111,12 +113,33 @@ class NovelLibraryAdder(
      * and both the merge and the category seeding need its id.
      */
     suspend fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>): NovelBrowseDialog? {
-        val storedId = favoriteReturningId(item, sourceId) ?: return null
-        mergeManager.merge(listOf(storedId) + selectedIds)
-        if (seedCategoriesFromGroup(storedId, selectedIds)) return null
+        // Inserted first, unfavorited: a browse item has no library row to favorite yet, and an
+        // insert on its own leaves nothing a user can see. The favorite is part of the pair below.
+        val storedId = materialize(item, sourceId)?.id ?: return null
+        val seeded = addToGroup(storedId, selectedIds) ?: return null
+        if (seeded) return null
         return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
             NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)
         }
+    }
+
+    /**
+     * Favorite the novel and merge it into [selectedIds]'s group as ONE unit, then file it into that
+     * group's categories. Returns whether any were seeded, null when the row is gone or the write
+     * failed. Twin of `MangaLibraryAdder.addToGroup`, which carries the why.
+     *
+     * An already-favorited row is not re-written: that would reset dateAdded, moving the entry in a
+     * date-added sort for what the user did as a grouping change.
+     */
+    suspend fun addToGroup(novelId: Long, selectedIds: List<Long>): Boolean? {
+        val novel = novelRepository.getById(novelId) ?: return null
+        val favorited = transactions.run {
+            val ok = novel.favorite || updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+            if (ok) mergeManager.merge(listOf(novelId) + selectedIds)
+            ok
+        }
+        if (!favorited) return null
+        return seedCategoriesFromGroup(novelId, selectedIds)
     }
 
     /** Insert + favorite the item, returning its stored novel id and skipping the category prompt. The

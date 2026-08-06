@@ -258,6 +258,16 @@ abstract class SearchScreenModel(
     fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
         screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
+
+    /** RK: apply the category picker's choice, favoriting first unless the caller already did. Twin of
+     *  [eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.confirmCategories]; the
+     *  reason the guard lives in the model is recorded there. */
+    fun confirmCategories(manga: Manga, categoryIds: List<Long>, alreadyFavorited: Boolean) {
+        screenModelScope.launchIO {
+            if (!alreadyFavorited) mangaLibraryAdder.changeFavorite(manga)
+            mangaLibraryAdder.moveToCategories(manga, categoryIds)
+        }
+    }
     // RK <--
 
     fun clearDialog() {

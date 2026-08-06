@@ -278,6 +278,19 @@ open class BrowseSourceScreenModel(
     fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
         screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
+
+    /**
+     * RK: apply the category picker's choice, favoriting first unless the caller already did.
+     * The add-to-group path favorites up front and marks the dialog `alreadyFavorited`, so a confirm
+     * that toggles regardless takes the entry back out of the library while leaving it in the group.
+     * Every host restated that guard and one of them omitted it, so the decision lives here now.
+     */
+    fun confirmCategories(manga: Manga, categoryIds: List<Long>, alreadyFavorited: Boolean) {
+        screenModelScope.launchIO {
+            if (!alreadyFavorited) mangaLibraryAdder.changeFavorite(manga)
+            mangaLibraryAdder.moveToCategories(manga, categoryIds)
+        }
+    }
     // RK <--
 
     fun openFilterSheet() {

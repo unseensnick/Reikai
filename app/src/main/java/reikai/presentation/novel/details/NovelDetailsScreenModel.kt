@@ -831,16 +831,21 @@ class NovelDetailsScreenModel(
     }
 
     /**
-     * Add-time grouping. Merge the novel with the duplicates the user picked, then add it like "add
-     * anyway". Only the picks: the duplicate list is fuzzy, so merging every match would fuse distinct
-     * series. Seeding first is what makes the category step open on the group's own categories.
+     * Add-time grouping. Only the picks the user chose: the duplicate list is fuzzy, so merging every
+     * match would fuse distinct series. The atomic pair lives in NovelLibraryAdder.addToGroup; null
+     * means it wrote nothing. The group's categories win, so the picker opens only for a group that
+     * has none, matching every other add path.
      */
     fun addToExistingGroup(selectedIds: List<Long>) {
         screenModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            mergeManager.merge(listOf(novel.id) + selectedIds)
-            novelLibraryAdder.seedCategoriesFromGroup(novel.id, selectedIds)
-            addToLibrary(novel)
+            val seeded = novelLibraryAdder.addToGroup(novel.id, selectedIds) ?: return@launchIO
+            if (seeded) return@launchIO
+            novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id)?.let { prompt ->
+                updateLoaded {
+                    it.copy(dialog = NovelDetailsDialog.ChangeCategory(prompt.categories, prompt.currentIds))
+                }
+            }
         }
     }
 

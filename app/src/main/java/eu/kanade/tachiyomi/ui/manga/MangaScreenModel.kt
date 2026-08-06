@@ -694,21 +694,14 @@ class MangaScreenModel(
         }
     }
 
-    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then file it. Only the
-    // picks: the duplicate list is fuzzy, so merging every match would fuse distinct series. Seeding first
-    // is what makes a deferred category choice open on the group's own categories.
-    //
-    // Favorites up front (like the novel side), before the possible category choice, so an abandoned
-    // choice can't strand the just-merged member. Membership isn't favorite-filtered, so a
-    // merged-but-unfavorited copy would feed chapters into the group while staying invisible in the
-    // library. The category step below is then non-gating: the favorite has already landed.
+    // RK: add-time grouping. Only the picks the user chose: the duplicate list is fuzzy, so merging
+    // every match would fuse distinct series. The favorite-and-merge pair and the reason it has to be
+    // atomic live in MangaLibraryAdder.addToGroup; null means it wrote nothing.
     fun addToExistingGroup(selectedIds: List<Long>) {
         val state = successState ?: return
         val manga = state.manga
         screenModelScope.launchIO {
-            if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
-            mergeManager.merge(listOf(manga.id) + selectedIds)
-            val seeded = mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
+            val seeded = mangaLibraryAdder.addToGroup(manga, selectedIds) ?: return@launchIO
             addTracks.bindEnhancedTrackers(manga, state.source)
             maybeBackupFavoriteToAccount(manga)
 

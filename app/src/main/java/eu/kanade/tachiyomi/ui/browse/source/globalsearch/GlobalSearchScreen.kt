@@ -174,9 +174,7 @@ class GlobalSearchScreen(
                     onDismissRequest = onDismissRequest,
                     onEditCategories = { navigator.push(CategoryScreen()) },
                     onConfirm = { include, _ ->
-                        // RK: skip the favorite toggle when the add-to-group path already favorited.
-                        if (!dialog.alreadyFavorited) screenModel.changeMangaFavorite(dialog.manga)
-                        screenModel.moveMangaToCategories(dialog.manga, include)
+                        screenModel.confirmCategories(dialog.manga, include, dialog.alreadyFavorited)
                     },
                 )
             }

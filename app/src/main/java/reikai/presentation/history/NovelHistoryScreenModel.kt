@@ -152,14 +152,12 @@ class NovelHistoryScreenModel(
         }
     }
 
-    /** Add-time grouping. Merge the novel with the duplicates the user picked, then add it (only the
-     *  picks: the duplicate list is fuzzy, so merging every match would fuse distinct series). Seeding
-     *  first is what makes the category step open on the group's own categories. */
+    /** Add-time grouping. Only the picks the user chose: the duplicate list is fuzzy, so merging every
+     *  match would fuse distinct series. The favorite-and-merge pair and the reason it has to be atomic
+     *  live in NovelLibraryAdder.addToGroup; null means it wrote nothing. */
     fun addToExistingGroup(novelId: Long, selectedIds: List<Long>) {
         screenModelScope.launchIO {
-            novelMergeManager.merge(listOf(novelId) + selectedIds)
-            val seeded = novelLibraryAdder.seedCategoriesFromGroup(novelId, selectedIds)
-            updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+            val seeded = novelLibraryAdder.addToGroup(novelId, selectedIds) ?: return@launchIO
             // Group categories win: only fall back to the default (or picker) for an uncategorized group.
             if (!seeded) {
                 novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->

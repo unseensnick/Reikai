@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.db.Transactions
 import reikai.domain.manga.MangaMergeManager
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -43,6 +44,7 @@ class MangaLibraryAdder(
     private val addTracks: AddTracks = Injekt.get(),
     // RK: add-time grouping (the suggestion gate + the merge into the duplicate's group).
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val transactions: Transactions = Injekt.get(),
 ) {
 
     /** RK: whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
@@ -72,10 +74,31 @@ class MangaLibraryAdder(
      * default (or the picker, shown with `alreadyFavorited` so its confirm doesn't re-toggle the favorite).
      */
     suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
-        changeFavorite(manga)
-        mergeManager.merge(listOf(manga.id) + selectedIds)
-        if (seedCategoriesFromGroup(manga.id, selectedIds)) return AddFavoriteResult.Added
+        // Null means the favorite write failed, so nothing was written at all, not even the merge.
+        // No category prompt then: there is no library entry to file.
+        val seeded = addToGroup(manga, selectedIds) ?: return AddFavoriteResult.Added
+        setMangaDefaultChapterFlags.await(manga)
+        addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
+        if (seeded) return AddFavoriteResult.Added
         return applyDefaultCategoryOrPrompt(manga)
+    }
+
+    /**
+     * RK: favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into
+     * that group's categories. Returns whether any were seeded, null when the favorite write failed.
+     *
+     * Atomic because membership is not favorite-filtered: a merged copy that never got favorited
+     * feeds the group while invisible in the library, and nothing can reach it to unmerge. Callers
+     * keep their own post-add work; this owns only the pair.
+     */
+    suspend fun addToGroup(manga: Manga, selectedIds: List<Long>): Boolean? {
+        val favorited = transactions.run {
+            updateManga.awaitUpdateFavorite(manga.id, true).also { ok ->
+                if (ok) mergeManager.merge(listOf(manga.id) + selectedIds)
+            }
+        }
+        if (!favorited) return null
+        return seedCategoriesFromGroup(manga.id, selectedIds)
     }
 
     /**
