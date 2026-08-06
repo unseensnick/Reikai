@@ -7,7 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import reikai.domain.db.Transactions
+import reikai.domain.db.PassThroughTransactions
 import reikai.domain.manga.MangaMergeManager
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
@@ -23,11 +23,6 @@ class MangaLibraryAdderTest {
     private val manga = mockk<Manga> {
         every { id } returns 1L
         every { source } returns 99L
-    }
-
-    /** Runs the block for real, so a test sees what the transaction would commit. */
-    private val transactions = object : Transactions {
-        override suspend fun <T> run(block: suspend () -> T): T = block()
     }
 
     private fun adder(
@@ -50,7 +45,7 @@ class MangaLibraryAdderTest {
         },
         addTracks = mockk(relaxed = true),
         mergeManager = mergeManager,
-        transactions = transactions,
+        transactions = PassThroughTransactions,
     )
 
     @Test

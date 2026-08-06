@@ -15,6 +15,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -31,7 +32,7 @@ class NovelBackupRoundTripTest {
         novelChapterRepository = mockk(relaxed = true),
         categoryRepository = mockk(relaxed = true),
         novelTrackRepository = mockk(relaxed = true),
-        restoreMergeGroups = RestoreMergeGroups(repository),
+        restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
         categoryIdPreferences = mockk(relaxed = true),

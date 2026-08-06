@@ -8,7 +8,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.GetNovelCategories
-import reikai.domain.db.Transactions
+import reikai.domain.db.PassThroughTransactions
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetNovelCategories
@@ -22,11 +22,6 @@ import tachiyomi.domain.category.model.Category
  * the group while invisible in the library, which no screen can then reach to unmerge.
  */
 class NovelLibraryAdderTest {
-
-    /** Runs the block for real, so a test sees what the transaction would commit. */
-    private val transactions = object : Transactions {
-        override suspend fun <T> run(block: suspend () -> T): T = block()
-    }
 
     private fun adder(
         favoriteWriteSucceeds: Boolean = true,
@@ -51,7 +46,7 @@ class NovelLibraryAdderTest {
         updateNovel = updateNovel,
         novelPreferences = mockk(relaxed = true),
         mergeManager = mergeManager,
-        transactions = transactions,
+        transactions = PassThroughTransactions,
     )
 
     @Test

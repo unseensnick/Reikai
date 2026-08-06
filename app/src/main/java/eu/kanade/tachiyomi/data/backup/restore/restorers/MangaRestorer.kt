@@ -49,7 +49,7 @@ class MangaRestorer(
     private val insertTrack: InsertTrack = Injekt.get(),
     fetchInterval: FetchInterval = Injekt.get(),
     // RK: target of the restored manga merge groups (see restoreMerges).
-    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get()),
+    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get(), Injekt.get()),
     // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
     private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
     // RK: applies the restored manga custom-info overlay (re-keyed by url+source).

@@ -34,7 +34,7 @@ class NovelRestorer(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val categoryRepository: CategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
-    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get()),
+    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get(), Injekt.get()),
     private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
     private val database: Database = Injekt.get(),
     private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),

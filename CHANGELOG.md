@@ -96,6 +96,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adding a source to a grouped series no longer scrambles the order you set by hand.** The new source joins at the end and your chosen leading source stays where you put it.
 - **Adding a series to an existing group can no longer leave it out of your library.** Joining the group and landing in the library now happen together, so leaving the screen part way through cannot strand it somewhere nothing can reach to ungroup it.
 - **Adding a novel to a group from its own page no longer asks for categories it just filed it into.** It follows the group's categories, or your default novel category, like every other way of adding one.
+- **A restore that stops part way no longer leaves your own grouping undone.** Merged series you had grouped before the restore used to come back apart if it failed or you cancelled it mid-way; now the grouping either survives whole or is replaced whole.
 - **Merging two grouped series no longer invents a source order for the one that never had one.** Only a group you ordered yourself keeps a custom order through a merge.
 - **Undoing a source split now restores your custom order, even on a two-source series.** Undo used to bring the sources back but quietly revert to the global Preferred sources ranking.
 - **Change categories on a grouped series no longer drops categories that only some of its sources were in.** Those categories now show as partly ticked, and are left alone unless you change them.

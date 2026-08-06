@@ -9,6 +9,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -33,7 +34,7 @@ class MangaMergeBackupRoundTripTest {
         getTracks = mockk(relaxed = true),
         insertTrack = mockk(relaxed = true),
         fetchInterval = mockk(relaxed = true),
-        restoreMergeGroups = RestoreMergeGroups(repository),
+        restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         mangaMetadataRepository = mockk(relaxed = true),
         setCustomMangaInfo = mockk(relaxed = true),
     )

@@ -1,6 +1,7 @@
 package reikai.domain.merge
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -8,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.data.db.SqlDelightTransactions
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.domain.library.ContentType
 import tachiyomi.data.Chapters
@@ -56,7 +58,9 @@ class RestoreMergeGroupsTest {
                 custom_novel_infoAdapter = Custom_novel_info.Adapter(genreAdapter = StringListColumnAdapter),
             )
             repository = MergeGroupRepositoryImpl(database)
-            restore = RestoreMergeGroups(repository)
+            // The real one, not a fake: the whole point of the change is that materializeGroup's own
+            // transaction nests inside this outer one, and only the real driver proves that.
+            restore = RestoreMergeGroups(repository, SqlDelightTransactions(database))
         }
     }
 
@@ -91,6 +95,36 @@ class RestoreMergeGroupsTest {
         // card interleaved four sources.
         groupOf(1) shouldContainExactly listOf(1L, 2L)
         groupOf(3) shouldContainExactly listOf(3L, 4L)
+    }
+
+    @Test
+    fun `a restore that fails part way leaves the device's own grouping intact`() = runTest {
+        (1L..4L).forEach { insertManga(it) }
+        // Locally A and C are one group, which the backup's plan would break apart.
+        repository.createGroup(ContentType.MANGA, listOf(1, 3))
+
+        // Fails on the second write, once the first has already deleted the local group rows.
+        val failing = object : MergeGroupRepository by repository {
+            private var writes = 0
+
+            override suspend fun materializeGroup(
+                contentType: ContentType,
+                orderedMemberIds: List<Long>,
+                overrideSourceRanking: Boolean,
+            ): Long? {
+                if (++writes == 2) error("restore interrupted")
+                return repository.materializeGroup(contentType, orderedMemberIds, overrideSourceRanking)
+            }
+        }
+
+        shouldThrow<IllegalStateException> {
+            RestoreMergeGroups(failing, SqlDelightTransactions(database))
+                .invoke(ContentType.MANGA, listOf(listOf(1, 2), listOf(3, 4)))
+        }
+
+        // Nothing committed, so the grouping the user had before the restore survives. Applied as N
+        // separate transactions, the first plan's delete stood and A lost C for good.
+        groupOf(1) shouldContainExactly listOf(1L, 3L)
     }
 
     @Test

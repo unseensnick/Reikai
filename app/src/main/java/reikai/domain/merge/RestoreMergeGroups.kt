@@ -1,5 +1,6 @@
 package reikai.domain.merge
 
+import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
 
 /**
@@ -12,6 +13,7 @@ import reikai.domain.library.ContentType
  */
 class RestoreMergeGroups(
     private val repository: MergeGroupRepository,
+    private val transactions: Transactions,
 ) {
 
     /**
@@ -69,11 +71,17 @@ class RestoreMergeGroups(
             ordered to override
         }
 
-        plans.forEach { (ids, override) ->
-            repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
-        }
-        remainders.forEach { (ids, override) ->
-            repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
+        // One transaction for the whole plan. Each materialize deletes its members' existing groups
+        // before rebuilding, and the remainders that put untouched local members back run last, so a
+        // failure or a cancelled restore part way through used to leave those members ungrouped with
+        // nothing recording what they had been.
+        transactions.run {
+            plans.forEach { (ids, override) ->
+                repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
+            }
+            remainders.forEach { (ids, override) ->
+                repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
+            }
         }
     }
 }
