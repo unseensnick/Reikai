@@ -106,10 +106,8 @@ class EntryMigrationListScreenModel(
                     savedFlags = adapter.savedFlags(),
                 )
             }
-            // Seeded through the same function every later change uses, rather than assigning
-            // visibleRows here. Setting it by hand left emptyReason unwritten, and a load that
-            // produced no rows never reached syncCounts (the driver breaks out before it), so the
-            // screen rendered a blank list instead of saying why it was empty.
+            // A load that produced no rows never reaches syncCounts on its own (the driver breaks
+            // out before it), so the screen rendered a blank list instead of saying why it was empty.
             syncCounts()
             startDriver()
         }
@@ -155,6 +153,8 @@ class EntryMigrationListScreenModel(
             }
             row.search.value = outcome
             syncCounts()
+            // Checked before the peek, so a row the toggles drop never costs a count fetch.
+            if (dropIfHidden(row)) continue
             peekSuggestionCounts(row)
         }
         handOffIfWorkRemains()
@@ -201,9 +201,29 @@ class EntryMigrationListScreenModel(
             if (MigrationRowRules.canChoose(row.commit.value)) {
                 row.acceptance.compareAndSet(Acceptance.Accepted(suggestion), Acceptance.Accepted(peeked))
             }
-            // Hide-without-updates compares these counts, so visibility can change with them.
-            syncCounts()
+            // Hide-without-updates compares these counts, so the answer can change with them. Nothing
+            // below this suspends, so the row scope this runs in may be cancelled by the removal.
+            if (!dropIfHidden(row)) syncCounts()
         }
+    }
+
+    /**
+     * Drop a row the hide toggles say does not belong, and report whether it went.
+     *
+     * Upstream removes such a row rather than filtering it from the view, and so do we: a row that is
+     * only filtered is still in [rows], where accept-all reaches it and arms a target the user never
+     * saw. Called wherever the answer's inputs land, which is the search outcome and the count peek.
+     */
+    private fun dropIfHidden(row: MigratingEntryRow): Boolean {
+        val hide = MigrationRowRules.shouldHide(
+            search = row.search.value,
+            acceptance = row.acceptance.value,
+            entryLatestChapter = row.entry.latestChapter,
+            expanded = row.expanded.value,
+            tuning = state.value.tuning,
+        )
+        if (hide) removeRow(row)
+        return hide
     }
 
     /** One row against every configured source, either ranked by chapter count or first-hit-wins. */
@@ -261,11 +281,8 @@ class EntryMigrationListScreenModel(
      * this.
      */
     private fun syncCounts() = mutableState.update { state ->
-        val visible = state.rows.filter { it.isVisibleUnder(state.tuning) }
         state.copy(
-            visibleRows = visible,
             emptyReason = when {
-                state.rows.isNotEmpty() && visible.isEmpty() -> EmptyReason.AllFiltered
                 // Only a list that never had rows can blame the sources. One emptied by working
                 // through it is on its way out via the pop, and reporting "no sources are enabled"
                 // over it would be a plain lie.
@@ -296,8 +313,8 @@ class EntryMigrationListScreenModel(
         if (expanding && row.overrides.value == MigratingEntryRow.OverrideState.Idle) {
             searchOverrides(id, row.entry.title)
         }
-        // Expansion is part of visibility (an open row is never filtered away), so collapsing has to
-        // recompute it. Without this the row lingers and then vanishes at some unrelated later moment.
+        // Collapsing deliberately does not re-run the hide check: the toggles drop a row as its
+        // search settles, and a row the user opened is theirs to close without it disappearing.
         syncCounts()
     }
 
@@ -746,8 +763,6 @@ class EntryMigrationListScreenModel(
         val isLoading: Boolean = true,
         val tuning: MigrationTuning = MigrationTuning(),
         val rows: List<MigratingEntryRow> = emptyList(),
-        /** [rows] after the hide toggles; what the list renders. */
-        val visibleRows: List<MigratingEntryRow> = emptyList(),
         val searchedCount: Int = 0,
         /** Every row has settled, so the totals the commit bar shows are final. */
         val allSearched: Boolean = false,
@@ -789,7 +804,7 @@ class EntryMigrationListScreenModel(
     }
 
     /** Why a migration list has nothing to show. */
-    enum class EmptyReason { NoEntries, AllFiltered, NoSources }
+    enum class EmptyReason { NoEntries, NoSources }
 }
 
 /** Settled for progress purposes; the rule itself lives with the other transition rules. */
@@ -802,14 +817,3 @@ private val MigratingEntryRow.disposition: MigrationRowRules.Disposition
 
 private val MigratingEntryRow.isUntouched: Boolean
     get() = disposition == MigrationRowRules.Disposition.Untouched
-
-/**
- * Whether the hide toggles leave this row on screen; the rule itself lives with the other rules.
- */
-private fun MigratingEntryRow.isVisibleUnder(tuning: MigrationTuning): Boolean = MigrationRowRules.isVisible(
-    search = search.value,
-    acceptance = acceptance.value,
-    entryLatestChapter = entry.latestChapter,
-    expanded = expanded.value,
-    tuning = tuning,
-)

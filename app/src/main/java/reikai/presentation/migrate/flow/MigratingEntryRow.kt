@@ -219,31 +219,28 @@ object MigrationRowRules {
     }
 
     /**
-     * Whether the hide toggles leave this row on screen.
+     * Whether the hide toggles drop this row, as upstream drops it: a filtered row stayed in the
+     * list, where accept-all reached it and armed a target the user could not see.
      *
-     * Only an untouched row may be hidden. Anything the user acted on stays: an accepted row would
-     * otherwise commit invisibly and a declined one would vanish from under the hand that just acted
-     * on it. An open row stays too. A failed search is shown regardless, since hide-unmatched is
-     * about entries with no match, not entries whose sources were unreachable.
+     * Only an untouched row goes, and never one whose picker is open. A failed search is kept, since
+     * hide-unmatched is about entries with no match, not ones whose sources could not be reached.
      */
-    fun isVisible(
+    fun shouldHide(
         search: MigratingEntryRow.SearchPhase,
         acceptance: MigratingEntryRow.Acceptance,
         entryLatestChapter: Double?,
         expanded: Boolean,
         tuning: MigrationTuning,
     ): Boolean {
-        // Reading the disposition rather than a sticky flag is what stops a late search outcome or a
-        // late chapter count from re-hiding a row a moment after the user acted on it.
-        if (disposition(acceptance) != Disposition.Untouched || expanded) return true
-        if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return false
+        if (disposition(acceptance) != Disposition.Untouched || expanded) return false
+        if (tuning.hideUnmatched && search is MigratingEntryRow.SearchPhase.NoMatch) return true
         if (tuning.hideWithoutUpdates && search is MigratingEntryRow.SearchPhase.Found) {
             val targetLatest = search.suggestion.latestChapter
-            // Only hide on a real comparison: an unknown count on either side is not evidence that
-            // the target is no further ahead.
-            if (targetLatest != null && entryLatestChapter != null && targetLatest <= entryLatestChapter) return false
+            // Only drop on a real comparison, where upstream reads an unknown count as zero: with
+            // removal there is no getting the row back, so an unknown count decides nothing.
+            if (targetLatest != null && entryLatestChapter != null && targetLatest <= entryLatestChapter) return true
         }
-        return true
+        return false
     }
 
     /** A row the batch commit should include: accepted, and not already committing. */

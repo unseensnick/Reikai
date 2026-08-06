@@ -29,52 +29,52 @@ class MigrationRowRulesTest {
 
     private val accepted = Acceptance.Accepted(candidate)
 
-    private fun visible(
+    private fun hidden(
         search: SearchPhase,
         acceptance: Acceptance = Acceptance.Untouched,
         entryLatest: Double? = 10.0,
         expanded: Boolean = false,
         tuning: MigrationTuning = hideBoth,
-    ) = MigrationRowRules.isVisible(search, acceptance, entryLatest, expanded, tuning)
+    ) = MigrationRowRules.shouldHide(search, acceptance, entryLatest, expanded, tuning)
 
     @Test
-    fun `hide-unmatched hides a row that found nothing`() {
-        visible(SearchPhase.NoMatch) shouldBe false
+    fun `hide-unmatched drops a row that found nothing`() {
+        hidden(SearchPhase.NoMatch) shouldBe true
     }
 
     @Test
     fun `an open row survives the hide toggles`() {
-        visible(SearchPhase.NoMatch, expanded = true) shouldBe true
+        hidden(SearchPhase.NoMatch, expanded = true) shouldBe false
     }
 
     @Test
     fun `a target the user gave back keeps the row on screen`() {
-        // The whole reason Declined exists: hiding a row the user just acted on reads as it
+        // The whole reason Declined exists: dropping a row the user just acted on reads as it
         // vanishing under their hands, and Untouched cannot tell that case from "never looked at".
-        visible(SearchPhase.NoMatch, Acceptance.Declined) shouldBe true
+        hidden(SearchPhase.NoMatch, Acceptance.Declined) shouldBe false
     }
 
     @Test
     fun `a declined row stays on screen whichever way its search landed`() {
         val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
 
-        // Late-arriving filter inputs are what re-hid the row three times: a declined row stays put
+        // Late-arriving inputs are what re-hid the row three times: a declined row stays put
         // whichever way the search lands.
-        visible(behind, Acceptance.Declined, entryLatest = 10.0) shouldBe true
+        hidden(behind, Acceptance.Declined, entryLatest = 10.0) shouldBe false
     }
 
     @Test
     fun `an accepted row survives the hide toggles, or it would commit invisibly`() {
-        visible(SearchPhase.NoMatch, accepted) shouldBe true
+        hidden(SearchPhase.NoMatch, accepted) shouldBe false
     }
 
     @Test
-    fun `a row still being searched is never hidden`() {
-        // A guard, not a clause pin: no branch of isVisible can hide an unsettled row today, and
+    fun `a row still being searched is never dropped`() {
+        // A guard, not a clause pin: no branch of shouldHide can drop an unsettled row today, and
         // deleting any one of them leaves this green. It is here so that adding such a branch, which
-        // reads as a reasonable thing to do, fails instead of blanking rows mid-search.
-        visible(SearchPhase.Queued) shouldBe true
-        visible(SearchPhase.Searching) shouldBe true
+        // reads as a reasonable thing to do, fails instead of dropping rows mid-search.
+        hidden(SearchPhase.Queued) shouldBe false
+        hidden(SearchPhase.Searching) shouldBe false
     }
 
     @Test
@@ -90,21 +90,21 @@ class MigrationRowRulesTest {
 
     @Test
     fun `an unreachable source is not the same as no match, so a failed search stays`() {
-        visible(SearchPhase.Failed) shouldBe true
+        hidden(SearchPhase.Failed) shouldBe false
     }
 
     @Test
-    fun `hide-without-updates hides a target that is no further ahead`() {
+    fun `hide-without-updates drops a target that is no further ahead`() {
         val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
 
-        visible(behind, entryLatest = 10.0) shouldBe false
+        hidden(behind, entryLatest = 10.0) shouldBe true
     }
 
     @Test
     fun `hide-without-updates keeps a target that is ahead`() {
         val ahead = SearchPhase.Found(candidate.copy(latestChapter = 11.0), "Source")
 
-        visible(ahead, entryLatest = 10.0) shouldBe true
+        hidden(ahead, entryLatest = 10.0) shouldBe false
     }
 
     @Test
@@ -112,13 +112,13 @@ class MigrationRowRulesTest {
         val unknownTarget = SearchPhase.Found(candidate.copy(latestChapter = null), "Source")
         val knownTarget = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
 
-        visible(unknownTarget, entryLatest = 10.0) shouldBe true
-        visible(knownTarget, entryLatest = null) shouldBe true
+        hidden(unknownTarget, entryLatest = 10.0) shouldBe false
+        hidden(knownTarget, entryLatest = null) shouldBe false
     }
 
     @Test
-    fun `with the toggles off nothing is hidden`() {
-        visible(SearchPhase.NoMatch, tuning = MigrationTuning()) shouldBe true
+    fun `with the toggles off nothing is dropped`() {
+        hidden(SearchPhase.NoMatch, tuning = MigrationTuning()) shouldBe false
     }
 
     @Test

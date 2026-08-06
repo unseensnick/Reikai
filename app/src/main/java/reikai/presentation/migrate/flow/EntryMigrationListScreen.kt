@@ -184,8 +184,6 @@ class EntryMigrationListScreen(
                     stringRes = when (emptyReason) {
                         EntryMigrationListScreenModel.EmptyReason.NoEntries ->
                             MR.strings.migrationFlow_emptyNoEntries
-                        EntryMigrationListScreenModel.EmptyReason.AllFiltered ->
-                            MR.strings.migrationFlow_emptyAllFiltered
                         EntryMigrationListScreenModel.EmptyReason.NoSources ->
                             MR.strings.migrationFlow_emptyNoSources
                     },
@@ -193,7 +191,7 @@ class EntryMigrationListScreen(
                 )
             } else {
                 LazyColumn(contentPadding = contentPadding) {
-                    items(items = state.visibleRows, key = { it.entry.id.toString() }) { row ->
+                    items(items = state.rows, key = { it.entry.id.toString() }) { row ->
                         MigrationRow(row = row, busy = state.isBusy, screenModel = screenModel)
                     }
                 }

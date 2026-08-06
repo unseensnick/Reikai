@@ -1313,7 +1313,6 @@
     <string name="migrationFlow.acceptedLabel">Accepted, tap to undo</string>
     <string name="migrationFlow.searchFailed">Couldn\'t reach the sources</string>
     <string name="migrationFlow.emptyNoEntries">Nothing left to migrate</string>
-    <string name="migrationFlow.emptyAllFiltered">Every entry is hidden by the search options</string>
     <string name="migrationFlow.emptyNoSources">No sources are enabled to migrate to</string>
     <string name="migrationFlow.emptySourcesFiltered">Every source is hidden by the results filter</string>
     <string name="migrationFlow.pickUnavailable">That entry couldn\'t be opened, so it wasn\'t used</string>

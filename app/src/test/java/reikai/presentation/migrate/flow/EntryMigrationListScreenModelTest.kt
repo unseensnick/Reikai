@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -93,6 +94,55 @@ class EntryMigrationListScreenModelTest {
 
         adapter.candidateQueries shouldBe listOf("some title vol 2")
     }
+
+    @Test
+    fun `a row the hide toggles drop leaves the list, so accept-all cannot arm it`() =
+        runTest(dispatcher.scheduler) {
+            // It used to stay in rows and only be filtered from the view, and accept-all iterates
+            // rows: the hidden row was armed, came back on screen, and would have been migrated.
+            val entries = listOf(entry(1), entry(2))
+            val model = EntryMigrationListScreenModel(
+                entryIds = entries.map { it.id.rawId },
+                adapter = FakeMigrationFlowAdapter(
+                    entries,
+                    matchless = setOf(EntryId.Manga(2)),
+                    tuning = MigrationTuning(hideUnmatched = true),
+                ),
+                pickHandoff = MigrationPickHandoff(),
+                io = dispatcher,
+            )
+            advanceUntilIdle()
+
+            model.acceptAll()
+            advanceUntilIdle()
+
+            model.state.value.rows.map { it.entry.id } shouldBe listOf(EntryId.Manga(1))
+            model.state.value.committableCount shouldBe 1
+        }
+
+    @Test
+    fun `a count that arrives after the search drops the row it disqualifies`() =
+        runTest(dispatcher.scheduler) {
+            // The suggestion lands without a chapter number and the peek fills it in, so the toggle's
+            // input arrives after the search has settled and the check has to run there too.
+            val entries = listOf(entry(1))
+            val model = EntryMigrationListScreenModel(
+                entryIds = entries.map { it.id.rawId },
+                adapter = FakeMigrationFlowAdapter(
+                    entries,
+                    tuning = MigrationTuning(hideWithoutUpdates = true),
+                    suggestionLatestChapter = null,
+                    // The entry itself is at 1.0, so the target is not ahead of it.
+                    peekLatestChapter = 1.0,
+                ),
+                pickHandoff = MigrationPickHandoff(),
+                io = dispatcher,
+            )
+
+            advanceUntilIdle()
+
+            model.state.value.rows.shouldBeEmpty()
+        }
 
     @Test
     fun `a clean batch migrates every accepted row and finishes the screen`() = runTest(dispatcher.scheduler) {
