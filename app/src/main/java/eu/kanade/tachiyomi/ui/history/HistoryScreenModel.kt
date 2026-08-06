@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
@@ -167,11 +168,8 @@ class HistoryScreenModel(
         return getCategories.await().filterNot { it.isSystemCategory }
     }
 
-    private fun moveMangaToCategory(mangaId: Long, categories: Category?) {
-        val categoryIds = listOfNotNull(categories).map { it.id }
-        moveMangaToCategory(mangaId, categoryIds)
-    }
-
+    // RK: upstream's Category? overload went with the add path that needed it; the shared
+    // default-category rule already hands back the id list this takes.
     private fun moveMangaToCategory(mangaId: Long, categoryIds: List<Long>) {
         screenModelScope.launchIO {
             setMangaCategories.await(mangaId, categoryIds)
@@ -218,28 +216,14 @@ class HistoryScreenModel(
 
     fun addFavorite(manga: Manga) {
         screenModelScope.launchIO {
-            // Move to default category if applicable
-            val categories = getCategories()
-            val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
-            val defaultCategory = categories.find { it.id == defaultCategoryId }
-
-            when {
-                // Default category set
-                defaultCategory != null -> {
-                    val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                    if (!result) return@launchIO
-                    moveMangaToCategory(manga.id, defaultCategory)
-                }
-
-                // Automatic 'Default' or no categories
-                defaultCategoryId == 0L || categories.isEmpty() -> {
-                    val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                    if (!result) return@launchIO
-                    moveMangaToCategory(manga.id, null)
-                }
-
-                // Choose a category
-                else -> showChangeCategoryDialog(manga)
+            // RK: the same shared default-category rule every other add path reads. Upstream's write
+            // order stays: favorite first, abandon the add if that write fails, then file categories.
+            val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
+            if (directIds != null) {
+                if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
+                moveMangaToCategory(manga.id, directIds)
+            } else {
+                showChangeCategoryDialog(manga)
             }
 
             // Sync with tracking services if applicable
@@ -258,14 +242,8 @@ class HistoryScreenModel(
             // The group's categories win: only fall back to the default (or the picker) when the group
             // is uncategorized, so the new source lands where the rest of the series lives.
             if (!seeded) {
-                val categories = getCategories()
-                val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
-                val defaultCategory = categories.find { it.id == defaultCategoryId }
-                when {
-                    defaultCategory != null -> moveMangaToCategory(manga.id, defaultCategory)
-                    defaultCategoryId == 0L || categories.isEmpty() -> moveMangaToCategory(manga.id, null)
-                    else -> showChangeCategoryDialog(manga)
-                }
+                val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
+                if (directIds != null) moveMangaToCategory(manga.id, directIds) else showChangeCategoryDialog(manga)
             }
         }
     }

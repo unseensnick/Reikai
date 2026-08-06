@@ -81,6 +81,7 @@ import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
@@ -666,27 +667,15 @@ class MangaScreenModel(
                     }
                 }
 
-                // Now check if user previously set categories, when available
-                val categories = getCategories()
-                val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
-                val defaultCategory = categories.find { it.id == defaultCategoryId }
-                when {
-                    // Default category set
-                    defaultCategory != null -> {
-                        val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                        if (!result) return@launchIO
-                        moveMangaToCategory(defaultCategory)
-                    }
-
-                    // Automatic 'Default' or no categories
-                    defaultCategoryId == 0L || categories.isEmpty() -> {
-                        val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                        if (!result) return@launchIO
-                        moveMangaToCategory(null)
-                    }
-
-                    // Choose a category
-                    else -> showChangeCategoryDialog()
+                // RK: where a new favorite lands is one shared rule, so no add path can drift from
+                // the others. Upstream's write order stays: favorite first, abandon the add if that
+                // write fails, and only then file the categories.
+                val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
+                if (directIds != null) {
+                    if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
+                    moveMangaToCategory(directIds)
+                } else {
+                    showChangeCategoryDialog()
                 }
 
                 // Finally match with enhanced tracking when available
@@ -711,14 +700,8 @@ class MangaScreenModel(
             // The group's categories win: only fall back to the default (or the picker) when the group
             // is uncategorized, so the new source lands where the rest of the series lives.
             if (!seeded) {
-                val categories = getCategories()
-                val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
-                val defaultCategory = categories.find { it.id == defaultCategoryId }
-                when {
-                    defaultCategory != null -> moveMangaToCategory(defaultCategory)
-                    defaultCategoryId == 0L || categories.isEmpty() -> moveMangaToCategory(null)
-                    else -> showChangeCategoryDialog()
-                }
+                val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
+                if (directIds != null) moveMangaToCategory(directIds) else showChangeCategoryDialog()
             }
         }
     }
@@ -853,29 +836,12 @@ class MangaScreenModel(
         }
     }
 
-    /**
-     * Move the given manga to categories.
-     *
-     * @param categories the selected categories.
-     */
-    private fun moveMangaToCategories(categories: List<Category>) {
-        val categoryIds = categories.map { it.id }
-        moveMangaToCategory(categoryIds)
-    }
-
+    // RK: upstream's Category and Category? overloads went with the add paths that needed them; the
+    // shared default-category rule already hands back the id list this takes.
     private fun moveMangaToCategory(categoryIds: List<Long>) {
         screenModelScope.launchIO {
             setMangaCategories.await(mangaId, categoryIds)
         }
-    }
-
-    /**
-     * Move the given manga to the category.
-     *
-     * @param category the selected category, or null for default category.
-     */
-    private fun moveMangaToCategory(category: Category?) {
-        moveMangaToCategories(listOfNotNull(category))
     }
 
     // Manga info - end

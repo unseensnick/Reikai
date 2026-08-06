@@ -16,6 +16,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.toMangaUpdate
@@ -38,6 +39,7 @@ class MangaLibraryAdder(
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getDuplicateLibraryManga: GetDuplicateLibraryManga = Injekt.get(),
+    private val getManga: GetManga = Injekt.get(),
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
@@ -85,17 +87,18 @@ class MangaLibraryAdder(
 
     /**
      * RK: favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into
-     * that group's categories. Returns whether any were seeded, null when the favorite write failed.
-     *
-     * Atomic because membership is not favorite-filtered: a merged copy that never got favorited
-     * feeds the group while invisible in the library, and nothing can reach it to unmerge. Callers
-     * keep their own post-add work; this owns only the pair.
+     * that group's categories. Null when the row is gone or the write failed. Atomic because
+     * membership is not favorite-filtered: a merged copy that never got favorited feeds the group
+     * while invisible in the library, with nothing able to unmerge it. An already favorited row is
+     * not re-written (that would reset dateAdded), and the row is re-read because a stale snapshot
+     * would skip the write and still merge. Twin of `NovelLibraryAdder.addToGroup`.
      */
     suspend fun addToGroup(manga: Manga, selectedIds: List<Long>): Boolean? {
+        val stored = getManga.await(manga.id) ?: return null
         val favorited = transactions.run {
-            updateManga.awaitUpdateFavorite(manga.id, true).also { ok ->
-                if (ok) mergeManager.merge(listOf(manga.id) + selectedIds)
-            }
+            val ok = stored.favorite || updateManga.awaitUpdateFavorite(manga.id, true)
+            if (ok) mergeManager.merge(listOf(manga.id) + selectedIds)
+            ok
         }
         if (!favorited) return null
         return seedCategoriesFromGroup(manga.id, selectedIds)
