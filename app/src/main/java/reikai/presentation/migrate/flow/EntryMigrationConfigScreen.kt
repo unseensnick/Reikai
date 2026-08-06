@@ -11,7 +11,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Deselect
 import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
@@ -64,6 +67,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.util.shouldExpandFAB
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -103,18 +107,24 @@ class EntryMigrationConfigScreen(
                     actions = {
                         AppBarActions(
                             listOf(
+                                // Upstream's shape: the two whole-list actions are icons and only the
+                                // pinned filter is buried. Its third item, "select enabled sources",
+                                // has no meaning here: upstream lists disabled sources and filters
+                                // them out with it, while enabledSources() never offers one.
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
+                                    icon = Icons.Outlined.SelectAll,
+                                    onClick = { screenModel.selectAll() },
+                                ),
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
+                                    icon = Icons.Outlined.Deselect,
+                                    onClick = { screenModel.selectNone() },
+                                ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
                                     icon = Icons.Outlined.Tune,
                                     onClick = { showTuning = true },
-                                ),
-                                AppBar.OverflowAction(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
-                                    onClick = { screenModel.selectAll() },
-                                ),
-                                AppBar.OverflowAction(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
-                                    onClick = { screenModel.selectNone() },
                                 ),
                                 AppBar.OverflowAction(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectPinnedLabel),
@@ -131,7 +141,13 @@ class EntryMigrationConfigScreen(
                 if (state.selected.isNotEmpty()) {
                     SmallExtendedFloatingActionButton(
                         text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
-                        icon = {},
+                        icon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                                contentDescription = null,
+                            )
+                        },
+                        expanded = listState.shouldExpandFAB(),
                         onClick = {
                             // One entry has nothing to accept in bulk and no progress worth a list,
                             // so it goes straight to its results. The extra query travels with the
