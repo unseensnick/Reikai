@@ -1,13 +1,13 @@
 package eu.kanade.presentation.more.settings.screen.browse
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.extension.interactor.AddExtensionStore
 import mihon.domain.extension.interactor.GetExtensionStores
 import mihon.domain.extension.interactor.RemoveExtensionStore
@@ -19,7 +19,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class ExtensionStoresScreenModel(
+class ExtensionStoresViewModel(
     private val getExtensionStores: GetExtensionStores = Injekt.get(),
     private val addExtensionStore: AddExtensionStore = Injekt.get(),
     private val removeExtensionStore: RemoveExtensionStore = Injekt.get(),
@@ -27,7 +27,7 @@ class ExtensionStoresScreenModel(
     private val extensionManager: ExtensionManager = Injekt.get(),
     // RK: light-novel plugin repos live alongside the manga extension repos on this screen.
     private val novelPreferences: NovelPreferences = Injekt.get(),
-) : StateScreenModel<ExtensionStoreScreenState>(ExtensionStoreScreenState.Loading) {
+) : StateViewModel<ExtensionStoreScreenState>(ExtensionStoreScreenState.Loading) {
 
     private inline fun updateSuccessState(
         func: (ExtensionStoreScreenState.Success) -> ExtensionStoreScreenState.Success,
@@ -41,7 +41,7 @@ class ExtensionStoresScreenModel(
     }
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // RK: fold the light-novel plugin repos (bare URLs) in next to the manga repos.
             combine(
                 getExtensionStores.subscribe(),
@@ -65,7 +65,7 @@ class ExtensionStoresScreenModel(
      * @param baseUrl The baseUrl of the repo to create.
      */
     fun createRepo(baseUrl: String) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             updateSuccessState {
                 it.copy(
                     dialog = when (it.dialog) {
@@ -110,7 +110,7 @@ class ExtensionStoresScreenModel(
         val status = state.value
 
         if (status is ExtensionStoreScreenState.Success) {
-            screenModelScope.launchIO {
+            viewModelScope.launchIO {
                 updateExtensionStores()
             }
         }
@@ -120,7 +120,7 @@ class ExtensionStoresScreenModel(
      * Deletes the given repo from the database
      */
     fun deleteRepo(baseUrl: String) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             removeExtensionStore(baseUrl)
             extensionManager.findAvailableExtensions()
         }

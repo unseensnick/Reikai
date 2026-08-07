@@ -3,8 +3,10 @@ package exh.pagepreview
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.tachiyomi.source.Source
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -22,20 +25,20 @@ import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class PagePreviewScreenModel(
+class PagePreviewViewModel(
     private val mangaId: Long,
     private val getPagePreviews: GetPagePreviews = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
-) : StateScreenModel<PagePreviewState>(PagePreviewState.Loading) {
+) : StateViewModel<PagePreviewState>(PagePreviewState.Loading) {
 
     private val page = MutableStateFlow(1)
 
     var pageDialogOpen by mutableStateOf(false)
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val manga = getManga.await(mangaId)!!
             val chapter = getChaptersByMangaId.await(mangaId).minByOrNull { it.sourceOrder }
             if (chapter == null) {
@@ -88,6 +91,16 @@ class PagePreviewScreenModel(
 
     fun moveToPage(page: Int) {
         this.page.value = page
+    }
+
+    companion object {
+        val MANGA_ID_KEY = CreationExtras.Key<Long>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                PagePreviewViewModel(mangaId = get(MANGA_ID_KEY)!!)
+            }
+        }
     }
 }
 

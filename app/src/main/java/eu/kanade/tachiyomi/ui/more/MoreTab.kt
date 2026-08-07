@@ -7,9 +7,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -61,20 +61,20 @@ data object MoreTab : Tab {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { MoreScreenModel() }
-        val downloadQueueState by screenModel.downloadQueueState.collectAsState()
+        val viewModel = viewModel<MoreViewModel>()
+        val downloadQueueState by viewModel.downloadQueueState.collectAsState()
         MoreScreen(
             downloadQueueStateProvider = { downloadQueueState },
-            downloadedOnly = screenModel.downloadedOnly,
-            onDownloadedOnlyChange = { screenModel.downloadedOnly = it },
-            incognitoMode = screenModel.incognitoMode,
-            onIncognitoModeChange = { screenModel.incognitoMode = it },
+            downloadedOnly = viewModel.downloadedOnly,
+            onDownloadedOnlyChange = { viewModel.downloadedOnly = it },
+            incognitoMode = viewModel.incognitoMode,
+            onIncognitoModeChange = { viewModel.incognitoMode = it },
             onClickDownloadQueue = { navigator.push(DownloadQueueScreen) },
             onClickCategories = { navigator.push(CategoryScreen()) },
             onClickStats = { navigator.push(StatsScreen()) },
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },
             // RK -->
-            showBatchAdd = screenModel.isHentaiEnabled,
+            showBatchAdd = viewModel.isHentaiEnabled,
             onClickBatchAdd = { navigator.push(BatchAddScreen()) },
             // RK <--
             onClickSettings = { navigator.push(SettingsScreen()) },
@@ -84,27 +84,27 @@ data object MoreTab : Tab {
     }
 }
 
-private class MoreScreenModel(
+class MoreViewModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     preferences: BasePreferences = Injekt.get(),
     // RK -->
     exhPreferences: ExhPreferences = Injekt.get(),
     novelDownloadManager: NovelDownloadManager = Injekt.get(),
     // RK <--
-) : ScreenModel {
+) : ViewModel() {
 
-    var downloadedOnly by preferences.downloadedOnly.asState(screenModelScope)
-    var incognitoMode by preferences.incognitoMode.asState(screenModelScope)
+    var downloadedOnly by preferences.downloadedOnly.asState(viewModelScope)
+    var incognitoMode by preferences.incognitoMode.asState(viewModelScope)
 
     // RK: drives the reactive batch-add entry in the More tab; flips with the adult-sources toggle.
-    val isHentaiEnabled by exhPreferences.isHentaiEnabled().asState(screenModelScope)
+    val isHentaiEnabled by exhPreferences.isHentaiEnabled().asState(viewModelScope)
 
     private var _downloadQueueState: MutableStateFlow<DownloadQueueState> = MutableStateFlow(DownloadQueueState.Stopped)
     val downloadQueueState: StateFlow<DownloadQueueState> = _downloadQueueState.asStateFlow()
 
     init {
         // Handle running/paused status change and queue progress updating
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(
                 downloadManager.isDownloaderRunning,
                 downloadManager.queueState,

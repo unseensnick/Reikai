@@ -1,8 +1,7 @@
 package reikai.presentation.history
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -40,12 +40,12 @@ import uy.kohesive.injekt.api.get
 
 /**
  * Novel side of the consolidated History tab (the novel twin of
- * [eu.kanade.tachiyomi.ui.history.HistoryScreenModel]). Mihon's manga model drives manga rows; this
+ * [eu.kanade.tachiyomi.ui.history.HistoryViewModel]). Mihon's manga model drives manga rows; this
  * drives novel rows, both rendered by [ReikaiHistoryScreen]. The feed is one row per novel (its
  * most-recently-read chapter), searchable by title; the consolidated screen interleaves it with the
  * manga feed and inserts the date headers, so the raw list is exposed here (no per-model UI model).
  */
-class NovelHistoryScreenModel(
+class NovelHistoryViewModel(
     private val getNovelHistory: GetNovelHistory = Injekt.get(),
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
@@ -57,19 +57,19 @@ class NovelHistoryScreenModel(
     private val novelLibraryAdder: NovelLibraryAdder = Injekt.get(),
     // RK: add-time grouping (the merge itself; the gate and the group's categories go through the adder).
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
-) : StateScreenModel<NovelHistoryScreenModel.State>(State()) {
+) : StateViewModel<NovelHistoryViewModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
     /** Shared All / Manga / Novels chip, persisted under its own key (mirrors the Updates tab). */
     val contentType: StateFlow<ContentType> = sourcePreferences.historyContentType.changes()
-        .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.historyContentType.get())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.historyContentType.get())
 
     fun setContentType(type: ContentType) = sourcePreferences.historyContentType.set(type)
 
     init {
-        screenModelScope.launch {
+        viewModelScope.launch {
             state.map { it.searchQuery }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
@@ -101,7 +101,7 @@ class NovelHistoryScreenModel(
 
     /** Resume a history row: reopen the recorded chapter if unread, else the next one (null = none left). */
     fun resume(history: NovelHistoryWithRelations) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val next = getNextNovelChapter.await(history.novelId, history.chapterId)
             _events.send(Event.OpenChapter(history.novelId, next?.id))
         }
@@ -109,17 +109,17 @@ class NovelHistoryScreenModel(
 
     /** Open a novel's details. NovelScreen is keyed by (source, url), so resolve them from the id here. */
     fun openDetails(novelId: Long) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = novelRepository.getById(novelId) ?: return@launchIO
             _events.send(Event.OpenNovel(novel.source, novel.url))
         }
     }
 
     /** Add a not-yet-library novel from its history row. Warn on a similarly-named library novel first
-     *  (mirrors HistoryScreenModel), then favorite the existing row and apply the default category or
+     *  (mirrors HistoryViewModel), then favorite the existing row and apply the default category or
      *  prompt (reuses NovelLibraryAdder's add-to-library category logic). */
     fun addFavorite(novelId: Long) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = novelRepository.getById(novelId) ?: return@launchIO
             novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
                 setDialog(
@@ -140,13 +140,13 @@ class NovelHistoryScreenModel(
 
     /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
     fun addFavoriteAnyway(novelId: Long) {
-        screenModelScope.launchIO { addToLibrary(novelId) }
+        viewModelScope.launchIO { addToLibrary(novelId) }
     }
 
     /** Raise the migrate dialog for the duplicate the user picked, onto the history novel. The lookup
      *  confirms the row is still there; a history novel is already chapter-synced, so nothing is fetched. */
     fun startMigrate(duplicateId: Long, novelId: Long) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val target = novelRepository.getById(novelId) ?: return@launchIO
             setDialog(Dialog.Migrate(currentId = duplicateId, targetId = target.id))
         }
@@ -156,7 +156,7 @@ class NovelHistoryScreenModel(
      *  match would fuse distinct series. The favorite-and-merge pair and the reason it has to be atomic
      *  live in NovelLibraryAdder.addToGroup; null means it wrote nothing. */
     fun addToExistingGroup(novelId: Long, selectedIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val seeded = novelLibraryAdder.addToGroup(novelId, selectedIds) ?: return@launchIO
             // Group categories win: only fall back to the default (or picker) for an uncategorized group.
             if (!seeded) {
@@ -176,22 +176,22 @@ class NovelHistoryScreenModel(
 
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         setDialog(null)
-        screenModelScope.launchIO { novelLibraryAdder.applyCategories(novelId, categoryIds) }
+        viewModelScope.launchIO { novelLibraryAdder.applyCategories(novelId, categoryIds) }
     }
 
     /** The latest novel read, for the tab-reselect global-latest resume. */
     suspend fun getLast(): NovelHistoryWithRelations? = getNovelHistory.getLast()
 
     fun removeFromHistory(history: NovelHistoryWithRelations) {
-        screenModelScope.launchIO { removeNovelHistory.await(history) }
+        viewModelScope.launchIO { removeNovelHistory.await(history) }
     }
 
     fun removeAllFromHistory(novelId: Long) {
-        screenModelScope.launchIO { removeNovelHistory.await(novelId) }
+        viewModelScope.launchIO { removeNovelHistory.await(novelId) }
     }
 
     fun removeAllHistory() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             removeNovelHistory.awaitAll()
             _events.send(Event.HistoryCleared)
         }

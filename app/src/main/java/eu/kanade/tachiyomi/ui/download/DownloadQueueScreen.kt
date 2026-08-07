@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -47,8 +47,8 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.download.DownloadQueueSortKey
 import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.EntryDownloadCardList
-import reikai.presentation.download.MangaDownloadQueueScreenModel
-import reikai.presentation.download.NovelDownloadQueueScreenModel
+import reikai.presentation.download.MangaDownloadQueueViewModel
+import reikai.presentation.download.NovelDownloadQueueViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -61,11 +61,11 @@ object DownloadQueueScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         // RK: both content types now render on the shared Compose card list. The manga side runs on
-        // reikai's MangaDownloadQueueScreenModel (aggregating by series), and Mihon's own
-        // DownloadQueueScreenModel + its RecyclerView adapter/holders are the parked per-chapter view.
-        val mangaModel = rememberScreenModel { MangaDownloadQueueScreenModel() }
+        // reikai's MangaDownloadQueueViewModel (aggregating by series), and Mihon's own
+        // DownloadQueueViewModel + its RecyclerView adapter/holders are the parked per-chapter view.
+        val mangaModel = viewModel<MangaDownloadQueueViewModel>()
         val mangaItems by mangaModel.state.collectAsState()
-        val novelModel = rememberScreenModel { NovelDownloadQueueScreenModel() }
+        val novelModel = viewModel<NovelDownloadQueueViewModel>()
         val novelItems by novelModel.state.collectAsState()
         val contentType by novelModel.contentType.collectAsState()
         // Cards aggregate by series, so a queue-size count is the pending chapters across them.

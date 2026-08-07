@@ -11,7 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.history.NovelHistoryScreenModel
+import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.history.ReikaiHistoryScreen
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.DuplicateNovelDialog
@@ -73,78 +73,78 @@ data object HistoryTab : Tab {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { HistoryScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<HistoryViewModel>()
+        val state by viewModel.state.collectAsState()
         // RK -->
-        val novelScreenModel = rememberScreenModel { NovelHistoryScreenModel() }
-        val novelState by novelScreenModel.state.collectAsState()
-        val contentType by novelScreenModel.contentType.collectAsState()
+        val novelViewModel = viewModel<NovelHistoryViewModel>()
+        val novelState by novelViewModel.state.collectAsState()
+        val contentType by novelViewModel.contentType.collectAsState()
         val chip: @Composable () -> Unit = {
-            ContentTypeFilterChips(selected = contentType, onSelect = novelScreenModel::setContentType)
+            ContentTypeFilterChips(selected = contentType, onSelect = novelViewModel::setContentType)
         }
 
         // All three chips render through one consolidated Reikai screen; manga stays Mihon's untouched
-        // HistoryScreenModel (passed in), so its behavior is unchanged.
+        // HistoryViewModel (passed in), so its behavior is unchanged.
         ReikaiHistoryScreen(
             contentType = contentType,
-            mangaModel = screenModel,
-            novelModel = novelScreenModel,
+            mangaModel = viewModel,
+            novelModel = novelViewModel,
             snackbarHostState = snackbarHostState,
             chip = chip,
             onClickMangaCover = { navigator.push(MangaScreen(it)) },
-            onClickMangaResume = screenModel::getNextChapterForManga,
-            onClickMangaFavorite = screenModel::addFavorite,
-            onClickNovelCover = novelScreenModel::openDetails,
-            onClickNovelResume = novelScreenModel::resume,
-            onClickNovelFavorite = novelScreenModel::addFavorite,
+            onClickMangaResume = viewModel::getNextChapterForManga,
+            onClickMangaFavorite = viewModel::addFavorite,
+            onClickNovelCover = novelViewModel::openDetails,
+            onClickNovelResume = novelViewModel::resume,
+            onClickNovelFavorite = novelViewModel::addFavorite,
         )
         // RK <--
 
-        val onDismissRequest = { screenModel.setDialog(null) }
+        val onDismissRequest = { viewModel.setDialog(null) }
         when (val dialog = state.dialog) {
-            is HistoryScreenModel.Dialog.Delete -> {
+            is HistoryViewModel.Dialog.Delete -> {
                 HistoryDeleteDialog(
                     onDismissRequest = onDismissRequest,
                     onDelete = { all ->
                         if (all) {
-                            screenModel.removeAllFromHistory(dialog.history.mangaId)
+                            viewModel.removeAllFromHistory(dialog.history.mangaId)
                         } else {
-                            screenModel.removeFromHistory(dialog.history)
+                            viewModel.removeFromHistory(dialog.history)
                         }
                     },
                 )
             }
-            is HistoryScreenModel.Dialog.DeleteAll -> {
+            is HistoryViewModel.Dialog.DeleteAll -> {
                 HistoryDeleteAllDialog(
                     onDismissRequest = onDismissRequest,
-                    onDelete = screenModel::removeAllHistory,
+                    onDelete = viewModel::removeAllHistory,
                 )
             }
-            is HistoryScreenModel.Dialog.DuplicateManga -> {
+            is HistoryViewModel.Dialog.DuplicateManga -> {
                 DuplicateMangaDialog(
                     duplicates = dialog.duplicates,
                     onDismissRequest = onDismissRequest,
-                    onConfirm = { screenModel.addFavorite(dialog.manga) },
+                    onConfirm = { viewModel.addFavorite(dialog.manga) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { screenModel.showMigrateDialog(dialog.manga, it) },
+                    onMigrate = { viewModel.showMigrateDialog(dialog.manga, it) },
                     // RK: offer grouping when the same-title suggestion pref is on.
                     groupIdByMangaId = dialog.groupIdByMangaId,
                     onAddToGroup = { selectedIds: List<Long> ->
-                        screenModel.addToExistingGroup(dialog.manga, selectedIds)
+                        viewModel.addToExistingGroup(dialog.manga, selectedIds)
                     }.takeIf { dialog.suggestGroup },
                 )
             }
-            is HistoryScreenModel.Dialog.ChangeCategory -> {
+            is HistoryViewModel.Dialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
                     onDismissRequest = onDismissRequest,
                     onEditCategories = { navigator.push(CategoryScreen()) },
                     onConfirm = { include, _ ->
-                        screenModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
+                        viewModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
                     },
                 )
             }
-            is HistoryScreenModel.Dialog.Migrate -> {
+            is HistoryViewModel.Dialog.Migrate -> {
                 EntryMigrateFor(
                     contentType = ContentType.MANGA,
                     currentId = dialog.current.id,
@@ -156,49 +156,49 @@ data object HistoryTab : Tab {
         }
 
         // RK --> novel history dialogs (delete one / delete all from novel / clear all)
-        val onDismissNovelDialog = { novelScreenModel.setDialog(null) }
+        val onDismissNovelDialog = { novelViewModel.setDialog(null) }
         when (val dialog = novelState.dialog) {
-            is NovelHistoryScreenModel.Dialog.Delete -> {
+            is NovelHistoryViewModel.Dialog.Delete -> {
                 HistoryDeleteDialog(
                     onDismissRequest = onDismissNovelDialog,
                     onDelete = { all ->
                         if (all) {
-                            novelScreenModel.removeAllFromHistory(dialog.history.novelId)
+                            novelViewModel.removeAllFromHistory(dialog.history.novelId)
                         } else {
-                            novelScreenModel.removeFromHistory(dialog.history)
+                            novelViewModel.removeFromHistory(dialog.history)
                         }
                     },
                 )
             }
-            is NovelHistoryScreenModel.Dialog.DeleteAll -> {
+            is NovelHistoryViewModel.Dialog.DeleteAll -> {
                 HistoryDeleteAllDialog(
                     onDismissRequest = onDismissNovelDialog,
-                    onDelete = novelScreenModel::removeAllHistory,
+                    onDelete = novelViewModel::removeAllHistory,
                 )
             }
-            is NovelHistoryScreenModel.Dialog.DuplicateNovel -> {
+            is NovelHistoryViewModel.Dialog.DuplicateNovel -> {
                 DuplicateNovelDialog(
                     duplicates = dialog.duplicates,
                     sourceNames = dialog.sourceNames,
                     sourceSites = dialog.sourceSites,
                     onDismissRequest = onDismissNovelDialog,
-                    onConfirm = { novelScreenModel.addFavoriteAnyway(dialog.novelId) },
+                    onConfirm = { novelViewModel.addFavoriteAnyway(dialog.novelId) },
                     onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                    onMigrate = { dup -> novelScreenModel.startMigrate(dup.id, dialog.novelId) },
+                    onMigrate = { dup -> novelViewModel.startMigrate(dup.id, dialog.novelId) },
                     groupIdByNovelId = dialog.groupIdByNovelId,
                     onAddToGroup = { selectedIds: List<Long> ->
-                        novelScreenModel.addToExistingGroup(dialog.novelId, selectedIds)
+                        novelViewModel.addToExistingGroup(dialog.novelId, selectedIds)
                     }.takeIf { dialog.suggestGroup },
                 )
             }
-            is NovelHistoryScreenModel.Dialog.ChangeCategory -> {
+            is NovelHistoryViewModel.Dialog.ChangeCategory -> {
                 NovelCategoryDialog(
                     dialog = NovelDetailsDialog.ChangeCategory(dialog.categories, dialog.currentIds),
                     onDismiss = onDismissNovelDialog,
-                    onConfirm = { ids -> novelScreenModel.applyCategories(dialog.novelId, ids) },
+                    onConfirm = { ids -> novelViewModel.applyCategories(dialog.novelId, ids) },
                 )
             }
-            is NovelHistoryScreenModel.Dialog.Migrate -> {
+            is NovelHistoryViewModel.Dialog.Migrate -> {
                 EntryMigrateFor(
                     contentType = ContentType.NOVELS,
                     currentId = dialog.currentId,
@@ -217,28 +217,28 @@ data object HistoryTab : Tab {
         }
 
         LaunchedEffect(Unit) {
-            screenModel.events.collectLatest { e ->
+            viewModel.events.collectLatest { e ->
                 when (e) {
-                    HistoryScreenModel.Event.InternalError ->
+                    HistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                    HistoryScreenModel.Event.HistoryCleared ->
+                    HistoryViewModel.Event.HistoryCleared ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
-                    is HistoryScreenModel.Event.OpenChapter -> openChapter(context, e.chapter)
+                    is HistoryViewModel.Event.OpenChapter -> openChapter(context, e.chapter)
                 }
             }
         }
 
         // RK --> novel history events
         LaunchedEffect(Unit) {
-            novelScreenModel.events.collectLatest { e ->
+            novelViewModel.events.collectLatest { e ->
                 when (e) {
-                    NovelHistoryScreenModel.Event.InternalError ->
+                    NovelHistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                    NovelHistoryScreenModel.Event.HistoryCleared ->
+                    NovelHistoryViewModel.Event.HistoryCleared ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
-                    is NovelHistoryScreenModel.Event.OpenNovel ->
+                    is NovelHistoryViewModel.Event.OpenNovel ->
                         navigator.push(NovelScreen(e.source, e.url))
-                    is NovelHistoryScreenModel.Event.OpenChapter ->
+                    is NovelHistoryViewModel.Event.OpenChapter ->
                         if (e.chapterId != null) {
                             // RK: group scope (default) so a merged novel's prev/next spans every source
                             // instead of degrading to the one source of the history entry.
@@ -256,12 +256,12 @@ data object HistoryTab : Tab {
                 // RK: resume the globally-latest read across manga + novel (both feeds are readAt-desc,
                 // so each list's first item is its latest). Whichever is newer wins.
                 val mangaLatest = state.list?.firstNotNullOfOrNull { (it as? HistoryUiModel.Item)?.item }
-                val novelLatest = novelScreenModel.getLast()
+                val novelLatest = novelViewModel.getLast()
                 val mangaAt = mangaLatest?.readAt?.time ?: Long.MIN_VALUE
                 val novelAt = novelLatest?.readAt ?: Long.MIN_VALUE
                 when {
-                    novelLatest != null && novelAt >= mangaAt -> novelScreenModel.resume(novelLatest)
-                    mangaLatest != null -> screenModel.getNextChapterForManga(
+                    novelLatest != null && novelAt >= mangaAt -> novelViewModel.resume(novelLatest)
+                    mangaLatest != null -> viewModel.getNextChapterForManga(
                         mangaLatest.mangaId,
                         mangaLatest.chapterId,
                     )

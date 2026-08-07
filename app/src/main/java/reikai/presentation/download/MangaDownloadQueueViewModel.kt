@@ -1,7 +1,6 @@
 package reikai.presentation.download
 
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.delay
@@ -11,6 +10,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -19,18 +19,18 @@ import uy.kohesive.injekt.injectLazy
 /**
  * Backs the manga side of the unified download queue on the shared [EntryDownloadCardList]: aggregates
  * Mihon's per-chapter [DownloadManager.queueState] into one card per manga (title + owning source + a
- * downloaded/total count + a single status), the manga twin of [NovelDownloadQueueScreenModel]. Mihon's
- * own [eu.kanade.tachiyomi.ui.download.DownloadQueueScreenModel] and its RecyclerView adapter/holders
+ * downloaded/total count + a single status), the manga twin of [NovelDownloadQueueViewModel]. Mihon's
+ * own [eu.kanade.tachiyomi.ui.download.DownloadQueueViewModel] and its RecyclerView adapter/holders
  * are the parked per-chapter view, left inert.
  */
-class MangaDownloadQueueScreenModel :
-    StateScreenModel<List<EntryDownloadCardUi>>(emptyList()) {
+class MangaDownloadQueueViewModel :
+    StateViewModel<List<EntryDownloadCardUi>>(emptyList()) {
 
     private val downloadManager: DownloadManager by injectLazy()
     private val downloadPreferences: DownloadPreferences by injectLazy()
 
     val isDownloaderRunning: StateFlow<Boolean> = downloadManager.isDownloaderRunning
-        .stateIn(screenModelScope, SharingStarted.Eagerly, false)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     // Highest queued count ever seen per manga: the "total" the card counts down from. Completed
     // chapters leave the queue, so the remaining count alone can't give a stable downloaded/total.
@@ -42,7 +42,7 @@ class MangaDownloadQueueScreenModel :
         // concurrency limit. A chapter's DOWNLOADING flag is an unreliable "active" signal (it lags
         // selection and drops out in the gap between chapters), so status is derived from the
         // downloader's own selection rule instead, which is gap-free and follows the queue order.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             merge(
                 downloadManager.queueState.map { },
                 downloadManager.statusFlow().map { },

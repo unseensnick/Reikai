@@ -23,7 +23,7 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.HistoryUiModel
-import eu.kanade.tachiyomi.ui.history.HistoryScreenModel
+import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -39,15 +39,15 @@ import java.time.LocalDate
 
 /**
  * The single History screen for all three content-type chips, the History twin of [ReikaiUpdatesScreen].
- * Manga rows are driven by Mihon's untouched [HistoryScreenModel], novels by [NovelHistoryScreenModel];
+ * Manga rows are driven by Mihon's untouched [HistoryViewModel], novels by [NovelHistoryViewModel];
  * both render through the shared [EntryHistoryRow]. One search box and one clear-all action drive both
  * feeds; the rows interleave by read time (newest first) with shared date headers.
  */
 @Composable
 fun ReikaiHistoryScreen(
     contentType: ContentType,
-    mangaModel: HistoryScreenModel,
-    novelModel: NovelHistoryScreenModel,
+    mangaModel: HistoryViewModel,
+    novelModel: NovelHistoryViewModel,
     snackbarHostState: SnackbarHostState,
     chip: @Composable () -> Unit,
     onClickMangaCover: (mangaId: Long) -> Unit,
@@ -81,8 +81,8 @@ fun ReikaiHistoryScreen(
                                 icon = Icons.Outlined.DeleteSweep,
                                 // Clear-all is chip-scoped: ALL clears both, otherwise just the shown type.
                                 onClick = {
-                                    if (showsManga) mangaModel.setDialog(HistoryScreenModel.Dialog.DeleteAll)
-                                    if (showsNovel) novelModel.setDialog(NovelHistoryScreenModel.Dialog.DeleteAll)
+                                    if (showsManga) mangaModel.setDialog(HistoryViewModel.Dialog.DeleteAll)
+                                    if (showsNovel) novelModel.setDialog(NovelHistoryViewModel.Dialog.DeleteAll)
                                 },
                             ),
                         ),
@@ -135,8 +135,8 @@ fun ReikaiHistoryScreen(
 
 private fun LazyListScope.historyRows(
     rows: List<HistoryRow>,
-    mangaModel: HistoryScreenModel,
-    novelModel: NovelHistoryScreenModel,
+    mangaModel: HistoryViewModel,
+    novelModel: NovelHistoryViewModel,
     onClickMangaCover: (Long) -> Unit,
     onClickMangaResume: (Long, Long) -> Unit,
     onClickMangaFavorite: (Long) -> Unit,
@@ -169,7 +169,7 @@ private fun LazyListScope.historyRows(
                     ui = value.toEntryHistoryRowUi(),
                     onClickCover = { onClickMangaCover(value.mangaId) },
                     onClickResume = { onClickMangaResume(value.mangaId, value.chapterId) },
-                    onClickDelete = { mangaModel.setDialog(HistoryScreenModel.Dialog.Delete(value)) },
+                    onClickDelete = { mangaModel.setDialog(HistoryViewModel.Dialog.Delete(value)) },
                     onClickFavorite = { onClickMangaFavorite(value.mangaId) },
                 )
             }
@@ -179,7 +179,7 @@ private fun LazyListScope.historyRows(
                     ui = value.toEntryHistoryRowUi(),
                     onClickCover = { onClickNovelCover(value.novelId) },
                     onClickResume = { onClickNovelResume(value) },
-                    onClickDelete = { novelModel.setDialog(NovelHistoryScreenModel.Dialog.Delete(value)) },
+                    onClickDelete = { novelModel.setDialog(NovelHistoryViewModel.Dialog.Delete(value)) },
                     onClickFavorite = { onClickNovelFavorite(value.novelId) },
                 )
             }

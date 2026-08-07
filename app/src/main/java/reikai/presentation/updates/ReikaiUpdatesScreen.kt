@@ -58,7 +58,7 @@ import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
-import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
+import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -80,7 +80,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * The single Updates screen for all three content-type chips. Manga is driven entirely by Mihon's
- * untouched [UpdatesScreenModel] (state + actions); novels by [NovelUpdatesScreenModel]. This is the
+ * untouched [UpdatesViewModel] (state + actions); novels by [NovelUpdatesViewModel]. This is the
  * consolidation that lets cross-cutting features (filters, by-category, group-by-series) apply to every
  * chip from one place, while Mihon's logic stays portable. The Manga chip renders identically to
  * Mihon's own `UpdateScreen` because it reuses the same row composable + the same model.
@@ -88,8 +88,8 @@ import kotlin.time.Duration.Companion.seconds
 @Composable
 fun ReikaiUpdatesScreen(
     contentType: ContentType,
-    mangaModel: UpdatesScreenModel,
-    novelModel: NovelUpdatesScreenModel,
+    mangaModel: UpdatesViewModel,
+    novelModel: NovelUpdatesViewModel,
     snackbarHostState: SnackbarHostState,
     chip: @Composable () -> Unit,
     onRefresh: () -> Unit,
@@ -334,8 +334,8 @@ fun ReikaiUpdatesScreen(
 private fun LazyListScope.updateRows(
     rows: List<UpdateRow>,
     selectionMode: Boolean,
-    mangaModel: UpdatesScreenModel,
-    novelModel: NovelUpdatesScreenModel,
+    mangaModel: UpdatesViewModel,
+    novelModel: NovelUpdatesViewModel,
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
     onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
@@ -716,8 +716,8 @@ private fun UpdateRow.memberCoverClick(
 private fun toggleMemberSelection(
     row: UpdateRow,
     selected: Boolean,
-    mangaModel: UpdatesScreenModel,
-    novelModel: NovelUpdatesScreenModel,
+    mangaModel: UpdatesViewModel,
+    novelModel: NovelUpdatesViewModel,
 ) {
     when (row) {
         is UpdateRow.Manga -> mangaModel.toggleSelection(row.item, selected, false)

@@ -2,8 +2,7 @@ package eu.kanade.tachiyomi.ui.stats
 
 import androidx.compose.ui.util.fastDistinctBy
 import androidx.compose.ui.util.fastFilter
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.core.util.fastCountNot
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.more.stats.data.StatsData
@@ -16,6 +15,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
@@ -42,7 +42,7 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class StatsScreenModel(
+class StatsViewModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val getTotalReadDuration: GetTotalReadDuration = Injekt.get(),
@@ -58,19 +58,19 @@ class StatsScreenModel(
     private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     // RK <--
-) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
+) : StateViewModel<StatsScreenState>(StatsScreenState.Loading) {
 
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
 
     // RK --> All / Manga / Novels switch; flips which content's stats show (persisted)
     val contentType: StateFlow<ContentType> = sourcePreferences.statsContentType.changes()
-        .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.statsContentType.get())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.statsContentType.get())
 
     fun setContentType(type: ContentType) = sourcePreferences.statsContentType.set(type)
     // RK <--
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val libraryManga = getLibraryManga.await()
             // RK: two dedup passes, not one. getLibraryManga repeats an entry per category, so the id
             //     pass is upstream's. The group pass is ours: a series favorited from three sources is

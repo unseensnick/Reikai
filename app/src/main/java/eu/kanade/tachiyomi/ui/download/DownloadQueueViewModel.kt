@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.ui.download
 
 import android.view.MenuItem
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -26,14 +26,14 @@ import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.milliseconds
 
 // RK: inert. The download queue was unified onto the shared Compose card list
-// (reikai.presentation.download.EntryDownloadCardList, driven by MangaDownloadQueueScreenModel), so
+// (reikai.presentation.download.EntryDownloadCardList, driven by MangaDownloadQueueViewModel), so
 // this per-chapter RecyclerView model and its View cluster (DownloadAdapter, DownloadHolder,
 // DownloadHeaderHolder, DownloadItem, DownloadHeaderItem, download_list.xml) are no longer referenced.
 // Left in place, not deleted: they are the revive path for the parked per-chapter queue control
 // (expandable cards) in ROADMAP.md, and keep upstream download-queue syncs clean.
-class DownloadQueueScreenModel(
+class DownloadQueueViewModel(
     private val downloadManager: DownloadManager = Injekt.get(),
-) : ScreenModel {
+) : ViewModel() {
 
     private val _state = MutableStateFlow(emptyList<DownloadHeaderItem>())
     val state = _state.asStateFlow()
@@ -123,7 +123,7 @@ class DownloadQueueScreenModel(
     }
 
     init {
-        screenModelScope.launch {
+        viewModelScope.launch {
             downloadManager.queueState
                 .map { downloads ->
                     downloads
@@ -138,7 +138,7 @@ class DownloadQueueScreenModel(
         }
     }
 
-    override fun onDispose() {
+    override fun onCleared() {
         for (job in progressJobs.values) {
             job.cancel()
         }
@@ -147,7 +147,7 @@ class DownloadQueueScreenModel(
     }
 
     val isDownloaderRunning = downloadManager.isDownloaderRunning
-        .stateIn(screenModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun getDownloadStatusFlow() = downloadManager.statusFlow()
     fun getDownloadProgressFlow() = downloadManager.progressFlow()
@@ -217,7 +217,7 @@ class DownloadQueueScreenModel(
      * @param download the download to observe its progress.
      */
     private fun launchProgressJob(download: Download) {
-        val job = screenModelScope.launch {
+        val job = viewModelScope.launch {
             while (download.pages == null) {
                 delay(50.milliseconds)
             }

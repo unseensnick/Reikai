@@ -2,8 +2,7 @@ package eu.kanade.tachiyomi.ui.history
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.interactor.AddTracks
@@ -22,6 +21,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.MangaLibraryAdder
@@ -48,7 +48,7 @@ import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class HistoryScreenModel(
+class HistoryViewModel(
     private val addTracks: AddTracks = Injekt.get(),
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
     private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
@@ -66,13 +66,13 @@ class HistoryScreenModel(
     // RK: add-time grouping (the suggestion gate, the merge, and the group's categories).
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
-) : StateScreenModel<HistoryScreenModel.State>(State()) {
+) : StateViewModel<HistoryViewModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
     init {
-        screenModelScope.launch {
+        viewModelScope.launch {
             state.map { it.searchQuery }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
@@ -121,7 +121,7 @@ class HistoryScreenModel(
     }
 
     fun getNextChapterForManga(mangaId: Long, chapterId: Long) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             sendNextChapterEvent(getNextChapters.await(mangaId, chapterId, onlyUnread = false))
         }
     }
@@ -132,19 +132,19 @@ class HistoryScreenModel(
     }
 
     fun removeFromHistory(history: HistoryWithRelations) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             removeHistory.await(history)
         }
     }
 
     fun removeAllFromHistory(mangaId: Long) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             removeHistory.await(mangaId)
         }
     }
 
     fun removeAllHistory() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val result = removeHistory.awaitAll()
             if (!result) return@launchIO
             _events.send(Event.HistoryCleared)
@@ -171,7 +171,7 @@ class HistoryScreenModel(
     // RK: upstream's Category? overload went with the add path that needed it; the shared
     // default-category rule already hands back the id list this takes.
     private fun moveMangaToCategory(mangaId: Long, categoryIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             setMangaCategories.await(mangaId, categoryIds)
         }
     }
@@ -180,7 +180,7 @@ class HistoryScreenModel(
         moveMangaToCategory(manga.id, categories)
         if (manga.favorite) return
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             updateManga.awaitUpdateFavorite(manga.id, true)
         }
     }
@@ -191,7 +191,7 @@ class HistoryScreenModel(
     }
 
     fun addFavorite(mangaId: Long) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val manga = getManga.await(mangaId) ?: return@launchIO
 
             val duplicates = getDuplicateLibraryManga(manga)
@@ -215,7 +215,7 @@ class HistoryScreenModel(
     }
 
     fun addFavorite(manga: Manga) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // RK: the same shared default-category rule every other add path reads. Upstream's write
             // order stays: favorite first, abandon the add if that write fails, then file categories.
             val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
@@ -235,7 +235,7 @@ class HistoryScreenModel(
     // every match would fuse distinct series. The favorite-and-merge pair and the reason it has to be
     // atomic live in MangaLibraryAdder.addToGroup; null means it wrote nothing.
     fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val seeded = mangaLibraryAdder.addToGroup(manga, selectedIds) ?: return@launchIO
             addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
 
@@ -255,7 +255,7 @@ class HistoryScreenModel(
     }
 
     fun showChangeCategoryDialog(manga: Manga) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             val categories = getCategories()
             val selection = getMangaCategoryIds(manga)
             mutableState.update { currentState ->

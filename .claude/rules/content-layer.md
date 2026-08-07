@@ -26,7 +26,7 @@ common way to mis-plan work here.
 | Migrate | Full takeover | The whole flow, screens and orchestration; seventeen Mihon files deleted and manifested | content-layer-migrate-surface |
 | Browse | Behavior-partial | Shared bulk-favorite generic, shared dialogs and the default-category kernel. Verbs stay per-type, no takeover, and one neutral adder contract was assessed and declined | content-layer-browse-surface |
 | History, Updates | UI leaf only | Shared row composables over per-type feeds; behavior never unified | unified-content-ui |
-| Downloads | Not started | Nothing. Road B; `DownloadQueueScreenModel` is still `// RK: inert` | download-queue-unification |
+| Downloads | Not started | Nothing. Road B; `DownloadQueueViewModel` is still `// RK: inert` | download-queue-unification |
 | Reader | Chrome only | Top and bottom bars; the two engines are separate by design | unified-reader |
 
 Everything below the behavior seam is scheduled to be redone at it. Sequencing is in the record, not

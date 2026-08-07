@@ -1,12 +1,12 @@
 package reikai.presentation.download
 
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -23,11 +23,11 @@ import uy.kohesive.injekt.injectLazy
  * [NovelDownloadManager.queueState] into one card per novel (title + owning source + a downloaded/total
  * count + a single status), and owns the sticky `All / Manga / Novels` chip selection. Grouping by
  * series is what keeps a full-novel download (thousands of queued chapters) to a single card. The
- * manga side stays on Mihon's own [eu.kanade.tachiyomi.ui.download.DownloadQueueScreenModel]; this is
+ * manga side stays on Mihon's own [eu.kanade.tachiyomi.ui.download.DownloadQueueViewModel]; this is
  * additive.
  */
-class NovelDownloadQueueScreenModel :
-    StateScreenModel<List<EntryDownloadCardUi>>(emptyList()) {
+class NovelDownloadQueueViewModel :
+    StateViewModel<List<EntryDownloadCardUi>>(emptyList()) {
 
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val novelRepo: NovelRepository by injectLazy()
@@ -36,11 +36,11 @@ class NovelDownloadQueueScreenModel :
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
 
     val contentType: StateFlow<ContentType> = sourcePreferences.downloadContentType.changes()
-        .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.downloadContentType.get())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.downloadContentType.get())
 
-    /** Whether the novel drain is running, for the queue FAB (mirrors the manga ScreenModel). */
+    /** Whether the novel drain is running, for the queue FAB (mirrors the manga ViewModel). */
     val isDownloaderRunning: StateFlow<Boolean> = downloadManager.isDownloaderRunning
-        .stateIn(screenModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // (title, sourceName) per novel, so a burst of progress-driven emissions doesn't re-hit the DB.
     private val metaCache = HashMap<Long, Pair<String, String>>()
@@ -50,7 +50,7 @@ class NovelDownloadQueueScreenModel :
     private val initialTotals = HashMap<Long, Int>()
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(
                 downloadManager.queueState,
                 downloadManager.downloadingNovelId,
@@ -120,7 +120,7 @@ class NovelDownloadQueueScreenModel :
     /** Sort each novel's queued chapters among themselves by [selector] (novel order preserved), so the
      *  drain picks them in that order. Runs off the UI thread since it resolves chapter rows. */
     fun <R : Comparable<R>> sort(selector: (NovelChapter) -> R, reverse: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val queue = downloadManager.queueState.value
             val chapterById = queue.associate { it.chapterId to chapterRepo.getById(it.chapterId) }
             val reordered = queue.groupBy { it.novelId }.values.flatMap { group ->

@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 // RK: the screen body and its previews moved to the shared reikai.presentation.history
 // .ReikaiHistoryScreen (manga + novel history render through it now). Only the ui model stays,
-// because Mihon's HistoryScreenModel still emits it and the shared screen consumes it.
+// because Mihon's HistoryViewModel still emits it and the shared screen consumes it.
 
 sealed interface HistoryUiModel {
     data class Header(val date: LocalDate) : HistoryUiModel

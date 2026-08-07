@@ -5,8 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.util.fastFilter
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.addOrRemove
 import eu.kanade.domain.chapter.interactor.SetReadStatus
@@ -30,6 +29,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.source.ReikaiSourcePreferences
@@ -54,7 +54,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.ZonedDateTime
 
-class UpdatesScreenModel(
+class UpdatesViewModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
     private val downloadCache: DownloadCache = Injekt.get(),
@@ -72,19 +72,19 @@ class UpdatesScreenModel(
     private val getCategories: GetCategories = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
-) : StateScreenModel<UpdatesScreenModel.State>(State()) {
+) : StateViewModel<UpdatesViewModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Int.MAX_VALUE)
     val events: Flow<Event> = _events.receiveAsFlow()
 
-    val lastUpdated by libraryPreferences.lastUpdatedTimestamp.asState(screenModelScope)
+    val lastUpdated by libraryPreferences.lastUpdatedTimestamp.asState(viewModelScope)
 
     // First and last selected index in list
     private val selectedPositions: Array<Int> = arrayOf(-1, -1)
     private val selectedChapterIds: HashSet<Long> = HashSet()
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Set date limit for recent chapters
             val limit = ZonedDateTime.now().minusMonths(3).toInstant()
 
@@ -130,10 +130,10 @@ class UpdatesScreenModel(
                 }
         }
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             merge(downloadManager.statusFlow(), downloadManager.progressFlow())
                 .catch { logcat(LogPriority.ERROR, it) }
-                .collect(this@UpdatesScreenModel::updateDownloadState)
+                .collect(this@UpdatesViewModel::updateDownloadState)
         }
 
         // RK --> also reflect the include/exclude category filter in the active-filter tint
@@ -157,7 +157,7 @@ class UpdatesScreenModel(
                     state.copy(hasActiveFilters = it)
                 }
             }
-            .launchIn(screenModelScope)
+            .launchIn(viewModelScope)
         // RK <--
     }
 
@@ -254,7 +254,7 @@ class UpdatesScreenModel(
 
     fun updateLibrary(): Boolean {
         val started = LibraryUpdateJob.startNow(Injekt.get<Application>())
-        screenModelScope.launch {
+        viewModelScope.launch {
             _events.send(Event.LibraryUpdateTriggered(started))
         }
         return started
@@ -283,7 +283,7 @@ class UpdatesScreenModel(
 
     fun downloadChapters(items: List<UpdatesItem>, action: ChapterDownloadAction) {
         if (items.isEmpty()) return
-        screenModelScope.launch {
+        viewModelScope.launch {
             when (action) {
                 ChapterDownloadAction.START -> {
                     downloadChapters(items)
@@ -323,7 +323,7 @@ class UpdatesScreenModel(
      * @param read whether to mark chapters as read or unread.
      */
     fun markUpdatesRead(updates: List<UpdatesItem>, read: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             setReadStatus.await(
                 read = read,
                 chapters = updates
@@ -339,7 +339,7 @@ class UpdatesScreenModel(
      * @param updates the list of chapters to bookmark.
      */
     fun bookmarkUpdates(updates: List<UpdatesItem>, bookmark: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             updates
                 .filterNot { it.update.bookmark == bookmark }
                 .map { ChapterUpdate(id = it.update.chapterId, bookmark = bookmark) }
@@ -353,7 +353,7 @@ class UpdatesScreenModel(
      * @param updatesItem the list of chapters to download.
      */
     private fun downloadChapters(updatesItem: List<UpdatesItem>) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             val groupedUpdates = updatesItem.groupBy { it.update.mangaId }.values
             for (updates in groupedUpdates) {
                 val mangaId = updates.first().update.mangaId
@@ -372,7 +372,7 @@ class UpdatesScreenModel(
      * @param updatesItem list of chapters
      */
     fun deleteChapters(updatesItem: List<UpdatesItem>) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             updatesItem
                 .groupBy { it.update.mangaId }
                 .entries

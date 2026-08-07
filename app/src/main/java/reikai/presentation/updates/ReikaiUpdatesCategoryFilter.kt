@@ -14,7 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsScreenModel
+import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.category.CategoryFilterRow
 import reikai.presentation.category.CategoryFilterSection
@@ -34,12 +34,12 @@ import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
  */
 @Composable
 fun ColumnScope.ReikaiUpdatesCategoryFilter(
-    screenModel: UpdatesSettingsScreenModel,
+    viewModel: UpdatesSettingsViewModel,
     contentType: ContentType,
 ) {
-    val prefs = screenModel.reikaiSourcePreferences
-    val mangaCategories by screenModel.mangaCategories.collectAsState()
-    val novelCategories by screenModel.novelCategories.collectAsState()
+    val prefs = viewModel.reikaiSourcePreferences
+    val mangaCategories by viewModel.mangaCategories.collectAsState()
+    val novelCategories by viewModel.novelCategories.collectAsState()
 
     val showManga = contentType != ContentType.NOVELS && mangaCategories.isNotEmpty()
     val showNovel = contentType != ContentType.MANGA && novelCategories.isNotEmpty()
@@ -59,7 +59,7 @@ fun ColumnScope.ReikaiUpdatesCategoryFilter(
                     categories = mangaCategories,
                     included = mangaInclude.toLongIdSet(),
                     excluded = mangaExclude.toLongIdSet(),
-                    onConfirm = screenModel::setMangaCategorySelections,
+                    onConfirm = viewModel::setMangaCategorySelections,
                 ),
             )
         }
@@ -70,7 +70,7 @@ fun ColumnScope.ReikaiUpdatesCategoryFilter(
                     categories = novelCategories,
                     included = novelInclude.toLongIdSet(),
                     excluded = novelExclude.toLongIdSet(),
-                    onConfirm = screenModel::setNovelCategorySelections,
+                    onConfirm = viewModel::setNovelCategorySelections,
                 ),
             )
         }
@@ -78,17 +78,17 @@ fun ColumnScope.ReikaiUpdatesCategoryFilter(
 
     CategoryFilterRow(
         enabled = enabled,
-        onToggleEnabled = screenModel::setFilterCategories,
+        onToggleEnabled = viewModel::setFilterCategories,
         sections = sections,
     )
 }
 
 /** "Group by series" switch for the Updates filter dialog (a Reikai addition, like the category row). */
 @Composable
-fun ColumnScope.ReikaiUpdatesGroupToggle(screenModel: UpdatesSettingsScreenModel) {
-    val grouped by screenModel.reikaiSourcePreferences.updatesGroupBySeries.collectAsPrefState()
+fun ColumnScope.ReikaiUpdatesGroupToggle(viewModel: UpdatesSettingsViewModel) {
+    val grouped by viewModel.reikaiSourcePreferences.updatesGroupBySeries.collectAsPrefState()
     fun toggle() {
-        screenModel.reikaiSourcePreferences.updatesGroupBySeries.getAndSet { !it }
+        viewModel.reikaiSourcePreferences.updatesGroupBySeries.getAndSet { !it }
     }
     Row(
         modifier = Modifier

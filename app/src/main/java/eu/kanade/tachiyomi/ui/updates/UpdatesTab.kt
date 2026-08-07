@@ -10,7 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -26,7 +26,7 @@ import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel.Event
+import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel.Event
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import mihon.feature.upcoming.UpcomingScreen
@@ -35,7 +35,7 @@ import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
-import reikai.presentation.updates.NovelUpdatesScreenModel
+import reikai.presentation.updates.NovelUpdatesViewModel
 import reikai.presentation.updates.ReikaiUpdatesCategoryFilter
 import reikai.presentation.updates.ReikaiUpdatesGroupToggle
 import reikai.presentation.updates.ReikaiUpdatesScreen
@@ -65,13 +65,13 @@ data object UpdatesTab : Tab {
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { UpdatesScreenModel() }
-        val settingsScreenModel = rememberScreenModel { UpdatesSettingsScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<UpdatesViewModel>()
+        val settingsViewModel = viewModel<UpdatesSettingsViewModel>()
+        val state by viewModel.state.collectAsState()
         // RK -->
-        val novelScreenModel = rememberScreenModel { NovelUpdatesScreenModel() }
-        val novelState by novelScreenModel.state.collectAsState()
-        val contentType by novelScreenModel.contentType.collectAsState()
+        val novelViewModel = viewModel<NovelUpdatesViewModel>()
+        val novelState by novelViewModel.state.collectAsState()
+        val contentType by novelViewModel.contentType.collectAsState()
         val scope = rememberCoroutineScope()
         val chip: @Composable () -> Unit = {
             ContentTypeFilterChips(
@@ -80,27 +80,27 @@ data object UpdatesTab : Tab {
                     // A selection must not survive into a chip that hides its rows: the action bar
                     // still counts the hidden entries and every action would run on them unseen.
                     // Mirrors the library engine's setContentType.
-                    screenModel.toggleAllSelection(false)
-                    novelScreenModel.selectAll(false)
-                    novelScreenModel.setContentType(type)
+                    viewModel.toggleAllSelection(false)
+                    novelViewModel.selectAll(false)
+                    novelViewModel.setContentType(type)
                 },
             )
         }
 
         // All three chips render through one consolidated Reikai screen. Manga is driven by Mihon's
-        // untouched UpdatesScreenModel (passed in), so its behavior is unchanged.
+        // untouched UpdatesViewModel (passed in), so its behavior is unchanged.
         ReikaiUpdatesScreen(
             contentType = contentType,
-            mangaModel = screenModel,
-            novelModel = novelScreenModel,
-            snackbarHostState = screenModel.snackbarHostState,
+            mangaModel = viewModel,
+            novelModel = novelViewModel,
+            snackbarHostState = viewModel.snackbarHostState,
             chip = chip,
             onRefresh = {
                 // Single-type chips keep their own model's started/already-running snackbar. The All chip
                 // triggers both jobs directly (bypassing each model's event) so it shows one combined line.
                 when (contentType) {
-                    ContentType.MANGA -> screenModel.updateLibrary()
-                    ContentType.NOVELS -> novelScreenModel.updateLibrary()
+                    ContentType.MANGA -> viewModel.updateLibrary()
+                    ContentType.NOVELS -> novelViewModel.updateLibrary()
                     ContentType.ALL -> {
                         val started = LibraryUpdateJob.startNow(context) or NovelUpdateJob.startNow(context)
                         scope.launch {
@@ -109,12 +109,12 @@ data object UpdatesTab : Tab {
                             } else {
                                 MR.strings.update_already_running
                             }
-                            screenModel.snackbarHostState.showSnackbar(context.stringResource(msg))
+                            viewModel.snackbarHostState.showSnackbar(context.stringResource(msg))
                         }
                     }
                 }
             },
-            onFilterClicked = screenModel::showFilterDialog,
+            onFilterClicked = viewModel::showFilterDialog,
             hasActiveFilters = state.hasActiveFilters,
             onCalendarClicked = { navigator.push(UpcomingScreen()) },
             onOpenMangaChapter = {
@@ -137,23 +137,23 @@ data object UpdatesTab : Tab {
         )
 
         // Filter / delete dialogs render regardless of chip (the filter is reachable from both screens).
-        val onDismissDialog = { screenModel.setDialog(null) }
+        val onDismissDialog = { viewModel.setDialog(null) }
         when (val dialog = state.dialog) {
-            is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
+            is UpdatesViewModel.Dialog.DeleteConfirmation -> {
                 UpdatesDeleteConfirmationDialog(
                     onDismissRequest = onDismissDialog,
-                    onConfirm = { screenModel.deleteChapters(dialog.toDelete) },
+                    onConfirm = { viewModel.deleteChapters(dialog.toDelete) },
                 )
             }
-            is UpdatesScreenModel.Dialog.FilterSheet -> {
+            is UpdatesViewModel.Dialog.FilterSheet -> {
                 UpdatesFilterDialog(
                     onDismissRequest = onDismissDialog,
-                    screenModel = settingsScreenModel,
+                    viewModel = settingsViewModel,
                     reikaiCategoryRow = {
-                        ReikaiUpdatesCategoryFilter(screenModel = settingsScreenModel, contentType = contentType)
+                        ReikaiUpdatesCategoryFilter(viewModel = settingsViewModel, contentType = contentType)
                     },
                     reikaiAfterFilters = {
-                        ReikaiUpdatesGroupToggle(screenModel = settingsScreenModel)
+                        ReikaiUpdatesGroupToggle(viewModel = settingsViewModel)
                     },
                 )
             }
@@ -162,9 +162,9 @@ data object UpdatesTab : Tab {
         // RK <--
 
         LaunchedEffect(Unit) {
-            screenModel.events.collectLatest { event ->
+            viewModel.events.collectLatest { event ->
                 when (event) {
-                    Event.InternalError -> screenModel.snackbarHostState.showSnackbar(
+                    Event.InternalError -> viewModel.snackbarHostState.showSnackbar(
                         context.stringResource(MR.strings.internal_error),
                     )
                     is Event.LibraryUpdateTriggered -> {
@@ -173,7 +173,7 @@ data object UpdatesTab : Tab {
                         } else {
                             MR.strings.update_already_running
                         }
-                        screenModel.snackbarHostState.showSnackbar(context.stringResource(msg))
+                        viewModel.snackbarHostState.showSnackbar(context.stringResource(msg))
                     }
                 }
             }
@@ -181,15 +181,15 @@ data object UpdatesTab : Tab {
 
         // RK: novel refresh feedback (started / already-running), shown on the shared snackbar host.
         LaunchedEffect(Unit) {
-            novelScreenModel.events.collectLatest { event ->
+            novelViewModel.events.collectLatest { event ->
                 when (event) {
-                    is NovelUpdatesScreenModel.Event.LibraryUpdateTriggered -> {
+                    is NovelUpdatesViewModel.Event.LibraryUpdateTriggered -> {
                         val msg = if (event.started) {
                             MR.strings.updating_library
                         } else {
                             MR.strings.update_already_running
                         }
-                        screenModel.snackbarHostState.showSnackbar(context.stringResource(msg))
+                        viewModel.snackbarHostState.showSnackbar(context.stringResource(msg))
                     }
                 }
             }
@@ -206,10 +206,10 @@ data object UpdatesTab : Tab {
             }
         }
         DisposableEffect(Unit) {
-            screenModel.resetNewUpdatesCount()
+            viewModel.resetNewUpdatesCount()
 
             onDispose {
-                screenModel.resetNewUpdatesCount()
+                viewModel.resetNewUpdatesCount()
             }
         }
     }

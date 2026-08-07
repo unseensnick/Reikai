@@ -3,8 +3,7 @@ package reikai.presentation.updates
 import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -19,6 +18,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryFilterActive
@@ -49,13 +49,13 @@ import java.time.ZonedDateTime
 
 /**
  * Drives the light-novel side of the Updates tab, the novel twin of
- * [eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel]. Subscribes to the recent-novel-updates feed
+ * [eu.kanade.tachiyomi.ui.updates.UpdatesViewModel]. Subscribes to the recent-novel-updates feed
  * (chapters fetched after the novel was added) and the download queue, exposing a flat list the
  * combined [ReikaiUpdatesScreen] groups by date. Chapter-read/bookmark/download actions reuse the
  * novel repos + [NovelDownloadManager]. Novels rely on the manga tab's unread-count badge reset, so
  * there is nothing to reset here.
  */
-class NovelUpdatesScreenModel(
+class NovelUpdatesViewModel(
     private val novelRepo: NovelRepository = Injekt.get(),
     private val chapterRepo: NovelChapterRepository = Injekt.get(),
     private val setNovelReadStatus: SetNovelReadStatus = Injekt.get(),
@@ -71,17 +71,17 @@ class NovelUpdatesScreenModel(
     private val mangaMergeManager: MangaMergeManager = Injekt.get(),
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
-) : StateScreenModel<NovelUpdatesScreenModel.State>(State()) {
+) : StateViewModel<NovelUpdatesViewModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
     /** Timestamp of the last novel library update, for the shared Updates "Last updated" line. */
-    val lastUpdated by novelPreferences.novelLibraryUpdateLastTimestamp().asState(screenModelScope)
+    val lastUpdated by novelPreferences.novelLibraryUpdateLastTimestamp().asState(viewModelScope)
 
     /** Sticky All / Manga / Novels chip state for the Updates tab (drives which screen the tab shows). */
     val contentType: StateFlow<ContentType> = sourcePreferences.updatesContentType.changes()
-        .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.updatesContentType.get())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.updatesContentType.get())
 
     fun setContentType(type: ContentType) = sourcePreferences.updatesContentType.set(type)
 
@@ -89,11 +89,11 @@ class NovelUpdatesScreenModel(
      *  on chips where manga's own active-filter flag wouldn't reflect a novel-only selection. */
     val hasActiveCategoryFilter: StateFlow<Boolean> = categoryFilterFlow()
         .map { categoryFilterActive(it.enabled, it.include, it.exclude) }
-        .stateIn(screenModelScope, SharingStarted.Eagerly, false)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** Collapse a series' same-date chapters into one expandable row (display option, both types). */
     val groupBySeries: StateFlow<Boolean> = sourcePreferences.updatesGroupBySeries.changes()
-        .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.updatesGroupBySeries.get())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.updatesGroupBySeries.get())
 
     // Merge-aware grouping: each favorite's merge-group key (sources of one merged series share a key),
     // so group-by-series collapses a cross-source merged series into one group instead of one per source.
@@ -105,19 +105,19 @@ class NovelUpdatesScreenModel(
         mangaMergeManager.membershipChanges(),
     ) { on, _ ->
         if (on) mangaMergeManager.seriesGroupKeys(getFavorites.await().map { it.id }) else emptyMap()
-    }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     val novelSeriesKeys: StateFlow<Map<Long, String>> = combine(
         sourcePreferences.updatesGroupBySeries.changes(),
         novelMergeManager.membershipChanges(),
     ) { on, _ ->
         if (on) novelMergeManager.seriesGroupKeys(novelRepo.getFavorites().map { it.id }) else emptyMap()
-    }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     private val selectedChapterIds = HashSet<Long>()
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val after = ZonedDateTime.now().minusMonths(RECENT_MONTHS).toInstant().toEpochMilli()
             // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
             val filterFlow = combine(
@@ -257,14 +257,14 @@ class NovelUpdatesScreenModel(
     /** Kick off a novel library update; reports back started vs already-running for the snackbar. */
     fun updateLibrary(): Boolean {
         val started = NovelUpdateJob.startNow(Injekt.get<Application>())
-        screenModelScope.launch {
+        viewModelScope.launch {
             _events.send(Event.LibraryUpdateTriggered(started))
         }
         return started
     }
 
     fun markRead(items: List<NovelUpdatesItem>, read: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Route through the shared read interactor so mark-read here also deletes downloads when
             // "delete after read" is on, matching manga (and the novel details/reader/library paths).
             val chapters = items.mapNotNull { chapterRepo.getById(it.update.chapterId) }
@@ -274,14 +274,14 @@ class NovelUpdatesScreenModel(
     }
 
     fun bookmark(items: List<NovelUpdatesItem>, bookmark: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             items.forEach { chapterRepo.setBookmark(it.update.chapterId, bookmark) }
             selectAll(false)
         }
     }
 
     fun downloadChapters(items: List<NovelUpdatesItem>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val chapters = items.mapNotNull { chapterRepo.getById(it.update.chapterId) }
             if (chapters.isNotEmpty()) downloadManager.downloadChapters(chapters)
             selectAll(false)
@@ -289,7 +289,7 @@ class NovelUpdatesScreenModel(
     }
 
     fun deleteChapters(items: List<NovelUpdatesItem>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val chapters = items.mapNotNull { chapterRepo.getById(it.update.chapterId) }
             if (chapters.isNotEmpty()) downloadManager.deleteChapters(chapters)
             selectAll(false)
@@ -298,7 +298,7 @@ class NovelUpdatesScreenModel(
 
     /** Per-row download icon, mirroring the novel details download-action mapping. */
     fun onDownloadAction(item: NovelUpdatesItem, action: ChapterDownloadAction) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val chapter = chapterRepo.getById(item.update.chapterId) ?: return@launchIO
             when (action) {
                 ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))

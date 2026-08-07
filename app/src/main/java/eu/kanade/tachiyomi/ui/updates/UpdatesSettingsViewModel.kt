@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.ui.updates
 
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,14 +17,14 @@ import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class UpdatesSettingsScreenModel(
+class UpdatesSettingsViewModel(
     val updatesPreferences: UpdatesPreferences = Injekt.get(),
     // RK -->
     val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
     // RK <--
-) : ScreenModel {
+) : ViewModel() {
 
     fun toggleFilter(preference: (UpdatesPreferences) -> Preference<TriState>) {
         preference(updatesPreferences).getAndSet {
@@ -42,7 +42,7 @@ class UpdatesSettingsScreenModel(
     val novelCategories: StateFlow<List<Category>> = _novelCategories.asStateFlow()
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             _mangaCategories.value = getCategories.await()
             _novelCategories.value = getNovelCategories.await()
         }
