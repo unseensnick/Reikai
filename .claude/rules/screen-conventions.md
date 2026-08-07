@@ -19,31 +19,33 @@ The entry point is a class extending Voyager's `Screen` / `Tab` (`cafe.adriel.vo
 
 Voyager `Screen` constructor args must be serializable (no lambdas: they crash on state-save). Route navigation via the local navigator inside `Content()`.
 
-### 2. Business logic in a `ScreenModel`
+### 2. Business logic in a `ViewModel`
 
-State and side-effects live in a `ScreenModel` resolved via `rememberScreenModel { ... }`. The composable becomes a renderer over `state.collectAsState()`. Static / pure-UI screens (license lists, simple pickers) may skip the ScreenModel and must say so in a one-line comment: `// no ScreenModel: pure UI, no async state.`
+State and side-effects live in an AndroidX `ViewModel` resolved via `viewModel<FooViewModel>()`. The composable becomes a renderer over `state.collectAsState()`. Static / pure-UI screens (license lists, simple pickers) may skip the ViewModel and must say so in a one-line comment: `// no ViewModel: pure UI, no async state.`
+
+A model whose constructor arguments are all Injekt defaults resolves bare, with no factory. One that takes real arguments (a `mangaId`, a `sourceId`) gets a `companion object` holding typed `CreationExtras.Key` values plus a `viewModelFactory`, and the call site passes them through `extras`; `MangaViewModel` is the worked example. **A bare-resolved model must never be `private`**: the default factory instantiates reflectively, and a private top-level Kotlin class is package-private in bytecode, so the screen crashes on open in every build type including debug.
 
 ### 3. DI: Injekt, never inside `@Composable`
 
-Inject dependencies in the ScreenModel (constructor injection registered in `eu/kanade/domain/DomainModule.kt` / `eu/kanade/tachiyomi/di/`, or `injectLazy()` at class level). `Injekt.get<>()` and `injectLazy()` must never appear inside a `@Composable` body: it couples the renderer to the DI container and breaks isolated preview/test. Use Mihon's Injekt; do not introduce Koin.
+Inject dependencies in the ViewModel (constructor injection registered in `eu/kanade/domain/DomainModule.kt` / `eu/kanade/tachiyomi/di/`, or `injectLazy()` at class level). A `Context` parameter comes from `Injekt.get<Application>()`, not `LocalContext`. `Injekt.get<>()` and `injectLazy()` must never appear inside a `@Composable` body: it couples the renderer to the DI container and breaks isolated preview/test. Use Mihon's Injekt; do not introduce Koin.
 
 **Carve-out for ported upstream shapes (applies to conventions 3 and 5):** code ported from a Mihon or Komikku file may keep the upstream shape even where it breaks these two rules (Mihon itself resolves Injekt inside settings-screen `getPreferences()` and its track dialog, and ships queue stores on raw `SharedPreferences`). Staying character-close to the source keeps future syncs diffable. The rules bind net-new Reikai screens.
 
 ### 4. State via `StateFlow`
 
-State exposed by the ScreenModel is a `StateFlow` (typically `StateScreenModel<S>`). Trivial UI-only state (a text field value, a tab index) may use `mutableStateOf` / `rememberSaveable` in the composable. No RxJava `Observable` / `Subject` / `Flowable` on the screen path; adapt at the boundary with `.asFlow()` if a dependency still returns Rx.
+State exposed by the ViewModel is a `StateFlow` (typically `StateViewModel<S>`, from `mihon.core.viewmodel`). Trivial UI-only state (a text field value, a tab index) may use `mutableStateOf` / `rememberSaveable` in the composable. No RxJava `Observable` / `Subject` / `Flowable` on the screen path; adapt at the boundary with `.asFlow()` if a dependency still returns Rx.
 
 ### 5. No preferences inside `@Composable`
 
-Don't read `PreferenceStore` or a `*Preferences` holder inside a composable. Read in the ScreenModel and expose preference values as fields of `state`.
+Don't read `PreferenceStore` or a `*Preferences` holder inside a composable. Read in the ViewModel and expose preference values as fields of `state`.
 
-### 6. Coroutines via `screenModelScope` or `rememberCoroutineScope`
+### 6. Coroutines via `viewModelScope` or `rememberCoroutineScope`
 
-ScreenModel: `screenModelScope.launchIO { }` / `launchUI { }`. Composable: `rememberCoroutineScope().launch { }` or `LaunchedEffect`. Forbidden: `GlobalScope.launch(...)`, hand-rolled `CoroutineScope(Dispatchers.IO + Job())`. Work that must outlive the screen belongs in `WorkManager`.
+ViewModel: `viewModelScope.launchIO { }` / `launchUI { }`. Composable: `rememberCoroutineScope().launch { }` or `LaunchedEffect`. Forbidden: `GlobalScope.launch(...)`, hand-rolled `CoroutineScope(Dispatchers.IO + Job())`. Work that must outlive the screen belongs in `WorkManager`.
 
 ### 7. Business logic out of `@Composable`
 
-The composable describes what to render given a state. It should not run a state machine inline, branch on load state to decide what data to fetch, or make repository / service calls. Side-effects go in `LaunchedEffect` (one-shot) or the ScreenModel. Cheap pure derivation (filtering a list before rendering) is fine in the composable; expensive or I/O work goes in the ScreenModel.
+The composable describes what to render given a state. It should not run a state machine inline, branch on load state to decide what data to fetch, or make repository / service calls. Side-effects go in `LaunchedEffect` (one-shot) or the ViewModel. Cheap pure derivation (filtering a list before rendering) is fine in the composable; expensive or I/O work goes in the ViewModel.
 
 ### 8. Re-typed to Mihon, patches fenced
 
@@ -51,11 +53,13 @@ Ported code is re-typed against Mihon's immutable domain models and interactors.
 
 ## Reference screen
 
-A clean example of conventions 1-7 on the Mihon base is the library: [LibraryTab.kt](../../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt) (a Voyager `Tab` resolving `LibraryScreenModel` via `rememberScreenModel`, rendering over `state.collectAsState()`) plus [LibraryScreenModel.kt](../../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryScreenModel.kt) (interactors injected via Injekt at class level, state exposed as `StateFlow`, coroutines via `screenModelScope`). Read these before adding or porting a screen.
+A clean example of conventions 1-7 on the Mihon base is the library: [LibraryTab.kt](../../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt) (a Voyager `Tab` resolving `LibraryViewModel` via `viewModel<T>()`, rendering over `state.collectAsState()`) plus [LibraryViewModel.kt](../../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt) (interactors injected via Injekt at class level, state exposed as `StateFlow`, coroutines via `viewModelScope`). Read these before adding or porting a screen.
+
+**Voyager still routes; only the models moved.** Screens and tabs remain Voyager `Screen` / `Tab` classes, and `viewModel()` inside one resolves against that Screen's own `ViewModelStore`, because `voyager-navigator` gives every Screen an `AndroidScreenLifecycleOwner` that clears the store on pop. That holds only under a `Navigator`: content hosted outside one (`ReaderActivity`, `WebViewActivity`) falls through to the Activity store silently. Note that a `Tab`'s models land in the tab host's store, not a per-tab one, so two tabs resolving the same type share one instance.
 
 ## Sanctioned exception: the edit-info form is native XML
 
-One surface is deliberately not Compose: the shared manga/novel **edit-info form** ([EntryEditInfoDialog.kt](../../app/src/main/java/reikai/presentation/details/EntryEditInfoDialog.kt), inflating [edit_entry_info.xml](../../app/src/main/res/layout/edit_entry_info.xml) via `AndroidView`, ported from Komikku's `EditMangaDialog`). A pure-Compose form could not keep the soft keyboard stable on the user's edge-to-edge Android 15+ device: the keyboard closed and reopened on every field switch, and the focused field either hid behind the keyboard or left a keyboard-height gap (reproduced on Samsung and SwiftKey keyboards, so app-side, not keyboard-specific). Native `EditText` handles IME focus cleanly where Compose's `bringIntoView` on A15+ does not. The known-good host is Komikku's exact shape: a Compose Material3 `AlertDialog` (wrap-content, floats over the details page) whose scrolling `Column` wraps the native `LinearLayout` form. A full-screen Voyager `Screen` host was tried and rejected: its edge-to-edge window does not resize for the IME, so the short native form sat above a keyboard-height void. Only the field UI is native; the dialog chrome (Save/Cancel) stays Compose, and it is dispatched from the details `ScreenModel` as a `Dialog` case exactly like the novel `EditInfo` dialog. Do not re-attempt a pure-Compose editor form or a full-screen-Screen host; both paths are exhausted. This is the only view-based holdout besides the reader.
+One surface is deliberately not Compose: the shared manga/novel **edit-info form** ([EntryEditInfoDialog.kt](../../app/src/main/java/reikai/presentation/details/EntryEditInfoDialog.kt), inflating [edit_entry_info.xml](../../app/src/main/res/layout/edit_entry_info.xml) via `AndroidView`, ported from Komikku's `EditMangaDialog`). A pure-Compose form could not keep the soft keyboard stable on the user's edge-to-edge Android 15+ device: the keyboard closed and reopened on every field switch, and the focused field either hid behind the keyboard or left a keyboard-height gap (reproduced on Samsung and SwiftKey keyboards, so app-side, not keyboard-specific). Native `EditText` handles IME focus cleanly where Compose's `bringIntoView` on A15+ does not. The known-good host is Komikku's exact shape: a Compose Material3 `AlertDialog` (wrap-content, floats over the details page) whose scrolling `Column` wraps the native `LinearLayout` form. A full-screen Voyager `Screen` host was tried and rejected: its edge-to-edge window does not resize for the IME, so the short native form sat above a keyboard-height void. Only the field UI is native; the dialog chrome (Save/Cancel) stays Compose, and it is dispatched from the details `ViewModel` as a `Dialog` case exactly like the novel `EditInfo` dialog. Do not re-attempt a pure-Compose editor form or a full-screen-Screen host; both paths are exhausted. This is the only view-based holdout besides the reader.
 
 ## What this is not
 

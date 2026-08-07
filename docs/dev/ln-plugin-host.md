@@ -173,18 +173,18 @@ SQLDelight-row mappers live in `reikai/data/novel/` (`NovelRepositoryImpl`, `Nov
 
 ### Presentation (`app/src/main/java/reikai/presentation/`)
 
-LN screens follow Mihon's Voyager `Screen`/`ScreenModel` conventions.
+LN screens follow Mihon's Voyager `Screen` + AndroidX `ViewModel` conventions. The reader is the one holdout still on `ScreenModel`, pending the tsundoku reader migration.
 
 | Path | Purpose |
 |---|---|
-| `presentation/novel/browse/` | Browse + search a source (`NovelBrowseScreen` + `NovelBrowseScreenModel`), grid cell, filter/settings sheets, library-add, duplicate dialog. |
-| `presentation/novel/details/` | Novel details (`NovelScreen` + `NovelDetailsScreenModel`), cover dialog, merge-source chips, manage-sources / page-selector. |
+| `presentation/novel/browse/` | Browse + search a source (`NovelBrowseScreen` + `NovelBrowseViewModel`), grid cell, filter/settings sheets, library-add, duplicate dialog. |
+| `presentation/novel/details/` | Novel details (`NovelScreen` + `NovelDetailsViewModel`), cover dialog, merge-source chips, manage-sources / page-selector. |
 | `presentation/novel/reader/` | Chapter reader (`NovelReaderScreen` + `NovelReaderScreenModel`), the WebView-based rendering surface (`NovelReaderWebView` / `NovelReaderHtmlBuilder` / `NovelReaderWebInterface`), reader settings. |
 | `presentation/novel/globalsearch/` | Cross-source global search. |
 | `presentation/novel/migrate/` | Migrate a novel between sources. |
 | `presentation/novel/track/` | Tracker info dialog. |
 | `presentation/novel/notes/` | Per-novel notes. |
-| `presentation/library/novels/` | Novel library surface: `NovelLibraryScreenModel`, library item/sort/settings, category filter, merge-collapse. |
+| `presentation/library/novels/` | Novel library surface: `NovelLibraryViewModel`, library item/sort/settings, category filter, merge-collapse. |
 
 ### Assets
 

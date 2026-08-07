@@ -86,7 +86,7 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 |---|---|---|---|
 | Chapter release-date parsing | `reikai/data/novel/NovelDateParser.kt` (`054f5f8f3`) | 2026-07-15 @ `11a6ffce3` | From tsundoku's `JsSource.parseReleaseTime` (ISO / "3 days ago" / date-format fallbacks). LN chapters previously stored no date at all. |
 | Plugin text sanitizing | `reikai/novel/host/NovelTextSanitizer.kt` (`eeda00bee`) | 2026-07-15 @ `11a6ffce3` | From tsundoku's `JsSource` `stripInvalidChars` + entity decoding. Applied to metadata + chapter names; chapter bodies get control-char stripping only, so HTML survives. |
-| Next-page probing | `reikai/presentation/novel/browse/NovelBrowseScreenModel.kt` (`c565c5413`) | 2026-07-15 @ `11a6ffce3` | From tsundoku's `inferHasNextPage`: full page assumes more, short page eager-probes the next and caches it for the matching load-more. |
+| Next-page probing | `reikai/presentation/novel/browse/NovelBrowseViewModel.kt` (`c565c5413`) | 2026-07-15 @ `11a6ffce3` | From tsundoku's `inferHasNextPage`: full page assumes more, short page eager-probes the next and caches it for the matching load-more. |
 | Download-queue card gutter | `reikai/presentation/download/EntryDownloadCardList.kt` (`7e7bd0a5e`) | 2026-07-12 | Tsundoku's 16.dp card gutter, adopted during the queue redesign. Layout detail only. |
 | Per-source engine isolation | `reikai/novel/host/LnPluginHost.kt` (`93d8a0425`) | 2026-08-02 @ `ba62b1937` | The design idea from tsundoku's per-source `JsSource` instances + 60s idle timeout, implemented Reikai-native: per-plugin engine slots plus a shared loader engine for bulk info extraction (tsundoku has no loader equivalent). |
 

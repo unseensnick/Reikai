@@ -219,6 +219,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Manga and novel categories now live in one shared table with a content-type column, read and written through one repository, so the parallel novel category stack is gone.
 - Custom novel covers are now stored under a name that carries the content type, moved once on upgrade, so a novel can never collide with a manga that shares its row number.
 - The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring), so a grouping change reaches both content types.
+- Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594).
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Code comments across Reikai's own files are capped in length and enforced on commit, with the longer explanations moved into the developer docs.

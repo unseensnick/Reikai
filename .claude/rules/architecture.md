@@ -8,7 +8,9 @@ Reikai is built on Mihon. Mihon is **Compose + Voyager throughout**, so the Yōk
 
 ## Compose + Voyager (the only stack)
 
-Screens are Voyager `Screen` / `Tab` classes whose `Content()` resolves a `ScreenModel` via `rememberScreenModel { ... }` and renders over `state.collectAsState()`. Navigation is a Voyager `Navigator` (see `MainActivity` and `HomeScreen`). There is no Conductor `Router` and no `*Presenter`.
+Screens are Voyager `Screen` / `Tab` classes whose `Content()` resolves an AndroidX `ViewModel` via `viewModel<FooViewModel>()` and renders over `state.collectAsState()`. Navigation is a Voyager `Navigator` (see `MainActivity` and `HomeScreen`). There is no Conductor `Router` and no `*Presenter`.
+
+Voyager routes; AndroidX holds the state. Reikai took Mihon's move off `ScreenModel` (mihonapp/mihon#3594, mihon `c3b99aea0`), so the base is `StateViewModel<S>` in `mihon.core.viewmodel` and the scope is `viewModelScope`. The novel reader is the last screen still on `ScreenModel`, held there deliberately because the tsundoku reader migration deletes it; `voyager-screenModel` stays in the build until then.
 
 The one View-based holdout, shared with upstream, is the **reader** (`ReaderActivity` + `PagerViewer` / `WebtoonViewer`). Reader tweaks are View edits, not Compose work.
 
@@ -16,7 +18,7 @@ The one View-based holdout, shared with upstream, is the **reader** (`ReaderActi
 
 Reikai's ported screens (library, manga details, the light-novel surfaces) follow Mihon's conventions (see [screen-conventions.md](screen-conventions.md)) and are re-typed to Mihon's models. Two placement rules:
 
-- **Net-new code lives in its own files/modules** (own ScreenModels, own `.sq` tables, own Voyager screens).
+- **Net-new code lives in its own files/modules** (own ViewModels, own `.sq` tables, own Voyager screens).
 - **Edits to Mihon's own files** (the nav tab list, backup proto fields, DI registration) are fenced with `// RK -->` / `// RK <--` comment islands so they survive upstream merges and are greppable. Mirrors Komikku's `// SY` / `// KMK` convention.
 
 ## Dependency injection
@@ -35,11 +37,11 @@ Verify such code on a minified build before trusting it: `:app:assemblePreview` 
 
 ## Preferences
 
-Preferences go through `PreferenceStore` (`core/common/.../preference/PreferenceStore.kt`, backed by `AndroidPreferenceStore`) and the typed `*Preferences` classes (e.g. library / reader / source preference holders) injected via Injekt. There is no `PreferencesHelper` on Mihon. Never use raw `SharedPreferences`. Read preferences in the ScreenModel and expose them as state, not inside a `@Composable`.
+Preferences go through `PreferenceStore` (`core/common/.../preference/PreferenceStore.kt`, backed by `AndroidPreferenceStore`) and the typed `*Preferences` classes (e.g. library / reader / source preference holders) injected via Injekt. There is no `PreferencesHelper` on Mihon. Never use raw `SharedPreferences`. Read preferences in the ViewModel and expose them as state, not inside a `@Composable`.
 
 ## Coroutines
 
-Launch with the `launchIO` / `launchUI` extensions (`core/common/.../util/lang/CoroutinesExtensions.kt`), not raw `launch(Dispatchers.IO)`. In a ScreenModel use `screenModelScope.launchIO { }` / `launchUI { }`; in a composable use `rememberCoroutineScope()` or `LaunchedEffect`. Never `GlobalScope`; for work that must outlive the screen, use `WorkManager` (as upstream does for library updates, backups, etc.). Reactive state via `StateFlow` / `SharedFlow`; no RxJava on the screen path.
+Launch with the `launchIO` / `launchUI` extensions (`core/common/.../util/lang/CoroutinesExtensions.kt`), not raw `launch(Dispatchers.IO)`. In a ViewModel use `viewModelScope.launchIO { }` / `launchUI { }`; in a composable use `rememberCoroutineScope()` or `LaunchedEffect`. Never `GlobalScope`; for work that must outlive the screen, use `WorkManager` (as upstream does for library updates, backups, etc.). Reactive state via `StateFlow` / `SharedFlow`; no RxJava on the screen path.
 
 ## Domain models
 

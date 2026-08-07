@@ -37,7 +37,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 
 | Module | Purpose |
 |---|---|
-| `app/` | Android application (Compose + Voyager UI, ScreenModels) |
+| `app/` | Android application (Compose + Voyager UI, AndroidX ViewModels) |
 | `core/common` | Shared utilities (coroutine + preference helpers) |
 | `core/archive` | Archive handling |
 | `core-metadata` | Metadata parsing |

@@ -49,7 +49,7 @@ Measure a tree with `pwsh scripts/comment-census.ps1 -Roots app/src/main/java/re
 
 ## Naming (Kotlin)
 
-- Files: PascalCase matching the primary class (`LibraryScreenModel.kt`, `LibraryTab.kt`).
+- Files: PascalCase matching the primary class (`LibraryViewModel.kt`, `LibraryTab.kt`).
 - Classes/objects: PascalCase. Functions/properties: camelCase. Constants: SCREAMING_SNAKE.
 - Booleans: `is` / `has` / `should` / `can` prefix. Predicates: `is*` / `has*`. Factories: `create*`. Converters: `to*`.
 - Composables: PascalCase verb-less noun (`MangaCard`, `SourceChipRow`).

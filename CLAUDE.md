@@ -26,13 +26,13 @@ Android manga + light-novel reader. Personal fork built on [Mihon](https://githu
 
 ## Architecture in brief
 
-Mihon is **Compose + Voyager throughout**: there is no Conductor `*Controller` / RxJava `*Presenter` legacy layer to migrate from. Screens are Voyager `Screen` / `Tab` classes backed by a `ScreenModel`. DI is **Injekt**. Domain models are immutable (`tachiyomi.domain.*.model`). Preferences go through `PreferenceStore` and typed `*Preferences` classes. Persistence is SQLDelight. Full detail: [.claude/rules/architecture.md](.claude/rules/architecture.md).
+Mihon is **Compose + Voyager throughout**: there is no Conductor `*Controller` / RxJava `*Presenter` legacy layer to migrate from. Screens are Voyager `Screen` / `Tab` classes backed by an AndroidX `ViewModel` (Voyager routes, AndroidX holds the state). DI is **Injekt**. Domain models are immutable (`tachiyomi.domain.*.model`). Preferences go through `PreferenceStore` and typed `*Preferences` classes. Persistence is SQLDelight. Full detail: [.claude/rules/architecture.md](.claude/rules/architecture.md).
 
 ## Screen conventions (match Mihon)
 
-Every Reikai screen ported onto or added to Mihon follows Mihon's Voyager conventions: a Voyager `Screen` / `Tab` backed by a `ScreenModel`, DI and preference reads out of `@Composable` bodies, `StateFlow` state, `screenModelScope` coroutines, `// RK` fencing on edits to Mihon's own files. The full list with rationale and a reference screen is [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md).
+Every Reikai screen ported onto or added to Mihon follows Mihon's conventions: a Voyager `Screen` / `Tab` backed by an AndroidX `ViewModel`, DI and preference reads out of `@Composable` bodies, `StateFlow` state, `viewModelScope` coroutines, `// RK` fencing on edits to Mihon's own files. The full list with rationale and a reference screen is [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md).
 
-**Watch item:** when porting Mihon's deferred ScreenModel-to-ViewModel migration, or syncing any upstream screen file that already made the switch, a model resolved by a bare `viewModel<T>()` must not be `private` (crashes on open, every build type, debug included). The mechanism, the upstream fix to take wholesale, and the full migration plan: [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md).
+**Watch item:** a model resolved by a bare `viewModel<T>()` must not be `private` (crashes on open, every build type, debug included). **The one screen still on `ScreenModel` is the novel reader**, held there on purpose because the tsundoku reader migration deletes it; `voyager-screenModel` stays in the build until then. Both: [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md).
 
 ## Unified content UI (active initiative)
 

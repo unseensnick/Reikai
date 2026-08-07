@@ -38,8 +38,8 @@ If a Handoff or plan explicitly defers features to a later phase, **write that d
 One `Agent` call with `subagent_type: general-purpose` (or `Explore` if pure read). Brief it as a smart colleague who has not seen this conversation:
 
 - State the goal: behavioral parity, NOT visual parity. Visual / layout differences are EXPLICITLY out of scope.
-- Name the original entry point(s) on the `design/library-compose` branch (the Yōkai-era source for the feature): the screen / ScreenModel and any sub-components.
-- Name the Mihon-based entry point(s): the Voyager screen, its content composable, the components folder, the ScreenModel, any pure helpers.
+- Name the original entry point(s) on the `design/library-compose` branch (the Yōkai-era source for the feature): the screen / model and any sub-components.
+- Name the Mihon-based entry point(s): the Voyager screen, its content composable, the components folder, the ViewModel, any pure helpers.
 - Name the deferred list (verbatim, from Step 1).
 - Give it a per-surface checklist of legacy behaviors to mark off. Group by surface (data pipeline, each sheet, in-grid affordances, overflow menu, search, preferences observed). For each item, ask for one of:
   - ✅ ported faithfully
