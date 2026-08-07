@@ -36,9 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.SourceIcon
@@ -54,6 +56,7 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceIcon
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -86,10 +89,13 @@ class EntryMigrationConfigScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            EntryMigrationConfigScreenModel(migrationAdapterFor(contentType))
-        }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<EntryMigrationConfigViewModel>(
+            factory = EntryMigrationConfigViewModel.Factory,
+            extras = CreationExtras {
+                set(EntryMigrationConfigViewModel.CONTENT_TYPE_KEY, contentType)
+            },
+        )
+        val state by viewModel.state.collectAsState()
         val listState = rememberLazyListState()
         var showTuning by rememberSaveable { mutableStateOf(false) }
 
@@ -114,12 +120,12 @@ class EntryMigrationConfigScreen(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
                                     icon = Icons.Outlined.SelectAll,
-                                    onClick = { screenModel.selectAll() },
+                                    onClick = { viewModel.selectAll() },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
                                     icon = Icons.Outlined.Deselect,
-                                    onClick = { screenModel.selectNone() },
+                                    onClick = { viewModel.selectNone() },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
@@ -128,7 +134,7 @@ class EntryMigrationConfigScreen(
                                 ),
                                 AppBar.OverflowAction(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectPinnedLabel),
-                                    onClick = { screenModel.selectPinned() },
+                                    onClick = { viewModel.selectPinned() },
                                 ),
                             ),
                         )
@@ -168,7 +174,7 @@ class EntryMigrationConfigScreen(
             },
         ) { contentPadding ->
             val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
-                screenModel.reorder(from.key, to.key)
+                viewModel.reorder(from.key, to.key)
             }
             // The language pill only earns its place when it disambiguates anything.
             val showLanguage = (state.selected + state.available).distinctBy { it.lang }.size > 1
@@ -191,7 +197,7 @@ class EntryMigrationConfigScreen(
                             dragEnabled = state.selected.size > 1,
                             state = reorderState,
                             key = source.key,
-                            onClick = { screenModel.toggleSelection(source.key) },
+                            onClick = { viewModel.toggleSelection(source.key) },
                         )
                     }
                 }
@@ -208,7 +214,7 @@ class EntryMigrationConfigScreen(
                             dragEnabled = false,
                             state = reorderState,
                             key = "available-${source.key}",
-                            onClick = { screenModel.toggleSelection(source.key) },
+                            onClick = { viewModel.toggleSelection(source.key) },
                         )
                     }
                 }
@@ -224,7 +230,7 @@ class EntryMigrationConfigScreen(
             val commitQuery = {
                 val trimmed = tuningQuery.trim().takeIf(String::isNotBlank)
                 if (trimmed != state.tuning.extraQuery) {
-                    screenModel.applyTuning(state.tuning.copy(extraQuery = trimmed))
+                    viewModel.applyTuning(state.tuning.copy(extraQuery = trimmed))
                 }
             }
             AdaptiveSheet(
@@ -238,8 +244,8 @@ class EntryMigrationConfigScreen(
                     query = tuningQuery,
                     onQueryChange = { tuningQuery = it },
                     onCommitQuery = commitQuery,
-                    matchStrategy = screenModel.matchStrategy,
-                    onApply = screenModel::applyTuning,
+                    matchStrategy = viewModel.matchStrategy,
+                    onApply = viewModel::applyTuning,
                 )
             }
         }
@@ -361,12 +367,24 @@ private fun SourceRowIcon(icon: MigrationSourceIcon) {
     }
 }
 
-class EntryMigrationConfigScreenModel(
+class EntryMigrationConfigViewModel(
     // Injected rather than resolved here, as the list model's are: the source seed and the order
-    // writes are otherwise reachable only by reading the code. The screen resolves and passes them.
+    // writes are otherwise reachable only by reading the code. The factory resolves and passes them,
+    // so a plain JVM test can still construct this directly with its own adapter and dispatcher.
     private val adapter: MigrationFlowAdapter,
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : StateScreenModel<EntryMigrationConfigScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrationConfigViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+
+        // `io` is deliberately left at its default here; only a test supplies its own.
+        val Factory = viewModelFactory {
+            initializer {
+                EntryMigrationConfigViewModel(adapter = migrationAdapterFor(get(CONTENT_TYPE_KEY)!!))
+            }
+        }
+    }
 
     val matchStrategy: MatchStrategy get() = adapter.matchStrategy
 
@@ -379,7 +397,7 @@ class EntryMigrationConfigScreenModel(
     private var selectionVersion = 0
 
     init {
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             adapter.prepare()
             val enabled = adapter.enabledSources()
             val saved = adapter.savedSelection()
@@ -415,7 +433,7 @@ class EntryMigrationConfigScreenModel(
     fun applyTuning(edited: MigrationTuning) {
         val tuning = edited.normalizedFor(adapter.matchStrategy)
         mutableState.update { it.copy(tuning = tuning) }
-        screenModelScope.launch(io) { adapter.persistTuning(tuning) }
+        viewModelScope.launch(io) { adapter.persistTuning(tuning) }
     }
 
     fun toggleSelection(key: String) = editSelection { state ->
@@ -471,7 +489,7 @@ class EntryMigrationConfigScreenModel(
     private fun editSelection(edit: (State) -> State) {
         val settled = mutableState.updateAndGet(edit)
         val version = ++selectionVersion
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             persistLock.withLock {
                 if (version == selectionVersion) persist(settled)
             }

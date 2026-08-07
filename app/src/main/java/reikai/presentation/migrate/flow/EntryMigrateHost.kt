@@ -11,14 +11,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.autoSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
@@ -42,13 +45,16 @@ fun Screen.EntryMigrateFor(
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
     // One model per content type; the pair is loaded per appearance rather than being a constructor
-    // argument, so a cached model can neither serve a stale pair nor accumulate one per pair.
-    val screenModel = rememberScreenModel(tag = "migrateHost-$contentType") {
-        EntryMigrateHostScreenModel(contentType)
-    }
+    // argument, so a cached model can neither serve a stale pair nor accumulate one per pair. The
+    // `key` is load-bearing: without it both content types share one instance in this store.
+    val viewModel = viewModel<EntryMigrateHostViewModel>(
+        key = "migrateHost-$contentType",
+        factory = EntryMigrateHostViewModel.Factory,
+        extras = CreationExtras { set(EntryMigrateHostViewModel.CONTENT_TYPE_KEY, contentType) },
+    )
     val request = remember(currentId, targetId) { EntryMigratePair(currentId, targetId) }
-    LaunchedEffect(request) { screenModel.load(request) }
-    val state by screenModel.state.collectAsState()
+    LaunchedEffect(request) { viewModel.load(request) }
+    val state by viewModel.state.collectAsState()
 
     if (!state.loaded || state.request != request) return
     val entry = state.entry
@@ -79,15 +85,23 @@ fun Screen.EntryMigrateFor(
 /** The two entries this host is currently loading, so a cached model cannot serve a stale pair. */
 internal data class EntryMigratePair(val currentId: Long, val targetId: Long)
 
-internal class EntryMigrateHostScreenModel(
+internal class EntryMigrateHostViewModel(
     contentType: ContentType,
-) : StateScreenModel<EntryMigrateHostScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrateHostViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+
+        val Factory = viewModelFactory {
+            initializer { EntryMigrateHostViewModel(contentType = get(CONTENT_TYPE_KEY)!!) }
+        }
+    }
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     fun load(request: EntryMigratePair) {
         mutableState.update { State(request = request) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // The novel source layer has to be warm before names and covers resolve; this is often
             // the first migration surface a session touches.
             adapter.prepare()

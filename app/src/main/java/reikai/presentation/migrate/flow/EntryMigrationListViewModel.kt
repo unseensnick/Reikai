@@ -1,7 +1,9 @@
 package reikai.presentation.migrate.flow
 
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
@@ -37,12 +40,12 @@ private const val SOURCE_CONCURRENCY = 5
  * lock, since a row skipped, committed or abandoned mid-await shows up as a state that check reads.
  * Per-row work runs on the row's own detached scope, so cancelling one row never reaches the loop.
  */
-class EntryMigrationListScreenModel(
+class EntryMigrationListViewModel(
     private val entryIds: List<Long>,
     // Injected rather than resolved in the initialiser, so the driver, the claim and the finish gate
     // can be constructed in a plain JVM test. Resolving Injekt here made every one of them reachable
     // only by reading the code, which is why each gate defect was found by an audit and never by a
-    // test. The screen resolves them and passes them in.
+    // test. The factory below resolves them and passes them in.
     private val adapter: MigrationFlowAdapter,
     private val pickHandoff: MigrationPickHandoff,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
@@ -50,7 +53,25 @@ class EntryMigrationListScreenModel(
     // Injected so a test can drive the driver and the commits on its own scheduler; production
     // callers take the default, which is what launchIO would have used.
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : StateScreenModel<EntryMigrationListScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrationListViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+        val ENTRY_IDS_KEY = CreationExtras.Key<List<Long>>()
+        val EXTRA_QUERY_KEY = CreationExtras.Key<String?>()
+
+        // `io` is deliberately left at its default here; only a test supplies its own.
+        val Factory = viewModelFactory {
+            initializer {
+                EntryMigrationListViewModel(
+                    entryIds = get(ENTRY_IDS_KEY)!!,
+                    adapter = migrationAdapterFor(get(CONTENT_TYPE_KEY)!!),
+                    pickHandoff = Injekt.get(),
+                    extraQuery = get(EXTRA_QUERY_KEY),
+                )
+            }
+        }
+    }
 
     private val rows: List<MigratingEntryRow> get() = state.value.rows
 
@@ -85,7 +106,7 @@ class EntryMigrationListScreenModel(
     private var everHadRows = false
 
     init {
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             adapter.prepare()
             // Read once, as upstream does: the options were settled on the config screen before any
             // row existed, so nothing can change what a search returns while one is running. The
@@ -94,7 +115,7 @@ class EntryMigrationListScreenModel(
                 .normalizedFor(adapter.matchStrategy)
                 .copy(extraQuery = extraQuery)
             val built = adapter.loadEntries(entryIds).map {
-                MigratingEntryRow(it, screenModelScope.coroutineContext, io)
+                MigratingEntryRow(it, viewModelScope.coroutineContext, io)
             }
             everHadRows = built.isNotEmpty()
             mutableState.update {
@@ -119,7 +140,7 @@ class EntryMigrationListScreenModel(
     @Synchronized
     private fun startDriver() {
         if (searchJob?.isActive == true) return
-        searchJob = screenModelScope.launch(io) { drive() }
+        searchJob = viewModelScope.launch(io) { drive() }
     }
 
     /**
@@ -176,7 +197,7 @@ class EntryMigrationListScreenModel(
     private fun handOffIfWorkRemains() {
         val finishing = searchJob
         if (nextSearchable() == null) return
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             finishing?.join()
             startDriver()
         }
@@ -371,7 +392,7 @@ class EntryMigrationListScreenModel(
      */
     fun collectPendingPick() {
         val snapshot = rows
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             snapshot.forEach { row ->
                 val candidate = when (val pick = adapter.takePendingPick(pickHandoff, row.entry.id)) {
                     null -> return@forEach
@@ -521,7 +542,7 @@ class EntryMigrationListScreenModel(
      * Drop a decided row: the user skipped it, or its commit succeeded. The single place rows leave
      * the list, so removal, the counters and the finish check cannot disagree.
      * The row's whole scope goes, not just its children: a peek, an override search or an abandoned
-     * search would otherwise outlive the row, since onDispose only reaches rows still in the list.
+     * search would otherwise outlive the row, since onCleared only reaches rows still in the list.
      */
     private fun removeRow(row: MigratingEntryRow) {
         row.scope.cancel()
@@ -548,7 +569,7 @@ class EntryMigrationListScreenModel(
             )
         }
         batchRan = true
-        commitJob = screenModelScope.launch(io) {
+        commitJob = viewModelScope.launch(io) {
             // Persisted once, and then carried as a value: the per-row commits below all use the set
             // the user just confirmed, so this write only seeds the NEXT migration and belongs here
             // rather than on the caller's thread.
@@ -598,7 +619,7 @@ class EntryMigrationListScreenModel(
         // Recorded like the batch's, so [cancelCommit] reaches BOTH commit shapes. It only ever held
         // the batch job, which made the exit dialog's cancel a no-op on the per-row path: Stop fell
         // through to the pop, and the migration was cancelled by the scope teardown mid-write instead.
-        commitJob = screenModelScope.launch(io) {
+        commitJob = viewModelScope.launch(io) {
             // No persistFlags here: only a confirm may move the preference. A retry re-runs with the
             // exact set its row failed under, which is older than whatever the user has confirmed
             // since, so writing it back reverted a choice they had already made.
@@ -708,7 +729,7 @@ class EntryMigrationListScreenModel(
         mutableState.update {
             it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
         }
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             val targets = rows.filter {
                 MigrationRowRules.isCommittable(it.acceptance.value, it.commit.value)
             }
@@ -731,8 +752,8 @@ class EntryMigrationListScreenModel(
     /** Close an open dialog. Only a dialog: a commit is not something a dismissal may cancel. */
     fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
 
-    override fun onDispose() {
-        super.onDispose()
+    override fun onCleared() {
+        super.onCleared()
         // Row scopes are detached, so they outlive the model unless cancelled here.
         rows.forEach { it.scope.cancel() }
         // An uncollected pick belongs to this migration only.

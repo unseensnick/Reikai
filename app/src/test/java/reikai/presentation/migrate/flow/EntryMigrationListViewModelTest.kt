@@ -21,7 +21,7 @@ import reikai.domain.entry.EntryId
  * took its dependencies as constructor parameters: every defect in them was found by reading the
  * code in an audit, never by a test.
  */
-class EntryMigrationListScreenModelTest {
+class EntryMigrationListViewModelTest {
 
     // Voyager's screenModelScope is Main-based, and the model launches its work on the dispatcher it
     // is given, so both go through one scheduler the test can advance.
@@ -41,7 +41,7 @@ class EntryMigrationListScreenModelTest {
         blockOn: EntryId? = null,
         extraQuery: String? = null,
     ) =
-        EntryMigrationListScreenModel(
+        EntryMigrationListViewModel(
             entryIds = entries.map { it.id.rawId },
             adapter = FakeMigrationFlowAdapter(entries, failFor, blockOn),
             pickHandoff = MigrationPickHandoff(),
@@ -64,7 +64,7 @@ class EntryMigrationListScreenModelTest {
         // It was typed on the config screen and then dropped: no adapter persists it, so the tuning
         // the model read back always had a null one and the option did nothing on this route.
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
-        EntryMigrationListScreenModel(
+        EntryMigrationListViewModel(
             entryIds = listOf(1L),
             adapter = adapter,
             pickHandoff = MigrationPickHandoff(),
@@ -95,7 +95,7 @@ class EntryMigrationListScreenModelTest {
     @Test
     fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
-        val model = EntryMigrationListScreenModel(
+        val model = EntryMigrationListViewModel(
             entryIds = listOf(1L),
             adapter = adapter,
             pickHandoff = MigrationPickHandoff(),
@@ -116,7 +116,7 @@ class EntryMigrationListScreenModelTest {
             // It used to stay in rows and only be filtered from the view, and accept-all iterates
             // rows: the hidden row was armed, came back on screen, and would have been migrated.
             val entries = listOf(entry(1), entry(2))
-            val model = EntryMigrationListScreenModel(
+            val model = EntryMigrationListViewModel(
                 entryIds = entries.map { it.id.rawId },
                 adapter = FakeMigrationFlowAdapter(
                     entries,
@@ -141,7 +141,7 @@ class EntryMigrationListScreenModelTest {
             // The suggestion lands without a chapter number and the peek fills it in, so the toggle's
             // input arrives after the search has settled and the check has to run there too.
             val entries = listOf(entry(1))
-            val model = EntryMigrationListScreenModel(
+            val model = EntryMigrationListViewModel(
                 entryIds = entries.map { it.id.rawId },
                 adapter = FakeMigrationFlowAdapter(
                     entries,
@@ -276,7 +276,7 @@ class EntryMigrationListScreenModelTest {
             model.acceptAll()
             model.showConfirm(replace = true)
             advanceUntilIdle()
-            model.state.value.dialog.shouldBeInstanceOf<EntryMigrationListScreenModel.Dialog.Confirm>()
+            model.state.value.dialog.shouldBeInstanceOf<EntryMigrationListViewModel.Dialog.Confirm>()
 
             model.commit(replace = true, flags = emptySet())
             advanceUntilIdle()
@@ -341,7 +341,7 @@ class EntryMigrationListScreenModelTest {
         // the whole batch again over the rows that just failed.
         model.state.value.finished shouldBe false
         model.state.value.visibleDialog.shouldBeNull()
-        model.state.value.commit shouldBe EntryMigrationListScreenModel.CommitActivity.Idle
+        model.state.value.commit shouldBe EntryMigrationListViewModel.CommitActivity.Idle
     }
 
     @Test
@@ -352,7 +352,7 @@ class EntryMigrationListScreenModelTest {
         // The driver breaks out before it reaches the counts, so nothing computed the reason and the
         // screen painted an empty list with no explanation.
         model.state.value.isLoading shouldBe false
-        model.state.value.emptyReason shouldBe EntryMigrationListScreenModel.EmptyReason.NoEntries
+        model.state.value.emptyReason shouldBe EntryMigrationListViewModel.EmptyReason.NoEntries
     }
 
     @Test
@@ -388,7 +388,7 @@ class EntryMigrationListScreenModelTest {
         // runs anyway and the entry the user took out is migrated behind their back.
         val entries = listOf(entry(1), entry(2), entry(3))
         val adapter = FakeMigrationFlowAdapter(entries, blockOn = EntryId.Manga(1))
-        val model = EntryMigrationListScreenModel(
+        val model = EntryMigrationListViewModel(
             entryIds = entries.map { it.id.rawId },
             adapter = adapter,
             pickHandoff = MigrationPickHandoff(),

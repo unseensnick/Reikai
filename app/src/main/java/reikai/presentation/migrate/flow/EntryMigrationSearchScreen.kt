@@ -20,9 +20,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.SearchToolbar
@@ -34,6 +36,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.i18n.MR
@@ -65,15 +68,15 @@ class EntryMigrationSearchScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel {
-            EntryMigrationSearchScreenModel(
-                entryId = entryId,
-                adapter = migrationAdapterFor(contentType),
-                pickHandoff = Injekt.get(),
-                extraQuery = extraQuery,
-            )
-        }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<EntryMigrationSearchViewModel>(
+            factory = EntryMigrationSearchViewModel.Factory,
+            extras = CreationExtras {
+                set(EntryMigrationSearchViewModel.CONTENT_TYPE_KEY, contentType)
+                set(EntryMigrationSearchViewModel.ENTRY_ID_KEY, entryId)
+                set(EntryMigrationSearchViewModel.EXTRA_QUERY_KEY, extraQuery)
+            },
+        )
+        val state by viewModel.state.collectAsState()
         var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
 
         if (state.isLoading) {
@@ -90,10 +93,10 @@ class EntryMigrationSearchScreen(
 
         // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
         LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) screenModel.collectPendingPick()
+            if (!state.isLoading) viewModel.collectPendingPick()
         }
 
-        PickOutcomeToast(state.pickOutcome, screenModel::consumePickOutcome)
+        PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -104,7 +107,7 @@ class EntryMigrationSearchScreen(
                         SearchToolbar(
                             searchQuery = query,
                             onChangeSearchQuery = { query = it.orEmpty() },
-                            onSearch = { screenModel.search(it) },
+                            onSearch = { viewModel.search(it) },
                             onClickCloseSearch = navigator::pop,
                             navigateUp = navigator::pop,
                             scrollBehavior = scrollBehavior,
@@ -128,7 +131,7 @@ class EntryMigrationSearchScreen(
                         showSourceFilter = false,
                         onSelectPinnedOnly = {},
                         onSelectAll = {},
-                        onToggleResults = screenModel::toggleOnlyResults,
+                        onToggleResults = viewModel::toggleOnlyResults,
                     )
                 }
             },
@@ -161,7 +164,7 @@ class EntryMigrationSearchScreen(
                         sourceLang = section.sourceLang,
                         isCurrentSource = section.sourceKey == entry.sourceKey,
                         result = section.result,
-                        onPick = screenModel::showDialog,
+                        onPick = viewModel::showDialog,
                         onPreview = { it.openDetails(navigator) },
                         onBrowseSource = {
                             if (!openDeepPicker(navigator, entry, section.sourceKey, query)) {
@@ -182,15 +185,15 @@ class EntryMigrationSearchScreen(
                 contentType = contentType,
                 entry = entry,
                 target = target,
-                onDismissRequest = screenModel::dismissDialog,
+                onDismissRequest = viewModel::dismissDialog,
                 // Show opens the candidate, not the entry: the target is the thing being decided on,
                 // and the entry is the one the user already knows.
                 onShowEntry = {
-                    screenModel.dismissDialog()
+                    viewModel.dismissDialog()
                     target.openDetails(navigator)
                 },
                 onFinished = { replaced, resolved ->
-                    screenModel.dismissDialog()
+                    viewModel.dismissDialog()
                     // Leave the whole flow behind before landing, so back does not return to
                     // results (or a stale config step) for a migration that already happened.
                     navigator.popUntil { it !is MigrationFlowScreen }
@@ -203,17 +206,35 @@ class EntryMigrationSearchScreen(
     }
 }
 
-class EntryMigrationSearchScreenModel(
+class EntryMigrationSearchViewModel(
     private val entryId: Long,
     // Injected rather than resolved here, the same reason the list model takes its own: the search
     // this route runs is otherwise reachable only by reading the code, which is how the extra query
-    // came to be dropped on it without a test noticing.
+    // came to be dropped on it without a test noticing. The factory below passes them in.
     private val adapter: MigrationFlowAdapter,
     private val pickHandoff: MigrationPickHandoff,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     private val extraQuery: String? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : StateScreenModel<EntryMigrationSearchScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrationSearchViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+        val ENTRY_ID_KEY = CreationExtras.Key<Long>()
+        val EXTRA_QUERY_KEY = CreationExtras.Key<String?>()
+
+        // `io` is deliberately left at its default here; only a test supplies its own.
+        val Factory = viewModelFactory {
+            initializer {
+                EntryMigrationSearchViewModel(
+                    entryId = get(ENTRY_ID_KEY)!!,
+                    adapter = migrationAdapterFor(get(CONTENT_TYPE_KEY)!!),
+                    pickHandoff = Injekt.get(),
+                    extraQuery = get(EXTRA_QUERY_KEY),
+                )
+            }
+        }
+    }
 
     private val permits = Semaphore(SEARCH_CONCURRENCY)
 
@@ -221,7 +242,7 @@ class EntryMigrationSearchScreenModel(
     private var searchJob: Job? = null
 
     init {
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             adapter.prepare()
             val entry = adapter.loadEntries(listOf(entryId)).firstOrNull()
             mutableState.update { it.copy(isLoading = false, entry = entry) }
@@ -243,7 +264,7 @@ class EntryMigrationSearchScreenModel(
         mutableState.update { state ->
             state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
         }
-        searchJob = screenModelScope.launch(io) {
+        searchJob = viewModelScope.launch(io) {
             val myJob = coroutineContext[Job]
             adapter.fanOutCandidates(
                 entry = entry,
@@ -263,8 +284,8 @@ class EntryMigrationSearchScreenModel(
         }
     }
 
-    override fun onDispose() {
-        super.onDispose()
+    override fun onCleared() {
+        super.onCleared()
         // An uncollected pick belongs to this migration only.
         pickHandoff.clear()
     }
@@ -284,7 +305,7 @@ class EntryMigrationSearchScreenModel(
      */
     fun collectPendingPick() {
         val entry = state.value.entry ?: return
-        screenModelScope.launch(io) {
+        viewModelScope.launch(io) {
             when (val pick = adapter.takePendingPick(pickHandoff, entry.id)) {
                 null -> return@launch
                 is PendingPick.Ready -> mutableState.update { it.copy(dialogTarget = pick.candidate) }

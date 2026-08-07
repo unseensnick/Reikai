@@ -20,7 +20,7 @@ import reikai.presentation.migrate.PickMember
  * Both are read by the flow long after this screen is gone, so a wrong answer here is invisible
  * until a search runs on the wrong sources.
  */
-class EntryMigrationConfigScreenModelTest {
+class EntryMigrationConfigViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
 
@@ -88,7 +88,7 @@ class EntryMigrationConfigScreenModelTest {
         ) = Unit
     }
 
-    private fun model(adapter: SourceAdapter) = EntryMigrationConfigScreenModel(adapter, dispatcher)
+    private fun model(adapter: SourceAdapter) = EntryMigrationConfigViewModel(adapter, dispatcher)
 
     @Test
     fun `with nothing saved and nothing pinned every enabled source is selected`() =

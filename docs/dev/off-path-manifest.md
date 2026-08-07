@@ -55,7 +55,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/mihon/feature/migration/dialog/MigrateMangaDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrateDialog.kt |
 | app/src/main/java/mihon/feature/migration/list/MigrationListScreen.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
 | app/src/main/java/mihon/feature/migration/list/MigrationListScreenContent.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
-| app/src/main/java/mihon/feature/migration/list/MigrationListViewModel.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreenModel.kt |
+| app/src/main/java/mihon/feature/migration/list/MigrationListViewModel.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListViewModel.kt |
 | app/src/main/java/mihon/feature/migration/list/models/MigratingManga.kt | mihon | reikai/presentation/migrate/flow/MigratingEntryRow.kt |
 | app/src/main/java/mihon/feature/migration/list/components/MigrationExitDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |
 | app/src/main/java/mihon/feature/migration/list/components/MigrationMangaDialog.kt | mihon | reikai/presentation/migrate/flow/EntryMigrationListScreen.kt |

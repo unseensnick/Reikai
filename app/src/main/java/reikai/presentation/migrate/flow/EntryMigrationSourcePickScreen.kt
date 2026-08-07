@@ -4,13 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.MigrationSourcePickContent
 import reikai.presentation.migrate.PickMember
@@ -34,8 +37,14 @@ class EntryMigrationSourcePickScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { EntryMigrationSourcePickScreenModel(contentType, entryIds) }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<EntryMigrationSourcePickViewModel>(
+            factory = EntryMigrationSourcePickViewModel.Factory,
+            extras = CreationExtras {
+                set(EntryMigrationSourcePickViewModel.CONTENT_TYPE_KEY, contentType)
+                set(EntryMigrationSourcePickViewModel.ENTRY_IDS_KEY, entryIds)
+            },
+        )
+        val state by viewModel.state.collectAsState()
 
         // Replaces rather than pushes, so back from the config screen returns to whatever opened the
         // migration instead of landing on a picker that decided it had nothing to ask.
@@ -50,7 +59,7 @@ class EntryMigrationSourcePickScreen(
         MigrationSourcePickContent(
             members = state.members,
             checked = state.checked,
-            onToggle = screenModel::toggle,
+            onToggle = viewModel::toggle,
             onClickCover = { it.openDetails(navigator) },
             onContinue = {
                 navigator.replace(EntryMigrationConfigScreen(contentType, state.checked.toList()))
@@ -60,15 +69,29 @@ class EntryMigrationSourcePickScreen(
     }
 }
 
-class EntryMigrationSourcePickScreenModel(
+class EntryMigrationSourcePickViewModel(
     contentType: ContentType,
     private val entryIds: List<Long>,
-) : StateScreenModel<EntryMigrationSourcePickScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrationSourcePickViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+        val ENTRY_IDS_KEY = CreationExtras.Key<List<Long>>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                EntryMigrationSourcePickViewModel(
+                    contentType = get(CONTENT_TYPE_KEY)!!,
+                    entryIds = get(ENTRY_IDS_KEY)!!,
+                )
+            }
+        }
+    }
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // The novel source layer has to be warm before member names and covers can resolve.
             adapter.prepare()
             val members = adapter.mergeGroupMembers(entryIds)

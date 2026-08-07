@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
  * The single-entry route. It runs the same search seam the batch list does, and the two are the two
  * halves of one option: the extra query was dropped on both, and each route needs its own guard.
  */
-class EntryMigrationSearchScreenModelTest {
+class EntryMigrationSearchViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
 
@@ -25,7 +25,7 @@ class EntryMigrationSearchScreenModelTest {
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun model(adapter: FakeMigrationFlowAdapter, extraQuery: String?) = EntryMigrationSearchScreenModel(
+    private fun model(adapter: FakeMigrationFlowAdapter, extraQuery: String?) = EntryMigrationSearchViewModel(
         entryId = 1L,
         adapter = adapter,
         pickHandoff = MigrationPickHandoff(),

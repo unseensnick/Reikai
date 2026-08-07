@@ -18,12 +18,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -46,15 +49,18 @@ fun Screen.EntryMigrateDialog(
     onShowEntry: (() -> Unit)?,
     onFinished: (replaced: Boolean, resolved: MigrationCandidate) -> Unit,
 ) {
-    // One model per content type: tagging by pair would cache a model for every pair ever opened on
+    // One model per content type: keying by pair would cache a model for every pair ever opened on
     // a long-lived screen, so the pair is loaded per appearance instead of being a constructor arg.
-    val screenModel = rememberScreenModel(tag = "migrateDialog-$contentType") {
-        EntryMigrateDialogScreenModel(contentType)
-    }
-    val state by screenModel.state.collectAsState()
+    // The `key` is load-bearing: without it both content types share one instance in this store.
+    val viewModel = viewModel<EntryMigrateDialogViewModel>(
+        key = "migrateDialog-$contentType",
+        factory = EntryMigrateDialogViewModel.Factory,
+        extras = CreationExtras { set(EntryMigrateDialogViewModel.CONTENT_TYPE_KEY, contentType) },
+    )
+    val state by viewModel.state.collectAsState()
 
     val pairKey = "${entry.id}-${target.key}"
-    LaunchedEffect(pairKey) { screenModel.load(pairKey, entry) }
+    LaunchedEffect(pairKey) { viewModel.load(pairKey, entry) }
 
     // Completion is state consumed exactly once, not an event: a success landing while the
     // composition is being recreated (a rotation mid-migrate) is delivered on re-entry rather than
@@ -62,7 +68,7 @@ fun Screen.EntryMigrateDialog(
     val finishedWith = state.finishedWith
     LaunchedEffect(finishedWith) {
         if (finishedWith != null) {
-            screenModel.consumeFinished()
+            viewModel.consumeFinished()
             onFinished(finishedWith.replaced, finishedWith.target)
         }
     }
@@ -79,7 +85,7 @@ fun Screen.EntryMigrateDialog(
                 MigrationFlagChecks(
                     applicable = state.applicableFlags,
                     selected = state.selectedFlags,
-                    onToggle = screenModel::toggleFlag,
+                    onToggle = viewModel::toggleFlag,
                 )
                 Text(
                     text = stringResource(MR.strings.migrationFlow_tracksNote),
@@ -108,13 +114,13 @@ fun Screen.EntryMigrateDialog(
                         }
                     }
                     OutlinedButton(
-                        onClick = { screenModel.migrate(entry, target, replace = false) },
+                        onClick = { viewModel.migrate(entry, target, replace = false) },
                         enabled = !state.loadingFlags,
                     ) {
                         Text(text = stringResource(MR.strings.copy))
                     }
                     Button(
-                        onClick = { screenModel.migrate(entry, target, replace = true) },
+                        onClick = { viewModel.migrate(entry, target, replace = true) },
                         enabled = !state.loadingFlags,
                     ) {
                         Text(text = stringResource(MR.strings.migrate))
@@ -125,9 +131,17 @@ fun Screen.EntryMigrateDialog(
     )
 }
 
-private class EntryMigrateDialogScreenModel(
+internal class EntryMigrateDialogViewModel(
     contentType: ContentType,
-) : StateScreenModel<EntryMigrateDialogScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrateDialogViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+
+        val Factory = viewModelFactory {
+            initializer { EntryMigrateDialogViewModel(contentType = get(CONTENT_TYPE_KEY)!!) }
+        }
+    }
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
@@ -138,7 +152,7 @@ private class EntryMigrateDialogScreenModel(
     fun load(pairKey: String, entry: MigrationEntry) {
         if (state.value.isMigrating) return
         mutableState.update { State(pairKey = pairKey) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             adapter.prepare()
             val applicable = adapter.applicableFlags(listOf(entry))
             val saved = adapter.savedFlags()
@@ -167,7 +181,7 @@ private class EntryMigrateDialogScreenModel(
         val flags = state.value.selectedFlags
         val pairKey = state.value.pairKey
         mutableState.update { it.copy(isMigrating = true, failed = false) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             adapter.persistFlags(flags)
             val result = runCatchingCancellable { adapter.commitMigration(entry, target, replace, flags) }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }

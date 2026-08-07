@@ -23,9 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
@@ -67,8 +70,14 @@ class EntryMigrationFavoritesScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { EntryMigrationFavoritesScreenModel(contentType, sourceKey) }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<EntryMigrationFavoritesViewModel>(
+            factory = EntryMigrationFavoritesViewModel.Factory,
+            extras = CreationExtras {
+                set(EntryMigrationFavoritesViewModel.CONTENT_TYPE_KEY, contentType)
+                set(EntryMigrationFavoritesViewModel.SOURCE_KEY_KEY, sourceKey)
+            },
+        )
+        val state by viewModel.state.collectAsState()
         val listState = rememberLazyListState()
 
         if (state.isLoading) {
@@ -89,12 +98,12 @@ class EntryMigrationFavoritesScreen(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_select_all),
                                         icon = Icons.Outlined.SelectAll,
-                                        onClick = screenModel::selectAll,
+                                        onClick = viewModel::selectAll,
                                     ),
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_select_inverse),
                                         icon = Icons.Outlined.FlipToBack,
-                                        onClick = screenModel::invertSelection,
+                                        onClick = viewModel::invertSelection,
                                     ),
                                 ),
                             )
@@ -140,7 +149,7 @@ class EntryMigrationFavoritesScreen(
                     FavoriteRow(
                         favorite = entry,
                         checked = entry.id in state.selected,
-                        onToggle = { screenModel.toggle(entry.id) },
+                        onToggle = { viewModel.toggle(entry.id) },
                         onClickCover = { entry.openDetails(navigator) },
                     )
                 }
@@ -188,15 +197,31 @@ private fun FavoriteRow(
     }
 }
 
-class EntryMigrationFavoritesScreenModel(
+class EntryMigrationFavoritesViewModel(
     contentType: ContentType,
     private val sourceKey: String,
-) : StateScreenModel<EntryMigrationFavoritesScreenModel.State>(State()) {
+) : StateViewModel<EntryMigrationFavoritesViewModel.State>(State()) {
+
+    companion object {
+        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+
+        /** A novel source id is a plugin string, so this key is Reikai's rather than upstream's Long. */
+        val SOURCE_KEY_KEY = CreationExtras.Key<String>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                EntryMigrationFavoritesViewModel(
+                    contentType = get(CONTENT_TYPE_KEY)!!,
+                    sourceKey = get(SOURCE_KEY_KEY)!!,
+                )
+            }
+        }
+    }
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             adapter.prepare()
             val sourceName = adapter.sourceDisplayName(sourceKey)
             mutableState.update { it.copy(sourceName = sourceName) }

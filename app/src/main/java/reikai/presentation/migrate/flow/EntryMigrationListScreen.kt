@@ -46,7 +46,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -82,15 +83,15 @@ class EntryMigrationListScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            EntryMigrationListScreenModel(
-                entryIds = entryIds,
-                adapter = migrationAdapterFor(contentType),
-                pickHandoff = Injekt.get(),
-                extraQuery = extraQuery,
-            )
-        }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<EntryMigrationListViewModel>(
+            factory = EntryMigrationListViewModel.Factory,
+            extras = CreationExtras {
+                set(EntryMigrationListViewModel.CONTENT_TYPE_KEY, contentType)
+                set(EntryMigrationListViewModel.ENTRY_IDS_KEY, entryIds)
+                set(EntryMigrationListViewModel.EXTRA_QUERY_KEY, extraQuery)
+            },
+        )
+        val state by viewModel.state.collectAsState()
 
         if (state.finished) {
             // A migrated row leaves the list as it succeeds, so by the time the flow pops there is
@@ -111,14 +112,14 @@ class EntryMigrationListScreen(
 
         // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
         LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) screenModel.collectPendingPick()
+            if (!state.isLoading) viewModel.collectPendingPick()
         }
 
-        PickOutcomeToast(state.pickOutcome, screenModel::consumePickOutcome)
+        PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
         // Back is guarded all the way through the commit: rows are being mutated.
         val guardExit = !state.finished && state.rows.isNotEmpty()
-        BackHandler(enabled = guardExit) { screenModel.showExitConfirm() }
+        BackHandler(enabled = guardExit) { viewModel.showExitConfirm() }
 
         if (state.isLoading) {
             LoadingScreen()
@@ -132,7 +133,7 @@ class EntryMigrationListScreen(
                     subtitle = if (state.rows.size > 1) "${state.searchedCount} / ${state.rows.size}" else null,
                     navigateUp = {
                         if (guardExit) {
-                            screenModel.showExitConfirm()
+                            viewModel.showExitConfirm()
                         } else {
                             navigator.popUntil { it !is MigrationFlowScreen }
                         }
@@ -144,7 +145,7 @@ class EntryMigrationListScreen(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
                                     icon = Icons.Outlined.DoneAll,
-                                    onClick = screenModel::acceptAll,
+                                    onClick = viewModel::acceptAll,
                                     // Matches acceptAll's own guard: it refuses while anything is
                                     // committing, so an enabled icon there would be a dead tap.
                                     enabled = state.hasUnaccepted && !state.isBusy,
@@ -163,13 +164,13 @@ class EntryMigrationListScreen(
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     ) {
                         OutlinedButton(
-                            onClick = { screenModel.showConfirm(replace = false) },
+                            onClick = { viewModel.showConfirm(replace = false) },
                             modifier = Modifier.weight(1f),
                         ) {
                             Text(text = "${stringResource(MR.strings.copy)} (${state.committableCount})")
                         }
                         Button(
-                            onClick = { screenModel.showConfirm(replace = true) },
+                            onClick = { viewModel.showConfirm(replace = true) },
                             modifier = Modifier.weight(1f),
                         ) {
                             Text(text = "${stringResource(MR.strings.migrate)} (${state.committableCount})")
@@ -183,9 +184,9 @@ class EntryMigrationListScreen(
                 // Never a bare blank list: each way of ending up with nothing says which one it was.
                 EmptyScreen(
                     stringRes = when (emptyReason) {
-                        EntryMigrationListScreenModel.EmptyReason.NoEntries ->
+                        EntryMigrationListViewModel.EmptyReason.NoEntries ->
                             MR.strings.migrationFlow_emptyNoEntries
-                        EntryMigrationListScreenModel.EmptyReason.NoSources ->
+                        EntryMigrationListViewModel.EmptyReason.NoSources ->
                             MR.strings.migrationFlow_emptyNoSources
                     },
                     modifier = Modifier.padding(contentPadding),
@@ -193,7 +194,7 @@ class EntryMigrationListScreen(
             } else {
                 LazyColumn(contentPadding = contentPadding) {
                     items(items = state.rows, key = { it.entry.id.toString() }) { row ->
-                        MigrationRow(row = row, busy = state.isBusy, screenModel = screenModel)
+                        MigrationRow(row = row, busy = state.isBusy, viewModel = viewModel)
                     }
                 }
             }
@@ -206,23 +207,23 @@ class EntryMigrationListScreen(
             ProgressDialog(
                 done = batch.done,
                 total = batch.total,
-                onCancel = screenModel::cancelCommit,
+                onCancel = viewModel::cancelCommit,
             )
         }
         when (val dialog = state.visibleDialog) {
-            is EntryMigrationListScreenModel.Dialog.Confirm -> ConfirmDialog(
+            is EntryMigrationListViewModel.Dialog.Confirm -> ConfirmDialog(
                 dialog = dialog,
-                onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { flags -> screenModel.commit(dialog.replace, flags) },
+                onDismissRequest = viewModel::dismissDialog,
+                onConfirm = { flags -> viewModel.commit(dialog.replace, flags) },
             )
-            EntryMigrationListScreenModel.Dialog.ExitConfirm -> ExitDialog(
-                onDismissRequest = screenModel::dismissDialog,
+            EntryMigrationListViewModel.Dialog.ExitConfirm -> ExitDialog(
+                onDismissRequest = viewModel::dismissDialog,
                 // Stopping abandons the flow, so it unwinds to wherever the flow was started,
                 // the same as finishing: one pop would land on a stale flow step.
                 onConfirm = {
                     // A commit still running would otherwise be cancelled halfway by the pop, with
                     // nothing said about what had already been written.
-                    screenModel.cancelCommit()
+                    viewModel.cancelCommit()
                     navigator.popUntil { it !is MigrationFlowScreen }
                 },
             )
@@ -235,7 +236,7 @@ class EntryMigrationListScreen(
 private fun MigrationRow(
     row: MigratingEntryRow,
     busy: Boolean,
-    screenModel: EntryMigrationListScreenModel,
+    viewModel: EntryMigrationListViewModel,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     // Collected inside the item so one row settling recomposes that row, not the whole list.
@@ -282,7 +283,7 @@ private fun MigrationRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                RowStatusLine(row = row, status = status, screenModel = screenModel)
+                RowStatusLine(row = row, status = status, viewModel = viewModel)
                 RowCountLine(row = row, target = chosen ?: (search as? SearchPhase.Found)?.suggestion)
             }
             RowTrailing(
@@ -290,13 +291,13 @@ private fun MigrationRow(
                 commit = commit,
                 chosen = chosen,
                 actions = actions,
-                screenModel = screenModel,
+                viewModel = viewModel,
             )
         }
         // Gated on the rules, not on `expanded` alone: a row that can no longer take a target must
         // not keep a picker whose candidates are all dead taps.
         if (expanded && actions.canPick) {
-            OverridePicker(row = row, screenModel = screenModel)
+            OverridePicker(row = row, viewModel = viewModel)
         }
     }
 }
@@ -305,7 +306,7 @@ private fun MigrationRow(
 @Composable
 private fun OverridePicker(
     row: MigratingEntryRow,
-    screenModel: EntryMigrationListScreenModel,
+    viewModel: EntryMigrationListViewModel,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
@@ -323,7 +324,7 @@ private fun OverridePicker(
                 .padding(horizontal = 16.dp),
             trailingIcon = {
                 IconButton(
-                    onClick = { screenModel.searchOverrides(row.entry.id, query) },
+                    onClick = { viewModel.searchOverrides(row.entry.id, query) },
                     enabled = query.isNotBlank(),
                 ) {
                     Icon(
@@ -342,7 +343,7 @@ private fun OverridePicker(
                     sourceLang = strip.sourceLang,
                     isCurrentSource = strip.sourceKey == row.entry.sourceKey,
                     result = strip.result,
-                    onPick = { screenModel.pick(row.entry.id, it) },
+                    onPick = { viewModel.pick(row.entry.id, it) },
                     onPreview = { it.openDetails(navigator) },
                     onBrowseSource = {
                         if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
@@ -360,7 +361,7 @@ private fun OverridePicker(
 private fun RowStatusLine(
     row: MigratingEntryRow,
     status: MigrationRowRules.RowStatus,
-    screenModel: EntryMigrationListScreenModel,
+    viewModel: EntryMigrationListViewModel,
 ) {
     // One case per meaning, so no two states can quietly share a rendering.
     val text = when (status) {
@@ -369,7 +370,7 @@ private fun RowStatusLine(
         MigrationRowRules.RowStatus.NoMatch -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
         MigrationRowRules.RowStatus.SearchFailed -> stringResource(MR.strings.migrationFlow_searchFailed)
         is MigrationRowRules.RowStatus.Target ->
-            remember(status.sourceKey) { screenModel.sourceDisplayName(status.sourceKey) }
+            remember(status.sourceKey) { viewModel.sourceDisplayName(status.sourceKey) }
         MigrationRowRules.RowStatus.Committing -> stringResource(MR.strings.loading)
         MigrationRowRules.RowStatus.CommitFailed -> stringResource(MR.strings.migrationFlow_commitFailed)
     }
@@ -411,7 +412,7 @@ private fun RowTrailing(
     commit: CommitPhase,
     chosen: MigrationCandidate?,
     actions: MigrationRowRules.RowActions,
-    screenModel: EntryMigrationListScreenModel,
+    viewModel: EntryMigrationListViewModel,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     when {
@@ -423,7 +424,7 @@ private fun RowTrailing(
         }
         // Offered only where the model would accept it, so Retry cannot render during another
         // row.s commit and do nothing.
-        actions.canRetry -> TextButton(onClick = { screenModel.retry(row.entry.id) }) {
+        actions.canRetry -> TextButton(onClick = { viewModel.retry(row.entry.id) }) {
             Text(text = stringResource(MR.strings.action_retry))
         }
         // Accept: filled once a target is accepted, outlined while it is only a suggestion. Tapping
@@ -434,11 +435,11 @@ private fun RowTrailing(
                 if (accepted) MR.strings.migrationFlow_acceptedLabel else MR.strings.action_accept,
             )
             if (accepted) {
-                FilledTonalIconButton(onClick = { screenModel.toggleAccept(row.entry.id) }) {
+                FilledTonalIconButton(onClick = { viewModel.toggleAccept(row.entry.id) }) {
                     Icon(imageVector = Icons.Filled.Check, contentDescription = description)
                 }
             } else {
-                OutlinedIconButton(onClick = { screenModel.toggleAccept(row.entry.id) }) {
+                OutlinedIconButton(onClick = { viewModel.toggleAccept(row.entry.id) }) {
                     Icon(imageVector = Icons.Filled.Check, contentDescription = description)
                 }
             }
@@ -462,7 +463,7 @@ private fun RowTrailing(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
                     onClick = {
                         menuExpanded = false
-                        screenModel.toggleExpanded(row.entry.id)
+                        viewModel.toggleExpanded(row.entry.id)
                     },
                 )
             }
@@ -471,14 +472,14 @@ private fun RowTrailing(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel)) },
                     onClick = {
                         menuExpanded = false
-                        screenModel.commitSingle(row.entry.id, replace = true)
+                        viewModel.commitSingle(row.entry.id, replace = true)
                     },
                 )
                 DropdownMenuItem(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_copyNowActionLabel)) },
                     onClick = {
                         menuExpanded = false
-                        screenModel.commitSingle(row.entry.id, replace = false)
+                        viewModel.commitSingle(row.entry.id, replace = false)
                     },
                 )
             }
@@ -487,7 +488,7 @@ private fun RowTrailing(
                     text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
                     onClick = {
                         menuExpanded = false
-                        screenModel.skipRow(row.entry.id)
+                        viewModel.skipRow(row.entry.id)
                     },
                 )
             }
@@ -497,7 +498,7 @@ private fun RowTrailing(
 
 @Composable
 private fun ConfirmDialog(
-    dialog: EntryMigrationListScreenModel.Dialog.Confirm,
+    dialog: EntryMigrationListViewModel.Dialog.Confirm,
     onDismissRequest: () -> Unit,
     onConfirm: (Set<MigrationDataFlag>) -> Unit,
 ) {
