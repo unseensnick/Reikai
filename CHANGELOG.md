@@ -75,6 +75,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Preview builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
 - **"Share trackers across merged sources" now covers showing and removing a tracker, not just copying it.** Turn it off and every source of a merged series tracks on its own again.
 - **Settings -> Advanced now has one "Clear all merges" action per content type instead of two.** The two did the same thing.
+- **Updating the app now happens on the update screen itself, with the download progress on the button (synced from Mihon, mihonapp/mihon#3669 and mihonapp/mihon#3707).** Tap once more when it finishes to install.
+- **Reikai now checks for app and extension updates every time you open it from cold (synced from Mihon, mihonapp/mihon#3658).** It used to wait days between checks, so a fresh build could sit unoffered.
+- **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.
 
 ### Fixes
 
@@ -181,10 +184,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Grouping the library by tracking status now looks at every source of a merged series, not only the one it leads with.**
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**
 - **Sorting the library by tracker score is now accurate.** Entries whose only trackers are signed out no longer float above your rated ones, and a merged series counts each tracker once instead of doubling it across sources.
+- **A MyAnimeList entry dated with only a year, or a year and month, no longer errors out (synced from Mihon, mihonapp/mihon#3573).**
 
 **Reader & chapters**
 
 - **Chapters you have read no longer disappear from the reader's chapter list.**
+- **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**
 - **Swiping back from the reader now reaches the chapter you were on.**
 - **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
 - **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
@@ -193,6 +198,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
 - **Restoring a backup no longer re-merges a pair you deliberately split.**
+- **One bad entry in a restore no longer takes a hundred others down with it (synced from Mihon, mihonapp/mihon#3667).** The rest of the batch is retried one at a time, so only the entry that actually failed is reported.
+- **A backup holding the same series twice under one source now restores instead of failing (synced from Mihon, mihonapp/mihon#3667).**
 - **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring no longer runs out of memory, and a failed backup now reports the error.
 - **Restoring a backup now keeps your novel category filters and default category instead of quietly dropping them.**
 - **A backup with the read-entries option on now includes novels you have read but removed from your library, like manga.** Their read history used to drop out of the backup, including after migrating a novel to a new source.
@@ -213,6 +220,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).
+- Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
+- Translated strings refreshed across 53 locales (synced from Mihon, mihonapp/mihon#3563 and mihonapp/mihon#3677).
+- A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
 - The manga and novel add-to-library flows in browse and global search now share one bulk-selection engine, one default-category decision and one remove dialog, so the two can't drift apart.
 - The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
 - The manga and novel libraries now share one implementation of filtering, searching, sorting, grouping, list assembly, selection and every library dialog, and identify an entry by its content type rather than by the sign of its id, so a library change reaches both content types instead of being written twice.
