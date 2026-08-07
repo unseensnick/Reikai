@@ -286,7 +286,7 @@ class MainActivity :
                 HandleOnNewIntent(context = context, navigator = navigator)
 
                 if (!isBenchmarkBuildType) {
-                    CheckForUpdates()
+                    if (isLaunch) CheckForUpdates()
                     ShowOnboarding()
                     // RK: Reikai does not run Mihon's donation campaign.
                 }
@@ -344,7 +344,7 @@ class MainActivity :
         LaunchedEffect(Unit) {
             if (updaterEnabled) {
                 try {
-                    val result = AppUpdateChecker().checkForUpdate(context)
+                    val result = AppUpdateChecker().checkForUpdate()
                     if (result is GetApplicationRelease.Result.NewUpdate) {
                         val updateScreen = NewUpdateScreen(
                             versionName = result.release.version,

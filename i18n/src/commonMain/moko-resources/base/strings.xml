@@ -511,6 +511,7 @@
     <string name="ext_installer_shizuku_stopped">Shizuku is not running</string>
     <string name="ext_installer_shizuku_unavailable_dialog">Install and start Shizuku to use Shizuku as extension installer.</string>
     <string name="ext_revoke_trust">Revoke trusted unknown extensions</string>
+    <string name="downloading_with_progress">Downloading… (%d%%)</string>
 
     <!-- Extension repos -->
     <string name="action_open_repo">Open source repo</string>
@@ -1198,9 +1199,6 @@
     <string name="update_check_no_new_updates">No new updates available</string>
 
     <!--UpdateCheck Notifications-->
-    <string name="update_check_notification_download_in_progress">Downloading…</string>
-    <string name="update_check_notification_download_complete">Tap to install update</string>
-    <string name="update_check_notification_download_error">Download error</string>
     <string name="update_check_notification_update_available">New version available!</string>
 
     <!-- Information Text -->
@@ -1239,7 +1237,6 @@
     <string name="channel_complete">Complete</string>
     <string name="channel_errors">Errors</string>
     <string name="channel_new_chapters">Chapter updates</string>
-    <string name="channel_app_updates">App updates</string>
     <string name="channel_ext_updates">Extension updates</string>
 
     <!-- S Pen actions -->
