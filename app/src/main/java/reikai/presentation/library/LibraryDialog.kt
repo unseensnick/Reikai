@@ -34,7 +34,7 @@ sealed interface LibraryDialog {
 
     /**
      * [contentType] picks which settings sheet renders, because the novel sheet still takes the novel
-     * ScreenModel as a parameter and cannot be neutralized until the two sheets merge. Keying the render
+     * ViewModel as a parameter and cannot be neutralized until the two sheets merge. Keying the render
      * branch on the dialog rather than on the ambient chip is what a mixed list needs anyway.
      *
      * A null [categoryId] is the global-sort scope, not a stale active category.

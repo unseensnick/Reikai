@@ -60,7 +60,7 @@ Mihon files patched with `// RK` islands (search path, sheet wiring, DI):
 
 UI / sync wiring:
 
-- `app/src/main/java/reikai/presentation/novel/details/NovelDetailsScreenModel.kt`: opens the sheet and drives mark-read auto-sync.
+- `app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt`: opens the sheet and drives mark-read auto-sync.
 
 (File list confirmed against the working tree and commit `7c56e07eb`; see `git show --stat 7c56e07eb`.)
 

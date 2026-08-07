@@ -16,7 +16,7 @@ Grouped by the area of the app each touches. Each entry describes current behavi
 
 ### History
 
-**Novel reading history in the History tab.** Novel reads now appear in the same History tab as manga, behind an All / Manga / Novels chip, the way the Updates tab consolidates both content types. Mihon's untouched manga `HistoryScreenModel` and a new `NovelHistoryScreenModel` both render through one `ReikaiHistoryScreen`: one search box and one clear-all drive both, rows interleave by read time (newest first) under shared date headers. The novel reader records history on chapter switch and on exit via a session timer that accumulates `time_read` (the novel twin of `ReaderViewModel.updateHistory`). Data sits in a `novel_history` table plus a `novelHistoryView` that collapses to one row per novel (the chapter with the latest read time). Resume reopens the recorded chapter if it is still unread, else the next one. Soft-delete one row, reset by novel, and clear-all are all scoped to the active chip, so a Novels-scoped clear leaves manga history intact. This is the History half of the old "unified Recents," and is the direct twin of the Updates consolidation (see `unified-updates.md`).
+**Novel reading history in the History tab.** Novel reads now appear in the same History tab as manga, behind an All / Manga / Novels chip, the way the Updates tab consolidates both content types. Mihon's untouched manga `HistoryViewModel` and a new `NovelHistoryViewModel` both render through one `ReikaiHistoryScreen`: one search box and one clear-all drive both, rows interleave by read time (newest first) under shared date headers. The novel reader records history on chapter switch and on exit via a session timer that accumulates `time_read` (the novel twin of `ReaderViewModel.updateHistory`). Data sits in a `novel_history` table plus a `novelHistoryView` that collapses to one row per novel (the chapter with the latest read time). Resume reopens the recorded chapter if it is still unread, else the next one. Soft-delete one row, reset by novel, and clear-all are all scoped to the active chip, so a Novels-scoped clear leaves manga history intact. This is the History half of the old "unified Recents," and is the direct twin of the Updates consolidation (see `unified-updates.md`).
 
 ### Migration
 
@@ -26,7 +26,7 @@ Grouped by the area of the app each touches. Each entry describes current behavi
 
 ### Library modes
 
-**"Downloaded only" mode for the novel library.** Novels now honor the app-wide "Downloaded only" toggle. `NovelLibraryScreenModel` forces the downloaded filter on at the match step only, so the global mode does not light the per-session filter dot (matching how `LibraryScreenModel.applyFilters` behaves for manga), reusing the existing entry-level `downloadCount > 0` predicate. The Filter sheet's Downloaded chip locks on while the global mode is active.
+**"Downloaded only" mode for the novel library.** Novels now honor the app-wide "Downloaded only" toggle. `NovelLibraryViewModel` forces the downloaded filter on at the match step only, so the global mode does not light the per-session filter dot (matching how `LibraryViewModel.applyFilters` behaves for manga), reusing the existing entry-level `downloadCount > 0` predicate. The Filter sheet's Downloaded chip locks on while the global mode is active.
 
 **Incognito mode for novels.** Novels honor the global Incognito toggle. While incognito, the novel reader does not record history, scroll position, read state, or last-read, and skips the reader's tracker push; the browse model does not record the last-used novel source. This is gated on the global state only (`GetIncognitoState.await(null)`): novel sources are String-keyed with no installed extension, so per-source incognito does not apply. The details mark-read tracker sync stays ungated, matching manga.
 
@@ -50,7 +50,7 @@ See `novel-reader.md` for the reader architecture these settings hang off.
 
 ### Stats
 
-**Novels in the Stats screen.** The Stats screen has an All / Manga / Novels chip (the same shared `ContentTypeFilterChips` used elsewhere) that switches which content's stats show; All combines both. `StatsScreenModel` reads the manga and novel libraries once and folds precomputed pieces per type, so switching the chip needs no recompute. Novels show the full card set: read-duration from a `novel_history` total-read-duration query, trackers via `GetNovelTracks`, and a novel global-update count over the novel update prefs. Only the `local` source count is manga-only (zero for novels). Every additive card reads as manga plus novels.
+**Novels in the Stats screen.** The Stats screen has an All / Manga / Novels chip (the same shared `ContentTypeFilterChips` used elsewhere) that switches which content's stats show; All combines both. `StatsViewModel` reads the manga and novel libraries once and folds precomputed pieces per type, so switching the chip needs no recompute. Novels show the full card set: read-duration from a `novel_history` total-read-duration query, trackers via `GetNovelTracks`, and a novel global-update count over the novel update prefs. Only the `local` source count is manga-only (zero for novels). Every additive card reads as manga plus novels.
 
 ### Browse
 
@@ -66,7 +66,7 @@ Per-novel Notes introduced the additive `NovelUpdate` partial-update path: a fre
 
 History
 - `app/src/main/java/reikai/presentation/history/ReikaiHistoryScreen.kt` (the host behind the All / Manga / Novels chip)
-- `app/src/main/java/reikai/presentation/history/NovelHistoryScreenModel.kt`
+- `app/src/main/java/reikai/presentation/history/NovelHistoryViewModel.kt`
 - `data/src/main/sqldelight/tachiyomi/data/novel_history.sq` (the `novel_history` table) and `data/src/main/sqldelight/tachiyomi/view/novelHistoryView.sq` (the per-novel view)
 
 Migration
@@ -74,7 +74,7 @@ Migration
 - `app/src/main/java/reikai/presentation/novel/migrate/NovelMigrationListScreen.kt` + `NovelMigrationListScreenModel.kt` (the unified 1..N migration screen, auto-search + suggested + lazy materialize + batch Copy/Migrate)
 
 Library modes
-- `app/src/main/java/reikai/presentation/library/novels/NovelLibraryScreenModel.kt` (downloaded-only force, incognito gating on the browse side)
+- `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt` (downloaded-only force, incognito gating on the browse side)
 
 Reader
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt` (orientation resolve, mark-read-on-skip, incognito gating)
@@ -82,13 +82,13 @@ Reader
 - `app/src/main/java/reikai/domain/novel/NovelPreferences.kt` (`readerKeepScreenOn`, `readerMarkReadOnSkip`, orientation default)
 
 Downloads
-- `app/src/main/java/reikai/presentation/download/NovelDownloadQueueList.kt` (flat reorderable list with boundary captions) and `NovelDownloadQueueScreenModel.kt` (flat state, `reorder` / `sort`)
+- `app/src/main/java/reikai/presentation/download/NovelDownloadQueueList.kt` (flat reorderable list with boundary captions) and `NovelDownloadQueueViewModel.kt` (flat state, `reorder` / `sort`)
 - `app/src/main/java/reikai/presentation/download/DownloadQueueSortSheet.kt` (the `TabbedDialog` + `SortItem` sort modal, matching the library / chapter sort sheets)
 - `app/src/main/java/reikai/novel/download/NovelDownloadManager.kt` (`reorderQueue`) and `NovelDownloadStore.kt` (`replaceAll`)
 - `app/src/main/java/eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt` (`// RK` unified Sort across both queues)
 
 Stats
-- `app/src/main/java/eu/kanade/tachiyomi/ui/stats/StatsScreenModel.kt` (`// RK` graft for the content-type fold)
+- `app/src/main/java/eu/kanade/tachiyomi/ui/stats/StatsViewModel.kt` (`// RK` graft for the content-type fold)
 
 Browse
 - `app/src/main/java/reikai/presentation/novel/browse/NovelLibraryAdder.kt`

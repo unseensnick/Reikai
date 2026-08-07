@@ -118,7 +118,7 @@ data class EntryTrackInfoDialogHomeScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.ENTRY_ID_KEY, entryId)
@@ -128,7 +128,7 @@ data class EntryTrackInfoDialogHomeScreen(
         )
 
         val dateFormat = remember { UiPreferences.dateFormat(Injekt.get<UiPreferences>().dateFormat.get()) }
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
 
         TrackInfoDialogHome(
             trackItems = state.trackItems,
@@ -150,7 +150,7 @@ data class EntryTrackInfoDialogHomeScreen(
             },
             onNewSearch = {
                 if (!isNovel && it.tracker is EnhancedTracker) {
-                    screenModel.registerEnhancedTracking(it)
+                    viewModel.registerEnhancedTracking(it)
                 } else {
                     navigator.push(
                         EntryTrackerSearchScreen(
@@ -168,7 +168,7 @@ data class EntryTrackInfoDialogHomeScreen(
                 navigator.push(EntryTrackerRemoveScreen(entryId, it.track!!, it.tracker.id, isNovel))
             },
             onCopyLink = { context.copyTrackerLink(it) },
-            onTogglePrivate = screenModel::togglePrivate,
+            onTogglePrivate = viewModel::togglePrivate,
         )
     }
 
@@ -299,7 +299,7 @@ private data class EntryTrackStatusSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.TRACK_KEY, track)
@@ -307,13 +307,13 @@ private data class EntryTrackStatusSelectorScreen(
                 set(Model.IS_NOVEL_KEY, isNovel)
             },
         )
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
         TrackStatusSelector(
             selection = state.selection,
-            onSelectionChange = screenModel::setSelection,
-            selections = remember { screenModel.getSelections() },
+            onSelectionChange = viewModel::setSelection,
+            selections = remember { viewModel.getSelections() },
             onConfirm = {
-                screenModel.setStatus()
+                viewModel.setStatus()
                 navigator.pop()
             },
             onDismissRequest = navigator::pop,
@@ -370,7 +370,7 @@ private data class EntryTrackChapterSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.TRACK_KEY, track)
@@ -378,13 +378,13 @@ private data class EntryTrackChapterSelectorScreen(
                 set(Model.IS_NOVEL_KEY, isNovel)
             },
         )
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
         TrackChapterSelector(
             selection = state.selection,
-            onSelectionChange = screenModel::setSelection,
-            range = remember { screenModel.getRange() },
+            onSelectionChange = viewModel::setSelection,
+            range = remember { viewModel.getRange() },
             onConfirm = {
-                screenModel.setChapter()
+                viewModel.setChapter()
                 navigator.pop()
             },
             onDismissRequest = navigator::pop,
@@ -440,7 +440,7 @@ private data class EntryTrackScoreSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.TRACK_KEY, track)
@@ -448,13 +448,13 @@ private data class EntryTrackScoreSelectorScreen(
                 set(Model.IS_NOVEL_KEY, isNovel)
             },
         )
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
         TrackScoreSelector(
             selection = state.selection,
-            onSelectionChange = screenModel::setSelection,
-            selections = remember { screenModel.getSelections() },
+            onSelectionChange = viewModel::setSelection,
+            selections = remember { viewModel.getSelections() },
             onConfirm = {
-                screenModel.setScore()
+                viewModel.setScore()
                 navigator.pop()
             },
             onDismissRequest = navigator::pop,
@@ -551,7 +551,7 @@ private data class EntryTrackDateSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.TRACK_KEY, track)
@@ -568,13 +568,13 @@ private data class EntryTrackDateSelectorScreen(
             } else {
                 stringResource(MR.strings.track_finished_reading_date)
             },
-            initialSelectedDateMillis = screenModel.initialSelection,
+            initialSelectedDateMillis = viewModel.initialSelection,
             selectableDates = selectableDates,
             onConfirm = {
-                screenModel.setDate(it)
+                viewModel.setDate(it)
                 navigator.pop()
             },
-            onRemove = { screenModel.confirmRemoveDate(navigator) }.takeIf { canRemove },
+            onRemove = { viewModel.confirmRemoveDate(navigator) }.takeIf { canRemove },
             onDismissRequest = navigator::pop,
         )
     }
@@ -645,7 +645,7 @@ private data class EntryTrackDateRemoverScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.TRACK_KEY, track)
@@ -664,7 +664,7 @@ private data class EntryTrackDateRemoverScreen(
                 )
             },
             text = {
-                val serviceName = screenModel.getServiceName()
+                val serviceName = viewModel.getServiceName()
                 Text(
                     text = if (start) {
                         stringResource(MR.strings.track_remove_start_date_conf_text, serviceName)
@@ -683,7 +683,7 @@ private data class EntryTrackDateRemoverScreen(
                     }
                     FilledTonalButton(
                         onClick = {
-                            screenModel.removeDate()
+                            viewModel.removeDate()
                             navigator.popUntil { it is EntryTrackInfoDialogHomeScreen }
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(
@@ -748,7 +748,7 @@ data class EntryTrackerSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.ENTRY_ID_KEY, entryId)
@@ -759,23 +759,23 @@ data class EntryTrackerSearchScreen(
             },
         )
 
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
 
         val textFieldState = rememberTextFieldState(initialQuery)
         TrackerSearch(
             state = textFieldState,
-            onDispatchQuery = { screenModel.trackingSearch(textFieldState.text.toString()) },
+            onDispatchQuery = { viewModel.trackingSearch(textFieldState.text.toString()) },
             queryResult = state.queryResult,
             selected = state.selected,
-            onSelectedChange = screenModel::updateSelection,
+            onSelectedChange = viewModel::updateSelection,
             onConfirmSelection = f@{ private: Boolean ->
                 val selected = state.selected ?: return@f
                 selected.private = private
-                screenModel.registerTracking(selected)
+                viewModel.registerTracking(selected)
                 navigator.pop()
             },
             onDismissRequest = navigator::pop,
-            supportsPrivateTracking = screenModel.supportsPrivateTracking,
+            supportsPrivateTracking = viewModel.supportsPrivateTracking,
         )
     }
 
@@ -869,7 +869,7 @@ private data class EntryTrackerRemoveScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.ENTRY_ID_KEY, entryId)
@@ -878,7 +878,7 @@ private data class EntryTrackerRemoveScreen(
                 set(Model.IS_NOVEL_KEY, isNovel)
             },
         )
-        val serviceName = screenModel.getName()
+        val serviceName = viewModel.getName()
         var removeRemoteTrack by remember { mutableStateOf(false) }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
@@ -892,7 +892,7 @@ private data class EntryTrackerRemoveScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
                     Text(text = stringResource(MR.strings.track_delete_text, serviceName))
-                    if (screenModel.isDeletable()) {
+                    if (viewModel.isDeletable()) {
                         LabeledCheckbox(
                             label = stringResource(MR.strings.track_delete_remote_text, serviceName),
                             checked = removeRemoteTrack,
@@ -911,8 +911,8 @@ private data class EntryTrackerRemoveScreen(
                     }
                     FilledTonalButton(
                         onClick = {
-                            screenModel.unregisterTracking(serviceId)
-                            if (removeRemoteTrack) screenModel.deleteEntryFromService()
+                            viewModel.unregisterTracking(serviceId)
+                            if (removeRemoteTrack) viewModel.deleteEntryFromService()
                             navigator.pop()
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(

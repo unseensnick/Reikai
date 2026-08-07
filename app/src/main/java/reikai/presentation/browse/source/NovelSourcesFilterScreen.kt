@@ -35,8 +35,8 @@ class NovelSourcesFilterScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = viewModel<NovelSourcesFilterViewModel>()
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<NovelSourcesFilterViewModel>()
+        val state by viewModel.state.collectAsState()
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -62,7 +62,7 @@ class NovelSourcesFilterScreen : Screen() {
                                     SwitchPreferenceWidget(
                                         title = LocaleHelper.getSourceDisplayName(language, LocalContext.current),
                                         checked = languageEnabled,
-                                        onCheckedChanged = { screenModel.toggleLanguage(language) },
+                                        onCheckedChanged = { viewModel.toggleLanguage(language) },
                                     )
                                 }
                                 if (languageEnabled) {
@@ -75,7 +75,7 @@ class NovelSourcesFilterScreen : Screen() {
                                             name = source.name,
                                             lang = "",
                                             iconUrl = source.iconUrl,
-                                            onClickItem = { screenModel.toggleSource(source.id) },
+                                            onClickItem = { viewModel.toggleSource(source.id) },
                                             action = {
                                                 Checkbox(
                                                     checked = source.id !in s.disabledSources,

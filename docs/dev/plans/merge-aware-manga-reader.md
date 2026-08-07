@@ -27,7 +27,7 @@ Mechanism:
 - `app/src/main/java/eu/kanade/tachiyomi/ui/reader/ReaderViewModel.kt` (`// RK`): merged chapter list, merged loader, `mangaForChapterId`, per-source side effects, `getChapters` labels.
 - `app/src/main/java/eu/kanade/presentation/reader/ChapterListDialog.kt` + `.../ui/reader/chapter/ReaderChapterItem.kt`: per-source label in the row subtitle.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/reader/viewer/ReaderTransitionView.kt` + the pager/webtoon transition holders (`// RK`): the per-source, cache-based downloaded badge.
-- `app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaScreenModel.kt` (`// RK`): the details merged-chapters flow now calls `MergedChapterProvider.aggregate`.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaViewModel.kt` (`// RK`): the details merged-chapters flow now calls `MergedChapterProvider.aggregate`.
 - Test: `app/src/test/java/reikai/domain/manga/MergedChapterProviderTest.kt` (reading-order restamp; stitch/dedup already covered by `ChapterAggregationTest`).
 
 ## Status

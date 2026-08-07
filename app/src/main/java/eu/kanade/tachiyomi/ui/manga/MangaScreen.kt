@@ -90,7 +90,7 @@ class MangaScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val screenModel = viewModel<MangaViewModel>(
+        val viewModel = viewModel<MangaViewModel>(
             factory = MangaViewModel.Factory,
             extras = CreationExtras {
                 set(MangaViewModel.MANGA_ID_KEY, mangaId)
@@ -98,7 +98,7 @@ class MangaScreen(
             },
         )
 
-        val state by screenModel.state.collectAsStateWithLifecycle()
+        val state by viewModel.state.collectAsStateWithLifecycle()
 
         if (state is MangaViewModel.State.Loading) {
             LoadingScreen()
@@ -108,11 +108,11 @@ class MangaScreen(
         val successState = state as MangaViewModel.State.Success
         val isHttpSource = remember { successState.source is HttpSource }
 
-        LaunchedEffect(successState.manga, screenModel.source) {
+        LaunchedEffect(successState.manga, viewModel.source) {
             if (isHttpSource) {
                 try {
                     withIOContext {
-                        assistUrl = getMangaUrl(screenModel.manga, screenModel.source)
+                        assistUrl = getMangaUrl(viewModel.manga, viewModel.source)
                     }
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e) { "Failed to get manga URL" }
@@ -122,28 +122,28 @@ class MangaScreen(
 
         // RK: load the related-mangas carousel once the screen is open (idempotent per open).
         LaunchedEffect(successState.manga.id) {
-            screenModel.loadRelatedMangas()
+            viewModel.loadRelatedMangas()
         }
 
         // RK: extract the cover's vibrant color to tint the screen (Y11).
         LaunchedEffect(successState.manga.id) {
-            screenModel.updateSeedColor()
+            viewModel.updateSeedColor()
         }
 
         // RK: the shared details body renders through the manga adapter over the live model.
-        val adapter = remember(screenModel) { MangaEntryAdapter(screenModel) }
+        val adapter = remember(viewModel) { MangaEntryAdapter(viewModel) }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         // RK: tint the details screen from the cover color (Y11)
-        TachiyomiTheme(seedColor = successState.seedColor.takeIf { screenModel.themeCoverBased }) {
+        TachiyomiTheme(seedColor = successState.seedColor.takeIf { viewModel.themeCoverBased }) {
             (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->
                 EntryDetailsContent(
                     behavior = adapter,
                     state = loaded,
-                    snackbarHostState = screenModel.snackbarHostState,
+                    snackbarHostState = viewModel.snackbarHostState,
                     isTabletUi = isTabletUi(),
-                    chapterSwipeStartAction = screenModel.chapterSwipeStartAction,
-                    chapterSwipeEndAction = screenModel.chapterSwipeEndAction,
+                    chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
+                    chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
                     nav = EntryDetailsNavigation(
                         navigateUp = navigator::pop,
                         // A specific source chip opens source scope; the All chip (null) opens group scope.
@@ -153,39 +153,39 @@ class MangaScreen(
                             }
                         },
                         onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
-                        onTagSearch = { scope.launch { performGenreSearch(navigator, it, screenModel.source!!) } },
+                        onTagSearch = { scope.launch { performGenreSearch(navigator, it, viewModel.source!!) } },
                         onCopyTag = { if (it.isNotEmpty()) context.copyToClipboard(it, it) },
                         onTracking = {
                             if (!successState.hasLoggedInTrackers) {
                                 navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                             } else {
-                                screenModel.showTrackDialog()
+                                viewModel.showTrackDialog()
                             }
                         },
                         onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
-                        onOpenFilterSettings = screenModel::showSettingsDialog,
+                        onOpenFilterSettings = viewModel::showSettingsDialog,
                         // Share lives in the toolbar overflow for manga.
                         // RK: view-only surfaces (share / WebView / copy URL) follow the selected
                         // source chip like novels; writes (migrate, covers) stay anchor-scoped.
                         onToolbarShare = {
                             shareManga(
                                 context,
-                                successState.mergeDisplayManga ?: screenModel.manga,
-                                successState.mergeDisplaySource ?: screenModel.source,
+                                successState.mergeDisplayManga ?: viewModel.manga,
+                                successState.mergeDisplaySource ?: viewModel.source,
                             )
                         }.takeIf { isHttpSource },
                         onOpenWebView = {
                             openMangaInWebView(
                                 navigator,
-                                successState.mergeDisplayManga ?: screenModel.manga,
-                                successState.mergeDisplaySource ?: screenModel.source,
+                                successState.mergeDisplayManga ?: viewModel.manga,
+                                successState.mergeDisplaySource ?: viewModel.source,
                             )
                         }.takeIf { isHttpSource },
                         onOpenWebViewLong = {
                             copyMangaUrl(
                                 context,
-                                successState.mergeDisplayManga ?: screenModel.manga,
-                                successState.mergeDisplaySource ?: screenModel.source,
+                                successState.mergeDisplayManga ?: viewModel.manga,
+                                successState.mergeDisplaySource ?: viewModel.source,
                             )
                         }.takeIf { isHttpSource },
                         onMigrate = {
@@ -194,12 +194,12 @@ class MangaScreen(
                                 EntryMigrationSourcePickScreen(ContentType.MANGA, listOf(successState.manga.id)),
                             )
                         }.takeIf { successState.manga.favorite },
-                        onEditInterval = screenModel::showSetFetchIntervalDialog
+                        onEditInterval = viewModel::showSetFetchIntervalDialog
                             .takeIf { successState.manga.favorite },
                         // Open a related card; a tracker-origin card (no installed source) goes to search.
                         onRelatedClick = { candidate ->
                             scope.launch {
-                                val id = screenModel.resolveRelatedToLocalId(candidate)
+                                val id = viewModel.resolveRelatedToLocalId(candidate)
                                 if (id != null) {
                                     navigator.push(MangaScreen(id))
                                 } else {
@@ -214,7 +214,7 @@ class MangaScreen(
                         // open the same browse grid "See all" uses. Null keeps it off when placed inline.
                         onRecommendations = {
                             navigator.push(RelatedMangasBrowseScreen(successState.manga.id, successState.manga.title))
-                        }.takeIf { screenModel.recommendationsInMenu },
+                        }.takeIf { viewModel.recommendationsInMenu },
                         onOpenPagePreview = { page ->
                             openPagePreview(
                                 context,
@@ -247,10 +247,10 @@ class MangaScreen(
 
         var showScanlatorsDialog by remember { mutableStateOf(false) }
 
-        val onDismissRequest = { screenModel.dismissDialog() }
+        val onDismissRequest = { viewModel.dismissDialog() }
         // RK: tint every details dialog from the cover (when that theme is on), matching the details
         // content and the novel side; the content wrap above ends before the dialogs, so re-apply it.
-        TachiyomiTheme(seedColor = successState.seedColor.takeIf { screenModel.themeCoverBased }) {
+        TachiyomiTheme(seedColor = successState.seedColor.takeIf { viewModel.themeCoverBased }) {
             EntryDetailsDialogHost(successState.toSharedDetailsDialog(), adapter, onDismissRequest)
             when (val dialog = successState.dialog) {
                 is MangaViewModel.Dialog.ChangeCategory -> {
@@ -259,7 +259,7 @@ class MangaScreen(
                         onDismissRequest = onDismissRequest,
                         onEditCategories = { navigator.push(CategoryScreen()) },
                         onConfirm = { include, _ ->
-                            screenModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
+                            viewModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
                         },
                     )
                 }
@@ -267,12 +267,12 @@ class MangaScreen(
                     DuplicateMangaDialog(
                         duplicates = dialog.duplicates,
                         onDismissRequest = onDismissRequest,
-                        onConfirm = { screenModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
+                        onConfirm = { viewModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
                         onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                        onMigrate = { screenModel.showMigrateDialog(it) },
+                        onMigrate = { viewModel.showMigrateDialog(it) },
                         // RK: offer grouping when the same-title suggestion pref is on.
                         groupIdByMangaId = dialog.groupIdByMangaId,
-                        onAddToGroup = { selectedIds: List<Long> -> screenModel.addToExistingGroup(selectedIds) }
+                        onAddToGroup = { selectedIds: List<Long> -> viewModel.addToExistingGroup(selectedIds) }
                             .takeIf { dialog.suggestGroup },
                     )
                 }
@@ -288,13 +288,13 @@ class MangaScreen(
                 MangaViewModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
                     onDismissRequest = onDismissRequest,
                     manga = successState.manga,
-                    onDownloadFilterChanged = screenModel::setDownloadedFilter,
-                    onUnreadFilterChanged = screenModel::setUnreadFilter,
-                    onBookmarkedFilterChanged = screenModel::setBookmarkedFilter,
-                    onSortModeChanged = screenModel::setSorting,
-                    onDisplayModeChanged = screenModel::setDisplayMode,
-                    onSetAsDefault = screenModel::setCurrentSettingsAsDefault,
-                    onResetToDefault = screenModel::resetToDefaultSettings,
+                    onDownloadFilterChanged = viewModel::setDownloadedFilter,
+                    onUnreadFilterChanged = viewModel::setUnreadFilter,
+                    onBookmarkedFilterChanged = viewModel::setBookmarkedFilter,
+                    onSortModeChanged = viewModel::setSorting,
+                    onDisplayModeChanged = viewModel::setDisplayMode,
+                    onSetAsDefault = viewModel::setCurrentSettingsAsDefault,
+                    onResetToDefault = viewModel::resetToDefaultSettings,
                     scanlatorFilterActive = successState.scanlatorFilterActive,
                     onScanlatorFilterClicked = { showScanlatorsDialog = true },
                 )
@@ -303,15 +303,15 @@ class MangaScreen(
                         interval = dialog.manga.fetchInterval,
                         nextUpdate = dialog.manga.expectedNextUpdate,
                         onDismissRequest = onDismissRequest,
-                        onValueChanged = { interval: Int -> screenModel.setFetchInterval(dialog.manga, interval) }
-                            .takeIf { screenModel.isUpdateIntervalEnabled },
+                        onValueChanged = { interval: Int -> viewModel.setFetchInterval(dialog.manga, interval) }
+                            .takeIf { viewModel.isUpdateIntervalEnabled },
                     )
                 }
                 // RK -->
                 is MangaViewModel.Dialog.EhRemoveFavorite -> {
                     EhRemoveFavoriteDialog(
                         onDismissRequest = onDismissRequest,
-                        onConfirm = screenModel::confirmEhRemoveFromLibrary,
+                        onConfirm = viewModel::confirmEhRemoveFromLibrary,
                     )
                 }
                 // RK <--
@@ -323,7 +323,7 @@ class MangaScreen(
                     availableScanlators = successState.availableScanlators,
                     excludedScanlators = successState.excludedScanlators,
                     onDismissRequest = { showScanlatorsDialog = false },
-                    onConfirm = screenModel::setExcludedScanlators,
+                    onConfirm = viewModel::setExcludedScanlators,
                 )
             }
         } // RK: end dialogs cover-theme wrap

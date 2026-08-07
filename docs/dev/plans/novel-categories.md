@@ -16,7 +16,7 @@ The Novels tab reuses Mihon's existing library screen, hopper, and category-mana
 
 ### Novel categories (DB + UI)
 
-Novel categories are rows in Mihon's shared `categories` table tagged `content_type = 2` (novel), read back through the content-type-aware `CategoryRepository`. The forked novel category stack this feature originally shipped (a separate `novel_categories` table, a `NovelCategoryRepository`, the `NovelCategory` model, and the get / insert / delete / reorder interactors) was later retired into that shared table; see [category-schema-unification.md](category-schema-unification.md) for the schema, the id migration, and the sort-flag translation. The category-management screen is shared: `CategoryScreen` takes a `novels: Boolean` flag and renders a Manga / Novels chip, and one `CategoryScreenModel` drives both tabs through a Reikai-owned `CategoryActions` seam (a manga adapter over Mihon's interactors, a novel adapter over the shared repository), so create / rename / reorder / hide / multi-select-delete render through one set of composables for both content types.
+Novel categories are rows in Mihon's shared `categories` table tagged `content_type = 2` (novel), read back through the content-type-aware `CategoryRepository`. The forked novel category stack this feature originally shipped (a separate `novel_categories` table, a `NovelCategoryRepository`, the `NovelCategory` model, and the get / insert / delete / reorder interactors) was later retired into that shared table; see [category-schema-unification.md](category-schema-unification.md) for the schema, the id migration, and the sort-flag translation. The category-management screen is shared: `CategoryScreen` takes a `novels: Boolean` flag and renders a Manga / Novels chip, and one `CategoryViewModel` drives both tabs through a Reikai-owned `CategoryActions` seam (a manga adapter over Mihon's interactors, a novel adapter over the shared repository), so create / rename / reorder / hide / multi-select-delete render through one set of composables for both content types.
 
 Deletion is deferred and undoable: selecting Delete holds the rows out of the live category flow and commits to the DB only when the undo snackbar dismisses, through the shared `deleteCategoryAndCleanup` helper both content types call, which also renumbers the survivors and scrubs the deleted id out of the category-id preferences. Single-row delete shares the same deferred path, and leaving the screen commits any still-pending delete so a cancelled snackbar coroutine never silently drops it. The shared universal row 0 (`content_type = 0`, rendered as "Default") is the one uncategorized bucket for both types and is filtered out of the editable list. Sort order respects the shared `categorySortOrder` preference.
 
@@ -44,7 +44,7 @@ Novel categories (data + logic; the stack unified into the shared category table
 - `reikai/domain/category/DeleteCategoryCleanup.kt`: the shared delete + renumber + preference-scrub helper both types call.
 
 Category-manager UI (shared, `// RK` islands):
-- `app/src/main/java/eu/kanade/tachiyomi/ui/category/CategoryScreen.kt` (+ `CategoryScreenModel.kt`): the shared category screen, `novels: Boolean` flag + Manga/Novels chip; both tabs resolve one `CategoryScreenModel` via `CategoryActions`.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/category/CategoryScreen.kt` (+ `CategoryViewModel.kt`): the shared category screen, `novels: Boolean` flag + Manga/Novels chip; both tabs resolve one `CategoryViewModel` via `CategoryActions`.
 
 Hopper + picker (single-list view):
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`: the floating up/center/down control.
@@ -53,7 +53,7 @@ Hopper + picker (single-list view):
 
 Library host (shared, `// RK` islands):
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: resolves both screen models, the content-type chip, the unconditional hopper + picker, content-aware callbacks, and the tab-aware Display sheet + edit-categories routing.
-- `app/src/main/java/reikai/presentation/library/novels/NovelLibraryScreenModel.kt`: the Novels library screen model (state, dialogs, hopper actions, category filter).
+- `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt`: the Novels library screen model (state, dialogs, hopper actions, category filter).
 - `app/src/main/java/reikai/presentation/library/LibrarySettingsSheet.kt`: the one settings sheet every chip opens (the per-type `NovelLibrarySettingsDialog` is gone).
 
 LN plugin update detection:
@@ -66,7 +66,7 @@ Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels t
 
 ## Decisions & tradeoffs
 
-- **Reuse Mihon's category screen, do not clone it.** `CategoryScreen` takes a `novels` flag and a Manga/Novels chip instead of a separate novel screen. One `CategoryScreenModel` and one set of composables, dialogs, and action-mode toolbar serve both content types; the only divergence is the `CategoryActions` adapter each tab supplies. This keeps the patch surface against upstream tiny (a fenced flag, not a parallel screen).
+- **Reuse Mihon's category screen, do not clone it.** `CategoryScreen` takes a `novels` flag and a Manga/Novels chip instead of a separate novel screen. One `CategoryViewModel` and one set of composables, dialogs, and action-mode toolbar serve both content types; the only divergence is the `CategoryActions` adapter each tab supplies. This keeps the patch surface against upstream tiny (a fenced flag, not a parallel screen).
 
 - **Deferred, undoable deletes over immediate DB writes.** Deleting a category hides it from the live flow and commits to the DB only when the undo snackbar dismisses, so undo never needs a lossy re-insert (junction tables cascade their membership rows, and a re-inserted category would get a new id). Single-row delete shares the same deferred path. The cost is the extra `pendingDeleteIds` bookkeeping and the non-cancellable commit-on-leave, which is worth it to make undo correct rather than approximate.
 

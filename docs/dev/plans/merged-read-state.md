@@ -38,9 +38,9 @@ Fixing only the visible surfaces would make it worse, not better: a badge readin
 ## Key files
 
 - Aggregators and the match keys: `reikai/domain/manga/ChapterAggregation.kt` (`Float` chapter number), `reikai/domain/novel/NovelChapterAggregation.kt` (`matchKey`, normalized title). The shared helper lands beside them.
-- Aggregation entry point: `reikai/domain/manga/MergedChapterProvider.kt`; the novel side calls its aggregator directly from `NovelDetailsScreenModel`.
-- Details list item to widen: the chapter item model in `MangaScreenModel`, and the novel twin on `EntryDetailsScreenState`.
-- Next-unread callers: `LibraryScreenModel` (`getNextUnreadChapter`, `downloadNextChapters`), `ReaderViewModel` (`GetNextChapters`), `HistoryScreenModel`.
+- Aggregation entry point: `reikai/domain/manga/MergedChapterProvider.kt`; the novel side calls its aggregator directly from `NovelDetailsViewModel`.
+- Details list item to widen: the chapter item model in `MangaViewModel`, and the novel twin on `EntryDetailsScreenState`.
+- Next-unread callers: `LibraryViewModel` (`getNextUnreadChapter`, `downloadNextChapters`), `ReaderViewModel` (`GetNextChapters`), `HistoryViewModel`.
 - Unread count set: the badge in `MangaMergeCollapse` / `NovelMergeCollapse`, the filter predicate and the sort in both library models.
 - Persistence: `data/src/main/sqldelight/tachiyomi/data/merge_group.sq` plus a new `.sqm`.
 

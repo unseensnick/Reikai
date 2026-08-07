@@ -34,7 +34,7 @@ import java.time.ZoneId
 
 /**
  * Reikai (R-feature): in-reader "view all chapters" sheet. Ported from Komikku, decoupled from its
- * reader-settings ScreenModel and E-Hentai date handling. Jump to a chapter on tap, swipe to run the
+ * reader-settings ViewModel and E-Hentai date handling. Jump to a chapter on tap, swipe to run the
  * configured chapter-swipe action (mark read/unread, bookmark, or download, per direction, matching the
  * details list), and start/cancel/delete a download from the row.
  */

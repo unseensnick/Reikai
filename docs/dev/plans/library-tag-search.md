@@ -46,7 +46,7 @@ Mechanism:
   component types.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryItem.kt`: `matchesMetadataQuery(parsedQuery)`
   evaluates the tag grammar per entry (`matchesComponent`); the old plain-string `matches` fallback is gone.
-- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryScreenModel.kt`: parses once and passes
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt`: parses once and passes
   the components in; batch-loads `searchTitles` alongside `searchTags`.
 - `data/.../search_titles.sq` + `GetSearchTitles.awaitAll()` + `MangaMetadataRepository.getAllTitles()`:
   a `selectAll` query so titles batch-load like tags (no migration, query-only change).

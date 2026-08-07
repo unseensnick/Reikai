@@ -51,7 +51,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Backs the "Fill from tracker" button. [candidates] resolves the entry's bound trackers (manga and
- * novel each supply their own enumerator from the details ScreenModel), [fetch] pulls one tracker's
+ * novel each supply their own enumerator from the details ViewModel), [fetch] pulls one tracker's
  * metadata. Null on [EntryEditInfoDialog] keeps the button disabled.
  */
 class TrackerAutofill(

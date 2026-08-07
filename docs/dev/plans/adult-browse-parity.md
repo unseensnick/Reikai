@@ -38,7 +38,7 @@ generic one:
    as the "browse crash".
 
 3. **Metadata browse rendering (presentation).** Komikku pages
-   `Pair<Manga, RaisedSearchMetadata?>`, enriches it in `BrowseSourceScreenModel.combineMetadata`
+   `Pair<Manga, RaisedSearchMetadata?>`, enriches it in `BrowseSourceViewModel.combineMetadata`
    (which DB-joins via `getFlatMetadataById.subscribe(manga.id)`, preferring persisted metadata
    and falling back to the paging metadata: `flatMetadata?.raise(metaClass) ?: metadata`), and
    renders a dedicated `BrowseSourceEHentaiList` row (rating stars, genre/category badge,
@@ -84,14 +84,14 @@ carrier, unused until B.
   and pair items in the base `load` (or a dedicated `EHentaiPagingSource` + `isEhBasedSource()`
   routing in `SourceRepositoryImpl`, which we'd add here since `isEhBasedSource()` does not exist
   yet, only `Manga.isEhBasedManga()`).
-- Port `combineMetadata` into `BrowseSourceScreenModel` (DB-join via `GetFlatMetadataById`,
+- Port `combineMetadata` into `BrowseSourceViewModel` (DB-join via `GetFlatMetadataById`,
   falling back to the carried paging metadata) and destructure the pair at its
   `pagingData.map { manga -> ... }`.
 - Thread the pair through the browse composables and add a `BrowseSourceEHentaiList` row
   (rating, category badge, language flag, page count, uploader, date), gated behind an
   enhanced-view preference.
 
-Blast radius (B only): the type alias, base `load`, `BrowseSourceScreenModel`, the browse
+Blast radius (B only): the type alias, base `load`, `BrowseSourceViewModel`, the browse
 composables (`BrowseSourceList` / `…ComfortableGrid` / `…CompactGrid`); `GetRemoteManga` and
 `SourceRepositoryImpl` inherit the alias. Novels are unaffected (separate, non-paging browse).
 B gets its own scout/plan before implementation.
@@ -100,11 +100,11 @@ B gets its own scout/plan before implementation.
 
 - Reference (Komikku): `refs/komikku/source-api/.../source/model/MangasPage.kt`
   (`MetadataMangasPage`); `refs/komikku/data/.../source/EHentaiPagingSource.kt` +
-  `SourceRepositoryImpl.kt` (routing); `BrowseSourceScreenModel.combineMetadata`;
+  `SourceRepositoryImpl.kt` (routing); `BrowseSourceViewModel.combineMetadata`;
   `.../presentation/browse/components/BrowseSourceEHentaiList.kt`.
 - Ours: `source-api/.../source/model/MangasPage.kt`; `app/.../source/online/all/EHentai.kt`
   (`genericMangaParse`); `data/.../source/SourcePagingSource.kt` (+ a new `EHentaiPagingSource.kt`
-  for B); `domain/.../source/repository/SourceRepository.kt` (alias, B); `app/.../ui/browse/source/browse/BrowseSourceScreenModel.kt`
+  for B); `domain/.../source/repository/SourceRepository.kt` (alias, B); `app/.../ui/browse/source/browse/BrowseSourceViewModel.kt`
   and `app/.../presentation/browse/` (B).
 
 ## Status
@@ -116,7 +116,7 @@ done via code-research + scout vs `refs/komikku` (2026-06-30).
 - **A (pagination + metadata carrier):** done. `MetadataMangasPage` carries the gallery-id
   cursor; the built-in browse pages all the way through.
 - **B1 (metadata plumbing):** done. Browse pages `Pair<Manga, RaisedSearchMetadata?>`;
-  `BrowseSourceScreenModel.combineMetadata` DB-joins the persisted metadata and falls back to the
+  `BrowseSourceViewModel.combineMetadata` DB-joins the persisted metadata and falls back to the
   carried paging metadata.
 - **B2 (rich EH rows):** done, on-device verified. A dedicated `BrowseSourceEHentaiList` row
   (cover, title, uploader, rating stars, category badge, language flag + page count, post date)

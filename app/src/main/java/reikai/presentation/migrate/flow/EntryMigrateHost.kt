@@ -30,7 +30,7 @@ import tachiyomi.i18n.MR
  * Migrating from a duplicate: adding an entry already in the library from another source offers to
  * move the old one onto it, and every surface that can hit that case (details, browse, global search,
  * history) renders this rather than repeating the dialog. The two entries are already stored, so a
- * surface raises it from its own ScreenModel's dialog state, by id, exactly as manga's `Dialog.Migrate`
+ * surface raises it from its own ViewModel's dialog state, by id, exactly as manga's `Dialog.Migrate`
  * does. That state must survive a configuration change: losing it mid-migrate detaches a running
  * commit from its dialog, which then finishes with no feedback.
  */

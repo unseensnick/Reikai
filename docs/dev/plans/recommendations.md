@@ -49,7 +49,7 @@ The loader fetches the current manga's recommendation graph once (via `getMediaC
 
 ### See-all browse
 
-A Voyager `Screen` showing the full ranked pool as a cover grid, seeded from the carousel's pool ([browse/RelatedMangasBrowseScreen.kt](../../../app/src/main/java/reikai/presentation/recommendation/browse/RelatedMangasBrowseScreen.kt)). It supports multi-select bulk add-to-library through Mihon's category-assignment flow, skips items already favorited, and offers a toggle between the flat taste-ranked grid and an origin-grouped view with section headers ("From your AniList recommendations", "Because you're reading X", "From this source"). Grouping is browse-only; the carousel stays flat-ranked. The card UI lives in [browse/RelatedMangasBrowseContent.kt](../../../app/src/main/java/reikai/presentation/recommendation/browse/RelatedMangasBrowseContent.kt) with its model [browse/RelatedMangasBrowseScreenModel.kt](../../../app/src/main/java/reikai/presentation/recommendation/browse/RelatedMangasBrowseScreenModel.kt).
+A Voyager `Screen` showing the full ranked pool as a cover grid, seeded from the carousel's pool ([browse/RelatedMangasBrowseScreen.kt](../../../app/src/main/java/reikai/presentation/recommendation/browse/RelatedMangasBrowseScreen.kt)). It supports multi-select bulk add-to-library through Mihon's category-assignment flow, skips items already favorited, and offers a toggle between the flat taste-ranked grid and an origin-grouped view with section headers ("From your AniList recommendations", "Because you're reading X", "From this source"). Grouping is browse-only; the carousel stays flat-ranked. The card UI lives in [browse/RelatedMangasBrowseContent.kt](../../../app/src/main/java/reikai/presentation/recommendation/browse/RelatedMangasBrowseContent.kt) with its model [browse/RelatedMangasBrowseViewModel.kt](../../../app/src/main/java/reikai/presentation/recommendation/browse/RelatedMangasBrowseViewModel.kt).
 
 The carousel itself is [RelatedMangaCarousel.kt](../../../app/src/main/java/reikai/presentation/recommendation/RelatedMangaCarousel.kt): a `LazyRow` of cover cards with a shimmer skeleton while loading, an in-library badge on resolved favorites, and progressive rendering as the loader streams candidates in. Tapping a card resolves the candidate to a local manga (or global-searches a tracker-origin candidate) and opens it.
 
@@ -83,7 +83,7 @@ Persistence:
 `// RK` islands on Mihon files:
 
 - [MangaScreen.kt](../../../app/src/main/java/eu/kanade/presentation/manga/MangaScreen.kt): carousel item, phone (in-scroll) and tablet (start pane).
-- `MangaScreenModel.kt`: state + debounced load + `tracks` plumbing.
+- `MangaViewModel.kt`: state + debounced load + `tracks` plumbing.
 - [SettingsLibraryScreen.kt](../../../app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt): entry to `SettingsRecommendationsScreen` (Settings → Library → Recommendations).
 - The tracker `*Api.kt` recs/library-pull methods, `DomainModule` / `PreferenceModule`, `i18n` strings.
 

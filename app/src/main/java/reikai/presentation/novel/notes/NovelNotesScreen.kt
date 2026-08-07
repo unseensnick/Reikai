@@ -37,20 +37,20 @@ class NovelNotesScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
-        val screenModel = viewModel<Model>(
+        val viewModel = viewModel<Model>(
             factory = Model.Factory,
             extras = CreationExtras {
                 set(Model.NOVEL_ID_KEY, novelId)
                 set(Model.INITIAL_NOTES_KEY, initialNotes)
             },
         )
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
 
         EntryNotesScreen(
             subtitle = novelTitle,
             notes = state.notes,
             navigateUp = navigator::pop,
-            onUpdate = screenModel::updateNotes,
+            onUpdate = viewModel::updateNotes,
         )
     }
 

@@ -88,7 +88,7 @@ both sides, unchanged.
   override read), `reikai.domain.category.CATEGORY_HIDDEN_MASK` (shared hidden bit), and the new
   `reikai.domain.library.novelCategoryFlagsToMangaLayout` translation helper.
 - Manga side: `tachiyomi.domain.category` (repository interface, `Category`, interactors),
-  `CategoryRepositoryImpl`, `CategoryScreenModel`.
+  `CategoryRepositoryImpl`, `CategoryViewModel`.
 - Novel side (collapses): `reikai.domain.novel.NovelCategoryRepository`, `NovelCategoryRepositoryImpl`,
   `reikai.domain.novel.model.NovelCategory` (and its `toCategory()`), the novel category interactors,
   and `NovelCategoryScreenModel`.
@@ -215,7 +215,7 @@ The plan steps 4-6 above were resequenced once the sentinel turned out to be ent
 retirement (reading row 0 means every `getNovelCategories` caller sees it, including the pickers that must
 not). Two slices, each its own device-verified commit:
 
-- **Slice A (management dedup): SHIPPED (`e68e1c572`).** One `CategoryScreenModel` drives both edit-category
+- **Slice A (management dedup): SHIPPED (`e68e1c572`).** One `CategoryViewModel` drives both edit-category
   tabs via a Reikai-owned `CategoryActions` seam (`reikai.presentation.category`): a manga adapter over
   Mihon's interactors (unchanged) and a novel adapter over `NovelCategoryRepository`. Retired
   `NovelCategoryScreenModel` and the Insert/Delete/Reorder novel interactors + DI. Verified on device: both

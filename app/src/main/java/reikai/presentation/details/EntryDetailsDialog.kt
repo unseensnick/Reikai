@@ -41,7 +41,7 @@ sealed interface EntryDetailsDialog {
         val coverModel: (String) -> Any,
     ) : EntryDetailsDialog
 
-    /** Full cover viewer; the per-type cover ScreenModel is resolved via [EntryDetailsBehavior.createCoverViewModel]. */
+    /** Full cover viewer; the per-type cover ViewModel is resolved via [EntryDetailsBehavior.createCoverViewModel]. */
     data object Cover : EntryDetailsDialog
 
     data class ManageSources(
@@ -65,7 +65,7 @@ data class EntryManageSourceInfo(val id: Long, val sourceName: String, val chapt
 
 /**
  * Renders the shared details dialogs from the neutral [EntryDetailsDialog], driving every action through
- * [behavior]. A `Screen` extension because the cover viewer resolves a ScreenModel (needs the Screen receiver).
+ * [behavior]. A `Screen` extension because the cover viewer resolves a ViewModel (needs the Screen receiver).
  * The caller also runs its own per-type dispatcher for the dialogs that stay type-specific; the two never
  * overlap (a shared dialog maps here and the caller's `when` skips it, and vice versa).
  */
@@ -101,22 +101,22 @@ fun Screen.EntryDetailsDialogHost(
             val coverFactory = remember(behavior) {
                 viewModelFactory { initializer { behavior.createCoverViewModel() } }
             }
-            val coverSm = viewModel<EntryCoverViewModel<*>>(factory = coverFactory)
-            val cover by coverSm.coverModel.collectAsState()
+            val coverViewModel = viewModel<EntryCoverViewModel<*>>(factory = coverFactory)
+            val cover by coverViewModel.coverModel.collectAsState()
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-                    if (uri != null) coverSm.editCover(context, uri)
+                    if (uri != null) coverViewModel.editCover(context, uri)
                 }
                 EntryCoverDialog(
                     cover = cover!!,
-                    isCustomCover = remember(cover) { coverSm.hasCustomCover() },
-                    snackbarHostState = coverSm.snackbarHostState,
-                    onShareClick = { coverSm.shareCover(context) },
-                    onSaveClick = { coverSm.saveCover(context) },
+                    isCustomCover = remember(cover) { coverViewModel.hasCustomCover() },
+                    snackbarHostState = coverViewModel.snackbarHostState,
+                    onShareClick = { coverViewModel.shareCover(context) },
+                    onSaveClick = { coverViewModel.saveCover(context) },
                     onEditClick = {
                         when (it) {
                             EditCoverAction.EDIT -> getContent.launch("image/*")
-                            EditCoverAction.DELETE -> coverSm.deleteCustomCover(context)
+                            EditCoverAction.DELETE -> coverViewModel.deleteCustomCover(context)
                         }
                     },
                     onDismissRequest = onDismissRequest,

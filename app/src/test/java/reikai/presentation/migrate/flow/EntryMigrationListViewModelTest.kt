@@ -17,14 +17,14 @@ import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 
 /**
- * The driver, the row claim and the finish gate, which had no coverage at all until the ScreenModel
- * took its dependencies as constructor parameters: every defect in them was found by reading the
- * code in an audit, never by a test.
+ * The driver, the row claim and the finish gate, which had no coverage at all until the model took
+ * its dependencies as constructor parameters: every defect in them was found by reading the code in
+ * an audit, never by a test.
  */
 class EntryMigrationListViewModelTest {
 
-    // Voyager's screenModelScope is Main-based, and the model launches its work on the dispatcher it
-    // is given, so both go through one scheduler the test can advance.
+    // viewModelScope is Main-based, and the model launches its work on the dispatcher it is given,
+    // so both go through one scheduler the test can advance.
     private val dispatcher = StandardTestDispatcher()
 
     @BeforeEach

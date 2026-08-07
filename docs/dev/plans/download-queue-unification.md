@@ -36,15 +36,15 @@ A dropped connection (airplane mode, dead network) is not a download failure. Th
 ## Key files
 
 - `reikai/presentation/download/EntryDownloadCardList.kt` (new): the shared composable + the neutral `EntryDownloadCardUi` / `EntryDownloadCardStatus` model.
-- `reikai/presentation/download/NovelDownloadQueueScreenModel.kt`: the novel aggregator (per-series cards, `initialTotals`, status from `downloadingNovelId`), `reorderBySeries`, `cancelSeries`, `sort`.
+- `reikai/presentation/download/NovelDownloadQueueViewModel.kt`: the novel aggregator (per-series cards, `initialTotals`, status from `downloadingNovelId`), `reorderBySeries`, `cancelSeries`, `sort`.
 - `reikai/novel/download/NovelDownloadManager.kt`: `downloadingNovelId`, the offline pause, and the mid-download requeue.
-- `reikai/presentation/download/MangaDownloadQueueScreenModel.kt`: the manga aggregator (per-series cards from Mihon's `queueState` + `statusFlow`), `reorderBySeries`, `cancelSeries`, `sort`, pause/resume. The manga twin of the novel ScreenModel.
+- `reikai/presentation/download/MangaDownloadQueueViewModel.kt`: the manga aggregator (per-series cards from Mihon's `queueState` + `statusFlow`), `reorderBySeries`, `cancelSeries`, `sort`, pause/resume. The manga twin of the novel ScreenModel.
 - `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: hosts both content types behind the `ContentType` chip; both branches render the shared card list, and one Pause/Resume FAB drives the visible content's downloader(s).
-- `eu/kanade/tachiyomi/ui/download/DownloadQueueScreenModel`, `DownloadHolder`, `DownloadHeaderHolder`, `DownloadAdapter`, `DownloadItem`, `DownloadHeaderItem`: the parked per-chapter manga View queue, left inert (marked with `// RK`) as the revive path for the expandable-cards roadmap item.
+- `eu/kanade/tachiyomi/ui/download/DownloadQueueViewModel`, `DownloadHolder`, `DownloadHeaderHolder`, `DownloadAdapter`, `DownloadItem`, `DownloadHeaderItem`: the parked per-chapter manga View queue, left inert (marked with `// RK`) as the revive path for the expandable-cards roadmap item.
 
 ## Status
 
-Shipped. Both content types render on the shared card list. The novel side landed first (series cards, drag + to-top / to-bottom / cancel, the latched-status flicker fix, the offline pause, Tsundoku's 16.dp card gutter); the manga side followed on a net-new `MangaDownloadQueueScreenModel` that aggregates Mihon's per-chapter queue by series, with `DownloadQueueScreen`'s manga branch redirected off the `AndroidView` and Mihon's `DownloadQueueScreenModel` + View adapter/holders marked inert.
+Shipped. Both content types render on the shared card list. The novel side landed first (series cards, drag + to-top / to-bottom / cancel, the latched-status flicker fix, the offline pause, Tsundoku's 16.dp card gutter); the manga side followed on a net-new `MangaDownloadQueueViewModel` that aggregates Mihon's per-chapter queue by series, with `DownloadQueueScreen`'s manga branch redirected off the `AndroidView` and Mihon's `DownloadQueueViewModel` + View adapter/holders marked inert.
 
 ## Decisions & tradeoffs
 

@@ -41,7 +41,7 @@ A document is rebuilt only when the chapter HTML or the app theme colors change.
 
 ### NovelReaderScreenModel state + progress saves
 
-`NovelReaderScreenModel.kt` (a `StateScreenModel`) owns all the loading and persistence logic. State is a `NovelReaderState` sealed interface (`Loading` / `Loaded` / `Failed`); display settings are a separate `settings: StateFlow<NovelReaderSettings>` so changing them never forces a reload.
+`NovelReaderScreenModel.kt` (a `StateViewModel`) owns all the loading and persistence logic. State is a `NovelReaderState` sealed interface (`Loading` / `Loaded` / `Failed`); display settings are a separate `settings: StateFlow<NovelReaderSettings>` so changing them never forces a reload.
 
 - On open it resolves the reading order (the passed `orderedChapterIds`, which for a merged novel is the unified cross-source order, else the novel's own chapter list) and loads the current chapter. Each chapter resolves its source per `chapter.novelId`, so a merged session walks across sources.
 - Chapter HTML loads through `loadChapterHtml`: a downloaded chapter reads self-contained HTML from disk (null base URL, images already inlined); otherwise it resolves the source and calls `parseChapter` live, using the source site as the base URL. Results go into a small session LRU cache (`htmlCache`, RAM only, dies with the screen). The resolved next chapter is prefetched once per open so forward paging is instant.
@@ -79,7 +79,7 @@ A floating puck reads the chapter aloud. The split is the same as the rest of th
 The reader and its details host are net-new `reikai.*` code. The only Mihon-file patches are the `// RK` launch sites that push `NovelReaderScreen`: `HistoryTab.kt`, `UpdatesTab.kt`, and `LibraryTab.kt`.
 
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreen.kt`: Voyager `Screen`; Compose chrome, immersive bars, keep-screen-on + orientation effects, history-on-leave, settings sheet host.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt`: `StateScreenModel`; chapter loading + prefetch, prev/next ordering (cross-source, skip-duplicate aware), progress saves, read-state + tracker sync, incognito gating, settings flow.
+- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt`: `StateViewModel`; chapter loading + prefetch, prev/next ordering (cross-source, skip-duplicate aware), progress saves, read-state + tracker sync, incognito gating, settings flow.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebView.kt`: the `AndroidView(WebView)` canvas; document load, live settings push, theme-color derivation, cutout padding.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderHtmlBuilder.kt`: `buildReaderHtml` + `readerSettingsJson`; the per-chapter document, CSS variables, `initialReaderConfig`, the `ReactNativeWebView` -> `NativeReader` shim.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebInterface.kt`: `@JavascriptInterface` bridge (`hide` / `save` / `console`, the `core.js` TTS messages, and the `reikai-ready` ping).

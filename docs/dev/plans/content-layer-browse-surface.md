@@ -23,8 +23,8 @@ Five steps, each independently shippable and device-verified before the next.
 
 - **Step 1, the shared bulk-favorite engine (shipped `1392f58c9`).** The whole selection and
   category state machine (toggle / select-all / invert, the default-category-or-prompt decision,
-  the one-shot category dialog) lives once in the generic `EntryBulkFavoriteScreenModel<T>`.
-  `BulkFavoriteScreenModel` (manga) and `NovelBulkFavoriteScreenModel` are thin facades supplying
+  the one-shot category dialog) lives once in the generic `EntryBulkFavoriteViewModel<T>`.
+  `BulkFavoriteViewModel` (manga) and `NovelBulkFavoriteViewModel` are thin facades supplying
   the selection key, the category source, the default-category preference and the add verb, so
   every call site keeps its current types. A sealed cross-type selection key was considered and
   dropped: no browse screen shows a mixed list, and the generic keeps Mihon's `selection:
@@ -75,9 +75,9 @@ Five steps, each independently shippable and device-verified before the next.
 
 ## Key files
 
-- Shared engine: `reikai/presentation/browse/EntryBulkFavoriteScreenModel.kt`, facades in
-  `reikai/presentation/browse/BulkFavoriteScreenModel.kt` and
-  `reikai/presentation/novel/browse/NovelBulkFavoriteScreenModel.kt`.
+- Shared engine: `reikai/presentation/browse/EntryBulkFavoriteViewModel.kt`, facades in
+  `reikai/presentation/browse/BulkFavoriteViewModel.kt` and
+  `reikai/presentation/novel/browse/NovelBulkFavoriteViewModel.kt`.
 - Adders: `reikai/presentation/browse/MangaLibraryAdder.kt`,
   `reikai/presentation/novel/browse/NovelLibraryAdder.kt`.
 - Hosts: `eu/kanade/tachiyomi/ui/browse/source/browse/BrowseSourceScreen.kt`,
@@ -96,8 +96,8 @@ reader.
 
 - **No takeover, no reopened parks.** The 2c body/toolbar shell and the generic search orchestrator
   stay declined; pagination (Paging 3 vs the manual probe pager), the filter dispatch (typed
-  `FilterList` vs plugin JSON schema), `SearchScreenModel` and everything under `migrate/` are out
-  of scope. `SearchScreenModel` belongs to the migrate/global-search surface.
+  `FilterList` vs plugin JSON schema), `SearchViewModel` and everything under `migrate/` are out
+  of scope. `SearchViewModel` belongs to the migrate/global-search surface.
 - **The behaviour-seam takeover is ruled out, and with it the neutral adder contract stays
   declined.** A later plan proposed redoing browse the way migrate, details and library were
   redone, on the grounds that upstream churn is near zero (measured: five commits in twelve months
@@ -108,7 +108,7 @@ reader.
   is what the spine rule forbids. That also settles the adder question: the ruling declined a
   polymorphic adder because no shared caller existed, and the takeover was the thing that would
   have created one. What the two adders genuinely share already lives in `resolveDefaultCategoryIds`
-  and `EntryBulkFavoriteScreenModel`; what they do not share is real, since the manga adder returns
+  and `EntryBulkFavoriteViewModel`; what they do not share is real, since the manga adder returns
   a neutral result for its caller to render while the novel one owns the dialogs, and a browsed
   novel has no library row to favorite until it is materialized.
 - **Parity gap closed by levelling manga up (owner-ruled).** The novel adder skips the favorite

@@ -44,7 +44,7 @@ class MetadataViewScreen(
 ) : Screen() {
     @Composable
     override fun Content() {
-        val screenModel = viewModel<MetadataViewViewModel>(
+        val viewModel = viewModel<MetadataViewViewModel>(
             factory = MetadataViewViewModel.Factory,
             extras = CreationExtras {
                 set(MetadataViewViewModel.MANGA_ID_KEY, mangaId)
@@ -53,13 +53,13 @@ class MetadataViewScreen(
         )
         val navigator = LocalNavigator.currentOrThrow
 
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
 
         @Composable
         fun content() = Scaffold(
             topBar = { scrollBehavior ->
                 AppBar(
-                    title = screenModel.manga.collectAsState().value?.title,
+                    title = viewModel.manga.collectAsState().value?.title,
                     navigateUp = navigator::pop,
                     scrollBehavior = scrollBehavior,
                 )
@@ -117,7 +117,7 @@ class MetadataViewScreen(
         }
 
         TachiyomiTheme(
-            seedColor = seedColor?.let { Color(seedColor) }.takeIf { screenModel.themeCoverBased },
+            seedColor = seedColor?.let { Color(seedColor) }.takeIf { viewModel.themeCoverBased },
         ) {
             content()
         }

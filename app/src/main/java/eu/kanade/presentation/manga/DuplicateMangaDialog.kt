@@ -111,7 +111,7 @@ fun DuplicateMangaDialog(
 
     // RK: duplicate detection is fuzzy (title substring or a shared tracker), so the list can hold a
     // genuinely different series. Grouping is therefore an explicit pick over these cards, never a
-    // merge of every match. Selection is ephemeral, so it lives here and not in any ScreenModel.
+    // merge of every match. Selection is ephemeral, so it lives here and not in any ViewModel.
     val cards = remember(duplicates, groupIdByMangaId) { collapseToCards(duplicates, groupIdByMangaId) }
     var selectionMode by remember { mutableStateOf(false) }
     val selection = remember { mutableStateListOf<Long>() }

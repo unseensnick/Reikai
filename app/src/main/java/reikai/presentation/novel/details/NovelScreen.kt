@@ -58,7 +58,7 @@ class NovelScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = viewModel<NovelDetailsViewModel>(
+        val viewModel = viewModel<NovelDetailsViewModel>(
             factory = NovelDetailsViewModel.Factory,
             extras = CreationExtras {
                 set(NovelDetailsViewModel.SOURCE_ID_KEY, sourceId)
@@ -66,8 +66,8 @@ class NovelScreen(
             },
         )
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
-        val state by screenModel.state.collectAsStateWithLifecycle()
-        val adapter = remember(screenModel) { NovelEntryAdapter(screenModel) }
+        val state by viewModel.state.collectAsStateWithLifecycle()
+        val adapter = remember(viewModel) { NovelEntryAdapter(viewModel) }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         when (val s = state) {
@@ -77,7 +77,7 @@ class NovelScreen(
             ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }
             is NovelDetailsState.Loaded -> TachiyomiTheme(seedColor = s.seedColor) {
                 // Back clears an active chapter selection before popping the screen (mirrors MangaScreen).
-                BackHandler(enabled = s.selectionMode) { screenModel.clearSelection() }
+                BackHandler(enabled = s.selectionMode) { viewModel.clearSelection() }
 
                 val onWebView: () -> Unit = {
                     s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
@@ -102,7 +102,7 @@ class NovelScreen(
                     EntryDetailsContent(
                         behavior = adapter,
                         state = loaded,
-                        snackbarHostState = screenModel.snackbarHostState,
+                        snackbarHostState = viewModel.snackbarHostState,
                         isTabletUi = isTabletUi(),
                         chapterSwipeStartAction = s.chapterSwipeStartAction,
                         chapterSwipeEndAction = s.chapterSwipeEndAction,
@@ -133,8 +133,8 @@ class NovelScreen(
                             onTagSearch = { navigator.push(NovelGlobalSearchScreen(it)) },
                             onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {
-                                if (screenModel.hasLoggedInTrackers()) {
-                                    screenModel.showTrackDialog()
+                                if (viewModel.hasLoggedInTrackers()) {
+                                    viewModel.showTrackDialog()
                                 } else {
                                     navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                                 }
@@ -142,7 +142,7 @@ class NovelScreen(
                             onEditNotes = {
                                 navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
                             },
-                            onOpenFilterSettings = screenModel::showChapterSettingsDialog,
+                            onOpenFilterSettings = viewModel::showChapterSettingsDialog,
                             // Novels keep Share in the action row too (matching LNReader) since the manga
                             // action row's smart-update interval button isn't available for novels yet.
                             onActionRowShare = s.novelWebUrl?.let { { onShare() } },
@@ -164,13 +164,13 @@ class NovelScreen(
                             } else {
                                 null
                             },
-                            onOpenPageSelector = screenModel::showPageSelectorDialog,
+                            onOpenPageSelector = viewModel::showPageSelectorDialog,
                         ),
                     )
                 }
 
-                EntryDetailsDialogHost(s.toSharedDetailsDialog(), adapter, screenModel::dismissDialog)
-                NovelDetailsDialogs(s, screenModel)
+                EntryDetailsDialogHost(s.toSharedDetailsDialog(), adapter, viewModel::dismissDialog)
+                NovelDetailsDialogs(s, viewModel)
             }
         }
     }
@@ -179,25 +179,25 @@ class NovelScreen(
 /** The novel dialogs that stay per-type (their data genuinely diverges); the shared ones go through
  *  [EntryDetailsDialogHost]. A `Screen` extension so the duplicate dialog can resolve the migrate controller. */
 @Composable
-private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsViewModel) {
+private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
             dialog = dialog,
-            onDismiss = screenModel::dismissDialog,
-            onConfirm = screenModel::applyCategories,
+            onDismiss = viewModel::dismissDialog,
+            onConfirm = viewModel::applyCategories,
         )
         is NovelDetailsDialog.DuplicateNovel -> DuplicateNovelDialog(
             duplicates = dialog.duplicates,
             sourceNames = dialog.sourceNames,
             sourceSites = dialog.sourceSites,
-            onDismissRequest = screenModel::dismissDialog,
-            onConfirm = screenModel::addFavoriteAnyway,
+            onDismissRequest = viewModel::dismissDialog,
+            onConfirm = viewModel::addFavoriteAnyway,
             onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-            onMigrate = { screenModel.startMigrate(it.id) },
+            onMigrate = { viewModel.startMigrate(it.id) },
             groupIdByNovelId = dialog.groupIdByNovelId,
             onAddToGroup = { selectedIds: List<Long> ->
-                screenModel.addToExistingGroup(selectedIds)
+                viewModel.addToExistingGroup(selectedIds)
             }.takeIf { dialog.suggestGroup },
         )
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
@@ -207,24 +207,24 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenMo
             bookmarkedFilter = state.bookmarkedFilter,
             downloadedFilter = state.downloadedFilter,
             hideChapterTitles = state.hideChapterTitles,
-            onDismiss = screenModel::dismissDialog,
-            onSortChange = screenModel::setSortOrder,
-            onFilterChange = screenModel::setFilters,
-            onDisplayChange = screenModel::setHideChapterTitles,
-            onSetAsDefault = screenModel::setChapterSettingsAsDefault,
-            onReset = screenModel::resetChapterSettings,
+            onDismiss = viewModel::dismissDialog,
+            onSortChange = viewModel::setSortOrder,
+            onFilterChange = viewModel::setFilters,
+            onDisplayChange = viewModel::setHideChapterTitles,
+            onSetAsDefault = viewModel::setChapterSettingsAsDefault,
+            onReset = viewModel::resetChapterSettings,
         )
         NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
             pages = state.pages,
             selectedIndex = state.pageIndex,
-            onSelect = screenModel::selectPage,
-            onDismiss = screenModel::dismissDialog,
+            onSelect = viewModel::selectPage,
+            onDismiss = viewModel::dismissDialog,
         )
         is NovelDetailsDialog.Migrate -> EntryMigrateFor(
             contentType = ContentType.NOVELS,
             currentId = dialog.currentId,
             targetId = dialog.targetId,
-            onDismissRequest = screenModel::dismissDialog,
+            onDismissRequest = viewModel::dismissDialog,
         )
         else -> {}
     }

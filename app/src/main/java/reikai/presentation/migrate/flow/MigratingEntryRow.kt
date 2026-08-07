@@ -262,7 +262,7 @@ object MigrationRowRules {
      * What this row currently offers the user.
      *
      * The single source of truth for the row's controls: the screen renders a control only where the
-     * matching flag is true, and the ScreenModel refuses anything else. Deriving both from here is
+     * matching flag is true, and the ViewModel refuses anything else. Deriving both from here is
      * what stops the two from disagreeing, which is how Retry, Skip, "Migrate now" and the accept
      * toggle all came to render on rows whose handlers silently refused them.
      */

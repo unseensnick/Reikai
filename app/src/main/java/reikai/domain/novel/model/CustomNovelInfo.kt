@@ -27,7 +27,7 @@ data class CustomNovelInfo(
 
 /**
  * Non-destructive display overlay: each set custom field wins over the source value, the rest pass
- * through. Apply to a display-only copy in the ScreenModel / list mappers; the source [Novel] row stays
+ * through. Apply to a display-only copy in the ViewModel / list mappers; the source [Novel] row stays
  * untouched.
  *
  * The [Manga] overload exists because the library renders a novel as a manga-shaped row, and applies the

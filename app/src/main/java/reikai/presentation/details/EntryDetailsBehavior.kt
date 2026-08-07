@@ -57,7 +57,7 @@ interface EntryDetailsBehavior {
     // Cover and custom-info edit.
     fun showCoverDialog()
 
-    /** The per-type full-cover ScreenModel, resolved by the shared dialog host. */
+    /** The per-type full-cover ViewModel, resolved by the shared dialog host. */
     fun createCoverViewModel(): EntryCoverViewModel<*>
     fun showEditInfoDialog()
     fun saveInfo(edited: EntryEditInfoUi)

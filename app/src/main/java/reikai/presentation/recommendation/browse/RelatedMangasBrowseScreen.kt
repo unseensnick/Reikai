@@ -51,11 +51,11 @@ class RelatedMangasBrowseScreen(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val configuration = LocalConfiguration.current
-        val screenModel = viewModel<RelatedMangasBrowseViewModel>(
+        val viewModel = viewModel<RelatedMangasBrowseViewModel>(
             factory = RelatedMangasBrowseViewModel.Factory,
             extras = CreationExtras { set(RelatedMangasBrowseViewModel.MANGA_ID_KEY, mangaId) },
         )
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -64,9 +64,9 @@ class RelatedMangasBrowseScreen(
                 if (state.selectionMode) {
                     BulkSelectionToolbar(
                         selectedCount = state.selectedUrls.size,
-                        onClickClearSelection = screenModel::clearSelection,
-                        onChangeCategoryClick = screenModel::addSelectedToLibrary,
-                        onSelectAll = screenModel::selectAll,
+                        onClickClearSelection = viewModel::clearSelection,
+                        onChangeCategoryClick = viewModel::addSelectedToLibrary,
+                        onSelectAll = viewModel::selectAll,
                     )
                 } else {
                     AppBar(
@@ -75,7 +75,7 @@ class RelatedMangasBrowseScreen(
                         navigateUp = navigator::pop,
                         actions = {
                             if (state.hasHidden) {
-                                IconButton(onClick = screenModel::toggleShowHidden) {
+                                IconButton(onClick = viewModel::toggleShowHidden) {
                                     Icon(
                                         imageVector = Icons.Outlined.Visibility,
                                         contentDescription = stringResource(MR.strings.recs_show_hidden),
@@ -88,7 +88,7 @@ class RelatedMangasBrowseScreen(
                                 }
                             }
                             if (state.hasMultipleOrigins) {
-                                IconButton(onClick = screenModel::toggleGrouping) {
+                                IconButton(onClick = viewModel::toggleGrouping) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Outlined.ViewList,
                                         contentDescription = stringResource(MR.strings.recs_group_toggle),
@@ -100,7 +100,7 @@ class RelatedMangasBrowseScreen(
                                     )
                                 }
                             }
-                            IconButton(onClick = screenModel::enterSelectionMode) {
+                            IconButton(onClick = viewModel::enterSelectionMode) {
                                 Icon(
                                     imageVector = Icons.Outlined.Checklist,
                                     contentDescription = stringResource(MR.strings.action_bulk_select),
@@ -111,7 +111,7 @@ class RelatedMangasBrowseScreen(
                     )
                 }
             },
-            snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
+            snackbarHost = { SnackbarHost(viewModel.snackbarHostState) },
         ) { contentPadding ->
             when {
                 state.loading -> LoadingScreen(Modifier.padding(contentPadding))
@@ -121,16 +121,16 @@ class RelatedMangasBrowseScreen(
                 )
                 else -> RelatedMangasBrowseContent(
                     items = state.visibleItems(),
-                    columns = screenModel.getColumns(configuration.orientation),
+                    columns = viewModel.getColumns(configuration.orientation),
                     selectedUrls = state.selectedUrls,
                     grouped = state.grouped,
                     contentPadding = contentPadding,
                     onItemClick = { item ->
                         if (state.selectionMode) {
-                            screenModel.toggleSelection(item.candidate.manga.url)
+                            viewModel.toggleSelection(item.candidate.manga.url)
                         } else {
                             scope.launch {
-                                val id = screenModel.resolveToLocalId(item.candidate)
+                                val id = viewModel.resolveToLocalId(item.candidate)
                                 if (id != null) {
                                     navigator.push(MangaScreen(id))
                                 } else {
@@ -139,7 +139,7 @@ class RelatedMangasBrowseScreen(
                             }
                         }
                     },
-                    onItemLongClick = { item -> screenModel.toggleRangeSelection(item.candidate.manga.url) },
+                    onItemLongClick = { item -> viewModel.toggleRangeSelection(item.candidate.manga.url) },
                 )
             }
         }
@@ -148,10 +148,10 @@ class RelatedMangasBrowseScreen(
             is RelatedMangasBrowseViewModel.Dialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
-                    onDismissRequest = screenModel::dismissDialog,
+                    onDismissRequest = viewModel::dismissDialog,
                     onEditCategories = { navigator.push(CategoryScreen()) },
                     onConfirm = { include, _ ->
-                        screenModel.confirmCategories(dialog.target, include, dialog.skippedTrackerCount)
+                        viewModel.confirmCategories(dialog.target, include, dialog.skippedTrackerCount)
                     },
                 )
             }

@@ -28,7 +28,7 @@ duplication, and get a single place to move the app off stock Material 3 onto a 
 **Core principle: unify at a UI-model seam, not at the domain model.**
 
 - Keep the three data / logic stacks as-is: Mihon's `Manga` model + ScreenModel (manga and
-  adult), Reikai's `Novel` model + `NovelScreenModel`. Do **not** merge domain models into one
+  adult), Reikai's `Novel` model + `NovelDetailsViewModel`. Do **not** merge domain models into one
   `Entry` type; that re-types Mihon's whole manga stack (the fork-everything swamp) and severs
   upstream engine flow.
 - Define Reikai-owned, content-agnostic UI models (`EntryDetailsUiState`, `EntryListItem`,

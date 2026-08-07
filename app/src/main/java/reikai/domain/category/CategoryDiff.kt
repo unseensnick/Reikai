@@ -3,7 +3,7 @@ package reikai.domain.category
 /**
  * The common/mixed split for a multi-select "change categories" dialog: [common] are the category ids
  * present on every selected entry (rendered checked), [mix] are ids present on some but not all
- * (rendered indeterminate). Shared by the manga and novel library ScreenModels so the two can't drift.
+ * (rendered indeterminate). Shared by the manga and novel library ViewModels so the two can't drift.
  */
 data class CategoryDiff(val common: Set<Long>, val mix: Set<Long>)
 
