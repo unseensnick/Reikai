@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga
 
+import android.app.Application
 import android.content.Context
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -7,11 +8,11 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.flowWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.palette.graphics.Palette
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -78,6 +79,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
@@ -155,9 +157,8 @@ import kotlin.math.floor
 // the "See all" browse grid.
 private const val CAROUSEL_CAP = 30
 
-class MangaScreenModel(
+class MangaViewModel(
     private val context: Context,
-    private val lifecycle: Lifecycle,
     private val mangaId: Long,
     private val isFromSource: Boolean,
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
@@ -212,7 +213,23 @@ class MangaScreenModel(
     private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
-) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
+) : StateViewModel<MangaViewModel.State>(State.Loading) {
+
+    companion object {
+        val MANGA_ID_KEY = CreationExtras.Key<Long>()
+
+        val IS_FROM_SOURCE_KEY = CreationExtras.Key<Boolean>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                MangaViewModel(
+                    context = Injekt.get<Application>(),
+                    mangaId = get(MANGA_ID_KEY)!!,
+                    isFromSource = get(IS_FROM_SOURCE_KEY)!!,
+                )
+            }
+        }
+    }
 
     private val successState: State.Success?
         get() = state.value as? State.Success
@@ -239,7 +256,7 @@ class MangaScreenModel(
     // the preference itself. Kept as upstream wrote it so the next sync of this file stays a clean merge.
     var autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
 
-    private val skipFiltered by readerPreferences.skipFiltered.asState(screenModelScope)
+    private val skipFiltered by readerPreferences.skipFiltered.asState(viewModelScope)
 
     val isUpdateIntervalEnabled =
         LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in libraryPreferences.autoUpdateMangaRestrictions.get()
@@ -299,7 +316,7 @@ class MangaScreenModel(
             updateSuccessState { it.copy(seedColor = Color(color)) }
             return
         }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val request = ImageRequest.Builder(context)
                 .data(cover)
                 .allowHardware(false) // Palette can't read hardware bitmaps
@@ -315,7 +332,7 @@ class MangaScreenModel(
     // RK <--
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // RK --> when the manga is part of a merge group, the chapter list is the aggregated
             // union of every grouped source; otherwise it stays the single-source list.
             combine(
@@ -341,7 +358,6 @@ class MangaScreenModel(
                             mergedChaptersFlow(manga, relatedIds)
                     }
                 }
-                .flowWithLifecycle(lifecycle)
                 .collectLatest { mc ->
                     val items = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource, mc.readInOtherSources)
                     val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
@@ -361,9 +377,8 @@ class MangaScreenModel(
             // RK <--
         }
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             getExcludedScanlators.subscribe(mangaId)
-                .flowWithLifecycle(lifecycle)
                 .distinctUntilChanged()
                 .collectLatest { excludedScanlators ->
                     updateSuccessState {
@@ -372,9 +387,8 @@ class MangaScreenModel(
                 }
         }
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             getAvailableScanlators.subscribe(mangaId)
-                .flowWithLifecycle(lifecycle)
                 .distinctUntilChanged()
                 .collectLatest { availableScanlators ->
                     updateSuccessState {
@@ -385,9 +399,8 @@ class MangaScreenModel(
 
         // RK: mirror the manga's custom-info overlay into state; a save re-emits and the display layer
         // re-applies it via Manga.withCustomInfo (the raw `manga` field stays source-accurate).
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             getCustomMangaInfo.subscribe(mangaId)
-                .flowWithLifecycle(lifecycle)
                 .distinctUntilChanged()
                 .collectLatest { customInfo ->
                     updateSuccessState { it.copy(customInfo = customInfo) }
@@ -400,13 +413,13 @@ class MangaScreenModel(
         // host's chips + selection into state. The eager load below seeds the initial chips into
         // State.Success; the host handles every later change (a split, or a source added to the group from
         // global search) with no reopening, and the observer lives in the host so it can't drift per type.
-        mergeGroup.observe(screenModelScope)
-        screenModelScope.launchIO {
+        mergeGroup.observe(viewModelScope)
+        viewModelScope.launchIO {
             mergeGroup.chips.collectLatest { chips ->
                 updateSuccessState { it.copy(mergeSources = chips) }
             }
         }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mergeGroup.selectedSourceChanges.collectLatest { selected ->
                 updateSuccessState { it.copy(selectedSourceMangaId = selected) }
             }
@@ -416,20 +429,19 @@ class MangaScreenModel(
         // metadata AFTER State.Success is built, and this upgrades the flat view to the rich one
         // without needing to back out and re-enter. Also refreshes on a source-chip switch or when
         // a gallery-update rewrites the metadata.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mergeGroup.selectedSourceChanges
                 .flatMapLatest { selected ->
                     val targetId = selected ?: mangaId
                     getFlatMetadataById.subscribe(targetId).map { flat -> targetId to flat }
                 }
-                .flowWithLifecycle(lifecycle)
                 .collectLatest { (targetId, flat) ->
                     updateSuccessState { it.copy(galleryMetadata = raiseMetadata(flat, targetId)) }
                 }
         }
         // RK <--
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
             // RK --> resolve the merge group so the combined chapter list builds on open
             val mergeChips = mergeGroup.seed(mangaId)
@@ -491,7 +503,7 @@ class MangaScreenModel(
             observeTrackers()
 
             // Fetch info-chapters when needed
-            if ((needRefreshInfo || needRefreshChapter) && screenModelScope.isActive) {
+            if ((needRefreshInfo || needRefreshChapter) && viewModelScope.isActive) {
                 fetchAllFromSource(
                     manualFetch = false,
                     fetchDetails = needRefreshInfo,
@@ -506,7 +518,7 @@ class MangaScreenModel(
 
     // RK --> load the first page of gallery page previews for sources that support it.
     private fun getPagePreviews(manga: Manga, source: Source) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             when (val result = getPagePreviews.await(manga, source, 1)) {
                 is GetPagePreviews.Result.Error -> updateSuccessState {
                     it.copy(pagePreviewsState = PagePreviewState.Error(result.error))
@@ -523,7 +535,7 @@ class MangaScreenModel(
     // RK <--
 
     fun fetchAllFromSource(manualFetch: Boolean = true) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             updateSuccessState { it.copy(isRefreshingData = true) }
             fetchAllFromSource(
                 manualFetch = manualFetch,
@@ -588,7 +600,7 @@ class MangaScreenModel(
                 with(context) { e.formattedMessage }
             }
 
-            screenModelScope.launch {
+            viewModelScope.launch {
                 snackbarHostState.showSnackbar(message = message)
             }
         }
@@ -609,7 +621,7 @@ class MangaScreenModel(
 
     // RK: extracted so the E-Hentai "remove from account" confirm can reuse the same downloads prompt.
     private fun promptDeleteDownloadsOnRemoved() {
-        screenModelScope.launch {
+        viewModelScope.launch {
             if (!hasDownloads()) return@launch
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.delete_downloads_for_manga),
@@ -630,7 +642,7 @@ class MangaScreenModel(
         checkDuplicate: Boolean = true,
     ) {
         val state = successState ?: return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val manga = state.manga
 
             if (isFavorited) {
@@ -692,7 +704,7 @@ class MangaScreenModel(
     fun addToExistingGroup(selectedIds: List<Long>) {
         val state = successState ?: return
         val manga = state.manga
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val seeded = mangaLibraryAdder.addToGroup(manga, selectedIds) ?: return@launchIO
             addTracks.bindEnhancedTrackers(manga, state.source)
             maybeBackupFavoriteToAccount(manga)
@@ -721,7 +733,7 @@ class MangaScreenModel(
         if (manga == null) return
         toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
         if (removeFromAccount) {
-            screenModelScope.launchIO { removeFromEhAccount(manga) }
+            viewModelScope.launchIO { removeFromEhAccount(manga) }
         }
     }
 
@@ -755,7 +767,7 @@ class MangaScreenModel(
 
     fun showChangeCategoryDialog() {
         val manga = successState?.manga ?: return
-        screenModelScope.launch {
+        viewModelScope.launch {
             // RK: order the picker by the category sort-order pref, matching the library and its pickers.
             val categories = reikaiSortCategories(getCategories(), reikaiLibraryPreferences.categorySortOrder.get())
             val selection = getMangaCategoryIds(manga)
@@ -778,7 +790,7 @@ class MangaScreenModel(
     }
 
     fun setFetchInterval(manga: Manga, interval: Int) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             if (
                 updateManga.awaitUpdateFetchInterval(
                     // Custom intervals are negative
@@ -831,7 +843,7 @@ class MangaScreenModel(
         moveMangaToCategory(categories)
         if (manga.favorite) return
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             updateManga.awaitUpdateFavorite(manga.id, true)
         }
     }
@@ -839,7 +851,7 @@ class MangaScreenModel(
     // RK: upstream's Category and Category? overloads went with the add paths that needed them; the
     // shared default-category rule already hands back the id list this takes.
     private fun moveMangaToCategory(categoryIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             setMangaCategories.await(mangaId, categoryIds)
         }
     }
@@ -849,11 +861,10 @@ class MangaScreenModel(
     // Chapters list - start
 
     private fun observeDownloads() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             downloadManager.statusFlow()
                 .filter { it.manga.id == successState?.manga?.id }
                 .catch { error -> logcat(LogPriority.ERROR, error) }
-                .flowWithLifecycle(lifecycle)
                 .collect {
                     withUIContext {
                         updateDownloadState(it)
@@ -861,11 +872,10 @@ class MangaScreenModel(
                 }
         }
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             downloadManager.progressFlow()
                 .filter { it.manga.id == successState?.manga?.id }
                 .catch { error -> logcat(LogPriority.ERROR, error) }
-                .flowWithLifecycle(lifecycle)
                 .collect {
                     withUIContext {
                         updateDownloadState(it)
@@ -1130,7 +1140,7 @@ class MangaScreenModel(
      * @throws IllegalStateException if the swipe action is [LibraryPreferences.ChapterSwipeAction.Disabled]
      */
     fun chapterSwipe(chapterItem: ChapterList.Item, swipeAction: LibraryPreferences.ChapterSwipeAction) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             executeChapterSwipeAction(chapterItem, swipeAction)
         }
     }
@@ -1211,7 +1221,7 @@ class MangaScreenModel(
     ) {
         val successState = successState ?: return
 
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             if (startNow) {
                 val chapterId = chapters.singleOrNull()?.id ?: return@launchNonCancellable
                 downloadManager.startDownloadNow(chapterId)
@@ -1296,7 +1306,7 @@ class MangaScreenModel(
     fun markChaptersRead(chapters: List<Chapter>, read: Boolean) {
         toggleAllSelection(false)
         if (chapters.isEmpty()) return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             setReadStatus.await(
                 read = read,
                 // RK: also mark the matching chapter in every grouped source
@@ -1344,7 +1354,7 @@ class MangaScreenModel(
      * @param chapters the list of chapters to bookmark.
      */
     fun bookmarkChapters(chapters: List<Chapter>, bookmarked: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // RK: bookmark the matching chapter in every grouped source too
             expandToGroup(chapters)
                 .filterNot { it.bookmark == bookmarked }
@@ -1360,7 +1370,7 @@ class MangaScreenModel(
      * @param chapters the list of chapters to delete.
      */
     fun deleteChapters(chapters: List<Chapter>) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             try {
                 successState?.let { state ->
                     // RK --> in a merged group, delete each chapter's download from its own source
@@ -1382,7 +1392,7 @@ class MangaScreenModel(
     }
 
     private fun downloadNewChapters(chapters: List<Chapter>) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             val manga = successState?.manga ?: return@launchNonCancellable
             val chaptersToDownload = filterChaptersForDownload.await(manga, chapters)
 
@@ -1404,7 +1414,7 @@ class MangaScreenModel(
             TriState.ENABLED_IS -> Manga.CHAPTER_SHOW_UNREAD
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_READ
         }
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setMangaChapterFlags.awaitSetUnreadFilter(manga, flag)
         }
     }
@@ -1422,7 +1432,7 @@ class MangaScreenModel(
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_NOT_DOWNLOADED
         }
 
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setMangaChapterFlags.awaitSetDownloadedFilter(manga, flag)
         }
     }
@@ -1440,7 +1450,7 @@ class MangaScreenModel(
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_NOT_BOOKMARKED
         }
 
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setMangaChapterFlags.awaitSetBookmarkFilter(manga, flag)
         }
     }
@@ -1452,7 +1462,7 @@ class MangaScreenModel(
     fun setDisplayMode(mode: Long) {
         val manga = successState?.manga ?: return
 
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setMangaChapterFlags.awaitSetDisplayMode(manga, mode)
         }
     }
@@ -1464,14 +1474,14 @@ class MangaScreenModel(
     fun setSorting(sort: Long) {
         val manga = successState?.manga ?: return
 
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setMangaChapterFlags.awaitSetSortingModeOrFlipOrder(manga, sort)
         }
     }
 
     fun setCurrentSettingsAsDefault(applyToExisting: Boolean) {
         val manga = successState?.manga ?: return
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             libraryPreferences.setChapterSettingsDefault(manga)
             if (applyToExisting) {
                 setMangaDefaultChapterFlags.awaitAll()
@@ -1482,7 +1492,7 @@ class MangaScreenModel(
 
     fun resetToDefaultSettings() {
         val manga = successState?.manga ?: return
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setMangaDefaultChapterFlags.await(manga)
         }
     }
@@ -1581,7 +1591,7 @@ class MangaScreenModel(
     private fun observeTrackers() {
         val manga = successState?.manga ?: return
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(
                 getTracksInGroup.subscribe(manga.id).catch { logcat(LogPriority.ERROR, it) },
                 trackerManager.loggedInTrackersFlow(),
@@ -1592,7 +1602,6 @@ class MangaScreenModel(
                 val supportedTrackerTracks = mangaTracks.filter { it.trackerId in supportedTrackerIds }
                 supportedTrackerTracks.size to supportedTrackers.isNotEmpty()
             }
-                .flowWithLifecycle(lifecycle)
                 .distinctUntilChanged()
                 .collectLatest { (trackingCount, hasLoggedInTrackers) ->
                     updateSuccessState {
@@ -1663,7 +1672,7 @@ class MangaScreenModel(
 
     /** Persist edits as a non-destructive per-field override against the raw source [manga]. */
     fun saveMangaInfo(manga: Manga, edited: EntryEditInfoUi) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setCustomMangaInfo.set(edited.toCustomMangaInfo(manga))
         }
         dismissDialog()
@@ -1671,7 +1680,7 @@ class MangaScreenModel(
 
     /** Clear every override, so all fields track the source again. */
     fun resetMangaInfo(manga: Manga) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setCustomMangaInfo.set(CustomMangaInfo(mangaId = manga.id))
         }
         dismissDialog()
@@ -1687,7 +1696,7 @@ class MangaScreenModel(
     // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
     // models run). selectSource + showManageSourcesDialog stay here: their bodies genuinely diverge.
     private val mergeActions = EntryMergeActionHost(
-        scope = screenModelScope,
+        scope = viewModelScope,
         snackbarHostState = snackbarHostState,
         context = context,
         group = mergeGroup,
@@ -1704,7 +1713,7 @@ class MangaScreenModel(
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the active
      *  source's display name. Resolved here (the model has the context) so MangaEntryAdapter's neutral-state
-     *  mapping needs no composable. Mirrors NovelDetailsScreenModel.headerSourceName. */
+     *  mapping needs no composable. Mirrors NovelDetailsViewModel.headerSourceName. */
     fun headerSourceName(state: State.Success): String =
         if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
             context.stringResource(MR.strings.merge_unified)
@@ -1724,7 +1733,7 @@ class MangaScreenModel(
         val state = successState ?: return
         // Use the full group (stable) so the dialog works even while viewing a single source chip.
         if (state.mergeSources.size <= 1) return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val ids = state.mergeSources.map { it.id }
             // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
             // under the global order (no override). memberRanking non-empty == override on.
@@ -1780,8 +1789,8 @@ class MangaScreenModel(
         relatedLoadStarted = true
         // Bootstrap / refresh the taste cache out of band (never on the carousel's critical path);
         // the profile read below uses whatever is already cached, the pull lands for the next open.
-        screenModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
+        viewModelScope.launchIO {
             val favorites = getFavorites.await()
             val favoriteKeys = favorites.mapTo(HashSet()) { it.url to it.source }
             // Anti-echo: opt-in filter that hides suggestions the user already has/tracks (by id, then
@@ -1863,7 +1872,7 @@ class MangaScreenModel(
     }
 
     fun setExcludedScanlators(excludedScanlators: Set<String>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             setExcludedScanlators.await(mangaId, excludedScanlators)
         }
     }

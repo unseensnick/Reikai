@@ -58,7 +58,7 @@ interface EntryDetailsBehavior {
     fun showCoverDialog()
 
     /** The per-type full-cover ScreenModel, resolved by the shared dialog host. */
-    fun createCoverScreenModel(): EntryCoverScreenModel<*>
+    fun createCoverViewModel(): EntryCoverViewModel<*>
     fun showEditInfoDialog()
     fun saveInfo(edited: EntryEditInfoUi)
     fun resetInfo()

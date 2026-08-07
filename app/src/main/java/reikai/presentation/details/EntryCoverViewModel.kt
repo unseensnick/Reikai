@@ -3,8 +3,8 @@ package reikai.presentation.details
 import android.content.Context
 import android.net.Uri
 import androidx.compose.material3.SnackbarHostState
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -39,10 +39,10 @@ import java.io.InputStream
  * five per-type seams: the entry subscription, its coil model + save name, the custom-cover check, and
  * the two custom-cover writes (each keyed in its own id space, manga positive and novel negated).
  */
-abstract class EntryCoverScreenModel<T : Any>(
+abstract class EntryCoverViewModel<T : Any>(
     private val imageSaver: ImageSaver = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
-) : ScreenModel {
+) : ViewModel() {
 
     /** The reactive entry the cover belongs to; emits null until loaded. */
     protected abstract suspend fun subscribe(): Flow<T?>
@@ -68,15 +68,15 @@ abstract class EntryCoverScreenModel<T : Any>(
      * while the super constructor is still running, before those deps are assigned, so they would be null.
      */
     val entry: StateFlow<T?> = flow { emitAll(subscribe()) }
-        .stateIn(screenModelScope, SharingStarted.Lazily, null)
+        .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     /** The loaded entry's coil model, so the shared dialog can render the cover without knowing the type. */
     val coverModel: StateFlow<Any?> = entry
         .map { it?.let(::coilModel) }
-        .stateIn(screenModelScope, SharingStarted.Lazily, null)
+        .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     fun saveCover(context: Context) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             try {
                 saveCoverInternal(context, temp = false)
                 snackbarHostState.showSnackbar(context.stringResource(MR.strings.cover_saved), withDismissAction = true)
@@ -91,7 +91,7 @@ abstract class EntryCoverScreenModel<T : Any>(
     }
 
     fun shareCover(context: Context) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             try {
                 val uri = saveCoverInternal(context, temp = true) ?: return@launch
                 withUIContext { context.startActivity(uri.toShareIntent(context)) }
@@ -127,7 +127,7 @@ abstract class EntryCoverScreenModel<T : Any>(
 
     fun editCover(context: Context, data: Uri) {
         val entry = entry.value ?: return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 // Not a null-safe call with the notify after it: an unreadable Uri gives no stream,
                 // and the success snackbar fired anyway over a cover that was never written.
@@ -143,7 +143,7 @@ abstract class EntryCoverScreenModel<T : Any>(
 
     fun deleteCustomCover(context: Context) {
         val entry = entry.value ?: return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 removeCustomCover(entry)
                 notifyCoverUpdated(context)
@@ -154,13 +154,13 @@ abstract class EntryCoverScreenModel<T : Any>(
     }
 
     private fun notifyCoverUpdated(context: Context) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             snackbarHostState.showSnackbar(context.stringResource(MR.strings.cover_updated), withDismissAction = true)
         }
     }
 
     private fun notifyFailed(context: Context, e: Throwable) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             snackbarHostState.showSnackbar(
                 context.stringResource(MR.strings.notification_cover_update_failed),
                 withDismissAction = true,

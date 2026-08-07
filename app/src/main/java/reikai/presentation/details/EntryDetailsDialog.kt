@@ -10,7 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
@@ -39,7 +41,7 @@ sealed interface EntryDetailsDialog {
         val coverModel: (String) -> Any,
     ) : EntryDetailsDialog
 
-    /** Full cover viewer; the per-type cover ScreenModel is resolved via [EntryDetailsBehavior.createCoverScreenModel]. */
+    /** Full cover viewer; the per-type cover ScreenModel is resolved via [EntryDetailsBehavior.createCoverViewModel]. */
     data object Cover : EntryDetailsDialog
 
     data class ManageSources(
@@ -90,7 +92,16 @@ fun Screen.EntryDetailsDialogHost(
             ),
         )
         EntryDetailsDialog.Cover -> {
-            val coverSm = rememberScreenModel { behavior.createCoverScreenModel() }
+            // The behavior returns the per-type subclass through the star-projected base. Voyager only
+            // used that type as a store key, but AndroidX's default factory would try to instantiate it
+            // reflectively, so the construction moves into an explicit initializer. The initializer runs
+            // once per host screen and freezes the anchor it captures, which is correct: both adapters
+            // anchor on the group entry (`manga` / `novel`), never on the source chip's `mergeDisplay*`
+            // sibling, so a chip switch is not supposed to move it. No key is needed.
+            val coverFactory = remember(behavior) {
+                viewModelFactory { initializer { behavior.createCoverViewModel() } }
+            }
+            val coverSm = viewModel<EntryCoverViewModel<*>>(factory = coverFactory)
             val cover by coverSm.coverModel.collectAsState()
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->

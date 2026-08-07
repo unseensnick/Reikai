@@ -27,13 +27,13 @@ import tachiyomi.presentation.core.util.plus
  */
 @Composable
 fun RelatedMangasBrowseContent(
-    items: List<RelatedMangasBrowseScreenModel.BrowseItem>,
+    items: List<RelatedMangasBrowseViewModel.BrowseItem>,
     columns: GridCells,
     selectedUrls: Set<String>,
     grouped: Boolean,
     contentPadding: PaddingValues,
-    onItemClick: (RelatedMangasBrowseScreenModel.BrowseItem) -> Unit,
-    onItemLongClick: (RelatedMangasBrowseScreenModel.BrowseItem) -> Unit,
+    onItemClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
+    onItemLongClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
 ) {
     FastScrollLazyVerticalGrid(
         columns = columns,
@@ -74,12 +74,12 @@ fun RelatedMangasBrowseContent(
 
 @Composable
 private fun BrowseGridItem(
-    item: RelatedMangasBrowseScreenModel.BrowseItem,
+    item: RelatedMangasBrowseViewModel.BrowseItem,
     isSelected: Boolean,
     // Flat view labels each card's origin; the grouped view shows it in the section header instead.
     showOrigin: Boolean,
-    onItemClick: (RelatedMangasBrowseScreenModel.BrowseItem) -> Unit,
-    onItemLongClick: (RelatedMangasBrowseScreenModel.BrowseItem) -> Unit,
+    onItemClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
+    onItemLongClick: (RelatedMangasBrowseViewModel.BrowseItem) -> Unit,
 ) {
     RecommendationGridItem(
         coverData = MangaCover(

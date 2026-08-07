@@ -7,7 +7,7 @@ import kotlin.math.floor
 /**
  * A row in the novel details chapter list: either a chapter or a "N missing chapters" separator
  * inserted between two chapters whose numbers skip one or more integers. The novel twin of manga's
- * `ChapterList.Item` / `ChapterList.MissingCount` (see MangaScreenModel.chapterListItems).
+ * `ChapterList.Item` / `ChapterList.MissingCount` (see MangaViewModel.chapterListItems).
  */
 sealed interface NovelChapterListEntry {
     data class Item(val chapter: NovelChapter) : NovelChapterListEntry

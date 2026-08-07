@@ -1,6 +1,6 @@
 package reikai.presentation.details
 
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -13,21 +13,21 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
-import reikai.presentation.novel.details.NovelCoverScreenModel
-import reikai.presentation.novel.details.NovelDetailsScreenModel
+import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
+import reikai.presentation.novel.details.NovelDetailsViewModel
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
 /**
- * Adapts the live [NovelDetailsScreenModel] to the neutral [EntryDetailsBehavior]. The model keeps its
+ * Adapts the live [NovelDetailsViewModel] to the neutral [EntryDetailsBehavior]. The model keeps its
  * own novel-typed state machine; this maps [NovelDetailsState] to [EntryDetailsScreenState] and
  * forwards neutral actions to the model's methods, resolving a neutral chapter id back to a
  * [NovelChapter] where one is needed. Symmetric with the manga adapter, so one shared
  * `EntryDetailsContent` can drive both content types. Novel-only actions stay off the interface.
  */
 class NovelEntryAdapter(
-    private val model: NovelDetailsScreenModel,
+    private val model: NovelDetailsViewModel,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
@@ -37,7 +37,7 @@ class NovelEntryAdapter(
             // Loading frame. WhileSubscribed, not Eagerly: the adapter is rebuilt per composition
             // entry while its sharing coroutine lives in the model's scope, so an eager start left
             // one orphaned mapper running per re-entry (rotation, reader round-trips).
-            .stateIn(model.screenModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
+            .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
 
     private fun NovelDetailsState.toNeutral(): EntryDetailsScreenState = when (this) {
         NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
@@ -189,11 +189,11 @@ class NovelEntryAdapter(
     override fun showCoverDialog() {
         model.showCoverDialog()
     }
-    override fun createCoverScreenModel(): EntryCoverScreenModel<*> {
+    override fun createCoverViewModel(): EntryCoverViewModel<*> {
         // Anchor-scoped like manga: the dialog also EDITS the custom cover, and a custom cover set
         // from a source-chip view must land on the entry the library renders, not the sibling.
         val loaded = model.state.value as? NovelDetailsState.Loaded
-        return NovelCoverScreenModel(
+        return NovelCoverViewModel(
             novelUrl = loaded?.novel?.url.orEmpty(),
             novelSource = loaded?.novel?.source.orEmpty(),
             site = loaded?.sourceUrl,

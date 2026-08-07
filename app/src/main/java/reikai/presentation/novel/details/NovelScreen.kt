@@ -9,7 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -57,7 +58,13 @@ class NovelScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { NovelDetailsScreenModel(sourceId, novelUrl) }
+        val screenModel = viewModel<NovelDetailsViewModel>(
+            factory = NovelDetailsViewModel.Factory,
+            extras = CreationExtras {
+                set(NovelDetailsViewModel.SOURCE_ID_KEY, sourceId)
+                set(NovelDetailsViewModel.NOVEL_URL_KEY, novelUrl)
+            },
+        )
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by screenModel.state.collectAsStateWithLifecycle()
         val adapter = remember(screenModel) { NovelEntryAdapter(screenModel) }
@@ -172,7 +179,7 @@ class NovelScreen(
 /** The novel dialogs that stay per-type (their data genuinely diverges); the shared ones go through
  *  [EntryDetailsDialogHost]. A `Screen` extension so the duplicate dialog can resolve the migrate controller. */
 @Composable
-private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
+private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(

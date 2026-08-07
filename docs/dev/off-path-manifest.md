@@ -43,7 +43,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/source/SourcesTab.kt | mihon | reikai/presentation/browse/source/ReikaiSourcesTab.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/sources/MigrateSourceTab.kt | mihon | reikai/presentation/browse/migrate/ReikaiMigrateSourceTab.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/track/TrackInfoDialog.kt | mihon | reikai/presentation/track/EntryTrackInfoDialog.kt |
-| app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverViewModel.kt | mihon | reikai/presentation/details/EntryCoverScreenModel.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverViewModel.kt | mihon | reikai/presentation/details/EntryCoverViewModel.kt |
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryInfoBox.kt |
 | app/src/main/java/eu/kanade/presentation/library/LibrarySettingsDialog.kt | mihon | reikai/presentation/library/LibrarySettingsSheet.kt |
 | app/src/main/java/mihon/feature/library/QueryNodeExtensions.kt | mihon | reikai/presentation/library/LibraryQueryMatch.kt |

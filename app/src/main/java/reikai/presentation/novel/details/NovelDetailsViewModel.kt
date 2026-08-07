@@ -5,9 +5,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.palette.graphics.Palette
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -34,6 +36,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.mergeRefreshedNovel
@@ -108,16 +111,31 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
 /**
- * Light-novel details state holder, re-typed from Yōkai's `NovelDetailsScreenModel` onto the Mihon
+ * Light-novel details state holder, re-typed from Yōkai's `NovelDetailsViewModel` onto the Mihon
  * repos. DB-first: the stored novel + its chapters drive the screen; the source is hit only on first
  * open (no local chapters) or an explicit [refresh]. Owns favorite, categories, edit-info, chapter
  * sort/filter/display, multi-select read/bookmark, and the cover-tint seed. A merged series is
  * surfaced through the [NovelDetailsState.Loaded.displayNovel] seam.
  */
-class NovelDetailsScreenModel(
+class NovelDetailsViewModel(
     private val sourceId: String,
     private val novelUrl: String,
-) : StateScreenModel<NovelDetailsState>(NovelDetailsState.Loading) {
+) : StateViewModel<NovelDetailsState>(NovelDetailsState.Loading) {
+
+    companion object {
+        /** A novel source id is a plugin string, so these keys are Reikai's rather than upstream's Long. */
+        val SOURCE_ID_KEY = CreationExtras.Key<String>()
+        val NOVEL_URL_KEY = CreationExtras.Key<String>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                NovelDetailsViewModel(
+                    sourceId = get(SOURCE_ID_KEY)!!,
+                    novelUrl = get(NOVEL_URL_KEY)!!,
+                )
+            }
+        }
+    }
 
     private val novelRepo: NovelRepository by injectLazy()
     private val updateNovel: UpdateNovel by injectLazy()
@@ -218,7 +236,7 @@ class NovelDetailsScreenModel(
     private var currentCustomInfo: CustomNovelInfo? = null
 
     init {
-        mergeGroup.observe(screenModelScope)
+        mergeGroup.observe(viewModelScope)
         observeChapters()
         observeDownloadQueue()
         observeTrackingCount()
@@ -230,7 +248,7 @@ class NovelDetailsScreenModel(
      *  so the action-row Tracking button shows the count + flips its icon, like the manga header. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeTrackingCount() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
                 .map { it?.id }
                 .distinctUntilChanged()
@@ -260,7 +278,7 @@ class NovelDetailsScreenModel(
      *  the anchor id; a write to custom_novel_info re-emits and the display updates on its own. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeCustomInfo() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
                 .map { it?.id }
                 .distinctUntilChanged()
@@ -278,7 +296,7 @@ class NovelDetailsScreenModel(
      *  queue states (queued/downloading/error) live here; a finished download is read from
      *  [NovelDetailsState.Loaded.downloadedChapterIds] (disk-derived) instead. */
     private fun observeDownloadQueue() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             downloadManager.queueState.collectLatest { queue ->
                 val map = queue.associate { it.chapterId to it.state.toDownloadState() }
                 mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(downloadStates = map) ?: it }
@@ -287,7 +305,7 @@ class NovelDetailsScreenModel(
     }
 
     private fun resolveSource() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 installer.ensureLoaded()
             } catch (_: Throwable) {}
@@ -325,7 +343,7 @@ class NovelDetailsScreenModel(
     // chip (or a non-merged novel) keeps its own per-page lazy list. A change to
     // chapterFlags / page / group / selection re-runs this via the combine.
     private fun observeChapters() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(
                 combine(
                     novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
@@ -514,7 +532,7 @@ class NovelDetailsScreenModel(
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeGroup.chips.value,
                 selectedSourceNovelId = mergeGroup.selectedSource,
-                // RK: match manga's swipe mapping (MangaScreenModel): the start/end action fields cross
+                // RK: match manga's swipe mapping (MangaViewModel): the start/end action fields cross
                 // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
                 chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),
                 chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get(),
@@ -540,7 +558,7 @@ class NovelDetailsScreenModel(
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
             return
         }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Load through NovelCoverFetcher (it sends the site Referer some LN cover hosts require) so a
             // non-library novel opened from browsing still tints on first open. Mirrors the manga re-extract.
             val request = ImageRequest.Builder(context)
@@ -568,7 +586,7 @@ class NovelDetailsScreenModel(
         if (firstFetchTried) return
         val src = source ?: return // defer until resolveSource sets it
         firstFetchTried = true
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             runCatching { fetchAndSync(src, existing) }.onFailure { e ->
                 if (state.value !is NovelDetailsState.Loaded) {
                     mutableState.value = NovelDetailsState.Failed(e.message ?: "Failed to load novel")
@@ -621,7 +639,7 @@ class NovelDetailsScreenModel(
             return
         }
         if (!triedPages.add(pageKey)) return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
@@ -658,7 +676,7 @@ class NovelDetailsScreenModel(
     // original dateAdded) and propagate tracker links onto each member before a split. selectSource +
     // showManageSourcesDialog stay below: their bodies genuinely diverge.
     private val mergeActions = EntryMergeActionHost(
-        scope = screenModelScope,
+        scope = viewModelScope,
         snackbarHostState = snackbarHostState,
         context = context,
         group = mergeGroup,
@@ -686,7 +704,7 @@ class NovelDetailsScreenModel(
         }
 
     fun showManageSourcesDialog() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             if (loaded.mergeSources.size <= 1) return@launchIO
             // Per-source chapters, resolved on open for both the coverage-hint counts and the trunk rank.
@@ -739,7 +757,7 @@ class NovelDetailsScreenModel(
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         val anchorSrc = source ?: return
         if (refreshJob?.isActive == true) return
-        refreshJob = screenModelScope.launchIO {
+        refreshJob = viewModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
                 // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
@@ -796,10 +814,10 @@ class NovelDetailsScreenModel(
     // --- Favorite / categories ---
 
     fun toggleFavorite() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             if (!novel.favorite) {
-                // Warn on a similarly-named library novel before adding (mirrors MangaScreenModel).
+                // Warn on a similarly-named library novel before adding (mirrors MangaViewModel).
                 novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
                     val groupIdByNovelId = mergeManager.groupIdsFor(dup.duplicates.map { it.novel.id })
                     updateLoaded {
@@ -827,7 +845,7 @@ class NovelDetailsScreenModel(
 
     /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
     fun addFavoriteAnyway() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             addToLibrary(novel)
         }
@@ -840,7 +858,7 @@ class NovelDetailsScreenModel(
      * has none, matching every other add path.
      */
     fun addToExistingGroup(selectedIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             val seeded = novelLibraryAdder.addToGroup(novel.id, selectedIds) ?: return@launchIO
             if (seeded) return@launchIO
@@ -855,12 +873,12 @@ class NovelDetailsScreenModel(
     private suspend fun addToLibrary(novel: Novel) {
         updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
         // A configured default category applies silently; only a novel with no usable default reaches
-        // the picker, which showChangeCategoryDialog orders. Mirrors MangaScreenModel.toggleFavorite.
+        // the picker, which showChangeCategoryDialog orders. Mirrors MangaViewModel.toggleFavorite.
         if (novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id) != null) showChangeCategoryDialog()
     }
 
     fun showChangeCategoryDialog() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             // RK: order the picker by the category sort-order pref, matching the library and its pickers.
             val categories = reikaiSortCategories(
@@ -876,7 +894,7 @@ class NovelDetailsScreenModel(
     }
 
     fun applyCategories(categoryIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             setNovelCategories.await(novel.id, categoryIds)
             dismissDialog()
@@ -893,10 +911,10 @@ class NovelDetailsScreenModel(
      *  row (a blank field, or an Unknown status, stores nothing, so that field tracks the source again).
      *  The novels row is never touched, so Reset restores the source cleanly. Takes the neutral
      *  [EntryEditInfoUi] (as the manga side already does) and runs non-cancellable, so a mid-write screen
-     *  close does not drop the edit (mirrors MangaScreenModel.saveMangaInfo). */
+     *  close does not drop the edit (mirrors MangaViewModel.saveMangaInfo). */
     fun saveNovelInfo(edited: EntryEditInfoUi) {
         val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             setCustomNovelInfo.set(edited.toCustomNovelInfo(n))
         }
         dismissDialog()
@@ -904,7 +922,7 @@ class NovelDetailsScreenModel(
 
     /** Clear every override; the source row shows through again (no re-fetch needed, it was never overwritten). */
     fun resetNovelInfo() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
             dismissDialog()
@@ -933,7 +951,7 @@ class NovelDetailsScreenModel(
 
     /** Write the current view as the global chapter-settings default and drop this novel's overrides. */
     fun setChapterSettingsAsDefault() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             novelPreferences.defaultChapterSortOrder().set(loaded.sorting)
             novelPreferences.defaultChapterSortDescending().set(loaded.sortDescending)
@@ -950,7 +968,7 @@ class NovelDetailsScreenModel(
         withLoadedNovel { setNovelChapterFlags.awaitClearLocalOverrides(it) }
 
     private fun withLoadedNovel(block: suspend (Novel) -> Unit) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             block(n)
         }
@@ -1025,7 +1043,7 @@ class NovelDetailsScreenModel(
     /** Mark every chapter before the earliest selected one (in source order) read/unread. Spans all
      *  fetched pages (operates on stored rows), not just the page on screen. */
     fun markPreviousRead(read: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             // In the unified ("All") view the selection can be a sibling-source chapter that the anchor's
             // own rows don't contain, so operate over the pooled display list (which spans every grouped
@@ -1048,7 +1066,7 @@ class NovelDetailsScreenModel(
     }
 
     fun markAllRead(read: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             val all = expandToGroup(chapterRepo.getByNovelId(loaded.displayNovel.id))
             setNovelReadStatus.await(read, all)
@@ -1057,14 +1075,14 @@ class NovelDetailsScreenModel(
     }
 
     fun toggleChapterBookmark(chapter: NovelChapter) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val target = !chapter.bookmark
             expandToGroup(listOf(chapter)).forEach { chapterRepo.setBookmark(it.id, target) }
         }
     }
 
     fun markChapterRead(chapter: NovelChapter, read: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val expanded = expandToGroup(listOf(chapter))
             setNovelReadStatus.await(read, expanded)
             if (read) autoTrackOnMarkRead(expanded)
@@ -1074,7 +1092,7 @@ class NovelDetailsScreenModel(
     /** Expand [chapters] to include the matching chapter (same recognized number) from every
      *  grouped source, so read / bookmark applies across the whole merge group. No-op when not
      *  merged or when none of the chapters have a recognized number. Mirrors
-     *  MangaScreenModel.expandToGroup; the recognized-number predicate is `chapterNumber >= 0.0`,
+     *  MangaViewModel.expandToGroup; the recognized-number predicate is `chapterNumber >= 0.0`,
      *  matching manga's `Chapter.isRecognizedNumber` (NovelChapter has no such property). */
     private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> {
         val ids = mergeGroup.relatedIds
@@ -1104,7 +1122,7 @@ class NovelDetailsScreenModel(
      */
     private fun autoTrackOnMarkRead(chapters: List<NovelChapter>) {
         val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             autoTrackOnMarkRead.await(novel.id, chapters.map { it.chapterNumber })
         }
     }
@@ -1140,7 +1158,7 @@ class NovelDetailsScreenModel(
     }
 
     private inline fun withSelection(crossinline block: suspend (List<NovelChapter>) -> Unit) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             val chapters = loaded.chapters.filter { it.id in loaded.selection }
             if (chapters.isNotEmpty()) block(chapters)
@@ -1172,12 +1190,12 @@ class NovelDetailsScreenModel(
     }
 
     /** After the first download of a not-yet-favorited novel (typically opened from browse), offer to
-     *  add it to the library, once per screen. Mirrors MangaScreenModel.startDownload's prompt. */
+     *  add it to the library, once per screen. Mirrors MangaViewModel.startDownload's prompt. */
     private fun promptAddToLibraryOnFirstDownload() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         if (loaded.novel.favorite || loaded.hasPromptedToAddBefore) return
         updateLoaded { it.copy(hasPromptedToAddBefore = true) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.snack_add_to_library),
                 actionLabel = context.stringResource(MR.strings.action_add),
@@ -1191,7 +1209,7 @@ class NovelDetailsScreenModel(
     /** Toolbar download dropdown. Operates on the full stored chapter list (all fetched pages), not the
      *  page on screen, the same way [markAllRead] does. Selection logic is shared with the library. */
     fun runDownloadAction(action: DownloadAction) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             // RK: hidden chapters are never bulk-downloaded, so drop them before picking targets.
             val hidden = hiddenChaptersPref.get()
@@ -1220,7 +1238,7 @@ class NovelDetailsScreenModel(
 
     /** Delete the confirmed downloads, then clear the selection and dismiss the dialog. */
     fun deleteChapters(chapters: List<NovelChapter>) {
-        screenModelScope.launchIO { downloadManager.deleteChapters(chapters) }
+        viewModelScope.launchIO { downloadManager.deleteChapters(chapters) }
         clearSelection()
         dismissDialog()
     }
@@ -1247,7 +1265,7 @@ class NovelDetailsScreenModel(
 /**
  * RK: per-field override, store a value only when it differs from the current source value; a blank field
  * (or "Unknown" status) stores nothing, so that field tracks the source again. The novel twin of
- * MangaScreenModel's EntryEditInfoUi.toCustomMangaInfo (blanks preserve the source, drop empty genres).
+ * MangaViewModel's EntryEditInfoUi.toCustomMangaInfo (blanks preserve the source, drop empty genres).
  */
 private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) = CustomNovelInfo(
     novelId = source.id,

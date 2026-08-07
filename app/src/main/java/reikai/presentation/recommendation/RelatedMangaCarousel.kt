@@ -25,7 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
+import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import reikai.domain.recommendation.RelatedMangaCandidate
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.i18n.MR
@@ -39,7 +39,7 @@ import tachiyomi.presentation.core.i18n.stringResource
  */
 @Composable
 fun RelatedMangaCarousel(
-    items: List<MangaScreenModel.RelatedMangaItem>,
+    items: List<MangaViewModel.RelatedMangaItem>,
     loading: Boolean,
     totalCount: Int,
     onClick: (RelatedMangaCandidate) -> Unit,

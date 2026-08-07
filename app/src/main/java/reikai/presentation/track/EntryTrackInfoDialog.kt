@@ -30,10 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -67,6 +69,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.novel.interactor.AddNovelTrack
@@ -115,7 +118,14 @@ data class EntryTrackInfoDialogHomeScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { Model(entryId, sourceId, isNovel) }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.ENTRY_ID_KEY, entryId)
+                set(Model.SOURCE_ID_KEY, sourceId)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
 
         val dateFormat = remember { UiPreferences.dateFormat(Injekt.get<UiPreferences>().dateFormat.get()) }
         val state by screenModel.state.collectAsState()
@@ -178,14 +188,30 @@ data class EntryTrackInfoDialogHomeScreen(
         private val isNovel: Boolean,
         private val getTracksInGroup: GetTracksInGroup = Injekt.get(),
         private val getNovelTracks: GetNovelTracks = Injekt.get(),
-    ) : StateScreenModel<Model.State>(State()) {
+    ) : StateViewModel<Model.State>(State()) {
+
+        companion object {
+            val ENTRY_ID_KEY = CreationExtras.Key<Long>()
+            val SOURCE_ID_KEY = CreationExtras.Key<Long?>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        entryId = get(ENTRY_ID_KEY)!!,
+                        sourceId = get(SOURCE_ID_KEY),
+                        isNovel = get(IS_NOVEL_KEY)!!,
+                    )
+                }
+            }
+        }
 
         private val writer: TrackWriter = trackWriterFor(isNovel)
 
         init {
-            screenModelScope.launch { refreshTrackers() }
+            viewModelScope.launch { refreshTrackers() }
 
-            screenModelScope.launch {
+            viewModelScope.launch {
                 entryTrackFlow()
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
@@ -205,7 +231,7 @@ data class EntryTrackInfoDialogHomeScreen(
         // Manga-only: EnhancedTracker matches a manga to its same-id remote entry with no manual search.
         fun registerEnhancedTracking(item: TrackItem) {
             item.tracker as EnhancedTracker
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 val manga = Injekt.get<GetManga>().await(entryId) ?: return@launchNonCancellable
                 try {
                     val matchResult = item.tracker.match(manga) ?: throw Exception()
@@ -236,7 +262,7 @@ data class EntryTrackInfoDialogHomeScreen(
         }
 
         fun togglePrivate(item: TrackItem) {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 writer.setRemotePrivate(item.tracker, item.track!!.toDbTrack(), !item.track.private)
             }
         }
@@ -273,9 +299,14 @@ private data class EntryTrackStatusSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, trackWriterFor(isNovel))
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.TRACK_KEY, track)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
         val state by screenModel.state.collectAsState()
         TrackStatusSelector(
             selection = state.selection,
@@ -293,7 +324,26 @@ private data class EntryTrackStatusSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val writer: TrackWriter,
-    ) : StateScreenModel<Model.State>(State(track.status)) {
+    ) : StateViewModel<Model.State>(State(track.status)) {
+
+        companion object {
+            val TRACK_KEY = CreationExtras.Key<Track>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            // The tracker and the writer are derived here rather than passed, so the dialog stops
+            // resolving Injekt from a composable body. Every selector model below does the same.
+            val Factory = viewModelFactory {
+                initializer {
+                    val isNovel = get(IS_NOVEL_KEY)!!
+                    Model(
+                        track = get(TRACK_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        writer = trackWriterFor(isNovel),
+                    )
+                }
+            }
+        }
 
         fun getSelections(): Map<Long, StringResource?> =
             tracker.getStatusList().associateWith { tracker.getStatus(it) }
@@ -301,7 +351,7 @@ private data class EntryTrackStatusSelectorScreen(
         fun setSelection(selection: Long) = mutableState.update { it.copy(selection = selection) }
 
         fun setStatus() {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 writer.setRemoteStatus(tracker, track.toDbTrack(), state.value.selection)
             }
         }
@@ -320,9 +370,14 @@ private data class EntryTrackChapterSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, trackWriterFor(isNovel))
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.TRACK_KEY, track)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
         val state by screenModel.state.collectAsState()
         TrackChapterSelector(
             selection = state.selection,
@@ -340,7 +395,23 @@ private data class EntryTrackChapterSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val writer: TrackWriter,
-    ) : StateScreenModel<Model.State>(State(track.lastChapterRead.toInt())) {
+    ) : StateViewModel<Model.State>(State(track.lastChapterRead.toInt())) {
+
+        companion object {
+            val TRACK_KEY = CreationExtras.Key<Track>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        track = get(TRACK_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        writer = trackWriterFor(get(IS_NOVEL_KEY)!!),
+                    )
+                }
+            }
+        }
 
         fun getRange(): Iterable<Int> {
             val endRange = if (track.totalChapters > 0) track.totalChapters else 10000
@@ -350,7 +421,7 @@ private data class EntryTrackChapterSelectorScreen(
         fun setSelection(selection: Int) = mutableState.update { it.copy(selection = selection) }
 
         fun setChapter() {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 writer.setRemoteLastChapterRead(tracker, track.toDbTrack(), state.value.selection)
             }
         }
@@ -369,9 +440,14 @@ private data class EntryTrackScoreSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, trackWriterFor(isNovel))
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.TRACK_KEY, track)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
         val state by screenModel.state.collectAsState()
         TrackScoreSelector(
             selection = state.selection,
@@ -389,14 +465,30 @@ private data class EntryTrackScoreSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val writer: TrackWriter,
-    ) : StateScreenModel<Model.State>(State(tracker.displayScore(track))) {
+    ) : StateViewModel<Model.State>(State(tracker.displayScore(track))) {
+
+        companion object {
+            val TRACK_KEY = CreationExtras.Key<Track>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        track = get(TRACK_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        writer = trackWriterFor(get(IS_NOVEL_KEY)!!),
+                    )
+                }
+            }
+        }
 
         fun getSelections(): List<String> = tracker.getScoreList()
 
         fun setSelection(selection: String) = mutableState.update { it.copy(selection = selection) }
 
         fun setScore() {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 writer.setRemoteScore(tracker, track.toDbTrack(), state.value.selection)
             }
         }
@@ -459,9 +551,15 @@ private data class EntryTrackDateSelectorScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, start, trackWriterFor(isNovel), isNovel)
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.TRACK_KEY, track)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.START_KEY, start)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
 
         val canRemove = if (start) track.startDate > 0 else track.finishDate > 0
         TrackDateSelector(
@@ -487,7 +585,27 @@ private data class EntryTrackDateSelectorScreen(
         private val start: Boolean,
         private val writer: TrackWriter,
         private val isNovel: Boolean,
-    ) : ScreenModel {
+    ) : ViewModel() {
+
+        companion object {
+            val TRACK_KEY = CreationExtras.Key<Track>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val START_KEY = CreationExtras.Key<Boolean>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    val isNovel = get(IS_NOVEL_KEY)!!
+                    Model(
+                        track = get(TRACK_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        start = get(START_KEY)!!,
+                        writer = trackWriterFor(isNovel),
+                        isNovel = isNovel,
+                    )
+                }
+            }
+        }
 
         // In UTC
         val initialSelection: Long
@@ -502,7 +620,7 @@ private data class EntryTrackDateSelectorScreen(
         fun setDate(millis: Long) {
             // Convert to local time
             val localMillis = millis.convertEpochMillisZone(ZoneOffset.UTC, ZoneOffset.systemDefault())
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 if (start) {
                     writer.setRemoteStartDate(tracker, track.toDbTrack(), localMillis)
                 } else {
@@ -527,9 +645,15 @@ private data class EntryTrackDateRemoverScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, start, trackWriterFor(isNovel))
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.TRACK_KEY, track)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.START_KEY, start)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
             icon = { Icon(imageVector = Icons.Default.Delete, contentDescription = null) },
@@ -579,12 +703,30 @@ private data class EntryTrackDateRemoverScreen(
         private val tracker: Tracker,
         private val start: Boolean,
         private val writer: TrackWriter,
-    ) : ScreenModel {
+    ) : ViewModel() {
+
+        companion object {
+            val TRACK_KEY = CreationExtras.Key<Track>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val START_KEY = CreationExtras.Key<Boolean>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        track = get(TRACK_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        start = get(START_KEY)!!,
+                        writer = trackWriterFor(get(IS_NOVEL_KEY)!!),
+                    )
+                }
+            }
+        }
 
         fun getServiceName() = tracker.name
 
         fun removeDate() {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 if (start) {
                     writer.setRemoteStartDate(tracker, track.toDbTrack(), 0)
                 } else {
@@ -606,9 +748,16 @@ data class EntryTrackerSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(entryId, currentUrl, initialQuery, Injekt.get<TrackerManager>().get(serviceId)!!, isNovel)
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.ENTRY_ID_KEY, entryId)
+                set(Model.CURRENT_URL_KEY, currentUrl)
+                set(Model.INITIAL_QUERY_KEY, initialQuery)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
 
         val state by screenModel.state.collectAsState()
 
@@ -636,7 +785,27 @@ data class EntryTrackerSearchScreen(
         initialQuery: String,
         private val tracker: Tracker,
         private val isNovel: Boolean,
-    ) : StateScreenModel<Model.State>(State()) {
+    ) : StateViewModel<Model.State>(State()) {
+
+        companion object {
+            val ENTRY_ID_KEY = CreationExtras.Key<Long>()
+            val CURRENT_URL_KEY = CreationExtras.Key<String?>()
+            val INITIAL_QUERY_KEY = CreationExtras.Key<String>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        entryId = get(ENTRY_ID_KEY)!!,
+                        currentUrl = get(CURRENT_URL_KEY),
+                        initialQuery = get(INITIAL_QUERY_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        isNovel = get(IS_NOVEL_KEY)!!,
+                    )
+                }
+            }
+        }
 
         val supportsPrivateTracking = tracker.supportsPrivateTracking
 
@@ -648,7 +817,7 @@ data class EntryTrackerSearchScreen(
         }
 
         fun trackingSearch(query: String) {
-            screenModelScope.launch {
+            viewModelScope.launch {
                 // To show loading state
                 mutableState.update { it.copy(queryResult = null, selected = null) }
 
@@ -671,7 +840,7 @@ data class EntryTrackerSearchScreen(
         }
 
         fun registerTracking(item: TrackSearch) {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 if (isNovel) {
                     Injekt.get<AddNovelTrack>().bind(tracker, item, entryId)
                 } else {
@@ -700,9 +869,15 @@ private data class EntryTrackerRemoveScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(entryId, track, Injekt.get<TrackerManager>().get(serviceId)!!, isNovel)
-        }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.ENTRY_ID_KEY, entryId)
+                set(Model.TRACK_KEY, track)
+                set(Model.SERVICE_ID_KEY, serviceId)
+                set(Model.IS_NOVEL_KEY, isNovel)
+            },
+        )
         val serviceName = screenModel.getName()
         var removeRemoteTrack by remember { mutableStateOf(false) }
         AlertDialogContent(
@@ -757,14 +932,32 @@ private data class EntryTrackerRemoveScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val isNovel: Boolean,
-    ) : ScreenModel {
+    ) : ViewModel() {
+
+        companion object {
+            val ENTRY_ID_KEY = CreationExtras.Key<Long>()
+            val TRACK_KEY = CreationExtras.Key<Track>()
+            val SERVICE_ID_KEY = CreationExtras.Key<Long>()
+            val IS_NOVEL_KEY = CreationExtras.Key<Boolean>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        entryId = get(ENTRY_ID_KEY)!!,
+                        track = get(TRACK_KEY)!!,
+                        tracker = Injekt.get<TrackerManager>().get(get(SERVICE_ID_KEY)!!)!!,
+                        isNovel = get(IS_NOVEL_KEY)!!,
+                    )
+                }
+            }
+        }
 
         fun getName() = tracker.name
 
         fun isDeletable() = tracker is DeletableTracker
 
         fun deleteEntryFromService() {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 try {
                     (tracker as DeletableTracker).delete(track)
                 } catch (e: Exception) {
@@ -774,7 +967,7 @@ private data class EntryTrackerRemoveScreen(
         }
 
         fun unregisterTracking(serviceId: Long) {
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 // Group-aware on both types: clear the tracker from every merged source, so a sibling's
                 // row can't keep it alive in the library's tracker filter, sort and grouping.
                 if (isNovel) {

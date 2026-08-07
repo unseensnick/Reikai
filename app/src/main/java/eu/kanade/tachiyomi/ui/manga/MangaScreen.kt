@@ -12,9 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -90,19 +90,22 @@ class MangaScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val lifecycleOwner = LocalLifecycleOwner.current
-        val screenModel = rememberScreenModel {
-            MangaScreenModel(context, lifecycleOwner.lifecycle, mangaId, fromSource)
-        }
+        val screenModel = viewModel<MangaViewModel>(
+            factory = MangaViewModel.Factory,
+            extras = CreationExtras {
+                set(MangaViewModel.MANGA_ID_KEY, mangaId)
+                set(MangaViewModel.IS_FROM_SOURCE_KEY, fromSource)
+            },
+        )
 
         val state by screenModel.state.collectAsStateWithLifecycle()
 
-        if (state is MangaScreenModel.State.Loading) {
+        if (state is MangaViewModel.State.Loading) {
             LoadingScreen()
             return
         }
 
-        val successState = state as MangaScreenModel.State.Success
+        val successState = state as MangaViewModel.State.Success
         val isHttpSource = remember { successState.source is HttpSource }
 
         LaunchedEffect(successState.manga, screenModel.source) {
@@ -250,7 +253,7 @@ class MangaScreen(
         TachiyomiTheme(seedColor = successState.seedColor.takeIf { screenModel.themeCoverBased }) {
             EntryDetailsDialogHost(successState.toSharedDetailsDialog(), adapter, onDismissRequest)
             when (val dialog = successState.dialog) {
-                is MangaScreenModel.Dialog.ChangeCategory -> {
+                is MangaViewModel.Dialog.ChangeCategory -> {
                     ChangeCategoryDialog(
                         initialSelection = dialog.initialSelection,
                         onDismissRequest = onDismissRequest,
@@ -260,7 +263,7 @@ class MangaScreen(
                         },
                     )
                 }
-                is MangaScreenModel.Dialog.DuplicateManga -> {
+                is MangaViewModel.Dialog.DuplicateManga -> {
                     DuplicateMangaDialog(
                         duplicates = dialog.duplicates,
                         onDismissRequest = onDismissRequest,
@@ -274,7 +277,7 @@ class MangaScreen(
                     )
                 }
 
-                is MangaScreenModel.Dialog.Migrate -> {
+                is MangaViewModel.Dialog.Migrate -> {
                     EntryMigrateFor(
                         contentType = ContentType.MANGA,
                         currentId = dialog.current.id,
@@ -282,7 +285,7 @@ class MangaScreen(
                         onDismissRequest = onDismissRequest,
                     )
                 }
-                MangaScreenModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
+                MangaViewModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
                     onDismissRequest = onDismissRequest,
                     manga = successState.manga,
                     onDownloadFilterChanged = screenModel::setDownloadedFilter,
@@ -295,7 +298,7 @@ class MangaScreen(
                     scanlatorFilterActive = successState.scanlatorFilterActive,
                     onScanlatorFilterClicked = { showScanlatorsDialog = true },
                 )
-                is MangaScreenModel.Dialog.SetFetchInterval -> {
+                is MangaViewModel.Dialog.SetFetchInterval -> {
                     SetIntervalDialog(
                         interval = dialog.manga.fetchInterval,
                         nextUpdate = dialog.manga.expectedNextUpdate,
@@ -305,7 +308,7 @@ class MangaScreen(
                     )
                 }
                 // RK -->
-                is MangaScreenModel.Dialog.EhRemoveFavorite -> {
+                is MangaViewModel.Dialog.EhRemoveFavorite -> {
                     EhRemoveFavoriteDialog(
                         onDismissRequest = onDismissRequest,
                         onConfirm = screenModel::confirmEhRemoveFromLibrary,
@@ -444,9 +447,9 @@ private fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
 
 // RK: map a manga dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
 // the per-type ones (change-category, duplicate, chapter-settings, migrate, fetch-interval, ...) stay above.
-private fun MangaScreenModel.State.Success.toSharedDetailsDialog(): EntryDetailsDialog? =
+private fun MangaViewModel.State.Success.toSharedDetailsDialog(): EntryDetailsDialog? =
     when (val d = dialog) {
-        is MangaScreenModel.Dialog.EditMangaInfo -> EntryDetailsDialog.EditInfo(
+        is MangaViewModel.Dialog.EditMangaInfo -> EntryDetailsDialog.EditInfo(
             // Seed with the effective (overlaid) values; save diffs each field against the raw source manga.
             initial = d.manga.withCustomInfo(customInfo).toEntryEditInfoUi(),
             source = d.manga.toEntryEditInfoUi(),
@@ -461,17 +464,17 @@ private fun MangaScreenModel.State.Success.toSharedDetailsDialog(): EntryDetails
                 )
             },
         )
-        MangaScreenModel.Dialog.FullCover -> EntryDetailsDialog.Cover
-        is MangaScreenModel.Dialog.ManageSources -> EntryDetailsDialog.ManageSources(
+        MangaViewModel.Dialog.FullCover -> EntryDetailsDialog.Cover
+        is MangaViewModel.Dialog.ManageSources -> EntryDetailsDialog.ManageSources(
             sources = d.sources,
             isOverridden = d.isOverridden,
         )
-        MangaScreenModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(
+        MangaViewModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(
             entryId = manga.id,
             entryTitle = manga.title,
             sourceId = source.id,
             isNovel = false,
         )
-        is MangaScreenModel.Dialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
+        is MangaViewModel.Dialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
         else -> null
     }

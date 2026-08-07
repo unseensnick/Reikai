@@ -1,14 +1,18 @@
 package reikai.presentation.recommendation.browse
 
+import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
@@ -37,8 +41,10 @@ import uy.kohesive.injekt.api.get
  * The pool is in-memory only, so after process death the cache is empty and the screen shows an
  * empty state (the user reopens the manga to repopulate it).
  */
-class RelatedMangasBrowseScreenModel(
+class RelatedMangasBrowseViewModel(
     private val mangaId: Long,
+    // An Application, not the composition's Activity: a ViewModel outlives the Activity and would pin
+    // it. Only used for two string lookups, and app locale is set app-wide, so the strings are the same.
     private val context: Context,
     private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
@@ -48,7 +54,20 @@ class RelatedMangasBrowseScreenModel(
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val buildRecommendationHideFilter: BuildRecommendationHideFilter = Injekt.get(),
-) : StateScreenModel<RelatedMangasBrowseScreenModel.State>(State()) {
+) : StateViewModel<RelatedMangasBrowseViewModel.State>(State()) {
+
+    companion object {
+        val MANGA_ID_KEY = CreationExtras.Key<Long>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                RelatedMangasBrowseViewModel(
+                    mangaId = get(MANGA_ID_KEY)!!,
+                    context = Injekt.get<Application>(),
+                )
+            }
+        }
+    }
 
     val snackbarHostState = SnackbarHostState()
 
@@ -56,7 +75,7 @@ class RelatedMangasBrowseScreenModel(
     private var lastSelectedUrl: String? = null
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val favoriteKeys = currentFavoriteKeys()
             val hideFilter = buildRecommendationHideFilter.await()
             // Render live off the cache so a grid opened mid-load (the menu placement opens it before the
@@ -139,7 +158,7 @@ class RelatedMangasBrowseScreenModel(
             .map { it.candidate }
         if (selected.isEmpty()) return
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Tracker-origin candidates resolve to no installed source, so they can't be favorited.
             val (trackerOrigin, addable) = selected.partition { it.sourceId == RECOMMENDS_SOURCE }
             val resolved = addable
@@ -179,7 +198,7 @@ class RelatedMangasBrowseScreenModel(
     }
 
     fun confirmCategories(target: List<Manga>, include: List<Long>, skipped: Int) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             applyAdd(target, include)
             finishAdd(target.size, skipped)
         }

@@ -17,11 +17,11 @@ import uy.kohesive.injekt.api.get
 import java.io.InputStream
 
 /**
- * The manga cover source for the shared [EntryCoverScreenModel]. Keyed by the positive manga id; custom
+ * The manga cover source for the shared [EntryCoverViewModel]. Keyed by the positive manga id; custom
  * covers write through the standard `Manga.editCover` (local source or favorite only). Replaces Mihon's
- * `MangaCoverScreenModel`, whose save / share machinery now lives in the shared base.
+ * `MangaEntryCoverViewModel`, whose save / share machinery now lives in the shared base.
  */
-class MangaCoverScreenModel(
+class MangaEntryCoverViewModel(
     private val mangaId: Long,
     private val getManga: GetManga = Injekt.get(),
     private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
@@ -29,7 +29,7 @@ class MangaCoverScreenModel(
     private val updateManga: UpdateManga = Injekt.get(),
     private val coverManager: LocalCoverManager = Injekt.get(),
     imageSaver: ImageSaver = Injekt.get(),
-) : EntryCoverScreenModel<Manga>(imageSaver) {
+) : EntryCoverViewModel<Manga>(imageSaver) {
 
     // Overlaid with the edit-info cover URL: the header renders it, so the full-screen viewer and
     // Save/Share must show the same image. A custom cover FILE still wins inside the fetcher.

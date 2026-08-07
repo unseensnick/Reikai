@@ -4,13 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import reikai.presentation.notes.EntryNotesScreen
@@ -34,7 +37,13 @@ class NovelNotesScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
-        val screenModel = rememberScreenModel { Model(novelId, initialNotes) }
+        val screenModel = viewModel<Model>(
+            factory = Model.Factory,
+            extras = CreationExtras {
+                set(Model.NOVEL_ID_KEY, novelId)
+                set(Model.INITIAL_NOTES_KEY, initialNotes)
+            },
+        )
         val state by screenModel.state.collectAsState()
 
         EntryNotesScreen(
@@ -49,12 +58,26 @@ class NovelNotesScreen(
         private val novelId: Long,
         initialNotes: String,
         private val novelRepository: NovelRepository = Injekt.get(),
-    ) : StateScreenModel<State>(State(initialNotes)) {
+    ) : StateViewModel<State>(State(initialNotes)) {
+
+        companion object {
+            val NOVEL_ID_KEY = CreationExtras.Key<Long>()
+            val INITIAL_NOTES_KEY = CreationExtras.Key<String>()
+
+            val Factory = viewModelFactory {
+                initializer {
+                    Model(
+                        novelId = get(NOVEL_ID_KEY)!!,
+                        initialNotes = get(INITIAL_NOTES_KEY)!!,
+                    )
+                }
+            }
+        }
 
         fun updateNotes(content: String) {
             if (content == state.value.notes) return
             mutableState.update { it.copy(notes = content) }
-            screenModelScope.launchNonCancellable {
+            viewModelScope.launchNonCancellable {
                 novelRepository.update(NovelUpdate(id = novelId, notes = content))
             }
         }

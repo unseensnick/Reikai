@@ -11,17 +11,17 @@ import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
-import reikai.presentation.details.EntryCoverScreenModel
+import reikai.presentation.details.EntryCoverViewModel
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.InputStream
 
 /**
- * The novel cover source for the shared [EntryCoverScreenModel]. Subscribes by url + source (there is no
+ * The novel cover source for the shared [EntryCoverViewModel]. Subscribes by url + source (there is no
  * by-id novel flow) and keys the custom cover by the negated novel id (so it can't collide with a same-id
  * manga). The save / share machinery lives in the shared base.
  */
-class NovelCoverScreenModel(
+class NovelCoverViewModel(
     private val novelUrl: String,
     private val novelSource: String,
     private val site: String?,
@@ -30,7 +30,7 @@ class NovelCoverScreenModel(
     private val updateNovel: UpdateNovel = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
     imageSaver: ImageSaver = Injekt.get(),
-) : EntryCoverScreenModel<Novel>(imageSaver) {
+) : EntryCoverViewModel<Novel>(imageSaver) {
 
     // Overlaid with the edit-info cover URL, matching the manga twin: the header renders it, so
     // the viewer and Save/Share must show the same image. A custom cover file still wins.

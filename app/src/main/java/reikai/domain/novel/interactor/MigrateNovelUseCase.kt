@@ -127,7 +127,7 @@ class MigrateNovelUseCase(
                     coverCache.getCustomCoverFile(EntryId.Novel(target.id))
                         .outputStream().use { output -> input.copyTo(output) }
                 }
-                // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverScreenModel.
+                // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverViewModel.
                 updateNovel.awaitUpdateCoverLastModified(target.id)
             }
 

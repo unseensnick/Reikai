@@ -173,7 +173,7 @@ class NovelLibraryAdder(
 
     /**
      * Shared "land a freshly favorited novel in the right category" step, the novel twin of the manga
-     * default-category branch (MangaLibraryAdder / MangaScreenModel.toggleFavorite). Applies the
+     * default-category branch (MangaLibraryAdder / MangaViewModel.toggleFavorite). Applies the
      * configured [NovelPreferences.defaultNovelCategory] (or uncategorized) and returns null; when
      * there's no usable default but the user has categories, returns the picker data for the caller to
      * render its own dialog. Reused by the History add-to-library button.

@@ -1,14 +1,14 @@
 package reikai.presentation.details
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.ui.manga.ChapterList
-import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
+import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,7 +25,7 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.track.model.Track
 
 /**
- * Adapts the live [MangaScreenModel] to the neutral [EntryDetailsBehavior]. Mihon's model stays live
+ * Adapts the live [MangaViewModel] to the neutral [EntryDetailsBehavior]. Mihon's model stays live
  * and upstream-tracked, never made to implement a Reikai interface, so this maps its success state to
  * [EntryDetailsScreenState] and forwards neutral actions to the model's own methods. Every shape
  * mismatch reconciles HERE, never in the model: neutral chapter ids resolve back to the manga types,
@@ -34,7 +34,7 @@ import tachiyomi.domain.track.model.Track
  * `EntryDetailsContent` can drive both types. Manga-only actions stay off the shared interface.
  */
 class MangaEntryAdapter(
-    private val model: MangaScreenModel,
+    private val model: MangaViewModel,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
@@ -44,14 +44,14 @@ class MangaEntryAdapter(
             // Loading frame. WhileSubscribed, not Eagerly: the adapter is rebuilt per composition
             // entry while its sharing coroutine lives in the model's scope, so an eager start left
             // one orphaned mapper running per re-entry (rotation, reader round-trips).
-            .stateIn(model.screenModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
+            .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
 
-    private fun MangaScreenModel.State.toNeutral(): EntryDetailsScreenState = when (this) {
-        MangaScreenModel.State.Loading -> EntryDetailsScreenState.Loading
-        is MangaScreenModel.State.Success -> toNeutralLoaded()
+    private fun MangaViewModel.State.toNeutral(): EntryDetailsScreenState = when (this) {
+        MangaViewModel.State.Loading -> EntryDetailsScreenState.Loading
+        is MangaViewModel.State.Success -> toNeutralLoaded()
     }
 
-    private fun MangaScreenModel.State.Success.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
+    private fun MangaViewModel.State.Success.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
         // Overlay the custom-info edits for DISPLAY only (header/description/tags); actions keep reading the
         // raw `manga`. The merge-display anchor collapses to a single entry + source, mirroring the manga UI.
         val displayManga = manga.withCustomInfo(customInfo)
@@ -137,8 +137,8 @@ class MangaEntryAdapter(
         is ChapterList.MissingCount -> EntryChapterListItem.Missing(id = id, count = count)
     }
 
-    private fun successState(): MangaScreenModel.State.Success? =
-        model.state.value as? MangaScreenModel.State.Success
+    private fun successState(): MangaViewModel.State.Success? =
+        model.state.value as? MangaViewModel.State.Success
 
     private fun itemById(id: Long): ChapterList.Item? =
         successState()?.chapters?.firstOrNull { it.id == id }
@@ -235,8 +235,8 @@ class MangaEntryAdapter(
     override fun showCoverDialog() {
         model.showCoverDialog()
     }
-    override fun createCoverScreenModel(): EntryCoverScreenModel<*> =
-        MangaCoverScreenModel(successState()?.manga?.id ?: 0L)
+    override fun createCoverViewModel(): EntryCoverViewModel<*> =
+        MangaEntryCoverViewModel(successState()?.manga?.id ?: 0L)
     override fun showEditInfoDialog() {
         model.showEditMangaInfoDialog()
     }
@@ -306,7 +306,7 @@ data class MangaPagePreviewsCapability(
 /** The related-manga (recommendations) carousel. Filled while loading or once candidates resolve. */
 @Immutable
 data class MangaRelatedCarouselCapability(
-    val items: List<MangaScreenModel.RelatedMangaItem>,
+    val items: List<MangaViewModel.RelatedMangaItem>,
     val totalCount: Int,
     val isLoading: Boolean,
 )

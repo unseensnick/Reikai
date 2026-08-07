@@ -17,7 +17,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -50,7 +51,10 @@ class RelatedMangasBrowseScreen(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val configuration = LocalConfiguration.current
-        val screenModel = rememberScreenModel { RelatedMangasBrowseScreenModel(mangaId, context) }
+        val screenModel = viewModel<RelatedMangasBrowseViewModel>(
+            factory = RelatedMangasBrowseViewModel.Factory,
+            extras = CreationExtras { set(RelatedMangasBrowseViewModel.MANGA_ID_KEY, mangaId) },
+        )
         val state by screenModel.state.collectAsState()
 
         Scaffold(
@@ -141,7 +145,7 @@ class RelatedMangasBrowseScreen(
         }
 
         when (val dialog = state.dialog) {
-            is RelatedMangasBrowseScreenModel.Dialog.ChangeCategory -> {
+            is RelatedMangasBrowseViewModel.Dialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
                     onDismissRequest = screenModel::dismissDialog,
