@@ -3,10 +3,8 @@ package eu.kanade.tachiyomi.ui.browse.source.globalsearch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.produceState
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.Job
@@ -19,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
@@ -35,7 +34,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.Executors
 
-abstract class SearchScreenModel(
+abstract class SearchViewModel(
     initialState: State = State(),
     sourcePreferences: SourcePreferences = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
@@ -45,7 +44,7 @@ abstract class SearchScreenModel(
     private val preferences: SourcePreferences = Injekt.get(),
     // RK: shared long-press add-to-library orchestration (also used by the Browse screen)
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
-) : StateScreenModel<SearchScreenModel.State>(initialState) {
+) : StateViewModel<SearchViewModel.State>(initialState) {
 
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
     private var searchJob: Job? = null
@@ -68,7 +67,7 @@ abstract class SearchScreenModel(
     }
 
     init {
-        screenModelScope.launch {
+        viewModelScope.launch {
             preferences.globalSearchFilterState.changes().collectLatest { state ->
                 mutableState.update { it.copy(onlyShowHasResults = state) }
             }
@@ -154,7 +153,7 @@ abstract class SearchScreenModel(
             )
         }
 
-        searchJob = ioCoroutineScope.launch {
+        searchJob = viewModelScope.launchIO {
             sources.map { source ->
                 async {
                     if (state.value.items[source] !is SearchItemResult.Loading) {
@@ -199,7 +198,7 @@ abstract class SearchScreenModel(
     }
 
     fun setMigrateDialog(currentId: Long, target: Manga) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val current = getManga.await(currentId) ?: return@launchIO
             mutableState.update { it.copy(dialog = Dialog.Migrate(target, current)) }
         }
@@ -216,11 +215,11 @@ abstract class SearchScreenModel(
         mangaLibraryAdder.getDuplicates(manga)
 
     fun changeMangaFavorite(manga: Manga) {
-        screenModelScope.launchIO { mangaLibraryAdder.changeFavorite(manga) }
+        viewModelScope.launchIO { mangaLibraryAdder.changeFavorite(manga) }
     }
 
     fun addFavorite(manga: Manga) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
                 AddFavoriteResult.Added -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
@@ -238,7 +237,7 @@ abstract class SearchScreenModel(
         mangaLibraryAdder.getDuplicateGroupIds(duplicates)
 
     fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
                 AddFavoriteResult.Added -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
@@ -256,14 +255,14 @@ abstract class SearchScreenModel(
     }
 
     fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
-        screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
+        viewModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
 
     /** RK: apply the category picker's choice, favoriting first unless the caller already did. Twin of
-     *  [eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.confirmCategories]; the
+     *  [eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.confirmCategories]; the
      *  reason the guard lives in the model is recorded there. */
     fun confirmCategories(manga: Manga, categoryIds: List<Long>, alreadyFavorited: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             if (!alreadyFavorited) mangaLibraryAdder.changeFavorite(manga)
             mangaLibraryAdder.moveToCategories(manga, categoryIds)
         }

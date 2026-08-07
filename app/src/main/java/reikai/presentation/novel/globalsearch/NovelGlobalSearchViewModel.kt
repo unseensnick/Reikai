@@ -1,7 +1,9 @@
 package reikai.presentation.novel.globalsearch
 
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
@@ -27,11 +30,19 @@ private const val SEARCH_CONCURRENCY = 5
 /**
  * Cross-source light-novel search. Fans [NovelSource.searchNovels] out across every installed source
  * under a [Semaphore], updating each source's row independently as it completes so results fill in
- * progressively (mirrors Mihon's `SearchScreenModel`).
+ * progressively (mirrors Mihon's `SearchViewModel`).
  */
-class NovelGlobalSearchScreenModel(
+class NovelGlobalSearchViewModel(
     initialQuery: String,
-) : StateScreenModel<NovelGlobalSearchState>(NovelGlobalSearchState(query = initialQuery)) {
+) : StateViewModel<NovelGlobalSearchState>(NovelGlobalSearchState(query = initialQuery)) {
+
+    companion object {
+        val INITIAL_QUERY_KEY = CreationExtras.Key<String>()
+
+        val Factory = viewModelFactory {
+            initializer { NovelGlobalSearchViewModel(initialQuery = get(INITIAL_QUERY_KEY).orEmpty()) }
+        }
+    }
 
     private val installer: LnPluginInstaller by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
@@ -43,14 +54,14 @@ class NovelGlobalSearchScreenModel(
 
     init {
         mutableState.update { it.copy(onlyShowHasResults = sourcePreferences.novelGlobalSearchHasResults.get()) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 installer.ensureLoaded()
             } catch (_: Throwable) {}
             if (initialQuery.isNotBlank()) search(initialQuery)
         }
         // In-library marking, same read-only (source, url) key set as browse.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
                 mutableState.update { it.copy(favoritedKeys = keys) }
             }
@@ -75,14 +86,14 @@ class NovelGlobalSearchScreenModel(
     // tapped result's row since results span sources. ---
 
     fun onLongClickItem(item: NovelItem, sourceId: String) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
             mutableState.update { it.copy(dialog = dialog) }
         }
     }
 
     fun addFromDuplicate(item: NovelItem, sourceId: String) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
         }
     }
@@ -90,7 +101,7 @@ class NovelGlobalSearchScreenModel(
     /** Materialize the browsed result as a target row, then raise the migrate dialog on it. The
      *  materialize is a source round trip, so it runs here rather than in a composable's own scope. */
     fun startMigrate(duplicateId: Long, item: NovelItem, sourceId: String) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
             mutableState.update {
                 it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
@@ -100,21 +111,21 @@ class NovelGlobalSearchScreenModel(
 
     /** "Add to existing group": add, then merge it with the duplicates the user picked. */
     fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
             mutableState.update { it.copy(dialog = dialog) }
         }
     }
 
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             libraryAdder.applyCategories(novelId, categoryIds)
             mutableState.update { it.copy(dialog = null) }
         }
     }
 
     fun confirmRemove(item: NovelItem, sourceId: String) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             libraryAdder.confirmRemove(item, sourceId)
             mutableState.update { it.copy(dialog = null) }
         }
@@ -138,7 +149,7 @@ class NovelGlobalSearchScreenModel(
                 results = sources.map { source -> SourceSearchResult(source, SearchState.Loading) },
             )
         }
-        searchJob = screenModelScope.launchIO {
+        searchJob = viewModelScope.launchIO {
             val semaphore = Semaphore(SEARCH_CONCURRENCY)
             sources.map { source ->
                 async {
@@ -173,8 +184,8 @@ data class NovelGlobalSearchState(
     /** (source, url) pairs in the library, for in-library marking of results. */
     val favoritedKeys: Set<Pair<String, String>> = emptySet(),
     /** Defaults to PinnedOnly, matching the manga global search (empty until a source is pinned). */
-    val sourceFilter: NovelGlobalSearchScreenModel.SourceFilter =
-        NovelGlobalSearchScreenModel.SourceFilter.PinnedOnly,
+    val sourceFilter: NovelGlobalSearchViewModel.SourceFilter =
+        NovelGlobalSearchViewModel.SourceFilter.PinnedOnly,
     /** Hide sources that returned no results (persisted). */
     val onlyShowHasResults: Boolean = false,
     /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
@@ -207,12 +218,12 @@ sealed interface SearchState {
 internal fun selectGlobalSearchSources(
     all: List<NovelSource>,
     pinned: Set<String>,
-    filter: NovelGlobalSearchScreenModel.SourceFilter,
+    filter: NovelGlobalSearchViewModel.SourceFilter,
 ): List<NovelSource> =
-    all.filter { filter == NovelGlobalSearchScreenModel.SourceFilter.All || it.id in pinned }
+    all.filter { filter == NovelGlobalSearchViewModel.SourceFilter.All || it.id in pinned }
         .sortedWith(compareBy({ it.id !in pinned }, { it.name.lowercase() }))
 
-/** Orders search rows like Mihon's `SearchScreenModel.sortComparator`: sources with hits first, then
+/** Orders search rows like Mihon's `SearchViewModel.sortComparator`: sources with hits first, then
  *  pinned, then name, so empty / loading / errored sources sink below sources with results as each
  *  source lands. Re-applied on every row update. */
 internal fun globalSearchResultComparator(pinned: Set<String>): Comparator<SourceSearchResult> =

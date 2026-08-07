@@ -38,7 +38,7 @@ class ReikaiBrowseViewModel(
     }
 
     /** Record the most recently opened LN source so the sources list's Last Used section populates.
-     *  Skipped while incognito (global-only; mirrors BrowseSourceScreenModel's lastUsedSource gate). */
+     *  Skipped while incognito (global-only; mirrors BrowseSourceViewModel's lastUsedSource gate). */
     fun setLastUsedNovelSource(id: String) {
         if (getIncognitoState.await(null)) return
         novelPreferences.lastUsedNovelSource().set(id)

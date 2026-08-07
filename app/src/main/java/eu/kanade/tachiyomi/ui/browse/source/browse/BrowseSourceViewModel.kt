@@ -6,17 +6,18 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.cachedIn
 import androidx.paging.filter
 import androidx.paging.map
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.RandomMangaSource
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.viewmodel.StateViewModel
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
@@ -54,7 +56,7 @@ import eu.kanade.tachiyomi.source.model.Filter as SourceModelFilter
 // RK: open, with createSourcePagingSource / combineMetadata as overridable hooks and a `filterable`
 // state flag, so the MangaDex follows screen can subclass this and swap in its own paging source
 // (mirrors Komikku's BrowseSourceScreenModel extension surface).
-open class BrowseSourceScreenModel(
+open class BrowseSourceViewModel(
     private val sourceId: Long,
     listingQuery: String?,
     sourceManager: SourceManager = Injekt.get(),
@@ -69,9 +71,23 @@ open class BrowseSourceScreenModel(
     // RK --> metadata DB-join for adult-source rich browse rows
     private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
     // RK <--
-) : StateScreenModel<BrowseSourceScreenModel.State>(State(Listing.valueOf(listingQuery))) {
+) : StateViewModel<BrowseSourceViewModel.State>(State(Listing.valueOf(listingQuery))) {
 
-    var displayMode by sourcePreferences.sourceDisplayMode.asState(screenModelScope)
+    companion object {
+        val SOURCE_ID_KEY = CreationExtras.Key<Long>()
+        val LISTING_QUERY_KEY = CreationExtras.Key<String?>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                BrowseSourceViewModel(
+                    sourceId = get(SOURCE_ID_KEY)!!,
+                    listingQuery = get(LISTING_QUERY_KEY),
+                )
+            }
+        }
+    }
+
+    var displayMode by sourcePreferences.sourceDisplayMode.asState(viewModelScope)
 
     val source = sourceManager.getOrStub(sourceId)
 
@@ -116,14 +132,14 @@ open class BrowseSourceScreenModel(
                     getManga.subscribe(manga.url, manga.source)
                         .map { it ?: manga }
                         .combineMetadata(metadata)
-                        .stateIn(ioCoroutineScope)
+                        .stateIn(viewModelScope)
                 }
                     .filter { !hideInLibraryItems || !it.value.first.favorite }
                 // RK <--
             }
-                .cachedIn(ioCoroutineScope)
+                .cachedIn(viewModelScope)
         }
-        .stateIn(ioCoroutineScope, SharingStarted.Lazily, emptyFlow())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyFlow())
 
     // RK --> DB-join each manga with its persisted metadata (falling back to the metadata carried
     //        from paging) so adult-source browse rows can render rating / tags / pages. Ported from
@@ -242,11 +258,11 @@ open class BrowseSourceScreenModel(
      */
     // RK --> favorite / category / duplicate flow delegated to the shared MangaLibraryAdder
     fun changeMangaFavorite(manga: Manga) {
-        screenModelScope.launch { mangaLibraryAdder.changeFavorite(manga) }
+        viewModelScope.launch { mangaLibraryAdder.changeFavorite(manga) }
     }
 
     fun addFavorite(manga: Manga) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
                 AddFavoriteResult.Added -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
@@ -262,7 +278,7 @@ open class BrowseSourceScreenModel(
         mangaLibraryAdder.getDuplicateGroupIds(duplicates)
 
     fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
                 AddFavoriteResult.Added -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
@@ -276,7 +292,7 @@ open class BrowseSourceScreenModel(
     }
 
     fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
-        screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
+        viewModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
 
     /**
@@ -286,7 +302,7 @@ open class BrowseSourceScreenModel(
      * Every host restated that guard and one of them omitted it, so the decision lives here now.
      */
     fun confirmCategories(manga: Manga, categoryIds: List<Long>, alreadyFavorited: Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             if (!alreadyFavorited) mangaLibraryAdder.changeFavorite(manga)
             mangaLibraryAdder.moveToCategories(manga, categoryIds)
         }
@@ -310,7 +326,7 @@ open class BrowseSourceScreenModel(
     // so the screen navigates from a LaunchedEffect on the state rather than a direct push in the
     // click (pushing from an async callback can fail to render).
     fun onMangaDexRandom() {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // A random-endpoint error (rate limit, transient 5xx, dropped connection) must not crash
             // the app; the button just does nothing on failure.
             val id = runCatching { source.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }

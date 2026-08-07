@@ -46,7 +46,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
@@ -60,7 +61,7 @@ import reikai.domain.library.ContentType
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntryBrowseGridCell
-import reikai.presentation.browse.EntryBulkFavoriteScreenModel
+import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.EntrySearchSourceFilterChips
@@ -71,12 +72,12 @@ import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
-import reikai.presentation.novel.browse.NovelBulkFavoriteScreenModel
+import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
-import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreenModel.SourceFilter
+import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel.SourceFilter
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -87,7 +88,7 @@ import tachiyomi.presentation.core.i18n.stringResource
  * Has-results chip row drives which sources are searched and shown; each source has its own row that
  * shows a spinner, then its covers / "no results" / an error as it completes. The source header is
  * tappable to open that source's full browse pre-filled with the query. State lives in
- * [NovelGlobalSearchScreenModel].
+ * [NovelGlobalSearchViewModel].
  */
 class NovelGlobalSearchScreen(
     private val initialQuery: String = "",
@@ -96,11 +97,14 @@ class NovelGlobalSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { NovelGlobalSearchScreenModel(initialQuery) }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<NovelGlobalSearchViewModel>(
+            factory = NovelGlobalSearchViewModel.Factory,
+            extras = CreationExtras { set(NovelGlobalSearchViewModel.INITIAL_QUERY_KEY, initialQuery) },
+        )
+        val state by viewModel.state.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
         // RK: shared bulk-selection add-to-library
-        val bulkModel = rememberScreenModel { NovelBulkFavoriteScreenModel() }
+        val bulkModel = viewModel<NovelBulkFavoriteViewModel>()
         val bulkState by bulkModel.state.collectAsState()
 
         BackHandler(enabled = bulkState.selectionMode) { bulkModel.backHandler() }
@@ -120,7 +124,7 @@ class NovelGlobalSearchScreen(
                         onChangeSearchQuery = { searchQuery = it ?: "" },
                         navigateUp = navigator::pop,
                         placeholderText = stringResource(MR.strings.action_search),
-                        onSearch = screenModel::search,
+                        onSearch = viewModel::search,
                         onClickCloseSearch = navigator::pop,
                         actions = {
                             AppBarActions(
@@ -142,8 +146,8 @@ class NovelGlobalSearchScreen(
                 state = state,
                 contentPadding = contentPadding,
                 selection = bulkState.selection,
-                onSetSourceFilter = screenModel::setSourceFilter,
-                onToggleHasResults = screenModel::toggleHasResults,
+                onSetSourceFilter = viewModel::setSourceFilter,
+                onToggleHasResults = viewModel::toggleHasResults,
                 // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
                 onResultClick = { source, item ->
                     if (bulkState.selectionMode) {
@@ -157,7 +161,7 @@ class NovelGlobalSearchScreen(
                     if (bulkState.selectionMode) {
                         navigator.push(NovelScreen(source.id, item.path))
                     } else {
-                        screenModel.onLongClickItem(item, source.id)
+                        viewModel.onLongClickItem(item, source.id)
                     }
                 },
             )
@@ -168,37 +172,37 @@ class NovelGlobalSearchScreen(
                 duplicates = dialog.duplicates,
                 sourceNames = dialog.sourceNames,
                 sourceSites = dialog.sourceSites,
-                onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { screenModel.addFromDuplicate(dialog.item, dialog.sourceId) },
+                onDismissRequest = viewModel::dismissDialog,
+                onConfirm = { viewModel.addFromDuplicate(dialog.item, dialog.sourceId) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                onMigrate = { dup -> screenModel.startMigrate(dup.id, dialog.item, dialog.sourceId) },
+                onMigrate = { dup -> viewModel.startMigrate(dup.id, dialog.item, dialog.sourceId) },
                 groupIdByNovelId = dialog.groupIdByNovelId,
                 onAddToGroup = { selectedIds: List<Long> ->
-                    screenModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
+                    viewModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
                 }.takeIf { dialog.suggestGroup },
             )
             is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),
-                onDismiss = screenModel::dismissDialog,
-                onConfirm = { screenModel.applyCategories(dialog.novelId, it) },
+                onDismiss = viewModel::dismissDialog,
+                onConfirm = { viewModel.applyCategories(dialog.novelId, it) },
             )
             is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
                 title = dialog.item.name,
-                onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { screenModel.confirmRemove(dialog.item, dialog.sourceId) },
+                onDismissRequest = viewModel::dismissDialog,
+                onConfirm = { viewModel.confirmRemove(dialog.item, dialog.sourceId) },
             )
             is NovelBrowseDialog.Migrate -> EntryMigrateFor(
                 contentType = ContentType.NOVELS,
                 currentId = dialog.currentId,
                 targetId = dialog.targetId,
-                onDismissRequest = screenModel::dismissDialog,
+                onDismissRequest = viewModel::dismissDialog,
             )
             null -> {}
         }
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
-            is EntryBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
+            is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.initialSelection.map { it.value }, emptySet()),
                 onDismiss = { bulkModel.setDialog(null) },
                 onConfirm = { bulkModel.setCategories(bulkDialog.items, it) },

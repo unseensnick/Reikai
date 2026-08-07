@@ -11,7 +11,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.core.util.ifSourcesLoaded
@@ -23,7 +24,7 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.BulkFavoriteScreenModel
+import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
@@ -46,19 +47,20 @@ class GlobalSearchScreen(
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
 
-        val screenModel = rememberScreenModel {
-            GlobalSearchScreenModel(
-                initialQuery = searchQuery,
-                initialExtensionFilter = extensionFilter,
-            )
-        }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<GlobalSearchViewModel>(
+            factory = GlobalSearchViewModel.Factory,
+            extras = CreationExtras {
+                set(GlobalSearchViewModel.INITIAL_QUERY_KEY, searchQuery)
+                set(GlobalSearchViewModel.INITIAL_EXTENSION_FILTER_KEY, extensionFilter)
+            },
+        )
+        val state by viewModel.state.collectAsState()
 
         // RK: shared bulk-selection
-        val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
-        val bulkFavoriteState by bulkFavoriteScreenModel.state.collectAsState()
+        val bulkFavoriteViewModel = viewModel<BulkFavoriteViewModel>()
+        val bulkFavoriteState by bulkFavoriteViewModel.state.collectAsState()
         BackHandler(enabled = bulkFavoriteState.selectionMode) {
-            bulkFavoriteScreenModel.backHandler()
+            bulkFavoriteViewModel.backHandler()
         }
 
         var showSingleLoadingScreen by remember {
@@ -87,18 +89,18 @@ class GlobalSearchScreen(
             GlobalSearchScreen(
                 state = state,
                 navigateUp = navigator::pop,
-                onChangeSearchQuery = screenModel::updateSearchQuery,
-                onSearch = { screenModel.search() },
-                getManga = { screenModel.getManga(it) },
-                onChangeSearchFilter = screenModel::setSourceFilter,
-                onToggleResults = screenModel::toggleFilterResults,
+                onChangeSearchQuery = viewModel::updateSearchQuery,
+                onSearch = { viewModel.search() },
+                getManga = { viewModel.getManga(it) },
+                onChangeSearchFilter = viewModel::setSourceFilter,
+                onToggleResults = viewModel::toggleFilterResults,
                 onClickSource = {
                     navigator.push(BrowseSourceScreen(it.id, state.searchQuery))
                 },
                 onClickItem = { manga ->
                     // RK: tap toggles selection while bulk-selecting
                     if (bulkFavoriteState.selectionMode) {
-                        bulkFavoriteScreenModel.toggleSelection(manga)
+                        bulkFavoriteViewModel.toggleSelection(manga)
                     } else {
                         navigator.push(MangaScreen(manga.id, true))
                     }
@@ -109,20 +111,20 @@ class GlobalSearchScreen(
                         navigator.push(MangaScreen(manga.id, true))
                     } else {
                         scope.launchIO {
-                            val duplicates = screenModel.getDuplicateLibraryManga(manga)
+                            val duplicates = viewModel.getDuplicateLibraryManga(manga)
                             when {
                                 manga.favorite ->
-                                    screenModel.setDialog(SearchScreenModel.Dialog.RemoveManga(manga))
+                                    viewModel.setDialog(SearchViewModel.Dialog.RemoveManga(manga))
                                 duplicates.isNotEmpty() ->
-                                    screenModel.setDialog(
-                                        SearchScreenModel.Dialog.AddDuplicateManga(
+                                    viewModel.setDialog(
+                                        SearchViewModel.Dialog.AddDuplicateManga(
                                             manga,
                                             duplicates,
-                                            screenModel.suggestGrouping,
-                                            screenModel.getDuplicateGroupIds(duplicates),
+                                            viewModel.suggestGrouping,
+                                            viewModel.getDuplicateGroupIds(duplicates),
                                         ),
                                     )
-                                else -> screenModel.addFavorite(manga)
+                                else -> viewModel.addFavorite(manga)
                             }
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
@@ -131,29 +133,29 @@ class GlobalSearchScreen(
                 // RK: bulk-selection
                 selectionMode = bulkFavoriteState.selectionMode,
                 selection = bulkFavoriteState.selection,
-                onToggleSelectionMode = bulkFavoriteScreenModel::toggleSelectionMode,
-                onClickAddToLibrary = bulkFavoriteScreenModel::addFavorite,
+                onToggleSelectionMode = bulkFavoriteViewModel::toggleSelectionMode,
+                onClickAddToLibrary = bulkFavoriteViewModel::addFavorite,
             )
         }
 
         // RK --> long-press add-to-library dialogs, mirroring BrowseSourceScreen
-        val onDismissRequest = screenModel::clearDialog
+        val onDismissRequest = viewModel::clearDialog
         when (val dialog = state.dialog) {
-            is SearchScreenModel.Dialog.AddDuplicateManga -> {
+            is SearchViewModel.Dialog.AddDuplicateManga -> {
                 DuplicateMangaDialog(
                     duplicates = dialog.duplicates,
                     onDismissRequest = onDismissRequest,
-                    onConfirm = { screenModel.addFavorite(dialog.manga) },
+                    onConfirm = { viewModel.addFavorite(dialog.manga) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { screenModel.setMigrateDialog(it.id, dialog.manga) },
+                    onMigrate = { viewModel.setMigrateDialog(it.id, dialog.manga) },
                     // RK: offer grouping when the same-title suggestion pref is on.
                     groupIdByMangaId = dialog.groupIdByMangaId,
                     onAddToGroup = { selectedIds: List<Long> ->
-                        screenModel.addToExistingGroup(dialog.manga, selectedIds)
+                        viewModel.addToExistingGroup(dialog.manga, selectedIds)
                     }.takeIf { dialog.suggestGroup },
                 )
             }
-            is SearchScreenModel.Dialog.Migrate -> {
+            is SearchViewModel.Dialog.Migrate -> {
                 EntryMigrateFor(
                     contentType = ContentType.MANGA,
                     currentId = dialog.current.id,
@@ -161,20 +163,20 @@ class GlobalSearchScreen(
                     onDismissRequest = onDismissRequest,
                 )
             }
-            is SearchScreenModel.Dialog.RemoveManga -> {
+            is SearchViewModel.Dialog.RemoveManga -> {
                 EntryRemoveDialog(
                     title = dialog.manga.title,
                     onDismissRequest = onDismissRequest,
-                    onConfirm = { screenModel.changeMangaFavorite(dialog.manga) },
+                    onConfirm = { viewModel.changeMangaFavorite(dialog.manga) },
                 )
             }
-            is SearchScreenModel.Dialog.ChangeMangaCategory -> {
+            is SearchViewModel.Dialog.ChangeMangaCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
                     onDismissRequest = onDismissRequest,
                     onEditCategories = { navigator.push(CategoryScreen()) },
                     onConfirm = { include, _ ->
-                        screenModel.confirmCategories(dialog.manga, include, dialog.alreadyFavorited)
+                        viewModel.confirmCategories(dialog.manga, include, dialog.alreadyFavorited)
                     },
                 )
             }
@@ -184,7 +186,7 @@ class GlobalSearchScreen(
 
         // RK: bulk-selection dialogs
         BulkFavoriteDialogs(
-            bulkFavoriteScreenModel = bulkFavoriteScreenModel,
+            bulkFavoriteViewModel = bulkFavoriteViewModel,
             dialog = bulkFavoriteState.dialog,
         )
     }

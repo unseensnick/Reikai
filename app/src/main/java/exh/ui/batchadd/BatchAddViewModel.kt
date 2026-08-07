@@ -1,8 +1,7 @@
 package exh.ui.batchadd
 
 import android.content.Context
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import exh.GalleryAddEvent
 import exh.GalleryAdder
 import exh.source.ExhPreferences
@@ -13,6 +12,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -21,9 +21,9 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class BatchAddScreenModel(
+class BatchAddViewModel(
     private val exhPreferences: ExhPreferences = Injekt.get(),
-) : StateScreenModel<BatchAddState>(BatchAddState()) {
+) : StateViewModel<BatchAddState>(BatchAddState()) {
     private val galleryAdder by lazy { GalleryAdder() }
 
     fun addGalleries(context: Context) {
@@ -65,7 +65,7 @@ class BatchAddScreenModel(
             logcat(LogPriority.ERROR, throwable) { "Batch add error" }
         }
 
-        screenModelScope.launch(Dispatchers.IO + handler) {
+        viewModelScope.launch(Dispatchers.IO + handler) {
             val succeeded = mutableListOf<String>()
             val failed = mutableListOf<String>()
 
@@ -149,7 +149,7 @@ data class BatchAddState(
     val progressTotal: Int = 0,
     val progress: Int = 0,
     val galleries: String = "",
-    val state: BatchAddScreenModel.State = BatchAddScreenModel.State.INPUT,
+    val state: BatchAddViewModel.State = BatchAddViewModel.State.INPUT,
     val events: List<BatchAddEvent> = emptyList(),
-    val dialog: BatchAddScreenModel.Dialog? = null,
+    val dialog: BatchAddViewModel.Dialog? = null,
 )

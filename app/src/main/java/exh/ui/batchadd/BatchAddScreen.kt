@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -45,8 +45,8 @@ class BatchAddScreen : Screen() {
 
     @Composable
     override fun Content() {
-        val screenModel = rememberScreenModel { BatchAddScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<BatchAddViewModel>()
+        val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
 
@@ -60,7 +60,7 @@ class BatchAddScreen : Screen() {
             },
         ) { paddingValues ->
             when (state.state) {
-                BatchAddScreenModel.State.INPUT -> {
+                BatchAddViewModel.State.INPUT -> {
                     Column(
                         Modifier
                             .padding(paddingValues)
@@ -74,7 +74,7 @@ class BatchAddScreen : Screen() {
                         Spacer(Modifier.height(8.dp))
                         TextField(
                             value = state.galleries,
-                            onValueChange = screenModel::updateGalleries,
+                            onValueChange = viewModel::updateGalleries,
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = {
                                 Text(
@@ -87,7 +87,7 @@ class BatchAddScreen : Screen() {
                         Spacer(Modifier.height(8.dp))
                         Button(
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = { screenModel.addGalleries(context) },
+                            onClick = { viewModel.addGalleries(context) },
                         ) {
                             Text(text = stringResource(MR.strings.eh_batch_add_button))
                         }
@@ -97,7 +97,7 @@ class BatchAddScreen : Screen() {
                         )
                     }
                 }
-                BatchAddScreenModel.State.PROGRESS -> {
+                BatchAddViewModel.State.PROGRESS -> {
                     LazyColumn(
                         contentPadding = paddingValues + PaddingValues(MaterialTheme.padding.medium),
                     ) {
@@ -165,7 +165,7 @@ class BatchAddScreen : Screen() {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Button(
                                         modifier = Modifier.fillMaxWidth(),
-                                        onClick = screenModel::finish,
+                                        onClick = viewModel::finish,
                                     ) {
                                         Text(text = stringResource(MR.strings.eh_batch_add_finish))
                                     }
@@ -177,9 +177,9 @@ class BatchAddScreen : Screen() {
             }
         }
 
-        val onDismissRequest = screenModel::dismissDialog
+        val onDismissRequest = viewModel::dismissDialog
         when (state.dialog) {
-            BatchAddScreenModel.Dialog.NoGalleriesSpecified -> AlertDialog(
+            BatchAddViewModel.Dialog.NoGalleriesSpecified -> AlertDialog(
                 onDismissRequest = onDismissRequest,
                 confirmButton = {
                     TextButton(onClick = onDismissRequest) {

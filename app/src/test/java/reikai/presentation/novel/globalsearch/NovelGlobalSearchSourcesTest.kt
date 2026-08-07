@@ -6,7 +6,7 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
-import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreenModel.SourceFilter
+import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel.SourceFilter
 
 class NovelGlobalSearchSourcesTest {
 

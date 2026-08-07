@@ -12,10 +12,12 @@ It is the one unported upstream change, and it is not a routine sync. Upstream r
 
 ## Status
 
-**In progress. Phases 0 and 1 are done; phase 2 (browse) is next.**
+**In progress. Phases 0 through 2 are done; phase 3 (library) is next.** 56 files still import `cafe.adriel.voyager.core.model`.
 
 - **Phase 0** (`fa06232cd`): `core/viewmodel` taken verbatim, catalog and settings wired, both systems live side by side, two pilots migrated (`NovelSourcesFilterViewModel` bare, `MetadataViewViewModel` factory-backed). R8 settled, see below.
 - **Phase 1** (`ca1fd1096`): fifteen leaf-screen files, thirteen taken verbatim and two hand-merged (`ClearDatabaseScreen`, `RestoreBackupScreen`). Includes mihon `98705910e`.
+- **Phase 2a** (`52a0bc077`): the Sources, Extensions and Migrate tabs and their models, both content types, twenty files.
+- **Phase 2b**: the browse cluster's heavy half, 26 files. `GlobalSearchViewModel` taken wholesale (its predecessor was byte-identical to pre-migration upstream); five hand-merges, each drift-checked against the post-migration blob with only RK hunks left. Four factories, three bare models.
 
 An earlier attempt on `feat/0.4.0` was reverted and preserved in a **local-only backup branch** (`backup/feat-0.4.0-viewmodel-migration`). It predates the released upstream shape, so treat it as a source of lessons, not of code.
 
@@ -93,7 +95,7 @@ Measured 2026-08-06 against `refs/mihon` at `68aa4b003` and Reikai at `d53563baa
 - **Four `onDispose()` overrides need an `onCleared()` equivalent**: `DownloadQueueScreenModel`, `EntryMigrationListScreenModel`, the migration search screen's model, and `NovelReaderScreenModel`. Missing one leaks a job with no compile error.
 - **`ioCoroutineScope`: 9 sites in 4 files.** One does real IO (`SearchScreenModel`, a source-wide search fan-out) and needs `viewModelScope.launchIO`; the other eight only host flow collection and take plain `viewModelScope`.
 - **Two abstract Reikai bases dodge the init-order crash with `stateIn(Lazily)`**: `EntryCoverScreenModel` and `BrowseSourceScreenModel` (for the `MangaDexFollows` subclass). Both must stay `Lazily`; switching either to `Eagerly` re-opens the crash.
-- **Six subclasses override a parent model** and each needs its own factory, since companions are not inherited: `GlobalSearchScreenModel`, `MangaDexFollowsScreenModel`, the two cover models, and the two bulk-favorite models.
+- **Four subclasses override a parent model** and each needs its own factory, since companions are not inherited: `GlobalSearchViewModel` (upstream supplies it), `MangaDexFollowsViewModel` and the two cover models. **Corrected in 2b, down from six:** the two bulk-favorite facades were listed here but need no factory, because their constructors are all-Injekt-defaults (so a bare `viewModel<T>()` resolves them through the generated no-arg constructor) and their parent `EntryBulkFavoriteViewModel` is abstract with no companion, so there is nothing to inherit and nothing to lean on. The rule only bites where the parent is concrete and has a `Factory`.
 - **Four String-keyed models** take a plugin `sourceId: String` where upstream's equivalents take `Long`, so their `CreationExtras` keys are Reikai's to define: `NovelBrowseScreenModel`, `NovelDetailsScreenModel`, `NovelCoverScreenModel`, `EntryMigrationFavoritesScreenModel`.
 - **`ReaderSettingsScreenModel` is manually remembered outside any Navigator**, so `onDispose` never fires today and its scope lives until the Activity tears down. Upstream keeps it hand-constructed; the leak is worth fixing while the file is open.
 - **Four tests construct a model directly.** Three inject a dispatcher and are insulated from the swap; `NovelBulkFavoriteScreenModelTest` has no main-dispatcher rule and survives only because the methods it exercises never launch.
@@ -135,6 +137,8 @@ Take the blob from the **synced base**, not from `refs/mihon` HEAD, or the copy 
 - **`run-as` is refused on preview builds** (`package not debuggable`), so the database cannot be pulled from the build the migration is verified on. Verify data effects through the UI there, or reproduce on `debugY2k`, accepting that a debug build proves nothing about R8.
 - **Some screens cannot be reached on a preview build at all.** `WorkerInfoScreen` sits behind a debug-only settings section, so its Context-factory shape stays unverified on a minified build. Its mechanism is the same as any other factory model, but record it as unproven rather than assumed.
 - **Grepping logcat for `FATAL EXCEPTION` matches the adbd line echoing your own command**, so a count of one means nothing. Filter out lines matching `adbd`, or grep the app's pid with `logcat --pid=`.
+- **PowerShell's `-replace` is case-insensitive by default**, which is the wrong default for renaming Kotlin identifiers that differ only in their first letter. A `\bbulkFavoriteScreenModel\b` pattern matched the *type* `BulkFavoriteScreenModel` in an import and lower-cased it. Use `-creplace` for every identifier rename in this initiative.
+- **The migrate flow's Continue FAB does not appear in a `uiautomator` dump**, nor does the row-selection highlight, so an adb drive of that flow reads as "my taps did nothing" when they worked. Screenshot instead of dumping there. Selection is driven by the app bar's Select all, not by tapping a row (a row tap opens details).
 
 ### Verification coverage so far
 
@@ -142,3 +146,5 @@ Recorded so a later session knows what is actually proven rather than assumed. A
 
 - **Opened and rendered:** the novel sources filter and gallery info screens (phase 0 pilots, one bare and one factory), clear database (hand-merged, bare, un-privated), create backup (bare, un-privated), manga notes (factory taking a domain object). Clear database was additionally exercised through its delete path, which works once "Keep entries with read chapters" is unticked; with it ticked an entry with any read chapter or non-zero last-page-read is kept, which is upstream's rule and not a defect.
 - **Not opened:** deep link, webview, extension filter, extension details, upcoming, restore backup (needs a real backup file picked first), worker info (unreachable, see above).
+- **Phase 2b, all thirteen screens opened and exercised.** Manga browse, the random-target screen it pushes, MangaDex Follows, global search, novel browse, novel global search, the migrate deep picker, bulk-selection in four hosts, and batch add. Three checks worth repeating rather than re-deriving: Follows returned the signed-in follow list rather than the source's Popular listing, which is the only observable proof the subclass factory did not construct the parent; the random-target screen and the deep picker both carried a non-default `listingQuery` through `CreationExtras`, proving per-screen scoping and the extras path; and a long-press on a global-search result raised the category dialog, proving the RK `MangaLibraryAdder` calls still run once the scope is `viewModelScope`.
+- **R8 re-confirmed for 2b:** `dexdump` across all four dex files shows `<init>()V PUBLIC CONSTRUCTOR` on `BulkFavoriteViewModel`, `NovelBulkFavoriteViewModel` and `BatchAddViewModel`. Still no ViewModel-specific keep needed.

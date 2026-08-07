@@ -27,7 +27,7 @@ import java.time.Instant
 
 /**
  * Shared long-press "add to library" orchestration for any manga browse surface (the per-source
- * Browse screen and cross-source global search). Extracted from `BrowseSourceScreenModel` so both
+ * Browse screen and cross-source global search). Extracted from `BrowseSourceViewModel` so both
  * reuse one implementation. Returns plain results ([AddFavoriteResult]) rather than a screen's Dialog
  * type, so each caller maps to its own dialog. The source is resolved per-manga
  * ([SourceManager.getOrStub] on `manga.source`) so it works in global search, where results span

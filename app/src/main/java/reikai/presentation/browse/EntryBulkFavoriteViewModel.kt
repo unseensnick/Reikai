@@ -3,13 +3,13 @@ package reikai.presentation.browse
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastDistinctBy
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.resolveDefaultCategoryIds
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -24,8 +24,8 @@ import tachiyomi.domain.category.model.Category
  * choice applies to the whole selection, already-favorited entries are skipped, and there is no
  * per-duplicate prompt.
  */
-abstract class EntryBulkFavoriteScreenModel<T : Any> :
-    StateScreenModel<EntryBulkFavoriteScreenModel.State<T>>(State()) {
+abstract class EntryBulkFavoriteViewModel<T : Any> :
+    StateViewModel<EntryBulkFavoriteViewModel.State<T>>(State()) {
 
     /** Selection identity: two items with the same key are the same selection entry. */
     protected abstract fun keyOf(item: T): Any
@@ -87,7 +87,7 @@ abstract class EntryBulkFavoriteScreenModel<T : Any> :
      * screen passes the live favorited-key set.
      */
     protected fun addFavoriteFiltered(isFavorited: (T) -> Boolean) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val items = state.value.selection.filterNot(isFavorited)
             if (items.isEmpty()) {
                 toggleSelectionMode(false)
@@ -105,7 +105,7 @@ abstract class EntryBulkFavoriteScreenModel<T : Any> :
 
     /** Apply the chosen categories to the batch and favorite them (from the category dialog). */
     fun setCategories(items: List<T>, categoryIds: List<Long>) {
-        screenModelScope.launchIO { addAndFinish(items, categoryIds) }
+        viewModelScope.launchIO { addAndFinish(items, categoryIds) }
     }
 
     private suspend fun addAndFinish(items: List<T>, categoryIds: List<Long>) {

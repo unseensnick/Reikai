@@ -56,7 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
@@ -74,7 +75,7 @@ import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBrowseGridCell
-import reikai.presentation.browse.EntryBulkFavoriteScreenModel
+import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.toEntryBrowseUi
@@ -96,7 +97,7 @@ import tachiyomi.presentation.core.util.plus
  * Per-source light-novel browse, rebuilt on Mihon's manga-browse primitives so it is visually
  * cohesive with the catalogue: an in-toolbar search, a Popular / Latest / Filter chip row, the same
  * empty / loading states, and the same comfortable grid cell. The source is pre-picked (constructor
- * arg, serializable); state lives in [NovelBrowseScreenModel]. Tapping a result opens the novel details
+ * arg, serializable); state lives in [NovelBrowseViewModel]. Tapping a result opens the novel details
  * screen.
  */
 class NovelBrowseScreen(
@@ -110,11 +111,17 @@ class NovelBrowseScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { NovelBrowseScreenModel(sourceId, initialQuery) }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<NovelBrowseViewModel>(
+            factory = NovelBrowseViewModel.Factory,
+            extras = CreationExtras {
+                set(NovelBrowseViewModel.SOURCE_ID_KEY, sourceId)
+                set(NovelBrowseViewModel.INITIAL_QUERY_KEY, initialQuery)
+            },
+        )
+        val state by viewModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
         // RK: shared bulk-selection add-to-library
-        val bulkModel = rememberScreenModel { NovelBulkFavoriteScreenModel() }
+        val bulkModel = viewModel<NovelBulkFavoriteViewModel>()
         val bulkState by bulkModel.state.collectAsState()
 
         BackHandler(enabled = bulkState.selectionMode) { bulkModel.backHandler() }
@@ -135,7 +142,7 @@ class NovelBrowseScreen(
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
             if (pendingWebViewRetry) {
                 pendingWebViewRetry = false
-                screenModel.retry()
+                viewModel.retry()
             }
         }
 
@@ -153,7 +160,7 @@ class NovelBrowseScreen(
                     // until the user dismisses or retries it, not auto-dismiss after a few seconds.
                     duration = SnackbarDuration.Indefinite,
                 )
-                if (result == SnackbarResult.ActionPerformed) screenModel.loadMore()
+                if (result == SnackbarResult.ActionPerformed) viewModel.loadMore()
             }
         }
 
@@ -179,10 +186,10 @@ class NovelBrowseScreen(
                             titleContent = { AppBarTitle(state.source?.name) },
                             navigateUp = navigator::pop,
                             placeholderText = stringResource(MR.strings.action_search),
-                            onSearch = { screenModel.search(it) },
+                            onSearch = { viewModel.search(it) },
                             onClickCloseSearch = {
                                 searchQuery = null
-                                screenModel.search("")
+                                viewModel.search("")
                             },
                             actions = {
                                 AppBarActions(
@@ -190,7 +197,7 @@ class NovelBrowseScreen(
                                         add(
                                             AppBar.Action(
                                                 title = stringResource(MR.strings.action_display_mode),
-                                                icon = if (screenModel.displayMode == LibraryDisplayMode.List) {
+                                                icon = if (viewModel.displayMode == LibraryDisplayMode.List) {
                                                     Icons.AutoMirrored.Filled.ViewList
                                                 } else {
                                                     Icons.Filled.ViewModule
@@ -216,7 +223,7 @@ class NovelBrowseScreen(
                                             add(
                                                 AppBar.OverflowAction(
                                                     title = stringResource(MR.strings.action_settings),
-                                                    onClick = screenModel::openSettingsSheet,
+                                                    onClick = viewModel::openSettingsSheet,
                                                 ),
                                             )
                                         }
@@ -229,24 +236,24 @@ class NovelBrowseScreen(
                                 ) {
                                     RadioMenuItem(
                                         text = { Text(stringResource(MR.strings.action_display_comfortable_grid)) },
-                                        isChecked = screenModel.displayMode == LibraryDisplayMode.ComfortableGrid,
+                                        isChecked = viewModel.displayMode == LibraryDisplayMode.ComfortableGrid,
                                     ) {
                                         selectingDisplayMode = false
-                                        screenModel.displayMode = LibraryDisplayMode.ComfortableGrid
+                                        viewModel.displayMode = LibraryDisplayMode.ComfortableGrid
                                     }
                                     RadioMenuItem(
                                         text = { Text(stringResource(MR.strings.action_display_grid)) },
-                                        isChecked = screenModel.displayMode == LibraryDisplayMode.CompactGrid,
+                                        isChecked = viewModel.displayMode == LibraryDisplayMode.CompactGrid,
                                     ) {
                                         selectingDisplayMode = false
-                                        screenModel.displayMode = LibraryDisplayMode.CompactGrid
+                                        viewModel.displayMode = LibraryDisplayMode.CompactGrid
                                     }
                                     RadioMenuItem(
                                         text = { Text(stringResource(MR.strings.action_display_list)) },
-                                        isChecked = screenModel.displayMode == LibraryDisplayMode.List,
+                                        isChecked = viewModel.displayMode == LibraryDisplayMode.List,
                                     ) {
                                         selectingDisplayMode = false
-                                        screenModel.displayMode = LibraryDisplayMode.List
+                                        viewModel.displayMode = LibraryDisplayMode.List
                                     }
                                 }
                             },
@@ -267,8 +274,8 @@ class NovelBrowseScreen(
                             label = stringResource(MR.strings.popular),
                             onClick = {
                                 searchQuery = null
-                                screenModel.resetFilters()
-                                screenModel.setListing(NovelBrowseState.Listing.Popular)
+                                viewModel.resetFilters()
+                                viewModel.setListing(NovelBrowseState.Listing.Popular)
                             },
                         )
                         ListingChip(
@@ -277,8 +284,8 @@ class NovelBrowseScreen(
                             label = stringResource(MR.strings.latest),
                             onClick = {
                                 searchQuery = null
-                                screenModel.resetFilters()
-                                screenModel.setListing(NovelBrowseState.Listing.Latest)
+                                viewModel.resetFilters()
+                                viewModel.setListing(NovelBrowseState.Listing.Latest)
                             },
                         )
                         if (state.source?.filters?.isNotEmpty() == true) {
@@ -286,7 +293,7 @@ class NovelBrowseScreen(
                                 selected = searching || state.hasActiveFilters,
                                 icon = Icons.Outlined.FilterList,
                                 label = stringResource(MR.strings.action_filter),
-                                onClick = screenModel::openFilterSheet,
+                                onClick = viewModel::openFilterSheet,
                             )
                         }
                     }
@@ -299,16 +306,16 @@ class NovelBrowseScreen(
             NovelBrowseBody(
                 state = state,
                 sourceId = sourceId,
-                displayMode = screenModel.displayMode,
+                displayMode = viewModel.displayMode,
                 contentPadding = contentPadding,
                 selection = bulkState.selection,
-                onRetry = screenModel::retry,
+                onRetry = viewModel::retry,
                 onWebViewClick = onWebViewClick,
                 // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
                 onResultClick = { item ->
                     when {
                         // RK: picking a migration target; store the row and hand its id back.
-                        migratePickFor != null -> screenModel.pickAsMigrationTarget(item, migratePickFor) {
+                        migratePickFor != null -> viewModel.pickAsMigrationTarget(item, migratePickFor) {
                             navigator.pop()
                         }
                         bulkState.selectionMode -> bulkModel.toggleSelection(sourceId, item)
@@ -322,10 +329,10 @@ class NovelBrowseScreen(
                     if (migratePickFor != null || bulkState.selectionMode) {
                         navigator.push(NovelScreen(sourceId, item.path))
                     } else {
-                        screenModel.onLongClickItem(item)
+                        viewModel.onLongClickItem(item)
                     }
                 },
-                onLoadMore = screenModel::loadMore,
+                onLoadMore = viewModel::loadMore,
             )
         }
 
@@ -334,37 +341,37 @@ class NovelBrowseScreen(
                 duplicates = dialog.duplicates,
                 sourceNames = dialog.sourceNames,
                 sourceSites = dialog.sourceSites,
-                onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { screenModel.addFromDuplicate(dialog.item) },
+                onDismissRequest = viewModel::dismissDialog,
+                onConfirm = { viewModel.addFromDuplicate(dialog.item) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                onMigrate = { dup -> screenModel.startMigrate(dup.id, dialog.item) },
+                onMigrate = { dup -> viewModel.startMigrate(dup.id, dialog.item) },
                 groupIdByNovelId = dialog.groupIdByNovelId,
                 onAddToGroup = { selectedIds: List<Long> ->
-                    screenModel.addToExistingGroup(dialog.item, selectedIds)
+                    viewModel.addToExistingGroup(dialog.item, selectedIds)
                 }.takeIf { dialog.suggestGroup },
             )
             is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),
-                onDismiss = screenModel::dismissDialog,
-                onConfirm = { screenModel.applyCategories(dialog.novelId, it) },
+                onDismiss = viewModel::dismissDialog,
+                onConfirm = { viewModel.applyCategories(dialog.novelId, it) },
             )
             is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
                 title = dialog.item.name,
-                onDismissRequest = screenModel::dismissDialog,
-                onConfirm = { screenModel.confirmRemove(dialog.item) },
+                onDismissRequest = viewModel::dismissDialog,
+                onConfirm = { viewModel.confirmRemove(dialog.item) },
             )
             is NovelBrowseDialog.Migrate -> EntryMigrateFor(
                 contentType = ContentType.NOVELS,
                 currentId = dialog.currentId,
                 targetId = dialog.targetId,
-                onDismissRequest = screenModel::dismissDialog,
+                onDismissRequest = viewModel::dismissDialog,
             )
             null -> {}
         }
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
-            is EntryBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
+            is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.initialSelection.map { it.value }, emptySet()),
                 onDismiss = { bulkModel.setDialog(null) },
                 onConfirm = { bulkModel.setCategories(bulkDialog.items, it) },
@@ -377,14 +384,14 @@ class NovelBrowseScreen(
             NovelSourceFilterSheet(
                 filters = source.filters,
                 values = state.filterValues,
-                onValueChange = screenModel::setFilterValue,
-                onApply = screenModel::applyFilters,
-                onReset = screenModel::resetFilters,
-                onDismiss = screenModel::closeFilterSheet,
+                onValueChange = viewModel::setFilterValue,
+                onApply = viewModel::applyFilters,
+                onReset = viewModel::resetFilters,
+                onDismiss = viewModel::closeFilterSheet,
             )
         }
         if (state.settingsSheetOpen && source != null) {
-            NovelSourceSettingsSheet(source = source, onDismiss = screenModel::closeSettingsSheet)
+            NovelSourceSettingsSheet(source = source, onDismiss = viewModel::closeSettingsSheet)
         }
     }
 }

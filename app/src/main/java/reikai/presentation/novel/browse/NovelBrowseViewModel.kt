@@ -2,8 +2,10 @@ package reikai.presentation.novel.browse
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.CancellationException
@@ -13,6 +15,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -35,10 +38,10 @@ import uy.kohesive.injekt.injectLazy
  * return a bare page list with no `hasNextPage`, so an empty page marks the end). The screen is a pure
  * renderer over [NovelBrowseState].
  */
-class NovelBrowseScreenModel(
+class NovelBrowseViewModel(
     private val sourceId: String,
     private val initialQuery: String = "",
-) : StateScreenModel<NovelBrowseState>(NovelBrowseState()) {
+) : StateViewModel<NovelBrowseState>(NovelBrowseState()) {
 
     private val installer: LnPluginInstaller by injectLazy()
     private val manager: NovelSourceManager by injectLazy()
@@ -51,9 +54,9 @@ class NovelBrowseScreenModel(
     private val sourcePreferences: SourcePreferences by injectLazy()
 
     /** Compose-observable display mode (comfortable / compact / list), persisted via [ReikaiSourcePreferences]. */
-    var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(screenModelScope)
+    var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(viewModelScope)
 
-    // Same preference and same load-time snapshot as manga browse (BrowseSourceScreenModel).
+    // Same preference and same load-time snapshot as manga browse (BrowseSourceViewModel).
     private val hideInLibraryItems = sourcePreferences.hideInLibraryItems.get()
 
     /** Drop already-favorited results when Hide-entries-already-in-library is on, against the live
@@ -67,12 +70,12 @@ class NovelBrowseScreenModel(
     init {
         // In-library marking: favorited (source, url) keys so results already saved are dimmed +
         // badged like the manga catalogue. Read-only; nothing written back.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
                 mutableState.update { it.copy(favoritedKeys = keys) }
             }
         }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 installer.ensureLoaded()
             } catch (_: Throwable) {}
@@ -107,7 +110,7 @@ class NovelBrowseScreenModel(
             return
         }
         mutableState.update { it.copy(loading = true, error = null, query = query) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             runFetch(error = { e -> mutableState.update { it.copy(loading = false, error = errorText(e)) } }) {
                 val novels = source.searchNovels(query, 1)
                 val more = hasMore(novels, 1) { p -> source.searchNovels(query, p) }
@@ -141,7 +144,7 @@ class NovelBrowseScreenModel(
     // --- Favorite from browse (long-press), via the shared [NovelLibraryAdder] ---
 
     fun onLongClickItem(item: NovelItem) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
             mutableState.update { it.copy(dialog = dialog) }
         }
@@ -157,7 +160,7 @@ class NovelBrowseScreenModel(
      * library can point at; the migrate step does the rest.
      */
     fun pickAsMigrationTarget(item: NovelItem, entryRawId: Long, onPicked: () -> Unit) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val stored = libraryAdder.materialize(item, sourceId)
             if (stored != null) {
                 pickHandoff.offer(EntryId.Novel(entryRawId), stored.id)
@@ -169,7 +172,7 @@ class NovelBrowseScreenModel(
 
     /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
     fun addFromDuplicate(item: NovelItem) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
         }
     }
@@ -177,7 +180,7 @@ class NovelBrowseScreenModel(
     /** Materialize the browsed result as a target row, then raise the migrate dialog on it. The
      *  materialize is a source round trip, so it runs here rather than in a composable's own scope. */
     fun startMigrate(duplicateId: Long, item: NovelItem) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
             mutableState.update {
                 it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
@@ -187,21 +190,21 @@ class NovelBrowseScreenModel(
 
     /** "Add to existing group": add, then merge it with the duplicates the user picked. */
     fun addToExistingGroup(item: NovelItem, selectedIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
             mutableState.update { it.copy(dialog = dialog) }
         }
     }
 
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             libraryAdder.applyCategories(novelId, categoryIds)
             mutableState.update { it.copy(dialog = null) }
         }
     }
 
     fun confirmRemove(item: NovelItem) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             libraryAdder.confirmRemove(item, sourceId)
             mutableState.update { it.copy(dialog = null) }
         }
@@ -213,7 +216,7 @@ class NovelBrowseScreenModel(
     fun retry() {
         val source = state.value.source ?: run {
             // Source never resolved: re-attempt the whole init path.
-            screenModelScope.launchIO {
+            viewModelScope.launchIO {
                 try {
                     installer.ensureLoaded()
                 } catch (_: Throwable) {}
@@ -267,7 +270,7 @@ class NovelBrowseScreenModel(
         val current = state.value
         if (current.loading || current.loadingMore || current.endReached) return
         mutableState.update { it.copy(loadingMore = true) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 val fetchPage: suspend (Int) -> List<NovelItem> = if (current.query.isBlank()) {
                     { p ->
@@ -321,7 +324,7 @@ class NovelBrowseScreenModel(
 
     private fun fetchFirstPage(source: NovelSource) {
         mutableState.update { it.copy(loading = true, error = null) }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             runFetch(error = { e -> mutableState.update { it.copy(loading = false, error = errorText(e)) } }) {
                 val opts = buildOptions(source.filters, state.value.filterValues, state.value.showLatest)
                 val novels = source.popularNovels(1, opts)
@@ -354,6 +357,20 @@ class NovelBrowseScreenModel(
     private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"
 
     companion object {
+        // A novel source id is the plugin's String id, not the Long the manga side uses, so the keys
+        // are Reikai's own rather than the upstream browse model's.
+        val SOURCE_ID_KEY = CreationExtras.Key<String>()
+        val INITIAL_QUERY_KEY = CreationExtras.Key<String>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                NovelBrowseViewModel(
+                    sourceId = get(SOURCE_ID_KEY)!!,
+                    initialQuery = get(INITIAL_QUERY_KEY).orEmpty(),
+                )
+            }
+        }
+
         // lnreader plugins don't report hasNextPage, so a full page (this many items or more) is taken
         // as "more may follow"; a shorter page is confirmed by probing the next one. 20 is the common
         // lnreader page size.
@@ -377,7 +394,7 @@ data class NovelBrowseState(
     /** Empty for the popular/latest listing, non-empty when a search is active. */
     val query: String = "",
     val filterValues: Map<String, JsonElement> = emptyMap(),
-    /** Highest page fetched so far; [NovelBrowseScreenModel.loadMore] requests page+1. */
+    /** Highest page fetched so far; [NovelBrowseViewModel.loadMore] requests page+1. */
     val page: Int = 1,
     val endReached: Boolean = false,
     val loading: Boolean = false,
@@ -402,7 +419,7 @@ data class NovelBrowseState(
     enum class Listing { Popular, Latest }
 }
 
-/** Long-press dialogs for the novel browse grid, the novel twin of `BrowseSourceScreenModel.Dialog`. */
+/** Long-press dialogs for the novel browse grid, the novel twin of `BrowseSourceViewModel.Dialog`. */
 sealed interface NovelBrowseDialog {
     data class AddDuplicate(
         val item: NovelItem,

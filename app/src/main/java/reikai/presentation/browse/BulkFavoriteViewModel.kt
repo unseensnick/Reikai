@@ -7,16 +7,16 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * The manga facade of [EntryBulkFavoriteScreenModel], used by every manga browse surface. Reuses
+ * The manga facade of [EntryBulkFavoriteViewModel], used by every manga browse surface. Reuses
  * [MangaLibraryAdder] for the actual favoriting, so the category, tracker and default-chapter-flags
  * behaviour matches the single-tap long-press path. Ported from Komikku and trimmed: one category
  * choice applies to the whole selection, with no per-entry tri-state and no per-duplicate prompt.
  * Migrate stays a single-entry action on the details screen.
  */
-class BulkFavoriteScreenModel(
+class BulkFavoriteViewModel(
     private val libraryAdder: MangaLibraryAdder = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
-) : EntryBulkFavoriteScreenModel<Manga>() {
+) : EntryBulkFavoriteViewModel<Manga>() {
 
     override fun keyOf(item: Manga): Any = item.id
 

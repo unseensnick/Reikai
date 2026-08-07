@@ -4,22 +4,22 @@ import androidx.compose.runtime.Immutable
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.NovelItem
-import reikai.presentation.browse.EntryBulkFavoriteScreenModel
+import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * The novel facade of [EntryBulkFavoriteScreenModel], used by the novel browse surfaces (per-source
+ * The novel facade of [EntryBulkFavoriteViewModel], used by the novel browse surfaces (per-source
  * browse + global search). Reuses [NovelLibraryAdder] for the favoriting so the category behaviour
  * matches the single long-press path. A browse result is a bare [NovelItem] with no id, so selection
  * keys on (sourceId, path); global search carries a source per result, per-source browse a fixed one.
  */
-class NovelBulkFavoriteScreenModel(
+class NovelBulkFavoriteViewModel(
     private val libraryAdder: NovelLibraryAdder = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
-) : EntryBulkFavoriteScreenModel<SelectedNovel>() {
+) : EntryBulkFavoriteViewModel<SelectedNovel>() {
 
     override fun keyOf(item: SelectedNovel): Any = item.key
 
