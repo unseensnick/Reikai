@@ -9,7 +9,7 @@ Reikai is built on [Mihon](https://github.com/mihonapp/mihon) but is a standalon
 ## How to sync
 
 1. **Find the new commits:** `git -C refs/mihon log --oneline <last-synced>..HEAD` (the last-synced SHA is the top ledger row below). Pull `refs/mihon` first; the clones live in the parent dir `refs/`, not inside `app/`.
-2. **Check off-path files:** `pwsh scripts/off-path-check.ps1 -MihonBase <last-synced>`. It fails if the range touched any file in the [off-path manifest](off-path-manifest.md) (a deleted Mihon UI file whose twin Reikai renders); reconcile each flagged change into its replacement twin by hand.
+2. **Check off-path files:** `pwsh scripts/off-path-check.ps1 -MihonBase <last-synced>`. It fails if the range touched any file in the [off-path manifest](off-path-manifest.md) (a deleted Mihon UI file whose twin Reikai renders); reconcile each flagged change into its replacement twin by hand. The diff is upstream-side, so a reported path stays reported however well you reconciled it: once you have walked each one, re-run with `-Reconciled` to write the stamp the `commit-msg` hook wants. A pass that stops below upstream HEAD, because a commit in the middle is deferred, adds `-MihonThrough <sha>` to bound the range at the point it reaches; the stamp then records that SHA and every commit in the pass has to cite it.
 3. **Port each commit** by the [method](#porting-method): verbatim-copy marker-free files, hand-merge `// RK` files.
 4. **Drift-check** the hand-merges.
 5. **Compile** (`:app:compileReleaseKotlin`) and on-device verify anything user-facing.

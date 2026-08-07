@@ -12,13 +12,27 @@
     Run it as a step of a Mihon sync (see docs/dev/upstream-sync.md "How to sync"), passing the base each
     upstream is currently synced through (the top ledger row). tsundoku is skipped until its clone exists.
 
+    A pass that stops below upstream HEAD, because a commit in the middle is deferred, passes -MihonThrough
+    to bound the range at the point it actually reaches. The stamp then records that point instead of HEAD,
+    and the commit-msg hook makes the message cite it.
+
+    Reporting a path is not the same as leaving it unhandled: the diff is upstream-side, so a path stays
+    reported however well its twin was reconciled, and the range only reads clean once the base advances
+    past it. -Reconciled is how a pass says it did the hand-merge, so it can stamp and commit; it is an
+    assertion by the operator, so use it only after actually walking each reported path.
+
 .EXAMPLE
     pwsh scripts/off-path-check.ps1 -MihonBase 03229a380
+
+.EXAMPLE
+    pwsh scripts/off-path-check.ps1 -MihonBase 45b1e781e -MihonThrough 0648e2eaa -Reconciled
 #>
 param(
     [Parameter(Mandatory = $true)][string]$MihonBase,
+    [string]$MihonThrough = 'HEAD',
     [string]$TsundokuBase,
-    [string]$RefsRoot
+    [string]$RefsRoot,
+    [switch]$Reconciled
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,23 +53,25 @@ $entries = Get-Content $manifestPath |
 if (-not $entries) { Write-Host 'off-path check: manifest has no entries.'; exit 0 }
 
 $bases = @{ mihon = $MihonBase; tsundoku = $TsundokuBase }
+$throughs = @{ mihon = $MihonThrough; tsundoku = 'HEAD' }
 $changed = @()
 
 foreach ($group in $entries | Group-Object Upstream) {
     $upstream = $group.Name
     $clone = Join-Path $RefsRoot $upstream
     $base = $bases[$upstream]
+    $through = $throughs[$upstream]
 
     if (-not (Test-Path $clone)) { Write-Host "skip ${upstream}: no clone at $clone"; continue }
     if (-not $base) { Write-Host "skip ${upstream}: no base SHA passed"; continue }
 
     foreach ($e in $group.Group) {
-        git -C $clone cat-file -e "HEAD:$($e.Path)" 2>$null
+        git -C $clone cat-file -e "${through}:$($e.Path)" 2>$null
         if ($LASTEXITCODE -ne 0) {
             $changed += "  VANISHED $($e.Path)`n           -> reconcile into $($e.Replacement)"
             continue
         }
-        $diff = git -C $clone diff --name-only "$base..HEAD" -- $e.Path
+        $diff = git -C $clone diff --name-only "$base..$through" -- $e.Path
         if ($diff) {
             $changed += "  CHANGED  $($e.Path)`n           -> reconcile into $($e.Replacement)"
         }
@@ -67,19 +83,24 @@ if ($changed.Count -gt 0) {
     Write-Host 'Off-path files changed upstream in this range:'
     $changed | ForEach-Object { Write-Host $_ }
     Write-Host ''
-    Write-Host 'Reconcile each upstream change into its replacement above, then re-run.'
-    exit 1
+    if (-not $Reconciled) {
+        Write-Host 'Reconcile each upstream change into its replacement above, then re-run with -Reconciled.'
+        exit 1
+    }
+    Write-Host 'Acknowledged as reconciled by hand (-Reconciled).'
 }
 
-# Stamp the run so the commit-msg hook can tell a sync commit that the check actually ran, and ran
-# against the upstream HEAD being synced. Without this the check is opt-in and a forgotten step is
+# Stamp the run so the commit-msg hook can tell a sync commit that the check actually ran, and how far
+# up the upstream history it reached. Without this the check is opt-in and a forgotten step is
 # indistinguishable from a clean one.
 $stampDir = Join-Path $repoRoot '.git'
-if (Test-Path $stampDir) {
-    $mihonHead = (git -C (Join-Path $RefsRoot 'mihon') rev-parse HEAD 2>$null)
-    if ($LASTEXITCODE -eq 0 -and $mihonHead) {
-        Set-Content -Path (Join-Path $stampDir 'off-path-checked') -Value $mihonHead.Trim() -NoNewline
-    }
+$mihonThroughSha = (git -C (Join-Path $RefsRoot 'mihon') rev-parse $MihonThrough 2>$null)
+if ((Test-Path $stampDir) -and $LASTEXITCODE -eq 0 -and $mihonThroughSha) {
+    Set-Content -Path (Join-Path $stampDir 'off-path-checked') -Value $mihonThroughSha.Trim() -NoNewline
 }
 
-Write-Host 'off-path check clean: no manifested file changed upstream in range.'
+if ($changed.Count -gt 0) {
+    Write-Host "off-path check stamped through ${MihonThrough}: $($changed.Count) reported path(s) reconciled by hand."
+} else {
+    Write-Host "off-path check clean: no manifested file changed upstream through $MihonThrough."
+}

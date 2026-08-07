@@ -44,8 +44,14 @@ case "$subject" in
       head=$(git -C "$mihon_clone" rev-parse HEAD 2>/dev/null || echo "")
       if [ ! -f "$stamp" ]; then
         errors+=("off-path check not run; use: pwsh scripts/off-path-check.ps1 -MihonBase <last-synced>")
-      elif [ -n "$head" ] && [ "$(cat "$stamp")" != "$head" ]; then
-        errors+=("off-path check stamp is stale (refs/mihon moved); re-run scripts/off-path-check.ps1")
+      else
+        checked=$(cat "$stamp")
+        # A pass that stops below upstream HEAD (a deferred commit sits in the middle) stamps the point
+        # it was checked through instead; the message then has to cite that SHA, so the partial range is
+        # on record rather than looking like a forgotten re-run.
+        if [ -n "$head" ] && [ "$checked" != "$head" ] && ! echo "$msg" | grep -q "${checked:0:9}"; then
+          errors+=("off-path stamp ${checked:0:9} is not upstream HEAD; cite it in the message, or re-run scripts/off-path-check.ps1")
+        fi
       fi
     fi
     ;;
