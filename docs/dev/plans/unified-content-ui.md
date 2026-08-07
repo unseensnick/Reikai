@@ -223,9 +223,9 @@ cache/provider into one shared disk-scan layer serving both types. Queued under 
 
 **A separate reader track (evaluated, deferred).** [novel-reader-tsundoku.md](novel-reader-tsundoku.md)
 captures tsundoku (a maintained, Apache-2.0 Mihon-fork novel reader) as the reader's forward direction:
-seamless chapter transitions ported onto the current reader (Option 1), and later, on its own branch, a
-migration to tsundoku's native reader folded into `ReaderActivity` (Option 3). Both are queued AFTER the
-remaining parity phases above, not ahead of them.
+a migration to tsundoku's native reader folded into `ReaderActivity` (Option 3), queued after the remaining
+parity phases above and inside 0.4.0. The near-term seamless-transitions port (Option 1) is not being built:
+it would land on a reader the migration deletes in the same release.
 
 ## Decisions & tradeoffs
 
