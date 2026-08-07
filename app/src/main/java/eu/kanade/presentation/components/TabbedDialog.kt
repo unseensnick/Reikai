@@ -11,7 +11,6 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,7 +59,6 @@ fun TabbedDialog(
                     modifier = Modifier.weight(1f),
                     selectedTabIndex = pagerState.currentPage,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    divider = {},
                 ) {
                     tabTitles.fastForEachIndexed { index, tab ->
                         Tab(
@@ -74,7 +72,6 @@ fun TabbedDialog(
 
                 tabOverflowMenuContent?.let { MoreMenu(it) }
             }
-            HorizontalDivider()
 
             // Swipe-between-tabs stays on, but content can lock it for the duration of a drag (see
             // Modifier.lockPagerSwipeWhileDragging) so a horizontal drag on a slider or a
