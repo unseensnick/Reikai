@@ -8,7 +8,6 @@ import reikai.domain.category.CategoryContentType
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 
 class CategoryRepositoryImpl(
@@ -86,23 +85,33 @@ class CategoryRepositoryImpl(
         }
     }
 
-    override suspend fun updatePartial(update: CategoryUpdate) {
-        database.categoriesQueries.update(
-            name = update.name,
-            order = update.order,
-            flags = update.flags,
-            categoryId = update.id,
-        )
+    override suspend fun updateName(categoryId: Long, name: String) {
+        database.categoriesQueries.updateName(name = name, categoryId = categoryId)
     }
 
-    override suspend fun updatePartial(updates: List<CategoryUpdate>) {
+    override suspend fun updateFlags(categoryId: Long, flags: Long) {
+        database.categoriesQueries.updateFlags(flags = flags, categoryId = categoryId)
+    }
+
+    // RK: see the interface; one transaction so a partial write cannot leave half the rows overridden.
+    override suspend fun updateFlags(flagsById: Map<Long, Long>) {
         database.transaction {
-            updates.forEach { updatePartial(it) }
+            flagsById.forEach { (categoryId, flags) ->
+                database.categoriesQueries.updateFlags(flags = flags, categoryId = categoryId)
+            }
         }
     }
 
     override suspend fun updateAllFlags(flags: Long?) {
-        database.categoriesQueries.updateAllFlags(flags)
+        database.categoriesQueries.updateAllFlags(flags = flags)
+    }
+
+    override suspend fun updateAllOrders(orderedIds: List<Long>) {
+        database.transaction {
+            orderedIds.forEachIndexed { index, categoryId ->
+                database.categoriesQueries.updateOrder(order = index.toLong(), categoryId = categoryId)
+            }
+        }
     }
 
     // RK: clear the per-category sort-override marker on every category (they follow the global sort again).

@@ -3,7 +3,6 @@ package tachiyomi.domain.category.repository
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.category.CategoryContentType
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 
 interface CategoryRepository {
 
@@ -32,11 +31,17 @@ interface CategoryRepository {
     // create/restore paths that need it. Manga callers ignore the returned id.
     suspend fun insert(category: Category, contentType: Long = CategoryContentType.MANGA): Long
 
-    suspend fun updatePartial(update: CategoryUpdate)
+    suspend fun updateName(categoryId: Long, name: String)
 
-    suspend fun updatePartial(updates: List<CategoryUpdate>)
+    suspend fun updateFlags(categoryId: Long, flags: Long)
+
+    // RK: per-category flag writes in one transaction. The manga twin clears every row through
+    // updateAllFlags, which the shared table cannot do when only one content type is meant to change.
+    suspend fun updateFlags(flagsById: Map<Long, Long>)
 
     suspend fun updateAllFlags(flags: Long?)
+
+    suspend fun updateAllOrders(orderedIds: List<Long>)
 
     // RK: clear the per-category sort-override marker on every category (see reikai CATEGORY_SORT_CUSTOMIZED).
     suspend fun clearSortOverrides()

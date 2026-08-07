@@ -4,7 +4,6 @@ import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -33,8 +32,9 @@ class SetupCategorySortOverrideMigration : Migration {
                 LibrarySort.valueOf(it.flags) != global && (it.flags and CATEGORY_SORT_CUSTOMIZED) == 0L
             }
             .forEach { category ->
-                categoryRepository.updatePartial(
-                    CategoryUpdate(id = category.id, flags = category.flags or CATEGORY_SORT_CUSTOMIZED),
+                categoryRepository.updateFlags(
+                    categoryId = category.id,
+                    flags = category.flags or CATEGORY_SORT_CUSTOMIZED,
                 )
             }
         return@withIOContext true

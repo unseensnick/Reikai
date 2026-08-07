@@ -24,7 +24,6 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -86,8 +85,9 @@ class MangaLibraryAdapter(
             resetSort = { categoryId ->
                 model.viewModelScope.launchIO {
                     val category = categoryRepository.get(categoryId) ?: return@launchIO
-                    categoryRepository.updatePartial(
-                        CategoryUpdate(id = categoryId, flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv()),
+                    categoryRepository.updateFlags(
+                        categoryId = categoryId,
+                        flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv(),
                     )
                 }
             },

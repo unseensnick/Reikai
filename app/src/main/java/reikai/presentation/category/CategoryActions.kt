@@ -12,9 +12,7 @@ import reikai.domain.category.isHidden
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.RenameCategory
-import tachiyomi.domain.category.interactor.UpdateCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
@@ -34,7 +32,6 @@ class CategoryActions(
     private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val renameCategory: RenameCategory = Injekt.get(),
-    private val updateCategory: UpdateCategory = Injekt.get(),
 ) {
 
     fun subscribe(): Flow<List<Category>> = categoryRepository.getUnfilteredAsFlow()
@@ -82,17 +79,16 @@ class CategoryActions(
             if (from < 0) return@withNonCancellableContext true
             val moved = categories.removeAt(from)
             categories.add(newIndex.coerceIn(0, categories.size), moved)
-            update(
-                *categories.mapIndexed { index, cat -> CategoryUpdate(id = cat.id, order = index.toLong()) }
-                    .toTypedArray(),
-            )
+            write { categoryRepository.updateAllOrders(orderedIds = categories.map { it.id }) }
         }
     }
 
-    suspend fun toggleHidden(category: Category) =
-        updateCategory.await(
-            CategoryUpdate(id = category.id, flags = category.flagsWithHidden(!category.isHidden)),
-        ) is UpdateCategory.Result.Success
+    suspend fun toggleHidden(category: Category) = write {
+        categoryRepository.updateFlags(
+            categoryId = category.id,
+            flags = category.flagsWithHidden(!category.isHidden),
+        )
+    }
 
     private suspend fun nonSystemCategories(): List<Category> =
         categoryRepository.getUnfiltered().filterNot(Category::isSystemCategory)
@@ -102,8 +98,8 @@ class CategoryActions(
         return sort.type.flag or sort.direction.flag
     }
 
-    private suspend fun update(vararg updates: CategoryUpdate): Boolean = try {
-        categoryRepository.updatePartial(updates.toList())
+    private suspend fun write(block: suspend () -> Unit): Boolean = try {
+        block()
         true
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to update categories" }

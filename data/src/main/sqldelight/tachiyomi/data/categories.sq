@@ -79,16 +79,24 @@ delete:
 DELETE FROM categories
 WHERE _id = :categoryId;
 
-update:
+updateName:
 UPDATE categories
-SET name = coalesce(:name, name),
-    sort = coalesce(:order, sort),
-    flags = coalesce(:flags, flags)
+SET name = :name
+WHERE _id = :categoryId;
+
+updateOrder:
+UPDATE categories
+SET sort = :order
+WHERE _id = :categoryId;
+
+updateFlags:
+UPDATE categories
+SET flags = :flags
 WHERE _id = :categoryId;
 
 updateAllFlags:
 UPDATE categories SET
-flags = coalesce(?, flags);
+flags = coalesce(:flags, flags);
 
 -- RK: clear the per-category sort-override marker (CATEGORY_SORT_CUSTOMIZED, bit 0) on every category
 -- so they follow the global sort again, preserving all other bits (sort, hidden). Used by

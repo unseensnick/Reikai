@@ -2,7 +2,6 @@ package reikai.domain.category
 
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
@@ -25,16 +24,16 @@ suspend fun deleteCategoryAndCleanup(
 
     // The system row keeps its -1 sort so it always sorts first; renumbering it too would tie it with the
     // first user category and let ORDER BY sort put them in either order.
-    val updates = categoryRepository.getUnfiltered()
+    val orderedIds = categoryRepository.getUnfiltered()
         .filterNot(Category::isSystemCategory)
-        .mapIndexed { index, category -> CategoryUpdate(id = category.id, order = index.toLong()) }
+        .map { it.id }
 
     defaultCategoryPreferences
         .filter { it.get() == categoryId.toInt() }
         .forEach { it.delete() }
     scrubCategoryIdFromSetPrefs(categoryId, categorySetPreferences)
 
-    categoryRepository.updatePartial(updates)
+    categoryRepository.updateAllOrders(orderedIds = orderedIds)
 }
 
 /**

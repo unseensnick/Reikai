@@ -14,7 +14,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
@@ -73,24 +72,24 @@ class DeleteCategoryCleanupTest {
     @Test
     fun `renumbers the surviving categories into a gapless order`() = runTest {
         coEvery { repository.getUnfiltered() } returns listOf(category(1), category(3), category(4))
-        val updates = slot<List<CategoryUpdate>>()
-        coEvery { repository.updatePartial(capture(updates)) } just Runs
+        val orderedIds = slot<List<Long>>()
+        coEvery { repository.updateAllOrders(capture(orderedIds)) } just Runs
 
         deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList())
 
-        updates.captured.map { it.id to it.order } shouldBe listOf(1L to 0L, 3L to 1L, 4L to 2L)
+        orderedIds.captured shouldBe listOf(1L, 3L, 4L)
     }
 
     /** The system row keeps its -1 sort, else it ties with the first user category and can sort after it. */
     @Test
     fun `leaves the system category out of the renumbering`() = runTest {
         coEvery { repository.getUnfiltered() } returns listOf(category(0), category(1), category(3))
-        val updates = slot<List<CategoryUpdate>>()
-        coEvery { repository.updatePartial(capture(updates)) } just Runs
+        val orderedIds = slot<List<Long>>()
+        coEvery { repository.updateAllOrders(capture(orderedIds)) } just Runs
 
         deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList())
 
-        updates.captured.map { it.id to it.order } shouldBe listOf(1L to 0L, 3L to 1L)
+        orderedIds.captured shouldBe listOf(1L, 3L)
     }
 
     @Test

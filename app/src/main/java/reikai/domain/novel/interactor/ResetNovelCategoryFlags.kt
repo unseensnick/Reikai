@@ -2,7 +2,6 @@ package reikai.domain.novel.interactor
 
 import reikai.domain.category.CategoryContentType
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
@@ -16,12 +15,9 @@ class ResetNovelCategoryFlags(
 ) {
 
     suspend fun await() {
-        val updates = categoryRepository.getAll(CategoryContentType.NOVEL).map { category ->
-            CategoryUpdate(
-                id = category.id,
-                flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv(),
-            )
+        val flagsById = categoryRepository.getAll(CategoryContentType.NOVEL).associate { category ->
+            category.id to (category.flags and CATEGORY_SORT_CUSTOMIZED.inv())
         }
-        categoryRepository.updatePartial(updates)
+        categoryRepository.updateFlags(flagsById)
     }
 }

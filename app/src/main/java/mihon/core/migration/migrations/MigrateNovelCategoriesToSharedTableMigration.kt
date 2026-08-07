@@ -39,7 +39,7 @@ class MigrateNovelCategoriesToSharedTableMigration : Migration {
                 novelCategories.forEach { (id, flags) ->
                     val fixed = novelCategoryFlagsToMangaLayout(flags)
                     if (fixed != flags) {
-                        database.categoriesQueries.update(name = null, order = null, flags = fixed, categoryId = id)
+                        database.categoriesQueries.updateFlags(flags = fixed, categoryId = id)
                     }
                 }
             }
