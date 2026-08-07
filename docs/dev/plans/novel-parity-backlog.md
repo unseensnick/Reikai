@@ -71,7 +71,7 @@ History
 
 Migration
 - `app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt`
-- `app/src/main/java/reikai/presentation/novel/migrate/NovelMigrationListScreen.kt` + `NovelMigrationListScreenModel.kt` (the unified 1..N migration screen, auto-search + suggested + lazy materialize + batch Copy/Migrate)
+- `app/src/main/java/reikai/presentation/migrate/flow/EntryMigrationListScreen.kt` + `EntryMigrationListViewModel.kt`, with the novel halves behind `NovelMigrationFlowAdapter.kt` (the unified 1..N migration screen, auto-search + suggested + lazy materialize + batch Copy/Migrate)
 
 Library modes
 - `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt` (downloaded-only force, incognito gating on the browse side)

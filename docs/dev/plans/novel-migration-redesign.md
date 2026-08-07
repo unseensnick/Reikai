@@ -20,7 +20,7 @@ Three independent phases, each shippable on its own and ordered so value lands e
 
 Add cover thumbnails to every result in the existing row layout (the suggested hit, the override candidate list, the chosen target) via the existing novel cover pipeline (`NovelCover` + `MangaCover.Book`, exactly as `NovelBrowseListCell` and `DuplicateNovelDialog` already do). Surface the chapter count on each side, and flag a target with fewer chapters than the source with a quiet warning color (load-bearing color per the brand: it means a regression risk).
 
-Mostly view-layer. Two small `NovelMigrationListScreenModel` touches: carry the chosen source's `site` on the `Row` so the chosen-target cover loads with the right Referer, and expose the chapter counts.
+Mostly view-layer. Two small touches in the novel migration list model: carry the chosen source's `site` on the `Row` so the chosen-target cover loads with the right Referer, and expose the chapter counts.
 
 Counts are split by cost. The source novel is already in the library, so its count is a free local read (`NovelChapterRepository.getByNovelId(...).size`) shown always. A search result (`NovelItem`) carries no count, and fetching one per result would mean a `parseNovel` detail hit for every candidate across every source: exactly the source hammering to avoid. So the target count, and the regression warning, appears only once a target is selected, where `materialize` already runs `refreshNovelFromSource` and populates the chapters; reading the count back is then free. Un-picked search results and the candidate picker show cover, title, and source only, never a count.
 
@@ -36,7 +36,9 @@ Restructure each row into a source-to-target comparison (the agreed mockup): bot
 
 ## Key files
 
-- `reikai/presentation/novel/migrate/NovelMigrationListScreen.kt`, `NovelMigrationListScreenModel.kt`: the migration list (all three phases touch these).
+**These paths are historical.** Everything below shipped in `reikai/presentation/novel/migrate/`, which the migrate takeover then deleted whole ([content-layer-migrate-surface.md](content-layer-migrate-surface.md)). The features live on in the shared flow at `reikai/presentation/migrate/flow/`: the list screen and its model are `EntryMigrationListScreen.kt` + `EntryMigrationListViewModel.kt`, the config pre-step is `EntryMigrationConfigScreen.kt`, and the novel-specific halves sit behind `NovelMigrationFlowAdapter.kt`.
+
+- `reikai/presentation/novel/migrate/NovelMigrationListScreen.kt`, `NovelMigrationListScreenModel.kt`: the migration list (all three phases touched these).
 - `reikai/presentation/novel/migrate/NovelMigrationConfigScreen.kt`: new in Phase 2, the source-selection pre-step.
 - `reikai/domain/source/ReikaiSourcePreferences.kt`: new `novelMigrationSources` preference (Phase 2).
 - `reikai/presentation/browse/EntryBrowseGridCell.kt`, `reikai/data/coil/NovelCover.kt`: the existing cover pipeline reused for result thumbnails. The cell is now the shared manga + novel one.
