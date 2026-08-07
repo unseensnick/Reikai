@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import reikai.domain.manga.MangaPreferences
@@ -126,6 +127,14 @@ class ReaderViewModel @JvmOverloads constructor(
     private val mutableState = MutableStateFlow(State())
     val state = mutableState.asStateFlow()
 
+    /**
+     * Ids of the manga and chapter the reader was launched with, taken from the activity intent.
+     */
+    val mangaId = savedState.get<Long>("manga") ?: -1L
+    private val initialChapterId = savedState.get<Long>("chapter") ?: -1L
+
+    val hasValidArgs = mangaId != -1L && initialChapterId != -1L
+
     private val eventChannel = Channel<Event>()
     val eventFlow = eventChannel.receiveAsFlow()
 
@@ -165,10 +174,10 @@ class ReaderViewModel @JvmOverloads constructor(
     private var mergedGroup: MergedChapterProvider.Group? = null
 
     // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
-    // source chip); group scope (default) shows the whole merge group. Set in init from the intent,
-    // and re-set on a process-death re-init since init re-runs. mergedGroup stays full either way, so
+    // source chip); group scope (default) shows the whole merge group. Read from the launching intent
+    // like the ids above, so it survives a configuration change. mergedGroup stays full either way, so
     // the mark-duplicates-read pass over unfilteredChapterList still reaches sibling sources.
-    private var sourceScoped = false
+    private val sourceScoped = savedState.get<Boolean>("source_scoped") ?: false
 
     // RK: resolve a chapter's own manga within the merge group, falling back to the opened manga when
     // unmerged or when the id isn't in the group. Per-chapter side effects (downloads, tracker,
@@ -346,6 +355,10 @@ class ReaderViewModel @JvmOverloads constructor(
                 chapterId = currentChapter.chapter.id!!
             }
             .launchIn(viewModelScope)
+
+        if (hasValidArgs) {
+            viewModelScope.launch { init() }
+        }
     }
 
     override fun onCleared() {
@@ -367,52 +380,37 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Whether this presenter is initialized yet.
+     * Initializes this presenter with the [mangaId] and [initialChapterId] the reader was launched
+     * with. This method will fetch the manga from the database and initialize the initial chapter.
+     * Failures are reported through [State.initError].
      */
-    fun needsInit(): Boolean {
-        return manga == null
-    }
-
-    /**
-     * Initializes this presenter with the given [mangaId] and [initialChapterId]. This method will
-     * fetch the manga from the database and initialize the initial chapter.
-     */
-    suspend fun init(mangaId: Long, initialChapterId: Long, sourceScoped: Boolean = false): Result<Boolean> {
-        if (!needsInit()) return Result.success(true)
-        return withIOContext {
+    private suspend fun init() {
+        withIOContext {
             try {
-                val manga = getManga.await(mangaId)
-                if (manga != null) {
-                    sourceManager.isInitialized.first { it }
-                    // RK: resolve the Edit info overrides before the state update below builds the
-                    // viewer, since auto-webtoon classifies off them.
-                    customInfo = getCustomMangaInfo.subscribe(mangaId).first()
-                    mutableState.update { it.copy(manga = manga) }
-                    if (chapterId == -1L) chapterId = initialChapterId
-                    // RK: set before chapterList (lazy) is first accessed below.
-                    this@ReaderViewModel.sourceScoped = sourceScoped
+                val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
+                sourceManager.isInitialized.first { it }
+                // RK: resolve the Edit info overrides before the state update below builds the
+                // viewer, since auto-webtoon classifies off them.
+                customInfo = getCustomMangaInfo.subscribe(mangaId).first()
+                mutableState.update { it.copy(manga = manga) }
+                if (chapterId == -1L) chapterId = initialChapterId
 
-                    val context = Injekt.get<Application>()
-                    // RK --> resolve the merge group up front so the chapter list spans every grouped
-                    // source and the loader can route each chapter to its own source.
-                    val group = mergedChapterProvider.load(manga)
-                    mergedGroup = group
-                    loader = MergedChapterLoader(context, downloadManager, downloadProvider, group.mangaById)
-                    // RK <--
+                val context = Injekt.get<Application>()
+                // RK --> resolve the merge group up front so the chapter list spans every grouped
+                // source and the loader can route each chapter to its own source.
+                val group = mergedChapterProvider.load(manga)
+                mergedGroup = group
+                loader = MergedChapterLoader(context, downloadManager, downloadProvider, group.mangaById)
+                // RK <--
 
-                    // RK: from the full list, so the reader pages within one instance space (prev/next
-                    //     are resolved there too) rather than mixing it with the skip-filtered set.
-                    loadChapter(loader!!, fullChapterList.first { chapterId == it.chapter.id })
-                    Result.success(true)
-                } else {
-                    // Unlikely but okay
-                    Result.success(false)
-                }
+                // RK: from the full list, so the reader pages within one instance space (prev/next
+                //     are resolved there too) rather than mixing it with the skip-filtered set.
+                loadChapter(loader!!, fullChapterList.first { chapterId == it.chapter.id })
             } catch (e: Throwable) {
                 if (e is CancellationException) {
                     throw e
                 }
-                Result.failure(e)
+                mutableState.update { it.copy(initError = e) }
             }
         }
     }
@@ -1252,6 +1250,7 @@ class ReaderViewModel @JvmOverloads constructor(
     @Immutable
     data class State(
         val manga: Manga? = null,
+        val initError: Throwable? = null,
         val viewerChapters: ViewerChapters? = null,
         val bookmarked: Boolean = false,
         val isLoadingAdjacentChapter: Boolean = false,

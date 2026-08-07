@@ -271,17 +271,37 @@ class BackupRestorer(
             val batch = ArrayList<BackupNovel>(RESTORE_CHUNK)
             suspend fun flush() {
                 if (batch.isEmpty()) return
-                database.transaction {
+                // Same batch-failure containment as the manga stream: a per-entry catch inside the
+                // shared transaction cannot stop one bad novel from rolling the whole batch back.
+                val restoredAsBatch = try {
+                    database.transaction {
+                        batch.forEach { backupNovel ->
+                            ensureActive()
+                            novelRestorer.restore(backupNovel, membershipCategories)
+                        }
+                    }
+                    true
+                } catch (e: Exception) {
+                    ensureActive()
+                    logcat(LogPriority.WARN, e) { "Batch novel restore failed, retrying entry by entry" }
+                    false
+                }
+
+                if (restoredAsBatch) {
+                    restoreProgress.addAndFetch(batch.size)
+                } else {
                     batch.forEach { backupNovel ->
                         ensureActive()
                         try {
                             novelRestorer.restore(backupNovel, membershipCategories)
                         } catch (e: Exception) {
+                            ensureActive()
                             errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
                         }
                         restoreProgress.incrementAndFetch()
                     }
                 }
+
                 notifier.showRestoreProgress(batch.last().title, restoreProgress.load(), restoreAmount, isSync)
                 batch.clear()
             }
@@ -329,18 +349,39 @@ class BackupRestorer(
         val batch = ArrayList<BackupManga>(RESTORE_CHUNK)
         suspend fun flush() {
             if (batch.isEmpty()) return
-            database.transaction {
+            // SQLDelight fails an enclosing transaction when a nested one fails, so catching per entry
+            // inside the shared transaction cannot contain a bad entry: the whole batch rolls back and
+            // those entries are lost. Retry entry by entry instead.
+            val restoredAsBatch = try {
+                database.transaction {
+                    batch.forEach { backupManga ->
+                        ensureActive()
+                        mangaRestorer.restore(backupManga, backupCategories)
+                    }
+                }
+                true
+            } catch (e: Exception) {
+                ensureActive()
+                logcat(LogPriority.WARN, e) { "Batch restore failed, retrying entry by entry" }
+                false
+            }
+
+            if (restoredAsBatch) {
+                restoreProgress.addAndFetch(batch.size)
+            } else {
                 batch.forEach { backupManga ->
                     ensureActive()
                     try {
                         mangaRestorer.restore(backupManga, backupCategories)
                     } catch (e: Exception) {
+                        ensureActive()
                         val sourceName = sourceMapping[backupManga.source] ?: backupManga.source.toString()
                         errors.add(Date() to "${backupManga.title} [$sourceName]: ${e.message}")
                     }
                     restoreProgress.incrementAndFetch()
                 }
             }
+
             notifier.showRestoreProgress(batch.last().title, restoreProgress.load(), restoreAmount, isSync)
             batch.clear()
         }
