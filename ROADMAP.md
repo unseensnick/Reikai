@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Migrate off Voyager ScreenModel to AndroidX ViewModel** `[L]` - take upstream's migration (mihonapp/mihon#3594, mihon `c3b99aea0`), released in v0.20.2 along with the fix for its own crash-on-open models. 39 model classes and 40 call sites across 25 files left, in four clusters: library, details and reader settings, history / updates / downloads / more, then the teardown that drops the Voyager dependency. Runs first because it renames the files the remaining content-layer work edits, and because the cost grows with every screen added. [Plan](docs/dev/plans/viewmodel-migration.md).
+- **Migrate off Voyager ScreenModel to AndroidX ViewModel** `[M]` - take upstream's migration (mihonapp/mihon#3594, mihon `c3b99aea0`), released in v0.20.2 along with the fix for its own crash-on-open models. 21 files left, in three steps: history / updates / downloads / more, then the novel reader on its own, then the teardown that drops the Voyager dependency. Runs first because it renames the files the remaining content-layer work edits. [Plan](docs/dev/plans/viewmodel-migration.md).
 - **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters, extending the shipped Entry* UI-leaf seam down into ScreenModel behavior. The taken-over surfaces are closed out; remaining: the four-surface redo below, then the reader migration. Global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Next
