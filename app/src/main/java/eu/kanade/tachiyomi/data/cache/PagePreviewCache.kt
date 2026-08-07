@@ -32,8 +32,12 @@ class PagePreviewCache(private val context: Context) {
         /** Name of cache directory. */
         const val PARAMETER_CACHE_DIRECTORY = "page_preview_disk_cache"
 
-        /** Application cache version. */
-        const val PARAMETER_APP_VERSION = 1
+        /**
+         * Application cache version. Bumping it makes DiskLruCache reject the journal header and
+         * delete the directory, which is the only way to clear page lists cached before they
+         * carried an invalidation path (version 1 kept expired gallery URLs forever).
+         */
+        const val PARAMETER_APP_VERSION = 2
 
         /** The number of values per cache entry. Must be positive. */
         const val PARAMETER_VALUE_COUNT = 1
@@ -72,7 +76,7 @@ class PagePreviewCache(private val context: Context) {
      */
     fun getPageListFromCache(manga: Manga, chapterIds: List<Long>, page: Int): PagePreviewPage {
         // Get the key for the manga.
-        val key = DiskUtil.hashKeyForDisk(getKey(manga, chapterIds, page))
+        val key = DiskUtil.hashKeyForDisk(pageListKey(manga, chapterIds, page))
 
         // Convert JSON string to list of objects. Throws an exception if snapshot is null
         return diskCache.get(key).use {
@@ -95,7 +99,7 @@ class PagePreviewCache(private val context: Context) {
 
         try {
             // Get editor from md5 key.
-            val key = DiskUtil.hashKeyForDisk(getKey(manga, chapterIds, pages.page))
+            val key = DiskUtil.hashKeyForDisk(pageListKey(manga, chapterIds, pages.page))
             editor = diskCache.edit(key) ?: return
 
             // Write page preview urls to cache.
@@ -201,7 +205,18 @@ class PagePreviewCache(private val context: Context) {
         }
     }
 
-    private fun getKey(manga: Manga, chapterIds: List<Long>, page: Int): String {
+    /** Identifies one cached page list. Carried on every page preview so a dead image can drop it. */
+    fun pageListKey(manga: Manga, chapterIds: List<Long>, page: Int): String {
         return "${manga.id}_${chapterIds.joinToString(separator = "-")}_$page"
+    }
+
+    /** Drops a cached page list so the next read refetches it. Returns whether anything was removed. */
+    fun removePageList(pageListKey: String): Boolean {
+        return try {
+            diskCache.remove(DiskUtil.hashKeyForDisk(pageListKey))
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "Failed to remove page list from cache" }
+            false
+        }
     }
 }

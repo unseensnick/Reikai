@@ -28,9 +28,10 @@ class GetPagePreviews(
                     pagePreviewCache.putPageListToCache(manga, chapterIds, it)
                 }
             }
+            val pageListKey = pagePreviewCache.pageListKey(manga, chapterIds, page)
             Result.Success(
                 pagePreviews.pagePreviews.map {
-                    PagePreview(it.index, it.imageUrl, source.id)
+                    PagePreview(it.index, it.imageUrl, source.id, pageListKey)
                 },
                 pagePreviews.hasNextPage,
                 pagePreviews.pagePreviewPages,

@@ -11,6 +11,10 @@ data class PagePreview(
     val index: Int,
     val imageUrl: String,
     val source: Long,
+    // The PagePreviewCache entry this preview came out of, so a dead image URL can drop the whole
+    // cached page list. Gallery hosts hand out time-limited URLs, and a cached list that outlives
+    // them keeps serving 404s with nothing to invalidate it.
+    val pageListKey: String,
 ) {
     @Transient
     private val _progress: MutableStateFlow<Int> = MutableStateFlow(-1)

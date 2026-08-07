@@ -84,6 +84,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Light-novel source icons are no longer larger than manga ones in the same list.** Most noticeable on the Migrate tab, where both appear one under the other.
 - **Migrating a novel no longer searches sources or languages you have disabled.** The migration search now respects the same source filter as global search.
 
+**Details**
+
+- **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
+
 **Light novels**
 
 - **Adding a novel from its details page now files it in your default novel category.** It opened the category picker every time instead, even with a default set, the one add path that ignored the setting.
