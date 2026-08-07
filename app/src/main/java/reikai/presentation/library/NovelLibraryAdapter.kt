@@ -1,7 +1,7 @@
 package reikai.presentation.library
 
 import android.app.Application
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -19,7 +19,7 @@ import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.library.novels.NovelLibraryScreenModel
+import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.novels.novelDynamicGroupingFeed
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
@@ -31,13 +31,13 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
 /**
- * Adapts the Reikai [NovelLibraryScreenModel] to the neutral [LibraryBehavior], the novel twin of
+ * Adapts the Reikai [NovelLibraryViewModel] to the neutral [LibraryBehavior], the novel twin of
  * [MangaLibraryAdapter]. Maps the novel state into [LibraryScreenState] and reconciles the per-type action
  * shapes here (a neutral [EntryId] set narrows to the novel model's raw ids; the manga side's split default
  * / dynamic collapse toggles both route to the novel model's single one), never in the model.
  */
 class NovelLibraryAdapter(
-    private val model: NovelLibraryScreenModel,
+    private val model: NovelLibraryViewModel,
 ) : LibraryProvider {
 
     // Lazy, so constructing the adapter in a composable never touches the DI container.
@@ -79,12 +79,12 @@ class NovelLibraryAdapter(
             // One library-wide global sort (the manga preference), mirroring MangaLibraryAdapter, so the
             // Sort tab writes the same preference whichever chip is up.
             globalSort = libraryPreferences.sortingMode.changes()
-                .stateIn(model.screenModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
+                .stateIn(model.viewModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
             setSort = { categoryId, type, direction ->
-                model.screenModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
+                model.viewModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
             },
             resetSort = { categoryId ->
-                model.screenModelScope.launchIO {
+                model.viewModelScope.launchIO {
                     val category = categoryRepository.get(categoryId) ?: return@launchIO
                     categoryRepository.updatePartial(
                         CategoryUpdate(id = categoryId, flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv()),
@@ -100,7 +100,7 @@ class NovelLibraryAdapter(
     override val state: StateFlow<LibraryScreenState> =
         model.state
             .map { it.toNeutral() }
-            .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+            .stateIn(model.viewModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
 
     // The split point: filtered but pre-grouping, pre-sort (State.favorites). distinctUntilChanged
     // because the state re-emits for grouping/collapse changes the row list is upstream of.
@@ -125,7 +125,7 @@ class NovelLibraryAdapter(
         )
     }
 
-    private fun NovelLibraryScreenModel.State.toNeutral() = LibraryScreenState(
+    private fun NovelLibraryViewModel.State.toNeutral() = LibraryScreenState(
         isLoading = isLoading,
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,

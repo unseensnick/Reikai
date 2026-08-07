@@ -25,7 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -56,8 +57,13 @@ class UpdateErrorsScreen(
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { UpdateErrorsScreenModel(initialContentType) }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<UpdateErrorsViewModel>(
+            factory = UpdateErrorsViewModel.Factory,
+            extras = CreationExtras {
+                set(UpdateErrorsViewModel.INITIAL_CONTENT_TYPE_KEY, initialContentType)
+            },
+        )
+        val state by viewModel.state.collectAsState()
 
         if (state is UpdateErrorsScreenState.Loading) {
             LoadingScreen()
@@ -71,22 +77,22 @@ class UpdateErrorsScreen(
                     title = stringResource(MR.strings.label_update_errors),
                     navigateUp = navigator::pop,
                     actionModeCounter = successState.selected.size,
-                    onCancelActionMode = screenModel::clearSelection,
+                    onCancelActionMode = viewModel::clearSelection,
                     actionModeActions = {
                         AppBarActions(
                             listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_select_all),
                                     icon = Icons.Outlined.SelectAll,
-                                    onClick = screenModel::selectAll,
+                                    onClick = viewModel::selectAll,
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_migrate),
                                     icon = Icons.Outlined.SwapCalls,
                                     enabled = successState.selectionIsSingleVertical,
                                     onClick = {
-                                        val mangaIds = screenModel.selectedMangaIds()
-                                        val novelIds = screenModel.selectedNovelIds()
+                                        val mangaIds = viewModel.selectedMangaIds()
+                                        val novelIds = viewModel.selectedNovelIds()
                                         if (mangaIds.isNotEmpty()) {
                                             navigator.push(
                                                 EntryMigrationSourcePickScreen(ContentType.MANGA, mangaIds),
@@ -96,13 +102,13 @@ class UpdateErrorsScreen(
                                                 EntryMigrationSourcePickScreen(ContentType.NOVELS, novelIds),
                                             )
                                         }
-                                        screenModel.clearSelection()
+                                        viewModel.clearSelection()
                                     },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_delete),
                                     icon = Icons.Outlined.Delete,
-                                    onClick = screenModel::dismissSelected,
+                                    onClick = viewModel::dismissSelected,
                                 ),
                             ),
                         )
@@ -114,11 +120,11 @@ class UpdateErrorsScreen(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_update_library),
                                         icon = Icons.Outlined.Refresh,
-                                        onClick = { screenModel.retry(context) },
+                                        onClick = { viewModel.retry(context) },
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_clear_all),
-                                        onClick = screenModel::dismissAll,
+                                        onClick = viewModel::dismissAll,
                                     ),
                                 ),
                             )
@@ -131,7 +137,7 @@ class UpdateErrorsScreen(
             Column(modifier = Modifier.padding(paddingValues)) {
                 ContentTypeFilterChips(
                     selected = successState.contentType,
-                    onSelect = screenModel::setContentType,
+                    onSelect = viewModel::setContentType,
                 )
 
                 if (successState.isEmpty) {
@@ -164,7 +170,7 @@ class UpdateErrorsScreen(
                                 isSelected = entry.key in successState.selected,
                                 onClick = {
                                     if (successState.selectionMode) {
-                                        screenModel.toggleSelection(entry.key)
+                                        viewModel.toggleSelection(entry.key)
                                     } else {
                                         when (entry) {
                                             is UpdateErrorEntry.Manga ->
@@ -174,7 +180,7 @@ class UpdateErrorsScreen(
                                         }
                                     }
                                 },
-                                onLongClick = { screenModel.toggleSelection(entry.key) },
+                                onLongClick = { viewModel.toggleSelection(entry.key) },
                             )
                         }
                     }

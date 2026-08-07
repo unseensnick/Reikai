@@ -1,8 +1,7 @@
 package reikai.presentation.library.novels
 
 import android.app.Application
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -22,6 +21,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
@@ -86,8 +86,8 @@ import kotlin.time.Duration.Companion.seconds
  * on; display settings are shared with manga, and tracker filter/sort/group reuse the shared tracker
  * machinery via [getNovelTracks].
  */
-class NovelLibraryScreenModel :
-    StateScreenModel<NovelLibraryScreenModel.State>(State()) {
+class NovelLibraryViewModel :
+    StateViewModel<NovelLibraryViewModel.State>(State()) {
 
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
@@ -118,16 +118,16 @@ class NovelLibraryScreenModel :
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
         // badges); the source flow below re-emits buildState once the sources register.
-        screenModelScope.launchIO { runCatching { installer.ensureLoaded() } }
+        viewModelScope.launchIO { runCatching { installer.ensureLoaded() } }
         // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         // unread count would be wrong until something wrote them. Reconciling off the membership flow
         // covers every merge and unmerge from one place, and costs one indexed query when nothing changed.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS)
                 .distinctUntilChanged()
                 .collectLatest { reconcileChapterMatchKeys.await() }
         }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(
                 getNovelCategories.subscribe(),
                 // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
@@ -251,7 +251,7 @@ class NovelLibraryScreenModel :
 
     /**
      * Per-logged-in-tracker filter state (trackerId -> tri-state), mirroring the manga library's
-     * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.getTrackingFiltersFlow]. The map's keys double
+     * [eu.kanade.tachiyomi.ui.library.LibraryViewModel.getTrackingFiltersFlow]. The map's keys double
      * as the logged-in tracker id set (used to score/status-resolve only logged-in trackers below).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -471,7 +471,7 @@ class NovelLibraryScreenModel :
 
     fun search(query: String?) {
         // Update the field's state synchronously so it stays responsive to fast typing (mirrors the
-        // manga LibraryScreenModel); searchQuery also drives the async filter combine below.
+        // manga LibraryViewModel); searchQuery also drives the async filter combine below.
         mutableState.update { it.copy(searchQuery = query) }
         searchQuery.value = query
     }
@@ -485,7 +485,7 @@ class NovelLibraryScreenModel :
     /** Manually merge the selected novels into one group (covers both library views). */
     fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // each selected card's whole group is absorbed by the merge, so one call coalesces every source
             mergeManager.merge(ids)
         }
@@ -495,7 +495,7 @@ class NovelLibraryScreenModel :
      *  The manager hands each member its own tracker copy on the way out. */
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
-        screenModelScope.launchIO { mergeManager.unmerge(ids) }
+        viewModelScope.launchIO { mergeManager.unmerge(ids) }
     }
 
     fun markReadSelection(ids: List<Long>, read: Boolean) {
@@ -504,7 +504,7 @@ class NovelLibraryScreenModel :
         val novelIds = state.value.memberIdsFor(ids)
         // Non-cancellable like the manga twins: a bulk write must not half-apply because the
         // screen was left mid-loop.
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
             val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
             setNovelReadStatus.await(read, chapters)
@@ -519,7 +519,7 @@ class NovelLibraryScreenModel :
         // representative, which becomes the user's chosen trunk once the collapse honours the
         // persisted source ranking.
         val novelIds = ids
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             novelIds.forEach { id ->
                 val novel = novelRepository.getById(id) ?: return@forEach
                 val chapters = novelChapterRepository.getByNovelId(id)
@@ -537,7 +537,7 @@ class NovelLibraryScreenModel :
 
     /** Writes exactly the ids it is handed; the caller expands the merge group. */
     fun setNovelCategories(novelIds: List<Long>, addCategories: List<Long>, removeCategories: List<Long>) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             novelIds.forEach { novelId ->
                 val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }
                 val new = (current - removeCategories.toSet() + addCategories).distinct()
@@ -553,7 +553,7 @@ class NovelLibraryScreenModel :
         // Expand merged covers to every grouped source, so the whole series leaves the library.
         removeGroupedSources: Boolean = false,
     ) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             val targets = if (removeGroupedSources) state.value.memberIdsFor(novelIds) else novelIds
             // An entry leaving the library keeps its group, so it has to be handed its own copy of the
             // group's shared tracker first; the hand-out skips non-favorites.
@@ -618,7 +618,7 @@ class NovelLibraryScreenModel :
         reikaiLibraryPreferences.categorySortOrder.changes(),
     ) { categories, sortOrder ->
         reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
-    }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     /** A novel's human-readable source name for search, or the raw slug when the plugin isn't installed. */
     private fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source

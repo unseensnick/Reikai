@@ -132,7 +132,7 @@ fun mapLibraryNovel(
     totalChapters = totalCount,
     readCount = readCount.toLong(),
     bookmarkCount = bookmarkCount.toLong(),
-    // placeholder; NovelLibraryScreenModel fills this from NovelDownloadCache
+    // placeholder; NovelLibraryViewModel fills this from NovelDownloadCache
     downloadCount = 0,
     latestUpload = latestUpload,
     chapterFetchedAt = chapterFetchedAt,

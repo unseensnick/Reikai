@@ -2,12 +2,15 @@ package reikai.presentation.library.updateerror
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ContentType
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
@@ -27,7 +30,7 @@ import uy.kohesive.injekt.api.get
  * and novel errors live in separate tables (each FK-bound to its own library), so they are combined
  * only here at the presentation layer.
  */
-class UpdateErrorsScreenModel(
+class UpdateErrorsViewModel(
     private val initialContentType: ContentType = ContentType.ALL,
     private val getLibraryUpdateErrors: GetLibraryUpdateErrors = Injekt.get(),
     private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get(),
@@ -35,10 +38,20 @@ class UpdateErrorsScreenModel(
     private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val novelSourceManager: NovelSourceManager = Injekt.get(),
-) : StateScreenModel<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading) {
+) : StateViewModel<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading) {
+
+    companion object {
+        val INITIAL_CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
+
+        val Factory = viewModelFactory {
+            initializer {
+                UpdateErrorsViewModel(initialContentType = get(INITIAL_CONTENT_TYPE_KEY)!!)
+            }
+        }
+    }
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Drop errors for entries no longer in the library before showing the list.
             runCatching { deleteLibraryUpdateErrors.nonFavorites() }
             runCatching { deleteNovelUpdateErrors.nonFavorites() }
@@ -95,7 +108,7 @@ class UpdateErrorsScreenModel(
         if (selectedEntries.isEmpty()) return
         val mangaIds = selectedEntries.filterIsInstance<UpdateErrorEntry.Manga>().map { it.error.errorId }
         val novelIds = selectedEntries.filterIsInstance<UpdateErrorEntry.Novel>().map { it.error.errorId }
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             if (mangaIds.isNotEmpty()) deleteLibraryUpdateErrors.byErrorIds(mangaIds)
             if (novelIds.isNotEmpty()) deleteNovelUpdateErrors.byErrorIds(novelIds)
         }
@@ -115,7 +128,7 @@ class UpdateErrorsScreenModel(
 
     fun dismissAll() {
         val type = (state.value as? UpdateErrorsScreenState.Success)?.contentType ?: return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             if (type != ContentType.NOVELS) deleteLibraryUpdateErrors.all()
             if (type != ContentType.MANGA) deleteNovelUpdateErrors.all()
         }

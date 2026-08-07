@@ -1,11 +1,11 @@
 package reikai.presentation.library.preferredsources
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -15,22 +15,22 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * Light-novel counterpart of [PreferredSourcesScreenModel]. Ranks installed novel sources highest
+ * Light-novel counterpart of [PreferredSourcesViewModel]. Ranks installed novel sources highest
  * priority first; [reikai.domain.novel.NovelChapterAggregation] reads the ranking to pick the trunk of
  * a merged chapter list. Novel source ids are Strings (plugin slugs), so the ranking and the shared
  * [PreferredSourcesContent] key are Strings directly. Sources are resolved from the plugin host, and
  * state rebuilds reactively from the registered sources and the stored ranking.
  */
-class NovelPreferredSourcesScreenModel(
+class NovelPreferredSourcesViewModel(
     private val sourceManager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val preferences: ReikaiLibraryPreferences = Injekt.get(),
-) : StateScreenModel<NovelPreferredSourcesScreenModel.State>(State.Loading) {
+) : StateViewModel<NovelPreferredSourcesViewModel.State>(State.Loading) {
 
     private val pref = preferences.preferredNovelSources
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             runCatching { installer.ensureLoaded() }
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
                 buildState(sources, ordered)
@@ -67,7 +67,7 @@ class NovelPreferredSourcesScreenModel(
     }
 
     private fun persist(transform: (List<String>) -> List<String>) {
-        screenModelScope.launchIO { pref.set(transform(pref.get())) }
+        viewModelScope.launchIO { pref.set(transform(pref.get())) }
     }
 
     private fun buildState(sources: List<NovelSource>, ordered: List<String>): State.Success {

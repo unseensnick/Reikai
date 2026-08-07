@@ -13,7 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastMap
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.CategoryScreen
@@ -36,27 +36,27 @@ class CategoryScreen : Screen() {
 
     @Composable
     override fun Content() {
-        val screenModel = rememberScreenModel { CategoryScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<CategoryViewModel>()
+        val state by viewModel.state.collectAsState()
         CategoryManager(
             state = state,
-            events = screenModel.events,
-            onClickCreate = { screenModel.showDialog(CategoryDialog.Create) },
-            onClickRename = { screenModel.showDialog(CategoryDialog.Rename(it)) },
-            onClickDelete = { screenModel.showDialog(CategoryDialog.Delete(it)) },
-            onToggleHidden = screenModel::toggleHidden,
-            onChangeOrder = screenModel::changeOrder,
-            onDismissDialog = screenModel::dismissDialog,
-            onCreate = screenModel::createCategory,
-            onRename = screenModel::renameCategory,
-            onDelete = screenModel::deleteCategory,
-            onToggleSelection = { screenModel.toggleSelection(it.id) },
-            onSelectAll = screenModel::selectAll,
-            onInvertSelection = screenModel::invertSelection,
-            onClearSelection = screenModel::clearSelection,
-            onDeleteSelected = screenModel::deleteSelected,
-            onUndoDelete = screenModel::undoPendingDelete,
-            onCommitDelete = screenModel::commitPendingDelete,
+            events = viewModel.events,
+            onClickCreate = { viewModel.showDialog(CategoryDialog.Create) },
+            onClickRename = { viewModel.showDialog(CategoryDialog.Rename(it)) },
+            onClickDelete = { viewModel.showDialog(CategoryDialog.Delete(it)) },
+            onToggleHidden = viewModel::toggleHidden,
+            onChangeOrder = viewModel::changeOrder,
+            onDismissDialog = viewModel::dismissDialog,
+            onCreate = viewModel::createCategory,
+            onRename = viewModel::renameCategory,
+            onDelete = viewModel::deleteCategory,
+            onToggleSelection = { viewModel.toggleSelection(it.id) },
+            onSelectAll = viewModel::selectAll,
+            onInvertSelection = viewModel::invertSelection,
+            onClearSelection = viewModel::clearSelection,
+            onDeleteSelected = viewModel::deleteSelected,
+            onUndoDelete = viewModel::undoPendingDelete,
+            onCommitDelete = viewModel::commitPendingDelete,
         )
     }
 }

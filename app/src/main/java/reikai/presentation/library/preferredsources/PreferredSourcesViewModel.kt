@@ -1,12 +1,12 @@
 package reikai.presentation.library.preferredsources
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.source.CatalogueSource
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.service.SourceManager
@@ -17,19 +17,19 @@ import uy.kohesive.injekt.api.get
  * Manga "preferred sources" ranking, highest priority first, stored in
  * [ReikaiLibraryPreferences.preferredMangaSources] and read by
  * [reikai.domain.manga.ChapterAggregation] to pick the trunk of a merged chapter list (falling back to
- * most-chapters when empty). The novel counterpart is [NovelPreferredSourcesScreenModel]; both render
+ * most-chapters when empty). The novel counterpart is [NovelPreferredSourcesViewModel]; both render
  * the shared [PreferredSourcesContent] over a String key, so this model stringifies its Long ids at the
  * edge. State is rebuilt reactively from the installed sources and the stored ranking.
  */
-class PreferredSourcesScreenModel(
+class PreferredSourcesViewModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val preferences: ReikaiLibraryPreferences = Injekt.get(),
-) : StateScreenModel<PreferredSourcesScreenModel.State>(State.Loading) {
+) : StateViewModel<PreferredSourcesViewModel.State>(State.Loading) {
 
     private val pref = preferences.preferredMangaSources
 
     init {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
                 buildState(sources.filterIsInstance<CatalogueSource>(), ordered)
             }.collectLatest { success -> mutableState.update { success } }
@@ -79,7 +79,7 @@ class PreferredSourcesScreenModel(
 
     /** Reads the stored ranking, applies [transform], writes it back; the pref flow rebuilds state. */
     private fun persist(transform: (List<Long>) -> List<Long>) {
-        screenModelScope.launchIO { pref.set(transform(pref.get())) }
+        viewModelScope.launchIO { pref.set(transform(pref.get())) }
     }
 
     private fun buildState(sources: List<CatalogueSource>, ordered: List<Long>): State.Success {

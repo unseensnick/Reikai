@@ -1,8 +1,11 @@
 package reikai.presentation.library
 
 import android.app.Application
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.DownloadAction
@@ -46,7 +49,20 @@ import uy.kohesive.injekt.injectLazy
  * [providersFor] answers with every provider whose rows belong in a view, both under [ContentType.ALL];
  * [behaviorFor] still fails loudly there, since one behaviour cannot answer for two content types.
  */
-class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel {
+class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() {
+
+    companion object {
+        val PROVIDERS_KEY = CreationExtras.Key<List<LibraryProvider>>()
+
+        /**
+         * Only the first [viewModel] call for a given store builds the engine; later calls return that
+         * instance and ignore this factory. That is what keeps exactly one adapter pair alive, so do not
+         * "fix" the initializer into something that expects to run per composition.
+         */
+        val Factory = viewModelFactory {
+            initializer { LibraryEngine(providers = get(PROVIDERS_KEY)!!) }
+        }
+    }
 
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
@@ -66,7 +82,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
      */
     val contentType: StateFlow<ContentType> by lazy {
         reikaiLibraryPreferences.libraryContentType.changes()
-            .stateIn(screenModelScope, SharingStarted.Eagerly, reikaiLibraryPreferences.libraryContentType.get())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, reikaiLibraryPreferences.libraryContentType.get())
     }
 
     /**
@@ -80,7 +96,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
             libraryPreferences.categoryNumberOfItems.changes(),
         ) { reikai, showCategoryTabs, showItemCounts ->
             LibraryDisplayState(reikai, showCategoryTabs, showItemCounts)
-        }.stateIn(screenModelScope, SharingStarted.Eagerly, LibraryDisplayState())
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryDisplayState())
     }
 
     /**
@@ -143,7 +159,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
             .flowOn(Dispatchers.Default)
-            .stateIn(screenModelScope, SharingStarted.Eagerly, null)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     }
 
     private fun assembleFor(
@@ -279,11 +295,11 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
 
     /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */
     fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
-        libraryPreferences.displayMode.asState(screenModelScope)
+        libraryPreferences.displayMode.asState(viewModelScope)
 
     fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
         (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
-            .asState(screenModelScope)
+            .asState(viewModelScope)
 
     private val mutableSelection = MutableStateFlow<Set<EntryId>>(emptySet())
     val selection: StateFlow<Set<EntryId>> = mutableSelection.asStateFlow()
@@ -348,7 +364,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     /** The one library-wide global sort (chip-free since the sort preferences unified). */
     val globalSort: StateFlow<LibrarySort> by lazy {
         libraryPreferences.sortingMode.changes()
-            .stateIn(screenModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get())
     }
 
     /**
@@ -373,7 +389,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
                 reikaiLibraryPreferences.categorySortOrder.changes(),
             ) { m, n, sortOrder ->
                 reikaiSortCategories((m + n).distinctBy { it.id }.sortedBy { it.order }, sortOrder)
-            }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
         )
     }
 
@@ -531,7 +547,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         val entries = selection.value
         val targets = providersFor(contentType).owning(entries)
         if (targets.isEmpty()) return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val assignable = targets
                 .map { it.assignableCategories() }
                 .reduce { acc, next ->

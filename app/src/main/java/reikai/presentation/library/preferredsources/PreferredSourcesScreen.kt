@@ -14,7 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -34,8 +34,8 @@ class PreferredSourcesScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val mangaModel = rememberScreenModel { PreferredSourcesScreenModel() }
-        val novelModel = rememberScreenModel { NovelPreferredSourcesScreenModel() }
+        val mangaModel = viewModel<PreferredSourcesViewModel>()
+        val novelModel = viewModel<NovelPreferredSourcesViewModel>()
         val mangaState by mangaModel.state.collectAsState()
         val novelState by novelModel.state.collectAsState()
 
@@ -69,8 +69,8 @@ class PreferredSourcesScreen : Screen() {
                 HorizontalPager(modifier = Modifier.fillMaxSize(), state = pagerState) { page ->
                     when (page) {
                         0 -> when (val s = mangaState) {
-                            PreferredSourcesScreenModel.State.Loading -> LoadingScreen()
-                            is PreferredSourcesScreenModel.State.Success -> PreferredSourcesContent(
+                            PreferredSourcesViewModel.State.Loading -> LoadingScreen()
+                            is PreferredSourcesViewModel.State.Success -> PreferredSourcesContent(
                                 preferred = s.preferred,
                                 available = s.available,
                                 contentPadding = panePadding,
@@ -81,8 +81,8 @@ class PreferredSourcesScreen : Screen() {
                             )
                         }
                         else -> when (val s = novelState) {
-                            NovelPreferredSourcesScreenModel.State.Loading -> LoadingScreen()
-                            is NovelPreferredSourcesScreenModel.State.Success -> PreferredSourcesContent(
+                            NovelPreferredSourcesViewModel.State.Loading -> LoadingScreen()
+                            is NovelPreferredSourcesViewModel.State.Success -> PreferredSourcesContent(
                                 preferred = s.preferred,
                                 available = s.available,
                                 contentPadding = panePadding,

@@ -1,8 +1,7 @@
 package eu.kanade.tachiyomi.ui.category
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +11,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.category.CategoryActions
 import reikai.presentation.category.CategorySelection
@@ -24,10 +24,10 @@ import uy.kohesive.injekt.api.get
 
 // RK: one model over one list spanning both libraries. Rows carry their own content type, so there is no
 // longer a per-type model or write path; [CategoryActions] dispatches on the row where it has to.
-class CategoryScreenModel(
+class CategoryViewModel(
     private val actions: CategoryActions = CategoryActions(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
-) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
+) : StateViewModel<CategoryScreenState>(CategoryScreenState.Loading) {
 
     // RK: a SharedFlow rather than a receiveAsFlow Channel, which can only be collected once.
     private val _events = MutableSharedFlow<CategoryEvent>(extraBufferCapacity = 8)
@@ -45,7 +45,7 @@ class CategoryScreenModel(
     // RK <--
 
     init {
-        screenModelScope.launch {
+        viewModelScope.launch {
             // RK --> show the manage list in the same order as every other category surface.
             // Drag-reorder is only offered in Manual (off) mode; the screen hides the drag handle
             // when sorted A->Z / Z->A, since those override the manual order anyway.
@@ -75,7 +75,7 @@ class CategoryScreenModel(
     }
 
     fun createCategory(name: String, contentType: Long) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             if (!actions.create(name, contentType)) _events.emit(CategoryEvent.InternalError)
         }
     }
@@ -83,7 +83,7 @@ class CategoryScreenModel(
     // RK: a single row delete defers like the bulk path so it's undoable too; commit is shared.
     fun deleteCategory(category: Category) {
         pendingDelete.update { it + category }
-        screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(1)) }
+        viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(1)) }
     }
 
     // RK --> multi-select + deferred bulk delete
@@ -116,7 +116,7 @@ class CategoryScreenModel(
         if (categories.isEmpty()) return
         pendingDelete.update { it + categories }
         selectedIds.value = emptySet()
-        screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(categories.size)) }
+        viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(categories.size)) }
     }
 
     /** Undo a pending bulk delete: the rows return and the DB was never touched. */
@@ -127,7 +127,7 @@ class CategoryScreenModel(
     /** Commit a pending bulk delete to the DB. Per-row so each delete keeps its reorder + preference cleanup. */
     fun commitPendingDelete() {
         if (pendingDelete.value.isEmpty()) return
-        screenModelScope.launch { commitPendingDeleteNow() }
+        viewModelScope.launch { commitPendingDeleteNow() }
     }
 
     private suspend fun commitPendingDeleteNow() {
@@ -144,7 +144,7 @@ class CategoryScreenModel(
     // RK <--
 
     fun changeOrder(category: Category, newIndex: Int) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             // The drag index comes from the visible list, which hides rows pending delete, while
             // the reorder renumbers the full table; flush the pending delete first so the two lists
             // agree (dragging while the undo snackbar is up also reads as moving on from the undo).
@@ -154,14 +154,14 @@ class CategoryScreenModel(
     }
 
     fun renameCategory(category: Category, name: String) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             if (!actions.rename(category, name)) _events.emit(CategoryEvent.InternalError)
         }
     }
 
     // RK: flip the hidden flag bit so the category drops out of (or returns to) the library
     fun toggleHidden(category: Category) {
-        screenModelScope.launch {
+        viewModelScope.launch {
             if (!actions.toggleHidden(category)) _events.emit(CategoryEvent.InternalError)
         }
     }

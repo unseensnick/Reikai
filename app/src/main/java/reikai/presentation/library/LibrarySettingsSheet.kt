@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
-import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
+import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.sortForCategory
 import reikai.presentation.category.CategoryFilterRow
@@ -46,7 +46,7 @@ import tachiyomi.presentation.core.util.collectAsState
 /**
  * The library settings sheet, shared by both content types. Filter, Sort and Group render whatever the
  * active [LibrarySettingsBinding] describes, so a change reaches manga and novels at once and neither
- * can gain an option the other silently misses. [settingsScreenModel] backs the Display tab, the
+ * can gain an option the other silently misses. [settingsViewModel] backs the Display tab, the
  * logged-in tracker list and the global "Downloaded only" mode, all library-wide. A null [categoryId]
  * is the global scope, and the Default category resolves to it too: that row is universal, so a sort
  * override on it could not mean one thing for manga and another for novels.
@@ -54,7 +54,7 @@ import tachiyomi.presentation.core.util.collectAsState
 @Composable
 fun LibrarySettingsSheet(
     settings: LibrarySettingsBinding,
-    settingsScreenModel: LibrarySettingsScreenModel,
+    settingsViewModel: LibrarySettingsViewModel,
     categoryId: Long?,
     initialTab: Int,
     onManageCategories: () -> Unit,
@@ -78,16 +78,16 @@ fun LibrarySettingsSheet(
                 .verticalScroll(rememberScrollState()),
         ) {
             when (page) {
-                0 -> FilterPage(settings, settingsScreenModel, onManageCategories)
-                1 -> SortPage(settings, settingsScreenModel, categoryId)
+                0 -> FilterPage(settings, settingsViewModel, onManageCategories)
+                1 -> SortPage(settings, settingsViewModel, categoryId)
                 2 -> EntryDisplayPage(
-                    screenModel = settingsScreenModel,
+                    viewModel = settingsViewModel,
                     showLocalBadge = settings.showLocalBadge,
                     mergeToggles = {
                         // Master switch (also in Settings); the same-title suggestion moved there too.
                         CheckboxItem(
                             label = stringResource(MR.strings.action_series_merging),
-                            pref = settingsScreenModel.reikaiLibraryPreferences.seriesMergingEnabled,
+                            pref = settingsViewModel.reikaiLibraryPreferences.seriesMergingEnabled,
                         )
                         CheckboxItem(
                             label = stringResource(MR.strings.action_merge_source_icons),
@@ -104,11 +104,11 @@ fun LibrarySettingsSheet(
 @Composable
 private fun ColumnScope.FilterPage(
     settings: LibrarySettingsBinding,
-    settingsScreenModel: LibrarySettingsScreenModel,
+    settingsViewModel: LibrarySettingsViewModel,
     onManageCategories: () -> Unit,
 ) {
     val axes by settings.filterAxes.collectAsState()
-    val downloadedOnly by settingsScreenModel.preferences.downloadedOnly.collectAsState()
+    val downloadedOnly by settingsViewModel.preferences.downloadedOnly.collectAsState()
 
     axes.forEach { axis ->
         // The global Downloaded-only mode forces its axis on and locks it, so the sheet cannot promise a
@@ -123,7 +123,7 @@ private fun ColumnScope.FilterPage(
         )
     }
 
-    val trackers by settingsScreenModel.trackersFlow.collectAsState()
+    val trackers by settingsViewModel.trackersFlow.collectAsState()
     when (trackers.size) {
         0 -> Unit // No logged-in trackers: nothing to filter by.
         1 -> {
@@ -184,10 +184,10 @@ private fun ColumnScope.CategoriesFilter(
 @Composable
 private fun ColumnScope.SortPage(
     settings: LibrarySettingsBinding,
-    settingsScreenModel: LibrarySettingsScreenModel,
+    settingsViewModel: LibrarySettingsViewModel,
     categoryId: Long?,
 ) {
-    val trackers by settingsScreenModel.trackersFlow.collectAsState()
+    val trackers by settingsViewModel.trackersFlow.collectAsState()
     val globalSort by settings.globalSort.collectAsState()
     val categories by settings.categories.collectAsState()
 

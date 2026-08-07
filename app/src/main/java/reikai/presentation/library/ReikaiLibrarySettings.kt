@@ -5,7 +5,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
+import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
@@ -42,44 +42,44 @@ private val hopperLongPressActions = listOf(
  * of the Display tab.
  */
 @Composable
-fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
+fun ColumnScope.ReikaiCategoriesPage(viewModel: LibrarySettingsViewModel) {
     HeadingItem(MR.strings.categories)
-    val categorySortOrder by screenModel.reikaiLibraryPreferences.categorySortOrder.collectAsState()
+    val categorySortOrder by viewModel.reikaiLibraryPreferences.categorySortOrder.collectAsState()
     SettingsChipRow(MR.strings.pref_category_sort_order) {
         categorySortOrders.forEach { (labelRes, value) ->
             FilterChip(
                 selected = categorySortOrder == value,
-                onClick = { screenModel.setCategorySortOrder(value) },
+                onClick = { viewModel.setCategorySortOrder(value) },
                 label = { Text(stringResource(labelRes)) },
             )
         }
     }
     CheckboxItem(
         label = stringResource(MR.strings.always_show_current_category),
-        pref = screenModel.reikaiLibraryPreferences.showCategoryInTitle,
+        pref = viewModel.reikaiLibraryPreferences.showCategoryInTitle,
     )
     CheckboxItem(
         label = stringResource(MR.strings.move_dynamic_to_bottom),
-        pref = screenModel.reikaiLibraryPreferences.collapsedDynamicAtBottom,
+        pref = viewModel.reikaiLibraryPreferences.collapsedDynamicAtBottom,
     )
     CheckboxItem(
         label = stringResource(MR.strings.show_hidden_categories),
-        pref = screenModel.reikaiLibraryPreferences.showHiddenCategories,
+        pref = viewModel.reikaiLibraryPreferences.showHiddenCategories,
     )
     CheckboxItem(
         label = stringResource(MR.strings.hide_category_hopper),
-        pref = screenModel.reikaiLibraryPreferences.hideHopper,
+        pref = viewModel.reikaiLibraryPreferences.hideHopper,
     )
     CheckboxItem(
         label = stringResource(MR.strings.autohide_category_hopper),
-        pref = screenModel.reikaiLibraryPreferences.autohideHopper,
+        pref = viewModel.reikaiLibraryPreferences.autohideHopper,
     )
-    val hopperLongPress by screenModel.reikaiLibraryPreferences.hopperLongPressAction.collectAsState()
+    val hopperLongPress by viewModel.reikaiLibraryPreferences.hopperLongPressAction.collectAsState()
     SettingsChipRow(MR.strings.hopper_long_press) {
         hopperLongPressActions.forEach { (labelRes, value) ->
             FilterChip(
                 selected = hopperLongPress == value,
-                onClick = { screenModel.setHopperLongPressAction(value) },
+                onClick = { viewModel.setHopperLongPressAction(value) },
                 label = { Text(stringResource(labelRes)) },
             )
         }

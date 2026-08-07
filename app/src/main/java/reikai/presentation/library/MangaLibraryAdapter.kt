@@ -2,12 +2,12 @@ package reikai.presentation.library
 
 import android.app.Application
 import androidx.compose.ui.util.fastAll
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
+import eu.kanade.tachiyomi.ui.library.LibraryViewModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,13 +34,13 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.injectLazy
 
 /**
- * Adapts the live Mihon [LibraryScreenModel] to the neutral [LibraryBehavior]. The model stays live and
+ * Adapts the live Mihon [LibraryViewModel] to the neutral [LibraryBehavior]. The model stays live and
  * upstream-tracked (never made to implement a Reikai interface); this maps its state into the neutral
  * [LibraryScreenState] and forwards each neutral action to the model's own methods. Symmetric with
  * [NovelLibraryAdapter], so one shared library tab drives both content types through this seam.
  */
 class MangaLibraryAdapter(
-    private val model: LibraryScreenModel,
+    private val model: LibraryViewModel,
 ) : LibraryProvider {
 
     // Lazy, so constructing the adapter in a composable never touches the DI container.
@@ -61,7 +61,7 @@ class MangaLibraryAdapter(
             filterAxes = libraryPreferences.autoUpdateMangaRestrictions.changes()
                 .map(::filterAxes)
                 .stateIn(
-                    model.screenModelScope,
+                    model.viewModelScope,
                     SharingStarted.Eagerly,
                     filterAxes(libraryPreferences.autoUpdateMangaRestrictions.get()),
                 ),
@@ -76,15 +76,15 @@ class MangaLibraryAdapter(
                 reikaiLibraryPreferences.categorySortOrder.changes(),
             ) { categories, sortOrder ->
                 reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
-            }.stateIn(model.screenModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+            }.stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
             groupMode = reikaiLibraryPreferences.groupLibraryBy,
             globalSort = libraryPreferences.sortingMode.changes()
-                .stateIn(model.screenModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
+                .stateIn(model.viewModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
             setSort = { categoryId, type, direction ->
-                model.screenModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
+                model.viewModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
             },
             resetSort = { categoryId ->
-                model.screenModelScope.launchIO {
+                model.viewModelScope.launchIO {
                     val category = categoryRepository.get(categoryId) ?: return@launchIO
                     categoryRepository.updatePartial(
                         CategoryUpdate(id = categoryId, flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv()),
@@ -113,7 +113,7 @@ class MangaLibraryAdapter(
     override val state: StateFlow<LibraryScreenState> =
         model.state
             .map { it.toNeutral() }
-            .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+            .stateIn(model.viewModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
 
     // The split point: filtered but pre-grouping, pre-sort (LibraryData.favorites). distinctUntilChanged
     // because the state re-emits for grouping/badge changes the row list is upstream of.
@@ -141,7 +141,7 @@ class MangaLibraryAdapter(
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
-    private fun LibraryScreenModel.State.toNeutral() = LibraryScreenState(
+    private fun LibraryViewModel.State.toNeutral() = LibraryScreenState(
         isLoading = isLoading,
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,

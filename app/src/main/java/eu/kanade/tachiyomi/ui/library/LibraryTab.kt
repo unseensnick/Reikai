@@ -43,7 +43,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -84,7 +85,7 @@ import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryContent
-import reikai.presentation.library.novels.NovelLibraryScreenModel
+import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
@@ -129,9 +130,9 @@ data object LibraryTab : Tab {
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
 
-        val screenModel = rememberScreenModel { LibraryScreenModel() }
-        val settingsScreenModel = rememberScreenModel { LibrarySettingsScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<LibraryViewModel>()
+        val settingsViewModel = viewModel<LibrarySettingsViewModel>()
+        val state by viewModel.state.collectAsState()
 
         // RK --> novels in the library behind the Manga/Novels chip. Both models stay live; a per-type
         // adapter maps each onto the neutral LibraryScreenState / LibraryBehavior, so the tab reads one
@@ -139,17 +140,24 @@ data object LibraryTab : Tab {
         // picks the active adapter; per-type navigation and the hopper long-press stay branched below (they
         // need the navigator / per-type screen types). The `active*` locals are kept as thin aliases over
         // `libState` so every downstream view reads them unchanged.
-        val novelModel = rememberScreenModel { NovelLibraryScreenModel() }
+        val novelModel = viewModel<NovelLibraryViewModel>()
         val novelState by novelModel.state.collectAsState()
         // The engine owns which provider drives the view and every dialog, so the content type is decided
         // in one place rather than at each call site. It is shaped to merge both providers for an All view
-        // later, and is a ScreenModel for its scope: building the change-categories dialog reads categories.
+        // later, and is a ViewModel for its scope: building the change-categories dialog reads categories.
         // It also constructs the adapters, so exactly one pair exists for as long as the engine does. They
         // must not be `remember`ed separately: the engine outlives the composition, so a tab switch would
-        // hand the tab a second pair while the engine kept dispatching through the first.
-        val engine = rememberScreenModel {
-            LibraryEngine(listOf(MangaLibraryAdapter(screenModel), NovelLibraryAdapter(novelModel)))
-        }
+        // hand the tab a second pair while the engine kept dispatching through the first. All three models
+        // share this tab host's ViewModelStore, so the pair the factory captures is cleared alongside them.
+        val engine = viewModel<LibraryEngine>(
+            factory = LibraryEngine.Factory,
+            extras = CreationExtras {
+                set(
+                    LibraryEngine.PROVIDERS_KEY,
+                    listOf(MangaLibraryAdapter(viewModel), NovelLibraryAdapter(novelModel)),
+                )
+            },
+        )
         val libraryContentType by engine.contentType.collectAsState()
         val libraryDialog by engine.dialog.collectAsState()
         // RK: the library-wide display config, read from the engine rather than off the manga model, so
@@ -354,7 +362,7 @@ data object LibraryTab : Tab {
         // RK: shared manga continue-reading handler, used by both the pager and the single-list view.
         val onMangaContinueReading: (LibraryManga) -> Unit = { item ->
             scope.launchIO {
-                val chapter = screenModel.getNextUnreadChapter(item.manga)
+                val chapter = viewModel.getNextUnreadChapter(item.manga)
                 if (chapter != null) {
                     context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
                 } else {
@@ -726,7 +734,7 @@ data object LibraryTab : Tab {
                                                         hopperDragAccum < -48f -> (gravity - 1).coerceAtLeast(0)
                                                         else -> gravity
                                                     }
-                                                    if (next != gravity) screenModel.setHopperGravity(next)
+                                                    if (next != gravity) viewModel.setHopperGravity(next)
                                                 },
                                             ) { change, dragAmount ->
                                                 change.consume()
@@ -801,7 +809,7 @@ data object LibraryTab : Tab {
             // global sort scope, not a stale active category.
             is LibraryDialog.Settings -> LibrarySettingsSheet(
                 settings = engine.settingsFor(dialog.contentType),
-                settingsScreenModel = settingsScreenModel,
+                settingsViewModel = settingsViewModel,
                 categoryId = dialog.categoryId,
                 initialTab = dialog.initialTab,
                 onManageCategories = {

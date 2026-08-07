@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.ui.library
 
-import cafe.adriel.voyager.core.model.ScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,7 +21,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
-class LibrarySettingsScreenModel(
+class LibrarySettingsViewModel(
     val preferences: BasePreferences = Injekt.get(),
     val libraryPreferences: LibraryPreferences = Injekt.get(),
     // RK -->
@@ -30,11 +30,11 @@ class LibrarySettingsScreenModel(
     private val setDisplayMode: SetDisplayMode = Injekt.get(),
     private val setSortModeForCategory: SetSortModeForCategory = Injekt.get(),
     trackerManager: TrackerManager = Injekt.get(),
-) : ScreenModel {
+) : ViewModel() {
 
     val trackersFlow = trackerManager.loggedInTrackersFlow()
         .stateIn(
-            scope = screenModelScope,
+            scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5.seconds.inWholeMilliseconds),
             initialValue = trackerManager.loggedInTrackers(),
         )
@@ -54,7 +54,7 @@ class LibrarySettingsScreenModel(
     }
 
     fun setSort(category: Category?, mode: LibrarySort.Type, direction: LibrarySort.Direction) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             setSortModeForCategory.await(category, mode, direction)
         }
     }

@@ -4,8 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.fastFilterNot
@@ -39,6 +38,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
@@ -104,7 +104,7 @@ import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 import tachiyomi.domain.source.model.Source as DomainSource
 
-class LibraryScreenModel(
+class LibraryViewModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
     private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
@@ -139,7 +139,7 @@ class LibraryScreenModel(
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get(),
     // RK <--
-) : StateScreenModel<LibraryScreenModel.State>(State()) {
+) : StateViewModel<LibraryViewModel.State>(State()) {
 
     // RK: parses a typed query into structured tag components (cached); used by the library
     // tag-search for adult/metadata sources.
@@ -153,13 +153,13 @@ class LibraryScreenModel(
         //     unread count would be wrong until something wrote them. Reconciling off the membership
         //     flow covers every merge and unmerge from one place, instead of hooking each action, and
         //     costs one indexed query when nothing changed.
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             mergeGroupRepository.getAllMembershipsAsFlow(ContentType.MANGA)
                 .distinctUntilChanged()
                 .collectLatest { reconcileChapterMatchKeys.await() }
         }
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             combine(
                 // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
                 //     lookup runs once per query change rather than on every favorites tick (this combine
@@ -253,7 +253,7 @@ class LibraryScreenModel(
                     )
                 }
             }
-            .launchIn(screenModelScope)
+            .launchIn(viewModelScope)
 
         combine(
             getLibraryItemPreferencesFlow(),
@@ -286,7 +286,7 @@ class LibraryScreenModel(
                     state.copy(hasActiveFilters = it)
                 }
             }
-            .launchIn(screenModelScope)
+            .launchIn(viewModelScope)
 
         // RK: the Reikai display state used to be mirrored onto this State for grouping and the toolbar
         // title. Both moved out (LibraryEngine.display feeds the tab directly), so nothing mirrors it.
@@ -612,7 +612,7 @@ class LibraryScreenModel(
     //     aggregation; until it does, this stays on the collapsed primary, which becomes the user's
     //     chosen trunk once the collapse honours the persisted source ranking.
     private fun downloadNextChapters(mangas: List<Manga>, amount: Int?) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             mangas.forEach { manga ->
                 val chapters = getNextChapters.await(manga.id)
                     .fastFilterNot { chapter ->
@@ -633,7 +633,7 @@ class LibraryScreenModel(
     }
 
     private fun downloadBookmarkedChapters(mangas: List<Manga>) {
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             mangas.forEach { manga ->
                 val chapters = getBookmarkedChaptersByMangaId.await(manga.id)
                     .fastFilterNot { chapter ->
@@ -658,7 +658,7 @@ class LibraryScreenModel(
         // RK: mark every source of a merge group, so a merged series doesn't stay part-read on the
         //     sources that aren't the collapsed primary.
         val memberIds = state.value.memberIdsFor(ids)
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             resolveSelectedGroupManga(memberIds).forEach { manga ->
                 setReadStatus.await(
                     manga = manga,
@@ -685,7 +685,7 @@ class LibraryScreenModel(
     ) {
         // RK: resolve the group member ids now, on the caller thread, from the manga being removed.
         val memberIds = if (removeGroupedSources) state.value.memberIdsFor(mangas.map { it.id }) else emptyList()
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             // RK: the merged-away group members are collapsed out of the library state, so resolve
             //     them from the DB by id; falls back to the passed-in mangas when not expanding.
             val targets = if (removeGroupedSources) {
@@ -733,7 +733,7 @@ class LibraryScreenModel(
         val memberIds = mangaList.flatMap { manga ->
             favoritesById[manga.id]?.relatedMangaIds?.ifEmpty { listOf(manga.id) } ?: listOf(manga.id)
         }.distinct()
-        screenModelScope.launchNonCancellable {
+        viewModelScope.launchNonCancellable {
             memberIds.forEach { mangaId ->
                 val categoryIds = getCategories.await(mangaId)
                     .map { it.id }
@@ -747,12 +747,12 @@ class LibraryScreenModel(
     }
 
     fun getDisplayMode(): PreferenceMutableState<LibraryDisplayMode> {
-        return libraryPreferences.displayMode.asState(screenModelScope)
+        return libraryPreferences.displayMode.asState(viewModelScope)
     }
 
     fun getColumnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> {
         return (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
-            .asState(screenModelScope)
+            .asState(viewModelScope)
     }
 
     // RK: picking a random entry moved to LibraryEngine, which reads the assembled list and so can pick
@@ -768,7 +768,7 @@ class LibraryScreenModel(
     // RK: manually merge the selected manga into one group (covers both library views)
     fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // RK: each selected card's whole group is absorbed by the merge, so one call coalesces every source
             mergeManager.merge(ids)
         }
@@ -778,7 +778,7 @@ class LibraryScreenModel(
     // The manager hands each member its own tracker copy on the way out.
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
-        screenModelScope.launchIO { mergeManager.unmerge(ids) }
+        viewModelScope.launchIO { mergeManager.unmerge(ids) }
     }
 
     fun search(query: String?) {
@@ -795,7 +795,7 @@ class LibraryScreenModel(
     // LibraryEngine builds these now, asking the adapter for the entries' category ids instead. Kept for
     // the same reason as showSettingsDialog above. Do not add to it.
     fun openChangeCategoryDialog(ids: List<Long>) {
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             // Create a copy of selected manga
             val mangaList = state.value.mangaFor(ids)
 

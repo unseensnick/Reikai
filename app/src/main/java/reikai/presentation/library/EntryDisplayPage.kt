@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
-import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
+import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -38,16 +38,16 @@ private val displayModes = listOf(
  */
 @Composable
 fun ColumnScope.EntryDisplayPage(
-    screenModel: LibrarySettingsScreenModel,
+    viewModel: LibrarySettingsViewModel,
     showLocalBadge: Boolean,
     mergeToggles: @Composable ColumnScope.() -> Unit,
 ) {
-    val displayMode by screenModel.libraryPreferences.displayMode.collectAsState()
+    val displayMode by viewModel.libraryPreferences.displayMode.collectAsState()
     SettingsChipRow(MR.strings.action_display_mode) {
         displayModes.map { (titleRes, mode) ->
             FilterChip(
                 selected = displayMode == mode,
-                onClick = { screenModel.setDisplayMode(mode) },
+                onClick = { viewModel.setDisplayMode(mode) },
                 label = { Text(stringResource(titleRes)) },
             )
         }
@@ -57,9 +57,9 @@ fun ColumnScope.EntryDisplayPage(
         val configuration = LocalConfiguration.current
         val columnPreference = remember {
             if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                screenModel.libraryPreferences.landscapeColumns
+                viewModel.libraryPreferences.landscapeColumns
             } else {
-                screenModel.libraryPreferences.portraitColumns
+                viewModel.libraryPreferences.portraitColumns
             }
         }
 
@@ -81,46 +81,46 @@ fun ColumnScope.EntryDisplayPage(
     HeadingItem(MR.strings.overlay_header)
     CheckboxItem(
         label = stringResource(MR.strings.action_display_download_badge),
-        pref = screenModel.libraryPreferences.downloadBadge,
+        pref = viewModel.libraryPreferences.downloadBadge,
     )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_unread_badge),
-        pref = screenModel.libraryPreferences.unreadBadge,
+        pref = viewModel.libraryPreferences.unreadBadge,
     )
     if (showLocalBadge) {
         CheckboxItem(
             label = stringResource(MR.strings.action_display_local_badge),
-            pref = screenModel.libraryPreferences.localBadge,
+            pref = viewModel.libraryPreferences.localBadge,
         )
     }
     CheckboxItem(
         label = stringResource(MR.strings.action_display_language_badge),
-        pref = screenModel.libraryPreferences.languageBadge,
+        pref = viewModel.libraryPreferences.languageBadge,
     )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_source_badge),
-        pref = screenModel.reikaiLibraryPreferences.sourceBadge,
+        pref = viewModel.reikaiLibraryPreferences.sourceBadge,
     )
     mergeToggles()
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
-        pref = screenModel.libraryPreferences.showContinueReadingButton,
+        pref = viewModel.libraryPreferences.showContinueReadingButton,
     )
 
     HeadingItem(MR.strings.tabs_header)
     // Single-list (show-all) view toggle; off keeps Mihon's swipeable pager.
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_all_categories),
-        pref = screenModel.reikaiLibraryPreferences.showAllCategories,
+        pref = viewModel.reikaiLibraryPreferences.showAllCategories,
     )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_tabs),
-        pref = screenModel.libraryPreferences.categoryTabs,
+        pref = viewModel.libraryPreferences.categoryTabs,
     )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_number_of_items),
-        pref = screenModel.libraryPreferences.categoryNumberOfItems,
+        pref = viewModel.libraryPreferences.categoryNumberOfItems,
     )
 
-    ReikaiCategoriesPage(screenModel = screenModel)
+    ReikaiCategoriesPage(viewModel = viewModel)
 }
