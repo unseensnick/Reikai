@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -201,6 +202,131 @@ class RecentsEngineTest {
         flow.first() shouldBe emptyMap()
     }
 
+    // Search, selection and the verbs: the values the two replaced screens each stored twice.
+
+    private fun ref(entryId: EntryId, chapterId: Long) = ChapterRef(entryId, chapterId)
+
+    @Test
+    fun `a search keeps only the rows whose displayed title matches`() = runTest {
+        val engine = engine(
+            listOf(
+                provider(
+                    ContentType.MANGA,
+                    updated = rows(item(manga1, at = 100), item(manga2, at = 90)),
+                    titles = mapOf(manga1 to "Dandadan", manga2 to "Berserk"),
+                ),
+            ),
+        )
+        engine.search("dan")
+
+        engine.firstAssembly().items.map { it.entryId } shouldContainExactly listOf(manga1)
+    }
+
+    @Test
+    fun `an empty query leaves every row`() = runTest {
+        val engine = engine(
+            listOf(
+                provider(
+                    ContentType.MANGA,
+                    updated = rows(item(manga1, at = 100), item(manga2, at = 90)),
+                    titles = mapOf(manga1 to "Dandadan", manga2 to "Berserk"),
+                ),
+            ),
+        )
+        engine.search("")
+
+        engine.firstAssembly().items.size shouldBe 2
+    }
+
+    @Test
+    fun `a range selection spans both content types in the rendered order`() {
+        val engine = engine(listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)))
+        val ordered = listOf(ref(manga1, 1), ref(novel1, 2), ref(manga2, 3))
+
+        engine.toggleSelection(ordered.first())
+        engine.toggleRangeSelection(ordered.last(), ordered)
+
+        engine.selection.value shouldContainExactlyInAnyOrder ordered
+    }
+
+    @Test
+    fun `a range with no anchor selects only the row that was pressed`() {
+        val engine = engine(listOf(provider(ContentType.MANGA)))
+        val ordered = listOf(ref(manga1, 1), ref(manga2, 2))
+
+        engine.toggleRangeSelection(ordered.last(), ordered)
+
+        engine.selection.value shouldContainExactly listOf(ordered.last())
+    }
+
+    @Test
+    fun `inverting swaps selected for unselected across the rendered order`() {
+        val engine = engine(listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)))
+        val ordered = listOf(ref(manga1, 1), ref(novel1, 2))
+
+        engine.toggleSelection(ordered.first())
+        engine.invertSelection(ordered)
+
+        engine.selection.value shouldContainExactly listOf(ordered.last())
+    }
+
+    @Test
+    fun `a selected chapter the feed no longer holds leaves the selection`() = runTest {
+        val chapter = ref(manga2, 3)
+        val engine = engine(
+            listOf(
+                provider(
+                    ContentType.MANGA,
+                    updated = rows(
+                        item(manga1, at = 100, lane = RecentsLane.Updated(ref(manga1, 1))),
+                        item(manga2, at = 90, lane = RecentsLane.Updated(chapter)),
+                    ),
+                    titles = mapOf(manga1 to "Dandadan", manga2 to "Berserk"),
+                ),
+            ),
+        )
+        engine.toggleSelection(chapter)
+        engine.search("dan")
+        engine.firstAssembly()
+
+        engine.selection.value shouldBe emptySet()
+    }
+
+    @Test
+    fun `a bulk action reaches every content type on screen and clears the selection`() {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+        val engine = engine(listOf(manga, novel))
+        val chapter = ref(manga1, 1)
+
+        engine.toggleSelection(chapter)
+        engine.markReadSelection(read = true)
+
+        manga.markedRead shouldBe setOf(chapter)
+        novel.markedRead shouldBe setOf(chapter)
+        engine.selection.value shouldBe emptySet()
+    }
+
+    @Test
+    fun `clearing history reaches both content types under All`() {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+
+        engine(listOf(manga, novel)).clearHistory()
+
+        (manga.historyCleared to novel.historyCleared) shouldBe (true to true)
+    }
+
+    @Test
+    fun `clearing history under one chip spares the other content type`() {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+
+        engine(listOf(manga, novel), chip = ContentType.MANGA).clearHistory()
+
+        novel.historyCleared shouldBe false
+    }
+
     @Test
     fun `a chapter state filter marks a surface that renders the updated lane`() {
         recentsFilterActive(
@@ -237,16 +363,23 @@ private fun provider(
     updated: RecentsLaneRows = rows(),
     added: RecentsLaneRows = rows(),
     updatedAt: Long = 0L,
-) = FakeRecentsProvider(type, read, updated, added, updatedAt)
+    titles: Map<EntryId, String> = emptyMap(),
+) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles)
 
-/** A provider with canned lanes. The verbs are unreachable from the engine until selection lands. */
+/** A provider with canned lanes, recording the verbs the engine dispatched to it. */
 private class FakeRecentsProvider(
     override val contentType: ContentType,
     readRows: RecentsLaneRows,
     updatedRows: RecentsLaneRows,
     addedRows: RecentsLaneRows,
     updatedAt: Long,
+    private val titles: Map<EntryId, String>,
 ) : RecentsProvider {
+
+    var historyCleared = false
+        private set
+    var markedRead: Set<ChapterRef>? = null
+        private set
 
     override val readLane: Flow<RecentsLaneRows> = flowOf(readRows)
     override val updatedLane: Flow<RecentsLaneRows> = flowOf(updatedRows)
@@ -254,11 +387,20 @@ private class FakeRecentsProvider(
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
     override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
 
+    override fun title(item: RecentsItem): String = titles[item.entryId].orEmpty()
+
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 
-    override fun markRead(chapters: Set<ChapterRef>, read: Boolean) = Unit
+    override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
+        markedRead = chapters
+    }
+
     override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
     override fun download(chapters: Set<ChapterRef>) = Unit
     override fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
     override fun removeFromHistory(entries: Set<EntryId>) = Unit
+
+    override fun clearHistory() {
+        historyCleared = true
+    }
 }

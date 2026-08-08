@@ -22,4 +22,7 @@ interface RecentsBehavior {
 
     /** Drops these entries' read records. Both types support it; History is where it is reachable. */
     fun removeFromHistory(entries: Set<EntryId>)
+
+    /** Drops every read record of this content type, behind the engine's one confirmation. */
+    fun clearHistory()
 }

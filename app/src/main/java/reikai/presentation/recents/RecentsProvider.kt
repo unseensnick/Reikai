@@ -65,6 +65,13 @@ interface RecentsProvider : RecentsBehavior {
      */
     val membership: Flow<Map<EntryId, Long>>
 
+    /**
+     * The title this row displays, which is what a search matches. Each adapter reads its own payload,
+     * and every model already writes the user's custom title into the row it emits, so a renamed entry
+     * is findable by the name on screen without the engine ever unwrapping a payload.
+     */
+    fun title(item: RecentsItem): String
+
     fun lane(kind: RecentsLaneKind): Flow<RecentsLaneRows> = when (kind) {
         RecentsLaneKind.READ -> readLane
         RecentsLaneKind.UPDATED -> updatedLane

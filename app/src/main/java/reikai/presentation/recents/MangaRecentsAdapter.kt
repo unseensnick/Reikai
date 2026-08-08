@@ -95,9 +95,10 @@ class MangaRecentsAdapter(
         val mangaId = item.entryId.rawId
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
+        val readElsewhere = group?.readInOtherSources.orEmpty()
         val chapterId = when (val lane = item.lane) {
             is RecentsLane.Read -> resumeInGroup(
-                chapters = group?.chapters.orEmpty().map { it.toRecentsChapter(group?.readInOtherSources) },
+                chapters = group?.chapters.orEmpty().map { it.toRecentsChapter(readElsewhere) },
                 recordedId = lane.chapter.chapterId,
             )
                 // The stitch drops a chapter another source represents, so a recorded chapter can be
@@ -107,7 +108,7 @@ class MangaRecentsAdapter(
                 // The burst is one source's: fetch times do not line up across sources, so only the
                 // read-elsewhere carry-over crosses the group here.
                 chapters = getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)
-                    .map { it.toRecentsChapter(group?.readInOtherSources) },
+                    .map { it.toRecentsChapter(readElsewhere) },
                 rowChapterId = lane.chapter.chapterId,
             )
             RecentsLane.Added -> if (manga != null && group != null) {
@@ -119,10 +120,10 @@ class MangaRecentsAdapter(
         return chapterId?.let { ChapterRef(item.entryId, it) }
     }
 
-    private fun Chapter.toRecentsChapter(readInOtherSources: Set<Long>?) = RecentsChapter(
+    private fun Chapter.toRecentsChapter(readInOtherSources: Set<Long>) = RecentsChapter(
         id = id,
         fetchedAt = dateFetch,
-        read = read || id in readInOtherSources.orEmpty(),
+        read = read || id in readInOtherSources,
     )
 
     // Each verb takes the neutral set and hands its model only its own content type's rows, so a mixed
@@ -151,6 +152,17 @@ class MangaRecentsAdapter(
 
     override fun removeFromHistory(entries: Set<EntryId>) {
         entries.filterIsInstance<EntryId.Manga>().forEach { historyModel.removeAllFromHistory(it.rawId) }
+    }
+
+    override fun clearHistory() {
+        historyModel.removeAllHistory()
+    }
+
+    override fun title(item: RecentsItem): String = when (val payload = item.payload) {
+        is UpdatesItem -> payload.update.mangaTitle
+        is HistoryWithRelations -> payload.title
+        is RecentlyAddedManga -> payload.title
+        else -> ""
     }
 }
 

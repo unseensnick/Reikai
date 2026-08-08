@@ -128,6 +128,17 @@ class NovelRecentsAdapter(
     override fun removeFromHistory(entries: Set<EntryId>) {
         entries.filterIsInstance<EntryId.Novel>().forEach { historyModel.removeAllFromHistory(it.rawId) }
     }
+
+    override fun clearHistory() {
+        historyModel.removeAllHistory()
+    }
+
+    override fun title(item: RecentsItem): String = when (val payload = item.payload) {
+        is NovelUpdatesItem -> payload.update.novelTitle
+        is NovelHistoryWithRelations -> payload.title
+        is RecentlyAddedNovel -> payload.title
+        else -> ""
+    }
 }
 
 internal const val ADDED_LANE_LIMIT = 500L

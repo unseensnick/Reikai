@@ -37,6 +37,14 @@ sealed interface RecentsLane {
  */
 enum class RecentsLaneKind { READ, UPDATED, ADDED }
 
+/** The chapter this activity was about, absent on the added lane, which is why it is not a field. */
+val RecentsLane.chapterRef: ChapterRef?
+    get() = when (this) {
+        is RecentsLane.Read -> chapter
+        is RecentsLane.Updated -> chapter
+        RecentsLane.Added -> null
+    }
+
 val RecentsLane.kind: RecentsLaneKind
     get() = when (this) {
         is RecentsLane.Read -> RecentsLaneKind.READ

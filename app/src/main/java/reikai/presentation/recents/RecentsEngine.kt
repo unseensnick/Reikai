@@ -8,13 +8,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
@@ -100,11 +103,14 @@ class RecentsEngine(
             // Every provider's, not just the active ones': the keys are EntryIds and group ids are
             // unique across both content types, so one map serves whatever the chip ends up showing.
             combine(providers.map { it.membership }) { maps -> maps.fold(emptyMap<EntryId, Long>()) { a, b -> a + b } },
-        ) { chip, lanesPerProvider, membership ->
+            query,
+        ) { chip, lanesPerProvider, membership, query ->
             val active = activeIndices(chip).flatMap { lanesPerProvider[it] }
+            val rows = orderRecents(active.flatMap { it.items }).filter { matchesQuery(it, query) }
+            pruneSelection(rows)
             RecentsAssembled(
                 chip = chip,
-                items = orderRecents(active.flatMap { it.items }),
+                items = rows,
                 membership = membership,
                 // Over the active providers only: an unloaded novel lane used to hold the manga chip's
                 // spinner, since one flag was read for a list the other type was not in.
@@ -137,6 +143,134 @@ class RecentsEngine(
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
     }
+
+    // One query for the surface, matched here rather than in SQL. Every model already writes the user's
+    // custom title into the row it emits, so matching the displayed title is what makes a renamed entry
+    // findable by the name on screen; the SQL search could only ever see the source title. It also gives
+    // the updated and added lanes a search they have never had, at the cost of one pass over a feed that
+    // is bounded per lane.
+    private val mutableQuery = MutableStateFlow<String?>(null)
+    val query: StateFlow<String?> = mutableQuery.asStateFlow()
+
+    fun search(query: String?) {
+        mutableQuery.value = query
+    }
+
+    private val providersByType = providers.associateBy { it.contentType }
+
+    private fun matchesQuery(item: RecentsItem, query: String?): Boolean {
+        if (query.isNullOrBlank()) return true
+        val title = providersByType[item.entryId.contentType]?.title(item) ?: return false
+        return title.contains(query, ignoreCase = true)
+    }
+
+    // Selection. A chapter, not an entry: two chapters of one series are independently selectable, and
+    // the raw chapter ids of the two content types overlap.
+
+    private val mutableSelection = MutableStateFlow<Set<ChapterRef>>(emptySet())
+    val selection: StateFlow<Set<ChapterRef>> = mutableSelection.asStateFlow()
+
+    /** Anchor for range-select; not reactive, it only decides how the next long-press behaves. */
+    private var lastSelected: ChapterRef? = null
+
+    fun clearSelection() {
+        lastSelected = null
+        mutableSelection.value = emptySet()
+    }
+
+    fun toggleSelection(chapter: ChapterRef) {
+        mutableSelection.update { if (chapter in it) it - chapter else it + chapter }
+        lastSelected = chapter.takeIf { mutableSelection.value.isNotEmpty() }
+    }
+
+    /**
+     * Select everything between [chapter] and the last selected row, in the order given. [ordered] is
+     * the rendered order, which only the caller knows: it interleaves both content types, and grouping
+     * and collapsing change it again. The replaced screen ranged over one model's own list instead, so
+     * a sweep under the All chip skipped every row of the other type.
+     */
+    fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) {
+        val anchor = lastSelected
+        val from = ordered.indexOf(anchor)
+        val to = ordered.indexOf(chapter)
+        mutableSelection.update { current ->
+            if (anchor == null || from < 0 || to < 0) {
+                current + chapter
+            } else {
+                current + ordered.subList(minOf(from, to), maxOf(from, to) + 1)
+            }
+        }
+        lastSelected = chapter
+    }
+
+    fun selectAll(ordered: List<ChapterRef>) {
+        lastSelected = null
+        mutableSelection.update { it + ordered }
+    }
+
+    fun invertSelection(ordered: List<ChapterRef>) {
+        lastSelected = null
+        mutableSelection.update { current ->
+            val (toRemove, toAdd) = ordered.partition { it in current }
+            current - toRemove.toSet() + toAdd
+        }
+    }
+
+    /** Drop selected chapters that the rendered feed no longer holds, so the toolbar count cannot
+     *  promise more than the verbs will touch. */
+    private fun pruneSelection(rows: List<RecentsItem>) {
+        mutableSelection.update { selection ->
+            if (selection.isEmpty()) return@update selection
+            val present = rows.mapNotNullTo(HashSet()) { it.lane.chapterRef }
+            val pruned = selection.filterTo(HashSet()) { it in present }
+            if (pruned.size == selection.size) selection else pruned
+        }
+    }
+
+    // Dialogs: one slot, so a prompt about a mixed selection is asked once.
+
+    private val mutableDialog = MutableStateFlow<RecentsDialog?>(null)
+    val dialog: StateFlow<RecentsDialog?> = mutableDialog.asStateFlow()
+
+    fun openDialog(dialog: RecentsDialog) {
+        mutableDialog.value = dialog
+    }
+
+    fun dismissDialog() {
+        mutableDialog.value = null
+    }
+
+    // The verbs. Each is handed to every provider in view, which narrows it to its own rows, so one
+    // call covers a selection spanning both content types.
+
+    fun markReadSelection(read: Boolean) = dispatchAndClear { it.markRead(selection.value, read) }
+
+    fun setBookmarkSelection(bookmarked: Boolean) =
+        dispatchAndClear { it.setBookmark(selection.value, bookmarked) }
+
+    fun downloadSelection() = dispatchAndClear { it.download(selection.value) }
+
+    fun deleteDownloads(chapters: Set<ChapterRef>) {
+        activeProviders().forEach { it.deleteDownloads(chapters) }
+        clearSelection()
+    }
+
+    fun removeFromHistory(entries: Set<EntryId>) {
+        providers.forEach { it.removeFromHistory(entries) }
+    }
+
+    /** Clears the history of every content type on screen, which is why it is one confirmation. */
+    fun clearHistory() {
+        activeProviders().forEach { it.clearHistory() }
+    }
+
+    private fun dispatchAndClear(action: (RecentsProvider) -> Unit) {
+        activeProviders().forEach(action)
+        clearSelection()
+    }
+
+    private fun activeProviders(): List<RecentsProvider> =
+        activeIndices(contentType.value).map { providers[it] }
 
     private fun chapterStateFilterActive(): Flow<Boolean> = combine(
         updatesPreferences.filterUnread.changes(),
