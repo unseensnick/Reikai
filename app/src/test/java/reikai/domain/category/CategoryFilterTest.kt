@@ -59,4 +59,40 @@ class CategoryFilterTest {
     fun `uncategorized series can be targeted by the synthetic uncategorized id`() {
         matchesCategoryFilter(categories = listOf(0L), include = setOf(0L), exclude = emptySet()) shouldBe true
     }
+
+    @Test
+    fun `a confirm keeps stored ids the picker never showed`() {
+        mergeCategorySelection(
+            stored = setOf(1L, 100000007L),
+            shown = setOf(1L, 2L),
+            confirmed = setOf(1L),
+        ) shouldBe setOf(1L, 100000007L)
+    }
+
+    @Test
+    fun `a confirm drops a shown id the user cleared`() {
+        mergeCategorySelection(
+            stored = setOf(1L, 2L),
+            shown = setOf(1L, 2L),
+            confirmed = setOf(1L),
+        ) shouldBe setOf(1L)
+    }
+
+    @Test
+    fun `a confirm adds a newly selected id`() {
+        mergeCategorySelection(
+            stored = setOf(1L),
+            shown = setOf(1L, 2L),
+            confirmed = setOf(1L, 2L),
+        ) shouldBe setOf(1L, 2L)
+    }
+
+    @Test
+    fun `a confirm over an empty picker leaves the stored selection alone`() {
+        mergeCategorySelection(
+            stored = setOf(1L, 2L),
+            shown = emptySet(),
+            confirmed = emptySet(),
+        ) shouldBe setOf(1L, 2L)
+    }
 }

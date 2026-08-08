@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import reikai.domain.category.mergeCategorySelection
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -34,8 +35,10 @@ import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * One include/exclude picker section, scoped to a single category id-space (manga and novel ids never
- * share one). [onConfirm] persists that section's selections; the row owns the master on/off toggle.
+ * One include/exclude picker section over [categories]. [onConfirm] receives the WHOLE selection to
+ * store, not just this section's ids: the dialog merges the section's result over [included] /
+ * [excluded] so a stored id whose category this section does not display survives the confirm. The row
+ * owns the master on/off toggle.
  */
 data class CategoryFilterSection(
     val headingRes: StringResource?,
@@ -137,9 +140,18 @@ private fun CategoryFilterDialog(
                 TextButton(
                     onClick = {
                         sections.forEachIndexed { index, section ->
+                            val shown = section.categories.mapTo(HashSet()) { it.id }
                             section.onConfirm(
-                                states[index].idsWith(TriState.ENABLED_IS),
-                                states[index].idsWith(TriState.ENABLED_NOT),
+                                mergeCategorySelection(
+                                    section.included,
+                                    shown,
+                                    states[index].idsWith(TriState.ENABLED_IS),
+                                ),
+                                mergeCategorySelection(
+                                    section.excluded,
+                                    shown,
+                                    states[index].idsWith(TriState.ENABLED_NOT),
+                                ),
                             )
                         }
                         onDismiss()

@@ -23,3 +23,12 @@ fun matchesCategoryFilter(categories: Collection<Long>, include: Set<Long>, excl
     val isExcluded = exclude.isNotEmpty() && categories.any { it in exclude }
     return isIncluded && !isExcluded
 }
+
+/**
+ * The selection to store after a picker confirm: [confirmed] replaces the part of [stored] that the
+ * picker displayed ([shown]) and leaves the rest alone. Storing [confirmed] wholesale instead would
+ * drop every id whose category the picker did not show, which is silent data loss wherever one stored
+ * selection is edited through a picker scoped to less than the whole category list.
+ */
+fun mergeCategorySelection(stored: Set<Long>, shown: Set<Long>, confirmed: Set<Long>): Set<Long> =
+    stored.filterNotTo(mutableSetOf()) { it in shown } + confirmed

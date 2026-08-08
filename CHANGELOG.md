@@ -142,6 +142,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library & updates**
 
+- **Filtering the library by category no longer forgets the categories of the type you are not looking at.** Picking categories under the All chip and then confirming the picker under Manga or Novels quietly dropped the other type's choices.
 - **A date older than about a month now says how old it really is (synced from Mihon, mihonapp/mihon#3696).** Something read 40 days ago was described as 10 days old, wherever a date is shown relatively.
 - **Tapping the Library button again while the Novels library is showing now opens the novel settings, not the manga ones.**
 - **Searching your library from another screen now searches the library you are looking at.** It always searched manga, whichever chip was selected.
