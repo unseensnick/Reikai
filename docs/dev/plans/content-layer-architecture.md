@@ -63,7 +63,7 @@ In progress. Designed 2026-07-18. Per-surface detail lives in the surface plans;
 | Library | Takeover of orchestration: the shared engine owns assembly, selection and the action verbs. `LibraryViewModel` is still live at 930 lines as the manga provider, and the manifest holds only `LibrarySettingsDialog.kt` and `QueryNodeExtensions.kt` | [library](content-layer-library-surface.md) |
 | Migrate | Full takeover: whole flow, seventeen files deleted and manifested. Cut over, with a close-out batch still open | [migrate](content-layer-migrate-surface.md) |
 | Browse | Behavior-partial: shared bulk-favorite generic, shared dialogs and default-category kernel. Verbs stay per-type, no takeover, one neutral adder contract assessed and declined | [browse](content-layer-browse-surface.md) |
-| History, Updates | UI leaf only: shared row composables over per-type feeds, behavior never unified. Takeover planned and not started, carrying the combined Recents feed with it | [recents](content-layer-recents-surface.md) |
+| History, Updates | UI leaf only, takeover started: shared row composables over per-type feeds and a forked behavior layer, but the data floor has landed (one shared category selection, every lane filtering in SQL). The engine has not; the combined Recents feed rides the same build | [recents](content-layer-recents-surface.md) |
 | Downloads | Not started: Road B, `DownloadQueueViewModel` still `// RK: inert` | [download-queue-unification](download-queue-unification.md) |
 | Reader | Chrome only: shared bars, engines separate by design | [unified-reader](unified-reader.md) |
 
