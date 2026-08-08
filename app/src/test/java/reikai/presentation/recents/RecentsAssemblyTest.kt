@@ -147,4 +147,226 @@ class RecentsAssemblyTest {
         collapseByEntry(updatedLane).size shouldBe 1
         collapseByEntry(readLane).size shouldBe 1
     }
+
+    // The four render policies over that kernel. Timestamps are two days apart where a day boundary
+    // matters, so no timezone can put them on one date.
+
+    private val day1 = 1_700_000_000_000L
+    private val day2 = day1 + 2 * 24 * 60 * 60 * 1000L
+
+    private fun entries(rows: List<RecentsRow>) = rows.filterIsInstance<RecentsRow.Entry>()
+
+    private fun headers(rows: List<RecentsRow>) = rows.filterIsInstance<RecentsRow.DateHeader>()
+
+    private fun sections(rows: List<RecentsRow>) =
+        rows.filterIsInstance<RecentsRow.SectionHeader>().map { it.section }
+
+    private fun sectionRows(rows: List<RecentsRow>, section: RecentsLaneKind): Int {
+        val from = rows.indexOfFirst { it is RecentsRow.SectionHeader && it.section == section }
+        return rows.drop(from + 1).takeWhile { it is RecentsRow.Entry }.size
+    }
+
+    @Test
+    fun `one day's rows sit under one header`() {
+        val rows = historyRows(listOf(manga(1, at = day1), manga(2, at = day1 + 1000)))
+
+        headers(rows).size shouldBe 1
+    }
+
+    @Test
+    fun `a new day opens a new header`() {
+        val rows = historyRows(listOf(manga(1, at = day2), manga(2, at = day1)))
+
+        headers(rows).size shouldBe 2
+    }
+
+    @Test
+    fun `two chapters of one series on one day collapse into a group`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day1 + 1000, lane = updated(id, chapterId = 2)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+
+        val rows = updatesRows(items, groupBySeries = true, seriesKeys = emptyMap(), expandedKeys = emptySet())
+
+        rows.filterIsInstance<RecentsRow.Group>().single().members.size shouldBe 2
+    }
+
+    @Test
+    fun `a series' only chapter of the day stays a flat row`() {
+        val items = listOf(manga(1, at = day1, lane = updated(EntryId.Manga(1), chapterId = 1)))
+
+        val rows = updatesRows(items, groupBySeries = true, seriesKeys = emptyMap(), expandedKeys = emptySet())
+
+        entries(rows).size shouldBe 1
+    }
+
+    @Test
+    fun `grouping is per day, so yesterday's chapter is not in today's group`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day2 + 1000, lane = updated(id, chapterId = 3)),
+            manga(1, at = day2, lane = updated(id, chapterId = 2)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+
+        val rows = updatesRows(items, groupBySeries = true, seriesKeys = emptyMap(), expandedKeys = emptySet())
+
+        rows.filterIsInstance<RecentsRow.Group>().single().members.size shouldBe 2
+    }
+
+    @Test
+    fun `an expanded group is followed by its members`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day1 + 1000, lane = updated(id, chapterId = 2)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+        val key = updatesRows(items, groupBySeries = true, emptyMap(), emptySet())
+            .filterIsInstance<RecentsRow.Group>().single().key
+
+        val rows = updatesRows(items, groupBySeries = true, emptyMap(), expandedKeys = setOf(key))
+
+        rows.filterIsInstance<RecentsRow.Child>().size shouldBe 2
+    }
+
+    @Test
+    fun `a collapsed group hides its members`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day1 + 1000, lane = updated(id, chapterId = 2)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+
+        val rows = updatesRows(items, groupBySeries = true, emptyMap(), expandedKeys = emptySet())
+
+        rows.filterIsInstance<RecentsRow.Child>().size shouldBe 0
+    }
+
+    @Test
+    fun `grouping off leaves every chapter its own row`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day1 + 1000, lane = updated(id, chapterId = 2)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+
+        val rows = updatesRows(items, groupBySeries = false, emptyMap(), emptySet())
+
+        entries(rows).size shouldBe 2
+    }
+
+    @Test
+    fun `a series merged across sources is one group`() {
+        val first = EntryId.Manga(1)
+        val second = EntryId.Manga(2)
+        val items = listOf(
+            manga(1, at = day1 + 1000, lane = updated(first, chapterId = 1)),
+            manga(2, at = day1, lane = updated(second, chapterId = 2)),
+        )
+        val keys = mapOf<EntryId, String>(first to "group-a", second to "group-a")
+
+        val rows = updatesRows(items, groupBySeries = true, seriesKeys = keys, expandedKeys = emptySet())
+
+        rows.filterIsInstance<RecentsRow.Group>().single().members.size shouldBe 2
+    }
+
+    @Test
+    fun `a manga group and a novel group sharing a key stay apart`() {
+        val mangaId = EntryId.Manga(1)
+        val novelId = EntryId.Novel(1)
+        val items = listOf(
+            manga(1, at = day1 + 1000, lane = updated(mangaId, chapterId = 1)),
+            novel(1, at = day1, lane = updated(novelId, chapterId = 1)),
+        )
+        // Each engine resolves its own merge-group keys, so one string can name a group on both sides.
+        val keys = mapOf<EntryId, String>(mangaId to "g1", novelId to "g1")
+
+        val rows = updatesRows(items, groupBySeries = true, seriesKeys = keys, expandedKeys = emptySet())
+
+        rows.filterIsInstance<RecentsRow.Group>().size shouldBe 0
+    }
+
+    @Test
+    fun `the flat feed is one row per title across lanes`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day2, lane = read(id, chapterId = 9)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+
+        entries(flatRecentsRows(items)).size shouldBe 1
+    }
+
+    @Test
+    fun `the flat feed carries no date headers`() {
+        val rows = flatRecentsRows(listOf(manga(1, at = day1), manga(2, at = day2)))
+
+        headers(rows).size shouldBe 0
+    }
+
+    @Test
+    fun `the digest shows a series read and updated today under both sections`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day2, lane = read(id, chapterId = 9)),
+            manga(1, at = day1, lane = updated(id, chapterId = 1)),
+        )
+
+        entries(digestRows(items)).size shouldBe 2
+    }
+
+    @Test
+    fun `new chapters cap at four`() {
+        val items = (1..6).map { manga(it.toLong(), at = day1 + it, lane = updated(EntryId.Manga(it.toLong()), 1)) }
+
+        sectionRows(digestRows(items), RecentsLaneKind.UPDATED) shouldBe 4
+    }
+
+    @Test
+    fun `newly added caps at four`() {
+        val items = (1..6).map { manga(it.toLong(), at = day1 + it) }
+
+        sectionRows(digestRows(items), RecentsLaneKind.ADDED) shouldBe 4
+    }
+
+    @Test
+    fun `continue reading takes what new chapters left of the nine`() {
+        val updates = (1..4).map { manga(it.toLong(), at = day1 + it, lane = updated(EntryId.Manga(it.toLong()), 1)) }
+        val reads = (10..20).map { novel(it.toLong(), at = day1 + it, lane = read(EntryId.Novel(it.toLong()), 1)) }
+
+        sectionRows(digestRows(updates + reads), RecentsLaneKind.READ) shouldBe 5
+    }
+
+    @Test
+    fun `sections are ordered by their newest row`() {
+        val items = listOf(
+            manga(1, at = day1, lane = updated(EntryId.Manga(1), chapterId = 1)),
+            novel(1, at = day2, lane = read(EntryId.Novel(1), chapterId = 1)),
+        )
+
+        sections(digestRows(items)) shouldBe listOf(RecentsLaneKind.READ, RecentsLaneKind.UPDATED)
+    }
+
+    @Test
+    fun `an empty section emits no header`() {
+        val items = listOf(manga(1, at = day1, lane = updated(EntryId.Manga(1), chapterId = 1)))
+
+        sections(digestRows(items)) shouldBe listOf(RecentsLaneKind.UPDATED)
+    }
+
+    @Test
+    fun `a chapter section offers a way into its own mode`() {
+        val items = listOf(manga(1, at = day1, lane = updated(EntryId.Manga(1), chapterId = 1)))
+
+        digestRows(items).filterIsInstance<RecentsRow.SectionFooter>().size shouldBe 1
+    }
+
+    @Test
+    fun `newly added has no mode to jump to, so it carries no footer`() {
+        val items = listOf(manga(1, at = day1))
+
+        digestRows(items).filterIsInstance<RecentsRow.SectionFooter>().size shouldBe 0
+    }
 }

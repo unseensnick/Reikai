@@ -37,6 +37,13 @@ sealed interface RecentsLane {
  */
 enum class RecentsLaneKind { READ, UPDATED, ADDED }
 
+val RecentsLane.kind: RecentsLaneKind
+    get() = when (this) {
+        is RecentsLane.Read -> RecentsLaneKind.READ
+        is RecentsLane.Updated -> RecentsLaneKind.UPDATED
+        RecentsLane.Added -> RecentsLaneKind.ADDED
+    }
+
 /**
  * One row of recent activity, neutral over both content types. [timestamp] is epoch millis whatever
  * the source column was, normalised per adapter so the shared layer never meets a `Date` on one side
