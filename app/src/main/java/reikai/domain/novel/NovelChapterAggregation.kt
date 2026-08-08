@@ -58,6 +58,27 @@ object NovelChapterAggregation {
     }
 
     /**
+     * Ids in [unified] whose own row is unread but which another source of the group has already read.
+     * The stitch keeps one row per cross-source chapter and drops the rest, so without this a chapter
+     * reads as unread purely because the copy that won happens to be the unread one. Same identity as
+     * the merged unread count, so a resume and the badge agree. Manga twin: `MergedChapterProvider`.
+     */
+    fun readInOtherSources(
+        chaptersByNovel: Map<Long, List<NovelChapter>>,
+        unified: List<NovelChapter>,
+    ): Set<Long> {
+        if (chaptersByNovel.size <= 1) return emptySet()
+        val readKeys = chaptersByNovel.values.asSequence()
+            .flatten()
+            .filter { it.read }
+            .mapNotNullTo(HashSet()) { matchKey(it) }
+        if (readKeys.isEmpty()) return emptySet()
+        return unified.asSequence()
+            .filter { !it.read && matchKey(it) in readKeys }
+            .mapTo(HashSet()) { it.id }
+    }
+
+    /**
      * The member novel ids in trunk order (first = trunk), the same ranking [aggregate] applies. Lets the
      * manage-sources dialog badge the primary source without stitching the whole chapter list.
      */

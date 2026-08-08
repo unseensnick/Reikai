@@ -244,7 +244,7 @@ class DomainModule : InjektModule {
         addFactory { GetNovelHistory(get()) }
         addFactory { UpsertNovelHistory(get()) }
         addFactory { RemoveNovelHistory(get()) }
-        addFactory { GetNextNovelChapter(get()) }
+        addFactory { GetNextNovelChapter(get(), get(), get(), get()) }
         // RK <--
         // RK: the recents surface's newly-added lane, one repository serving both content types.
         addSingletonFactory<RecentlyAddedRepository> { RecentlyAddedRepositoryImpl(get()) }

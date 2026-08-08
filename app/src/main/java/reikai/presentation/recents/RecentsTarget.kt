@@ -11,6 +11,19 @@ data class RecentsChapter(
     val read: Boolean,
 )
 
+/**
+ * Resume over a merge group: reopen the recorded chapter while it is unfinished, else the next unread
+ * after it. One rule for both engines, over each one's own unified list, with a chapter another source
+ * already read passed in as read. Null when [recordedId] is not in [chapters], which happens when the
+ * cross-source stitch dropped that copy; the caller then falls back to its own single-source resume.
+ */
+fun resumeInGroup(chapters: List<RecentsChapter>, recordedId: Long): Long? {
+    val index = chapters.indexOfFirst { it.id == recordedId }
+    if (index < 0) return null
+    if (!chapters[index].read) return recordedId
+    return chapters.drop(index + 1).firstOrNull { !it.read }?.id
+}
+
 /** How far either side of a row's own chapter still counts as the same update burst. */
 const val BURST_WINDOW_MS: Long = 12 * 60 * 60 * 1000L
 

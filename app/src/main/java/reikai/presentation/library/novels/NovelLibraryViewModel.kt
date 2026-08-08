@@ -34,11 +34,11 @@ import reikai.domain.library.toSortMode
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
-import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
+import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -112,6 +112,7 @@ class NovelLibraryViewModel :
     private val installer: LnPluginInstaller by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
     private val getNovelTracks: GetNovelTracks by injectLazy()
+    private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
@@ -579,25 +580,8 @@ class NovelLibraryViewModel :
     /** The next-unread chapter to resume. For a merged novel this pools the whole group (the unified
      *  cross-source list the details "All" view shows) to find the first unread; the reader itself
      *  resolves the group order for prev/next, so only the chapter is returned. */
-    suspend fun getResume(repNovelId: Long): NovelChapter? {
-        val rep = novelRepository.getById(repNovelId) ?: return null
-        val memberIds = mergeManager.computeRelatedIds(rep.id).toList()
-        val ordered = if (memberIds.size <= 1) {
-            novelChapterRepository.getByNovelId(repNovelId).sortedBy { it.sourceOrder }
-        } else {
-            val byNovel = memberIds.associateWith { novelChapterRepository.getByNovelId(it) }
-            val sourceIdByNovel = memberIds.associateWith { id -> novelRepository.getById(id)?.source.orEmpty() }
-            NovelChapterAggregation.aggregate(
-                byNovel,
-                sourceIdByNovel,
-                reikaiLibraryPreferences.preferredNovelSources.get(),
-                mergeManager.overrideRankingMemberIds(rep.id),
-            )
-                // chapterNumber is the cross-source reading order (sourceOrder isn't comparable across sources).
-                .sortedBy { it.chapterNumber }
-        }
-        return ordered.firstOrNull { !it.read }
-    }
+    suspend fun getResume(repNovelId: Long): NovelChapter? =
+        getNextNovelChapter.awaitFirstUnreadInGroup(repNovelId)
 
     // --- settings sheet (sort / filter), rendered from the engine's dialog ---
     // Sort writes live in NovelLibraryAdapter, routed through the shared SetSortModeForCategory exactly

@@ -16,6 +16,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
@@ -73,20 +74,34 @@ class NovelRecentsAdapter(
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
 
+    /** Merge-aware on all three lanes, the twin of [MangaRecentsAdapter.targetChapter]. */
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val novelId = item.entryId.rawId
+        val group = getNextNovelChapter.groupChapters(novelId)
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> getNextNovelChapter.await(novelId, lane.chapter.chapterId)?.id
+            is RecentsLane.Read -> resumeInGroup(
+                chapters = group.chapters.map { it.toRecentsChapter(group.readInOtherSources) },
+                recordedId = lane.chapter.chapterId,
+            )
+                // A recorded chapter the cross-source stitch dropped resumes from its own source.
+                ?: getNextNovelChapter.await(novelId, lane.chapter.chapterId)?.id
             is RecentsLane.Updated -> firstUnreadInBurst(
-                // Source order is this type's reading order, which is what getByNovelId returns.
+                // Source order is this type's reading order, which is what getByNovelId returns. The
+                // burst stays within one source; only the read-elsewhere carry-over crosses the group.
                 chapters = chapterRepository.getByNovelId(novelId)
-                    .map { RecentsChapter(id = it.id, fetchedAt = it.dateFetch, read = it.read) },
+                    .map { it.toRecentsChapter(group.readInOtherSources) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> getNextNovelChapter.awaitFirstUnread(novelId)?.id
+            RecentsLane.Added -> getNextNovelChapter.awaitFirstUnreadInGroup(novelId)?.id
         }
         return chapterId?.let { ChapterRef(item.entryId, it) }
     }
+
+    private fun NovelChapter.toRecentsChapter(readInOtherSources: Set<Long>) = RecentsChapter(
+        id = id,
+        fetchedAt = dateFetch,
+        read = read || id in readInOtherSources,
+    )
 
     private fun Set<ChapterRef>.ownItems(): List<NovelUpdatesItem> {
         val ids = filter { it.entryId is EntryId.Novel }.mapTo(HashSet()) { it.chapterId }

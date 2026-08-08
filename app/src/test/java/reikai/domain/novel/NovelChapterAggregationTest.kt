@@ -8,7 +8,12 @@ class NovelChapterAggregationTest {
 
     private var nextId = 1L
 
-    private fun chapter(novelId: Long, number: Double, title: String = ""): NovelChapter =
+    private fun chapter(
+        novelId: Long,
+        number: Double,
+        title: String = "",
+        read: Boolean = false,
+    ): NovelChapter =
         NovelChapter(
             id = nextId++,
             novelId = novelId,
@@ -16,7 +21,7 @@ class NovelChapterAggregationTest {
             // A descriptive title exercises the title-based match key; a blank one ("Chapter N")
             // normalizes to empty and falls back to the recognized number.
             name = title.ifBlank { "Chapter $number" },
-            read = false,
+            read = read,
             bookmark = false,
             lastTextProgress = 0,
             chapterNumber = number,
@@ -73,6 +78,67 @@ class NovelChapterAggregationTest {
         val unified = NovelChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
 
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0)
+    }
+
+    // Cross-source read carry-over, the twin of MergedChapterProviderTest's manga cases.
+
+    @Test
+    fun `a chapter read on another source is reported as read for the group`() {
+        val trunk = listOf(chapter(1L, 1.0, "Terminal"))
+        val other = listOf(chapter(2L, 1.0, "Terminal", read = true))
+        val byNovel = mapOf(1L to trunk, 2L to other)
+
+        val result = NovelChapterAggregation.readInOtherSources(
+            byNovel,
+            NovelChapterAggregation.aggregate(byNovel),
+        )
+
+        result shouldBe setOf(trunk.single().id)
+    }
+
+    @Test
+    fun `a chapter nobody has read is not reported`() {
+        val byNovel = mapOf(1L to listOf(chapter(1L, 1.0, "Terminal")), 2L to listOf(chapter(2L, 1.0, "Terminal")))
+
+        val result = NovelChapterAggregation.readInOtherSources(
+            byNovel,
+            NovelChapterAggregation.aggregate(byNovel),
+        )
+
+        result shouldBe emptySet()
+    }
+
+    @Test
+    fun `an unmerged novel reports nothing, even where two of its own rows match`() {
+        // One source can hold two rows with the same title. Reading one is not reading the other, and
+        // only another SOURCE having read it counts.
+        val byNovel = mapOf(
+            1L to listOf(
+                chapter(1L, 1.0, "Terminal", read = true),
+                chapter(1L, 1.0, "Terminal"),
+            ),
+        )
+
+        val result = NovelChapterAggregation.readInOtherSources(
+            byNovel,
+            NovelChapterAggregation.aggregate(byNovel),
+        )
+
+        result shouldBe emptySet()
+    }
+
+    @Test
+    fun `a different chapter read on another source is not reported`() {
+        val trunk = listOf(chapter(1L, 1.0, "Terminal"))
+        val other = listOf(chapter(2L, 2.0, "New Arc", read = true))
+        val byNovel = mapOf(1L to trunk, 2L to other)
+
+        val result = NovelChapterAggregation.readInOtherSources(
+            byNovel,
+            NovelChapterAggregation.aggregate(byNovel),
+        )
+
+        result shouldBe emptySet()
     }
 
     @Test

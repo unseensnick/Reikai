@@ -2,9 +2,11 @@ package reikai.presentation.recents
 
 import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
+import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -14,13 +16,16 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetManga
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -46,6 +51,9 @@ class MangaRecentsAdapter(
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val mergeManager: MangaMergeManager by injectLazy()
+    private val mergedChapterProvider: MergedChapterProvider by injectLazy()
+    private val getManga: GetManga by injectLazy()
+    private val downloadManager: DownloadManager by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -77,20 +85,45 @@ class MangaRecentsAdapter(
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)
 
+    /**
+     * Merge-aware on all three lanes: a collapsed row stands for the whole group, so it must not reopen
+     * what another of its sources already read. The group list is resolved per rendered row, which is
+     * what [targetChapter] is lazy for. An unmerged entry gets its own list back, so this is the plain
+     * path too.
+     */
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val mangaId = item.entryId.rawId
+        val manga = getManga.await(mangaId)
+        val group = manga?.let { mergedChapterProvider.load(it) }
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read ->
-                getNextChapters.await(mangaId, lane.chapter.chapterId, onlyUnread = false).firstOrNull()?.id
+            is RecentsLane.Read -> resumeInGroup(
+                chapters = group?.chapters.orEmpty().map { it.toRecentsChapter(group?.readInOtherSources) },
+                recordedId = lane.chapter.chapterId,
+            )
+                // The stitch drops a chapter another source represents, so a recorded chapter can be
+                // missing from the group list; resume it from its own source rather than nowhere.
+                ?: getNextChapters.await(mangaId, lane.chapter.chapterId, onlyUnread = false).firstOrNull()?.id
             is RecentsLane.Updated -> firstUnreadInBurst(
+                // The burst is one source's: fetch times do not line up across sources, so only the
+                // read-elsewhere carry-over crosses the group here.
                 chapters = getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)
-                    .map { RecentsChapter(id = it.id, fetchedAt = it.dateFetch, read = it.read) },
+                    .map { it.toRecentsChapter(group?.readInOtherSources) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> getNextChapters.await(mangaId, onlyUnread = true).firstOrNull()?.id
+            RecentsLane.Added -> if (manga != null && group != null) {
+                group.chapters.getNextUnread(manga, downloadManager, group.readInOtherSources)?.id
+            } else {
+                getNextChapters.await(mangaId, onlyUnread = true).firstOrNull()?.id
+            }
         }
         return chapterId?.let { ChapterRef(item.entryId, it) }
     }
+
+    private fun Chapter.toRecentsChapter(readInOtherSources: Set<Long>?) = RecentsChapter(
+        id = id,
+        fetchedAt = dateFetch,
+        read = read || id in readInOtherSources.orEmpty(),
+    )
 
     // Each verb takes the neutral set and hands its model only its own content type's rows, so a mixed
     // selection never reaches a provider that cannot act on it.

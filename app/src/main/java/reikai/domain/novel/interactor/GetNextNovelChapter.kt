@@ -1,7 +1,17 @@
 package reikai.domain.novel.interactor
 
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter
+
+/** A merged novel's chapters in reading order, and the ids another source of the group already read. */
+data class NovelGroupChapters(
+    val chapters: List<NovelChapter>,
+    val readInOtherSources: Set<Long> = emptySet(),
+)
 
 /**
  * Novel twin of [tachiyomi.domain.history.interactor.GetNextChapters] for History-tab resume: given a
@@ -10,6 +20,9 @@ import reikai.domain.novel.model.NovelChapter
  */
 class GetNextNovelChapter(
     private val chapterRepository: NovelChapterRepository,
+    private val novelRepository: NovelRepository,
+    private val mergeManager: NovelMergeManager,
+    private val libraryPreferences: ReikaiLibraryPreferences,
 ) {
     suspend fun await(novelId: Long, fromChapterId: Long): NovelChapter? {
         val chapters = chapterRepository.getByNovelId(novelId) // ordered by source_order
@@ -25,4 +38,32 @@ class GetNextNovelChapter(
      */
     suspend fun awaitFirstUnread(novelId: Long): NovelChapter? =
         chapterRepository.getByNovelId(novelId).firstOrNull { !it.read }
+
+    /**
+     * The group's chapters as one cross-source list, the same one the details "All" view shows, plus
+     * what counts as read on another source. An unmerged novel gets its own list in source order.
+     */
+    suspend fun groupChapters(novelId: Long): NovelGroupChapters {
+        val memberIds = mergeManager.computeRelatedIds(novelId).toList()
+        if (memberIds.size <= 1) {
+            return NovelGroupChapters(chapterRepository.getByNovelId(novelId).sortedBy { it.sourceOrder })
+        }
+        val byNovel = memberIds.associateWith { chapterRepository.getByNovelId(it) }
+        val sourceIdByNovel = memberIds.associateWith { novelRepository.getById(it)?.source.orEmpty() }
+        val unified = NovelChapterAggregation.aggregate(
+            byNovel,
+            sourceIdByNovel,
+            libraryPreferences.preferredNovelSources.get(),
+            mergeManager.overrideRankingMemberIds(novelId),
+        )
+            // chapterNumber is the cross-source reading order (sourceOrder isn't comparable across sources).
+            .sortedBy { it.chapterNumber }
+        return NovelGroupChapters(unified, NovelChapterAggregation.readInOtherSources(byNovel, unified))
+    }
+
+    /** The group's first unread chapter, skipping what another of its sources has already read. */
+    suspend fun awaitFirstUnreadInGroup(novelId: Long): NovelChapter? {
+        val group = groupChapters(novelId)
+        return group.chapters.firstOrNull { !it.read && it.id !in group.readInOtherSources }
+    }
 }
