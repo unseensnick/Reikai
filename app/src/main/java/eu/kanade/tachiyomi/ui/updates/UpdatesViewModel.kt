@@ -102,6 +102,9 @@ class UpdatesViewModel(
                             started = it.filterStarted.toBooleanOrNull(),
                             bookmarked = it.filterBookmarked.toBooleanOrNull(),
                             hideExcludedScanlators = it.filterExcludedScanlators,
+                            // RK: the Kotlin filter below still owns the selection; wired in 1c.
+                            includedCategories = emptyList(),
+                            excludedCategories = emptyList(),
                         ).distinctUntilChanged()
                     },
                 downloadCache.changes,
