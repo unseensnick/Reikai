@@ -17,4 +17,12 @@ class GetNextNovelChapter(
         if (index < 0) return null
         return if (!chapters[index].read) chapters[index] else chapters.getOrNull(index + 1)
     }
+
+    /**
+     * The first unread chapter, for a row with no recorded chapter to resume from (the recents
+     * surface's newly-added lane). Twin of `GetNextChapters.await(mangaId, onlyUnread = true)`, which
+     * the manga side already had; without it the lane could only resolve a target for manga.
+     */
+    suspend fun awaitFirstUnread(novelId: Long): NovelChapter? =
+        chapterRepository.getByNovelId(novelId).firstOrNull { !it.read }
 }
