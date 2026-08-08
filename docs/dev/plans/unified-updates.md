@@ -74,18 +74,8 @@ Shipped and on-device verified (Z Fold / Fold6): all four pieces of the in-app f
 - **The calendar (Upcoming) stays manga-only.** It only shows where manga rows appear. Light-novel sources rarely expose a reliable release cadence, so a novel upcoming feed would be mostly empty (see novel-parity-backlog.md).
 - **In-memory merge, bounded feed.** Interleaving happens in memory rather than via a combined SQL view, kept cheap by the 3-month / 500-row bound. This avoids a new cross-table SQLDelight view spanning two independent schemas, at the cost of doing the merge in Kotlin on each emission.
 
-### Decided, not yet built: both feeds filter in SQL
+### Superseded going forward: the recents surface takes this over
 
-Upstream moved the Updates category filter into SQL in mihonapp/mihon#3589 (mihon `1d8a2b05d`), adding included and excluded category parameters to `getRecentUpdatesWithFilters`. That commit sits above Reikai's synced base and is owed. **Owner ruling: take it, and give novels the same treatment rather than leaving them in Kotlin.** Scope, settled at the same time:
+Everything forward-looking that once lived here now lives in [content-layer-recents-surface.md](content-layer-recents-surface.md): the SQL filter move (upstream's `mihonapp/mihon#3589`, owed and still portable), the combined Recents feed, and the conditional tab set. That surface is an orchestration takeover, so the shell and the novel model described above are replaced rather than extended, and two of the rulings recorded here are reversed by it: the four per-type category-filter preference keys collapse onto one shared pair, and the per-type sections in the picker go with them.
 
-- `getRecentNovelUpdates` gains the category predicate written against `novels_categories`, mirroring upstream's shape including its uncategorized case (category id 0 matches a series with no rows in the membership table).
-- Novels also move unread, started and bookmarked into SQL, so the two feeds filter the same way end to end. Downloaded stays in Kotlin on both, because download state is not in the database.
-- The picker UI and the preferences do not move. The four per-type keys on `ReikaiSourcePreferences` already hold manga and novel selections separately, so each query takes its own id set and `ReikaiUpdatesCategoryFilter` keeps its per-type sections unchanged. Only where the filtering runs changes.
-- `applyReikaiCategoryFilter` and both screen-lifetime membership caches are deleted. That fixes a real behaviour wart for free: today, re-categorizing a series while Updates is open does not reflect until the screen is reopened, on both content types.
-- `reikai/domain/category/CategoryFilter.kt` stays. It loses its two Updates callers and keeps its library ones.
-
-Sequenced after the ViewModel migration and the upstream sync backlog, because upstream's version of this change lands in a file that migration renames. **Both gates cleared as of 2026-08-08**: the migration shipped, and the sync base reached upstream head `ed274e26f`. `1d8a2b05d` is now the one upstream commit sitting below the frontier, and this item owns it; `GetUpdates.kt` was deliberately taken at `6d69903a5` rather than upstream head so its category-filter hunks are still there to port.
-
-### Designed together with the Recents tab
-
-The [Recents item](../../../ROADMAP.md) reshapes these same two surfaces: a Settings preference collapses Updates and History into one Recents tab with `Grouped | Updates | History` modes inside it. Doing the behaviour seam first and the tab shape second would rework both, so they are planned as one piece of work. The findings, the owner decisions and what already exists (per-title collapsing, both interleaves, the merge-group keys) are in the 2026-07-23 recents audit note under `docs/dev/audits/`, which is a gitignored local directory, so that detail does not travel with the repo; the one genuinely missing ingredient it names is a newly-added query per content type.
+This document stays the record of the Updates tab as shipped, which is what runs until the takeover lands.

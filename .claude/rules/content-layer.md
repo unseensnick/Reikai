@@ -25,7 +25,7 @@ common way to mis-plan work here.
 | Library | Takeover of orchestration | Shared engine owns assembly, selection and the action verbs. `LibraryViewModel` is **live**, 930 lines, still the manga provider: the amendment's plan to delete and manifest it has not shipped, and the surface doc says it stays live as an engine file. The two docs disagree; unresolved | content-layer-library-surface |
 | Migrate | Full takeover | The whole flow, screens and orchestration; seventeen Mihon files deleted and manifested | content-layer-migrate-surface |
 | Browse | Behavior-partial | Shared bulk-favorite generic, shared dialogs and the default-category kernel. Verbs stay per-type, no takeover, and one neutral adder contract was assessed and declined | content-layer-browse-surface |
-| History, Updates | UI leaf only | Shared row composables over per-type feeds; behavior never unified | unified-content-ui |
+| History, Updates | UI leaf only | Shared row composables over per-type feeds; behavior never unified. Takeover planned, not started, and it adds the combined Recents feed in the same build | content-layer-recents-surface |
 | Downloads | Not started | Nothing. Road B; `DownloadQueueViewModel` is still `// RK: inert` | download-queue-unification |
 | Reader | Chrome only | Top and bottom bars; the two engines are separate by design | unified-reader |
 
