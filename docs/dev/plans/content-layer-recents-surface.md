@@ -204,7 +204,7 @@ Device pass on the Fold covered, through 1b: the picker as one list with second-
 
 `405489315` is step 2: the seam (`RecentsBehavior`, `RecentsProvider`), the neutral item with its typed lane and `ChapterRef`, the shared burst rule, both adapters over the four live models, and the newly-added lane's whole floor. It renders nothing: nothing constructs a provider until the cutover, so the only live change is the DI registration of a repository with no other caller. The step-2 plan text above records the four things its original description had wrong; the one that reached beyond this step is the selection type, which corrected step 7.
 
-Step 3 is two pure functions and their tests, nothing wired. It corrected three things this plan said: there is no lane to tag, the survivor does not fall out of an already-ordered stream, and the collapse scope is a policy's decision rather than the kernel's.
+`5d0cf9951` is step 3: two pure functions and their tests, nothing wired. It corrected three things this plan said: there is no lane to tag, the survivor does not fall out of an already-ordered stream, and the collapse scope is a policy's decision rather than the kernel's.
 
 Both gates the forward work waited on are cleared: the ViewModel migration shipped for every Mihon file on these surfaces, and the upstream sync base reached upstream head. `mihonapp/mihon#3589` (mihon `1d8a2b05d`) is the one upstream commit sitting below the synced base and this surface owns it; `GetUpdates.kt` was deliberately taken at mihon `6d69903a5` rather than head, and is byte-identical to that blob, so the four lines that commit adds are still there to port.
 
