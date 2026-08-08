@@ -364,7 +364,10 @@ private fun LazyListScope.updateRows(
         },
     ) { row ->
         when (row) {
-            is UpdateRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
+            is UpdateRow.Header -> ListGroupHeader(
+                text = relativeDateText(row.date),
+                modifier = Modifier.animateItem(),
+            )
             is UpdateRow.Manga -> {
                 val item = row.item
                 EntryUpdatesRow(
@@ -393,6 +396,7 @@ private fun LazyListScope.updateRows(
                     },
                     downloadStateProvider = item.downloadStateProvider,
                     downloadProgressProvider = item.downloadProgressProvider,
+                    modifier = Modifier.animateItem(),
                 )
             }
             is UpdateRow.Novel -> {
@@ -423,6 +427,7 @@ private fun LazyListScope.updateRows(
                     },
                     downloadStateProvider = { item.downloadState },
                     downloadProgressProvider = { 0 },
+                    modifier = Modifier.animateItem(),
                 )
             }
             is UpdateRow.Group -> {
@@ -447,6 +452,7 @@ private fun LazyListScope.updateRows(
                     } else {
                         first.memberCoverClick(onClickMangaCover, onClickNovelCover)
                     },
+                    modifier = Modifier.animateItem(),
                 )
             }
             is UpdateRow.Child -> when (val member = row.member) {
@@ -474,6 +480,7 @@ private fun LazyListScope.updateRows(
                         } else {
                             { action -> mangaModel.downloadChapters(listOf(item), action) }
                         },
+                        modifier = Modifier.animateItem(),
                     )
                 }
                 is UpdateRow.Novel -> {
@@ -500,6 +507,7 @@ private fun LazyListScope.updateRows(
                         } else {
                             { action -> novelModel.onDownloadAction(item, action) }
                         },
+                        modifier = Modifier.animateItem(),
                     )
                 }
                 else -> {}
@@ -520,11 +528,12 @@ private fun UpdatesGroupRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onClickCover: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     val textAlpha = if (anyUnread) 1f else DISABLED_ALPHA
     Row(
-        modifier = Modifier
+        modifier = modifier
             .selectedBackground(selected)
             .combinedClickable(
                 onClick = onClick,
@@ -596,11 +605,12 @@ private fun UpdatesGroupChildRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     val textAlpha = if (read) DISABLED_ALPHA else 1f
     Row(
-        modifier = Modifier
+        modifier = modifier
             .selectedBackground(selected)
             .combinedClickable(
                 onClick = onClick,

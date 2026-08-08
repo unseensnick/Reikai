@@ -162,7 +162,10 @@ private fun LazyListScope.historyRows(
         },
     ) { row ->
         when (row) {
-            is HistoryRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
+            is HistoryRow.Header -> ListGroupHeader(
+                text = relativeDateText(row.date),
+                modifier = Modifier.animateItem(),
+            )
             is HistoryRow.Manga -> {
                 val value = row.item
                 EntryHistoryRow(
@@ -171,6 +174,7 @@ private fun LazyListScope.historyRows(
                     onClickResume = { onClickMangaResume(value.mangaId, value.chapterId) },
                     onClickDelete = { mangaModel.setDialog(HistoryViewModel.Dialog.Delete(value)) },
                     onClickFavorite = { onClickMangaFavorite(value.mangaId) },
+                    modifier = Modifier.animateItem(),
                 )
             }
             is HistoryRow.Novel -> {
@@ -181,6 +185,7 @@ private fun LazyListScope.historyRows(
                     onClickResume = { onClickNovelResume(value) },
                     onClickDelete = { novelModel.setDialog(NovelHistoryViewModel.Dialog.Delete(value)) },
                     onClickFavorite = { onClickNovelFavorite(value.novelId) },
+                    modifier = Modifier.animateItem(),
                 )
             }
         }

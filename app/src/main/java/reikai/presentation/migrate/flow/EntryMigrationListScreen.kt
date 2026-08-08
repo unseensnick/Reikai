@@ -194,7 +194,12 @@ class EntryMigrationListScreen(
             } else {
                 LazyColumn(contentPadding = contentPadding) {
                     items(items = state.rows, key = { it.entry.id.toString() }) { row ->
-                        MigrationRow(row = row, busy = state.isBusy, viewModel = viewModel)
+                        MigrationRow(
+                            row = row,
+                            busy = state.isBusy,
+                            viewModel = viewModel,
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
             }
@@ -237,6 +242,7 @@ private fun MigrationRow(
     row: MigratingEntryRow,
     busy: Boolean,
     viewModel: EntryMigrationListViewModel,
+    modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     // Collected inside the item so one row settling recomposes that row, not the whole list.
@@ -251,7 +257,7 @@ private fun MigrationRow(
     val actions = MigrationRowRules.actions(search, acceptance, commit, busy)
     val status = MigrationRowRules.status(search, acceptance, commit)
 
-    Column {
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
