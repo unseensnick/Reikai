@@ -43,8 +43,9 @@ AND (
 ORDER BY mangas.date_added DESC
 LIMIT :limit;
 
--- Novel twin. date_added is nullable here where the manga column is NOT NULL, so it is coalesced:
--- a novel added before the column existed sorts to the end rather than dropping out of the lane.
+-- Novel twin. date_added is nullable here where the manga column is NOT NULL, so it is coalesced to 0
+-- and the comparison stays false rather than going NULL. A novel with no recorded add date is not
+-- newly added and does not enter the lane at any cutoff, which is why the ordering never sees one.
 getRecentlyAddedNovels:
 SELECT
     novels._id AS novelId,

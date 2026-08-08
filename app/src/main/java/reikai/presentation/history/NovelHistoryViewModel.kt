@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
+import reikai.domain.category.RecentsSurface
+import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -68,15 +70,29 @@ class NovelHistoryViewModel(
 
     fun setContentType(type: ContentType) = sourcePreferences.historyContentType.set(type)
 
+    /** Whether History's own category filter is constraining both feeds; drives the shell's empty
+     *  state, which otherwise blames an empty History on there being nothing to read. Always false
+     *  until History gains a filter entry point, since nothing can write that selection yet. */
+    val hasActiveCategoryFilter: StateFlow<Boolean> =
+        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY)
+            .map { it.active }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         viewModelScope.launch {
-            state.map { it.searchQuery }
+            // The category filter is a query parameter, so it joins the search query in the key the
+            // subscription re-runs on.
+            combine(
+                state.map { it.searchQuery }.distinctUntilChanged(),
+                sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
+                ::Pair,
+            )
                 .distinctUntilChanged()
-                .flatMapLatest { query ->
+                .flatMapLatest { (query, categories) ->
                     // Overlay the display-only custom title/cover onto each row, keyed by the real
                     // novel id. The SQL search (getNovelHistory.subscribe) still runs on the raw title.
                     combine(
-                        getNovelHistory.subscribe(query ?: ""),
+                        getNovelHistory.subscribe(query ?: "", categories.include, categories.exclude),
                         getCustomNovelInfo.subscribeAll(),
                     ) { history, customInfo ->
                         val overlay = customInfo.associateBy { it.novelId }

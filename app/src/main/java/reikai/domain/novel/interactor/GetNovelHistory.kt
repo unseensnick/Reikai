@@ -7,7 +7,13 @@ import reikai.domain.novel.model.NovelHistoryWithRelations
 class GetNovelHistory(
     private val repository: NovelHistoryRepository,
 ) {
-    fun subscribe(query: String): Flow<List<NovelHistoryWithRelations>> = repository.getNovelHistory(query)
+    /** Empty category lists mean no constraint, matching the manga twin. */
+    fun subscribe(
+        query: String,
+        includedCategories: List<Long> = emptyList(),
+        excludedCategories: List<Long> = emptyList(),
+    ): Flow<List<NovelHistoryWithRelations>> =
+        repository.getNovelHistory(query, includedCategories, excludedCategories)
 
     suspend fun getLast(): NovelHistoryWithRelations? = repository.getLastNovelHistory()
 }

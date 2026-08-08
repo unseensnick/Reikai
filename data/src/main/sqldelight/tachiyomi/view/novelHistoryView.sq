@@ -45,7 +45,9 @@ FROM novelHistoryView
 WHERE novelHistoryView.readAt > 0
 AND maxReadAtChapterId = novelHistoryView.chapterId
 AND lower(novelHistoryView.title) LIKE ('%' || :query || '%')
--- Same category blocks as the manga twin, so the two history feeds filter identically.
+-- Same category blocks as the manga twin, so the two history feeds filter identically. Like it, this
+-- view has no favorite gate, so a novel read but never added has no membership rows and reads as
+-- uncategorized: an include set without 0 hides it.
 AND (
     :includedEmpty
     OR EXISTS (

@@ -46,13 +46,15 @@ class UpdatesSettingsViewModel(
         }
     }
 
+    // This sheet belongs to the Updates tab, so it edits that surface's selection. History and the
+    // combined Recents tab carry their own; see RecentsSurface.
     fun setFilterCategories(enabled: Boolean) {
-        reikaiSourcePreferences.recentsFilterCategories.set(enabled)
+        reikaiSourcePreferences.updatesFilterCategories.set(enabled)
     }
 
     fun setCategorySelections(include: Set<Long>, exclude: Set<Long>) {
-        reikaiSourcePreferences.recentsFilterCategoriesInclude.set(include.map(Long::toString).toSet())
-        reikaiSourcePreferences.recentsFilterCategoriesExclude.set(exclude.map(Long::toString).toSet())
+        reikaiSourcePreferences.updatesFilterCategoriesInclude.set(include.map(Long::toString).toSet())
+        reikaiSourcePreferences.updatesFilterCategoriesExclude.set(exclude.map(Long::toString).toSet())
     }
     // RK <--
 }

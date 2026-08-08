@@ -13,7 +13,18 @@ class GetHistory(
         return repository.getHistoryByMangaId(mangaId)
     }
 
-    fun subscribe(query: String): Flow<List<HistoryWithRelations>> {
-        return repository.getHistory(query)
+    // RK --> the category id lists are Reikai's recents filter; empty means no constraint.
+    fun subscribe(
+        query: String,
+        includedCategories: List<Long> = emptyList(),
+        excludedCategories: List<Long> = emptyList(),
+    ): Flow<List<HistoryWithRelations>> {
+        return repository.getHistory(query, includedCategories, excludedCategories)
     }
+
+    /** The most recent read, deliberately unfiltered: a resume must not skip what the feed hides. */
+    suspend fun getLast(): HistoryWithRelations? {
+        return repository.getLastHistory()
+    }
+    // RK <--
 }

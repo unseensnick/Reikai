@@ -113,14 +113,31 @@ class ReikaiSourcePreferences(
     // region Recents category filter
 
     /**
-     * Include/exclude category filter for the recent-activity surface, one selection for both content
-     * types. The shared category table has one id space (the unification offset novel ids so they
-     * cannot collide with manga ones), so a manga-only category simply matches no novel rather than
-     * needing a set of its own. [recentsFilterCategories] is the master switch, mirroring the
-     * library's; empty sets mean no constraint. Record: content-layer-recents-surface.md.
+     * Include/exclude category filter for the recent-activity surface: one selection per rendered
+     * surface, not per content type. The category table has one id space (the unification offset
+     * novel ids so they cannot collide with manga ones), so a manga-only category simply matches no
+     * novel rather than needing a set of its own. One set per surface for the same reason the chips
+     * have one each: with the combined Recents tab off, Updates and History are independent. Resolved
+     * by surface in [RecentsCategoryFilter]; empty means no constraint.
      */
+    val updatesFilterCategories: Preference<Boolean> =
+        preferenceStore.getBoolean("updates_filter_categories_enabled", false)
+
+    val updatesFilterCategoriesInclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("updates_filter_categories_include", emptySet())
+    val updatesFilterCategoriesExclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("updates_filter_categories_exclude", emptySet())
+
+    val historyFilterCategories: Preference<Boolean> =
+        preferenceStore.getBoolean("history_filter_categories_enabled", false)
+
+    val historyFilterCategoriesInclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("history_filter_categories_include", emptySet())
+    val historyFilterCategoriesExclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("history_filter_categories_exclude", emptySet())
+
     val recentsFilterCategories: Preference<Boolean> =
-        preferenceStore.getBoolean("recents_filter_categories", false)
+        preferenceStore.getBoolean("recents_filter_categories_enabled", false)
 
     val recentsFilterCategoriesInclude: Preference<Set<String>> =
         preferenceStore.getStringSet("recents_filter_categories_include", emptySet())
@@ -155,9 +172,10 @@ class ReikaiSourcePreferences(
 
     companion object {
         // Retired per-content-type Updates category-filter keys and their master switch: the filter
-        // became one selection over the shared category id space, covering the whole recents surface.
-        // Values dropped, not migrated (a filter is casually re-picked, and the switch defaults off);
-        // skipped on restore so an old backup can't resurrect them.
+        // became one selection per rendered surface over the shared category id space. Values dropped,
+        // not migrated (a filter is casually re-picked, and the switch defaults off); skipped on
+        // restore so an old backup can't resurrect them. This retirement is why the live master
+        // switches carry an `_enabled` suffix: the bare `updates_filter_categories` string is taken.
         const val DEAD_UPDATES_FILTER_CATEGORIES_KEY = "updates_filter_categories"
         const val DEAD_UPDATES_FILTER_CATEGORY_SET_PREFIX = "updates_filter_manga_categories_"
         const val DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX = "updates_filter_novel_categories_"

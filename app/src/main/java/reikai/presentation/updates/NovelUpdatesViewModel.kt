@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -23,9 +25,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.update.NovelUpdateJob
-import reikai.domain.category.GetNovelCategories
-import reikai.domain.category.categoryFilterActive
-import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.category.RecentsCategoryFilter
+import reikai.domain.category.RecentsSurface
+import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
@@ -67,7 +69,6 @@ class NovelUpdatesViewModel(
     private val novelDownloadCache: NovelDownloadCache = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
-    private val getNovelCategories: GetNovelCategories = Injekt.get(),
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val libraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
@@ -90,9 +91,10 @@ class NovelUpdatesViewModel(
 
     /** Whether the novel category filter is constraining the feed; drives the shell's filter-icon tint
      *  on chips where manga's own active-filter flag wouldn't reflect a novel-only selection. */
-    val hasActiveCategoryFilter: StateFlow<Boolean> = categoryFilterFlow()
-        .map { categoryFilterActive(it.enabled, it.include, it.exclude) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val hasActiveCategoryFilter: StateFlow<Boolean> =
+        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES)
+            .map { it.active }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** Collapse a series' same-date chapters into one expandable row (display option, both types). */
     val groupBySeries: StateFlow<Boolean> = sourcePreferences.updatesGroupBySeries.changes()
@@ -125,22 +127,35 @@ class NovelUpdatesViewModel(
                 .minus(RECENT_MONTHS, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
                 .toEpochMilliseconds()
             // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
-            val filterFlow = combine(
+            // Everything the database can answer rides this flow, so a change re-runs the query.
+            val feedFlow = combine(
                 updatesPreferences.filterUnread.changes(),
-                updatesPreferences.filterDownloaded.changes(),
                 updatesPreferences.filterStarted.changes(),
                 updatesPreferences.filterBookmarked.changes(),
-            ) { unread, downloaded, started, bookmarked -> Filters(unread, downloaded, started, bookmarked) }
+                sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES),
+            ) { unread, started, bookmarked, categories -> SqlFilters(unread, started, bookmarked, categories) }
+                .distinctUntilChanged()
+                .flatMapLatest { f ->
+                    novelRepo.getFilteredNovelUpdatesAsFlow(
+                        after = after,
+                        limit = LIMIT,
+                        unread = f.unread.toBooleanOrNull(),
+                        started = f.started.toBooleanOrNull(),
+                        bookmarked = f.bookmarked.toBooleanOrNull(),
+                        includedCategories = f.categories.include,
+                        excludedCategories = f.categories.exclude,
+                    )
+                }
 
             combine(
-                novelRepo.getRecentNovelUpdatesAsFlow(after, LIMIT),
+                feedFlow,
                 downloadManager.queueState,
-                filterFlow,
-                // Category filter + custom-info overlay share the 4th combine slot (combine caps at 5).
-                combine(categoryFilterFlow(), getCustomNovelInfo.subscribeAll(), ::Pair),
+                // Downloaded stays a Kotlin filter: download state is on disk, not in the database.
+                updatesPreferences.filterDownloaded.changes(),
+                getCustomNovelInfo.subscribeAll(),
                 // Re-emit when a download/delete changes the disk index so the row icon refreshes.
                 novelDownloadCache.changes,
-            ) { updates, queue, filters, (categoryFilter, customInfo), _ ->
+            ) { updates, queue, filterDownloaded, customInfo, _ ->
                 val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
                 updates
                     .map { update ->
@@ -162,8 +177,7 @@ class NovelUpdatesViewModel(
                             selected = update.chapterId in selectedChapterIds,
                         )
                     }
-                    .filter { it.matchesFilters(filters) }
-                    .applyCategoryFilter(categoryFilter)
+                    .filter { applyFilter(filterDownloaded) { it.downloadState == Download.State.DOWNLOADED } }
                     // Display-only custom-info overlay, applied last and keyed by the real novel id.
                     // Filters and download detection ran on the raw values above.
                     .overlayCustomInfo(customInfo)
@@ -173,52 +187,13 @@ class NovelUpdatesViewModel(
         }
     }
 
-    /** The 4 shared filters; scanlator-exclusion is manga-only so it has no novel equivalent. */
-    private data class Filters(
+    /** Everything the feed query answers. Scanlator-exclusion is manga-only, so it has no twin here. */
+    private data class SqlFilters(
         val unread: TriState,
-        val downloaded: TriState,
         val started: TriState,
         val bookmarked: TriState,
+        val categories: RecentsCategoryFilter,
     )
-
-    private fun NovelUpdatesItem.matchesFilters(f: Filters): Boolean =
-        applyFilter(f.unread) { !update.read } &&
-            applyFilter(f.downloaded) { downloadState == Download.State.DOWNLOADED } &&
-            applyFilter(f.started) { update.lastTextProgress > 0L && !update.read } &&
-            applyFilter(f.bookmarked) { update.bookmark }
-
-    private val novelCategoryCache = mutableMapOf<Long, Set<Long>>()
-
-    private data class CategoryFilter(
-        val enabled: Boolean,
-        val include: Set<Long>,
-        val exclude: Set<Long>,
-    )
-
-    /** Novel side of the include/exclude category filter, reading the one selection both feeds share. */
-    private fun categoryFilterFlow(): Flow<CategoryFilter> = combine(
-        sourcePreferences.recentsFilterCategories.changes(),
-        sourcePreferences.recentsFilterCategoriesInclude.changes(),
-        sourcePreferences.recentsFilterCategoriesExclude.changes(),
-    ) { enabled, include, exclude ->
-        CategoryFilter(
-            enabled = enabled,
-            include = include.mapNotNull(String::toLongOrNull).toSet(),
-            exclude = exclude.mapNotNull(String::toLongOrNull).toSet(),
-        )
-    }
-
-    // Membership cached for the screen's lifetime; only paid when the filter is active. Empty =
-    // uncategorized, mapped to id 0 so the synthetic Default shelf can be filtered (as NovelUpdateJob does).
-    private suspend fun List<NovelUpdatesItem>.applyCategoryFilter(selection: CategoryFilter): List<NovelUpdatesItem> {
-        if (!categoryFilterActive(selection.enabled, selection.include, selection.exclude)) return this
-        return filter { item ->
-            val categories = novelCategoryCache.getOrPut(item.update.novelId) {
-                getNovelCategories.awaitByNovelId(item.update.novelId).map { it.id }.toSet().ifEmpty { setOf(0L) }
-            }
-            matchesCategoryFilter(categories, selection.include, selection.exclude)
-        }
-    }
 
     // Overlay the user's custom title/cover onto each row for display, keyed by real novel id.
     private fun List<NovelUpdatesItem>.overlayCustomInfo(customInfo: List<CustomNovelInfo>): List<NovelUpdatesItem> {
@@ -348,3 +323,10 @@ data class NovelUpdatesItem(
     val downloadState: Download.State,
     val selected: Boolean = false,
 )
+
+/** Mirrors the manga model's private conversion; the query wants a nullable Boolean, not a TriState. */
+private fun TriState.toBooleanOrNull(): Boolean? = when (this) {
+    TriState.DISABLED -> null
+    TriState.ENABLED_IS -> true
+    TriState.ENABLED_NOT -> false
+}

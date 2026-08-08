@@ -62,6 +62,9 @@ fun ReikaiHistoryScreen(
     val showsManga = contentType != ContentType.NOVELS
     val showsNovel = contentType != ContentType.MANGA
     val searchQuery = if (showsNovel) novelState.searchQuery else mangaState.searchQuery
+    // One selection per surface covering both types, so either model would do; the novel one carries
+    // it because Mihon's is kept stock.
+    val categoryFilterActive by novelModel.hasActiveCategoryFilter.collectAsState()
 
     Scaffold(
         topBar = { scrollBehavior ->
@@ -107,10 +110,12 @@ fun ReikaiHistoryScreen(
                 when {
                     isLoading -> LoadingScreen(Modifier.padding(bodyPadding))
                     rows.isEmpty() -> EmptyScreen(
-                        stringRes = if (!searchQuery.isNullOrEmpty()) {
-                            MR.strings.no_results_found
-                        } else {
-                            MR.strings.information_no_recent
+                        // A filter that hides everything has to say so. No Filter button yet, and no
+                        // way to set one either, until History gains its own filter entry point.
+                        stringRes = when {
+                            !searchQuery.isNullOrEmpty() -> MR.strings.no_results_found
+                            categoryFilterActive -> MR.strings.information_no_recent_filtered
+                            else -> MR.strings.information_no_recent
                         },
                         modifier = Modifier.padding(bodyPadding),
                     )

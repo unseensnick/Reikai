@@ -33,14 +33,13 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
-import reikai.domain.category.categoryFilterActive
-import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.category.RecentsSurface
+import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
@@ -70,10 +69,8 @@ class UpdatesViewModel(
     private val getChapter: GetChapter = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
-    // RK -->
+    // RK: the Updates tab's category filter, one selection covering both content types, applied in SQL.
     private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateViewModel<UpdatesViewModel.State>(State()) {
 
@@ -93,18 +90,23 @@ class UpdatesViewModel(
 
             combine(
                 // needed for SQL filters (unread, started, bookmarked, etc)
-                getUpdatesItemPreferenceFlow()
+                // RK: the category selection is a query parameter, so it rides the same flow the
+                //     subscription re-runs on. Re-categorizing a series now reflects without reopening.
+                combine(
+                    getUpdatesItemPreferenceFlow(),
+                    reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES),
+                    ::Pair,
+                )
                     .distinctUntilChanged()
-                    .flatMapLatest {
+                    .flatMapLatest { (prefs, categories) ->
                         getUpdates.subscribe(
                             limit,
-                            unread = it.filterUnread.toBooleanOrNull(),
-                            started = it.filterStarted.toBooleanOrNull(),
-                            bookmarked = it.filterBookmarked.toBooleanOrNull(),
-                            hideExcludedScanlators = it.filterExcludedScanlators,
-                            // RK: the Kotlin filter below still owns the selection; wired in 1c.
-                            includedCategories = emptyList(),
-                            excludedCategories = emptyList(),
+                            unread = prefs.filterUnread.toBooleanOrNull(),
+                            started = prefs.filterStarted.toBooleanOrNull(),
+                            bookmarked = prefs.filterBookmarked.toBooleanOrNull(),
+                            hideExcludedScanlators = prefs.filterExcludedScanlators,
+                            includedCategories = categories.include,
+                            excludedCategories = categories.exclude,
                         ).distinctUntilChanged()
                     },
                 downloadCache.changes,
@@ -113,17 +115,14 @@ class UpdatesViewModel(
                 getUpdatesItemPreferenceFlow().distinctUntilChanged { old, new ->
                     old.filterDownloaded == new.filterDownloaded
                 },
-                // RK: category filter + custom-info overlay share the 5th combine slot (combine caps at 5)
-                combine(reikaiCategoryFilterFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-            ) { updates, _, _, itemPreferences, (categoryFilter, customInfo) ->
+                // RK: display-only custom-info overlay, applied last and keyed by the real manga id.
+                //     Filters and download detection ran on the raw title; only the displayed
+                //     title/cover carry the user's overrides.
+                getCustomMangaInfo.subscribeAll(),
+            ) { updates, _, _, itemPreferences, customInfo ->
                 updates
                     .toUpdateItems()
                     .applyFilters(itemPreferences)
-                    // RK: trim to the selected categories (a no-op when the filter is off)
-                    .applyReikaiCategoryFilter(categoryFilter)
-                    // RK: display-only custom-info overlay, applied last and keyed by the real manga
-                    //     id. Filters and download detection ran on the raw title above; only the
-                    //     displayed title/cover carry the user's overrides.
                     .overlayCustomInfo(customInfo)
             }
                 .collectLatest { updateItems ->
@@ -154,8 +153,7 @@ class UpdatesViewModel(
                     )
                         .any { it != TriState.DISABLED }
                 },
-            reikaiCategoryFilterFlow()
-                .map { categoryFilterActive(it.enabled, it.include, it.exclude) },
+            reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES).map { it.active },
         ) { baseFilters, categoryActive -> baseFilters || categoryActive }
             .distinctUntilChanged()
             .onEach {
@@ -183,42 +181,7 @@ class UpdatesViewModel(
         }
     }
 
-    // RK --> include/exclude category filter, one selection shared with the novel feed (category ids
-    // are one space, so a novel-only id here simply matches no manga). Membership is resolved per
-    // manga id and cached for the screen's lifetime; only paid when the filter is active.
-    // Re-categorizing a series while this screen is open won't reflect until reopen.
-    private val mangaCategoryCache = mutableMapOf<Long, Set<Long>>()
-
-    private data class CategoryFilter(
-        val enabled: Boolean,
-        val include: Set<Long>,
-        val exclude: Set<Long>,
-    )
-
-    private fun reikaiCategoryFilterFlow(): Flow<CategoryFilter> = combine(
-        reikaiSourcePreferences.recentsFilterCategories.changes(),
-        reikaiSourcePreferences.recentsFilterCategoriesInclude.changes(),
-        reikaiSourcePreferences.recentsFilterCategoriesExclude.changes(),
-    ) { enabled, include, exclude ->
-        CategoryFilter(
-            enabled = enabled,
-            include = include.mapNotNull(String::toLongOrNull).toSet(),
-            exclude = exclude.mapNotNull(String::toLongOrNull).toSet(),
-        )
-    }
-
-    private suspend fun List<UpdatesItem>.applyReikaiCategoryFilter(selection: CategoryFilter): List<UpdatesItem> {
-        if (!categoryFilterActive(selection.enabled, selection.include, selection.exclude)) return this
-        return filter { item ->
-            val categories = mangaCategoryCache.getOrPut(item.update.mangaId) {
-                // Empty = uncategorized; map to id 0 so the synthetic Default shelf can be filtered.
-                getCategories.await(item.update.mangaId).map { it.id }.toSet().ifEmpty { setOf(0L) }
-            }
-            matchesCategoryFilter(categories, selection.include, selection.exclude)
-        }
-    }
-
-    // RK: overlay the user's custom title/cover onto each row for display, keyed by real manga id.
+    // RK --> overlay the user's custom title/cover onto each row for display, keyed by real manga id.
     private fun List<UpdatesItem>.overlayCustomInfo(customInfo: List<CustomMangaInfo>): List<UpdatesItem> {
         if (customInfo.isEmpty()) return this
         val overlay = customInfo.associateBy { it.mangaId }

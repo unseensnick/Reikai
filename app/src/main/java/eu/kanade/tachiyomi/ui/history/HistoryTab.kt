@@ -18,7 +18,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
 import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
@@ -253,9 +252,10 @@ data object HistoryTab : Tab {
 
         LaunchedEffect(Unit) {
             resumeLastChapterReadEvent.receiveAsFlow().collectLatest {
-                // RK: resume the globally-latest read across manga + novel (both feeds are readAt-desc,
-                // so each list's first item is its latest). Whichever is newer wins.
-                val mangaLatest = state.list?.firstNotNullOfOrNull { (it as? HistoryUiModel.Item)?.item }
+                // RK: resume the globally-latest read across manga + novel. Both sides ask their own
+                // unfiltered latest-entry query, so search text or a category filter cannot move what
+                // resume opens. Whichever is newer wins.
+                val mangaLatest = viewModel.getLast()
                 val novelLatest = novelViewModel.getLast()
                 val mangaAt = mangaLatest?.readAt?.time ?: Long.MIN_VALUE
                 val novelAt = novelLatest?.readAt ?: Long.MIN_VALUE

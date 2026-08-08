@@ -22,8 +22,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
+import reikai.domain.category.RecentsSurface
+import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -66,6 +69,8 @@ class HistoryViewModel(
     // RK: add-time grouping (the suggestion gate, the merge, and the group's categories).
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
+    // RK: the History tab's category filter, one selection covering both content types.
+    private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
 ) : StateViewModel<HistoryViewModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
@@ -73,13 +78,19 @@ class HistoryViewModel(
 
     init {
         viewModelScope.launch {
-            state.map { it.searchQuery }
+            // RK: the recents category filter is a query parameter, so it joins the search query in
+            //     the key the subscription re-runs on.
+            combine(
+                state.map { it.searchQuery }.distinctUntilChanged(),
+                reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
+                ::Pair,
+            )
                 .distinctUntilChanged()
-                .flatMapLatest { query ->
+                .flatMapLatest { (query, categories) ->
                     // RK: overlay the display-only custom title/cover onto each row, keyed by the real
                     //     manga id. The SQL search (getHistory.subscribe) still runs on the raw title.
                     combine(
-                        getHistory.subscribe(query ?: ""),
+                        getHistory.subscribe(query ?: "", categories.include, categories.exclude),
                         getCustomMangaInfo.subscribeAll(),
                     ) { history, customInfo ->
                         val overlay = customInfo.associateBy { it.mangaId }
@@ -130,6 +141,10 @@ class HistoryViewModel(
         val chapter = chapters.firstOrNull()
         _events.send(Event.OpenChapter(chapter))
     }
+
+    // RK: the latest manga read, for the tab-reselect global-latest resume. Reads the unfiltered
+    //     query rather than the rendered feed, so a category filter cannot change what resume opens.
+    suspend fun getLast(): HistoryWithRelations? = withIOContext { getHistory.getLast() }
 
     fun removeFromHistory(history: HistoryWithRelations) {
         viewModelScope.launchIO {
