@@ -103,9 +103,11 @@ jobs:
         run: |
           # No plan/roadmap codename markers in .kt comments (mirrors .githooks/pre-commit and
           # code-quality.md): Phase N, the P5 S5 shorthand, Y<n>, R<n> roadmap refs, Active #N, and a
-          # plan-style Step N. Spares R8 (the code shrinker; R uses [0-79]), M3 (Material 3), and
-          # colon-led algorithm steps ("Step 1:"). Whole-tree check, so anything that slips in fails.
-          bad=$(git grep -nE '(//|/\*|^[[:space:]]*\*).*(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|Step [0-9])' -- '*.kt' | grep -vE 'Step [0-9]:' || true)
+          # plan-style Step N, matched case-insensitively and word-bounded (a lower-case "step 2"
+          # reached main once when only a capitalised one was caught). Spares R8 (the code shrinker;
+          # R uses [0-79]), M3 (Material 3), and colon-led algorithm steps ("Step 1:"). Whole-tree
+          # check, so anything that slips in fails.
+          bad=$(git grep -nE '(//|/\*|^[[:space:]]*\*).*(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9])' -- '*.kt' | grep -vE '\b[Ss]tep[[:space:]]*[0-9]:' || true)
           if [ -n "$bad" ]; then
             echo "::error::a .kt comment carries a plan/roadmap codename marker; state the fact instead (see code-quality.md):"
             echo "$bad"

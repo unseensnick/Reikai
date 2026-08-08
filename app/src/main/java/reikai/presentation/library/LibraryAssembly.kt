@@ -64,8 +64,8 @@ fun assembleLibrary(
 /**
  * The assembled list the tab renders: the ordered categories, the per-category display read as a
  * function so the per-type custom-info overlay is applied at read time, only for what is rendered, and
- * the one count rule (the step 4 ruling): the chip-filtered bucket size, shown when the count
- * preference is on or a search is active, on every chip.
+ * the one count rule: the chip-filtered bucket size, shown when the count preference is on or a
+ * search is active, on every chip.
  * [chip] is the view this output was assembled for: the flow lags a chip flip by one emission, so the
  * tab renders an assembly only when its chip matches, falling back to the provider's own list meanwhile.
  */
