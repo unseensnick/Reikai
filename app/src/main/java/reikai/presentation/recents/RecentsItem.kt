@@ -32,6 +32,12 @@ sealed interface RecentsLane {
 }
 
 /**
+ * Names a lane without naming a row in it. [RecentsLane] cannot serve here because two of its cases
+ * carry a chapter, and an engine has to say which lanes it collects before any row exists.
+ */
+enum class RecentsLaneKind { READ, UPDATED, ADDED }
+
+/**
  * One row of recent activity, neutral over both content types. [timestamp] is epoch millis whatever
  * the source column was, normalised per adapter so the shared layer never meets a `Date` on one side
  * and a `Long` on the other. [payload] is the adapter's own row, carried and never inspected here;

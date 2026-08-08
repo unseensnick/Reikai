@@ -18,6 +18,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -38,17 +39,26 @@ class MangaRecentsAdapter(
     private val getNextChapters: GetNextChapters by injectLazy()
     private val getChaptersByMangaId: GetChaptersByMangaId by injectLazy()
 
+    // Read from the preference rather than off the model, whose copy is a Compose State the engine
+    // cannot collect.
+    private val libraryPreferences: LibraryPreferences by injectLazy()
+
     override val contentType = ContentType.MANGA
 
-    override val readLane: Flow<List<RecentsItem>> = historyModel.state.map { state ->
-        state.list.orEmpty().mapNotNull { (it as? HistoryUiModel.Item)?.item?.toRecentsItem() }
+    // A null list is this model's "no emission yet", where the updates model carries a loading flag.
+    override val readLane: Flow<RecentsLaneRows> = historyModel.state.map { state ->
+        RecentsLaneRows(
+            items = state.list.orEmpty().mapNotNull { (it as? HistoryUiModel.Item)?.item?.toRecentsItem() },
+            loaded = state.list != null,
+        )
     }
 
-    override val updatedLane: Flow<List<RecentsItem>> =
-        updatesModel.state.map { state -> state.items.map { it.toRecentsItem() } }
+    override val updatedLane: Flow<RecentsLaneRows> = updatesModel.state.map { state ->
+        RecentsLaneRows(items = state.items.map { it.toRecentsItem() }, loaded = !state.isLoading)
+    }
 
     // The only lane with no model behind it: nothing rendered a newly-added feed before this surface.
-    override val addedLane: Flow<List<RecentsItem>> =
+    override val addedLane: Flow<RecentsLaneRows> =
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
             recentlyAdded.subscribeManga(
                 after = addedLaneCutoff(),
@@ -56,7 +66,9 @@ class MangaRecentsAdapter(
                 includedCategories = categories.include,
                 excludedCategories = categories.exclude,
             ).map { rows -> rows.map { it.toRecentsItem() } }
-        }
+        }.asLane()
+
+    override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val mangaId = item.entryId.rawId

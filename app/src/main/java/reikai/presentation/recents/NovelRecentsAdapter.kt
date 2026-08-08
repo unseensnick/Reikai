@@ -12,6 +12,7 @@ import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.recents.RecentlyAddedNovel
@@ -38,17 +39,22 @@ class NovelRecentsAdapter(
     private val recentlyAdded: RecentlyAddedRepository by injectLazy()
     private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
     private val chapterRepository: NovelChapterRepository by injectLazy()
+    private val novelPreferences: NovelPreferences by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
-    override val readLane: Flow<List<RecentsItem>> = historyModel.state.map { state ->
-        state.list.orEmpty().map { it.toRecentsItem() }
+    override val readLane: Flow<RecentsLaneRows> = historyModel.state.map { state ->
+        RecentsLaneRows(
+            items = state.list.orEmpty().map { it.toRecentsItem() },
+            loaded = state.list != null,
+        )
     }
 
-    override val updatedLane: Flow<List<RecentsItem>> =
-        updatesModel.state.map { state -> state.items.map { it.toRecentsItem() } }
+    override val updatedLane: Flow<RecentsLaneRows> = updatesModel.state.map { state ->
+        RecentsLaneRows(items = state.items.map { it.toRecentsItem() }, loaded = !state.isLoading)
+    }
 
-    override val addedLane: Flow<List<RecentsItem>> =
+    override val addedLane: Flow<RecentsLaneRows> =
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
             recentlyAdded.subscribeNovels(
                 after = addedLaneCutoff(),
@@ -56,7 +62,9 @@ class NovelRecentsAdapter(
                 includedCategories = categories.include,
                 excludedCategories = categories.exclude,
             ).map { rows -> rows.map { it.toRecentsItem() } }
-        }
+        }.asLane()
+
+    override val lastUpdated: Flow<Long> = novelPreferences.novelLibraryUpdateLastTimestamp().changes()
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val novelId = item.entryId.rawId

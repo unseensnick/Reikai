@@ -1,7 +1,25 @@
 package reikai.presentation.recents
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import reikai.domain.library.ContentType
+
+/**
+ * One lane's rows plus whether they are real yet. [loaded] cannot be recovered downstream: a lane
+ * mapped off a model's state emits immediately with an empty list while the query is still running,
+ * because the state flow is seeded rather than opened by its first emission. Treating that emission as
+ * data is what makes a feed announce itself empty a tick after it opens.
+ */
+data class RecentsLaneRows(val items: List<RecentsItem>, val loaded: Boolean) {
+    companion object {
+        val Loading = RecentsLaneRows(emptyList(), loaded = false)
+    }
+}
+
+/** A query-backed lane: its first emission is real data, so it only needs a value to start from. */
+internal fun Flow<List<RecentsItem>>.asLane(): Flow<RecentsLaneRows> =
+    map { RecentsLaneRows(it, loaded = true) }.onStart { emit(RecentsLaneRows.Loading) }
 
 /**
  * One content type's half of the recents surface: its three lane feeds plus the verbs in
@@ -12,13 +30,22 @@ interface RecentsProvider : RecentsBehavior {
     val contentType: ContentType
 
     /** Entries with reading history, newest read first, one row per entry. */
-    val readLane: Flow<List<RecentsItem>>
+    val readLane: Flow<RecentsLaneRows>
 
     /** Chapters fetched after the entry was added, newest first. */
-    val updatedLane: Flow<List<RecentsItem>>
+    val updatedLane: Flow<RecentsLaneRows>
 
     /** Entries recently added to the library, newest first. */
-    val addedLane: Flow<List<RecentsItem>>
+    val addedLane: Flow<RecentsLaneRows>
+
+    /** When this type's library last finished updating. Each type has its own update job and key. */
+    val lastUpdated: Flow<Long>
+
+    fun lane(kind: RecentsLaneKind): Flow<RecentsLaneRows> = when (kind) {
+        RecentsLaneKind.READ -> readLane
+        RecentsLaneKind.UPDATED -> updatedLane
+        RecentsLaneKind.ADDED -> addedLane
+    }
 
     /**
      * The chapter a tap on [item] opens, resolved per lane: resume where you were on read, the first
