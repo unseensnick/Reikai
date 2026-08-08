@@ -8,7 +8,7 @@ import reikai.domain.entry.EntryId
  * reading a selection, because the selection belongs to the engine that can span both types.
  *
  * Carries no state, deliberately unlike `LibraryBehavior`, whose state flow the library's engine reads
- * a search query back out of. Reasoning: content-layer-recents-surface.md, step 2.
+ * a search query back out of. Reasoning: content-layer-recents-surface.md.
  */
 interface RecentsBehavior {
     /** Marks read or unread, routed through this type's read interactor so delete-after-read fires. */
