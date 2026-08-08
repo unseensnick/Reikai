@@ -33,6 +33,11 @@
       "Bash(git merge main)",
       "Bash(git rev-parse *)",
       "Bash(git show *)",
+      "Bash(git push *)",
+      "Bash(git push)",
+      "Bash(git ls-remote *)",
+      "PowerShell(git *)",
+      "PowerShell(Set-Location *)",
       "Bash(gh pr *)",
       "Bash(gh issue *)",
       "Bash(gh run *)",
@@ -94,7 +99,7 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",

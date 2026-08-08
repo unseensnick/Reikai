@@ -5,6 +5,8 @@
 #
 # Configurable via env:
 #   CLAUDE_PROTECTED_BRANCHES  comma list (default: derived from git + main,master)
+#   CLAUDE_UNPROTECTED_REPOS   comma list of path substrings whose main branch is NOT protected
+#                              (default: reikai-claude-memories). Force-push stays blocked there.
 
 set -uo pipefail
 
@@ -36,7 +38,22 @@ contains_cmd() { printf '%s' "$COMMAND" | grep -qE "$1"; }
 contains_icmd() { printf '%s' "$COMMAND" | grep -qiE "$1"; }
 
 # ── Git push protections ────────────────────────────────────────────────
-if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
+# Repos whose main IS the working branch (the memories store), so protecting it only produces
+# a prompt the operator always answers yes to. Matched on the command text, because the hook's
+# own cwd is always the project dir and cannot see a `Set-Location` or `git -C` elsewhere: the
+# branch probe below would otherwise read THIS repo's branch and gate a push to a different one.
+UNPROTECTED_REPOS="${CLAUDE_UNPROTECTED_REPOS:-reikai-claude-memories}"
+targets_unprotected_repo() {
+  local repo
+  # `|| [ -n "$repo" ]` because the last entry has no trailing newline and read would drop it.
+  while IFS= read -r repo || [ -n "$repo" ]; do
+    [ -z "$repo" ] && continue
+    printf '%s' "$COMMAND" | grep -qiF -- "$repo" && return 0
+  done < <(printf '%s' "$UNPROTECTED_REPOS" | tr ',' '\n')
+  return 1
+}
+
+if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push' && ! targets_unprotected_repo; then
   # Explicit refspec to a protected branch (origin main, :main, HEAD:main, remote branch)
   if contains_cmd "git[[:space:]]+push[[:space:]]+[^[:space:]]+[[:space:]]+([^[:space:]]*:)?($BR_REGEX)(\$|[[:space:]])"; then
     MATCHED_BRANCH=$(printf '%s' "$COMMAND" | grep -oE "($BR_REGEX)(\$|[[:space:]])" | head -1 | tr -d '[:space:]')
@@ -53,7 +70,11 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
       emit_deny "Blocked: you are on '$CURRENT' (a protected branch). Switch to a feature branch."
     fi
   fi
-  # Force push (but allow --force-with-lease)
+fi
+
+# Force push is blocked everywhere, including the unprotected repos above: the reason to exempt
+# them is that main is their working branch, not that overwriting their history is fine.
+if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
   if contains_cmd 'git[[:space:]]+push([[:space:]]+[^[:space:]]+)*[[:space:]]+(-[a-zA-Z]*f[a-zA-Z]*|--force)([[:space:]=]|$)' \
      && ! contains_cmd '\-\-force-with-lease'; then
     emit_deny "Blocked: force push is not allowed. Use --force-with-lease if you must overwrite remote."
