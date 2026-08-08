@@ -3,9 +3,12 @@ package reikai.presentation.category
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import eu.kanade.presentation.category.contentTypeLabel
+import reikai.domain.category.CategoryContentType
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.presentation.core.components.TriStateItem
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Per-category include/exclude tri-state map (checked = include, inverted = exclude, blank = ignore),
@@ -27,7 +30,12 @@ fun categoryStatesOf(
         }
     }
 
-/** One [TriStateItem] per category bound to [states]; a blank category name falls back to [defaultLabel]. */
+/**
+ * One [TriStateItem] per category bound to [states]; a blank category name falls back to [defaultLabel].
+ * A category restricted to one content type says so after its name, because one selection now spans
+ * both libraries and picking a manga-only row while thinking about novels is otherwise invisible.
+ * Universal rows carry no suffix: labelling every row would bury the ones that constrain something.
+ */
 @Composable
 fun CategoryTriStateRows(
     categories: List<Category>,
@@ -35,10 +43,12 @@ fun CategoryTriStateRows(
     defaultLabel: String,
 ) {
     categories.forEach { category ->
+        val restricted = category.contentType != CategoryContentType.UNIVERSAL
         TriStateItem(
             label = category.name.ifBlank { defaultLabel },
             state = states[category.id] ?: TriState.DISABLED,
             onClick = { next -> states[category.id] = next },
+            subtitle = stringResource(category.contentTypeLabel).takeIf { restricted },
         )
     }
 }

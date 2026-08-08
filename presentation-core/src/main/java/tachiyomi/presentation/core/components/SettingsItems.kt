@@ -338,6 +338,10 @@ fun TriStateItem(
     label: String,
     state: TriState,
     enabled: Boolean = true,
+    // RK: optional second line, for a qualifier that would crowd the label (the category picker uses
+    // it to mark a category restricted to one library). Null keeps the original single-line row.
+    // Declared before onClick so callers passing it as a trailing lambda still bind to onClick.
+    subtitle: String? = null,
     onClick: ((TriState) -> Unit)?,
 ) {
     Row(
@@ -378,11 +382,21 @@ fun TriStateItem(
                 }
             },
         )
-        Text(
-            text = label,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = stateAlpha),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        // RK: Column so the optional subtitle sits under the label instead of beside it
+        Column {
+            Text(
+                text = label,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = stateAlpha),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = stateAlpha),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
     }
 }
 

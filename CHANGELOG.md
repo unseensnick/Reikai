@@ -67,6 +67,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Library grouping is now one setting for manga and novels.** Under the All chip a tag, author or tracking status shared by both now forms a single group; a novel-only grouping choice needs re-picking once.
 - **Empty categories are now always hidden, and item counts follow one rule on every chip.** A category without anything to show never renders a bare header, and counts obey the "Show number of items" setting for novels too.
 - **The Updates category filter is now one list covering manga and novels together.** It used to keep a separate pick per content type, so your existing choice there needs re-picking once; picking a manga-only category now hides novels, the same way the library filter already behaves.
+- **A category that only applies to one library now says so in the filter picker.** Each row carries "Manga only" or "Novels only" under its name, so picking one while looking at the other library is no longer a silent surprise.
+- **Updates now tells you when a filter is what emptied the feed, with a button straight to it.** It used to say "No recent updates" whether nothing was new or your own filter had hidden everything.
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens either one source's chapters or the whole merged group, depending on where you tapped.** Updates, source chips and new-chapter notifications open one source; your library, the series page and history open the group.
 - **Reading a chapter now marks it read on the series' other sources too, by default.** Switch it off under Settings -> Reader.

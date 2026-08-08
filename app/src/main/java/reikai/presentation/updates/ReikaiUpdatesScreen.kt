@@ -73,6 +73,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.active
 import tachiyomi.presentation.core.util.selectedBackground
@@ -268,10 +269,26 @@ fun ReikaiUpdatesScreen(
             Box(modifier = Modifier.weight(1f)) {
                 when {
                     isLoading -> LoadingScreen(Modifier.padding(bodyPadding))
-                    rows.isEmpty() -> EmptyScreen(
-                        stringRes = MR.strings.information_no_recent,
-                        modifier = Modifier.padding(bodyPadding),
-                    )
+                    rows.isEmpty() -> {
+                        // A filter that hides everything has to say so. "No recent updates" would send
+                        // the user looking for chapters that are actually sitting behind their filter.
+                        val filtered = hasActiveFilters || novelCategoryFilterActive
+                        EmptyScreen(
+                            stringRes = if (filtered) {
+                                MR.strings.information_no_recent_filtered
+                            } else {
+                                MR.strings.information_no_recent
+                            },
+                            modifier = Modifier.padding(bodyPadding),
+                            actions = listOf(
+                                EmptyScreenAction(
+                                    stringRes = MR.strings.action_filter,
+                                    icon = Icons.Outlined.FilterList,
+                                    onClick = onFilterClicked,
+                                ),
+                            ).takeIf { filtered },
+                        )
+                    }
                     else -> {
                         val scope = rememberCoroutineScope()
                         var isRefreshing by remember { mutableStateOf(false) }
