@@ -77,12 +77,11 @@ class NovelRecentsAdapter(
     /** Merge-aware on all three lanes, the twin of [MangaRecentsAdapter.targetChapter]. */
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val novelId = item.entryId.rawId
+        // Already ascending reading order, which is the contract every rule below reads under.
         val group = getNextNovelChapter.groupChapters(novelId)
+        val groupChapters = group.chapters.map { it.toRecentsChapter(group.readInOtherSources) }
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeInGroup(
-                chapters = group.chapters.map { it.toRecentsChapter(group.readInOtherSources) },
-                recordedId = lane.chapter.chapterId,
-            )
+            is RecentsLane.Read -> resumeInGroup(groupChapters, lane.chapter.chapterId)
                 // A recorded chapter the cross-source stitch dropped resumes from its own source.
                 ?: getNextNovelChapter.await(novelId, lane.chapter.chapterId)?.id
             is RecentsLane.Updated -> firstUnreadInBurst(
@@ -92,7 +91,7 @@ class NovelRecentsAdapter(
                     .map { it.toRecentsChapter(group.readInOtherSources) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> getNextNovelChapter.awaitFirstUnreadInGroup(novelId)?.id
+            RecentsLane.Added -> firstUnreadOf(groupChapters)
         }
         return chapterId?.let { ChapterRef(item.entryId, it) }
     }

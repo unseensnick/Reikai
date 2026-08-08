@@ -44,6 +44,18 @@ class RecentsTargetTest {
     }
 
     @Test
+    fun `the first unread of a group is the oldest one left`() {
+        val chapters = listOf(chapter(1, read = true), chapter(2), chapter(3))
+
+        firstUnreadOf(chapters) shouldBe 2L
+    }
+
+    @Test
+    fun `a group with nothing left to read offers no first unread`() {
+        firstUnreadOf(listOf(chapter(1, read = true))) shouldBe null
+    }
+
+    @Test
     fun `a fully read group has nothing to resume`() {
         val chapters = listOf(chapter(1, read = true), chapter(2, read = true))
 

@@ -6,7 +6,6 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
-import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -22,10 +21,12 @@ import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -96,28 +97,35 @@ class MangaRecentsAdapter(
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
         val readElsewhere = group?.readInOtherSources.orEmpty()
+        val groupChapters = readingOrder(manga, group?.chapters).map { it.toRecentsChapter(readElsewhere) }
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeInGroup(
-                chapters = group?.chapters.orEmpty().map { it.toRecentsChapter(readElsewhere) },
-                recordedId = lane.chapter.chapterId,
-            )
+            is RecentsLane.Read -> resumeInGroup(groupChapters, lane.chapter.chapterId)
                 // The stitch drops a chapter another source represents, so a recorded chapter can be
                 // missing from the group list; resume it from its own source rather than nowhere.
                 ?: getNextChapters.await(mangaId, lane.chapter.chapterId, onlyUnread = false).firstOrNull()?.id
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // The burst is one source's: fetch times do not line up across sources, so only the
                 // read-elsewhere carry-over crosses the group here.
-                chapters = getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)
+                chapters = readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
                     .map { it.toRecentsChapter(readElsewhere) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> if (manga != null && group != null) {
-                group.chapters.getNextUnread(manga, downloadManager, group.readInOtherSources)?.id
-            } else {
-                getNextChapters.await(mangaId, onlyUnread = true).firstOrNull()?.id
-            }
+            RecentsLane.Added -> firstUnreadOf(groupChapters)
+                ?: getNextChapters.await(mangaId, onlyUnread = true).firstOrNull()?.id
         }
         return chapterId?.let { ChapterRef(item.entryId, it) }
+    }
+
+    /**
+     * Ascending reading order, which every shared target rule expects. A merged list can only be
+     * ordered by chapter number: each source's own order is a scale of its own, and the stitch already
+     * restamped it newest-first for the reader. An unmerged one takes Mihon's own comparator, the same
+     * one `GetNextChapters` applies.
+     */
+    private fun readingOrder(manga: Manga?, chapters: List<Chapter>?): List<Chapter> = when {
+        manga == null || chapters == null -> chapters.orEmpty()
+        chapters.distinctBy { it.mangaId }.size > 1 -> chapters.sortedBy { it.chapterNumber }
+        else -> chapters.sortedWith(getChapterSort(manga, sortDescending = false))
     }
 
     private fun Chapter.toRecentsChapter(readInOtherSources: Set<Long>) = RecentsChapter(
