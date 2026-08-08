@@ -19,6 +19,7 @@ import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
+import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.lang.toRelativeString
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.filter
@@ -28,9 +29,6 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
 /**
  * Reikai (R-feature): in-reader "view all chapters" sheet. Ported from Komikku, decoupled from its
@@ -110,7 +108,7 @@ fun ChapterListDialog(
                     date = chapterItem.chapter.dateUpload
                         .takeIf { it > 0L }
                         ?.let {
-                            LocalDate.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
+                            it.toLocalDate()
                                 .toRelativeString(context, dateRelativeTime, chapterItem.dateFormat)
                         },
                     readProgress = null,

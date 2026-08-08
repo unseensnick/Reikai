@@ -131,7 +131,7 @@ class UnifiedUpdatesGlanceWidget(
             }
 
             val flow = remember {
-                val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilli()
+                val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
                 combine(
                     getUpdates.subscribe(read = false, after = after),
                     novelRepository.getRecentNovelUpdatesAsFlow(after, ROW_LIMIT),

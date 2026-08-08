@@ -16,6 +16,8 @@ import exh.metadata.metadata.base.FlatMetadata
 import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.data.Database
@@ -35,9 +37,9 @@ import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.track.model.Track
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.ZonedDateTime
 import java.util.Date
 import kotlin.math.max
+import kotlin.time.Clock
 
 class MangaRestorer(
     private val database: Database = Injekt.get(),
@@ -56,13 +58,9 @@ class MangaRestorer(
     private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
 ) {
 
-    private var now = ZonedDateTime.now()
-    private var currentFetchWindow = fetchInterval.getWindow(now)
-
-    init {
-        now = ZonedDateTime.now()
-        currentFetchWindow = fetchInterval.getWindow(now)
-    }
+    private val timeZone = TimeZone.currentSystemDefault()
+    private val now = Clock.System.now().toLocalDateTime(timeZone)
+    private val currentFetchWindow = fetchInterval.getWindow(now.date, timeZone)
 
     suspend fun sortByNew(backupMangas: List<BackupManga>): List<BackupManga> {
         val urlsBySource = database.mangasQueries
@@ -307,7 +305,7 @@ class MangaRestorer(
         restoreHistory(manga, history)
         restoreExcludedScanlators(manga, excludedScanlators)
         restoreSearchMetadata(manga, searchMetadata)
-        updateManga.awaitUpdateFetchInterval(manga, now, currentFetchWindow)
+        updateManga.awaitUpdateFetchInterval(manga, timeZone, now, currentFetchWindow)
         return manga
     }
 

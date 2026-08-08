@@ -2,7 +2,7 @@ package reikai.domain.novel.interactor
 
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
-import java.time.Instant
+import kotlin.time.Clock
 
 /**
  * Surgical single/few-column writes to the novels table, the novel twin of
@@ -18,16 +18,21 @@ class UpdateNovel(
     }
 
     suspend fun awaitUpdateLastUpdate(novelId: Long): Boolean {
-        return novelRepository.update(NovelUpdate(id = novelId, lastUpdate = Instant.now().toEpochMilli()))
+        return novelRepository.update(NovelUpdate(id = novelId, lastUpdate = Clock.System.now().toEpochMilliseconds()))
     }
 
     suspend fun awaitUpdateCoverLastModified(novelId: Long): Boolean {
-        return novelRepository.update(NovelUpdate(id = novelId, coverLastModified = Instant.now().toEpochMilli()))
+        return novelRepository.update(
+            NovelUpdate(
+                id = novelId,
+                coverLastModified = Clock.System.now().toEpochMilliseconds(),
+            ),
+        )
     }
 
     suspend fun awaitUpdateFavorite(novelId: Long, favorite: Boolean): Boolean {
         val dateAdded = when (favorite) {
-            true -> Instant.now().toEpochMilli()
+            true -> Clock.System.now().toEpochMilliseconds()
             false -> 0
         }
         return novelRepository.update(

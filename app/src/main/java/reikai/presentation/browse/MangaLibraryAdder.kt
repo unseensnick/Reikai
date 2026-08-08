@@ -23,7 +23,7 @@ import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.Instant
+import kotlin.time.Clock
 
 /**
  * Shared long-press "add to library" orchestration for any manga browse surface (the per-source
@@ -111,7 +111,7 @@ class MangaLibraryAdder(
     suspend fun changeFavorite(manga: Manga) {
         var new = manga.copy(
             favorite = !manga.favorite,
-            dateAdded = if (manga.favorite) 0 else Instant.now().toEpochMilli(),
+            dateAdded = if (manga.favorite) 0 else Clock.System.now().toEpochMilliseconds(),
         )
         if (!new.favorite) {
             // RK: its own copy of the group's shared tracker, before it leaves; the hand-out skips

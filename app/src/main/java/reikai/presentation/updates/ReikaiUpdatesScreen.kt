@@ -62,6 +62,7 @@ import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 import reikai.domain.library.ContentType
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -75,7 +76,6 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.active
 import tachiyomi.presentation.core.util.selectedBackground
-import java.time.LocalDate
 import kotlin.time.Duration.Companion.seconds
 
 /**

@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.categoryFilterActive
@@ -52,7 +55,7 @@ import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.ZonedDateTime
+import kotlin.time.Clock
 
 class UpdatesViewModel(
     private val sourceManager: SourceManager = Injekt.get(),
@@ -86,7 +89,7 @@ class UpdatesViewModel(
     init {
         viewModelScope.launchIO {
             // Set date limit for recent chapters
-            val limit = ZonedDateTime.now().minusMonths(3).toInstant()
+            val limit = Clock.System.now().minus(3, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
 
             combine(
                 // needed for SQL filters (unread, started, bookmarked, etc)

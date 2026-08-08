@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
 import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.GetNovelCategories
@@ -45,7 +48,7 @@ import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.ZonedDateTime
+import kotlin.time.Clock
 
 /**
  * Drives the light-novel side of the Updates tab, the novel twin of
@@ -118,7 +121,9 @@ class NovelUpdatesViewModel(
 
     init {
         viewModelScope.launchIO {
-            val after = ZonedDateTime.now().minusMonths(RECENT_MONTHS).toInstant().toEpochMilli()
+            val after = Clock.System.now()
+                .minus(RECENT_MONTHS, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
+                .toEpochMilliseconds()
             // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
             val filterFlow = combine(
                 updatesPreferences.filterUnread.changes(),

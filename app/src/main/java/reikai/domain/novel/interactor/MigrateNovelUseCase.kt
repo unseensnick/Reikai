@@ -21,7 +21,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.Instant
+import kotlin.time.Clock
 
 /**
  * Move a favorited novel's state onto a [target] novel from another source, the novel twin of
@@ -151,7 +151,7 @@ class MigrateNovelUseCase(
                 // Inherit the source's added-date on a replace, else stamp now, matching manga
                 // migration; this favorite path bypasses awaitUpdateFavorite, which is the only
                 // other place dateAdded is set, so without this a migrated novel sorts to epoch 0.
-                dateAdded = if (replace) current.dateAdded else Instant.now().toEpochMilli(),
+                dateAdded = if (replace) current.dateAdded else Clock.System.now().toEpochMilliseconds(),
                 // Carry the chapter-list (sort/filter/display) and reader (orientation) flags onto
                 // the target unconditionally, matching manga migration.
                 chapterFlags = current.chapterFlags,

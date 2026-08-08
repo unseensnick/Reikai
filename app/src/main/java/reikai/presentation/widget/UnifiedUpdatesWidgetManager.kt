@@ -28,7 +28,7 @@ class UnifiedUpdatesWidgetManager(
 ) {
 
     fun Context.init(scope: LifecycleCoroutineScope) {
-        val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilli()
+        val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
         combine(
             getUpdates.subscribe(read = false, after = after),
             novelRepository.getRecentNovelUpdatesAsFlow(after, ROW_LIMIT),

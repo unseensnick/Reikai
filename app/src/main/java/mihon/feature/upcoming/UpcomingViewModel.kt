@@ -5,13 +5,17 @@ import androidx.compose.ui.util.fastMap
 import androidx.compose.ui.util.fastMapIndexedNotNull
 import androidx.lifecycle.viewModelScope
 import eu.kanade.core.util.insertSeparatorsReversed
-import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.YearMonth
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.yearMonth
 import mihon.core.viewmodel.StateViewModel
 import mihon.domain.upcoming.interactor.GetUpcomingManga
 import tachiyomi.core.common.preference.getAndSet
@@ -22,8 +26,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.upcoming.service.UpcomingPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.LocalDate
-import java.time.YearMonth
+import kotlin.time.Clock
 
 class UpcomingViewModel(
     private val getUpcomingManga: GetUpcomingManga = Injekt.get(),
@@ -64,8 +67,14 @@ class UpcomingViewModel(
             .insertSeparatorsReversed { before, after ->
                 if (after != null) mangaCount++
 
-                val beforeDate = before?.manga?.expectedNextUpdate?.toLocalDate()
-                val afterDate = after?.manga?.expectedNextUpdate?.toLocalDate()
+                val beforeDate = before?.manga
+                    ?.expectedNextUpdate
+                    ?.toLocalDateTime(TimeZone.currentSystemDefault())
+                    ?.date
+                val afterDate = after?.manga
+                    ?.expectedNextUpdate
+                    ?.toLocalDateTime(TimeZone.currentSystemDefault())
+                    ?.date
 
                 if (beforeDate != afterDate && afterDate != null) {
                     UpcomingUIModel.Header(afterDate, mangaCount).also { mangaCount = 0 }
@@ -134,7 +143,10 @@ class UpcomingViewModel(
     )
 
     data class State(
-        val selectedYearMonth: YearMonth = YearMonth.now(),
+        val selectedYearMonth: YearMonth = Clock.System.now()
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
+            .yearMonth,
         val items: List<UpcomingUIModel> = listOf(),
         val events: Map<LocalDate, Int> = mapOf(),
         val headerIndexes: Map<LocalDate, Int> = mapOf(),

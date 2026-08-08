@@ -4,7 +4,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import eu.kanade.presentation.manga.components.SearchMetadataChips
-import java.time.Instant
+import kotlin.time.Instant
 
 /**
  * Content-agnostic data for the shared details column ([entryInfoItems]). Each content type maps its

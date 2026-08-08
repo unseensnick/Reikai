@@ -4,8 +4,8 @@
 
 package eu.kanade.presentation.history
 
+import kotlinx.datetime.LocalDate
 import tachiyomi.domain.history.model.HistoryWithRelations
-import java.time.LocalDate
 
 // RK: the screen body and its previews moved to the shared reikai.presentation.history
 // .ReikaiHistoryScreen (manga + novel history render through it now). Only the ui model stays,

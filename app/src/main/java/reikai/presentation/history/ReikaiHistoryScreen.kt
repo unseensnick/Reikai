@@ -25,6 +25,7 @@ import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.util.lang.toLocalDate
+import kotlinx.datetime.LocalDate
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -35,7 +36,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import java.time.LocalDate
 
 /**
  * The single History screen for all three content-type chips, the History twin of [ReikaiUpdatesScreen].

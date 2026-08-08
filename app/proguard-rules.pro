@@ -109,6 +109,9 @@
 -keep class com.google.firebase.installations.** { *; }
 -keep interface com.google.firebase.installations.** { *; }
 
+# KotlinX Datetime
+-keep,allowoptimization class kotlinx.datetime.** { public protected *; }
+
 # Methods called by Shizuku only
 -keepclassmembers class mihon.app.shizuku.ShellInterface {
     public <init>();
