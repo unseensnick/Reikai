@@ -53,6 +53,22 @@ interface NovelRepository {
      * date (the feed cutoff); [limit] caps the row count. Backs the novel side of the Updates tab.
      */
     fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>>
+
+    /**
+     * The same feed with the recents filters applied in SQL, the novel twin of Mihon's
+     * `getRecentUpdatesWithFilters`. Separate from the unfiltered read above, which the home-screen
+     * widget uses and must keep seeing every recent update. Downloaded stays a Kotlin filter on both
+     * content types, since download state lives on disk rather than in the database.
+     */
+    fun getFilteredNovelUpdatesAsFlow(
+        after: Long,
+        limit: Long,
+        unread: Boolean?,
+        started: Boolean?,
+        bookmarked: Boolean?,
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
+    ): Flow<List<NovelUpdateWithRelations>>
     fun getAllAsFlow(): Flow<List<Novel>>
 
     /**

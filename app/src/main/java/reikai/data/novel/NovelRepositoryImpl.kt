@@ -52,6 +52,28 @@ class NovelRepositoryImpl(
     override fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>> =
         database.novelUpdatesViewQueries.getRecentNovelUpdates(after, limit, ::mapNovelUpdate).subscribeToList()
 
+    override fun getFilteredNovelUpdatesAsFlow(
+        after: Long,
+        limit: Long,
+        unread: Boolean?,
+        started: Boolean?,
+        bookmarked: Boolean?,
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
+    ): Flow<List<NovelUpdateWithRelations>> =
+        database.novelUpdatesViewQueries.getRecentNovelUpdatesWithFilters(
+            after = after,
+            read = unread?.let { !it },
+            started = started?.let { if (it) 1L else 0L },
+            bookmarked = bookmarked,
+            includedEmpty = includedCategories.isEmpty(),
+            includedCategories = includedCategories,
+            excludedEmpty = excludedCategories.isEmpty(),
+            excludedCategories = excludedCategories,
+            limit = limit,
+            mapper = ::mapNovelUpdate,
+        ).subscribeToList()
+
     override fun getAllAsFlow(): Flow<List<Novel>> =
         database.novelsQueries.findAll(::mapNovel).subscribeToList()
 

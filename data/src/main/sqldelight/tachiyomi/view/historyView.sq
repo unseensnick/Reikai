@@ -43,6 +43,36 @@ FROM historyView
 WHERE historyView.readAt > 0
 AND maxReadAtChapterId = historyView.chapterId
 AND lower(historyView.title) LIKE ('%' || :query || '%')
+-- RK --> the recents category filter covers history too, so this carries the same include/exclude
+-- blocks as updatesView, sentinel id 0 for uncategorized. Upstream has no filter on this query.
+-- Note historyView has no favorite gate, so an entry read but never added to the library has no
+-- membership rows and reads as uncategorized: an include set without 0 hides it.
+AND (
+    :includedEmpty
+    OR EXISTS (
+        SELECT 1 FROM mangas_categories
+        WHERE mangas_categories.manga_id = mangaId
+        AND COALESCE(mangas_categories.category_id, 0) IN :includedCategories
+    )
+    OR (0 IN :includedCategories AND NOT EXISTS (
+        SELECT 1 FROM mangas_categories mc WHERE mc.manga_id = mangaId)
+    )
+)
+AND (
+    :excludedEmpty
+    OR (
+        NOT EXISTS (
+            SELECT 1 FROM mangas_categories
+            WHERE mangas_categories.manga_id = mangaId
+            AND COALESCE(mangas_categories.category_id, 0) IN :excludedCategories
+        )
+        AND (
+            0 NOT IN :excludedCategories
+            OR EXISTS (SELECT 1 FROM mangas_categories WHERE mangas_categories.manga_id = mangaId)
+        )
+    )
+)
+-- RK <--
 ORDER BY readAt DESC;
 
 getLatestHistory:

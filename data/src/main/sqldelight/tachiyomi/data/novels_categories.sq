@@ -11,6 +11,11 @@ CREATE TABLE novels_categories(
     ON DELETE CASCADE
 );
 
+-- Both columns indexed, mirroring mangas_categories: the recents feeds run an EXISTS over this table
+-- per row, which is a scan per row without them. Added for existing installs by migration 34.
+CREATE INDEX idx_novels_categories_novel_id ON novels_categories(novel_id);
+CREATE INDEX idx_novels_categories_category_id ON novels_categories(category_id);
+
 delete:
 DELETE FROM novels_categories
 WHERE novel_id = :novelId;

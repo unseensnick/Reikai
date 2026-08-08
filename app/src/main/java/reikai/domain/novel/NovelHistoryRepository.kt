@@ -11,7 +11,12 @@ import reikai.domain.novel.model.NovelHistoryWithRelations
  * hidden by the feed filter so a re-read re-surfaces it); [deleteAllNovelHistory] hard-clears.
  */
 interface NovelHistoryRepository {
-    fun getNovelHistory(query: String): Flow<List<NovelHistoryWithRelations>>
+    /** Empty category lists mean no constraint, matching the manga twin. */
+    fun getNovelHistory(
+        query: String,
+        includedCategories: List<Long> = emptyList(),
+        excludedCategories: List<Long> = emptyList(),
+    ): Flow<List<NovelHistoryWithRelations>>
     suspend fun getLastNovelHistory(): NovelHistoryWithRelations?
     suspend fun resetNovelHistory(historyId: Long)
     suspend fun resetNovelHistoryByNovelId(novelId: Long)

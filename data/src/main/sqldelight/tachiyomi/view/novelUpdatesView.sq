@@ -25,8 +25,52 @@ WHERE novels.favorite = 1
 AND novel_chapters.date_fetch > coalesce(novels.date_added, 0)
 ORDER BY novel_chapters.date_fetch DESC;
 
+-- Unfiltered feed. Kept alongside the filtered query below because the home-screen widget wants raw
+-- recent updates, not whatever the Updates screen's filters happen to be set to.
 getRecentNovelUpdates:
 SELECT *
 FROM novelUpdatesView
 WHERE dateFetch > :after
+LIMIT :limit;
+
+-- Novel twin of updatesView's getRecentUpdatesWithFilters, same predicate shapes so the two feeds
+-- cannot drift: read/started/bookmarked, then the include/exclude category blocks with sentinel id 0
+-- for uncategorized. "Started" is progress without completion, measured in lastTextProgress rather
+-- than pages. Downloaded is not here on either side: download state is on disk, not in the database.
+getRecentNovelUpdatesWithFilters:
+SELECT *
+FROM novelUpdatesView
+WHERE dateFetch > :after
+AND (:read IS NULL OR read = :read)
+AND (
+    :started IS NULL
+    OR (:started = 1 AND lastTextProgress > 0 AND read = 0)
+    OR (:started = 0 AND lastTextProgress = 0 AND read = 0)
+)
+AND (:bookmarked IS NULL OR bookmark = :bookmarked)
+AND (
+    :includedEmpty
+    OR EXISTS (
+        SELECT 1 FROM novels_categories
+        WHERE novels_categories.novel_id = novelId
+        AND COALESCE(novels_categories.category_id, 0) IN :includedCategories
+    )
+    OR (0 IN :includedCategories AND NOT EXISTS (
+        SELECT 1 FROM novels_categories nc WHERE nc.novel_id = novelId)
+    )
+)
+AND (
+    :excludedEmpty
+    OR (
+        NOT EXISTS (
+            SELECT 1 FROM novels_categories
+            WHERE novels_categories.novel_id = novelId
+            AND COALESCE(novels_categories.category_id, 0) IN :excludedCategories
+        )
+        AND (
+            0 NOT IN :excludedCategories
+            OR EXISTS (SELECT 1 FROM novels_categories WHERE novels_categories.novel_id = novelId)
+        )
+    )
+)
 LIMIT :limit;

@@ -1,0 +1,86 @@
+-- RK: the "newly added to the library" lane of the recents surface, one query per content type.
+-- Deliberately over the base tables rather than libraryView / novelLibraryView: those aggregate a
+-- chapter count per entry, which a row with no chapter has no use for. The category blocks match
+-- updatesView's, sentinel id 0 for uncategorized, so all three lanes filter the same way. No
+-- chapter-state filters: a newly-added row has no chapter for unread, started or bookmarked to test.
+
+getRecentlyAddedManga:
+SELECT
+    mangas._id AS mangaId,
+    mangas.title,
+    mangas.source,
+    mangas.thumbnail_url AS thumbnailUrl,
+    mangas.cover_last_modified AS coverLastModified,
+    mangas.date_added AS dateAdded
+FROM mangas
+WHERE mangas.favorite = 1
+AND mangas.date_added > :after
+AND (
+    :includedEmpty
+    OR EXISTS (
+        SELECT 1 FROM mangas_categories
+        WHERE mangas_categories.manga_id = mangas._id
+        AND COALESCE(mangas_categories.category_id, 0) IN :includedCategories
+    )
+    OR (0 IN :includedCategories AND NOT EXISTS (
+        SELECT 1 FROM mangas_categories mc WHERE mc.manga_id = mangas._id)
+    )
+)
+AND (
+    :excludedEmpty
+    OR (
+        NOT EXISTS (
+            SELECT 1 FROM mangas_categories
+            WHERE mangas_categories.manga_id = mangas._id
+            AND COALESCE(mangas_categories.category_id, 0) IN :excludedCategories
+        )
+        AND (
+            0 NOT IN :excludedCategories
+            OR EXISTS (SELECT 1 FROM mangas_categories WHERE mangas_categories.manga_id = mangas._id)
+        )
+    )
+)
+ORDER BY mangas.date_added DESC
+LIMIT :limit;
+
+-- Novel twin. date_added is nullable here where the manga column is NOT NULL, so it is coalesced:
+-- a novel added before the column existed sorts to the end rather than dropping out of the lane.
+getRecentlyAddedNovels:
+SELECT
+    novels._id AS novelId,
+    novels.title,
+    novels.source,
+    novels.url,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    COALESCE(novels.date_added, 0) AS dateAdded
+FROM novels
+WHERE novels.favorite = 1
+AND COALESCE(novels.date_added, 0) > :after
+AND (
+    :includedEmpty
+    OR EXISTS (
+        SELECT 1 FROM novels_categories
+        WHERE novels_categories.novel_id = novels._id
+        AND COALESCE(novels_categories.category_id, 0) IN :includedCategories
+    )
+    OR (0 IN :includedCategories AND NOT EXISTS (
+        SELECT 1 FROM novels_categories nc WHERE nc.novel_id = novels._id)
+    )
+)
+AND (
+    :excludedEmpty
+    OR (
+        NOT EXISTS (
+            SELECT 1 FROM novels_categories
+            WHERE novels_categories.novel_id = novels._id
+            AND COALESCE(novels_categories.category_id, 0) IN :excludedCategories
+        )
+        AND (
+            0 NOT IN :excludedCategories
+            OR EXISTS (SELECT 1 FROM novels_categories WHERE novels_categories.novel_id = novels._id)
+        )
+    )
+)
+ORDER BY dateAdded DESC
+LIMIT :limit;

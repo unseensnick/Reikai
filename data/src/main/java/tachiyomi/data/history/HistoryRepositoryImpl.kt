@@ -17,9 +17,21 @@ class HistoryRepositoryImpl(
     private val database: Database,
 ) : HistoryRepository {
 
-    override fun getHistory(query: String): Flow<List<HistoryWithRelations>> {
+    // RK: the two category id lists are Reikai's, from the recents filter; empty means no constraint.
+    override fun getHistory(
+        query: String,
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
+    ): Flow<List<HistoryWithRelations>> {
         return database.historyViewQueries
-            .history(query, HistoryMapper::mapHistoryWithRelations)
+            .history(
+                query = query,
+                includedEmpty = includedCategories.isEmpty(),
+                includedCategories = includedCategories,
+                excludedEmpty = excludedCategories.isEmpty(),
+                excludedCategories = excludedCategories,
+                mapper = HistoryMapper::mapHistoryWithRelations,
+            )
             .subscribeToList()
     }
 

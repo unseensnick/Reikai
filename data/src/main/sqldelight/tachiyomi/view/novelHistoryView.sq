@@ -45,6 +45,32 @@ FROM novelHistoryView
 WHERE novelHistoryView.readAt > 0
 AND maxReadAtChapterId = novelHistoryView.chapterId
 AND lower(novelHistoryView.title) LIKE ('%' || :query || '%')
+-- Same category blocks as the manga twin, so the two history feeds filter identically.
+AND (
+    :includedEmpty
+    OR EXISTS (
+        SELECT 1 FROM novels_categories
+        WHERE novels_categories.novel_id = novelId
+        AND COALESCE(novels_categories.category_id, 0) IN :includedCategories
+    )
+    OR (0 IN :includedCategories AND NOT EXISTS (
+        SELECT 1 FROM novels_categories nc WHERE nc.novel_id = novelId)
+    )
+)
+AND (
+    :excludedEmpty
+    OR (
+        NOT EXISTS (
+            SELECT 1 FROM novels_categories
+            WHERE novels_categories.novel_id = novelId
+            AND COALESCE(novels_categories.category_id, 0) IN :excludedCategories
+        )
+        AND (
+            0 NOT IN :excludedCategories
+            OR EXISTS (SELECT 1 FROM novels_categories WHERE novels_categories.novel_id = novelId)
+        )
+    )
+)
 ORDER BY readAt DESC;
 
 getLatestNovelHistory:

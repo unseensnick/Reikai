@@ -15,8 +15,19 @@ class NovelHistoryRepositoryImpl(
     private val database: Database,
 ) : NovelHistoryRepository {
 
-    override fun getNovelHistory(query: String): Flow<List<NovelHistoryWithRelations>> =
-        database.novelHistoryViewQueries.novelHistory(query, ::mapNovelHistoryWithRelations).subscribeToList()
+    override fun getNovelHistory(
+        query: String,
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
+    ): Flow<List<NovelHistoryWithRelations>> =
+        database.novelHistoryViewQueries.novelHistory(
+            query = query,
+            includedEmpty = includedCategories.isEmpty(),
+            includedCategories = includedCategories,
+            excludedEmpty = excludedCategories.isEmpty(),
+            excludedCategories = excludedCategories,
+            mapper = ::mapNovelHistoryWithRelations,
+        ).subscribeToList()
 
     override suspend fun getLastNovelHistory(): NovelHistoryWithRelations? =
         database.novelHistoryViewQueries.getLatestNovelHistory(::mapNovelHistoryWithRelations).awaitAsOneOrNull()

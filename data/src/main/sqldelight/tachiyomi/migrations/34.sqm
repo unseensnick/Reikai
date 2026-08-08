@@ -1,0 +1,6 @@
+-- Index novels_categories on both columns, matching mangas_categories, which has had both since it
+-- was created. The junction had none: novel category membership was only ever read whole, per novel.
+-- The recents feeds change that, running an EXISTS against this table for every row of every lane,
+-- which is a full scan per row while it is unindexed.
+CREATE INDEX IF NOT EXISTS idx_novels_categories_novel_id ON novels_categories(novel_id);
+CREATE INDEX IF NOT EXISTS idx_novels_categories_category_id ON novels_categories(category_id);
