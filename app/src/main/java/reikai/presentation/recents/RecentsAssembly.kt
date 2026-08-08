@@ -1,0 +1,42 @@
+package reikai.presentation.recents
+
+import reikai.domain.entry.EntryId
+
+/*
+ * The two algorithms every recents view is built from: one order, and one collapse. They are separate
+ * functions rather than one assembly because the scope of the collapse is a render policy's decision,
+ * not the kernel's: the flat modes collapse across all lanes, the digest collapses within each lane so
+ * a series can appear under both new chapters and continue reading, and the Updates mode does not
+ * collapse at all. Yokai collapses globally before sectioning, which costs its digest a row whenever a
+ * series is in two lanes. Record: content-layer-recents-surface.md.
+ */
+
+/**
+ * Newest first, and total: equal timestamps break on the lane, then on the content type, then on the
+ * entry's own id. A partial order would let two rows swap places between emissions for no reason the
+ * user could see, since a stable sort only preserves whatever order the lanes happened to arrive in.
+ */
+private val recentsOrder: Comparator<RecentsItem> = compareByDescending<RecentsItem> { it.timestamp }
+    .thenBy { it.lane.rank }
+    .thenBy { it.entryId.contentType.ordinal }
+    .thenBy { it.entryId.rawId }
+
+/** Read leads at the same instant: it is the one thing the user did, the other two happened to them. */
+private val RecentsLane.rank: Int
+    get() = when (this) {
+        is RecentsLane.Read -> 0
+        is RecentsLane.Updated -> 1
+        RecentsLane.Added -> 2
+    }
+
+/** Newest first. */
+fun orderRecents(items: List<RecentsItem>): List<RecentsItem> = items.sortedWith(recentsOrder)
+
+/**
+ * One row per entry, the most recent winning, which falls out of ordering first. Keyed on [EntryId]
+ * rather than a raw id because a manga and a novel can share one, and collapsing them together would
+ * hide a row rather than fail. Merge groups are not consulted, so two sources of one merged series
+ * are still two rows.
+ */
+fun collapseByEntry(items: List<RecentsItem>): List<RecentsItem> =
+    orderRecents(items).distinctBy { it.entryId }
