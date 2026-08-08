@@ -84,4 +84,8 @@ Upstream moved the Updates category filter into SQL in mihonapp/mihon#3589 (miho
 - `applyReikaiCategoryFilter` and both screen-lifetime membership caches are deleted. That fixes a real behaviour wart for free: today, re-categorizing a series while Updates is open does not reflect until the screen is reopened, on both content types.
 - `reikai/domain/category/CategoryFilter.kt` stays. It loses its two Updates callers and keeps its library ones.
 
-Sequenced after the ViewModel migration and the upstream sync backlog, because upstream's version of this change lands in a file that migration renames.
+Sequenced after the ViewModel migration and the upstream sync backlog, because upstream's version of this change lands in a file that migration renames. **Both gates cleared as of 2026-08-08**: the migration shipped, and the sync base reached upstream head `ed274e26f`. `1d8a2b05d` is now the one upstream commit sitting below the frontier, and this item owns it; `GetUpdates.kt` was deliberately taken at `6d69903a5` rather than upstream head so its category-filter hunks are still there to port.
+
+### Designed together with the Recents tab
+
+The [Recents item](../../../ROADMAP.md) reshapes these same two surfaces: a Settings preference collapses Updates and History into one Recents tab with `Grouped | Updates | History` modes inside it. Doing the behaviour seam first and the tab shape second would rework both, so they are planned as one piece of work. The findings, the owner decisions and what already exists (per-title collapsing, both interleaves, the merge-group keys) are in the 2026-07-23 recents audit note under `docs/dev/audits/`, which is a gitignored local directory, so that detail does not travel with the repo; the one genuinely missing ingredient it names is a newly-added query per content type.
