@@ -142,6 +142,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library & updates**
 
+- **A date older than about a month now says how old it really is (synced from Mihon, mihonapp/mihon#3696).** Something read 40 days ago was described as 10 days old, wherever a date is shown relatively.
 - **Tapping the Library button again while the Novels library is showing now opens the novel settings, not the manga ones.**
 - **Searching your library from another screen now searches the library you are looking at.** It always searched manga, whichever chip was selected.
 - **Updating the novel library now tells you when an update is already running.** It used to say it had started a new one every time.
@@ -176,6 +177,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Tracking**
 
+- **Start and finish dates pulled from MangaBaka no longer land a day early (synced from Mihon, mihonapp/mihon#3711).** It affected anyone in a timezone behind UTC.
 - **A tracker set on one source of a merged series now shows and updates on all of its sources.** The chip, reading progress, mark-as-read and refresh all follow the whole group instead of the one source the tracker happens to be bound to.
 - **Reading an older chapter from another source of a merged series can no longer push your tracker's progress backwards.**
 - **Removing a tracker from a merged series now removes it everywhere.** It used to stay bound on the other sources and keep the series in the Tracked filter.
@@ -224,6 +226,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
 - Translated strings refreshed across 53 locales (synced from Mihon, mihonapp/mihon#3563 and mihonapp/mihon#3677).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
+- Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
 - The manga and novel add-to-library flows in browse and global search now share one bulk-selection engine, one default-category decision and one remove dialog, so the two can't drift apart.
 - The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
 - The manga and novel libraries now share one implementation of filtering, searching, sorting, grouping, list assembly, selection and every library dialog, and identify an entry by its content type rather than by the sign of its id, so a library change reaches both content types instead of being written twice.
