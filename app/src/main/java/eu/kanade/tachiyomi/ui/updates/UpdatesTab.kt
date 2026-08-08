@@ -150,7 +150,7 @@ data object UpdatesTab : Tab {
                     onDismissRequest = onDismissDialog,
                     viewModel = settingsViewModel,
                     reikaiCategoryRow = {
-                        ReikaiUpdatesCategoryFilter(viewModel = settingsViewModel, contentType = contentType)
+                        ReikaiUpdatesCategoryFilter(viewModel = settingsViewModel)
                     },
                     reikaiAfterFilters = {
                         ReikaiUpdatesGroupToggle(viewModel = settingsViewModel)

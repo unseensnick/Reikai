@@ -15,7 +15,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
-import reikai.domain.library.ContentType
 import reikai.presentation.category.CategoryFilterRow
 import reikai.presentation.category.CategoryFilterSection
 import reikai.presentation.category.toLongIdSet
@@ -26,60 +25,36 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 
 /**
- * Include/exclude category filter for the Updates tab. Categories live in one shared table, but a
- * row is manga-, novel- or both-visible, so the picker shows a section per content type (universal
- * rows appear in both) and persists per-type selections; on the
- * Manga/Novels chips only that type's section appears, on All both do. The shared [CategoryFilterRow]
- * renders the row + dialog. Mounted inside the `// RK` island of Mihon's `UpdatesFilterDialog`.
+ * Include/exclude category filter for the recent-activity surface. One selection over the whole
+ * category table rather than a section per content type: the ids are one space, so a manga-only
+ * category simply matches no novel. The list is not narrowed by the content-type chip, because the
+ * selection is not either, and hiding half of what is stored is how a picker loses it. The shared
+ * [CategoryFilterRow] renders the row + dialog. Mounted inside the `// RK` island of Mihon's
+ * `UpdatesFilterDialog`.
  */
 @Composable
-fun ColumnScope.ReikaiUpdatesCategoryFilter(
-    viewModel: UpdatesSettingsViewModel,
-    contentType: ContentType,
-) {
+fun ColumnScope.ReikaiUpdatesCategoryFilter(viewModel: UpdatesSettingsViewModel) {
     val prefs = viewModel.reikaiSourcePreferences
-    val mangaCategories by viewModel.mangaCategories.collectAsState()
-    val novelCategories by viewModel.novelCategories.collectAsState()
+    val categories by viewModel.categories.collectAsState()
 
-    val showManga = contentType != ContentType.NOVELS && mangaCategories.isNotEmpty()
-    val showNovel = contentType != ContentType.MANGA && novelCategories.isNotEmpty()
+    val enabled by prefs.recentsFilterCategories.collectAsPrefState()
+    val include by prefs.recentsFilterCategoriesInclude.collectAsPrefState()
+    val exclude by prefs.recentsFilterCategoriesExclude.collectAsPrefState()
 
-    val enabled by prefs.updatesFilterCategories.collectAsPrefState()
-    val mangaInclude by prefs.updatesFilterMangaCategoriesInclude.collectAsPrefState()
-    val mangaExclude by prefs.updatesFilterMangaCategoriesExclude.collectAsPrefState()
-    val novelInclude by prefs.updatesFilterNovelCategoriesInclude.collectAsPrefState()
-    val novelExclude by prefs.updatesFilterNovelCategoriesExclude.collectAsPrefState()
-
-    // One section per visible content type; CategoryFilterRow shows headings only when both appear.
-    val sections = buildList {
-        if (showManga) {
-            add(
-                CategoryFilterSection(
-                    headingRes = MR.strings.content_type_manga,
-                    categories = mangaCategories,
-                    included = mangaInclude.toLongIdSet(),
-                    excluded = mangaExclude.toLongIdSet(),
-                    onConfirm = viewModel::setMangaCategorySelections,
-                ),
-            )
-        }
-        if (showNovel) {
-            add(
-                CategoryFilterSection(
-                    headingRes = MR.strings.content_type_novels,
-                    categories = novelCategories,
-                    included = novelInclude.toLongIdSet(),
-                    excluded = novelExclude.toLongIdSet(),
-                    onConfirm = viewModel::setNovelCategorySelections,
-                ),
-            )
-        }
-    }
+    if (categories.isEmpty()) return
 
     CategoryFilterRow(
         enabled = enabled,
         onToggleEnabled = viewModel::setFilterCategories,
-        sections = sections,
+        sections = listOf(
+            CategoryFilterSection(
+                headingRes = null,
+                categories = categories,
+                included = include.toLongIdSet(),
+                excluded = exclude.toLongIdSet(),
+                onConfirm = viewModel::setCategorySelections,
+            ),
+        ),
     )
 }
 

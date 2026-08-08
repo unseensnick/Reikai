@@ -32,34 +32,27 @@ class UpdatesSettingsViewModel(
         }
     }
 
-    // RK --> backing for the include/exclude category-filter picker. Categories share one table but
-    // a row is manga-, novel- or both-visible, so the picker shows a section per type (universal
-    // rows in both) and persists per-type selections.
-    private val _mangaCategories = MutableStateFlow<List<Category>>(emptyList())
-    val mangaCategories: StateFlow<List<Category>> = _mangaCategories.asStateFlow()
-
-    private val _novelCategories = MutableStateFlow<List<Category>>(emptyList())
-    val novelCategories: StateFlow<List<Category>> = _novelCategories.asStateFlow()
+    // RK --> backing for the include/exclude category-filter picker. One selection over the whole
+    // category table, so the picker lists manga-visible and novel-visible rows together, deduped
+    // (a universal row is in both queries) and in table order.
+    private val _categories = MutableStateFlow<List<Category>>(emptyList())
+    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
 
     init {
         viewModelScope.launchIO {
-            _mangaCategories.value = getCategories.await()
-            _novelCategories.value = getNovelCategories.await()
+            _categories.value = (getCategories.await() + getNovelCategories.await())
+                .distinctBy { it.id }
+                .sortedBy { it.order }
         }
     }
 
     fun setFilterCategories(enabled: Boolean) {
-        reikaiSourcePreferences.updatesFilterCategories.set(enabled)
+        reikaiSourcePreferences.recentsFilterCategories.set(enabled)
     }
 
-    fun setMangaCategorySelections(include: Set<Long>, exclude: Set<Long>) {
-        reikaiSourcePreferences.updatesFilterMangaCategoriesInclude.set(include.map(Long::toString).toSet())
-        reikaiSourcePreferences.updatesFilterMangaCategoriesExclude.set(exclude.map(Long::toString).toSet())
-    }
-
-    fun setNovelCategorySelections(include: Set<Long>, exclude: Set<Long>) {
-        reikaiSourcePreferences.updatesFilterNovelCategoriesInclude.set(include.map(Long::toString).toSet())
-        reikaiSourcePreferences.updatesFilterNovelCategoriesExclude.set(exclude.map(Long::toString).toSet())
+    fun setCategorySelections(include: Set<Long>, exclude: Set<Long>) {
+        reikaiSourcePreferences.recentsFilterCategoriesInclude.set(include.map(Long::toString).toSet())
+        reikaiSourcePreferences.recentsFilterCategoriesExclude.set(exclude.map(Long::toString).toSet())
     }
     // RK <--
 }

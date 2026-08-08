@@ -180,9 +180,10 @@ class UpdatesViewModel(
         }
     }
 
-    // RK --> include/exclude category filter for manga updates (mirrors the library's filter dim).
-    // Membership is resolved per manga id and cached for the screen's lifetime; only paid when the
-    // filter is active. Re-categorizing a series while this screen is open won't reflect until reopen.
+    // RK --> include/exclude category filter, one selection shared with the novel feed (category ids
+    // are one space, so a novel-only id here simply matches no manga). Membership is resolved per
+    // manga id and cached for the screen's lifetime; only paid when the filter is active.
+    // Re-categorizing a series while this screen is open won't reflect until reopen.
     private val mangaCategoryCache = mutableMapOf<Long, Set<Long>>()
 
     private data class CategoryFilter(
@@ -192,9 +193,9 @@ class UpdatesViewModel(
     )
 
     private fun reikaiCategoryFilterFlow(): Flow<CategoryFilter> = combine(
-        reikaiSourcePreferences.updatesFilterCategories.changes(),
-        reikaiSourcePreferences.updatesFilterMangaCategoriesInclude.changes(),
-        reikaiSourcePreferences.updatesFilterMangaCategoriesExclude.changes(),
+        reikaiSourcePreferences.recentsFilterCategories.changes(),
+        reikaiSourcePreferences.recentsFilterCategoriesInclude.changes(),
+        reikaiSourcePreferences.recentsFilterCategoriesExclude.changes(),
     ) { enabled, include, exclude ->
         CategoryFilter(
             enabled = enabled,

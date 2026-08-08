@@ -195,11 +195,11 @@ class NovelUpdatesViewModel(
         val exclude: Set<Long>,
     )
 
-    /** Novel side of the shared include/exclude category filter; reads its own (novel) selections. */
+    /** Novel side of the include/exclude category filter, reading the one selection both feeds share. */
     private fun categoryFilterFlow(): Flow<CategoryFilter> = combine(
-        sourcePreferences.updatesFilterCategories.changes(),
-        sourcePreferences.updatesFilterNovelCategoriesInclude.changes(),
-        sourcePreferences.updatesFilterNovelCategoriesExclude.changes(),
+        sourcePreferences.recentsFilterCategories.changes(),
+        sourcePreferences.recentsFilterCategoriesInclude.changes(),
+        sourcePreferences.recentsFilterCategoriesExclude.changes(),
     ) { enabled, include, exclude ->
         CategoryFilter(
             enabled = enabled,

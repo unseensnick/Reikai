@@ -19,6 +19,7 @@ import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
@@ -96,6 +97,14 @@ class PreferenceRestorer(
                 key == ReikaiLibraryPreferences.DEAD_NOVEL_MERGE_ICONS_KEY ||
                 key == ReikaiLibraryPreferences.DEAD_NOVEL_GROUP_BY_KEY ||
                 key == ReikaiLibraryPreferences.DEAD_SHOW_EMPTY_CATEGORIES_KEY
+            ) {
+                return@forEach
+            }
+            // RK: retired per-content-type Updates category-filter keys and their master switch; the
+            // filter is one selection over the shared id space now, covering the whole recents surface.
+            if (key == ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORIES_KEY ||
+                key.startsWith(ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORY_SET_PREFIX) ||
+                key.startsWith(ReikaiSourcePreferences.DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX)
             ) {
                 return@forEach
             }
