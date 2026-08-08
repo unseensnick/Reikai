@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.Preference
@@ -96,11 +97,15 @@ class RecentsEngine(
         combine(
             contentType,
             combine(providers.map(::collectedLanes)) { it.toList() },
-        ) { chip, lanesPerProvider ->
+            // Every provider's, not just the active ones': the keys are EntryIds and group ids are
+            // unique across both content types, so one map serves whatever the chip ends up showing.
+            combine(providers.map { it.membership }) { maps -> maps.fold(emptyMap<EntryId, Long>()) { a, b -> a + b } },
+        ) { chip, lanesPerProvider, membership ->
             val active = activeIndices(chip).flatMap { lanesPerProvider[it] }
             RecentsAssembled(
                 chip = chip,
                 items = orderRecents(active.flatMap { it.items }),
+                membership = membership,
                 // Over the active providers only: an unloaded novel lane used to hold the manga chip's
                 // spinner, since one flag was read for a list the other type was not in.
                 loading = active.any { !it.loaded },
@@ -162,12 +167,15 @@ internal fun recentsFilterActive(
 /**
  * One assembly pass: the ordered rows and what the surface can say about them. [chip] is what the rows
  * were selected by, which the renderer compares against the live chip before drawing them.
+ * [membership] rides along rather than being read separately, so a policy collapsing merged series can
+ * never pair one emission's rows with another's groups.
  */
 @Immutable
 data class RecentsAssembled(
     val chip: ContentType,
     val items: List<RecentsItem>,
     val loading: Boolean,
+    val membership: Map<EntryId, Long> = emptyMap(),
 ) {
     /** Empty means empty, never "not here yet"; the two want different things on screen. */
     val isEmpty: Boolean get() = !loading && items.isEmpty()

@@ -2,6 +2,8 @@ package reikai.presentation.recents
 
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -18,8 +20,10 @@ import org.junit.jupiter.api.Test
 import reikai.domain.category.RecentsSurface
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeManager
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.updates.service.UpdatesPreferences
 
 /**
@@ -168,6 +172,35 @@ class RecentsEngineTest {
         engine.lastUpdated.first { it != 0L } shouldBe 5
     }
 
+    // Merge membership, pinned here rather than on the kernel: whether merging-off reaches the feed as
+    // an empty map is the clause that can actually break, and it lives on this side of the seam.
+
+    private fun mergeManager(memberships: Map<Long, Long>): MergeManager {
+        val manager = mockk<MergeManager>(relaxed = true)
+        every { manager.membershipChanges() } returns flowOf(memberships)
+        return manager
+    }
+
+    private fun mergingPreference(enabled: Boolean): Preference<Boolean> {
+        val preference = mockk<Preference<Boolean>>(relaxed = true)
+        every { preference.changes() } returns flowOf(enabled)
+        return preference
+    }
+
+    @Test
+    fun `memberships arrive keyed by entry so the two content types cannot cross`() = runTest {
+        val flow = mergeManager(mapOf(1L to 7L)).membershipFlow(mergingPreference(true), EntryId::Novel)
+
+        flow.first() shouldBe mapOf(EntryId.Novel(1) to 7L)
+    }
+
+    @Test
+    fun `with merging off the feed is handed no groups at all`() = runTest {
+        val flow = mergeManager(mapOf(1L to 7L)).membershipFlow(mergingPreference(false), EntryId::Manga)
+
+        flow.first() shouldBe emptyMap()
+    }
+
     @Test
     fun `a chapter state filter marks a surface that renders the updated lane`() {
         recentsFilterActive(
@@ -219,6 +252,7 @@ private class FakeRecentsProvider(
     override val updatedLane: Flow<RecentsLaneRows> = flowOf(updatedRows)
     override val addedLane: Flow<RecentsLaneRows> = flowOf(addedRows)
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
+    override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 

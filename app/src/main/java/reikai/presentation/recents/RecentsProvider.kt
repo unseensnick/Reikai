@@ -1,9 +1,13 @@
 package reikai.presentation.recents
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeManager
+import tachiyomi.core.common.preference.Preference
 
 /**
  * One lane's rows plus whether they are real yet. [loaded] cannot be recovered downstream: a lane
@@ -16,6 +20,18 @@ data class RecentsLaneRows(val items: List<RecentsItem>, val loaded: Boolean) {
         val Loading = RecentsLaneRows(emptyList(), loaded = false)
     }
 }
+
+/**
+ * One derivation for both adapters: this type's group memberships keyed neutrally, and empty while
+ * merging is off, so a feed collapses exactly when every other surface would.
+ */
+internal fun MergeManager.membershipFlow(
+    mergingEnabled: Preference<Boolean>,
+    entryId: (Long) -> EntryId,
+): Flow<Map<EntryId, Long>> =
+    combine(mergingEnabled.changes(), membershipChanges()) { enabled, memberships ->
+        if (enabled) memberships.mapKeys { entryId(it.key) } else emptyMap()
+    }
 
 /** A query-backed lane: its first emission is real data, so it only needs a value to start from. */
 internal fun Flow<List<RecentsItem>>.asLane(): Flow<RecentsLaneRows> =
@@ -40,6 +56,14 @@ interface RecentsProvider : RecentsBehavior {
 
     /** When this type's library last finished updating. Each type has its own update job and key. */
     val lastUpdated: Flow<Long>
+
+    /**
+     * This type's entries that belong to a merge group, by group id, so a feed can show one row for a
+     * series merged across sources. Empty while the user has series merging off, matching every other
+     * path that resolves a group. Group ids are unique across both content types, so the two providers'
+     * maps combine without collision.
+     */
+    val membership: Flow<Map<EntryId, Long>>
 
     fun lane(kind: RecentsLaneKind): Flow<RecentsLaneRows> = when (kind) {
         RecentsLaneKind.READ -> readLane

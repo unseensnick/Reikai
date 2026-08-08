@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.dedupeByMergeGroup
 
 /*
  * The two algorithms every recents view is built from: one order, and one collapse. They are separate
@@ -40,3 +41,12 @@ fun orderRecents(items: List<RecentsItem>): List<RecentsItem> = items.sortedWith
  */
 fun collapseByEntry(items: List<RecentsItem>): List<RecentsItem> =
     orderRecents(items).distinctBy { it.entryId }
+
+/**
+ * One row per merge group, and per entry for anything ungrouped. Runs the per-entry collapse first, so
+ * the member that represents a group is that member's own most recent activity rather than an arbitrary
+ * row. An empty [membership] (which is what merging-off emits) leaves the per-entry result untouched.
+ * The dedupe itself is [dedupeByMergeGroup], the one definition of counting a merged series once.
+ */
+fun collapseByGroup(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsItem> =
+    collapseByEntry(items).dedupeByMergeGroup(membership) { it.entryId }

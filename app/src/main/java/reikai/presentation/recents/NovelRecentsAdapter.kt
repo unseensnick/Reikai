@@ -11,7 +11,9 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -40,6 +42,8 @@ class NovelRecentsAdapter(
     private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
     private val chapterRepository: NovelChapterRepository by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val mergeManager: NovelMergeManager by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -65,6 +69,9 @@ class NovelRecentsAdapter(
         }.asLane()
 
     override val lastUpdated: Flow<Long> = novelPreferences.novelLibraryUpdateLastTimestamp().changes()
+
+    override val membership: Flow<Map<EntryId, Long>> =
+        mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val novelId = item.entryId.rawId

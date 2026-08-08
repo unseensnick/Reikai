@@ -16,8 +16,13 @@ import reikai.domain.entry.EntryId
 private const val DIGEST_SECTION_CAP = 4
 private const val DIGEST_CHAPTER_ROWS_CAP = 9
 
-/** History: the stream under one header per day. */
-fun historyRows(items: List<RecentsItem>): List<RecentsRow> = withDateHeaders(items)
+/**
+ * History: the stream under one header per day. Already one row per entry when it arrives (the feed
+ * queries collapse on last-read), so the collapse here is only about merge groups, which SQL cannot
+ * see: two sources of one series are two entries, and reading either is reading the same book.
+ */
+fun historyRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsRow> =
+    withDateHeaders(collapseByGroup(items, membership))
 
 /**
  * Updates: the same day headers, and with [groupBySeries] on, a series' several chapters from one day
@@ -28,14 +33,14 @@ fun historyRows(items: List<RecentsItem>): List<RecentsRow> = withDateHeaders(it
 fun updatesRows(
     items: List<RecentsItem>,
     groupBySeries: Boolean,
-    seriesKeys: Map<EntryId, String>,
+    membership: Map<EntryId, Long>,
     expandedKeys: Set<String>,
 ): List<RecentsRow> {
     if (!groupBySeries) return withDateHeaders(items)
     val result = ArrayList<RecentsRow>(items.size + 8)
     byDay(items).forEach { (date, dayItems) ->
         result += RecentsRow.DateHeader(date)
-        dayItems.groupByTo(LinkedHashMap()) { seriesKey(it, seriesKeys) }.forEach { (key, members) ->
+        dayItems.groupByTo(LinkedHashMap()) { seriesKey(it, membership) }.forEach { (key, members) ->
             if (members.size < 2) {
                 result += RecentsRow.Entry(members.first())
             } else {
@@ -51,10 +56,11 @@ fun updatesRows(
 
 /**
  * The flat combined feed: one row per title, newest activity first, no headers. A day header here would
- * make it History again, and the mode exists to answer a different question.
+ * make it History again, and the mode exists to answer a different question. A series merged across
+ * sources is one title, so the collapse runs over [membership].
  */
-fun flatRecentsRows(items: List<RecentsItem>): List<RecentsRow> =
-    collapseByEntry(items).map(RecentsRow::Entry)
+fun flatRecentsRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsRow> =
+    collapseByGroup(items, membership).map(RecentsRow::Entry)
 
 /**
  * The digest: each lane capped under its own header, sections ordered by whichever has the newest row.
@@ -63,9 +69,9 @@ fun flatRecentsRows(items: List<RecentsItem>): List<RecentsRow> =
  * updates carry no upload date at all, so it would order one content type's rows by a clock the other
  * does not have, invisibly. Record: content-layer-recents-surface.md.
  */
-fun digestRows(items: List<RecentsItem>): List<RecentsRow> {
+fun digestRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsRow> {
     val byLane = items.groupBy { it.lane.kind }
-    fun lane(kind: RecentsLaneKind) = collapseByEntry(byLane[kind].orEmpty())
+    fun lane(kind: RecentsLaneKind) = collapseByGroup(byLane[kind].orEmpty(), membership)
 
     val updated = lane(RecentsLaneKind.UPDATED).take(DIGEST_SECTION_CAP)
     val read = lane(RecentsLaneKind.READ).take((DIGEST_CHAPTER_ROWS_CAP - updated.size).coerceAtLeast(0))
@@ -108,8 +114,8 @@ private fun byDay(items: List<RecentsItem>): Map<LocalDate, List<RecentsItem>> =
     items.groupByTo(LinkedHashMap()) { it.timestamp.toLocalDate() }
 
 /**
- * Prefixed by content type because the two engines resolve their merge-group keys independently, so the
- * same key string can name a manga group and a novel group without the two being related.
+ * A group id where the entry is in one, else the entry itself. Group ids are unique across both content
+ * types, but raw entry ids are not, so the standalone half carries the content type.
  */
-private fun seriesKey(item: RecentsItem, seriesKeys: Map<EntryId, String>): String =
-    "${item.entryId.contentType}-${seriesKeys[item.entryId] ?: item.entryId.rawId}"
+private fun seriesKey(item: RecentsItem, membership: Map<EntryId, Long>): String =
+    membership[item.entryId]?.let { "g$it" } ?: "${item.entryId.contentType}-${item.entryId.rawId}"

@@ -12,6 +12,8 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
@@ -42,6 +44,8 @@ class MangaRecentsAdapter(
     // Read from the preference rather than off the model, whose copy is a Compose State the engine
     // cannot collect.
     private val libraryPreferences: LibraryPreferences by injectLazy()
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val mergeManager: MangaMergeManager by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -69,6 +73,9 @@ class MangaRecentsAdapter(
         }.asLane()
 
     override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
+
+    override val membership: Flow<Map<EntryId, Long>> =
+        mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
         val mangaId = item.entryId.rawId
