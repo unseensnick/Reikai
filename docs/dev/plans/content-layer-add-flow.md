@@ -77,8 +77,13 @@ covers two of the three manga call sites at once.
 duplicates before its row exists while a manga always has one by then, so a nullable id would mean
 "is this a novel?" inside shared code, which is the per-type fork the capability-slot rule forbids.
 Creating the row stays inside each type's favorite verb, and the sequence takes the identity it files
-categories against from what that verb returns. Duplicate rows cross the seam as one neutral row type
-mapped per adapter, never as two optional lists.
+categories against from what that verb returns. This is needed by the shared write sequence, not by
+the decision: `decideAdd` asks each type for its own lookup, so no identity crosses that seam at all.
+
+**Duplicate rows stay per type until the dialogs collapse.** `decideAdd` is generic over the payload
+each type hands its dialog (manga the rows themselves, novels the rows plus resolved source names),
+so the branch order is shared without forcing a neutral row type ahead of the component that needs
+one. A neutral row lands with the shared dialog.
 
 Sequenced so each step is independently shippable and device-verifiable:
 
@@ -88,20 +93,22 @@ Sequenced so each step is independently shippable and device-verifiable:
    restates that kernel's semantics inline and the swap is a pure read. No behaviour change, so this
    ships on compile plus unit tests.
 2. **One decision, owning the duplicate check.** Manga's three composable copies thin to a call and
-   the decision lands in `BrowseSourceViewModel` and `SearchViewModel`, matching the novel shape;
-   then both types collapse onto one entry point over the sealed reference and the neutral outcome.
-   Behaviour-preserving, and the first half stands on its own if the second proves thinner than
-   expected. Source display data resolves in the adapter for both types here, levelling manga up off
-   its composable-side `SourceManager` lookup.
+   the decision lands in `BrowseSourceViewModel` and `SearchViewModel`, matching the novel shape, and
+   both types then run the one `decideAdd` rule. Behaviour-preserving bar three deltas recorded in
+   Decisions. Both halves shipped together, because stopping after the first would have left the
+   decision written twice rather than three times, which is the same fork.
 3. **Both types adopt the sequence.** Manga first: the two picker confirms and the adder's direct
    branch move onto it, which closes the categories-without-favorite window on details and history and
    retires the unordered pair those confirms write today. Then the four novel paths, whose visible
    change is that dismissing the picker no longer adds. The bulk-favorite pair moves with them, since
-   its shared generic owns the decision while leaving the order to each subclass. One behaviour change
-   per type, one commit and one device pass each.
-4. **One duplicate dialog.** A neutral `EntryDuplicateDialog` over the neutral row type replaces both
+   its shared generic owns the decision while leaving the order to each subclass. The sealed
+   stored-or-unstored reference lands here, where a shared favorite verb first needs one. One
+   behaviour change per type, one commit and one device pass each.
+4. **One duplicate dialog.** A neutral `EntryDuplicateDialog` over a neutral row type replaces both
    components at all nine render sites. Mihon's `DuplicateMangaDialog` is deleted and manifested per
    the delete-and-manifest policy; the novel twin is deleted outright, having no upstream original.
+   Source display data resolves in the adapter for both types here, levelling manga up off its
+   composable-side `SourceManager` lookup, since this is the component that made the two differ.
 5. **The recents add verb.** `RecentsBehavior` carries no add verb today, so this adds one, implements
    it in both adapters over the shared sequence, and unblocks the `addToLibrary` half of the recents
    surface's step 8b. The other half of 8b has shipped and was never blocked.
@@ -146,7 +153,10 @@ The add paths, which is the inventory this plan has to keep whole:
 
 ## Status
 
-Planned 2026-08-09, re-scouted the same day against current code, not started. The re-scout is what
+In progress. Steps 1 (`91999475c`) and 2 (`a6f73a2ac`) have shipped, neither with a user-visible
+change, so neither carries a CHANGELOG entry; step 3 is the first that does.
+
+Planned 2026-08-09, re-scouted the same day against current code. The re-scout is what
 produced the twelve-path inventory, the duplicate-check ruling and the corrected step order; the
 first draft had assumed each type agreed with itself. The recents surface's `addToLibrary` half of
 step 8b is parked on this plan: it needs one add sequence to delegate to, and building it against
@@ -174,6 +184,10 @@ two orders would have baked the divergence into the engine.
 - **`RelatedMangasBrowseViewModel` is folded in rather than left as a known bypass.** It restates the
   default-category kernel inline, so under write-once it is a gap, and the swap is a pure read that
   costs nothing at step 1.
+- **Three deltas rode with the shared decision**, all improvements, none of them asked for: a manga
+  already in the library no longer runs a duplicate lookup it discards (novels already skipped it),
+  the long-press haptic fires on release rather than after that lookup, and the decision runs on the
+  view model's scope rather than the composition's, so it survives the screen going away mid-flight.
 - **The manga picker-confirm ordering is fixed inside step 3, not ahead of it.** The two confirms file
   categories and favorite from separate coroutines, so the writes are unordered as well as inverted.
   The end state is the same unless the favorite write fails, and the sequence fixes both at once.
