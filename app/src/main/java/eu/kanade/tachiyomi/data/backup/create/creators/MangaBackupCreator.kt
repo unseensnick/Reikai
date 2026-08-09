@@ -12,6 +12,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
 import eu.kanade.tachiyomi.data.backup.models.backupChapterMapper
 import eu.kanade.tachiyomi.data.backup.models.backupTrackMapper
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.yield
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.domain.category.interactor.GetCategories
@@ -32,6 +35,16 @@ class MangaBackupCreator(
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
         return mangas.map {
             backupManga(it, options)
+        }
+    }
+
+    // RK: emit one BackupManga at a time so the caller can encode + write each to the backup stream
+    // and let it be collected, instead of holding every manga (and all its chapters) in memory. This
+    // is what keeps a large-library backup from OOMing on the chapters payload.
+    fun backupMangaStream(mangas: List<Manga>, options: BackupOptions): Flow<BackupManga> = flow {
+        for (manga in mangas) {
+            emit(backupManga(manga, options))
+            yield()
         }
     }
 
