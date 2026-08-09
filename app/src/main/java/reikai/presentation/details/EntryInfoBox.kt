@@ -61,8 +61,8 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 /**
  * Content-agnostic header data for the shared [EntryInfoBox]. [coverModel] is a coil model (a `Manga`
- * or a [NovelCover]), so each content type feeds its own object. [artist] is null and [isStubSource]
- * false for content types that lack them (novels).
+ * or a [NovelCover]), so each content type feeds its own object. [isStubSource] is false for content
+ * types that cannot have one (novels).
  */
 data class EntryHeaderUi(
     val coverModel: Any,
@@ -94,8 +94,7 @@ fun Novel.toEntryHeader(sourceName: String, sourceSite: String?) = EntryHeaderUi
     ),
     title = title,
     author = author,
-    // novels have no separate artist field
-    artist = null,
+    artist = artist,
     status = status,
     sourceName = sourceName,
     // stub sources are a manga-extension concept; novels never have one

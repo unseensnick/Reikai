@@ -224,8 +224,8 @@ two orders would have baked the divergence into the engine.
   plan expected the artist row and the stub-source warning to be manga-only, so the shared card would
   need typed slots for them. Novels carry an artist end to end (`Novel.artist`, the plugin model, the
   refresh, the edit-info form), and an uninstalled plugin is the same state a stub source is, so both
-  were parity gaps rather than divergences and the card needs no capability at all. The stale claim
-  that novels have no artist also sits in `EntryInfoBox`, where the details header still hides one.
+  were parity gaps rather than divergences and the card needs no capability at all. The same stale
+  claim was hiding the artist on the novel details header, which is fixed alongside.
 - **The card is generic over each type's row, not over a neutral row type.** `toUi` maps a row to the
   neutral card while the callbacks keep the caller's own type, which is what lets a novel site
   navigate by source and url where a manga site navigates by id. Same shape as `EntrySearchCardRow`.
