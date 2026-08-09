@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -71,6 +72,13 @@ interface RecentsProvider : RecentsBehavior {
      * is findable by the name on screen without the engine ever unwrapping a payload.
      */
     fun title(item: RecentsItem): String
+
+    /**
+     * The details screen for [entry], resolved rather than constructed by the caller: a novel screen is
+     * keyed by source and url, so the id a row carries is not enough to build one. Null when the entry
+     * has gone. Suspend for that lookup; the manga side answers without touching the database.
+     */
+    suspend fun detailsScreen(entry: EntryId): Screen?
 
     fun lane(kind: RecentsLaneKind): Flow<RecentsLaneRows> = when (kind) {
         RecentsLaneKind.READ -> readLane

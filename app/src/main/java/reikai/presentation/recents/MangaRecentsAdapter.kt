@@ -1,9 +1,10 @@
 package reikai.presentation.recents
 
+import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
+import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import kotlinx.coroutines.flow.Flow
@@ -54,7 +55,6 @@ class MangaRecentsAdapter(
     private val mergeManager: MangaMergeManager by injectLazy()
     private val mergedChapterProvider: MergedChapterProvider by injectLazy()
     private val getManga: GetManga by injectLazy()
-    private val downloadManager: DownloadManager by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -165,6 +165,11 @@ class MangaRecentsAdapter(
     override fun clearHistory() {
         historyModel.removeAllHistory()
     }
+
+    override fun refresh(): Boolean = updatesModel.updateLibrary()
+
+    override suspend fun detailsScreen(entry: EntryId): Screen? =
+        (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
 
     override fun title(item: RecentsItem): String = when (val payload = item.payload) {
         is UpdatesItem -> payload.update.mangaTitle

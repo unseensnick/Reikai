@@ -1,5 +1,6 @@
 package reikai.domain.novel
 
+import reikai.domain.merge.crossSourceReadIds
 import reikai.domain.novel.model.NovelChapter
 
 /**
@@ -57,26 +58,17 @@ object NovelChapterAggregation {
         return unified
     }
 
-    /**
-     * Ids in [unified] whose own row is unread but which another source of the group has already read.
-     * The stitch keeps one row per cross-source chapter and drops the rest, so without this a chapter
-     * reads as unread purely because the copy that won happens to be the unread one. Same identity as
-     * the merged unread count, so a resume and the badge agree. Manga twin: `MergedChapterProvider`.
-     */
+    /** The shared cross-source read carry-over, over this type's title-first identity. */
     fun readInOtherSources(
         chaptersByNovel: Map<Long, List<NovelChapter>>,
         unified: List<NovelChapter>,
-    ): Set<Long> {
-        if (chaptersByNovel.size <= 1) return emptySet()
-        val readKeys = chaptersByNovel.values.asSequence()
-            .flatten()
-            .filter { it.read }
-            .mapNotNullTo(HashSet()) { matchKey(it) }
-        if (readKeys.isEmpty()) return emptySet()
-        return unified.asSequence()
-            .filter { !it.read && matchKey(it) in readKeys }
-            .mapTo(HashSet()) { it.id }
-    }
+    ): Set<Long> = crossSourceReadIds(
+        bySource = chaptersByNovel,
+        unified = unified,
+        id = { it.id },
+        read = { it.read },
+        key = ::matchKey,
+    )
 
     /**
      * The member novel ids in trunk order (first = trunk), the same ranking [aggregate] applies. Lets the

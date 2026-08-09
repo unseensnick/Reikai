@@ -25,4 +25,10 @@ interface RecentsBehavior {
 
     /** Drops every read record of this content type, behind the engine's one confirmation. */
     fun clearHistory()
+
+    /**
+     * Starts this type's library update, answering whether it started rather than was already running.
+     * Each type has its own job, so the verb is per type and only the answer is combined.
+     */
+    fun refresh(): Boolean
 }

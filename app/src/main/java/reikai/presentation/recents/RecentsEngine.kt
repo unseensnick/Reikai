@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -263,6 +264,16 @@ class RecentsEngine(
     fun clearHistory() {
         activeProviders().forEach { it.clearHistory() }
     }
+
+    /**
+     * Updates every library on screen, answering whether anything actually started. Mapped before it is
+     * reduced, so one type already running cannot short-circuit the other type's start.
+     */
+    fun refresh(): Boolean = activeProviders().map { it.refresh() }.any { it }
+
+    /** The details screen for a row, resolved by the provider that owns the entry. */
+    suspend fun detailsScreen(entry: EntryId): Screen? =
+        providersByType[entry.contentType]?.detailsScreen(entry)
 
     private fun dispatchAndClear(action: (RecentsProvider) -> Unit) {
         activeProviders().forEach(action)

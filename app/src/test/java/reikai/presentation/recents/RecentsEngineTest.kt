@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import cafe.adriel.voyager.core.screen.Screen
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -308,6 +309,34 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a refresh that starts one library reports a start, not an already-running`() {
+        val manga = provider(ContentType.MANGA, refreshStarts = false)
+        val novel = provider(ContentType.NOVELS, refreshStarts = true)
+
+        engine(listOf(manga, novel)).refresh() shouldBe true
+    }
+
+    @Test
+    fun `a refresh reaches the second library even when the first already started`() {
+        val manga = provider(ContentType.MANGA, refreshStarts = true)
+        val novel = provider(ContentType.NOVELS, refreshStarts = false)
+
+        engine(listOf(manga, novel)).refresh()
+
+        novel.refreshed shouldBe true
+    }
+
+    @Test
+    fun `a refresh under one chip leaves the other library alone`() {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+
+        engine(listOf(manga, novel), chip = ContentType.MANGA).refresh()
+
+        novel.refreshed shouldBe false
+    }
+
+    @Test
     fun `clearing history reaches both content types under All`() {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
@@ -364,7 +393,8 @@ private fun provider(
     added: RecentsLaneRows = rows(),
     updatedAt: Long = 0L,
     titles: Map<EntryId, String> = emptyMap(),
-) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles)
+    refreshStarts: Boolean = true,
+) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles, refreshStarts)
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
 private class FakeRecentsProvider(
@@ -374,11 +404,14 @@ private class FakeRecentsProvider(
     addedRows: RecentsLaneRows,
     updatedAt: Long,
     private val titles: Map<EntryId, String>,
+    private val refreshStarts: Boolean,
 ) : RecentsProvider {
 
     var historyCleared = false
         private set
     var markedRead: Set<ChapterRef>? = null
+        private set
+    var refreshed = false
         private set
 
     override val readLane: Flow<RecentsLaneRows> = flowOf(readRows)
@@ -403,4 +436,11 @@ private class FakeRecentsProvider(
     override fun clearHistory() {
         historyCleared = true
     }
+
+    override fun refresh(): Boolean {
+        refreshed = true
+        return refreshStarts
+    }
+
+    override suspend fun detailsScreen(entry: EntryId): Screen? = null
 }

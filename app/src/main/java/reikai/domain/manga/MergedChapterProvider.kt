@@ -2,6 +2,7 @@ package reikai.domain.manga
 
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterMatchKeys
+import reikai.domain.merge.crossSourceReadIds
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.model.Manga
@@ -50,22 +51,16 @@ class MergedChapterProvider(
         sourceIdByManga: Map<Long, Long>,
         unified: List<Chapter>,
     ): Set<Long> {
-        if (chaptersBySource.size <= 1) return emptySet()
         val galleryMangaIds = sourceIdByManga
             .filterValues { sourceId -> ChapterMatchKeys.isGallerySource(sourceId, sourceManager) }
             .keys
-        fun keyOf(chapter: Chapter): String? =
-            ChapterMatchKeys.manga(chapter.chapterNumber, chapter.mangaId in galleryMangaIds)
-
-        val readKeys = chaptersBySource.values.asSequence()
-            .flatten()
-            .filter { it.read }
-            .mapNotNullTo(HashSet()) { keyOf(it) }
-        if (readKeys.isEmpty()) return emptySet()
-
-        return unified.asSequence()
-            .filter { !it.read && keyOf(it) in readKeys }
-            .mapTo(HashSet()) { it.id }
+        return crossSourceReadIds(
+            bySource = chaptersBySource,
+            unified = unified,
+            id = { it.id },
+            read = { it.read },
+            key = { ChapterMatchKeys.manga(it.chapterNumber, it.mangaId in galleryMangaIds) },
+        )
     }
 
     suspend fun load(anchor: Manga): Group {

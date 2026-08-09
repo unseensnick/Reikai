@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -15,6 +16,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -22,6 +24,7 @@ import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.history.NovelHistoryViewModel
+import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
 import uy.kohesive.injekt.injectLazy
@@ -43,6 +46,7 @@ class NovelRecentsAdapter(
     private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
     private val chapterRepository: NovelChapterRepository by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+    private val novelRepository: NovelRepository by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
 
@@ -130,6 +134,14 @@ class NovelRecentsAdapter(
 
     override fun clearHistory() {
         historyModel.removeAllHistory()
+    }
+
+    override fun refresh(): Boolean = updatesModel.updateLibrary()
+
+    override suspend fun detailsScreen(entry: EntryId): Screen? {
+        val novelId = (entry as? EntryId.Novel)?.rawId ?: return null
+        val novel = novelRepository.getById(novelId) ?: return null
+        return NovelScreen(novel.source, novel.url)
     }
 
     override fun title(item: RecentsItem): String = when (val payload = item.payload) {
