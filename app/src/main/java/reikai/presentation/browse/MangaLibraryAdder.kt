@@ -105,10 +105,11 @@ class MangaLibraryAdder(
     }
 
     /**
-     * Toggle a manga's favorite state. On favorite: apply default chapter flags + bind enhanced
-     * trackers; on unfavorite: drop cached covers.
+     * Toggle a manga's favorite state, answering whether the write landed. On favorite: apply default
+     * chapter flags + bind enhanced trackers; on unfavorite: drop cached covers. The add sequence
+     * abandons the add when this answers false, so nothing is filed against a row outside the library.
      */
-    suspend fun changeFavorite(manga: Manga) {
+    suspend fun changeFavorite(manga: Manga): Boolean {
         var new = manga.copy(
             favorite = !manga.favorite,
             dateAdded = if (manga.favorite) 0 else Clock.System.now().toEpochMilliseconds(),
@@ -122,7 +123,7 @@ class MangaLibraryAdder(
             setMangaDefaultChapterFlags.await(manga)
             addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
         }
-        updateManga.await(new.toMangaUpdate())
+        return updateManga.await(new.toMangaUpdate())
     }
 
     suspend fun getDuplicates(manga: Manga): List<MangaWithChapterCount> =
@@ -133,14 +134,22 @@ class MangaLibraryAdder(
     }
 
     /**
-     * Add to library: with a default category set or no categories, move + favorite directly and
-     * return [AddFavoriteResult.Added]; otherwise return [AddFavoriteResult.NeedsCategoryChoice] so
-     * the caller can show its own category picker.
+     * RK: add to library through the shared sequence ([addEntry]): decide, favorite, then file. With no
+     * usable default the caller shows its own picker, whose confirm owes both writes, so backing out of
+     * it adds nothing.
      */
     suspend fun resolveAddFavorite(manga: Manga): AddFavoriteResult {
-        val result = applyDefaultCategoryOrPrompt(manga)
-        if (result is AddFavoriteResult.Added) changeFavorite(manga)
-        return result
+        val outcome = addEntry(
+            resolveCategories = { resolveDefaultCategories() },
+            favorite = { manga.id.takeIf { changeFavorite(manga) } },
+            fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
+        )
+        return when (outcome) {
+            AddOutcome.Added -> AddFavoriteResult.Added
+            AddOutcome.Failed -> AddFavoriteResult.Failed
+            AddOutcome.NeedsCategoryChoice ->
+                AddFavoriteResult.NeedsCategoryChoice(categoryPickerSelection(manga.id))
+        }
     }
 
     /**
@@ -177,9 +186,13 @@ class MangaLibraryAdder(
         getCategories.subscribe().firstOrNull()?.filterNot { it.isSystemCategory }.orEmpty()
 }
 
-/** Outcome of [MangaLibraryAdder.resolveAddFavorite]: added outright, or awaiting a category choice. */
+/**
+ * Outcome of [MangaLibraryAdder.resolveAddFavorite]: added outright, awaiting a category choice, or
+ * abandoned because the favorite write failed, in which case nothing was written at all.
+ */
 sealed interface AddFavoriteResult {
     data object Added : AddFavoriteResult
+    data object Failed : AddFavoriteResult
     data class NeedsCategoryChoice(
         val initialSelection: List<CheckboxState.State<Category>>,
     ) : AddFavoriteResult

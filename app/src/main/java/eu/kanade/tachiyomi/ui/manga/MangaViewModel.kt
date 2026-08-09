@@ -100,7 +100,10 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.finishAdd
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -679,15 +682,19 @@ class MangaViewModel(
                     }
                 }
 
-                // RK: where a new favorite lands is one shared rule, so no add path can drift from
-                // the others. Upstream's write order stays: favorite first, abandon the add if that
-                // write fails, and only then file the categories.
-                val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
-                if (directIds != null) {
-                    if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
-                    moveMangaToCategory(directIds)
-                } else {
-                    showChangeCategoryDialog()
+                // RK: the shared add sequence, so no add path can drift from the others: decide,
+                // favorite, file, and abandon the whole add if the favorite write fails.
+                val outcome = addEntry(
+                    resolveCategories = {
+                        resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
+                    },
+                    favorite = { manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) } },
+                    fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+                )
+                when (outcome) {
+                    AddOutcome.Failed -> return@launchIO
+                    AddOutcome.NeedsCategoryChoice -> showChangeCategoryDialog()
+                    AddOutcome.Added -> {}
                 }
 
                 // Finally match with enhanced tracking when available
@@ -839,12 +846,15 @@ class MangaViewModel(
             .map { it.id }
     }
 
+    // RK: the picker's confirm owes both writes the add deferred, in the shared order, so backing out
+    // of the picker adds nothing and a failed favorite leaves no categories behind.
     fun moveMangaToCategoriesAndAddToLibrary(manga: Manga, categories: List<Long>) {
-        moveMangaToCategory(categories)
-        if (manga.favorite) return
-
         viewModelScope.launchIO {
-            updateManga.awaitUpdateFavorite(manga.id, true)
+            finishAdd(
+                categoryIds = categories,
+                favorite = { manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) } },
+                fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+            )
         }
     }
 

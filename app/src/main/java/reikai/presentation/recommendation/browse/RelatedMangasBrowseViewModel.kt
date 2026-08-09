@@ -19,6 +19,7 @@ import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
+import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -201,8 +202,13 @@ class RelatedMangasBrowseViewModel(
 
     private suspend fun applyAdd(mangas: List<Manga>, categoryIds: List<Long>) {
         mangas.forEach { manga ->
-            updateManga.awaitUpdateFavorite(manga.id, true)
-            setMangaCategories.await(manga.id, categoryIds)
+            // The shared order per entry: one failing favorite write skips that entry's categories
+            // rather than filing them against a row outside the library, and the rest still add.
+            finishAdd(
+                categoryIds = categoryIds,
+                favorite = { manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) } },
+                fileCategories = { id, ids -> setMangaCategories.await(id, ids) },
+            )
         }
     }
 

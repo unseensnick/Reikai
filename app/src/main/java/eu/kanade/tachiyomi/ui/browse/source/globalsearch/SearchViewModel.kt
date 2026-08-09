@@ -23,6 +23,7 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -248,7 +249,8 @@ abstract class SearchViewModel(
     fun addFavorite(manga: Manga) {
         viewModelScope.launchIO {
             when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
-                AddFavoriteResult.Added -> {}
+                // Failed wrote nothing, so there is nothing to undo and nothing to show.
+                AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
                     mutableState.update {
                         it.copy(dialog = Dialog.ChangeMangaCategory(manga, result.initialSelection))
@@ -266,7 +268,7 @@ abstract class SearchViewModel(
     fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
         viewModelScope.launchIO {
             when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
-                AddFavoriteResult.Added -> {}
+                AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
                     mutableState.update {
                         it.copy(
@@ -290,8 +292,11 @@ abstract class SearchViewModel(
      *  reason the guard lives in the model is recorded there. */
     fun confirmCategories(manga: Manga, categoryIds: List<Long>, alreadyFavorited: Boolean) {
         viewModelScope.launchIO {
-            if (!alreadyFavorited) mangaLibraryAdder.changeFavorite(manga)
-            mangaLibraryAdder.moveToCategories(manga, categoryIds)
+            finishAdd(
+                categoryIds = categoryIds,
+                favorite = { manga.id.takeIf { alreadyFavorited || mangaLibraryAdder.changeFavorite(manga) } },
+                fileCategories = { _, ids -> mangaLibraryAdder.moveToCategories(manga, ids) },
+            )
         }
     }
     // RK <--

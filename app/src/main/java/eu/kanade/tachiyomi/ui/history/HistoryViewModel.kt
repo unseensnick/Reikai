@@ -27,7 +27,10 @@ import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -191,12 +194,15 @@ class HistoryViewModel(
         }
     }
 
+    // RK: the picker's confirm owes both writes the add deferred, in the shared order, so backing out
+    // of the picker adds nothing and a failed favorite leaves no categories behind.
     fun moveMangaToCategoriesAndAddToLibrary(manga: Manga, categories: List<Long>) {
-        moveMangaToCategory(manga.id, categories)
-        if (manga.favorite) return
-
         viewModelScope.launchIO {
-            updateManga.awaitUpdateFavorite(manga.id, true)
+            finishAdd(
+                categoryIds = categories,
+                favorite = { manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) } },
+                fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+            )
         }
     }
 
@@ -231,14 +237,19 @@ class HistoryViewModel(
 
     fun addFavorite(manga: Manga) {
         viewModelScope.launchIO {
-            // RK: the same shared default-category rule every other add path reads. Upstream's write
-            // order stays: favorite first, abandon the add if that write fails, then file categories.
-            val directIds = resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
-            if (directIds != null) {
-                if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
-                moveMangaToCategory(manga.id, directIds)
-            } else {
-                showChangeCategoryDialog(manga)
+            // RK: the shared add sequence every other add path runs: decide, favorite, file, and
+            // abandon the whole add if the favorite write fails.
+            val outcome = addEntry(
+                resolveCategories = {
+                    resolveDefaultCategoryIds(getCategories(), libraryPreferences.defaultCategory.get())
+                },
+                favorite = { manga.id.takeIf { updateManga.awaitUpdateFavorite(manga.id, true) } },
+                fileCategories = { id, categoryIds -> setMangaCategories.await(id, categoryIds) },
+            )
+            when (outcome) {
+                AddOutcome.Failed -> return@launchIO
+                AddOutcome.NeedsCategoryChoice -> showChangeCategoryDialog(manga)
+                AddOutcome.Added -> {}
             }
 
             // Sync with tracking services if applicable
