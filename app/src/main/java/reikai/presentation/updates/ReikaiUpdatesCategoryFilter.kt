@@ -27,8 +27,9 @@ import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 /**
  * Include/exclude category filter for the Updates tab. One selection over the whole category table
  * rather than a section per content type: the ids are one space, so a manga-only category simply
- * matches no novel. The list is not narrowed by the content-type chip, because the selection is not
- * either, and hiding half of what is stored is how a picker loses it. The shared [CategoryFilterRow]
+ * matches no novel. The dialog carries its own All / Manga / Novels chip, since scanning one library's
+ * categories out of a long list is the slow part of picking; it narrows only what is drawn, and the
+ * confirm still merges over every stored id, so nothing hidden is lost. The shared [CategoryFilterRow]
  * renders the row + dialog. Mounted inside the `// RK` island of Mihon's `UpdatesFilterDialog`.
  */
 @Composable
@@ -54,6 +55,7 @@ fun ColumnScope.ReikaiUpdatesCategoryFilter(viewModel: UpdatesSettingsViewModel)
                 onConfirm = viewModel::setCategorySelections,
             ),
         ),
+        showContentTypeChip = true,
     )
 }
 

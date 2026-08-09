@@ -26,7 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.mergeCategorySelection
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -50,10 +53,11 @@ data class CategoryFilterSection(
 
 /**
  * Shared include/exclude category-filter row + picker dialog, backing the library (manga + novel) and
- * Updates filter sheets so the row/dialog lives in one place instead of being copy-pasted per surface.
- * A single [section][sections] renders without a heading; multiple sections each get one. Pass
- * [onManageCategories] to show the "Edit categories" shortcut (null hides it). The control renders
- * nothing when there is nothing to pick.
+ * Updates filter sheets so it lives in one place instead of being copy-pasted per surface. A single
+ * [section][sections] renders without a heading; multiple sections each get one. [onManageCategories]
+ * shows the "Edit categories" shortcut, null hides it. Nothing renders when there is nothing to pick.
+ * [showContentTypeChip] adds an All / Manga / Novels chip narrowing what the dialog lists, off by
+ * default because the library sheet is already opened per content type.
  */
 @Composable
 fun ColumnScope.CategoryFilterRow(
@@ -61,6 +65,7 @@ fun ColumnScope.CategoryFilterRow(
     onToggleEnabled: (Boolean) -> Unit,
     sections: List<CategoryFilterSection>,
     onManageCategories: (() -> Unit)? = null,
+    showContentTypeChip: Boolean = false,
 ) {
     if (sections.isEmpty()) return
 
@@ -70,6 +75,7 @@ fun ColumnScope.CategoryFilterRow(
         CategoryFilterDialog(
             sections = sections,
             onManageCategories = onManageCategories,
+            showContentTypeChip = showContentTypeChip,
             onDismiss = { showDialog = false },
         )
     }
@@ -95,6 +101,7 @@ fun ColumnScope.CategoryFilterRow(
 private fun CategoryFilterDialog(
     sections: List<CategoryFilterSection>,
     onManageCategories: (() -> Unit)?,
+    showContentTypeChip: Boolean,
     onDismiss: () -> Unit,
 ) {
     val defaultLabel = stringResource(MR.strings.label_default)
@@ -106,19 +113,34 @@ private fun CategoryFilterDialog(
     }
     // A single section needs no heading; only label the sections when more than one is shown.
     val showHeadings = sections.size > 1
+    // The chip narrows what is drawn, never the state map or the confirm below: every category keeps
+    // its state whichever chip is up, so switching chips cannot drop a pick or a stored id.
+    var chipContentType by rememberSaveable { mutableStateOf(ContentType.ALL) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(MR.strings.categories)) },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                sections.forEachIndexed { index, section ->
-                    if (showHeadings && section.headingRes != null) HeadingItem(section.headingRes)
-                    CategoryTriStateRows(section.categories, states[index], defaultLabel)
+            Column {
+                if (showContentTypeChip) {
+                    ContentTypeFilterChips(
+                        selected = chipContentType,
+                        onSelect = { chipContentType = it },
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    sections.forEachIndexed { index, section ->
+                        if (showHeadings && section.headingRes != null) HeadingItem(section.headingRes)
+                        CategoryTriStateRows(
+                            categories = categoriesForContentType(section.categories, chipContentType),
+                            states = states[index],
+                            defaultLabel = defaultLabel,
+                        )
+                    }
                 }
             }
         },
