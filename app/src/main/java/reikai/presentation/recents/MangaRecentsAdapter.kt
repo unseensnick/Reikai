@@ -162,6 +162,10 @@ class MangaRecentsAdapter(
         entries.filterIsInstance<EntryId.Manga>().forEach { historyModel.removeAllFromHistory(it.rawId) }
     }
 
+    override fun addToLibrary(entries: Set<EntryId>) {
+        entries.filterIsInstance<EntryId.Manga>().forEach { historyModel.addFavorite(it.rawId) }
+    }
+
     override fun clearHistory() {
         historyModel.removeAllHistory()
     }

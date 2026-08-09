@@ -432,6 +432,7 @@ private class FakeRecentsProvider(
     override fun download(chapters: Set<ChapterRef>) = Unit
     override fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
     override fun removeFromHistory(entries: Set<EntryId>) = Unit
+    override fun addToLibrary(entries: Set<EntryId>) = Unit
 
     override fun clearHistory() {
         historyCleared = true

@@ -132,6 +132,10 @@ class NovelRecentsAdapter(
         entries.filterIsInstance<EntryId.Novel>().forEach { historyModel.removeAllFromHistory(it.rawId) }
     }
 
+    override fun addToLibrary(entries: Set<EntryId>) {
+        entries.filterIsInstance<EntryId.Novel>().forEach { historyModel.addFavorite(it.rawId) }
+    }
+
     override fun clearHistory() {
         historyModel.removeAllHistory()
     }

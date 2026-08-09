@@ -153,13 +153,17 @@ The add paths, which is the inventory this plan has to keep whole:
 
 ## Status
 
-In progress, steps 1 to 4 shipped and device-verified, step 5 open.
+Shipped. Steps 1 to 4 are device-verified; step 5 is the recents verb, which no screen calls yet.
 
 - **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
 - **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the
   CHANGELOG entries land. **Step 3's twin-test collapse** rode after it (`43d7dc816`).
 - **Step 4** replaced both dialogs with `EntryDuplicateDialog` at all nine render sites.
   `DuplicateMangaDialog` is deleted and manifested; the novel twin is deleted outright.
+- **Step 5** put `addToLibrary` on `RecentsBehavior`, implemented in both adapters by handing each
+  type's history model the ids it owns, the same shape `removeFromHistory` uses. Each model already
+  runs the shared sequence, and the dialogs an add can raise stay on it, so the seam still carries no
+  dialog channel. Nothing calls the verb until the recents engine does, in that surface's step 8b.
 - **Device pass on the emulator for step 4**: the dialog on a novel browse long-press and on a manga
   one, a card tap opening the migrate dialog, add-time grouping through the picker (which the
   uncategorized group still asks for, and which stays added when dismissed, with both rows landing in

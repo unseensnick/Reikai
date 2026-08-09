@@ -23,6 +23,13 @@ interface RecentsBehavior {
     /** Drops these entries' read records. Both types support it; History is where it is reachable. */
     fun removeFromHistory(entries: Set<EntryId>)
 
+    /**
+     * Adds these entries to the library through the shared add sequence, so a row adds the same way
+     * every other surface does. Anything it has to ask (a possible duplicate, which categories) stays
+     * a dialog on the model that owns the surface: this seam carries no dialog channel.
+     */
+    fun addToLibrary(entries: Set<EntryId>)
+
     /** Drops every read record of this content type, behind the engine's one confirmation. */
     fun clearHistory()
 
