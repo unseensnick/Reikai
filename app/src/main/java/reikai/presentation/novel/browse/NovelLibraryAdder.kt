@@ -13,7 +13,10 @@ import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.browse.finishAdd
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -78,13 +81,52 @@ class NovelLibraryAdder(
         )
     }
 
-    /** Favorite the item (a minimal row, full metadata fills on first details open); applies the
-     *  default category or returns the category picker dialog. */
+    /**
+     * Add the browsed item through the shared sequence ([addEntry]): decide, favorite, then file. The
+     * row is only created by the favorite step, so a picker returned here is still pending: nothing is
+     * written until its confirm reaches [confirmCategories].
+     */
     suspend fun addToLibrary(item: NovelItem, sourceId: String): NovelBrowseDialog? {
-        val storedId = favoriteReturningId(item, sourceId) ?: return null
-        return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
-            NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)
-        }
+        val outcome = addEntry(
+            resolveCategories = { resolveDefaultCategories() },
+            favorite = { favoriteReturningId(item, sourceId) },
+            fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
+        )
+        if (outcome != AddOutcome.NeedsCategoryChoice) return null
+        val prompt = categoryPickerPrompt(item, sourceId)
+        return NovelBrowseDialog.ChangeCategory(
+            NovelCategoryTarget.Pending(item, sourceId),
+            prompt.categories,
+            prompt.currentIds,
+        )
+    }
+
+    /**
+     * The writes a browse picker's confirm owes. A [NovelCategoryTarget.Pending] add has written
+     * nothing yet, so this creates the row, favorites it and files it; add-time grouping favorited up
+     * front and passes [NovelCategoryTarget.Stored], which only files.
+     */
+    suspend fun confirmCategories(target: NovelCategoryTarget, categoryIds: List<Long>): AddOutcome =
+        finishAdd(
+            categoryIds = categoryIds,
+            favorite = {
+                when (target) {
+                    is NovelCategoryTarget.Stored -> target.novelId
+                    is NovelCategoryTarget.Pending -> favoriteReturningId(target.item, target.sourceId)
+                }
+            },
+            fileCategories = { id, ids -> applyCategories(id, ids) },
+        )
+
+    /**
+     * Favorite [novelId] for an add, answering its id, or null when the row is gone or the write
+     * failed. An already-favorited row is not re-written: that would reset dateAdded, moving the entry
+     * in a date-added sort for something the user did not do.
+     */
+    suspend fun favoriteForAdd(novelId: Long): Long? {
+        val novel = novelRepository.getById(novelId) ?: return null
+        if (novel.favorite) return novelId
+        return novelId.takeIf { updateNovel.awaitUpdateFavorite(novelId, favorite = true) }
     }
 
     /** Whether to offer add-time grouping in the duplicate dialog (see [NovelMergeManager]). */
@@ -123,7 +165,11 @@ class NovelLibraryAdder(
         val seeded = addToGroup(storedId, selectedIds) ?: return null
         if (seeded) return null
         return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
-            NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)
+            NovelBrowseDialog.ChangeCategory(
+                NovelCategoryTarget.Stored(storedId),
+                prompt.categories,
+                prompt.currentIds,
+            )
         }
     }
 
@@ -199,6 +245,15 @@ class NovelLibraryAdder(
      */
     suspend fun resolveDefaultCategories(): List<Long>? =
         resolveDefaultCategoryIds(userCategories(), novelPreferences.defaultNovelCategory().get())
+
+    /**
+     * The picker's data for a browse item with no library row yet. A row can still exist unfavorited
+     * from an earlier add, so its categories are preselected rather than assumed empty. Reads only.
+     */
+    suspend fun categoryPickerPrompt(item: NovelItem, sourceId: String): CategoryPrompt {
+        val existingId = novelRepository.getByUrlAndSource(item.path, sourceId)?.id
+        return existingId?.let { categoryPickerPrompt(it) } ?: CategoryPrompt(userCategories(), emptySet())
+    }
 
     /** The picker's data for [novelId], its current categories preselected. Reads only. */
     suspend fun categoryPickerPrompt(novelId: Long): CategoryPrompt {

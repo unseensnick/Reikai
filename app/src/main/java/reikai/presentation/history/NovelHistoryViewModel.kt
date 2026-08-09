@@ -33,6 +33,9 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.finishAdd
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -184,15 +187,28 @@ class NovelHistoryViewModel(
     }
 
     private suspend fun addToLibrary(novelId: Long) {
-        updateNovel.awaitUpdateFavorite(novelId, favorite = true)
-        novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
+        // The shared add sequence: decide, favorite, file, and abandon the whole add if the favorite
+        // write fails. A picker defers both writes to applyCategories, so backing out adds nothing.
+        val outcome = addEntry(
+            resolveCategories = { novelLibraryAdder.resolveDefaultCategories() },
+            favorite = { novelLibraryAdder.favoriteForAdd(novelId) },
+            fileCategories = { id, categoryIds -> novelLibraryAdder.applyCategories(id, categoryIds) },
+        )
+        if (outcome == AddOutcome.NeedsCategoryChoice) {
+            val prompt = novelLibraryAdder.categoryPickerPrompt(novelId)
             setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
         }
     }
 
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         setDialog(null)
-        viewModelScope.launchIO { novelLibraryAdder.applyCategories(novelId, categoryIds) }
+        viewModelScope.launchIO {
+            finishAdd(
+                categoryIds = categoryIds,
+                favorite = { novelLibraryAdder.favoriteForAdd(novelId) },
+                fileCategories = { id, ids -> novelLibraryAdder.applyCategories(id, ids) },
+            )
+        }
     }
 
     /** The latest novel read, for the tab-reselect global-latest resume. */

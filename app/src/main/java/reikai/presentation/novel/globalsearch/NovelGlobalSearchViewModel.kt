@@ -20,6 +20,7 @@ import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.presentation.novel.browse.NovelBrowseDialog
+import reikai.presentation.novel.browse.NovelCategoryTarget
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
 import uy.kohesive.injekt.injectLazy
@@ -117,9 +118,9 @@ class NovelGlobalSearchViewModel(
         }
     }
 
-    fun applyCategories(novelId: Long, categoryIds: List<Long>) {
+    fun applyCategories(target: NovelCategoryTarget, categoryIds: List<Long>) {
         viewModelScope.launchIO {
-            libraryAdder.applyCategories(novelId, categoryIds)
+            libraryAdder.confirmCategories(target, categoryIds)
             mutableState.update { it.copy(dialog = null) }
         }
     }

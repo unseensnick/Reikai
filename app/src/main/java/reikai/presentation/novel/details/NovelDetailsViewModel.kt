@@ -84,6 +84,9 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.finishAdd
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -871,10 +874,14 @@ class NovelDetailsViewModel(
     }
 
     private suspend fun addToLibrary(novel: Novel) {
-        updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
-        // A configured default category applies silently; only a novel with no usable default reaches
-        // the picker, which showChangeCategoryDialog orders. Mirrors MangaViewModel.toggleFavorite.
-        if (novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id) != null) showChangeCategoryDialog()
+        // The shared add sequence: decide, favorite, file, and abandon the whole add if the favorite
+        // write fails. A picker defers both writes to applyCategories, so backing out adds nothing.
+        val outcome = addEntry(
+            resolveCategories = { novelLibraryAdder.resolveDefaultCategories() },
+            favorite = { novelLibraryAdder.favoriteForAdd(novel.id) },
+            fileCategories = { id, categoryIds -> setNovelCategories.await(id, categoryIds) },
+        )
+        if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog()
     }
 
     fun showChangeCategoryDialog() {
@@ -893,10 +900,19 @@ class NovelDetailsViewModel(
         }
     }
 
+    /**
+     * The picker's confirm. It owes the favorite when the add deferred it here, and the same dialog
+     * also serves an in-library novel changing its categories, which [NovelLibraryAdder.favoriteForAdd]
+     * leaves alone rather than re-writing.
+     */
     fun applyCategories(categoryIds: List<Long>) {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            setNovelCategories.await(novel.id, categoryIds)
+            finishAdd(
+                categoryIds = categoryIds,
+                favorite = { novelLibraryAdder.favoriteForAdd(novel.id) },
+                fileCategories = { id, ids -> setNovelCategories.await(id, ids) },
+            )
             dismissDialog()
         }
     }

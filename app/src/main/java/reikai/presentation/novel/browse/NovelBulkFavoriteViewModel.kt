@@ -5,6 +5,7 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
+import reikai.presentation.browse.finishAdd
 import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -30,8 +31,11 @@ class NovelBulkFavoriteViewModel(
 
     override suspend fun addToLibrary(items: List<SelectedNovel>, categoryIds: List<Long>) {
         items.forEach { selected ->
-            val id = libraryAdder.favoriteReturningId(selected.item, selected.sourceId) ?: return@forEach
-            libraryAdder.applyCategories(id, categoryIds)
+            finishAdd(
+                categoryIds = categoryIds,
+                favorite = { libraryAdder.favoriteReturningId(selected.item, selected.sourceId) },
+                fileCategories = { id, ids -> libraryAdder.applyCategories(id, ids) },
+            )
         }
     }
 

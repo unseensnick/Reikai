@@ -196,9 +196,9 @@ class NovelBrowseViewModel(
         }
     }
 
-    fun applyCategories(novelId: Long, categoryIds: List<Long>) {
+    fun applyCategories(target: NovelCategoryTarget, categoryIds: List<Long>) {
         viewModelScope.launchIO {
-            libraryAdder.applyCategories(novelId, categoryIds)
+            libraryAdder.confirmCategories(target, categoryIds)
             mutableState.update { it.copy(dialog = null) }
         }
     }
@@ -436,7 +436,7 @@ sealed interface NovelBrowseDialog {
         val groupIdByNovelId: Map<Long, Long>,
     ) : NovelBrowseDialog
     data class ChangeCategory(
-        val novelId: Long,
+        val target: NovelCategoryTarget,
         val allCategories: List<Category>,
         val currentCategoryIds: Set<Long>,
     ) : NovelBrowseDialog
@@ -445,6 +445,16 @@ sealed interface NovelBrowseDialog {
     /** Migrating the library's copy onto the one just browsed to, both already stored by id. Replaces
      *  [AddDuplicate] in the same slot, as the manga twin does. */
     data class Migrate(val currentId: Long, val targetId: Long) : NovelBrowseDialog
+}
+
+/**
+ * What a category picker's confirm has left to write. A browse add reaches the picker before anything
+ * is written, so backing out of it adds nothing and confirming owes the whole add; add-time grouping
+ * favorites up front by design and owes only the filing.
+ */
+sealed interface NovelCategoryTarget {
+    data class Stored(val novelId: Long) : NovelCategoryTarget
+    data class Pending(val item: NovelItem, val sourceId: String) : NovelCategoryTarget
 }
 
 /**

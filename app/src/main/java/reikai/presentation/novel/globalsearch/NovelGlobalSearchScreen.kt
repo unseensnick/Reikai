@@ -184,7 +184,7 @@ class NovelGlobalSearchScreen(
             is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),
                 onDismiss = viewModel::dismissDialog,
-                onConfirm = { viewModel.applyCategories(dialog.novelId, it) },
+                onConfirm = { viewModel.applyCategories(dialog.target, it) },
             )
             is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
                 title = dialog.item.name,
