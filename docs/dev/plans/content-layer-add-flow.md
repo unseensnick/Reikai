@@ -153,8 +153,16 @@ The add paths, which is the inventory this plan has to keep whole:
 
 ## Status
 
-In progress. Steps 1 (`91999475c`) and 2 (`a6f73a2ac`) have shipped, neither with a user-visible
-change, so neither carries a CHANGELOG entry; step 3 is the first that does.
+In progress, steps 1 to 3 shipped and device-verified, steps 4 and 5 open.
+
+- **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
+- **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the
+  CHANGELOG entries land. **Step 3's twin-test collapse** rode after it (`43d7dc816`).
+- **Device pass on the emulator (2026-08-09), every add path**: browse and global search on both
+  types, both details screens, both History rows, add-anyway from the duplicate dialog, and both
+  add-time grouping branches (a group with categories, which seeds them and shows no picker, and an
+  uncategorized group, which asks and stays added when dismissed). No crashes. The only behaviour
+  still resting on unit tests alone is a failed favorite write, which the UI cannot force.
 
 Planned 2026-08-09, re-scouted the same day against current code. The re-scout is what
 produced the twelve-path inventory, the duplicate-check ruling and the corrected step order; the
@@ -184,6 +192,12 @@ two orders would have baked the divergence into the engine.
 - **`RelatedMangasBrowseViewModel` is folded in rather than left as a known bypass.** It restates the
   default-category kernel inline, so under write-once it is a gap, and the swap is a pure read that
   costs nothing at step 1.
+- **The sealed reference is novel-local, not a seam type (2026-08-09, found by building it).** The
+  plan expected identity to cross the shared seam as a stored-or-unstored value. It does not: each
+  type brings its own lookup to the decision, and the sequence takes the id it files against from
+  what the favorite verb returns. Where the distinction was actually needed is the novel browse
+  picker, which can now open before a row exists, so `NovelCategoryTarget` (Stored or Pending) lives
+  beside that dialog. Manga needs no such case, its rows exist before a picker can open.
 - **Three deltas rode with the shared decision**, all improvements, none of them asked for: a manga
   already in the library no longer runs a duplicate lookup it discards (novels already skipped it),
   the long-press haptic fires on release rather than after that lookup, and the decision runs on the
