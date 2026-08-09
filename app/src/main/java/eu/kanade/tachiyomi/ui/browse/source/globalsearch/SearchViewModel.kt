@@ -19,8 +19,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
+import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.decideAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -216,6 +218,31 @@ abstract class SearchViewModel(
 
     fun changeMangaFavorite(manga: Manga) {
         viewModelScope.launchIO { mangaLibraryAdder.changeFavorite(manga) }
+    }
+
+    /** RK: the shared long-press rule ([decideAdd]); twin of `BrowseSourceViewModel.onLongClick`. */
+    fun onLongClick(manga: Manga) {
+        viewModelScope.launchIO {
+            when (
+                val decision = decideAdd(
+                    inLibrary = manga.favorite,
+                    findDuplicates = { getDuplicateLibraryManga(manga).takeIf { it.isNotEmpty() } },
+                )
+            ) {
+                AddDecision.Remove -> mutableState.update { it.copy(dialog = Dialog.RemoveManga(manga)) }
+                is AddDecision.ConfirmDuplicate -> mutableState.update {
+                    it.copy(
+                        dialog = Dialog.AddDuplicateManga(
+                            manga,
+                            decision.duplicates,
+                            suggestGrouping,
+                            getDuplicateGroupIds(decision.duplicates),
+                        ),
+                    )
+                }
+                AddDecision.Add -> addFavorite(manga)
+            }
+        }
     }
 
     fun addFavorite(manga: Manga) {

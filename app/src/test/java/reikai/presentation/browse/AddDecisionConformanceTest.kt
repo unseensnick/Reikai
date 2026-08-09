@@ -10,10 +10,12 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
+import reikai.presentation.novel.browse.NovelDuplicateInfo
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.manga.model.MangaWithChapterCount
 
 /**
  * The add flow's decision half, pinned once for both content types instead of as a twin pair. The
@@ -23,6 +25,38 @@ import tachiyomi.domain.category.model.Category
  * Background: docs/dev/plans/content-layer-add-flow.md.
  */
 class AddDecisionConformanceTest {
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an entry already in the library is offered for removal`(probe: AddDecisionProbe) = runTest {
+        decideAdd(inLibrary = true) { probe.duplicatePayload() } shouldBe AddDecision.Remove
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an entry already in the library is never looked up for duplicates`(probe: AddDecisionProbe) = runTest {
+        var lookups = 0
+        decideAdd(inLibrary = true) {
+            lookups++
+            probe.duplicatePayload()
+        }
+
+        lookups shouldBe 0
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a possible duplicate asks before adding`(probe: AddDecisionProbe) = runTest {
+        val payload = probe.duplicatePayload()
+
+        decideAdd(inLibrary = false) { payload } shouldBe AddDecision.ConfirmDuplicate(payload)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `nothing similar adds outright`(probe: AddDecisionProbe) = runTest {
+        decideAdd(inLibrary = false) { probe.noDuplicates() } shouldBe AddDecision.Add
+    }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -62,6 +96,12 @@ interface AddDecisionProbe {
 
     /** The picker's initial state as (category id, checked). */
     suspend fun picker(userCategories: List<Category>, current: List<Category>): List<Pair<Long, Boolean>>
+
+    /** This type's duplicate payload, as its own adder would hand it to a dialog. */
+    fun duplicatePayload(): Any
+
+    /** What this type's lookup answers when nothing similar is in the library. */
+    fun noDuplicates(): Any?
 }
 
 class MangaAddDecisionProbe : AddDecisionProbe {
@@ -103,6 +143,11 @@ class MangaAddDecisionProbe : AddDecisionProbe {
         adder(userCategories, defaultId = -1, current = current)
             .categoryPickerSelection(mangaId = 1L)
             .map { it.value.id to (it is CheckboxState.State.Checked) }
+
+    /** Manga hands the dialog the rows themselves, so an empty list is what "none" looks like. */
+    override fun duplicatePayload(): Any = listOf(mockk<MangaWithChapterCount>())
+
+    override fun noDuplicates(): Any? = emptyList<MangaWithChapterCount>().takeIf { it.isNotEmpty() }
 }
 
 class NovelAddDecisionProbe : AddDecisionProbe {
@@ -140,4 +185,10 @@ class NovelAddDecisionProbe : AddDecisionProbe {
         adder(userCategories, defaultId = -1, current = current)
             .categoryPickerPrompt(novelId = 1L)
             .let { prompt -> prompt.categories.map { it.id to (it.id in prompt.currentIds) } }
+
+    /** Novels hand the dialog resolved source names beside the rows, so "none" is a null payload. */
+    override fun duplicatePayload(): Any =
+        NovelDuplicateInfo(listOf(mockk()), sourceNames = emptyMap(), sourceSites = emptyMap())
+
+    override fun noDuplicates(): Any? = null
 }

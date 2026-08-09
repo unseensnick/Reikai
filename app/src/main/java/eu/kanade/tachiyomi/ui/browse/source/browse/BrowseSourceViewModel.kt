@@ -36,8 +36,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.viewmodel.StateViewModel
+import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.decideAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
@@ -259,6 +261,32 @@ open class BrowseSourceViewModel(
     // RK --> favorite / category / duplicate flow delegated to the shared MangaLibraryAdder
     fun changeMangaFavorite(manga: Manga) {
         viewModelScope.launch { mangaLibraryAdder.changeFavorite(manga) }
+    }
+
+    /**
+     * RK: the shared long-press rule ([decideAdd]); the screen only routes the bulk-selection case.
+     * Inherited by `MangaDexFollowsViewModel`, so both screens reach the same decision.
+     */
+    fun onLongClick(manga: Manga) {
+        viewModelScope.launchIO {
+            when (
+                val decision = decideAdd(
+                    inLibrary = manga.favorite,
+                    findDuplicates = { getDuplicateLibraryManga(manga).takeIf { it.isNotEmpty() } },
+                )
+            ) {
+                AddDecision.Remove -> setDialog(Dialog.RemoveManga(manga))
+                is AddDecision.ConfirmDuplicate -> setDialog(
+                    Dialog.AddDuplicateManga(
+                        manga,
+                        decision.duplicates,
+                        suggestGrouping,
+                        getDuplicateGroupIds(decision.duplicates),
+                    ),
+                )
+                AddDecision.Add -> addFavorite(manga)
+            }
+        }
     }
 
     fun addFavorite(manga: Manga) {

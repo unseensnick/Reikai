@@ -12,6 +12,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.decideAdd
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -37,23 +39,25 @@ class NovelLibraryAdder(
         sourceId: String,
         favoritedKeys: Set<Pair<String, String>>,
     ): NovelBrowseDialog? {
-        if ((sourceId to item.path) in favoritedKeys) {
-            return NovelBrowseDialog.RemoveNovel(item, sourceId)
-        }
-        // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
-        // shadow row is excluded by the query's favorite=1 filter anyway).
-        findDuplicates(-1L, item.name)?.let {
-            return NovelBrowseDialog.AddDuplicate(
+        val decision = decideAdd(
+            inLibrary = (sourceId to item.path) in favoritedKeys,
+            // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
+            // shadow row is excluded by the query's favorite=1 filter anyway).
+            findDuplicates = { findDuplicates(-1L, item.name) },
+        )
+        return when (decision) {
+            AddDecision.Remove -> NovelBrowseDialog.RemoveNovel(item, sourceId)
+            is AddDecision.ConfirmDuplicate -> NovelBrowseDialog.AddDuplicate(
                 item = item,
                 sourceId = sourceId,
-                duplicates = it.duplicates,
-                sourceNames = it.sourceNames,
-                sourceSites = it.sourceSites,
+                duplicates = decision.duplicates.duplicates,
+                sourceNames = decision.duplicates.sourceNames,
+                sourceSites = decision.duplicates.sourceSites,
                 suggestGroup = suggestGrouping,
-                groupIdByNovelId = getDuplicateGroupIds(it.duplicates),
+                groupIdByNovelId = getDuplicateGroupIds(decision.duplicates.duplicates),
             )
+            AddDecision.Add -> addToLibrary(item, sourceId)
         }
-        return addToLibrary(item, sourceId)
     }
 
     /**

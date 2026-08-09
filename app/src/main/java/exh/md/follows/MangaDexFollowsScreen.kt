@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -34,7 +33,6 @@ import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -55,7 +53,6 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         }
 
         val navigator = LocalNavigator.currentOrThrow
-        val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
         val viewModel = viewModel<MangaDexFollowsViewModel>(
             factory = MangaDexFollowsViewModel.Factory,
@@ -135,24 +132,8 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                     if (bulkFavoriteState.selectionMode) {
                         navigator.push(MangaScreen(manga.id, true))
                     } else {
-                        scope.launchIO {
-                            val duplicates = viewModel.getDuplicateLibraryManga(manga)
-                            when {
-                                manga.favorite ->
-                                    viewModel.setDialog(BrowseSourceViewModel.Dialog.RemoveManga(manga))
-                                duplicates.isNotEmpty() ->
-                                    viewModel.setDialog(
-                                        BrowseSourceViewModel.Dialog.AddDuplicateManga(
-                                            manga,
-                                            duplicates,
-                                            viewModel.suggestGrouping,
-                                            viewModel.getDuplicateGroupIds(duplicates),
-                                        ),
-                                    )
-                                else -> viewModel.addFavorite(manga)
-                            }
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        }
+                        viewModel.onLongClick(manga)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                 },
                 selection = bulkFavoriteState.selection,
