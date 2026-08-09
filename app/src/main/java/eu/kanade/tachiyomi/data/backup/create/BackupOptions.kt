@@ -5,6 +5,10 @@ import tachiyomi.i18n.MR
 
 data class BackupOptions(
     val libraryEntries: Boolean = true,
+    // RK: per-content-type + custom-info filters, nested under libraryEntries in the create UI.
+    val includeManga: Boolean = true,
+    val includeNovels: Boolean = true,
+    val customInfo: Boolean = true,
     val categories: Boolean = true,
     val chapters: Boolean = true,
     val tracking: Boolean = true,
@@ -18,6 +22,9 @@ data class BackupOptions(
 
     fun asBooleanArray() = booleanArrayOf(
         libraryEntries,
+        includeManga,
+        includeNovels,
+        customInfo,
         categories,
         chapters,
         tracking,
@@ -37,6 +44,19 @@ data class BackupOptions(
                 label = MR.strings.manga,
                 getter = BackupOptions::libraryEntries,
                 setter = { options, enabled -> options.copy(libraryEntries = enabled) },
+            ),
+            // RK: content-type filters (back up manga-only / novels-only; also halves size).
+            Entry(
+                label = MR.strings.content_type_manga,
+                getter = BackupOptions::includeManga,
+                setter = { options, enabled -> options.copy(includeManga = enabled) },
+                enabled = { it.libraryEntries },
+            ),
+            Entry(
+                label = MR.strings.content_type_novels,
+                getter = BackupOptions::includeNovels,
+                setter = { options, enabled -> options.copy(includeNovels = enabled) },
+                enabled = { it.libraryEntries },
             ),
             Entry(
                 label = MR.strings.chapters,
@@ -67,6 +87,13 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(readEntries = enabled) },
                 enabled = { it.libraryEntries },
             ),
+            // RK: exclude the non-destructive custom-info overlay independently.
+            Entry(
+                label = MR.strings.custom_entry_info,
+                getter = BackupOptions::customInfo,
+                setter = { options, enabled -> options.copy(customInfo = enabled) },
+                enabled = { it.libraryEntries },
+            ),
         )
 
         val settingsOptions = listOf(
@@ -95,15 +122,18 @@ data class BackupOptions(
 
         fun fromBooleanArray(array: BooleanArray) = BackupOptions(
             libraryEntries = array[0],
-            categories = array[1],
-            chapters = array[2],
-            tracking = array[3],
-            history = array[4],
-            readEntries = array[5],
-            appSettings = array[6],
-            extensionStores = array[7],
-            sourceSettings = array[8],
-            privateSettings = array[9],
+            includeManga = array[1],
+            includeNovels = array[2],
+            customInfo = array[3],
+            categories = array[4],
+            chapters = array[5],
+            tracking = array[6],
+            history = array[7],
+            readEntries = array[8],
+            appSettings = array[9],
+            extensionStores = array[10],
+            sourceSettings = array[11],
+            privateSettings = array[12],
         )
     }
 

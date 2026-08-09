@@ -79,13 +79,14 @@ class NovelBackupRoundTripTest {
     @Test
     fun `merge groups survive an id remap across backup then restore`() = runTest {
         // Backup side: a manual merge "1,5" over two favorited novels on different sources.
-        val favorites = listOf(novel(1, "a", "s1"), novel(5, "b", "s2"))
         val backupPrefs = mockk<ReikaiLibraryPreferences> {
             every { novelManualMerges } returns pref(setOf("1,5"))
             every { novelManualUnmerges } returns pref(emptySet())
         }
+        // The streamed backup holds no favorites list, so each member resolves by id.
         val backupRepo = mockk<NovelRepository> {
-            coEvery { getFavorites() } returns favorites
+            coEvery { getById(1) } returns novel(1, "a", "s1")
+            coEvery { getById(5) } returns novel(5, "b", "s2")
         }
         val creator = NovelBackupCreator(
             novelRepository = backupRepo,
@@ -105,10 +106,10 @@ class NovelBackupRoundTripTest {
             history = false,
         )
 
-        val data = creator(options)
+        val merges = creator.novelMerges(options)
 
         // The group is serialized as stable {url, source} refs, not the raw ids.
-        data.merges.map { group -> group.refs.map { it.url to it.source } } shouldContainExactly
+        merges.map { group -> group.refs.map { it.url to it.source } } shouldContainExactly
             listOf(listOf("a" to "s1", "b" to "s2"))
 
         // Restore side: the same two novels come back with fresh ids 10 and 20.
@@ -134,7 +135,7 @@ class NovelBackupRoundTripTest {
             database = mockk(relaxed = true),
         )
 
-        restorer.restoreMerges(data.merges, emptyList())
+        restorer.restoreMerges(merges, emptyList())
 
         // The merge is rebuilt against the restored ids, sorted and comma-joined as the pref expects.
         mergeSlot.captured shouldBe setOf("10,20")

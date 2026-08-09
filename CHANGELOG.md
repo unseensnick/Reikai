@@ -12,6 +12,16 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.3.1]
+
+### Additions
+
+- **Create backup now lets you pick Manga, Novels, and Custom entry info separately.** Back up just one content type (which also makes the file smaller), or leave the custom title/cover edits out.
+
+### Fixes
+
+- **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring one no longer runs out of memory either, and a backup that does fail now reports the error instead of quietly stopping.
+
 ## [0.3.0]
 
 ### Additions
