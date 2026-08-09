@@ -24,7 +24,7 @@ Grouped by area, never by phase: the rebase-era phase numbers this was built und
 
 ### Releases
 
-Cut and tagged `v0.1.0`-`v0.3.0`. Stale inherited Yokai `v*` tags were pruned; see the `stale-yokai-release-tags` memory. A long branch that absorbed `main` via merge commits cannot use GitHub "Rebase and merge"; use "Create a merge commit" (the `rebase-merge-fails-on-merge-commits` memory).
+Cut and tagged `v0.1.0`-`v0.3.1`. Stale inherited Yokai `v*` tags were pruned; see the `stale-yokai-release-tags` memory. A long branch that absorbed `main` via merge commits cannot use GitHub "Rebase and merge"; use "Create a merge commit" (the `rebase-merge-fails-on-merge-commits` memory).
 
 | Version | What it carried |
 |---|---|
@@ -37,6 +37,7 @@ Cut and tagged `v0.1.0`-`v0.3.0`. Stale inherited Yokai `v*` tags were pruned; s
 | 0.2.0 | MangaDex enhanced source + MDList tracking + contributor themed-icon fix. |
 | 0.2.1 | Hikka tracker + per-tracker usernames + "Tracker recommendations" toggle fix (`unseensnick/Reikai#37`) + Komikku extension / AniList ports + Hikka-crash & hopper fixes. |
 | 0.3.0 | The unified-content-UI collapse + Edit info / Fill from tracker + hidden manga chapters + novel download storage on stable names + the novel parity round + auto webtoon mode. |
+| 0.3.1 | Hotfix off `main`: streamed backup create / validate / restore so a large library backs up again (`unseensnick/Reikai#53`), plus the per-content-type and custom-info create toggles. Hand-ported from `feat/0.4.0`, not cherry-picked. |
 
 ## Library
 
