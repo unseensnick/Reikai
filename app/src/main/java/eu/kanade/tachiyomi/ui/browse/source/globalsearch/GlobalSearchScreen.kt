@@ -17,7 +17,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.GlobalSearchScreen
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -25,7 +24,9 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
+import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -123,14 +124,15 @@ class GlobalSearchScreen(
         val onDismissRequest = viewModel::clearDialog
         when (val dialog = state.dialog) {
             is SearchViewModel.Dialog.AddDuplicateManga -> {
-                DuplicateMangaDialog(
+                EntryDuplicateDialog(
                     duplicates = dialog.duplicates,
+                    toUi = { it.toDuplicateCard(dialog.sourceLabels) },
                     onDismissRequest = onDismissRequest,
                     onConfirm = { viewModel.addFavorite(dialog.manga) },
-                    onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { viewModel.setMigrateDialog(it.id, dialog.manga) },
+                    onOpen = { navigator.push(MangaScreen(it.manga.id)) },
+                    onMigrate = { viewModel.setMigrateDialog(it.manga.id, dialog.manga) },
                     // RK: offer grouping when the same-title suggestion pref is on.
-                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    groupIdByEntryId = dialog.groupIdByMangaId,
                     onAddToGroup = { selectedIds: List<Long> ->
                         viewModel.addToExistingGroup(dialog.manga, selectedIds)
                     }.takeIf { dialog.suggestGroup },

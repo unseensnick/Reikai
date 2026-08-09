@@ -30,6 +30,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -225,6 +226,7 @@ class HistoryViewModel(
                             duplicates,
                             mergeManager.suggestGroupingOnAdd,
                             groupIdByMangaId,
+                            mangaLibraryAdder.duplicateSourceLabels(duplicates),
                         ),
                     )
                 }
@@ -310,6 +312,7 @@ class HistoryViewModel(
             val duplicates: List<MangaWithChapterCount>,
             val suggestGroup: Boolean,
             val groupIdByMangaId: Map<Long, Long>,
+            val sourceLabels: Map<Long, EntrySourceLabel>,
         ) : Dialog
         data class ChangeCategory(
             val manga: Manga,

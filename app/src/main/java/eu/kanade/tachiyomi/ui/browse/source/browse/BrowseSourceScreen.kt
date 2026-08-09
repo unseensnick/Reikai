@@ -41,7 +41,6 @@ import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.browse.MissingSourceScreen
 import eu.kanade.presentation.browse.components.BrowseSourceToolbar
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -61,7 +60,9 @@ import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import tachiyomi.core.common.Constants
 import tachiyomi.domain.source.model.StubSource
@@ -321,14 +322,17 @@ data class BrowseSourceScreen(
                 )
             }
             is BrowseSourceViewModel.Dialog.AddDuplicateManga -> {
-                DuplicateMangaDialog(
+                EntryDuplicateDialog(
                     duplicates = dialog.duplicates,
+                    toUi = { it.toDuplicateCard(dialog.sourceLabels) },
                     onDismissRequest = onDismissRequest,
                     onConfirm = { viewModel.addFavorite(dialog.manga) },
-                    onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { viewModel.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, it)) },
+                    onOpen = { navigator.push(MangaScreen(it.manga.id)) },
+                    onMigrate = {
+                        viewModel.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, it.manga))
+                    },
                     // RK: offer grouping when the same-title suggestion pref is on.
-                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    groupIdByEntryId = dialog.groupIdByMangaId,
                     onAddToGroup = { selectedIds: List<Long> ->
                         viewModel.addToExistingGroup(dialog.manga, selectedIds)
                     }.takeIf { dialog.suggestGroup },

@@ -39,6 +39,7 @@ import mihon.core.viewmodel.StateViewModel
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
@@ -283,6 +284,7 @@ open class BrowseSourceViewModel(
                         decision.duplicates,
                         suggestGrouping,
                         getDuplicateGroupIds(decision.duplicates),
+                        mangaLibraryAdder.duplicateSourceLabels(decision.duplicates),
                     ),
                 )
                 AddDecision.Add -> addFavorite(manga)
@@ -402,6 +404,7 @@ open class BrowseSourceViewModel(
             val duplicates: List<MangaWithChapterCount>,
             val suggestGroup: Boolean,
             val groupIdByMangaId: Map<Long, Long>,
+            val sourceLabels: Map<Long, EntrySourceLabel>,
         ) : Dialog
         data class ChangeMangaCategory(
             val manga: Manga,

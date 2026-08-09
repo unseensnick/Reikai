@@ -86,6 +86,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
@@ -827,7 +828,7 @@ class NovelDetailsViewModel(
                         it.copy(
                             dialog = NovelDetailsDialog.DuplicateNovel(
                                 dup.duplicates,
-                                dup.sourceNames,
+                                dup.sourceLabels,
                                 dup.sourceSites,
                                 mergeManager.suggestGroupingOnAdd,
                                 groupIdByNovelId,
@@ -1386,7 +1387,7 @@ sealed interface NovelDetailsDialog {
 
     data class DuplicateNovel(
         val duplicates: List<NovelWithChapterCount>,
-        val sourceNames: Map<String, String>,
+        val sourceLabels: Map<String, EntrySourceLabel>,
         val sourceSites: Map<String, String?>,
         /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
         val suggestGroup: Boolean,

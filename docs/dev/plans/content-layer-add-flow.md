@@ -153,11 +153,29 @@ The add paths, which is the inventory this plan has to keep whole:
 
 ## Status
 
-In progress, steps 1 to 3 shipped and device-verified, steps 4 and 5 open.
+In progress, steps 1 to 4 shipped, step 5 open. Step 4 is device-unverified.
 
 - **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
 - **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the
   CHANGELOG entries land. **Step 3's twin-test collapse** rode after it (`43d7dc816`).
+- **Step 4** replaced both dialogs with `EntryDuplicateDialog` at all nine render sites.
+  `DuplicateMangaDialog` is deleted and manifested; the novel twin is deleted outright.
+
+**Step 4's behaviour inventory**, walked against both deleted files, which is the completion bar a
+takeover has to clear. Carried across unchanged: the sheet host and its dismiss, the bulk-select
+toggle and its gate, the title and summary, same-group collapse into one card, range selection from
+an anchor, the disabled-until-picked "add to existing group" row, "add anyway", cancel, the chapter
+and grouped-source badges, the selected tint plus ring, and the card's cover, title, author and
+status. Levelled up on novels, all of it manga behaviour novels never had: the artist row, the
+warning icon on a source whose plugin is not installed, one measured card height across the row
+rather than each card sizing itself, and a cover crossfade. Deliberately dropped: the novel dialog's
+nullable `onMigrate`, whose null branch (a tap that opens instead of migrating, a long-press that
+does nothing) no call site could reach; and the novel long-press dismissing the dialog before
+opening the duplicate, which abandoned the pending add, where manga's leaves the question open to
+come back to. Moved rather than changed: manga's per-card `SourceManager.getOrStub` lookup now runs
+in `MangaLibraryAdder.duplicateSourceLabels`, the same call one layer out, which is what took the
+last DI call out of a composable here.
+
 - **Device pass on the emulator (2026-08-09), every add path**: browse and global search on both
   types, both details screens, both History rows, add-anyway from the duplicate dialog, and both
   add-time grouping branches (a group with categories, which seeds them and shows no picker, and an
@@ -202,6 +220,15 @@ two orders would have baked the divergence into the engine.
   already in the library no longer runs a duplicate lookup it discards (novels already skipped it),
   the long-press haptic fires on release rather than after that lookup, and the decision runs on the
   view model's scope rather than the composition's, so it survives the screen going away mid-flight.
+- **Neither dialog difference turned out to be a capability (2026-08-09, found by building it).** The
+  plan expected the artist row and the stub-source warning to be manga-only, so the shared card would
+  need typed slots for them. Novels carry an artist end to end (`Novel.artist`, the plugin model, the
+  refresh, the edit-info form), and an uninstalled plugin is the same state a stub source is, so both
+  were parity gaps rather than divergences and the card needs no capability at all. The stale claim
+  that novels have no artist also sits in `EntryInfoBox`, where the details header still hides one.
+- **The card is generic over each type's row, not over a neutral row type.** `toUi` maps a row to the
+  neutral card while the callbacks keep the caller's own type, which is what lets a novel site
+  navigate by source and url where a manga site navigates by id. Same shape as `EntrySearchCardRow`.
 - **The manga picker-confirm ordering is fixed inside step 3, not ahead of it.** The two confirms file
   categories and favorite from separate coroutines, so the writes are unordered as well as inverted.
   The end state is the same unless the favorite write fails, and the sequence fixes both at once.

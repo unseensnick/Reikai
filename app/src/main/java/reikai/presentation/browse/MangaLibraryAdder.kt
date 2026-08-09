@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.db.Transactions
 import reikai.domain.manga.MangaMergeManager
+import reikai.presentation.browse.components.EntrySourceLabel
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.interactor.GetCategories
@@ -20,6 +21,7 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.toMangaUpdate
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -128,6 +130,19 @@ class MangaLibraryAdder(
 
     suspend fun getDuplicates(manga: Manga): List<MangaWithChapterCount> =
         getDuplicateLibraryManga.invoke(manga)
+
+    /**
+     * RK: each duplicate's source, resolved here so no dialog host needs a [SourceManager] of its own.
+     * A stub source means the extension is not installed, which the duplicate card warns about.
+     */
+    fun duplicateSourceLabels(duplicates: List<MangaWithChapterCount>): Map<Long, EntrySourceLabel> =
+        duplicates.associate { duplicate ->
+            val source = sourceManager.getOrStub(duplicate.manga.source)
+            duplicate.manga.source to when (source) {
+                is StubSource -> EntrySourceLabel.Missing(source.name)
+                else -> EntrySourceLabel.Installed(source.name)
+            }
+        }
 
     suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) {
         setMangaCategories.await(manga.id, categoryIds.filter { it != 0L })

@@ -15,6 +15,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
 import tachiyomi.domain.category.model.Category
@@ -54,7 +55,7 @@ class NovelLibraryAdder(
                 item = item,
                 sourceId = sourceId,
                 duplicates = decision.duplicates.duplicates,
-                sourceNames = decision.duplicates.sourceNames,
+                sourceLabels = decision.duplicates.sourceLabels,
                 sourceSites = decision.duplicates.sourceSites,
                 suggestGroup = suggestGrouping,
                 groupIdByNovelId = getDuplicateGroupIds(decision.duplicates.duplicates),
@@ -72,11 +73,14 @@ class NovelLibraryAdder(
     suspend fun findDuplicates(id: Long, title: String): NovelDuplicateInfo? {
         val duplicates = novelRepository.getDuplicateLibraryNovel(id, title)
         if (duplicates.isEmpty()) return null
-        // Resolve names + sites here so each dialog host stays DI-free.
+        // Resolve names + sites here so each dialog host stays DI-free. A source the manager cannot
+        // answer for is not installed, so only its stored key is known and the card warns about it.
         val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
         return NovelDuplicateInfo(
             duplicates = duplicates,
-            sourceNames = resolved.mapValues { (id, src) -> src?.name ?: id },
+            sourceLabels = resolved.mapValues { (key, src) ->
+                src?.let { EntrySourceLabel.Installed(it.name) } ?: EntrySourceLabel.Missing(key)
+            },
             sourceSites = resolved.mapValues { (_, src) -> src?.site },
         )
     }
@@ -285,9 +289,9 @@ class NovelLibraryAdder(
 data class CategoryPrompt(val categories: List<Category>, val currentIds: Set<Long>)
 
 /** The possible-duplicate data [NovelLibraryAdder.findDuplicates] returns; each add-path wraps it in
- *  its own dialog type to feed the shared [DuplicateNovelDialog]. */
+ *  its own dialog type to feed the shared `EntryDuplicateDialog`. */
 data class NovelDuplicateInfo(
     val duplicates: List<NovelWithChapterCount>,
-    val sourceNames: Map<String, String>,
+    val sourceLabels: Map<String, EntrySourceLabel>,
     val sourceSites: Map<String, String?>,
 )

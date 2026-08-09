@@ -103,6 +103,7 @@ import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
@@ -675,6 +676,7 @@ class MangaViewModel(
                                     duplicates,
                                     mergeManager.suggestGroupingOnAdd,
                                     groupIdByMangaId,
+                                    mangaLibraryAdder.duplicateSourceLabels(duplicates),
                                 ),
                             )
                         }
@@ -1640,6 +1642,7 @@ class MangaViewModel(
             val duplicates: List<MangaWithChapterCount>,
             val suggestGroup: Boolean,
             val groupIdByMangaId: Map<Long, Long>,
+            val sourceLabels: Map<Long, EntrySourceLabel>,
         ) : Dialog
         data class Migrate(val target: Manga, val current: Manga) : Dialog
         data class SetFetchInterval(val manga: Manga) : Dialog

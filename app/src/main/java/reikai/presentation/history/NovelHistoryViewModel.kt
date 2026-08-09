@@ -35,6 +35,7 @@ import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
@@ -145,7 +146,7 @@ class NovelHistoryViewModel(
                     Dialog.DuplicateNovel(
                         novelId,
                         dup.duplicates,
-                        dup.sourceNames,
+                        dup.sourceLabels,
                         dup.sourceSites,
                         novelLibraryAdder.suggestGrouping,
                         novelLibraryAdder.getDuplicateGroupIds(dup.duplicates),
@@ -246,7 +247,7 @@ class NovelHistoryViewModel(
         data class DuplicateNovel(
             val novelId: Long,
             val duplicates: List<NovelWithChapterCount>,
-            val sourceNames: Map<String, String>,
+            val sourceLabels: Map<String, EntrySourceLabel>,
             val sourceSites: Map<String, String?>,
             /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
             val suggestGroup: Boolean,

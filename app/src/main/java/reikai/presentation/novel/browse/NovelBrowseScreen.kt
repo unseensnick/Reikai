@@ -77,7 +77,9 @@ import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.details.NovelCategoryDialog
@@ -337,15 +339,14 @@ class NovelBrowseScreen(
         }
 
         when (val dialog = state.dialog) {
-            is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
+            is NovelBrowseDialog.AddDuplicate -> EntryDuplicateDialog(
                 duplicates = dialog.duplicates,
-                sourceNames = dialog.sourceNames,
-                sourceSites = dialog.sourceSites,
+                toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
                 onDismissRequest = viewModel::dismissDialog,
                 onConfirm = { viewModel.addFromDuplicate(dialog.item) },
-                onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                onMigrate = { dup -> viewModel.startMigrate(dup.id, dialog.item) },
-                groupIdByNovelId = dialog.groupIdByNovelId,
+                onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
+                onMigrate = { dup -> viewModel.startMigrate(dup.novel.id, dialog.item) },
+                groupIdByEntryId = dialog.groupIdByNovelId,
                 onAddToGroup = { selectedIds: List<Long> ->
                     viewModel.addToExistingGroup(dialog.item, selectedIds)
                 }.takeIf { dialog.suggestGroup },

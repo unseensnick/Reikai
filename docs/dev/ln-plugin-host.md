@@ -177,7 +177,7 @@ LN screens follow Mihon's Voyager `Screen` + AndroidX `ViewModel` conventions. T
 
 | Path | Purpose |
 |---|---|
-| `presentation/novel/browse/` | Browse + search a source (`NovelBrowseScreen` + `NovelBrowseViewModel`), grid cell, filter/settings sheets, library-add, duplicate dialog. |
+| `presentation/novel/browse/` | Browse + search a source (`NovelBrowseScreen` + `NovelBrowseViewModel`), grid cell, filter/settings sheets, library-add. The duplicate dialog is shared with manga (`presentation/browse/components/EntryDuplicateDialog`). |
 | `presentation/novel/details/` | Novel details (`NovelScreen` + `NovelDetailsViewModel`), cover dialog, merge-source chips, manage-sources / page-selector. |
 | `presentation/novel/reader/` | Chapter reader (`NovelReaderScreen` + `NovelReaderScreenModel`), the WebView-based rendering surface (`NovelReaderWebView` / `NovelReaderHtmlBuilder` / `NovelReaderWebInterface`), reader settings. |
 | `presentation/novel/globalsearch/` | Cross-source global search. |

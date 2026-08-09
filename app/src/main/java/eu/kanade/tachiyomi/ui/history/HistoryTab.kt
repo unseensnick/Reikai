@@ -20,7 +20,6 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
 import eu.kanade.presentation.history.components.HistoryDeleteDialog
-import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -32,11 +31,12 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.components.EntryDuplicateDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.history.ReikaiHistoryScreen
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
@@ -120,14 +120,15 @@ data object HistoryTab : Tab {
                 )
             }
             is HistoryViewModel.Dialog.DuplicateManga -> {
-                DuplicateMangaDialog(
+                EntryDuplicateDialog(
                     duplicates = dialog.duplicates,
+                    toUi = { it.toDuplicateCard(dialog.sourceLabels) },
                     onDismissRequest = onDismissRequest,
                     onConfirm = { viewModel.addFavorite(dialog.manga) },
-                    onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { viewModel.showMigrateDialog(dialog.manga, it) },
+                    onOpen = { navigator.push(MangaScreen(it.manga.id)) },
+                    onMigrate = { viewModel.showMigrateDialog(dialog.manga, it.manga) },
                     // RK: offer grouping when the same-title suggestion pref is on.
-                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    groupIdByEntryId = dialog.groupIdByMangaId,
                     onAddToGroup = { selectedIds: List<Long> ->
                         viewModel.addToExistingGroup(dialog.manga, selectedIds)
                     }.takeIf { dialog.suggestGroup },
@@ -176,15 +177,14 @@ data object HistoryTab : Tab {
                 )
             }
             is NovelHistoryViewModel.Dialog.DuplicateNovel -> {
-                DuplicateNovelDialog(
+                EntryDuplicateDialog(
                     duplicates = dialog.duplicates,
-                    sourceNames = dialog.sourceNames,
-                    sourceSites = dialog.sourceSites,
+                    toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
                     onDismissRequest = onDismissNovelDialog,
                     onConfirm = { novelViewModel.addFavoriteAnyway(dialog.novelId) },
-                    onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                    onMigrate = { dup -> novelViewModel.startMigrate(dup.id, dialog.novelId) },
-                    groupIdByNovelId = dialog.groupIdByNovelId,
+                    onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
+                    onMigrate = { dup -> novelViewModel.startMigrate(dup.novel.id, dialog.novelId) },
+                    groupIdByEntryId = dialog.groupIdByNovelId,
                     onAddToGroup = { selectedIds: List<Long> ->
                         novelViewModel.addToExistingGroup(dialog.novelId, selectedIds)
                     }.takeIf { dialog.suggestGroup },

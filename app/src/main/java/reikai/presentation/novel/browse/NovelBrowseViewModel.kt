@@ -25,6 +25,7 @@ import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -426,8 +427,8 @@ sealed interface NovelBrowseDialog {
         /** The source the result came from, so the confirm acts on the right one (varies in global search). */
         val sourceId: String,
         val duplicates: List<NovelWithChapterCount>,
-        /** Source id -> display name for each duplicate's source (resolved in the model, dialog is DI-free). */
-        val sourceNames: Map<String, String>,
+        /** Source id -> its label for each duplicate (resolved in the model, so the dialog is DI-free). */
+        val sourceLabels: Map<String, EntrySourceLabel>,
         /** Source id -> site, for the cover's Referer; null when the source didn't resolve. */
         val sourceSites: Map<String, String?>,
         /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */

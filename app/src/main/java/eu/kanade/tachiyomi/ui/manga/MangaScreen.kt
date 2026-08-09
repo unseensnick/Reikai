@@ -23,7 +23,6 @@ import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.ChapterSettingsDialog
-import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
@@ -51,6 +50,8 @@ import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.components.EntryDuplicateDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -264,14 +265,15 @@ class MangaScreen(
                     )
                 }
                 is MangaViewModel.Dialog.DuplicateManga -> {
-                    DuplicateMangaDialog(
+                    EntryDuplicateDialog(
                         duplicates = dialog.duplicates,
+                        toUi = { it.toDuplicateCard(dialog.sourceLabels) },
                         onDismissRequest = onDismissRequest,
                         onConfirm = { viewModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
-                        onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                        onMigrate = { viewModel.showMigrateDialog(it) },
+                        onOpen = { navigator.push(MangaScreen(it.manga.id)) },
+                        onMigrate = { viewModel.showMigrateDialog(it.manga) },
                         // RK: offer grouping when the same-title suggestion pref is on.
-                        groupIdByMangaId = dialog.groupIdByMangaId,
+                        groupIdByEntryId = dialog.groupIdByMangaId,
                         onAddToGroup = { selectedIds: List<Long> -> viewModel.addToExistingGroup(selectedIds) }
                             .takeIf { dialog.suggestGroup },
                     )

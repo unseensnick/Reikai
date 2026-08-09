@@ -22,6 +22,7 @@ import mihon.domain.manga.model.toDomainManga
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
@@ -238,6 +239,7 @@ abstract class SearchViewModel(
                             decision.duplicates,
                             suggestGrouping,
                             getDuplicateGroupIds(decision.duplicates),
+                            mangaLibraryAdder.duplicateSourceLabels(decision.duplicates),
                         ),
                     )
                 }
@@ -329,6 +331,7 @@ abstract class SearchViewModel(
             val duplicates: List<MangaWithChapterCount>,
             val suggestGroup: Boolean,
             val groupIdByMangaId: Map<Long, Long>,
+            val sourceLabels: Map<Long, EntrySourceLabel>,
         ) : Dialog
         data class ChangeMangaCategory(
             val manga: Manga,

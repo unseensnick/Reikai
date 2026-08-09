@@ -18,7 +18,7 @@ Three independent phases, each shippable on its own and ordered so value lands e
 
 ### Phase 1: covers + chapter-count signal
 
-Add cover thumbnails to every result in the existing row layout (the suggested hit, the override candidate list, the chosen target) via the existing novel cover pipeline (`NovelCover` + `MangaCover.Book`, exactly as `NovelBrowseListCell` and `DuplicateNovelDialog` already do). Surface the chapter count on each side, and flag a target with fewer chapters than the source with a quiet warning color (load-bearing color per the brand: it means a regression risk).
+Add cover thumbnails to every result in the existing row layout (the suggested hit, the override candidate list, the chosen target) via the existing novel cover pipeline (`NovelCover` + `MangaCover.Book`, exactly as `NovelBrowseListCell` and the shared duplicate dialog already do). Surface the chapter count on each side, and flag a target with fewer chapters than the source with a quiet warning color (load-bearing color per the brand: it means a regression risk).
 
 Mostly view-layer. Two small touches in the novel migration list model: carry the chosen source's `site` on the `Row` so the chosen-target cover loads with the right Referer, and expose the chapter counts.
 

@@ -66,10 +66,11 @@ import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
@@ -168,15 +169,14 @@ class NovelGlobalSearchScreen(
         }
 
         when (val dialog = state.dialog) {
-            is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
+            is NovelBrowseDialog.AddDuplicate -> EntryDuplicateDialog(
                 duplicates = dialog.duplicates,
-                sourceNames = dialog.sourceNames,
-                sourceSites = dialog.sourceSites,
+                toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
                 onDismissRequest = viewModel::dismissDialog,
                 onConfirm = { viewModel.addFromDuplicate(dialog.item, dialog.sourceId) },
-                onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-                onMigrate = { dup -> viewModel.startMigrate(dup.id, dialog.item, dialog.sourceId) },
-                groupIdByNovelId = dialog.groupIdByNovelId,
+                onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
+                onMigrate = { dup -> viewModel.startMigrate(dup.novel.id, dialog.item, dialog.sourceId) },
+                groupIdByEntryId = dialog.groupIdByNovelId,
                 onAddToGroup = { selectedIds: List<Long> ->
                     viewModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
                 }.takeIf { dialog.suggestGroup },

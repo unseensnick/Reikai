@@ -24,6 +24,8 @@ import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
+import reikai.presentation.browse.components.EntryDuplicateDialog
+import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -33,7 +35,6 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
@@ -187,15 +188,14 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             onDismiss = viewModel::dismissDialog,
             onConfirm = viewModel::applyCategories,
         )
-        is NovelDetailsDialog.DuplicateNovel -> DuplicateNovelDialog(
+        is NovelDetailsDialog.DuplicateNovel -> EntryDuplicateDialog(
             duplicates = dialog.duplicates,
-            sourceNames = dialog.sourceNames,
-            sourceSites = dialog.sourceSites,
+            toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
             onDismissRequest = viewModel::dismissDialog,
             onConfirm = viewModel::addFavoriteAnyway,
-            onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
-            onMigrate = { viewModel.startMigrate(it.id) },
-            groupIdByNovelId = dialog.groupIdByNovelId,
+            onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
+            onMigrate = { viewModel.startMigrate(it.novel.id) },
+            groupIdByEntryId = dialog.groupIdByNovelId,
             onAddToGroup = { selectedIds: List<Long> ->
                 viewModel.addToExistingGroup(selectedIds)
             }.takeIf { dialog.suggestGroup },
