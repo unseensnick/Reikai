@@ -179,16 +179,32 @@ class NovelLibraryAdder(
      * render its own dialog. Reused by the History add-to-library button.
      */
     suspend fun applyDefaultCategoryOrPrompt(novelId: Long): CategoryPrompt? {
-        val categories = getNovelCategories.await().filter { it.id > 0L }
-        val directIds = resolveDefaultCategoryIds(categories, novelPreferences.defaultNovelCategory().get())
+        val directIds = resolveDefaultCategories()
         return if (directIds != null) {
             setNovelCategories.await(novelId, directIds)
             null
         } else {
-            val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }.toSet()
-            CategoryPrompt(categories, current)
+            categoryPickerPrompt(novelId)
         }
     }
+
+    /**
+     * Where a new favorite should land, or null when the user has to be asked. Reads only, so a caller
+     * can favorite between this and [applyCategories]; the two cannot be split apart once
+     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `MangaLibraryAdder.resolveDefaultCategories`.
+     */
+    suspend fun resolveDefaultCategories(): List<Long>? =
+        resolveDefaultCategoryIds(userCategories(), novelPreferences.defaultNovelCategory().get())
+
+    /** The picker's data for [novelId], its current categories preselected. Reads only. */
+    suspend fun categoryPickerPrompt(novelId: Long): CategoryPrompt {
+        val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }.toSet()
+        return CategoryPrompt(userCategories(), current)
+    }
+
+    /** The pickable categories: the system default (id 0) is not one a user can file into. */
+    private suspend fun userCategories(): List<Category> =
+        getNovelCategories.await().filter { it.id > 0L }
 
     suspend fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         setNovelCategories.await(novelId, categoryIds)

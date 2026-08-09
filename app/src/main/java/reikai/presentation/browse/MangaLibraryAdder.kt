@@ -144,21 +144,31 @@ class MangaLibraryAdder(
     }
 
     /**
+     * RK: where a new favorite should land, or null when the user has to be asked. Reads only, so a
+     * caller can favorite between this and [moveToCategories]; the two cannot be split apart once
+     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `NovelLibraryAdder.resolveDefaultCategories`.
+     */
+    suspend fun resolveDefaultCategories(): List<Long>? =
+        resolveDefaultCategoryIds(getUserCategories(), libraryPreferences.defaultCategory.get())
+
+    /** RK: the picker's initial state for [mangaId], its current categories checked. Reads only. */
+    suspend fun categoryPickerSelection(mangaId: Long): List<CheckboxState.State<Category>> {
+        val preselectedIds = getCategories.await(mangaId).map { it.id }
+        return getUserCategories().mapAsCheckboxState { it.id in preselectedIds }
+    }
+
+    /**
      * RK: file [manga] into its default category (or none), or return the picker data when the user must
      * choose. Never toggles favorite: the two add-paths favorite at different points ([resolveAddFavorite]
      * after, [addToExistingGroup] up front), so favoriting is the caller's job.
      */
     private suspend fun applyDefaultCategoryOrPrompt(manga: Manga): AddFavoriteResult {
-        val categories = getUserCategories()
-        val directIds = resolveDefaultCategoryIds(categories, libraryPreferences.defaultCategory.get())
+        val directIds = resolveDefaultCategories()
         return if (directIds != null) {
             moveToCategories(manga, directIds)
             AddFavoriteResult.Added
         } else {
-            val preselectedIds = getCategories.await(manga.id).map { it.id }
-            AddFavoriteResult.NeedsCategoryChoice(
-                categories.mapAsCheckboxState { it.id in preselectedIds },
-            )
+            AddFavoriteResult.NeedsCategoryChoice(categoryPickerSelection(manga.id))
         }
     }
 

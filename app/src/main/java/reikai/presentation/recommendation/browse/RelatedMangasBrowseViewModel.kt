@@ -14,6 +14,7 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.flow.update
 import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
+import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
@@ -170,18 +171,12 @@ class RelatedMangasBrowseViewModel(
             }
 
             val categories = getCategories.await().filterNot { it.isSystemCategory }
-            val defaultCategoryId = libraryPreferences.defaultCategory.get()
-            val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }
-            when {
-                defaultCategory != null -> {
-                    applyAdd(resolved, listOf(defaultCategory.id))
-                    finishAdd(resolved.size, trackerOrigin.size)
-                }
-                defaultCategoryId == 0 || categories.isEmpty() -> {
-                    applyAdd(resolved, emptyList())
-                    finishAdd(resolved.size, trackerOrigin.size)
-                }
-                else -> mutableState.update {
+            val directIds = resolveDefaultCategoryIds(categories, libraryPreferences.defaultCategory.get())
+            if (directIds != null) {
+                applyAdd(resolved, directIds)
+                finishAdd(resolved.size, trackerOrigin.size)
+            } else {
+                mutableState.update {
                     // Freshly-added manga have no categories yet, so every checkbox starts unchecked.
                     it.copy(
                         dialog = Dialog.ChangeCategory(
