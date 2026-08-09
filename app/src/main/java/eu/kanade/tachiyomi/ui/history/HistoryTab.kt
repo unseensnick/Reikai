@@ -37,7 +37,6 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.history.ReikaiHistoryScreen
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
@@ -191,10 +190,11 @@ data object HistoryTab : Tab {
                 )
             }
             is NovelHistoryViewModel.Dialog.ChangeCategory -> {
-                NovelCategoryDialog(
-                    dialog = NovelDetailsDialog.ChangeCategory(dialog.categories, dialog.currentIds),
-                    onDismiss = onDismissNovelDialog,
-                    onConfirm = { ids -> novelViewModel.applyCategories(dialog.novelId, ids) },
+                ChangeCategoryDialog(
+                    initialSelection = dialog.initialSelection,
+                    onDismissRequest = onDismissNovelDialog,
+                    onEditCategories = { navigator.push(CategoryScreen()) },
+                    onConfirm = { include, _ -> novelViewModel.applyCategories(dialog.novelId, include) },
                 )
             }
             is NovelHistoryViewModel.Dialog.Migrate -> {

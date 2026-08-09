@@ -51,10 +51,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
+import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
@@ -75,7 +77,6 @@ import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
-import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel.SourceFilter
@@ -181,10 +182,11 @@ class NovelGlobalSearchScreen(
                     viewModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
                 }.takeIf { dialog.suggestGroup },
             )
-            is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
-                dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),
-                onDismiss = viewModel::dismissDialog,
-                onConfirm = { viewModel.applyCategories(dialog.target, it) },
+            is NovelBrowseDialog.ChangeCategory -> ChangeCategoryDialog(
+                initialSelection = dialog.initialSelection,
+                onDismissRequest = viewModel::dismissDialog,
+                onEditCategories = { navigator.push(CategoryScreen()) },
+                onConfirm = { include, _ -> viewModel.applyCategories(dialog.target, include) },
             )
             is NovelBrowseDialog.RemoveNovel -> EntryRemoveDialog(
                 title = dialog.item.name,
@@ -202,10 +204,11 @@ class NovelGlobalSearchScreen(
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
-            is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> NovelCategoryDialog(
-                dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.initialSelection.map { it.value }, emptySet()),
-                onDismiss = { bulkModel.setDialog(null) },
-                onConfirm = { bulkModel.setCategories(bulkDialog.items, it) },
+            is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
+                initialSelection = bulkDialog.initialSelection,
+                onDismissRequest = { bulkModel.setDialog(null) },
+                onEditCategories = { navigator.push(CategoryScreen()) },
+                onConfirm = { include, _ -> bulkModel.setCategories(bulkDialog.items, include) },
             )
             null -> {}
         }

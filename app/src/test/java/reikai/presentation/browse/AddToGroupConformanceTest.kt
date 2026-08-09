@@ -274,7 +274,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         val dialog = adder(true, false, true, emptyList(), userCategories, defaultCategoryId)
             .addToExistingGroup(item, sourceId = "src", selectedIds = listOf(2L))
         return when (dialog) {
-            is NovelBrowseDialog.ChangeCategory -> GroupAddOutcome.Prompt(dialog.allCategories)
+            is NovelBrowseDialog.ChangeCategory -> GroupAddOutcome.Prompt(dialog.initialSelection.map { it.value })
             else -> GroupAddOutcome.Added(filed)
         }
     }

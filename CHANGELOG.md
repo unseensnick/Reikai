@@ -103,6 +103,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Light novels**
 
 - **Adding a novel from its details page now files it in your default novel category.** It opened the category picker every time instead, even with a default set, the one add path that ignored the setting.
+- **Novels now use the same category picker manga does.** It carries the Edit categories shortcut, and with no categories yet it offers to make one instead of doing nothing at all.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.
 - **A possible-duplicate novel now shows everything the manga version does.** Its artist, and a warning when the source it came from is no longer installed.
 - **Peeking at a possible duplicate no longer throws away the add you were making.** Long-press opens it, and the same question is waiting when you come back.

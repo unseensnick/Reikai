@@ -38,6 +38,7 @@ import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
@@ -180,8 +181,8 @@ class NovelHistoryViewModel(
             val seeded = novelLibraryAdder.addToGroup(novelId, selectedIds) ?: return@launchIO
             // Group categories win: only fall back to the default (or picker) for an uncategorized group.
             if (!seeded) {
-                novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
-                    setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
+                novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { selection ->
+                    setDialog(Dialog.ChangeCategory(novelId, selection))
                 }
             }
         }
@@ -196,8 +197,7 @@ class NovelHistoryViewModel(
             fileCategories = { id, categoryIds -> novelLibraryAdder.applyCategories(id, categoryIds) },
         )
         if (outcome == AddOutcome.NeedsCategoryChoice) {
-            val prompt = novelLibraryAdder.categoryPickerPrompt(novelId)
-            setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
+            setDialog(Dialog.ChangeCategory(novelId, novelLibraryAdder.categoryPickerPrompt(novelId)))
         }
     }
 
@@ -256,8 +256,7 @@ class NovelHistoryViewModel(
         ) : Dialog
         data class ChangeCategory(
             val novelId: Long,
-            val categories: List<Category>,
-            val currentIds: Set<Long>,
+            val initialSelection: List<CheckboxState.State<Category>>,
         ) : Dialog
 
         /** Migrating the library's copy onto the history novel, both already stored by id. Replaces

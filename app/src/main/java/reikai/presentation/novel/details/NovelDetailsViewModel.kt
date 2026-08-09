@@ -101,6 +101,8 @@ import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
@@ -866,10 +868,8 @@ class NovelDetailsViewModel(
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             val seeded = novelLibraryAdder.addToGroup(novel.id, selectedIds) ?: return@launchIO
             if (seeded) return@launchIO
-            novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id)?.let { prompt ->
-                updateLoaded {
-                    it.copy(dialog = NovelDetailsDialog.ChangeCategory(prompt.categories, prompt.currentIds))
-                }
+            novelLibraryAdder.applyDefaultCategoryOrPrompt(novel.id)?.let { selection ->
+                updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection)) }
             }
         }
     }
@@ -895,9 +895,11 @@ class NovelDetailsViewModel(
                 isSystem = { it.id <= 0L },
                 displayName = { it.name },
             )
-            if (categories.isEmpty()) return@launchIO
+            // No early return on an empty list: the shared picker answers that case with the prompt to
+            // go and make one, where bailing here left the action doing nothing at all.
             val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }
+            val selection = categories.mapAsCheckboxState { it.id in current }
+            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection)) }
         }
     }
 
@@ -1379,8 +1381,7 @@ sealed interface NovelDetailsState {
 
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(
-        val allCategories: List<Category>,
-        val currentCategoryIds: Set<Long>,
+        val initialSelection: List<CheckboxState.State<Category>>,
     ) : NovelDetailsDialog
 
     data object EditInfo : NovelDetailsDialog

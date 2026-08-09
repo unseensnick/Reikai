@@ -27,6 +27,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.migrate.flow.MigrationPickHandoff
+import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
@@ -438,8 +439,7 @@ sealed interface NovelBrowseDialog {
     ) : NovelBrowseDialog
     data class ChangeCategory(
         val target: NovelCategoryTarget,
-        val allCategories: List<Category>,
-        val currentCategoryIds: Set<Long>,
+        val initialSelection: List<CheckboxState.State<Category>>,
     ) : NovelBrowseDialog
     data class RemoveNovel(val item: NovelItem, val sourceId: String) : NovelBrowseDialog
 

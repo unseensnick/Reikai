@@ -13,10 +13,12 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
@@ -183,10 +185,11 @@ class NovelScreen(
 private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
-        is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
-            dialog = dialog,
-            onDismiss = viewModel::dismissDialog,
-            onConfirm = viewModel::applyCategories,
+        is NovelDetailsDialog.ChangeCategory -> ChangeCategoryDialog(
+            initialSelection = dialog.initialSelection,
+            onDismissRequest = viewModel::dismissDialog,
+            onEditCategories = { navigator.push(CategoryScreen()) },
+            onConfirm = { include, _ -> viewModel.applyCategories(include) },
         )
         is NovelDetailsDialog.DuplicateNovel -> EntryDuplicateDialog(
             duplicates = dialog.duplicates,

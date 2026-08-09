@@ -16,6 +16,7 @@ import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.NovelItem
+import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -104,8 +105,7 @@ class NovelLibraryAdderTest {
 
         dialog shouldBe NovelBrowseDialog.ChangeCategory(
             NovelCategoryTarget.Pending(item, "src"),
-            listOf(category(3L)),
-            emptySet(),
+            listOf(CheckboxState.State.None(category(3L))),
         )
     }
 

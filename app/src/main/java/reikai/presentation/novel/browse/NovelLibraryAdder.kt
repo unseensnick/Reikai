@@ -18,6 +18,8 @@ import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -97,11 +99,9 @@ class NovelLibraryAdder(
             fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
         )
         if (outcome != AddOutcome.NeedsCategoryChoice) return null
-        val prompt = categoryPickerPrompt(item, sourceId)
         return NovelBrowseDialog.ChangeCategory(
             NovelCategoryTarget.Pending(item, sourceId),
-            prompt.categories,
-            prompt.currentIds,
+            categoryPickerPrompt(item, sourceId),
         )
     }
 
@@ -168,12 +168,8 @@ class NovelLibraryAdder(
         val storedId = materialize(item, sourceId)?.id ?: return null
         val seeded = addToGroup(storedId, selectedIds) ?: return null
         if (seeded) return null
-        return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
-            NovelBrowseDialog.ChangeCategory(
-                NovelCategoryTarget.Stored(storedId),
-                prompt.categories,
-                prompt.currentIds,
-            )
+        return applyDefaultCategoryOrPrompt(storedId)?.let { selection ->
+            NovelBrowseDialog.ChangeCategory(NovelCategoryTarget.Stored(storedId), selection)
         }
     }
 
@@ -232,7 +228,7 @@ class NovelLibraryAdder(
      * there's no usable default but the user has categories, returns the picker data for the caller to
      * render its own dialog. Reused by the History add-to-library button.
      */
-    suspend fun applyDefaultCategoryOrPrompt(novelId: Long): CategoryPrompt? {
+    suspend fun applyDefaultCategoryOrPrompt(novelId: Long): List<CheckboxState.State<Category>>? {
         val directIds = resolveDefaultCategories()
         return if (directIds != null) {
             setNovelCategories.await(novelId, directIds)
@@ -254,15 +250,15 @@ class NovelLibraryAdder(
      * The picker's data for a browse item with no library row yet. A row can still exist unfavorited
      * from an earlier add, so its categories are preselected rather than assumed empty. Reads only.
      */
-    suspend fun categoryPickerPrompt(item: NovelItem, sourceId: String): CategoryPrompt {
+    suspend fun categoryPickerPrompt(item: NovelItem, sourceId: String): List<CheckboxState.State<Category>> {
         val existingId = novelRepository.getByUrlAndSource(item.path, sourceId)?.id
-        return existingId?.let { categoryPickerPrompt(it) } ?: CategoryPrompt(userCategories(), emptySet())
+        return existingId?.let { categoryPickerPrompt(it) } ?: userCategories().mapAsCheckboxState { false }
     }
 
-    /** The picker's data for [novelId], its current categories preselected. Reads only. */
-    suspend fun categoryPickerPrompt(novelId: Long): CategoryPrompt {
+    /** The picker's initial state for [novelId], its current categories checked. Reads only. */
+    suspend fun categoryPickerPrompt(novelId: Long): List<CheckboxState.State<Category>> {
         val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }.toSet()
-        return CategoryPrompt(userCategories(), current)
+        return userCategories().mapAsCheckboxState { it.id in current }
     }
 
     /** The pickable categories: the system default (id 0) is not one a user can file into. */
@@ -283,10 +279,6 @@ class NovelLibraryAdder(
         }
     }
 }
-
-/** The category-picker data [NovelLibraryAdder.applyDefaultCategoryOrPrompt] returns when there is no
- *  default category to apply; each caller wraps it in its own dialog type. */
-data class CategoryPrompt(val categories: List<Category>, val currentIds: Set<Long>)
 
 /** The possible-duplicate data [NovelLibraryAdder.findDuplicates] returns; each add-path wraps it in
  *  its own dialog type to feed the shared `EntryDuplicateDialog`. */

@@ -31,42 +31,6 @@ import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 
-/** Category picker for adding/moving a novel. */
-@Composable
-fun NovelCategoryDialog(
-    dialog: NovelDetailsDialog.ChangeCategory,
-    onDismiss: () -> Unit,
-    onConfirm: (List<Long>) -> Unit,
-) {
-    val selected = remember { mutableStateListOf<Long>().apply { addAll(dialog.currentCategoryIds) } }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(MR.strings.action_move_category)) },
-        text = {
-            LazyColumn {
-                items(items = dialog.allCategories, key = { it.id }) { category ->
-                    val checked = category.id in selected
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { if (checked) selected.remove(category.id) else selected.add(category.id) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Checkbox(checked = checked, onCheckedChange = null)
-                        Text(text = category.name)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(selected.toList()) }) { Text(stringResource(MR.strings.action_ok)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
-    )
-}
-
 /** Chapter sort / filter / display, mirroring the manga `ChapterSettingsDialog` tabbed layout. */
 @Composable
 fun NovelChapterSettingsDialog(

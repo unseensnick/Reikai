@@ -184,7 +184,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
     override suspend fun picker(userCategories: List<Category>, current: List<Category>) =
         adder(userCategories, defaultId = -1, current = current)
             .categoryPickerPrompt(novelId = 1L)
-            .let { prompt -> prompt.categories.map { it.id to (it.id in prompt.currentIds) } }
+            .map { it.value.id to it.isChecked }
 
     /** Novels hand the dialog resolved source names beside the rows, so "none" is a null payload. */
     override fun duplicatePayload(): Any =
