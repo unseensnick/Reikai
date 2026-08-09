@@ -7,8 +7,10 @@ import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.db.Transactions
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.browse.components.EntrySourceLabel
+import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.interactor.GetCategories
@@ -49,6 +51,7 @@ class MangaLibraryAdder(
     // RK: add-time grouping (the suggestion gate + the merge into the duplicate's group).
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val transactions: Transactions = Injekt.get(),
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 ) {
 
     /** RK: whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
@@ -196,9 +199,14 @@ class MangaLibraryAdder(
         }
     }
 
-    /** User categories, excluding the system default. */
-    suspend fun getUserCategories(): List<Category> =
-        getCategories.subscribe().firstOrNull()?.filterNot { it.isSystemCategory }.orEmpty()
+    /**
+     * RK: user categories, excluding the system default, ordered by the category sort-order preference
+     * so every picker lists them the way the library and the details picker do, not in table order.
+     */
+    suspend fun getUserCategories(): List<Category> = reikaiSortCategories(
+        categories = getCategories.subscribe().firstOrNull()?.filterNot { it.isSystemCategory }.orEmpty(),
+        sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
+    )
 }
 
 /**

@@ -79,13 +79,26 @@ class AddDecisionConformanceTest {
             listOf(3L to true, 4L to false)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the picker lists categories in the sort-order preference, not table order`(
+        probe: AddDecisionProbe,
+    ) = runTest {
+        probe.picker(
+            userCategories = listOf(category(3L, "Zeta"), category(4L, "Alpha")),
+            current = emptyList(),
+            sortOrder = 1,
+        ) shouldBe listOf(4L to false, 3L to false)
+    }
+
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaAddDecisionProbe(), NovelAddDecisionProbe())
     }
 }
 
-private fun category(id: Long) = Category(id = id, name = "category $id", order = 0L, flags = 0L)
+private fun category(id: Long, name: String = "category $id") =
+    Category(id = id, name = name, order = 0L, flags = 0L)
 
 /** What resolving answered, plus whether it wrote while answering. */
 data class Resolution(val categoryIds: List<Long>?, val wroteCategories: Boolean)
@@ -94,8 +107,12 @@ data class Resolution(val categoryIds: List<Long>?, val wroteCategories: Boolean
 interface AddDecisionProbe {
     suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution
 
-    /** The picker's initial state as (category id, checked). */
-    suspend fun picker(userCategories: List<Category>, current: List<Category>): List<Pair<Long, Boolean>>
+    /** The picker's initial state as (category id, checked), under a category sort-order preference. */
+    suspend fun picker(
+        userCategories: List<Category>,
+        current: List<Category>,
+        sortOrder: Int = 0,
+    ): List<Pair<Long, Boolean>>
 
     /** This type's duplicate payload, as its own adder would hand it to a dialog. */
     fun duplicatePayload(): Any
@@ -110,7 +127,12 @@ class MangaAddDecisionProbe : AddDecisionProbe {
 
     override fun toString() = "manga"
 
-    private fun adder(userCategories: List<Category>, defaultId: Int, current: List<Category>) =
+    private fun adder(
+        userCategories: List<Category>,
+        defaultId: Int,
+        current: List<Category>,
+        sortOrder: Int = 0,
+    ) =
         MangaLibraryAdder(
             sourceManager = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
@@ -131,6 +153,9 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             addTracks = mockk(relaxed = true),
             mergeManager = mockk(relaxed = true),
             transactions = PassThroughTransactions,
+            reikaiLibraryPreferences = mockk {
+                every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
+            },
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {
@@ -139,8 +164,8 @@ class MangaAddDecisionProbe : AddDecisionProbe {
         return Resolution(ids, wroteCategories)
     }
 
-    override suspend fun picker(userCategories: List<Category>, current: List<Category>) =
-        adder(userCategories, defaultId = -1, current = current)
+    override suspend fun picker(userCategories: List<Category>, current: List<Category>, sortOrder: Int) =
+        adder(userCategories, defaultId = -1, current = current, sortOrder = sortOrder)
             .categoryPickerSelection(mangaId = 1L)
             .map { it.value.id to (it is CheckboxState.State.Checked) }
 
@@ -156,7 +181,12 @@ class NovelAddDecisionProbe : AddDecisionProbe {
 
     override fun toString() = "novel"
 
-    private fun adder(userCategories: List<Category>, defaultId: Int, current: List<Category>) =
+    private fun adder(
+        userCategories: List<Category>,
+        defaultId: Int,
+        current: List<Category>,
+        sortOrder: Int = 0,
+    ) =
         NovelLibraryAdder(
             novelRepository = mockk(relaxed = true),
             manager = mockk(relaxed = true),
@@ -173,6 +203,9 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             },
             mergeManager = mockk(relaxed = true),
             transactions = PassThroughTransactions,
+            reikaiLibraryPreferences = mockk {
+                every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
+            },
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {
@@ -181,8 +214,8 @@ class NovelAddDecisionProbe : AddDecisionProbe {
         return Resolution(ids, wroteCategories)
     }
 
-    override suspend fun picker(userCategories: List<Category>, current: List<Category>) =
-        adder(userCategories, defaultId = -1, current = current)
+    override suspend fun picker(userCategories: List<Category>, current: List<Category>, sortOrder: Int) =
+        adder(userCategories, defaultId = -1, current = current, sortOrder = sortOrder)
             .categoryPickerPrompt(novelId = 1L)
             .map { it.value.id to it.isChecked }
 

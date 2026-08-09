@@ -75,6 +75,9 @@ class NovelLibraryAdderTest {
         },
         mergeManager = mergeManager,
         transactions = PassThroughTransactions,
+        reikaiLibraryPreferences = mockk {
+            every { categorySortOrder } returns mockk { every { get() } returns 0 }
+        },
     )
 
     @Test

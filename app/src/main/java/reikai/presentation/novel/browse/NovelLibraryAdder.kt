@@ -3,6 +3,7 @@ package reikai.presentation.novel.browse
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.db.Transactions
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -18,9 +19,12 @@ import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
+import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.model.Category
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 /**
  * Shared long-press "add to library" flow for any novel browse surface (per-source browse and
@@ -37,6 +41,7 @@ class NovelLibraryAdder(
     private val novelPreferences: NovelPreferences,
     private val mergeManager: NovelMergeManager,
     private val transactions: Transactions,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
@@ -261,9 +266,15 @@ class NovelLibraryAdder(
         return userCategories().mapAsCheckboxState { it.id in current }
     }
 
-    /** The pickable categories: the system default (id 0) is not one a user can file into. */
-    private suspend fun userCategories(): List<Category> =
-        getNovelCategories.await().filter { it.id > 0L }
+    /**
+     * The pickable categories: the system default (id 0) is not one a user can file into. Ordered by
+     * the category sort-order preference, so every picker lists them the way the library and the
+     * details picker do rather than in table order.
+     */
+    suspend fun userCategories(): List<Category> = reikaiSortCategories(
+        categories = getNovelCategories.await().filter { it.id > 0L },
+        sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
+    )
 
     suspend fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         setNovelCategories.await(novelId, categoryIds)

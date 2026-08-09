@@ -1,7 +1,6 @@
 package reikai.presentation.novel.browse
 
 import androidx.compose.runtime.Immutable
-import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
@@ -18,14 +17,12 @@ import uy.kohesive.injekt.api.get
  */
 class NovelBulkFavoriteViewModel(
     private val libraryAdder: NovelLibraryAdder = Injekt.get(),
-    private val getNovelCategories: GetNovelCategories = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
 ) : EntryBulkFavoriteViewModel<SelectedNovel>() {
 
     override fun keyOf(item: SelectedNovel): Any = item.key
 
-    override suspend fun userCategories(): List<Category> =
-        getNovelCategories.await().filter { it.id > 0L }
+    override suspend fun userCategories(): List<Category> = libraryAdder.userCategories()
 
     override suspend fun defaultCategoryId(): Int = novelPreferences.defaultNovelCategory().get()
 

@@ -15,7 +15,6 @@ class NovelBulkFavoriteViewModelTest {
 
     private fun model() = NovelBulkFavoriteViewModel(
         libraryAdder = mockk(relaxed = true),
-        getNovelCategories = mockk(relaxed = true),
         novelPreferences = mockk(relaxed = true),
     )
 
