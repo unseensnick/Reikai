@@ -21,8 +21,10 @@ import tachiyomi.core.common.util.system.logcat
  * the same reconciliation runs after the next library update and will fill in what was missed.
  */
 class BackfillChapterMatchKeysMigration : Migration {
-    // RK: fires once when the shipped versionCode crosses 185 (the version this ships in).
-    override val version: Float = 185f
+    // RK: fires once when the shipped versionCode crosses 190. Migrations run in version order, and
+    // this one must stay above MigrateMergePrefsToGroupsMigration: the stale-chapter query joins
+    // merge_group_manga, so running before the groups exist finds nothing and backfills nothing.
+    override val version: Float = 190f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: no chapters yet

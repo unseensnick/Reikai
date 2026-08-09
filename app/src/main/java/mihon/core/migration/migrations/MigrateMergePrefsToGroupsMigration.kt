@@ -23,8 +23,10 @@ import tachiyomi.domain.manga.interactor.GetFavorites
  * one side does not block startup or the other side.
  */
 class MigrateMergePrefsToGroupsMigration : Migration {
-    // RK: fires once when the shipped versionCode crosses 184 (the version this rebuild ships in).
-    override val version: Float = 184f
+    // RK: fires once when the shipped versionCode crosses 189. Must stay above every shipped release's
+    // versionCode (0.3.1 is 184): a migration runs only for old < version <= new, so a gate at or below
+    // an installed build's code never fires there, and that install keeps no groups at all.
+    override val version: Float = 189f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate

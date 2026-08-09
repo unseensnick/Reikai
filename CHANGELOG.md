@@ -48,7 +48,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **App & backup**
 
-- **Create backup now lets you pick Manga, Novels and custom entry info separately, for a smaller file.**
 - **Reikai can now send crash reports so bugs get found and fixed faster.** Crash logs and anonymous usage data are both opt-out, from onboarding or Settings -> Security and privacy.
 - **Every release now also has a build with no crash reporting or analytics in it at all.** Download the `-foss` APK instead of the normal one; it installs as a separate app.
 - **The library's three-dot menu can now refresh tracker data for everything you track, in one pass.** Scores and statuses were only pulled when you opened an entry, so sorting or filtering by tracker score read whatever was last cached.
@@ -208,7 +207,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring a backup no longer re-merges a pair you deliberately split.**
 - **One bad entry in a restore no longer takes a hundred others down with it (synced from Mihon, mihonapp/mihon#3667).** The rest of the batch is retried one at a time, so only the entry that actually failed is reported.
 - **A backup holding the same series twice under one source now restores instead of failing (synced from Mihon, mihonapp/mihon#3667).**
-- **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring no longer runs out of memory, and a failed backup now reports the error.
 - **Restoring a backup now keeps your novel category filters and default category instead of quietly dropping them.**
 - **A backup with the read-entries option on now includes novels you have read but removed from your library, like manga.** Their read history used to drop out of the backup, including after migrating a novel to a new source.
 
@@ -244,6 +242,16 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Code comments across Reikai's own files are capped in length and enforced on commit, with the longer explanations moved into the developer docs.
 - Screens are moving off Voyager's ScreenModel onto AndroidX ViewModel, matching Mihon, so future upstream changes to any screen apply cleanly instead of being hand-translated.
+
+## [0.3.1]
+
+### Additions
+
+- **Create backup now lets you pick Manga, Novels, and Custom entry info separately.** Back up just one content type (which also makes the file smaller), or leave the custom title/cover edits out.
+
+### Fixes
+
+- **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring one no longer runs out of memory either, and a backup that does fail now reports the error instead of quietly stopping.
 
 ## [0.3.0]
 
