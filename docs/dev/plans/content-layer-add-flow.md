@@ -153,13 +153,22 @@ The add paths, which is the inventory this plan has to keep whole:
 
 ## Status
 
-In progress, steps 1 to 4 shipped, step 5 open. Step 4 is device-unverified.
+In progress, steps 1 to 4 shipped and device-verified, step 5 open.
 
 - **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
 - **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the
   CHANGELOG entries land. **Step 3's twin-test collapse** rode after it (`43d7dc816`).
 - **Step 4** replaced both dialogs with `EntryDuplicateDialog` at all nine render sites.
   `DuplicateMangaDialog` is deleted and manifested; the novel twin is deleted outright.
+- **Device pass on the emulator for step 4**: the dialog on a novel browse long-press and on a manga
+  one, a card tap opening the migrate dialog, add-time grouping through the picker (which the
+  uncategorized group still asks for, and which stays added when dismissed, with both rows landing in
+  one group), selection mode reading "1 picked", a merged group collapsing to one card with its
+  source-count badge, and an uninstalled plugin's card showing the warning beside its raw source key.
+  The long-press change was checked by opening a duplicate and coming back to a dialog still holding
+  the pending add. Only the artist row on a card is unverified there: no novel in that library has an
+  artist on its source row, and a custom one set through the edit form does not reach the duplicate
+  query, on either content type.
 
 **Step 4's behaviour inventory**, walked against both deleted files, which is the completion bar a
 takeover has to clear. Carried across unchanged: the sheet host and its dismiss, the bulk-select
