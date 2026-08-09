@@ -1214,6 +1214,8 @@
     <string name="getting_started_guide">Getting started guide</string>
     <string name="information_empty_category">You have no categories. Tap the plus button to create one for organizing your library.</string>
     <string name="information_empty_category_dialog">You don\'t have any categories yet.</string>
+    <!-- RK: the categories screen with its content-type chip narrowed to a library that has none. -->
+    <string name="information_empty_category_filtered">No categories for this library yet. Tap the plus button to create one.</string>
     <string name="information_cloudflare_bypass_failure">Failed to bypass Cloudflare</string>
     <string name="information_cloudflare_help">Tap here for help with Cloudflare</string>
     <string name="information_required_plain">*required</string>

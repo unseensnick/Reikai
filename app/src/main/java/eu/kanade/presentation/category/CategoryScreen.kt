@@ -1,8 +1,11 @@
 package eu.kanade.presentation.category
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,11 +24,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import eu.kanade.presentation.category.components.CategoryFloatingActionButton
 import eu.kanade.presentation.category.components.CategoryListItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.ui.category.CategoryScreenState
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.domain.category.model.Category
@@ -48,6 +54,7 @@ fun CategoryScreen(
     onChangeOrder: (Category, Int) -> Unit,
     navigateUp: () -> Unit,
     // RK --> multi-select: the action-mode toolbar + the undo snackbar live here
+    onSelectContentType: (ContentType) -> Unit,
     snackbarHostState: SnackbarHostState,
     onToggleSelection: (Category) -> Unit,
     onSelectAll: () -> Unit,
@@ -57,8 +64,12 @@ fun CategoryScreen(
     // RK <--
 ) {
     val lazyListState = rememberLazyListState()
-    // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab)
-    val reorderable = state.categorySortOrder == 0 && !state.selectionMode
+    // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab), and
+    // so is it under a content-type chip: a drop index comes from the list on screen while the reorder
+    // renumbers the whole table, so dragging inside a narrowed list would land the row elsewhere.
+    val reorderable = state.categorySortOrder == 0 &&
+        !state.selectionMode &&
+        state.contentType == ContentType.ALL
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
@@ -104,28 +115,45 @@ fun CategoryScreen(
             }
         },
     ) { paddingValues ->
-        if (state.isEmpty) {
-            EmptyScreen(
-                stringRes = MR.strings.information_empty_category,
-                modifier = Modifier.padding(paddingValues),
+        // RK --> the chip stays above the list, including when its filter empties it, so the user can
+        // always switch back. Body padding drops the top, which the chip row now occupies.
+        val layoutDirection = LocalLayoutDirection.current
+        Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
+            ContentTypeFilterChips(selected = state.contentType, onSelect = onSelectContentType)
+            val bodyPadding = PaddingValues(
+                start = paddingValues.calculateStartPadding(layoutDirection),
+                end = paddingValues.calculateEndPadding(layoutDirection),
+                bottom = paddingValues.calculateBottomPadding(),
             )
-            return@Scaffold
+            Box(modifier = Modifier.weight(1f)) {
+                if (state.isEmpty) {
+                    EmptyScreen(
+                        stringRes = if (state.contentType == ContentType.ALL) {
+                            MR.strings.information_empty_category
+                        } else {
+                            MR.strings.information_empty_category_filtered
+                        },
+                        modifier = Modifier.padding(bodyPadding),
+                    )
+                } else {
+                    CategoryContent(
+                        categories = state.categories,
+                        lazyListState = lazyListState,
+                        paddingValues = bodyPadding,
+                        onClickRename = onClickRename,
+                        onClickDelete = onClickDelete,
+                        onClickToggleHidden = onClickToggleHidden,
+                        onChangeOrder = onChangeOrder,
+                        // RK: drag only in Manual mode, outside selection, and only under the All chip
+                        reorderable = reorderable,
+                        selection = state.selection,
+                        selectionMode = state.selectionMode,
+                        onToggleSelection = onToggleSelection,
+                    )
+                }
+            }
         }
-
-        CategoryContent(
-            categories = state.categories,
-            lazyListState = lazyListState,
-            paddingValues = paddingValues,
-            onClickRename = onClickRename,
-            onClickDelete = onClickDelete,
-            onClickToggleHidden = onClickToggleHidden,
-            onChangeOrder = onChangeOrder,
-            // RK: drag-reorder only in Manual (off) mode and outside selection; sorted/selecting = no drag
-            reorderable = reorderable,
-            selection = state.selection,
-            selectionMode = state.selectionMode,
-            onToggleSelection = onToggleSelection,
-        )
+        // RK <--
     }
 }
 

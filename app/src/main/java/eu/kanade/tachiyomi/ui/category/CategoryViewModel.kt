@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.viewmodel.StateViewModel
+import reikai.domain.category.categoriesForContentType
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.category.CategoryActions
 import reikai.presentation.category.CategorySelection
@@ -42,6 +44,10 @@ class CategoryViewModel(
     // Holds the rows, not just their ids: a delete has to know the category's content type to clean the
     // right side's preferences, and by commit time the row is gone from the live list.
     private val pendingDelete = MutableStateFlow<Set<Category>>(emptySet())
+
+    // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
+    // settings destination rather than somewhere the user lives.
+    private val chipContentType = MutableStateFlow(ContentType.ALL)
     // RK <--
 
     init {
@@ -54,15 +60,21 @@ class CategoryViewModel(
                 reikaiLibraryPreferences.categorySortOrder.changes(),
                 selectedIds,
                 pendingDelete,
-            ) { categories, sortOrder, selected, pending ->
+                chipContentType,
+            ) { categories, sortOrder, selected, pending, contentType ->
                 val pendingIds = pending.mapTo(HashSet()) { it.id }
                 val visible = categories
                     .filterNot(Category::isSystemCategory)
                     .filterNot { it.id in pendingIds }
+                val shown = categoriesForContentType(visible, contentType)
                 CategoryScreenState.Success(
-                    categories = reikaiSortCategories(visible, sortOrder),
+                    categories = reikaiSortCategories(shown, sortOrder),
+                    // RK: every name, not just the shown ones, so the chip cannot let a duplicate
+                    // name through the create and rename dialogs' check.
+                    allNames = visible.map { it.name },
                     categorySortOrder = sortOrder,
-                    selection = selected.intersect(visible.mapTo(HashSet()) { it.id }),
+                    selection = selected.intersect(shown.mapTo(HashSet()) { it.id }),
+                    contentType = contentType,
                 )
             }
                 .collectLatest { newState ->
@@ -72,6 +84,10 @@ class CategoryViewModel(
                 }
             // RK <--
         }
+    }
+
+    fun setContentType(contentType: ContentType) {
+        chipContentType.value = contentType
     }
 
     fun createCategory(name: String, contentType: Long) {
@@ -208,10 +224,15 @@ sealed interface CategoryScreenState {
     data class Success(
         val categories: List<Category>,
         val dialog: CategoryDialog? = null,
+        // RK: every category's name, including the ones the chip is hiding; the duplicate-name check
+        // is about the table, not about what is on screen.
+        val allNames: List<String> = emptyList(),
         // RK: 0 = manual (drag to reorder); 1/2 = A->Z / Z->A (drag disabled, sorted to match)
         val categorySortOrder: Int = 0,
         // RK: ids selected in multi-select mode; non-empty means the action-mode toolbar is showing
         val selection: Set<Long> = emptySet(),
+        // RK: the library the list is narrowed to; All lists every category
+        val contentType: ContentType = ContentType.ALL,
     ) : CategoryScreenState {
 
         val isEmpty: Boolean

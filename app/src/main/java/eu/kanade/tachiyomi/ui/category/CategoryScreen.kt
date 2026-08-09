@@ -25,6 +25,8 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import reikai.domain.category.toCategoryContentType
+import reikai.domain.library.ContentType
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
@@ -50,6 +52,7 @@ class CategoryScreen : Screen() {
             onCreate = viewModel::createCategory,
             onRename = viewModel::renameCategory,
             onDelete = viewModel::deleteCategory,
+            onSelectContentType = viewModel::setContentType,
             onToggleSelection = { viewModel.toggleSelection(it.id) },
             onSelectAll = viewModel::selectAll,
             onInvertSelection = viewModel::invertSelection,
@@ -71,6 +74,7 @@ private fun CategoryManager(
     onToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
     onDismissDialog: () -> Unit,
+    onSelectContentType: (ContentType) -> Unit,
     onCreate: (String, Long) -> Unit,
     onRename: (Category, String) -> Unit,
     onDelete: (Category) -> Unit,
@@ -105,6 +109,7 @@ private fun CategoryManager(
         onChangeOrder = onChangeOrder,
         navigateUp = navigator::pop,
         // RK -->
+        onSelectContentType = onSelectContentType,
         snackbarHostState = snackbarHostState,
         onToggleSelection = onToggleSelection,
         onSelectAll = onSelectAll,
@@ -119,12 +124,15 @@ private fun CategoryManager(
         CategoryDialog.Create -> CategoryCreateDialog(
             onDismissRequest = onDismissDialog,
             onCreate = onCreate,
-            categories = successState.categories.fastMap { it.name },
+            // RK: every name, so the chip's narrowing cannot hide a clash; the new category starts on
+            // the library the chip is showing.
+            categories = successState.allNames,
+            initialContentType = successState.contentType.toCategoryContentType(),
         )
         is CategoryDialog.Rename -> CategoryRenameDialog(
             onDismissRequest = onDismissDialog,
             onRename = { onRename(dialog.category, it) },
-            categories = successState.categories.fastMap { it.name },
+            categories = successState.allNames,
             category = dialog.category.name,
         )
         is CategoryDialog.Delete -> CategoryDeleteDialog(

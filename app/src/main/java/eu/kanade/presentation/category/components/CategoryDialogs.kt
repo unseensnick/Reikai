@@ -45,10 +45,12 @@ fun CategoryCreateDialog(
     // RK: the content type is chosen here and fixed afterwards; rename stays name-only.
     onCreate: (String, Long) -> Unit,
     categories: List<String>,
+    // RK: what the screen's content-type chip is showing; universal when it is on All.
+    initialContentType: Long = CategoryContentType.UNIVERSAL,
 ) {
     var name by remember { mutableStateOf("") }
-    // RK: default to universal so a category works in both libraries unless the user narrows it.
-    var contentType by remember { mutableLongStateOf(CategoryContentType.UNIVERSAL) }
+    // RK: starts on the library the user is looking at, and works in both when that is All.
+    var contentType by remember { mutableLongStateOf(initialContentType) }
 
     val focusRequester = remember { FocusRequester() }
     val nameAlreadyExists = remember(name) { categories.contains(name) }
