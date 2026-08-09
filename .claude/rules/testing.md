@@ -5,7 +5,7 @@ alwaysApply: true
 # Testing
 
 - Verify behavior, not implementation. Don't assert mock call counts when output values would do.
-- **A behavior test written for one content type gets its twin.** The manga and novel engines are deliberately separate (`docs/dev/plans/content-layer-architecture.md`), so a test that pins one side's behavior and has no counterpart is where the two silently drift. If the other type genuinely cannot do the thing, say so in a one-line comment instead of leaving the gap unexplained.
+- **A rule that must hold for both content types is pinned once, not twice.** Prefer a test over the shared kernel both sides call; where the engines are genuinely separate, write one conformance test parameterized over both adapters (`@ParameterizedTest`) instead of a hand-maintained twin pair. Twins drift: a 2026-08-05 audit found 8 tests on `MigrateMangaUseCase` against 24 on `MigrateNovelUseCase`. A type that genuinely cannot do the thing declares it unsupported in the case, so the gap is visible rather than silent. Full rule: `.claude/rules/content-layer.md`.
 - Run the specific test class after changes (`./gradlew :domain:test --tests "FullyQualifiedClassName"`), not the full suite. Faster feedback, fewer tokens.
 - Flaky test? Fix it or delete it. Never retry to make it pass.
 - Mock only at system boundaries (network, filesystem, clock, randomness). Prefer real implementations everywhere else. MockK for Kotlin types (use `every {}` + `verify {}`); avoid mocking final classes you own — extract an interface.

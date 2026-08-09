@@ -72,8 +72,9 @@ Sequenced so each step is independently shippable and device-verifiable:
 
 **Tests.** The order is a pure sequence over the four verbs, so it can be pinned without a device:
 abort on a failed favorite, no writes at all when the picker is dismissed, the direct branch writing
-favorite before categories, and the grouping carve-out still favoriting up front. Every case gets its
-twin per the twin rule, and each is verified by mutation.
+favorite before categories, and the grouping carve-out still favoriting up front. This is the
+surface's first conformance suite: one parameterized case set run against both adders rather than a
+hand-written twin pair, per the pin-once ladder, each verified by mutation.
 
 ## Key files
 

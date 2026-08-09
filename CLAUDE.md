@@ -36,11 +36,11 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's conventions: a
 
 ## Unified content UI (active initiative)
 
-Reikai is collapsing the near-duplicate manga and novel stacks into one Reikai-owned layer over a neutral `Entry` vocabulary, one surface at a time. **The rules that bind are [.claude/rules/content-layer.md](.claude/rules/content-layer.md)**, which loads every session: the per-surface seam-depth table (every surface is at a different depth, and assuming one is deeper than it is, is the usual way this work gets mis-planned), the ownership rules, the parity rule, the delete-and-manifest policy, and the bar a takeover has to clear to count as finished. The program design, the measurements behind each ruling and the amendment history live in [docs/dev/plans/content-layer-architecture.md](docs/dev/plans/content-layer-architecture.md); read it before designing anything forward-looking.
+Reikai is collapsing the near-duplicate manga and novel stacks into one Reikai-owned layer over a neutral `Entry` vocabulary, one surface at a time. **The rules that bind are [.claude/rules/content-layer.md](.claude/rules/content-layer.md)**, which loads every session: the write-once rule (a user-visible change lands for both content types in the same commit, and only a named mechanism the type cannot support excuses it), the per-surface seam-depth table (every surface is at a different depth, and assuming one is deeper than it is, is the usual way this work gets mis-planned), the ownership rules, the parity rule, the delete-and-manifest policy, and the bar a takeover has to clear to count as finished. The program design, the measurements behind each ruling and the amendment history live in [docs/dev/plans/content-layer-architecture.md](docs/dev/plans/content-layer-architecture.md); read it before designing anything forward-looking.
 
 ## Code change defaults
 
-DRY / YAGNI / KISS, minimal blast radius, no standalone refactor sprints, no dead code, comments explain WHY not WHAT, no em dashes, no AI watermarks. The full defaults and anti-defaults are [.claude/rules/code-quality.md](.claude/rules/code-quality.md).
+DRY / YAGNI / KISS, minimal blast radius, no standalone refactor sprints (the content-layer program is the one owner-approved exemption), no dead code, comments explain WHY not WHAT, no em dashes, no AI watermarks. The full defaults and anti-defaults are [.claude/rules/code-quality.md](.claude/rules/code-quality.md).
 
 ## Commit messages (every commit, no exceptions)
 
@@ -75,7 +75,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 ## Where things live
 
 - [.claude/rules/architecture.md](.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, PreferenceStore, coroutines, domain models, module layout, `// RK` markers, R8/minification keeps for net-new packages.
-- [.claude/rules/content-layer.md](.claude/rules/content-layer.md) — the manga/novel content layer: how deep the seam goes per surface, engine ownership, capability slots, the parity and twin-test rules, delete-and-manifest, and when a takeover counts as finished.
+- [.claude/rules/content-layer.md](.claude/rules/content-layer.md) — the manga/novel content layer: write-once and its forward-only scope, how deep the seam goes per surface, engine ownership, capability slots, parity as the default, the pin-once ladder, decline expiry, delete-and-manifest, and when a takeover counts as finished.
 - [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon, with rationale and a reference screen.
 - [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, the commit message standard (hook-enforced), public-facing naming, release-cut, versioning, Mihon-upstream + Reikai-feature porting (the sync method and ledger in full: [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md)).
 - [.claude/rules/roadmap-plans.md](.claude/rules/roadmap-plans.md) — ROADMAP.md, docs/dev/plans/ and shipped.md structure and naming (path-scoped; loads when editing those files).

@@ -10,9 +10,10 @@ measurements behind each ruling and the per-surface history live in
 [content-layer-architecture.md](../../docs/dev/plans/content-layer-architecture.md) and the four
 per-surface plan docs; read those before designing, read this before touching anything.
 
-The goal is **parity and anti-divergence**, not deduplication. Collapsing two composables into one
-is the mechanism, because it makes future divergence structurally impossible. The point is that a
-change to one content type cannot silently miss the other.
+The goal is **parity and anti-divergence**, and every duplicate is a cost tracked against it.
+Collapsing two implementations into one is the mechanism rather than the point: it is worth doing
+because it makes future divergence structurally impossible. The point is that a change to one
+content type cannot silently miss the other.
 
 ## How deep the seam actually goes, per surface
 
@@ -24,7 +25,7 @@ common way to mis-plan work here.
 | Details | Deep | Neutral state and behavior contract, two adapters; Mihon composables deleted and manifested | content-layer-details-surface |
 | Library | Takeover of orchestration | Shared engine owns assembly, selection and the action verbs. `LibraryViewModel` is **live**, 930 lines, still the manga provider: the amendment's plan to delete and manifest it has not shipped, and the surface doc says it stays live as an engine file. The two docs disagree; unresolved | content-layer-library-surface |
 | Migrate | Full takeover | The whole flow, screens and orchestration; seventeen Mihon files deleted and manifested | content-layer-migrate-surface |
-| Browse | Behavior-partial | Shared bulk-favorite generic, shared dialogs and the default-category kernel. Verbs stay per-type, no takeover, and one neutral adder contract was assessed and declined | content-layer-browse-surface |
+| Browse | Behavior-partial | Shared bulk-favorite generic, shared dialogs and the default-category kernel. Verbs stay per-type and the pager and filter dispatch stay declined on mechanism grounds. The neutral adder contract's decline has expired (its premise was that no shared caller existed) and the add sequence is being collapsed | content-layer-browse-surface, content-layer-add-flow |
 | History, Updates | UI leaf only, takeover started | Shared row composables over per-type feeds; behavior still forked. The takeover's data floor has landed (one shared category selection, every lane filtering in SQL); the engine has not. It adds the combined Recents feed in the same build | content-layer-recents-surface |
 | Downloads | Not started | Nothing. Road B; `DownloadQueueViewModel` is still `// RK: inert` | download-queue-unification |
 | Reader | Chrome only | Top and bottom bars; the two engines are separate by design | unified-reader |
@@ -57,17 +58,39 @@ sites, with some of them wrong. Neither class shows up in the other's review.
 
 ## The rules that bind every change
 
+- **Write once, both types get it.** Any change to behaviour a user can observe lands for manga and
+  novels in the same commit, not the next one and not a follow-up roadmap item. The only exit is
+  that a type genuinely cannot support it: a named mechanism in the source contract, the schema or
+  the plugin format that makes it impossible, cited in the commit and recorded in the surface's
+  plan doc. "The engines are structured differently", "the other side needs a rewrite first", "no
+  caller needs it yet" and cost are not exits, they are the work. If the second half cannot ship in
+  the same commit, the change does not ship: it goes back to planning as one item covering both. A
+  gate is an owner ruling and is never self-issued. **Forward-only (owner, 2026-08-09):** the parity
+  backlog that predates the rule is labelled in `ROADMAP.md` as gated or as an open gap, and does not
+  retroactively block unrelated work.
+- **Sharing the implementation is a means, not the rule.** Declining a code collapse stays allowed on
+  cited mechanism grounds (the browse pager and the filter dispatch are the standing examples), and
+  it never licenses a behaviour fork. Two implementations that must behave identically are pinned by
+  one conformance test.
 - **Divergent bits are typed capability slots.** Never a nullable field, never a boolean-flag
   combination, never a per-type fork inside shared code. A capability one type genuinely cannot
   support is hidden for that type, never shown disabled and never a silent no-op.
 - **A shared component either derives a piece of state or does not own it.** Sharing the storage
   while each type interprets it its own way is a fork wearing shared-code clothing, and nobody rules
   on it because it looks unified.
-- **A behaviour test written for one engine gets its twin.** The engines stay split by design, and
-  unpinned twins are where they drift. If the other type genuinely cannot do the thing, say so in a
-  one-line comment rather than leaving the gap unexplained.
-- **Flag every parity gap you notice on a surface you are touching**, and let the owner rule on each:
-  level the lagging type up, or gate it deliberately. Never fake a feature a type cannot support.
+- **A rule that must hold for both types exists once**, in this order of preference: a shared kernel
+  both sides call (`resolveDefaultCategoryIds` is the model), a typed capability the compiler forces
+  both types to answer, or, where neither reaches, one conformance test parameterized over both
+  adapters. Hand-maintained twin tests are the last resort and they drift: the 2026-08-05 audit
+  found 8 tests on `MigrateMangaUseCase` against 24 on `MigrateNovelUseCase`. A type that genuinely
+  cannot do the thing declares it unsupported in the case rather than being quietly omitted.
+- **Parity is the default; a gap needs a ruling to stay open.** A gap you notice on a surface you are
+  touching is levelled up in that change unless the owner gates it. Never fake a feature a type
+  cannot support.
+- **A decline expires with its evidence.** "Assessed and declined, do not re-flag" holds only while
+  the reasoning that produced it holds, so record that premise with the decline and treat the
+  decline as void once it changes. The neutral adder contract was declined because no shared caller
+  existed; the recents engine became one.
 - **Verify by mutation.** A new test is not done until the production clause it names has been
   deleted, the test seen red, and the clause restored.
 

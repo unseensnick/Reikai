@@ -36,11 +36,12 @@ Five steps, each independently shippable and device-verified before the next.
   row until insert). What was genuinely twinned now lives once: `EntryRemoveDialog` replaces
   Mihon's `RemoveMangaDialog` (deleted and manifested) and the novel twin across all five hosting
   screens, and `resolveDefaultCategoryIds` (`reikai/domain/category/`) is the one
-  default-category decision tree, used by both adders and the bulk-favorite engine. Assessed and
-  declined, do not re-flag: a polymorphic adder interface (no shared caller exists, so it would be
-  ceremony), the sealed-dialog-type collapse (needs a generic carrier for payloads that differ by
-  construction), and extracting `seedCategoriesFromGroup` (~8 identical lines against a
-  category-port interface).
+  default-category decision tree, used by both adders and the bulk-favorite engine. Declined while
+  their premises hold: the sealed-dialog-type collapse (needs a generic carrier for payloads that
+  differ by construction) and extracting `seedCategoriesFromGroup` (~8 identical lines against a
+  category-port interface). **The polymorphic adder decline has expired**: it rested on no shared
+  caller existing, and the recents engine is one, so the add sequence is being collapsed in
+  [content-layer-add-flow.md](content-layer-add-flow.md).
 - **Step 3, hide-in-library for novel browse (shipped `cadf22edb`).** The novel pager filters each
   fetched page against the live favorited keys behind the same preference manga reads
   (`hideInLibraryItems`), at the same load-time snapshot semantics. One mechanic manga gets from
@@ -98,19 +99,22 @@ reader.
   stay declined; pagination (Paging 3 vs the manual probe pager), the filter dispatch (typed
   `FilterList` vs plugin JSON schema), `SearchViewModel` and everything under `migrate/` are out
   of scope. `SearchViewModel` belongs to the migrate/global-search surface.
-- **The behaviour-seam takeover is ruled out, and with it the neutral adder contract stays
-  declined.** A later plan proposed redoing browse the way migrate, details and library were
+- **The behaviour-seam takeover is ruled out while the two pagers stay apart; the adder half of
+  that ruling has expired (2026-08-09).** A later plan proposed redoing browse the way migrate,
+  details and library were
   redone, on the grounds that upstream churn is near zero (measured: five commits in twelve months
   across the eleven upstream browse paths, one behavioural, all already below the synced base). Low
   churn makes a takeover affordable, not necessary, and the two engines diverge exactly where a
   takeover has to bite: manga paginates through Paging 3 with a typed `FilterList`, novels through
   a hand-rolled probe pager with JSON-schema filters, both source-API-driven. Reimplementing either
-  is what the spine rule forbids. That also settles the adder question: the ruling declined a
-  polymorphic adder because no shared caller existed, and the takeover was the thing that would
-  have created one. What the two adders genuinely share already lives in `resolveDefaultCategoryIds`
-  and `EntryBulkFavoriteViewModel`; what they do not share is real, since the manga adder returns
-  a neutral result for its caller to render while the novel one owns the dialogs, and a browsed
-  novel has no library row to favorite until it is materialized.
+  is what the spine rule forbids, and that half stands. The adder half does not. It declined a
+  polymorphic adder because no shared caller existed and the takeover was the only thing that would
+  have created one; the recents engine has since become one, so the decline expired with its premise
+  and the sequence is collapsed in [content-layer-add-flow.md](content-layer-add-flow.md). What the
+  two adders share already lives in `resolveDefaultCategoryIds` and `EntryBulkFavoriteViewModel`;
+  what stays per-type is the carrier, since the manga adder returns a neutral result for its caller
+  to render while the novel one owns the dialogs, and a browsed novel has no library row to favorite
+  until it is materialized.
 - **Parity gap closed by levelling manga up (owner-ruled).** The novel adder skips the favorite
   write when adding an already-favorited row to a group, so a grouping change does not reset
   `dateAdded` and move the entry in a date-added sort; `UpdateManga.awaitUpdateFavorite` stamps
