@@ -155,9 +155,9 @@ The add paths, which is the inventory this plan has to keep whole:
 
 Shipped. Steps 1 to 4 are device-verified; step 5 is the recents verb, which no screen calls yet.
 
-Two pieces of the flow are still written per type, both owned elsewhere: the History add decision, which
-`content-layer-recents-surface.md` closes in its step 8b, and the category picker, which is two per-type
-dialogs and gets its own collapse.
+One piece of the flow is still written per type: the History add decision, which
+`content-layer-recents-surface.md` closes in its step 8b. The category picker, the other one, collapsed onto
+the dialog the library already used for both types (recorded in `category-schema-unification.md`).
 
 - **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
 - **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the

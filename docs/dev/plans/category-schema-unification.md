@@ -203,11 +203,13 @@ both sides, unchanged.
   content type, and both sections read a list that includes universal rows, so a category spanning both
   libraries is listed twice there with independent toggles (`Default` doubles the same way). Either it stays two
   independent filters, or a spanning category collapses to one toggle writing both sides.
-- **Category reorder mode**, a Yokai-era Reikai feature to restore for both types on the now-unified
-  category screen: a reorder mode toggled from the edit-categories screen that reveals a drag handle plus
-  move-to-top and move-to-bottom controls on each category card, confirm or cancel to finish. Built once
-  on the shared screen model, so it serves manga and novels without divergence. Uses the existing `sort`
-  column; no schema work. Queued in ROADMAP.
+- **Per-card move-to-top / move-to-bottom**, for both types on the now-unified category screen. Drag-to-reorder
+  is the part that shipped (manual sort, All chip), and it does not scale: dragging one card across a
+  hundred-plus list is unusable, and drag is off under a content-type chip because the renumber spans the whole
+  table. The model is Reikai's own download-queue card (`EntryDownloadCardList`), which carries the two
+  double-arrow buttons per card and applies each move immediately; that shape came from tsundoku and proved
+  itself once novels made the queue long. Built once on the shared screen model, so it serves both types
+  without divergence. Uses the existing `sort` column; no schema work. Queued in ROADMAP.
 
 ## Remaining work (resequenced into two slices)
 
@@ -245,6 +247,30 @@ novel categories and memberships survive. The category-preference cleanup under 
 delete-scrub, restore remap + dead-key skip). The user-creatable universal categories and their backup support
 then shipped too, both recorded under Follow-on above, so this initiative is complete and the "All" chip it
 existed to unblock is no longer waiting on the category axis. Researched 2026-07-23, shipped 2026-07-24.
+
+**Content-type filtering on the category surfaces** (2026-08-10, `981a78585`..`9c784e688`). The shared table
+made every category surface list both libraries' rows, which is a long scan for a user whose categories are
+mostly one type. The `All / Manga / Novels` chip now narrows the edit-categories screen and the Updates
+category picker, through one rule (`categoriesForContentType`: that type's rows plus the universal ones) so the
+chip means the same thing on both. Four rulings came out of building it:
+
+- **Drag-reorder is offered only under All.** A drop index comes from the list on screen while
+  `CategoryActions.reorder` renumbers the whole table, so dragging inside a narrowed list would land the row
+  somewhere else. The handle hides exactly as it already does for A-Z sort and selection mode; the reorder
+  itself is untouched, so no ordering data is at risk.
+- **The chip is opt-in per caller on the shared filter picker**, on for Updates and off for the library sheet,
+  which is already opened per content type and would otherwise carry two chips saying one thing. It narrows
+  only what is drawn: the tri-state map still covers every category and the confirm still merges over the
+  stored sets, so hiding a row cannot drop a stored id. That also retires the note claiming the opposite.
+- **The duplicate-name check keeps reading every name**, not the shown ones, so narrowing cannot let a clash
+  through the create and rename dialogs.
+- **Novels moved onto the manga category picker rather than the reverse.** The library already rendered
+  `ChangeCategoryDialog` for both types over a neutral `Set<EntryId>` selection, so the shared component
+  already existed; `NovelCategoryDialog` was the odd one out and is deleted. Novels gained the Edit categories
+  shortcut and the empty-state prompt with it, where "Set categories" with no categories had silently done
+  nothing. `CategoryPrompt` went too: both adders now answer with the `CheckboxState` list the dialog takes.
+  The picker's ordering was a shared oversight, table order from the adders against sorted from the details
+  models; both adders now order through `reikaiSortCategories`, pinned by a conformance case over both.
 
 **Sort-flag residues the translation does not reach** (audited 2026-07-30, tracked as a roadmap item). The
 187f migration translates novel *category rows*, so carriers of the old layout survived it. Two of the original
