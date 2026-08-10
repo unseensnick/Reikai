@@ -100,7 +100,7 @@ Paths are from the repo root, which **is** `.../yokai-y2k/app`. App-module sourc
 
 Under `app/src/main/java/reikai/presentation/library/`:
 
-- `LibraryEngine.kt`: the shared engine, a Voyager `ScreenModel`. Owns selection, dialogs, display config, the chip, collapse, and the settings-description lookup. **This is where assembly lands.**
+- `LibraryEngine.kt`: the shared engine, an AndroidX `ViewModel` resolved through its own `CreationExtras` factory (it was a Voyager `ScreenModel` when this shipped; the ViewModel migration moved it). Owns selection, dialogs, display config, the chip, collapse, and the settings-description lookup. **This is where assembly lands.**
 - `LibraryProvider.kt` and `LibraryBehavior.kt`: the per-type seam (`LibraryBehavior` holds the action members; `LibraryProvider` adds `contentType`, `settings`, `rows`, `trackerMeans`, `overlaid`, `dynamicGroupingFeed`). Providers answer about entries and perform writes; they do not open dialogs and do not own collapse.
 - `LibraryScreenState.kt`: the neutral per-type state the tab renders. Only genuinely per-type content lives here; library-wide values belong on the engine.
 - `MangaLibraryAdapter.kt`, `NovelLibraryAdapter.kt`: the two adapters, constructed by the engine's own factory.
