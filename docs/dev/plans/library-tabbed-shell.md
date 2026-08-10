@@ -16,7 +16,7 @@ The Mihon base is Compose + Voyager throughout (see [.claude/rules/architecture.
 
 ### The dual-content Library shell
 
-**Superseded by the All-first library takeover** (record: [library-all-chip.md](library-all-chip.md)). The chip strip is now All | Manga | Novels over one shared `LibraryEngine` assembly; the engine owns the content-type preference and the selection, the `isNovels` branching and the negative-id novel disguise are gone (novels ride `EntryId`), and the per-type settings dialogs collapsed into the shared `LibrarySettingsSheet`. The description below is the shell as originally built, kept as the record of that phase.
+**Superseded by the All-first library takeover** (record: [library-all-chip.md](library-all-chip.md)). The chip strip is now All | Manga | Novels over one shared `LibraryEngine` assembly; the engine owns the content-type preference and the selection, the `isNovels` branching and the negative-id novel disguise are gone (novels ride `EntryId`), and the per-type settings dialogs collapsed into the shared `LibrarySettingsSheet`. The tab's `activeCategories` local named below is now `activeBuckets`, since a library section became the sealed `LibraryBucket` (2026-08-10). The description below is the shell as originally built, kept as the record of that phase.
 
 The Library tab is one screen. Under the toolbar sits a small chip strip: Manga | Novels. Tapping Novels swaps the whole grid to novels, keeping the same layout, badges, hopper, search, multi-select, and pull-to-refresh as manga. Tapping Manga swaps back. The choice persists.
 

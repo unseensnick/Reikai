@@ -24,7 +24,7 @@ Deletion is deferred and undoable: selecting Delete holds the rows out of the li
 
 The hopper is `ReikaiCategoryHopper`, a small rounded floating control with up / center / down buttons (`app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`). Up and down jump to the previous / next category; the center button opens `ReikaiCategoryPickerSheet`, a bottom sheet listing every category (with item counts when enabled) so the user can jump straight to one (`app/src/main/java/reikai/presentation/library/ReikaiCategoryPickerSheet.kt`). The center button also has a long-press action.
 
-Both the manga and novel libraries render through the same shared host (`LibraryTab.kt`), which draws the hopper and picker once, unconditionally, in the single-list view (`LibraryTab.kt`). The Novels tab is no longer special-cased: every hopper callback is content-aware, branching on the active content type. The center long-press dispatches all six actions (search, collapse/expand all, open Display options, open group-by, random-in-category, global-random), each routed to either the novel or manga screen model (`LibraryTab.kt`). The hopper can be dragged left / center / right to change its gravity, one library-wide setting. The picker sheet lists `LibraryBucket`s, so it works for both real DB categories and dynamic groups.
+Both the manga and novel libraries render through the same shared host (`LibraryTab.kt`), which draws the hopper and picker once, unconditionally, in the single-list view (`LibraryTab.kt`). The Novels tab is no longer special-cased: every hopper callback is content-aware, branching on the active content type. The center long-press dispatches all six actions (search, collapse/expand all, open Display options, open group-by, random-in-category, global-random), each routed to either the novel or manga screen model (`LibraryTab.kt`). The hopper can be dragged left / center / right to change its gravity, one library-wide setting. The picker sheet covers both real DB categories and dynamic groups: it decoded the synthetic groups' encoded names when this shipped, and lists the sealed `LibraryBucket` since the sentinel was retyped (2026-08-10).
 
 The hopper appears when its visibility preference (`hideHopper`) is off and at least one category exists (`LibraryTab.kt`); it is not gated on search state. With autohide on, it fades while the list scrolls and returns when it settles.
 
@@ -49,7 +49,7 @@ Category-manager UI (shared, `// RK` islands):
 Hopper + picker (single-list view):
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`: the floating up/center/down control.
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryPickerSheet.kt`: the jump-to-category bottom sheet.
-- `app/src/main/java/reikai/presentation/library/LibraryBucket.kt`: the sealed library section (real category or dynamic group) the picker lists.
+- `app/src/main/java/reikai/presentation/library/LibraryBucket.kt`: the sealed library section (real category or dynamic group) the picker lists. Replaced `ReikaiDynamicCategory.kt`, the name decoder this shipped against.
 
 Library host (shared, `// RK` islands):
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: resolves both screen models, the content-type chip, the unconditional hopper + picker, content-aware callbacks, and the tab-aware Display sheet + edit-categories routing.
