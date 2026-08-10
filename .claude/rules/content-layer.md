@@ -43,7 +43,18 @@ sites, with some of them wrong. Neither class shows up in the other's review.
 - **The two engines are never merged.** Mihon's manga engine (the `Manga` model, its repositories,
   source, library and download machinery) stays upstream-tracked and minimally patched. Reikai's
   novel engine stays fully Reikai-owned. Merging them would re-type Mihon's whole stack and sever
-  upstream flow.
+  upstream flow, and it could not reach the bottom anyway: `source-api` is the contract installed
+  extensions compile against, so a manga-shaped source boundary survives any merge.
+- **That exemption covers the implementation, never the rule** (owner, 2026-08-10). A split engine
+  excuses two implementations. It has never excused the same rule being written twice with nothing
+  binding them, which is the drift the whole program exists to stop. An engine twin still owes the
+  pin-once ladder below: a shared kernel, a typed capability, or one conformance test over both
+  halves. A twin that can cite none of the three is unpinned debt, not a sanctioned split.
+- **The exemption is only for a Reikai-to-Mihon twin.** It exists because re-typing Mihon's models
+  breaks hand-porting, so it reaches exactly as far as that reason does. Two Reikai-owned files
+  twinning each other are ordinary duplication and get no exemption at all; judge them by the code
+  rules like any other duplicate. Measured 2026-08-10: 67 of 84 twin-marked files are Reikai-owned,
+  so most of what reads as a sanctioned engine split is not one.
 - **Adapters are the only seam.** The shared layer talks to each engine through an adapter, so a
   renamed upstream field breaks the build at one file instead of hiding until a pixel hunt.
 - **Never reimplement Mihon's spine** in the shared layer: read, download, filter, sort, selection.
@@ -84,6 +95,11 @@ sites, with some of them wrong. Neither class shows up in the other's review.
   adapters. Hand-maintained twin tests are the last resort and they drift: the 2026-08-05 audit
   found 8 tests on `MigrateMangaUseCase` against 24 on `MigrateNovelUseCase`. A type that genuinely
   cannot do the thing declares it unsupported in the case rather than being quietly omitted.
+- **A `twin of` marker is a claim that owes a pin** (owner, 2026-08-10). Writing that a function is
+  another's twin asserts the two must behave alike, so it names which rung pins them: the kernel they
+  both call, the capability they both answer, or the conformance test that runs both. A marker with
+  no pin named is debt, and it is paid the next time either half is touched, on the same trigger the
+  parity rule uses. Never a standalone sweep to clear the backlog, and never a new unpinned twin.
 - **Parity is the default; a gap needs a ruling to stay open.** A gap you notice on a surface you are
   touching is levelled up in that change unless the owner gates it. Never fake a feature a type
   cannot support.
