@@ -24,8 +24,11 @@ import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddFavoriteResult
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -258,6 +261,71 @@ class RecentsEngine(
 
     fun removeFromHistory(entries: Set<EntryId>) {
         providers.forEach { it.removeFromHistory(entries) }
+    }
+
+    // The add flow, owned here rather than by either content type's model, so one shell renders one
+    // dialog channel. Each verb below is the UI entry point; the suspend half beside it is the
+    // operation, which is also what the tests drive, since nothing can await a launched coroutine.
+
+    /** Adds [entry], asking about a possible duplicate or a category first when the decision needs it. */
+    fun addToLibrary(entry: EntryId) {
+        viewModelScope.launchIO { startAdd(entry) }
+    }
+
+    /** Adds anyway, from the duplicate prompt's confirm. */
+    fun addAnyway(entry: EntryId) {
+        dismissDialog()
+        viewModelScope.launchIO { runAdd(entry) }
+    }
+
+    /** Adds [entry] and merges it into the group of the duplicates the user picked in the prompt. */
+    fun addToGroup(entry: EntryId, duplicates: List<EntryId>) {
+        dismissDialog()
+        viewModelScope.launchIO { groupAdd(entry, duplicates) }
+    }
+
+    /** The category picker's confirm, which owes both writes the add deferred. */
+    fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+        dismissDialog()
+        viewModelScope.launchIO { fileAddCategories(entry, categoryIds) }
+    }
+
+    /** Migrates a duplicate already in the library onto the entry being added, from the prompt. */
+    fun migrateOntoEntry(entry: EntryId, duplicate: EntryId) {
+        openDialog(RecentsDialog.Migrate(current = duplicate, target = entry))
+    }
+
+    /**
+     * An entry already in the library is left alone rather than added again: the provider would
+     * otherwise refile it, and on the manga side toggle the favorite back off.
+     */
+    internal suspend fun startAdd(entry: EntryId) {
+        val provider = providersByType[entry.contentType] ?: return
+        when (val decision = provider.addDecision(entry)) {
+            null, AddDecision.Remove -> Unit
+            is AddDecision.ConfirmDuplicate -> openDialog(RecentsDialog.Duplicate(entry, decision.duplicates))
+            AddDecision.Add -> runAdd(entry)
+        }
+    }
+
+    internal suspend fun runAdd(entry: EntryId) {
+        val provider = providersByType[entry.contentType] ?: return
+        promptForCategories(entry, provider.addToLibrary(entry))
+    }
+
+    internal suspend fun groupAdd(entry: EntryId, duplicates: List<EntryId>) {
+        val provider = providersByType[entry.contentType] ?: return
+        promptForCategories(entry, provider.addToGroup(entry, duplicates))
+    }
+
+    internal suspend fun fileAddCategories(entry: EntryId, categoryIds: List<Long>) {
+        providersByType[entry.contentType]?.applyAddCategories(entry, categoryIds)
+    }
+
+    private fun promptForCategories(entry: EntryId, result: AddFavoriteResult) {
+        if (result is AddFavoriteResult.NeedsCategoryChoice) {
+            openDialog(RecentsDialog.ChangeCategory(entry, result.initialSelection))
+        }
     }
 
     /** Clears the history of every content type on screen, which is why it is one confirmation. */

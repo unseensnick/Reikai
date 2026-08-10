@@ -20,6 +20,11 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.components.toDuplicateCard
+import reikai.presentation.browse.decideAdd
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.getChapterSort
@@ -55,6 +60,7 @@ class MangaRecentsAdapter(
     private val mergeManager: MangaMergeManager by injectLazy()
     private val mergedChapterProvider: MergedChapterProvider by injectLazy()
     private val getManga: GetManga by injectLazy()
+    private val mangaLibraryAdder: MangaLibraryAdder by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -162,8 +168,44 @@ class MangaRecentsAdapter(
         entries.filterIsInstance<EntryId.Manga>().forEach { historyModel.removeAllFromHistory(it.rawId) }
     }
 
-    override fun addToLibrary(entries: Set<EntryId>) {
-        entries.filterIsInstance<EntryId.Manga>().forEach { historyModel.addFavorite(it.rawId) }
+    // The add flow answers rather than prompts: the engine owns the surface's one dialog slot, so
+    // everything below reports what it found and lets the engine decide what to ask.
+    private suspend fun mangaOf(entry: EntryId): Manga? =
+        (entry as? EntryId.Manga)?.let { getManga.await(it.rawId) }
+
+    override suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>? {
+        val manga = mangaOf(entry) ?: return null
+        return decideAdd(inLibrary = manga.favorite) {
+            val duplicates = mangaLibraryAdder.getDuplicates(manga)
+            if (duplicates.isEmpty()) return@decideAdd null
+
+            val labels = mangaLibraryAdder.duplicateSourceLabels(duplicates)
+            RecentsDuplicates(
+                duplicates = duplicates.map {
+                    RecentsDuplicate(EntryId.Manga(it.manga.id), it.toDuplicateCard(labels))
+                },
+                groupIdByRawId = mangaLibraryAdder.getDuplicateGroupIds(duplicates),
+                suggestGroup = mangaLibraryAdder.suggestGrouping,
+            )
+        }
+    }
+
+    override suspend fun addToLibrary(entry: EntryId): AddFavoriteResult {
+        val manga = mangaOf(entry) ?: return AddFavoriteResult.Failed
+        // Already there: the shared add toggles the favorite, so running it again would remove the
+        // entry and reset its dateAdded. The engine's remove branch normally catches this first.
+        if (manga.favorite) return AddFavoriteResult.Added
+        return mangaLibraryAdder.resolveAddFavorite(manga)
+    }
+
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+        val manga = mangaOf(entry) ?: return
+        mangaLibraryAdder.confirmCategories(manga, categoryIds)
+    }
+
+    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
+        val manga = mangaOf(entry) ?: return AddFavoriteResult.Failed
+        return mangaLibraryAdder.addToExistingGroup(manga, duplicates.map { it.rawId })
     }
 
     override fun clearHistory() {

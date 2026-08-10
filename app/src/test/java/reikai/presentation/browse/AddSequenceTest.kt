@@ -3,6 +3,8 @@ package reikai.presentation.browse
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.domain.category.model.Category
 
 /**
  * The add order both content types run. It is one implementation over each type's own verbs, so the
@@ -71,4 +73,30 @@ class AddSequenceTest {
 
         calls shouldBe listOf("favorite", "file 7 ")
     }
+
+    @Test
+    fun `an add with nowhere to file carries the prompt back with it`() = runTest {
+        val selection = listOf(CheckboxState.State.None(category))
+
+        addEntryOrPrompt({ null }, ::favoriteSucceeding, ::file) { selection } shouldBe
+            AddFavoriteResult.NeedsCategoryChoice(selection)
+    }
+
+    @Test
+    fun `an add that lands never builds a prompt nobody will see`() = runTest {
+        addEntryOrPrompt({ listOf(3L) }, ::favoriteSucceeding, ::file) {
+            calls += "picker"
+            emptyList()
+        } shouldBe AddFavoriteResult.Added
+
+        calls shouldBe listOf("favorite", "file 7 3")
+    }
+
+    @Test
+    fun `a failed favorite is reported as failed, not as something to choose`() = runTest {
+        addEntryOrPrompt({ listOf(3L) }, ::favoriteFailing, ::file) { emptyList() } shouldBe
+            AddFavoriteResult.Failed
+    }
 }
+
+private val category = Category(id = 3L, name = "Reading", order = 0L, flags = 0L)

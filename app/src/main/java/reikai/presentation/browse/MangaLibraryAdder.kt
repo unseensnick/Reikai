@@ -156,19 +156,23 @@ class MangaLibraryAdder(
      * usable default the caller shows its own picker, whose confirm owes both writes, so backing out of
      * it adds nothing.
      */
-    suspend fun resolveAddFavorite(manga: Manga): AddFavoriteResult {
-        val outcome = addEntry(
-            resolveCategories = { resolveDefaultCategories() },
-            favorite = { manga.id.takeIf { changeFavorite(manga) } },
-            fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
-        )
-        return when (outcome) {
-            AddOutcome.Added -> AddFavoriteResult.Added
-            AddOutcome.Failed -> AddFavoriteResult.Failed
-            AddOutcome.NeedsCategoryChoice ->
-                AddFavoriteResult.NeedsCategoryChoice(categoryPickerSelection(manga.id))
-        }
-    }
+    suspend fun resolveAddFavorite(manga: Manga): AddFavoriteResult = addEntryOrPrompt(
+        resolveCategories = { resolveDefaultCategories() },
+        favorite = { manga.id.takeIf { changeFavorite(manga) } },
+        fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
+        categoryPicker = { categoryPickerSelection(manga.id) },
+    )
+
+    /**
+     * RK: the writes a picker's confirm owes for a stored row, in the shared order, so backing out of
+     * the picker adds nothing. An already-favorited row is not re-written: that would reset dateAdded.
+     * Twin of `NovelLibraryAdder.confirmCategories`.
+     */
+    suspend fun confirmCategories(manga: Manga, categoryIds: List<Long>): AddOutcome = finishAdd(
+        categoryIds = categoryIds,
+        favorite = { manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) } },
+        fileCategories = { _, ids -> moveToCategories(manga, ids) },
+    )
 
     /**
      * RK: where a new favorite should land, or null when the user has to be asked. Reads only, so a
@@ -207,16 +211,4 @@ class MangaLibraryAdder(
         categories = getCategories.subscribe().firstOrNull()?.filterNot { it.isSystemCategory }.orEmpty(),
         sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
     )
-}
-
-/**
- * Outcome of [MangaLibraryAdder.resolveAddFavorite]: added outright, awaiting a category choice, or
- * abandoned because the favorite write failed, in which case nothing was written at all.
- */
-sealed interface AddFavoriteResult {
-    data object Added : AddFavoriteResult
-    data object Failed : AddFavoriteResult
-    data class NeedsCategoryChoice(
-        val initialSelection: List<CheckboxState.State<Category>>,
-    ) : AddFavoriteResult
 }

@@ -24,8 +24,14 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeManager
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.components.EntryDuplicateCardUi
+import reikai.presentation.browse.components.EntrySourceLabel
+import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.updates.service.UpdatesPreferences
 
 /**
@@ -73,6 +79,27 @@ class RecentsEngineTest {
     private val manga1 = EntryId.Manga(1)
     private val manga2 = EntryId.Manga(2)
     private val novel1 = EntryId.Novel(1)
+    private val category = Category(id = 3L, name = "Reading", order = 0L, flags = 0L)
+
+    private fun duplicates(entry: EntryId) = RecentsDuplicates(
+        duplicates = listOf(
+            RecentsDuplicate(
+                entry,
+                EntryDuplicateCardUi(
+                    id = entry.rawId,
+                    coverModel = Unit,
+                    title = "already there",
+                    author = null,
+                    artist = null,
+                    status = 0L,
+                    source = EntrySourceLabel.Installed("a source"),
+                    chapterCount = 0L,
+                ),
+            ),
+        ),
+        groupIdByRawId = emptyMap(),
+        suggestGroup = false,
+    )
 
     @Test
     fun `both content types assemble into one feed, newest first`() = runTest {
@@ -382,6 +409,79 @@ class RecentsEngineTest {
             lanes = setOf(RecentsLaneKind.READ),
         ) shouldBe true
     }
+
+    @Test
+    fun `an add runs through the provider that owns the entry's content type`() = runTest {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+
+        engine(listOf(manga, novel)).startAdd(manga1)
+
+        (manga.addedEntry to novel.addedEntry) shouldBe (manga1 to null)
+    }
+
+    @Test
+    fun `an entry already in the library is not added again`() = runTest {
+        val manga = provider(ContentType.MANGA, decision = AddDecision.Remove)
+
+        engine(listOf(manga)).startAdd(manga1)
+
+        manga.addedEntry shouldBe null
+    }
+
+    @Test
+    fun `an entry that has gone is not added`() = runTest {
+        val manga = provider(ContentType.MANGA, decision = null)
+
+        engine(listOf(manga)).startAdd(manga1)
+
+        manga.addedEntry shouldBe null
+    }
+
+    @Test
+    fun `a possible duplicate is asked about instead of added`() = runTest {
+        val duplicates = duplicates(novel1)
+        val manga = provider(ContentType.MANGA, decision = AddDecision.ConfirmDuplicate(duplicates))
+        val engine = engine(listOf(manga))
+
+        engine.startAdd(manga1)
+
+        engine.dialog.value shouldBe RecentsDialog.Duplicate(manga1, duplicates)
+        manga.addedEntry shouldBe null
+    }
+
+    @Test
+    fun `an add with no usable default opens the picker the provider answered with`() = runTest {
+        val selection = listOf(CheckboxState.State.None(category))
+        val manga = provider(ContentType.MANGA, addResult = AddFavoriteResult.NeedsCategoryChoice(selection))
+        val engine = engine(listOf(manga))
+
+        engine.startAdd(manga1)
+
+        engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection)
+    }
+
+    @Test
+    fun `adding to a group still asks for categories when the group has none`() = runTest {
+        val selection = listOf(CheckboxState.State.None(category))
+        val manga = provider(ContentType.MANGA, addResult = AddFavoriteResult.NeedsCategoryChoice(selection))
+        val engine = engine(listOf(manga))
+
+        engine.groupAdd(manga1, listOf(manga2))
+
+        manga.groupedWith shouldBe listOf(manga2)
+        engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection)
+    }
+
+    @Test
+    fun `the picker's confirm files through the provider that owns the entry`() = runTest {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+
+        engine(listOf(manga, novel)).fileAddCategories(novel1, listOf(3L))
+
+        (manga.filedCategories to novel.filedCategories) shouldBe (null to (novel1 to listOf(3L)))
+    }
 }
 
 private fun rows(vararg items: RecentsItem) = RecentsLaneRows(items.toList(), loaded = true)
@@ -394,7 +494,9 @@ private fun provider(
     updatedAt: Long = 0L,
     titles: Map<EntryId, String> = emptyMap(),
     refreshStarts: Boolean = true,
-) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles, refreshStarts)
+    decision: AddDecision<RecentsDuplicates>? = AddDecision.Add,
+    addResult: AddFavoriteResult = AddFavoriteResult.Added,
+) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles, refreshStarts, decision, addResult)
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
 private class FakeRecentsProvider(
@@ -405,6 +507,8 @@ private class FakeRecentsProvider(
     updatedAt: Long,
     private val titles: Map<EntryId, String>,
     private val refreshStarts: Boolean,
+    private val decision: AddDecision<RecentsDuplicates>?,
+    private val addResult: AddFavoriteResult,
 ) : RecentsProvider {
 
     var historyCleared = false
@@ -412,6 +516,12 @@ private class FakeRecentsProvider(
     var markedRead: Set<ChapterRef>? = null
         private set
     var refreshed = false
+        private set
+    var addedEntry: EntryId? = null
+        private set
+    var filedCategories: Pair<EntryId, List<Long>>? = null
+        private set
+    var groupedWith: List<EntryId>? = null
         private set
 
     override val readLane: Flow<RecentsLaneRows> = flowOf(readRows)
@@ -432,7 +542,22 @@ private class FakeRecentsProvider(
     override fun download(chapters: Set<ChapterRef>) = Unit
     override fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
     override fun removeFromHistory(entries: Set<EntryId>) = Unit
-    override fun addToLibrary(entries: Set<EntryId>) = Unit
+
+    override suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>? = decision
+
+    override suspend fun addToLibrary(entry: EntryId): AddFavoriteResult {
+        addedEntry = entry
+        return addResult
+    }
+
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+        filedCategories = entry to categoryIds
+    }
+
+    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
+        groupedWith = duplicates
+        return addResult
+    }
 
     override fun clearHistory() {
         historyCleared = true

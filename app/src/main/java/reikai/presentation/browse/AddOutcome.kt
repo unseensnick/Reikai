@@ -1,5 +1,8 @@
 package reikai.presentation.browse
 
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.domain.category.model.Category
+
 /** How an add ended. Nothing is written on [NeedsCategoryChoice] or [Failed]. */
 sealed interface AddOutcome {
     data object Added : AddOutcome
@@ -40,4 +43,34 @@ suspend fun finishAdd(
     val id = favorite() ?: return AddOutcome.Failed
     fileCategories(id, categoryIds)
     return AddOutcome.Added
+}
+
+/**
+ * How an add ended, for a caller that has a picker to show. The prompt travels with the outcome, so a
+ * caller never has to ask its own content type what to offer.
+ */
+sealed interface AddFavoriteResult {
+    data object Added : AddFavoriteResult
+
+    data object Failed : AddFavoriteResult
+
+    data class NeedsCategoryChoice(
+        val initialSelection: List<CheckboxState.State<Category>>,
+    ) : AddFavoriteResult
+}
+
+/**
+ * [addEntry] plus the prompt to raise when it has to ask, so that mapping exists once rather than per
+ * content type. [categoryPicker] is read only on the branch that asks, and never when nothing is left
+ * to choose.
+ */
+suspend fun addEntryOrPrompt(
+    resolveCategories: suspend () -> List<Long>?,
+    favorite: suspend () -> Long?,
+    fileCategories: suspend (id: Long, categoryIds: List<Long>) -> Unit,
+    categoryPicker: suspend () -> List<CheckboxState.State<Category>>,
+): AddFavoriteResult = when (addEntry(resolveCategories, favorite, fileCategories)) {
+    AddOutcome.Added -> AddFavoriteResult.Added
+    AddOutcome.Failed -> AddFavoriteResult.Failed
+    AddOutcome.NeedsCategoryChoice -> AddFavoriteResult.NeedsCategoryChoice(categoryPicker())
 }

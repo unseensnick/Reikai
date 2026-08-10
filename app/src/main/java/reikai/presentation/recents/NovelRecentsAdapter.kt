@@ -18,12 +18,19 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.components.toDuplicateCard
+import reikai.presentation.browse.decideAdd
 import reikai.presentation.history.NovelHistoryViewModel
+import reikai.presentation.novel.browse.NovelCategoryTarget
+import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
@@ -49,6 +56,7 @@ class NovelRecentsAdapter(
     private val novelRepository: NovelRepository by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
+    private val novelLibraryAdder: NovelLibraryAdder by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -132,8 +140,43 @@ class NovelRecentsAdapter(
         entries.filterIsInstance<EntryId.Novel>().forEach { historyModel.removeAllFromHistory(it.rawId) }
     }
 
-    override fun addToLibrary(entries: Set<EntryId>) {
-        entries.filterIsInstance<EntryId.Novel>().forEach { historyModel.addFavorite(it.rawId) }
+    private suspend fun novelOf(entry: EntryId): Novel? =
+        (entry as? EntryId.Novel)?.let { novelRepository.getById(it.rawId) }
+
+    override suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>? {
+        val novel = novelOf(entry) ?: return null
+        return decideAdd(inLibrary = novel.favorite) {
+            novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { found ->
+                RecentsDuplicates(
+                    duplicates = found.duplicates.map {
+                        RecentsDuplicate(
+                            EntryId.Novel(it.novel.id),
+                            it.toDuplicateCard(found.sourceLabels, found.sourceSites),
+                        )
+                    },
+                    groupIdByRawId = novelLibraryAdder.getDuplicateGroupIds(found.duplicates),
+                    suggestGroup = novelLibraryAdder.suggestGrouping,
+                )
+            }
+        }
+    }
+
+    override suspend fun addToLibrary(entry: EntryId): AddFavoriteResult {
+        val novel = novelOf(entry) ?: return AddFavoriteResult.Failed
+        // Same guard as the manga twin: re-adding a row that is already in the library would refile
+        // its categories over whatever the user has since chosen.
+        if (novel.favorite) return AddFavoriteResult.Added
+        return novelLibraryAdder.addStoredToLibrary(novel.id)
+    }
+
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+        val novel = novelOf(entry) ?: return
+        novelLibraryAdder.confirmCategories(NovelCategoryTarget.Stored(novel.id), categoryIds)
+    }
+
+    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
+        val novel = novelOf(entry) ?: return AddFavoriteResult.Failed
+        return novelLibraryAdder.addToExistingGroup(novel.id, duplicates.map { it.rawId })
     }
 
     override fun clearHistory() {

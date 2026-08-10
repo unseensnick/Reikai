@@ -1,6 +1,8 @@
 package reikai.presentation.recents
 
 import reikai.domain.entry.EntryId
+import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddFavoriteResult
 
 /**
  * One content type's action verbs on recent activity, keyed neutrally so a mixed selection dispatches
@@ -24,11 +26,24 @@ interface RecentsBehavior {
     fun removeFromHistory(entries: Set<EntryId>)
 
     /**
-     * Adds these entries to the library through the shared add sequence, so a row adds the same way
-     * every other surface does. Anything it has to ask (a possible duplicate, which categories) stays
-     * a dialog on the model that owns the surface: this seam carries no dialog channel.
+     * What adding [entry] should do, before anything is written: already there, a possible duplicate to
+     * ask about, or add outright. Null when the row has gone. Reads only, so the caller can favorite
+     * between this and [applyAddCategories].
      */
-    fun addToLibrary(entries: Set<EntryId>)
+    suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>?
+
+    /**
+     * Adds [entry] through the shared add sequence, so a row adds the same way every other surface does.
+     * Answers a category prompt rather than raising one: the engine owns the surface's one dialog slot,
+     * so a provider never asks anything itself.
+     */
+    suspend fun addToLibrary(entry: EntryId): AddFavoriteResult
+
+    /** The writes a category picker's confirm owes, in the shared order, once the user has chosen. */
+    suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>)
+
+    /** Adds [entry] and merges it into the group of the [duplicates] the user picked. */
+    suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult
 
     /** Drops every read record of this content type, behind the engine's one confirmation. */
     fun clearHistory()

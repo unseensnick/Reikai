@@ -14,8 +14,10 @@ import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
+import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.addEntry
+import reikai.presentation.browse.addEntryOrPrompt
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
@@ -176,6 +178,31 @@ class NovelLibraryAdder(
         return applyDefaultCategoryOrPrompt(storedId)?.let { selection ->
             NovelBrowseDialog.ChangeCategory(NovelCategoryTarget.Stored(storedId), selection)
         }
+    }
+
+    /**
+     * Add a novel that already has a library row, through the shared sequence. Twin of
+     * `MangaLibraryAdder.resolveAddFavorite`, for the stored-row case its browse twin above cannot
+     * serve: nothing is inserted here, only favorited and filed.
+     */
+    suspend fun addStoredToLibrary(novelId: Long): AddFavoriteResult = addEntryOrPrompt(
+        resolveCategories = { resolveDefaultCategories() },
+        favorite = { favoriteForAdd(novelId) },
+        fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
+        categoryPicker = { categoryPickerPrompt(novelId) },
+    )
+
+    /**
+     * The stored-row twin of the browse [addToExistingGroup] above, answering the shared result type
+     * instead of a browse dialog. The group's own categories win; only an uncategorized group falls
+     * back to the default or the picker.
+     */
+    suspend fun addToExistingGroup(novelId: Long, selectedIds: List<Long>): AddFavoriteResult {
+        val seeded = addToGroup(novelId, selectedIds) ?: return AddFavoriteResult.Failed
+        if (seeded) return AddFavoriteResult.Added
+        return applyDefaultCategoryOrPrompt(novelId)
+            ?.let { AddFavoriteResult.NeedsCategoryChoice(it) }
+            ?: AddFavoriteResult.Added
     }
 
     /**
