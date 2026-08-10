@@ -1,9 +1,6 @@
 package reikai.presentation.library
 
 import reikai.domain.entry.EntryId
-import reikai.presentation.library.ReikaiDynamicCategory.LANG_SPLITTER
-import reikai.presentation.library.ReikaiDynamicCategory.SOURCE_SPLITTER
-import tachiyomi.domain.category.model.Category
 
 /**
  * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types so
@@ -36,15 +33,28 @@ class DynamicGroupingFeed(
     val trackStatuses: Map<EntryId, String> = emptyMap(),
 )
 
+private val SEPARATOR_RUN = Regex("[-_\\s]+")
+
 /**
- * Buckets library items into synthetic categories for dynamic grouping: by source, language, tag,
- * author, status or tracking status. Generalized over [DynItem] so the manga and novel libraries share
- * one kernel. Pure: every lookup needing a SourceManager, tracker or status is pre-resolved by the
- * caller and passed in as maps keyed by item id. Synthetic categories get NEGATIVE ids so they never
- * collide with real ones, carry [inheritedSortFlag] in [Category.flags], and encode their metadata in
- * [Category.name]; decode with [ReikaiDynamicCategory]. BY_DEFAULT returns empty.
+ * Normalized form of a dynamic bucket's key, matching the spelling-merge rule below (case-folded,
+ * separator runs unified). This is what [LibraryBucket.Dynamic.key] holds and what is persisted in
+ * `collapsed_dynamic_categories`. Stored keys may predate normalization, so membership checks
+ * normalize both sides.
+ */
+fun normalizeDynamicKey(name: String): String = name.lowercase().replace(SEPARATOR_RUN, " ").trim()
+
+/**
+ * Buckets library items into synthetic groups: by source, language, tag, author, status or tracking
+ * status. Generalized over [DynItem] so both libraries share one kernel. Pure: anything needing a
+ * SourceManager, tracker or status is pre-resolved by the caller. BY_DEFAULT returns empty.
+ * Source and language buckets encode a disambiguator into the key (two sources can share a name, a
+ * language code is not its label), which is why key and label are separate. That encoding is
+ * persisted, so the splitters match the Yokai-era fork's for upgrade continuity.
  */
 object LibraryDynamicGrouping {
+
+    private const val SOURCE_SPLITTER = "◘•◘"
+    private const val LANG_SPLITTER = "⨼⨦⨠"
 
     private val DYNAMIC_GROUP_TYPES = setOf(
         LibraryGroup.BY_TAG,
@@ -59,7 +69,6 @@ object LibraryDynamicGrouping {
     fun <K> build(
         items: List<DynItem<K>>,
         groupType: Int,
-        inheritedSortFlag: Long,
         collapsedDynamicCategories: Set<String>,
         collapsedDynamicAtBottom: Boolean,
         unknownLabel: String,
@@ -72,14 +81,14 @@ object LibraryDynamicGrouping {
         statusNames: Map<K, String> = emptyMap(),
         languageDisplay: (langCode: String) -> String = { it },
         trackingStatusOrder: (statusName: String) -> String = { it },
-    ): Map<Category, List<K>> {
+    ): Map<LibraryBucket.Dynamic, List<K>> {
         if (items.isEmpty()) return emptyMap()
 
         // UNGROUPED: one flat synthetic bucket holding every item, no per-item metadata lookups.
         if (groupType == LibraryGroup.UNGROUPED) {
             val allIds = items.distinctBy { it.id }.map { it.id }
-            val category = Category(id = -1L, name = ungroupedLabel, order = 0L, flags = inheritedSortFlag)
-            return mapOf(category to allIds)
+            val bucket = LibraryBucket.Dynamic(normalizeDynamicKey(ungroupedLabel), ungroupedLabel)
+            return mapOf(bucket to allIds)
         }
 
         if (groupType !in DYNAMIC_GROUP_TYPES) return emptyMap()
@@ -89,12 +98,12 @@ object LibraryDynamicGrouping {
         // Step 1: per-item, the encoded bucket name(s) it belongs to. An item can land in several
         // buckets (multiple tags / authors); distinct guards against the same bucket twice.
         //
-        // Keyed by [bucketKey] rather than the name, with the first spelling seen winning the display
-        // name: sources spell one tag several ways ("Adult" against "ADULT"), and an exact-string key
-        // renders those as two adjacent groups. Normalizing the display name would mangle acronyms
-        // (BL, NTR). Callers concatenate the manga feed first, which keeps the choice stable.
-        val bucketsByName = LinkedHashMap<String, MutableList<K>>()
-        val displayNames = LinkedHashMap<String, String>()
+        // Keyed by the normalized name, with the first spelling seen winning the label: sources spell
+        // one tag several ways ("Adult" against "ADULT"), and an exact-string key renders those as two
+        // adjacent groups. Normalizing the label would mangle acronyms (BL, NTR). Callers concatenate
+        // the manga feed first, which keeps the choice stable.
+        val idsByKey = LinkedHashMap<String, MutableList<K>>()
+        val encodedByKey = LinkedHashMap<String, String>()
         for (item in deduplicated) {
             val names = categoryNamesFor(
                 item = item,
@@ -107,53 +116,45 @@ object LibraryDynamicGrouping {
                 statusNames = statusNames,
                 languageDisplay = languageDisplay,
             )
-            for (name in names.distinctBy { it.bucketKey() }) {
-                val key = name.bucketKey()
-                displayNames.getOrPut(key) { name }
-                bucketsByName.getOrPut(key) { mutableListOf() }.add(item.id)
+            for (name in names.distinctBy(::normalizeDynamicKey)) {
+                val key = normalizeDynamicKey(name)
+                encodedByKey.getOrPut(key) { name }
+                idsByKey.getOrPut(key) { mutableListOf() }.add(item.id)
             }
         }
 
-        // Step 2: synthetic Category per bucket. Negative id; sort inherited via flags.
-        val categories = displayNames.values.mapIndexed { idx, encodedName ->
-            Category(
-                id = -(idx + 1).toLong(),
-                name = encodedName,
-                order = idx.toLong(),
-                flags = inheritedSortFlag,
-            )
-        }
+        // Step 2: one bucket per distinct key, labelled with the first spelling seen.
+        val buckets = encodedByKey.map { (key, encoded) -> LibraryBucket.Dynamic(key, labelOf(encoded)) }
 
-        // Step 3: order the category buckets. Tracking status has an inherent reading-progress order
-        // (Reading first, Not tracked last), so it always uses that and ignores the alphabetical category
-        // sort, which is meant for name-keyed groupings (source / tag / author / language). For those,
-        // Z->A reverses and off / A->Z is alphabetical by display name.
+        // Step 3: order the buckets. Tracking status has an inherent reading-progress order (Reading
+        // first, Not tracked last), so it always uses that and ignores the alphabetical category sort,
+        // which is meant for name-keyed groupings (source / tag / author / language). For those, Z->A
+        // reverses and off / A->Z is alphabetical by label.
         val sorted = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-            categories.sortedWith(
-                compareBy(String.CASE_INSENSITIVE_ORDER) { trackingStatusOrder(ReikaiDynamicCategory.displayName(it)) },
-            )
+            buckets.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { trackingStatusOrder(it.label) })
         } else if (categorySortOrder == 2) {
-            categories.sortedByDescending { ReikaiDynamicCategory.displayName(it).lowercase() }
+            buckets.sortedByDescending { it.label.lowercase() }
         } else {
-            categories.sortedWith(
-                compareBy(String.CASE_INSENSITIVE_ORDER) { ReikaiDynamicCategory.displayName(it) },
-            )
+            buckets.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
         }
 
-        // Step 4: optionally push collapsed groups to the bottom. Collapse keys compare by
-        // normalized form (see ReikaiDynamicCategory.normalizeKey): the display name is the first
-        // spelling seen, which changes when a filter or removal reorders the feed, so a raw-name
-        // comparison silently expanded a merged group.
-        val finalCategories = if (collapsedDynamicAtBottom) {
-            val collapsedKeys =
-                collapsedDynamicCategories.mapTo(HashSet(), ReikaiDynamicCategory::normalizeKey)
-            sorted.filterNot { it.name.bucketKey() in collapsedKeys } +
-                sorted.filter { it.name.bucketKey() in collapsedKeys }
+        // Step 4: optionally push collapsed groups to the bottom. Stored keys may predate normalization,
+        // so normalize that side too.
+        val finalBuckets = if (collapsedDynamicAtBottom) {
+            val collapsedKeys = collapsedDynamicCategories.mapTo(HashSet(), ::normalizeDynamicKey)
+            sorted.filterNot { it.key in collapsedKeys } + sorted.filter { it.key in collapsedKeys }
         } else {
             sorted
         }
 
-        return finalCategories.associateWith { bucketsByName[it.name.bucketKey()].orEmpty().toList() }
+        return finalBuckets.associateWith { idsByKey[it.key].orEmpty().toList() }
+    }
+
+    /** The label behind an encoded name: the part that is not the source-id / language-code disambiguator. */
+    private fun labelOf(encodedName: String): String = when {
+        SOURCE_SPLITTER in encodedName -> encodedName.substringBefore(SOURCE_SPLITTER)
+        LANG_SPLITTER in encodedName -> encodedName.substringAfter(LANG_SPLITTER)
+        else -> encodedName
     }
 
     private fun <K> categoryNamesFor(
@@ -208,11 +209,4 @@ object LibraryDynamicGrouping {
 
     private fun String.capitalizeWords(): String =
         split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
-
-    /**
-     * The merge key for a bucket name: case-folded, with hyphen / underscore / whitespace runs unified so
-     * one tag spelled two ways by two sources is one group. Display keeps the first spelling seen. One
-     * implementation with the collapse key, so a collapsed merged group stays matched to its bucket.
-     */
-    private fun String.bucketKey(): String = ReikaiDynamicCategory.normalizeKey(this)
 }

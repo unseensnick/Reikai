@@ -70,8 +70,12 @@ class LibraryAssemblyTest {
 
     private val fields = mixedLibraryItemSortFields { -1.0 }
 
-    private fun titlesByCategory(result: List<Pair<Category, List<LibraryItem>>>) =
-        result.map { (cat, items) -> cat.id to items.map { it.libraryManga.manga.title } }
+    // assembleLibrary is the real-category path, so every bucket it answers is a Real one.
+    private val LibraryBucket.categoryId: Long
+        get() = (this as LibraryBucket.Real).category.id
+
+    private fun titlesByCategory(result: List<Pair<LibraryBucket, List<LibraryItem>>>) =
+        result.map { (bucket, items) -> bucket.categoryId to items.map { it.libraryManga.manga.title } }
 
     @Test
     fun `an empty category is hidden`() {
@@ -81,7 +85,7 @@ class LibraryAssemblyTest {
             inputs = inputs(),
             fields = fields,
         )
-        result.map { it.first.id } shouldBe listOf(10L)
+        result.map { it.first.categoryId } shouldBe listOf(10L)
     }
 
     @Test
@@ -92,7 +96,7 @@ class LibraryAssemblyTest {
             inputs = inputs(),
             fields = fields,
         )
-        result.map { it.first.id } shouldBe listOf(10L)
+        result.map { it.first.categoryId } shouldBe listOf(10L)
     }
 
     @Test
@@ -192,7 +196,7 @@ class LibraryAssemblyTest {
             inputs = inputs(),
             fields = fields,
         )
-        result.map { it.first.id } shouldBe listOf(10L)
+        result.map { it.first.categoryId } shouldBe listOf(10L)
     }
 
     @Test
@@ -211,6 +215,6 @@ class LibraryAssemblyTest {
             inputs = inputs(categorySortOrder = 1),
             fields = fields,
         )
-        result.map { it.first.id } shouldBe listOf(0L, 20L, 10L)
+        result.map { it.first.categoryId } shouldBe listOf(0L, 20L, 10L)
     }
 }

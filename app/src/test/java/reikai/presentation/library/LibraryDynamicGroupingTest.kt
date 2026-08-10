@@ -5,9 +5,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
-import reikai.presentation.library.ReikaiDynamicCategory.SOURCE_SPLITTER
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.manga.model.Manga
 
 class LibraryDynamicGroupingTest {
@@ -30,7 +28,7 @@ class LibraryDynamicGroupingTest {
             sourceMeta = mapOf(1L to ("Alpha" to 1L), 2L to ("Beta" to 2L)),
             categorySortOrder = 2,
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Beta", "Alpha")
+        result.keys.map { it.label } shouldContainExactly listOf("Beta", "Alpha")
     }
 
     @Test
@@ -41,7 +39,7 @@ class LibraryDynamicGroupingTest {
             statusNames = mapOf(1L to "Ongoing", 2L to "Completed"),
             categorySortOrder = 1,
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Completed", "Ongoing")
+        result.keys.map { it.label } shouldContainExactly listOf("Completed", "Ongoing")
     }
 
     @Test
@@ -54,7 +52,7 @@ class LibraryDynamicGroupingTest {
             trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
             categorySortOrder = 1,
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Reading", "Completed")
+        result.keys.map { it.label } shouldContainExactly listOf("Reading", "Completed")
     }
 
     @Test
@@ -67,7 +65,7 @@ class LibraryDynamicGroupingTest {
             trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
             categorySortOrder = 2,
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Reading", "Completed")
+        result.keys.map { it.label } shouldContainExactly listOf("Reading", "Completed")
     }
 
     @Test
@@ -78,42 +76,44 @@ class LibraryDynamicGroupingTest {
     }
 
     @Test
-    fun `BY_SOURCE groups by source name and encodes the source id`() {
+    fun `BY_SOURCE groups by source name`() {
         val result = build(
             listOf(libraryManga(1), libraryManga(2), libraryManga(3)),
             LibraryGroup.BY_SOURCE,
             sourceMeta = mapOf(1L to ("MangaDex" to 100L), 2L to ("Webtoons" to 200L), 3L to ("MangaDex" to 100L)),
         )
-        val byName = result.mapKeys { ReikaiDynamicCategory.displayName(it.key) }
+        val byName = result.mapKeys { it.key.label }
         byName.keys shouldBe setOf("MangaDex", "Webtoons")
         byName.getValue("MangaDex") shouldContainExactlyInAnyOrder listOf(1L, 3L)
         byName.getValue("Webtoons") shouldContainExactly listOf(2L)
-        ReikaiDynamicCategory.sourceId(
-            result.keys.first {
-                ReikaiDynamicCategory.displayName(it) == "MangaDex"
-            },
-        ) shouldBe
-            100L
     }
 
     @Test
     fun `BY_SOURCE buckets missing-source manga under unknownLabel`() {
         val result = build(listOf(libraryManga(1)), LibraryGroup.BY_SOURCE, sourceMeta = emptyMap())
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Unknown")
+        result.keys.map { it.label } shouldContainExactly listOf("Unknown")
     }
 
     @Test
-    fun `BY_LANGUAGE groups by language code and stores langId`() {
+    fun `BY_LANGUAGE labels a group with the display language, not the code`() {
         val result = build(
             listOf(libraryManga(1), libraryManga(2)),
             LibraryGroup.BY_LANGUAGE,
             languageCodes = mapOf(1L to "en", 2L to "ja"),
             languageDisplay = { if (it == "en") "English" else "Japanese" },
         )
-        val byLangId = result.keys.associateBy { ReikaiDynamicCategory.langId(it) }
-        byLangId.keys shouldBe setOf("en", "ja")
-        ReikaiDynamicCategory.displayName(byLangId.getValue("en")) shouldBe "English"
-        ReikaiDynamicCategory.displayName(byLangId.getValue("ja")) shouldBe "Japanese"
+        result.keys.map { it.label } shouldContainExactly listOf("English", "Japanese")
+    }
+
+    @Test
+    fun `BY_LANGUAGE keys by the code, so two languages sharing a display name stay apart`() {
+        val result = build(
+            listOf(libraryManga(1), libraryManga(2)),
+            LibraryGroup.BY_LANGUAGE,
+            languageCodes = mapOf(1L to "pt", 2L to "pt-br"),
+            languageDisplay = { "Portuguese" },
+        )
+        result.keys.map { it.key } shouldContainExactly listOf("pt⨼⨦⨠portuguese", "pt br⨼⨦⨠portuguese")
     }
 
     @Test
@@ -125,7 +125,7 @@ class LibraryDynamicGroupingTest {
             ),
             LibraryGroup.BY_TAG,
         )
-        val byName = result.mapKeys { ReikaiDynamicCategory.displayName(it.key) }
+        val byName = result.mapKeys { it.key.label }
         byName.keys shouldBe setOf("Action", "Romance", "Slice Of Life")
         byName.getValue("Action") shouldContainExactly listOf(1L)
         byName.getValue("Romance") shouldContainExactlyInAnyOrder listOf(1L, 2L)
@@ -135,7 +135,7 @@ class LibraryDynamicGroupingTest {
     @Test
     fun `BY_TAG with no genre buckets under unknownLabel`() {
         val result = build(listOf(libraryManga(1, genre = null)), LibraryGroup.BY_TAG)
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Unknown")
+        result.keys.map { it.label } shouldContainExactly listOf("Unknown")
     }
 
     @Test
@@ -147,7 +147,7 @@ class LibraryDynamicGroupingTest {
             ),
             LibraryGroup.BY_AUTHOR,
         )
-        val byName = result.mapKeys { ReikaiDynamicCategory.displayName(it.key) }
+        val byName = result.mapKeys { it.key.label }
         byName.keys shouldBe setOf("Alice", "Bob", "Carol")
         byName.getValue("Alice") shouldContainExactly listOf(1L)
         byName.getValue("Bob") shouldContainExactly listOf(1L)
@@ -161,7 +161,7 @@ class LibraryDynamicGroupingTest {
             LibraryGroup.BY_STATUS,
             statusNames = mapOf(1L to "Ongoing", 2L to "Completed"),
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldBe listOf("Completed", "Ongoing")
+        result.keys.map { it.label } shouldBe listOf("Completed", "Ongoing")
     }
 
     @Test
@@ -171,7 +171,7 @@ class LibraryDynamicGroupingTest {
             LibraryGroup.BY_TRACK_STATUS,
             trackStatuses = mapOf(1L to "Reading"),
         )
-        val byName = result.mapKeys { ReikaiDynamicCategory.displayName(it.key) }
+        val byName = result.mapKeys { it.key.label }
         byName.keys shouldBe setOf("Not tracked", "Reading")
         byName.getValue("Reading") shouldContainExactly listOf(1L)
         byName.getValue("Not tracked") shouldContainExactly listOf(2L)
@@ -186,51 +186,57 @@ class LibraryDynamicGroupingTest {
             trackStatuses = mapOf(1L to "Dropped", 2L to "Reading", 3L to "Completed"),
             trackingStatusOrder = { orderMap[it] ?: "7" },
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldBe listOf("Reading", "Completed", "Dropped")
+        result.keys.map { it.label } shouldBe listOf("Reading", "Completed", "Dropped")
     }
 
     @Test
     fun `collapsedDynamicAtBottom pushes collapsed groups below visible ones`() {
+        val sources = mapOf(1L to ("A-Source" to 100L), 2L to ("B-Source" to 200L), 3L to ("C-Source" to 300L))
+        val library = listOf(libraryManga(1), libraryManga(2), libraryManga(3))
+        // Collapse by the key the kernel itself produced, so the test pins the round trip rather than
+        // a hand-copied encoding.
+        val collapsedKey = build(library, LibraryGroup.BY_SOURCE, sourceMeta = sources)
+            .keys.first { it.label == "A-Source" }.key
         val result = build(
-            listOf(libraryManga(1), libraryManga(2), libraryManga(3)),
+            library,
             LibraryGroup.BY_SOURCE,
-            sourceMeta = mapOf(1L to ("A-Source" to 100L), 2L to ("B-Source" to 200L), 3L to ("C-Source" to 300L)),
-            collapsedDynamicCategories = setOf("A-Source${SOURCE_SPLITTER}100"),
+            sourceMeta = sources,
+            collapsedDynamicCategories = setOf(collapsedKey),
             collapsedDynamicAtBottom = true,
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldBe listOf("B-Source", "C-Source", "A-Source")
+        result.keys.map { it.label } shouldBe listOf("B-Source", "C-Source", "A-Source")
     }
 
     @Test
-    fun `headerKey is the encoded collapse key, normalized`() {
+    fun `a bucket key round-trips through the collapse preference`() {
+        val bucket = build(
+            listOf(libraryManga(1)),
+            LibraryGroup.BY_SOURCE,
+            sourceMeta = mapOf(1L to ("Webtoons" to 200L)),
+        ).keys.first()
+        reikaiIsCollapsed(bucket, emptySet(), setOf(bucket.key)) shouldBe true
+    }
+
+    @Test
+    fun `the persisted key format is unchanged, so an upgrade keeps its collapse state`() {
+        // The literal is deliberate: it is what is already stored in `collapsed_dynamic_categories` on
+        // every install, so a change to the encoding would silently expand every collapsed group.
         val result = build(
             listOf(libraryManga(1)),
             LibraryGroup.BY_SOURCE,
             sourceMeta = mapOf(1L to ("Webtoons" to 200L)),
         )
-        ReikaiDynamicCategory.headerKey(result.keys.first()) shouldBe "webtoons${SOURCE_SPLITTER}200"
+        result.keys.first().key shouldBe "webtoons◘•◘200"
     }
 
     @Test
-    fun `synthetic categories get negative ids and read as dynamic`() {
-        val result = build(
-            listOf(libraryManga(1)),
-            LibraryGroup.BY_SOURCE,
-            sourceMeta = mapOf(1L to ("MangaDex" to 100L)),
-        )
-        val category = result.keys.first()
-        (category.id < 0) shouldBe true
-        ReikaiDynamicCategory.isDynamic(category) shouldBe true
-    }
-
-    @Test
-    fun `categories sort alphabetically and case-insensitively by default`() {
+    fun `groups sort alphabetically and case-insensitively by default`() {
         val result = build(
             listOf(libraryManga(1), libraryManga(2), libraryManga(3)),
             LibraryGroup.BY_SOURCE,
             sourceMeta = mapOf(1L to ("zebra" to 100L), 2L to ("Apple" to 200L), 3L to ("Mango" to 300L)),
         )
-        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldBe listOf("Apple", "Mango", "zebra")
+        result.keys.map { it.label } shouldBe listOf("Apple", "Mango", "zebra")
     }
 
     // A mixed manga-plus-novel list buckets by EntryId, since a raw row id is only unique within one
@@ -247,7 +253,6 @@ class LibraryDynamicGroupingTest {
                 DynItem(novel, genre = null, author = "Ito", artist = null),
             ),
             groupType = LibraryGroup.BY_AUTHOR,
-            inheritedSortFlag = LibrarySort.default.flag,
             collapsedDynamicCategories = emptySet(),
             collapsedDynamicAtBottom = false,
             unknownLabel = "Unknown",
@@ -267,14 +272,13 @@ class LibraryDynamicGroupingTest {
                 DynItem(novel, genre = null, author = null, artist = null),
             ),
             groupType = LibraryGroup.BY_SOURCE,
-            inheritedSortFlag = LibrarySort.default.flag,
             collapsedDynamicCategories = emptySet(),
             collapsedDynamicAtBottom = false,
             unknownLabel = "Unknown",
             notTrackedLabel = "Not tracked",
             sourceMeta = mapOf(manga to ("MangaDex" to "100"), novel to ("Royal Road" to "royalroad")),
         )
-        result.entries.associate { (category, ids) -> ReikaiDynamicCategory.displayName(category) to ids } shouldBe
+        result.entries.associate { (bucket, ids) -> bucket.label to ids } shouldBe
             mapOf("MangaDex" to listOf(manga), "Royal Road" to listOf(novel))
     }
 
@@ -290,13 +294,12 @@ class LibraryDynamicGroupingTest {
                 DynItem(novel, genre = listOf("ADULT", "Sci Fi"), author = null, artist = null),
             ),
             groupType = LibraryGroup.BY_TAG,
-            inheritedSortFlag = LibrarySort.default.flag,
             collapsedDynamicCategories = emptySet(),
             collapsedDynamicAtBottom = false,
             unknownLabel = "Unknown",
             notTrackedLabel = "Not tracked",
         )
-        result.entries.associate { (category, ids) -> ReikaiDynamicCategory.displayName(category) to ids } shouldBe
+        result.entries.associate { (bucket, ids) -> bucket.label to ids } shouldBe
             mapOf("Adult" to listOf(manga, novel), "Sci-Fi" to listOf(manga, novel))
     }
 
@@ -310,7 +313,6 @@ class LibraryDynamicGroupingTest {
                 DynItem(b, genre = null, author = null, artist = null),
             ),
             groupType = LibraryGroup.BY_SOURCE,
-            inheritedSortFlag = LibrarySort.default.flag,
             collapsedDynamicCategories = emptySet(),
             collapsedDynamicAtBottom = false,
             unknownLabel = "Unknown",
@@ -335,7 +337,6 @@ class LibraryDynamicGroupingTest {
     ) = LibraryDynamicGrouping.build(
         items = library.map { DynItem(it.manga.id, it.manga.genre, it.manga.author, it.manga.artist) },
         groupType = groupType,
-        inheritedSortFlag = LibrarySort.default.flag,
         collapsedDynamicCategories = collapsedDynamicCategories,
         collapsedDynamicAtBottom = collapsedDynamicAtBottom,
         categorySortOrder = categorySortOrder,

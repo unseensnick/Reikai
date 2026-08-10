@@ -56,7 +56,6 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields

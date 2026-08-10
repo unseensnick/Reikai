@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
+import reikai.presentation.library.LibraryBucket // RK
 import reikai.presentation.library.ReikaiLibraryComfortableGridPanorama // RK
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -36,12 +36,13 @@ fun LibraryPager(
     selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
-    getCategoryForPage: (Int) -> Category,
+    // RK: a page is one section of the assembled library, which is a category or a dynamic group
+    getCategoryForPage: (Int) -> LibraryBucket,
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
-    getItemsForCategory: (Category) -> List<LibraryItem>,
-    onClickManga: (Category, LibraryItem) -> Unit,
-    onLongClickManga: (Category, LibraryItem) -> Unit,
+    getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
+    onClickManga: (LibraryBucket, LibraryItem) -> Unit,
+    onLongClickManga: (LibraryBucket, LibraryItem) -> Unit,
     onClickContinueReading: ((LibraryItem) -> Unit)?,
 ) {
     HorizontalPager(
@@ -53,8 +54,8 @@ fun LibraryPager(
             // To make sure only one offscreen page is being composed
             return@HorizontalPager
         }
-        val category = getCategoryForPage(page)
-        val items = getItemsForCategory(category)
+        val bucket = getCategoryForPage(page) // RK
+        val items = getItemsForCategory(bucket)
 
         if (items.isEmpty()) {
             LibraryPagerEmptyScreen(
@@ -76,8 +77,8 @@ fun LibraryPager(
             remember { mutableIntStateOf(0) }
         }
 
-        val onClickManga: (LibraryItem) -> Unit = { onClickManga(category, it) }
-        val onLongClickManga: (LibraryItem) -> Unit = { onLongClickManga(category, it) }
+        val onClickManga: (LibraryItem) -> Unit = { onClickManga(bucket, it) }
+        val onLongClickManga: (LibraryItem) -> Unit = { onLongClickManga(bucket, it) }
 
         when (displayMode) {
             LibraryDisplayMode.List -> {

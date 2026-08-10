@@ -6,37 +6,31 @@ import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.category.visualName
-import reikai.presentation.library.ReikaiDynamicCategory
-import tachiyomi.domain.category.model.Category
+import reikai.presentation.library.LibraryBucket // RK
+import reikai.presentation.library.visualLabel // RK
 import tachiyomi.presentation.core.components.material.TabText
 
 @Composable
 internal fun LibraryTabs(
-    categories: List<Category>,
+    // RK: a tab is one section of the assembled library, which is a category or a dynamic group
+    buckets: List<LibraryBucket>,
     pagerState: PagerState,
-    getItemCountForCategory: (Category) -> Int?,
+    getItemCountForCategory: (LibraryBucket) -> Int?,
     onTabItemClick: (Int) -> Unit,
 ) {
-    val currentPageIndex = pagerState.currentPage.coerceAtMost(categories.lastIndex)
+    val currentPageIndex = pagerState.currentPage.coerceAtMost(buckets.lastIndex)
     PrimaryScrollableTabRow(
         selectedTabIndex = currentPageIndex,
         edgePadding = 0.dp,
     ) {
-        categories.forEachIndexed { index, category ->
+        buckets.forEachIndexed { index, bucket ->
             Tab(
                 selected = currentPageIndex == index,
                 onClick = { onTabItemClick(index) },
                 text = {
-                    // RK: dynamic-grouping categories store an encoded name; show the decoded label.
-                    val label = if (ReikaiDynamicCategory.isDynamic(category)) {
-                        ReikaiDynamicCategory.displayName(category)
-                    } else {
-                        category.visualName
-                    }
                     TabText(
-                        text = label,
-                        badgeCount = getItemCountForCategory(category),
+                        text = bucket.visualLabel, // RK
+                        badgeCount = getItemCountForCategory(bucket),
                     )
                 },
                 unselectedContentColor = MaterialTheme.colorScheme.onSurface,

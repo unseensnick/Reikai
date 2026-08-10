@@ -75,6 +75,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.LibraryScreenState
@@ -83,13 +84,13 @@ import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
-import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.library.visualLabel
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
@@ -186,20 +187,20 @@ data object LibraryTab : Tab {
                 overlayKey = mangaLibState.overlayKey to novelLibState.overlayKey,
             )
         }
-        // RK: the list (categories, the per-category rows and their counts) renders off the engine's
-        // assembly, the only place that can bucket both content types into one list. The assembly lags a
-        // chip flip by one emission, so it renders only when its chip matches; the empty defaults below
+        // RK: the list (the sections, their rows and their counts) renders off the engine's assembly,
+        // the only place that can bucket both content types into one list. The assembly lags a chip
+        // flip by one emission, so it renders only when its chip matches; the empty defaults below
         // cover that single frame and the cold-start frame, both of which sit behind isLoading.
         val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == libraryContentType }
-        val activeCategories = assembled?.categories.orEmpty()
+        val activeBuckets = assembled?.buckets.orEmpty()
         // RK: the selection is the engine's, not a provider's: it can span both content types.
         val activeSelection by engine.selection.collectAsState()
         val activeSearchQuery = libState.searchQuery
         val activeIsLibraryEmpty = libState.isLibraryEmpty
         val activeIsLoading = libState.isLoading
-        val activeGetItems: (Category) -> List<LibraryItem> =
+        val activeGetItems: (LibraryBucket) -> List<LibraryItem> =
             assembled?.let { it::itemsFor } ?: { emptyList() }
-        val activeGetItemCount: (Category) -> Int? =
+        val activeGetItemCount: (LibraryBucket) -> Int? =
             assembled?.let { it::countFor } ?: { null }
         val onSearch: (String?) -> Unit = { engine.search(libraryContentType, it) }
         val activeSelectionMode = activeSelection.isNotEmpty()
@@ -209,18 +210,18 @@ data object LibraryTab : Tab {
         // entry in several categories sits in several buckets. Remembered: it walks the whole library,
         // and only the tabbed view with counts on ever shows it.
         val showWholeLibraryCount = display.showItemCounts && display.showCategoryTabs
-        val wholeLibraryCount = remember(activeCategories, activeGetItems, showWholeLibraryCount) {
+        val wholeLibraryCount = remember(activeBuckets, activeGetItems, showWholeLibraryCount) {
             if (!showWholeLibraryCount) {
                 0
             } else {
-                activeCategories.flatMap(activeGetItems).distinctBy(LibraryItem::entryId).size
+                activeBuckets.flatMap(activeGetItems).distinctBy(LibraryItem::entryId).size
             }
         }
-        // The rows of one category in display order, which is what the engine's range-select and
+        // The rows of one section in display order, which is what the engine's range-select and
         // select-all need. Resolved here rather than in the engine so the engine never looks rows up
         // itself and stays free of per-type knowledge.
-        val entriesOf: (Category?) -> List<EntryId> = { category ->
-            category?.let { activeGetItems(it).map(LibraryItem::entryId) }.orEmpty()
+        val entriesOf: (LibraryBucket?) -> List<EntryId> = { bucket ->
+            bucket?.let { activeGetItems(it).map(LibraryItem::entryId) }.orEmpty()
         }
         // RK <--
 
@@ -242,16 +243,16 @@ data object LibraryTab : Tab {
             ContentType.ALL -> allSingleListGridState
         }
         // RK: one pager per chip, each sized from a snapshot taken only while its own chip is up. Pointing
-        // all three at activeCategories.size would make an inactive chip's pager lose its position, since
+        // all three at activeBuckets.size would make an inactive chip's pager lose its position, since
         // Compose clamps a pager's currentPage whenever its pageCount shrinks. Each pager seeds its own
         // chip's persisted page (the pager clamps the value if the list is shorter).
         val mangaPageCount = remember { mutableIntStateOf(0) }
         val novelPageCount = remember { mutableIntStateOf(0) }
         val allPageCount = remember { mutableIntStateOf(0) }
         when (libraryContentType) {
-            ContentType.MANGA -> mangaPageCount.intValue = activeCategories.size
-            ContentType.NOVELS -> novelPageCount.intValue = activeCategories.size
-            ContentType.ALL -> allPageCount.intValue = activeCategories.size
+            ContentType.MANGA -> mangaPageCount.intValue = activeBuckets.size
+            ContentType.NOVELS -> novelPageCount.intValue = activeBuckets.size
+            ContentType.ALL -> allPageCount.intValue = activeBuckets.size
         }
         val mangaPagerState = rememberPagerState(initialPage = mangaLibState.activeCategoryIndex) {
             mangaPageCount.intValue
@@ -269,7 +270,7 @@ data object LibraryTab : Tab {
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
         var hopperDragAccum by remember { mutableFloatStateOf(0f) }
         fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
-            categories = activeCategories,
+            buckets = activeBuckets,
             hasSearchItem = !activeSearchQuery.isNullOrEmpty(),
             isCollapsed = {
                 reikaiIsCollapsed(
@@ -285,22 +286,20 @@ data object LibraryTab : Tab {
         } else {
             pagerState.currentPage
         }
-        // RK: the category Select all / Invert act on. Keyed to the category actually on screen, which in
+        // RK: the section Select all / Invert act on. Keyed to the section actually on screen, which in
         // the single-list view means the one scrolled to: there is no pager there, so the stored page
         // index never moves off the first category no matter how far down the list you are.
         val activeCategoryEntries: () -> List<EntryId> = {
-            entriesOf(activeCategories.getOrNull(currentCategoryIndex()))
+            entriesOf(activeBuckets.getOrNull(currentCategoryIndex()))
         }
-        // The category the toolbar and hopper actions act on: the one actually on screen. In the
+        // The section the toolbar and hopper actions act on: the one actually on screen. In the
         // single-list view the stored page index never moves, so anything reading it there acted on
         // the first category while the title named the scrolled-to one.
-        val currentCategory: () -> Category? = { activeCategories.getOrNull(currentCategoryIndex()) }
-        // For actions that need a REAL category: a dynamic group is a synthetic negative id nothing
-        // can resolve, so these fall back to null (the global scope). The category headers disable
-        // such affordances outright; the toolbar and hopper have no off state.
-        val currentRealCategory: () -> Category? = {
-            currentCategory()?.takeUnless(ReikaiDynamicCategory::isDynamic)
-        }
+        val currentBucket: () -> LibraryBucket? = { activeBuckets.getOrNull(currentCategoryIndex()) }
+        // For actions that need a REAL category: a dynamic group has none, so these fall back to null
+        // (the global scope). The section headers disable such affordances outright; the toolbar and
+        // hopper have no off state.
+        val currentRealCategory: () -> Category? = { currentBucket()?.realCategory }
         LaunchedEffect(hopperTarget) {
             val target = hopperTarget ?: return@LaunchedEffect
             if (display.reikai.showAllCategories) {
@@ -345,11 +344,11 @@ data object LibraryTab : Tab {
             }
         }
 
-        // RK: open a random entry, from the category on screen or from the whole library. The entry comes
+        // RK: open a random entry, from the section on screen or from the whole library. The entry comes
         // back neutral and opens through the same routing every other row uses, so the two callers can't
         // drift into opening different content types.
-        val onOpenRandom: (Long?) -> Unit = { categoryId ->
-            val entry = engine.randomEntry(libraryContentType, categoryId)
+        val onOpenRandom: (String?) -> Unit = { bucketKey ->
+            val entry = engine.randomEntry(libraryContentType, bucketKey)
             if (entry == null) {
                 scope.launch {
                     snackbarHostState.showSnackbar(context.stringResource(MR.strings.information_no_entries_found))
@@ -399,31 +398,22 @@ data object LibraryTab : Tab {
                 // RK: built here over the assembled list, keeping the manga model's rules. It used to be
                 // the manga State's own, which knew only manga categories and counted only manga rows.
                 val defaultTitle = stringResource(MR.strings.label_library)
-                val defaultCategoryTitle = stringResource(MR.strings.label_default)
-                // Single-list tracks the visible category on scroll, so the title follows it.
-                val title = when (val category = currentCategory()) {
+                // Single-list tracks the visible section on scroll, so the title follows it.
+                val title = when (val bucket = currentBucket()) {
                     null -> LibraryToolbarTitle(defaultTitle)
-                    else -> {
-                        val categoryName = when {
-                            category.isSystemCategory -> defaultCategoryTitle
-                            // Dynamic-grouping categories store an encoded name; show the decoded label.
-                            ReikaiDynamicCategory.isDynamic(category) -> ReikaiDynamicCategory.displayName(category)
-                            else -> category.name
-                        }
-                        LibraryToolbarTitle(
-                            // "Always show current category" forces the category name into the title.
-                            text = if (display.reikai.showCategoryInTitle || !display.showCategoryTabs) {
-                                categoryName
-                            } else {
-                                defaultTitle
-                            },
-                            numberOfManga = when {
-                                !display.showItemCounts -> null
-                                !display.showCategoryTabs -> activeGetItemCount(category)
-                                else -> wholeLibraryCount
-                            },
-                        )
-                    }
+                    else -> LibraryToolbarTitle(
+                        // "Always show current category" forces the section name into the title.
+                        text = if (display.reikai.showCategoryInTitle || !display.showCategoryTabs) {
+                            bucket.visualLabel
+                        } else {
+                            defaultTitle
+                        },
+                        numberOfManga = when {
+                            !display.showItemCounts -> null
+                            !display.showCategoryTabs -> activeGetItemCount(bucket)
+                            else -> wholeLibraryCount
+                        },
+                    )
                 }
                 // RK: stack the content-type chip under the toolbar so the Scaffold sizes
                 // contentPadding to include it and both library views render below it untouched.
@@ -457,7 +447,7 @@ data object LibraryTab : Tab {
                         onClickRefresh = { onClickRefresh(currentRealCategory()) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
                         // RK: follows the content-type chip; it used to always open a manga.
-                        onClickOpenRandomManga = { onOpenRandom(currentCategory()?.id) },
+                        onClickOpenRandomManga = { onOpenRandom(currentBucket()?.key) },
                         // RK: library-wide tracker refresh, both content types at once, so it does not
                         // follow the chip. A snackbar reports the two states the user can act on.
                         onClickRefreshTrackers = {
@@ -593,7 +583,7 @@ data object LibraryTab : Tab {
                 // message, and no way to search globally exactly when the local search failed.
                 // (Loading and the truly-empty library are handled above, so reaching here means an
                 // active search or filter, or hiding every category, emptied the list.)
-                activeCategories.isEmpty() -> {
+                activeBuckets.isEmpty() -> {
                     EmptyScreen(
                         stringRes = MR.strings.no_results_found,
                         modifier = Modifier.padding(contentPadding),
@@ -623,7 +613,7 @@ data object LibraryTab : Tab {
                             // value since the sort preferences unified, so no chip involved.
                             val globalSort by engine.globalSort.collectAsState()
                             ReikaiLibraryContent(
-                                categories = activeCategories,
+                                buckets = activeBuckets,
                                 getItemsForCategory = activeGetItems,
                                 collapsedCategories = display.reikai.collapsedCategories,
                                 collapsedDynamicCategories = display.reikai.collapsedDynamicCategories,
@@ -634,9 +624,9 @@ data object LibraryTab : Tab {
                                 searchQuery = activeSearchQuery,
                                 gridState = singleListGridState,
                                 contentPadding = contentPadding,
-                                onClickManga = { category, item ->
+                                onClickManga = { bucket, item ->
                                     if (activeSelectionMode) {
-                                        engine.toggleSelection(category.id, item.entryId)
+                                        engine.toggleSelection(bucket.key, item.entryId)
                                     } else {
                                         // RK: navigation is per-type, routed by the ROW's own content
                                         // type rather than the active chip, so a mixed list opens each
@@ -644,10 +634,10 @@ data object LibraryTab : Tab {
                                         openEntry(item.entryId)
                                     }
                                 },
-                                onLongClickManga = { category, item ->
+                                onLongClickManga = { bucket, item ->
                                     // RK: range-select (incl. the in-between) like the tabbed view,
                                     // instead of toggling only the long-pressed manga.
-                                    engine.toggleRangeSelection(category.id, item.entryId, entriesOf(category))
+                                    engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
@@ -662,7 +652,7 @@ data object LibraryTab : Tab {
                                     engine.openSettingsDialog(libraryContentType, category.id, initialTab = 1)
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
-                                onSelectAllInCategory = { category -> engine.selectAllInCategory(entriesOf(category)) },
+                                onSelectAllInCategory = { bucket -> engine.selectAllInCategory(entriesOf(bucket)) },
                                 // RK: the header shows each category's EFFECTIVE sort, its own override or
                                 // the global sort it follows, decoded the same way on both content types.
                                 sortLabelFor = { category -> sortLabelRes(sortForCategory(category, globalSort).type) },
@@ -673,7 +663,7 @@ data object LibraryTab : Tab {
                             )
                         } else {
                             LibraryContent(
-                                categories = activeCategories,
+                                buckets = activeBuckets,
                                 searchQuery = activeSearchQuery,
                                 selection = activeSelection,
                                 contentPadding = contentPadding,
@@ -683,11 +673,11 @@ data object LibraryTab : Tab {
                                 onChangeCurrentPage = { engine.updateActiveCategoryIndex(libraryContentType, it) },
                                 onClickManga = openEntry,
                                 onContinueReadingClicked = onContinueReading,
-                                onToggleSelection = { category, item ->
-                                    engine.toggleSelection(category.id, item.entryId)
+                                onToggleSelection = { bucket, item ->
+                                    engine.toggleSelection(bucket.key, item.entryId)
                                 },
-                                onToggleRangeSelection = { category, item ->
-                                    engine.toggleRangeSelection(category.id, item.entryId, entriesOf(category))
+                                onToggleRangeSelection = { bucket, item ->
+                                    engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onRefresh = { onClickRefresh(currentRealCategory()) },
@@ -701,7 +691,7 @@ data object LibraryTab : Tab {
                             )
                         }
 
-                        if (!display.reikai.hideHopper && activeCategories.isNotEmpty()) {
+                        if (!display.reikai.hideHopper && activeBuckets.isNotEmpty()) {
                             val hopperAlignment = when (display.reikai.hopperGravity) {
                                 0 -> Alignment.BottomStart
                                 2 -> Alignment.BottomEnd
@@ -742,7 +732,7 @@ data object LibraryTab : Tab {
                                             }
                                         },
                                     onUpClick = {
-                                        val last = activeCategories.lastIndex.coerceAtLeast(0)
+                                        val last = activeBuckets.lastIndex.coerceAtLeast(0)
                                         hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                     },
                                     onCenterClick = { pickerOpen = true },
@@ -751,7 +741,7 @@ data object LibraryTab : Tab {
                                     onCenterLongClick = {
                                         when (display.reikai.hopperLongPressAction) {
                                             0 -> onSearch("")
-                                            1 -> engine.toggleAllCategoriesCollapsed(activeCategories)
+                                            1 -> engine.toggleAllCategoriesCollapsed(activeBuckets)
                                             // The hopper is a category navigator, so its sheet is scoped to
                                             // the category it sits on, the same as a category header's sort.
                                             // The sheet's tabs are swipeable, so the Sort tab is reachable
@@ -768,12 +758,12 @@ data object LibraryTab : Tab {
                                                 currentRealCategory()?.id,
                                                 initialTab = 3,
                                             )
-                                            4 -> onOpenRandom(currentCategory()?.id)
+                                            4 -> onOpenRandom(currentBucket()?.key)
                                             5 -> onOpenRandom(null)
                                         }
                                     },
                                     onDownClick = {
-                                        val last = activeCategories.lastIndex.coerceAtLeast(0)
+                                        val last = activeBuckets.lastIndex.coerceAtLeast(0)
                                         hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
                                     },
                                 )
@@ -783,12 +773,12 @@ data object LibraryTab : Tab {
 
                     if (pickerOpen) {
                         ReikaiCategoryPickerSheet(
-                            categories = activeCategories,
+                            buckets = activeBuckets,
                             getItemCount = activeGetItemCount,
                             showItemCounts = display.showItemCounts,
-                            activeCategoryId = activeCategories.getOrNull(currentCategoryIndex())?.id,
-                            onSelect = { category ->
-                                hopperTarget = activeCategories.indexOf(category)
+                            activeIndex = currentCategoryIndex(),
+                            onSelect = { index ->
+                                hopperTarget = index
                                 pickerOpen = false
                             },
                             onDismiss = { pickerOpen = false },

@@ -14,10 +14,11 @@ class LibraryCategoryCollapseTest {
 
     private val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
 
-    private fun category(id: Long, name: String) = Category(id = id, name = name, order = 0, flags = 0)
+    private fun real(id: Long, name: String) =
+        LibraryBucket.Real(Category(id = id, name = name, order = 0, flags = 0))
 
-    // A dynamic group is a synthetic category with a negative id, keyed by its encoded name.
-    private fun dynamic(name: String) = category(-1, name)
+    // A dynamic group carries the normalized key the grouping kernel built for it.
+    private fun dynamic(name: String) = LibraryBucket.Dynamic(normalizeDynamicKey(name), name)
 
     @Test
     fun `collapsing a real category stores its id`() {
@@ -50,7 +51,7 @@ class LibraryCategoryCollapseTest {
 
     @Test
     fun `collapse all splits real categories from dynamic groups`() {
-        preferences.toggleAllCategoriesCollapsed(listOf(category(7, "Reading"), dynamic("Action")))
+        preferences.toggleAllCategoriesCollapsed(listOf(real(7, "Reading"), dynamic("Action")))
 
         // Dynamic keys store normalized (case-folded), so the key survives the merged bucket's
         // first-seen display spelling changing.
@@ -69,9 +70,9 @@ class LibraryCategoryCollapseTest {
 
     @Test
     fun `collapse all expands everything when it is already collapsed`() {
-        val categories = listOf(category(7, "Reading"), dynamic("Action"))
-        preferences.toggleAllCategoriesCollapsed(categories)
-        preferences.toggleAllCategoriesCollapsed(categories)
+        val buckets = listOf(real(7, "Reading"), dynamic("Action"))
+        preferences.toggleAllCategoriesCollapsed(buckets)
+        preferences.toggleAllCategoriesCollapsed(buckets)
 
         preferences.collapsedCategories.get() to preferences.collapsedDynamicCategories.get() shouldBe
             (emptySet<String>() to emptySet<String>())

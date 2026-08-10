@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
-import tachiyomi.domain.category.model.Category
 
 /**
  * Reikai's net-new library display state, bundled into one object rather than ~18 loose fields. Fed from
@@ -78,33 +77,31 @@ fun ReikaiLibraryPreferences.toggleCategoryCollapsed(headerKey: String) {
     collapsedCategories.toggle(headerKey)
 }
 
-/** Collapse or expand one dynamic group, keyed by its normalized header key. Removal matches by
- *  normalized form so entries persisted before normalization still toggle off. */
+/** Collapse or expand one dynamic group, keyed by its normalized key. Removal matches by normalized
+ *  form so entries persisted before normalization still toggle off. */
 fun ReikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey: String) {
     val current = collapsedDynamicCategories.get()
-    val equivalent = current.filterTo(HashSet()) { ReikaiDynamicCategory.normalizeKey(it) == headerKey }
+    val equivalent = current.filterTo(HashSet()) { normalizeDynamicKey(it) == headerKey }
     collapsedDynamicCategories.set(if (equivalent.isNotEmpty()) current - equivalent else current + headerKey)
 }
 
 /**
- * Toggle every displayed category collapsed or expanded (the hopper long-press), across both the real
+ * Toggle every displayed bucket collapsed or expanded (the hopper long-press), across both the real
  * categories and the dynamic groups, which are collapsed through separate preferences.
  */
-fun ReikaiLibraryPreferences.toggleAllCategoriesCollapsed(categories: List<Category>) {
-    val defaultKeys = categories.filterNot { ReikaiDynamicCategory.isDynamic(it) }
-        .map { it.id.toString() }.toSet()
-    val dynamicKeys = categories.filter { ReikaiDynamicCategory.isDynamic(it) }
-        .map { ReikaiDynamicCategory.headerKey(it) }.toSet()
+fun ReikaiLibraryPreferences.toggleAllCategoriesCollapsed(buckets: List<LibraryBucket>) {
+    val defaultKeys = buckets.filterIsInstance<LibraryBucket.Real>().mapTo(HashSet()) { it.key }
+    val dynamicKeys = buckets.filterIsInstance<LibraryBucket.Dynamic>().mapTo(HashSet()) { it.key }
     // Dynamic keys compare and clear by normalized form, so pre-normalization entries count as
     // collapsed and expand-all actually removes them.
     val storedDynamic = collapsedDynamicCategories.get()
-    val storedDynamicNormalized = storedDynamic.mapTo(HashSet(), ReikaiDynamicCategory::normalizeKey)
+    val storedDynamicNormalized = storedDynamic.mapTo(HashSet(), ::normalizeDynamicKey)
     val allCollapsed = collapsedCategories.get().containsAll(defaultKeys) &&
         storedDynamicNormalized.containsAll(dynamicKeys)
     if (allCollapsed) {
         collapsedCategories.set(collapsedCategories.get() - defaultKeys)
         collapsedDynamicCategories.set(
-            storedDynamic.filterNotTo(HashSet()) { ReikaiDynamicCategory.normalizeKey(it) in dynamicKeys },
+            storedDynamic.filterNotTo(HashSet()) { normalizeDynamicKey(it) in dynamicKeys },
         )
     } else {
         collapsedCategories.set(collapsedCategories.get() + defaultKeys)

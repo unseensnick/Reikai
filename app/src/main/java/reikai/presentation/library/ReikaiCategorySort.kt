@@ -5,15 +5,15 @@ import tachiyomi.domain.category.model.Category
 /**
  * Orders a category list by the Reikai category-sort-order pref, so every surface that lists
  * categories shows them in the same order. 0 = manual (the caller's `Category.order`), 1 = A to Z,
- * 2 = Z to A, with the system category always pinned to the top. Sorts by display name so it works
- * for both real DB categories and synthetic dynamic-grouping ones.
+ * 2 = Z to A, with the system category always pinned to the top. Every caller passes real DB
+ * categories; dynamic grouping orders its own buckets inside [LibraryDynamicGrouping].
  */
 fun reikaiSortCategories(categories: List<Category>, sortOrder: Int): List<Category> =
     reikaiSortCategories(
         categories = categories,
         sortOrder = sortOrder,
         isSystem = { it.isSystemCategory },
-        displayName = { ReikaiDynamicCategory.displayName(it) },
+        displayName = { it.name },
     )
 
 /**

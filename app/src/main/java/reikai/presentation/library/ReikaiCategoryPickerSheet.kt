@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -22,29 +22,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import eu.kanade.presentation.category.visualName
-import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Jump-to-category picker opened from the hopper's center button. Works for both real DB
- * categories and synthetic dynamic-grouping categories (names decoded via [ReikaiDynamicCategory]).
+ * Jump-to-category picker opened from the hopper's center button. Lists whatever the library is
+ * sectioned by, real DB categories or dynamic groups, and answers with the index to scroll to.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReikaiCategoryPickerSheet(
-    categories: List<Category>,
-    getItemCount: (Category) -> Int?,
+    buckets: List<LibraryBucket>,
+    getItemCount: (LibraryBucket) -> Int?,
     showItemCounts: Boolean,
-    activeCategoryId: Long?,
-    onSelect: (Category) -> Unit,
+    activeIndex: Int,
+    onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
-    // Open scrolled to the category currently on screen (-1 when absent falls back to the top).
-    val activeIndex = categories.indexOfFirst { it.id == activeCategoryId }
+    // Open scrolled to the section currently on screen (-1 when absent falls back to the top).
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = activeIndex.coerceAtLeast(0))
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -69,16 +66,12 @@ fun ReikaiCategoryPickerSheet(
                 .fillMaxWidth()
                 .heightIn(max = maxSheetHeight),
         ) {
-            items(categories, key = { it.id }) { category ->
+            itemsIndexed(buckets, key = { _, bucket -> bucket.key }) { index, bucket ->
                 CategoryPickerRow(
-                    name = if (ReikaiDynamicCategory.isDynamic(category)) {
-                        ReikaiDynamicCategory.displayName(category)
-                    } else {
-                        category.visualName
-                    },
-                    count = if (showItemCounts) getItemCount(category) else null,
-                    isActive = category.id == activeCategoryId,
-                    onClick = { onSelect(category) },
+                    name = bucket.visualLabel,
+                    count = if (showItemCounts) getItemCount(bucket) else null,
+                    isActive = index == activeIndex,
+                    onClick = { onSelect(index) },
                 )
             }
         }

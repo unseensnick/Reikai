@@ -890,9 +890,9 @@ class NovelDetailsViewModel(
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             // RK: order the picker by the category sort-order pref, matching the library and its pickers.
             val categories = reikaiSortCategories(
-                categories = getNovelCategories.await().filter { it.id > 0L },
+                categories = getNovelCategories.await().filterNot { it.isSystemCategory },
                 sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
-                isSystem = { it.id <= 0L },
+                isSystem = { it.isSystemCategory },
                 displayName = { it.name },
             )
             // No early return on an empty list: the shared picker answers that case with the prompt to

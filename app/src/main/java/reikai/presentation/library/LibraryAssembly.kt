@@ -36,7 +36,7 @@ fun assembleLibrary(
     categories: List<Category>,
     inputs: LibraryAssemblyInputs,
     fields: LibrarySortFields<LibraryItem>,
-): List<Pair<Category, List<LibraryItem>>> {
+): List<Pair<LibraryBucket, List<LibraryItem>>> {
     val buckets = HashMap<Long, MutableList<LibraryItem>>()
     rows.forEach { item ->
         val categoryIds = item.libraryManga.categories.filter { it != Category.UNCATEGORIZED_ID }
@@ -57,26 +57,26 @@ fun assembleLibrary(
             val sort = sortForCategory(category, inputs.globalSort)
             val comparator =
                 librarySortComparator(sort.type.toSortMode(), sort.isAscending, inputs.randomSeed, fields)
-            category to bucket.sortedWith(comparator)
+            LibraryBucket.Real(category) to bucket.sortedWith(comparator)
         }
 }
 
 /**
- * The assembled list the tab renders: the ordered categories, the per-category display read as a
- * function so the per-type custom-info overlay is applied at read time, only for what is rendered, and
- * the one count rule: the chip-filtered bucket size, shown when the count preference is on or a
- * search is active, on every chip.
+ * The assembled list the tab renders: the ordered buckets, the per-bucket display read as a function
+ * so the per-type custom-info overlay is applied at read time, only for what is rendered, and the one
+ * count rule: the chip-filtered bucket size, shown when the count preference is on or a search is
+ * active, on every chip.
  * [chip] is the view this output was assembled for: the flow lags a chip flip by one emission, so the
  * tab renders an assembly only when its chip matches, falling back to the provider's own list meanwhile.
  */
 class LibraryAssembled(
     val chip: ContentType,
-    val categories: List<Category>,
-    private val items: (Category) -> List<LibraryItem>,
-    private val counts: (Category) -> Int? = { null },
+    val buckets: List<LibraryBucket>,
+    private val items: (LibraryBucket) -> List<LibraryItem>,
+    private val counts: (LibraryBucket) -> Int? = { null },
 ) {
-    fun itemsFor(category: Category): List<LibraryItem> = items(category)
-    fun countFor(category: Category): Int? = counts(category)
+    fun itemsFor(bucket: LibraryBucket): List<LibraryItem> = items(bucket)
+    fun countFor(bucket: LibraryBucket): Int? = counts(bucket)
 }
 
 /**

@@ -29,7 +29,7 @@ class LibraryEngineTest {
     // A row id is only unique within one content type, so these two are different entries.
     private val n1 = EntryId.Novel(1)
 
-    private val category = 7L
+    private val bucket = "7"
 
     @Test
     fun `a single content type drives its own provider`() {
@@ -49,32 +49,32 @@ class LibraryEngineTest {
 
     @Test
     fun `toggling adds then removes an entry`() {
-        engine.toggleSelection(category, m1)
+        engine.toggleSelection(bucket, m1)
         engine.selection.value shouldContainExactly setOf(m1)
 
-        engine.toggleSelection(category, m1)
+        engine.toggleSelection(bucket, m1)
         engine.selection.value.isEmpty() shouldBe true
     }
 
     @Test
     fun `entries of different content types sharing a row id stay distinct`() {
-        engine.toggleSelection(category, m1)
-        engine.toggleSelection(category, n1)
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, n1)
         engine.selection.value shouldContainExactlyInAnyOrder listOf(m1, n1)
     }
 
     @Test
     fun `a range select spans both content types`() {
         val ordered = listOf(m1, n1, m2)
-        engine.toggleSelection(category, m1)
-        engine.toggleRangeSelection(category, m2, ordered)
+        engine.toggleSelection(bucket, m1)
+        engine.toggleRangeSelection(bucket, m2, ordered)
         engine.selection.value shouldContainExactlyInAnyOrder ordered
     }
 
     @Test
     fun `a range select in a different category selects only the tapped entry`() {
-        engine.toggleSelection(category, m1)
-        engine.toggleRangeSelection(category + 1, m3, listOf(m1, m2, m3))
+        engine.toggleSelection(bucket, m1)
+        engine.toggleRangeSelection("8", m3, listOf(m1, m2, m3))
         engine.selection.value shouldContainExactlyInAnyOrder listOf(m1, m3)
     }
 
@@ -90,14 +90,14 @@ class LibraryEngineTest {
 
     @Test
     fun `inverting swaps selected for unselected within the category`() {
-        engine.toggleSelection(category, m1)
+        engine.toggleSelection(bucket, m1)
         engine.invertSelection(listOf(m1, m2, m3))
         engine.selection.value shouldContainExactlyInAnyOrder listOf(m2, m3)
     }
 
     @Test
     fun `a bulk action reaches every provider and clears the selection`() {
-        engine.toggleSelection(category, m1)
+        engine.toggleSelection(bucket, m1)
         engine.markReadSelection(ContentType.ALL, read = true)
 
         io.mockk.verify { manga.markReadSelection(setOf(m1), true) }
@@ -107,7 +107,7 @@ class LibraryEngineTest {
 
     @Test
     fun `opening a dialog keeps the selection until the dialog resolves`() {
-        engine.toggleSelection(category, m1)
+        engine.toggleSelection(bucket, m1)
         engine.openDeleteDialog(ContentType.MANGA)
         engine.selection.value shouldContainExactly setOf(m1)
     }

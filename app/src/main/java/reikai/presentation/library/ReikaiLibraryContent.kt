@@ -19,7 +19,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.library.components.DownloadsBadge
 import eu.kanade.presentation.library.components.GlobalSearchItem
 import eu.kanade.presentation.library.components.LanguageBadge
@@ -37,19 +36,15 @@ import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
 
-/** Whether a category section is collapsed (real categories keyed by id, dynamic ones by header key). */
+/** Whether a section is collapsed. The two kinds of bucket use separate preferences. */
 fun reikaiIsCollapsed(
-    category: Category,
+    bucket: LibraryBucket,
     collapsedCategories: Set<String>,
     collapsedDynamicCategories: Set<String>,
-): Boolean {
-    return if (ReikaiDynamicCategory.isDynamic(category)) {
-        // Normalize the stored side too: keys persisted before normalization keep matching.
-        val key = ReikaiDynamicCategory.headerKey(category)
-        collapsedDynamicCategories.any { ReikaiDynamicCategory.normalizeKey(it) == key }
-    } else {
-        category.id.toString() in collapsedCategories
-    }
+): Boolean = when (bucket) {
+    is LibraryBucket.Real -> bucket.key in collapsedCategories
+    // Normalize the stored side too: keys persisted before normalization keep matching.
+    is LibraryBucket.Dynamic -> collapsedDynamicCategories.any { normalizeDynamicKey(it) == bucket.key }
 }
 
 /**
@@ -59,16 +54,16 @@ fun reikaiIsCollapsed(
  * item count per category is unchanged.
  */
 fun reikaiCategoryHeaderIndices(
-    categories: List<Category>,
+    buckets: List<LibraryBucket>,
     hasSearchItem: Boolean,
-    isCollapsed: (Category) -> Boolean,
-    itemCount: (Category) -> Int,
+    isCollapsed: (LibraryBucket) -> Boolean,
+    itemCount: (LibraryBucket) -> Int,
 ): List<Int> {
     var index = if (hasSearchItem) 1 else 0
-    return categories.map { category ->
+    return buckets.map { bucket ->
         val headerIndex = index
         index += 1
-        if (!isCollapsed(category)) index += itemCount(category)
+        if (!isCollapsed(bucket)) index += itemCount(bucket)
         headerIndex
     }
 }
@@ -81,10 +76,10 @@ fun reikaiCategoryHeaderIndices(
  * the grid building below and with [reikaiCategoryHeaderIndices].
  */
 fun reikaiRowStartIndices(
-    categories: List<Category>,
+    buckets: List<LibraryBucket>,
     hasSearchItem: Boolean,
-    isCollapsed: (Category) -> Boolean,
-    itemCount: (Category) -> Int,
+    isCollapsed: (LibraryBucket) -> Boolean,
+    itemCount: (LibraryBucket) -> Int,
     columns: Int,
 ): List<Int> {
     val cols = columns.coerceAtLeast(1)
@@ -94,11 +89,11 @@ fun reikaiRowStartIndices(
         rows.add(item)
         item += 1
     }
-    categories.forEach { category ->
+    buckets.forEach { bucket ->
         rows.add(item)
         item += 1
-        if (!isCollapsed(category)) {
-            val count = itemCount(category)
+        if (!isCollapsed(bucket)) {
+            val count = itemCount(bucket)
             var offset = 0
             while (offset < count) {
                 rows.add(item + offset)
@@ -120,8 +115,8 @@ fun reikaiRowStartIndices(
  */
 @Composable
 fun ReikaiLibraryContent(
-    categories: List<Category>,
-    getItemsForCategory: (Category) -> List<LibraryItem>,
+    buckets: List<LibraryBucket>,
+    getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
     collapsedCategories: Set<String>,
     collapsedDynamicCategories: Set<String>,
     showItemCounts: Boolean,
@@ -131,17 +126,17 @@ fun ReikaiLibraryContent(
     searchQuery: String?,
     gridState: LazyGridState,
     contentPadding: PaddingValues,
-    onClickManga: (Category, LibraryItem) -> Unit,
-    onLongClickManga: (Category, LibraryItem) -> Unit,
+    onClickManga: (LibraryBucket, LibraryItem) -> Unit,
+    onLongClickManga: (LibraryBucket, LibraryItem) -> Unit,
     onToggleDefaultCollapse: (String) -> Unit,
     onToggleDynamicCollapse: (String) -> Unit,
     onGlobalSearchClicked: () -> Unit,
     // pull down at the top of the single-list to update the whole library (overflow Update library).
     onRefresh: () -> Boolean,
-    // per-category header affordances (real categories only; dynamic groups opt out)
+    // per-category header affordances; a dynamic group has no category, so these take the real one
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
-    onSelectAllInCategory: (Category) -> Unit,
+    onSelectAllInCategory: (LibraryBucket) -> Unit,
     // The effective sort per category (its override, or the global sort it follows), decoded per content
     // type upstream: the header label via [sortLabelFor] and the arrow direction via [sortAscendingFor].
     sortLabelFor: ((Category) -> StringResource?)? = null,
@@ -176,13 +171,13 @@ fun ReikaiLibraryContent(
         // sizes and the grid builder needs the lists, so calling getItemsForCategory in both spots
         // walked every category's items twice per recomposition. Not remembered across recompositions
         // on purpose, the lambda reads live library state, so a cached map could serve stale badges.
-        val itemsByCategory = categories.associateWith(getItemsForCategory)
+        val itemsByBucket = buckets.associateWith(getItemsForCategory)
 
         val rowStartIndices = reikaiRowStartIndices(
-            categories = categories,
+            buckets = buckets,
             hasSearchItem = !searchQuery.isNullOrEmpty(),
             isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
-            itemCount = { itemsByCategory[it]?.size ?: 0 },
+            itemCount = { itemsByBucket[it]?.size ?: 0 },
             columns = columnCount,
         )
 
@@ -224,57 +219,52 @@ fun ReikaiLibraryContent(
                     }
                 }
 
-                categories.forEach { category ->
-                    val dynamic = ReikaiDynamicCategory.isDynamic(category)
-                    val headerKey = if (dynamic) ReikaiDynamicCategory.headerKey(category) else category.id.toString()
-                    val collapsed = reikaiIsCollapsed(category, collapsedCategories, collapsedDynamicCategories)
-                    val items = itemsByCategory[category].orEmpty()
+                buckets.forEach { bucket ->
+                    // Null for a dynamic group, which is what turns the sort / refresh affordances off.
+                    val category = bucket.realCategory
+                    val collapsed = reikaiIsCollapsed(bucket, collapsedCategories, collapsedDynamicCategories)
+                    val items = itemsByBucket[bucket].orEmpty()
 
                     item(
                         span = { GridItemSpan(maxLineSpan) },
-                        key = "reikai_header_${category.id}",
+                        key = "reikai_header_${bucket.key}",
                         contentType = "reikai_header",
                     ) {
                         ReikaiLibraryCategoryHeader(
-                            name = if (dynamic) ReikaiDynamicCategory.displayName(category) else category.visualName,
+                            name = bucket.visualLabel,
                             itemCount = items.size,
                             showItemCount = showItemCounts,
                             isCollapsed = collapsed,
                             onClick = {
-                                if (dynamic) onToggleDynamicCollapse(headerKey) else onToggleDefaultCollapse(headerKey)
+                                if (category != null) {
+                                    onToggleDefaultCollapse(bucket.key)
+                                } else {
+                                    onToggleDynamicCollapse(bucket.key)
+                                }
                             },
                             selectionMode = selection.isNotEmpty(),
                             allSelected = items.isNotEmpty() && items.all { it.entryId in selection },
-                            onToggleSelectAll = { onSelectAllInCategory(category) },
-                            // Dynamic groups have no real category to sort/refresh.
-                            sortLabel = if (dynamic) null else sortLabelFor?.invoke(category),
-                            sortAscending = if (dynamic) null else sortAscendingFor?.invoke(category),
-                            onClickSort = if (dynamic) {
-                                null
-                            } else {
-                                { onClickCategorySort(category) }
-                            },
-                            onClickRefresh = if (dynamic) {
-                                null
-                            } else {
-                                { onRefreshCategory(category) }
-                            },
+                            onToggleSelectAll = { onSelectAllInCategory(bucket) },
+                            sortLabel = category?.let { sortLabelFor?.invoke(it) },
+                            sortAscending = category?.let { sortAscendingFor?.invoke(it) },
+                            onClickSort = category?.let { { onClickCategorySort(it) } },
+                            onClickRefresh = category?.let { { onRefreshCategory(it) } },
                         )
                     }
 
                     if (!collapsed) {
                         items(
                             items = items,
-                            // An entry can belong to several categories, so qualify the key by category,
-                            // and by content type since a manga and a novel can share a row id.
-                            key = { "reikai_cell_${category.id}_${it.entryId.contentType}_${it.entryId.rawId}" },
+                            // An entry can belong to several buckets, so qualify the key by bucket, and
+                            // by content type since a manga and a novel can share a row id.
+                            key = { "reikai_cell_${bucket.key}_${it.entryId.contentType}_${it.entryId.rawId}" },
                             contentType = { cellContentType },
                         ) { libraryItem ->
                             val manga = libraryItem.libraryManga.manga
                             val isSelected = libraryItem.entryId in selection
                             val coverData = libraryCoverModel(libraryItem) // NovelCover for novels, else MangaCover
-                            val onClick = { onClickManga(category, libraryItem) }
-                            val onLongClick = { onLongClickManga(category, libraryItem) }
+                            val onClick = { onClickManga(bucket, libraryItem) }
+                            val onLongClick = { onLongClickManga(bucket, libraryItem) }
                             // Show the play button only when there's something unread (matches the pager).
                             val onContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
                                 { onClickContinueReading(libraryItem) }

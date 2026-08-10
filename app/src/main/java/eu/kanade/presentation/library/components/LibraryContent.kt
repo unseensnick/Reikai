@@ -21,14 +21,15 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId // RK
-import tachiyomi.domain.category.model.Category
+import reikai.presentation.library.LibraryBucket // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.presentation.core.components.material.PullRefresh
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun LibraryContent(
-    categories: List<Category>,
+    // RK: a page is one section of the assembled library, which is a category or a dynamic group
+    buckets: List<LibraryBucket>,
     searchQuery: String?,
     selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
     contentPadding: PaddingValues,
@@ -39,14 +40,14 @@ fun LibraryContent(
     onChangeCurrentPage: (Int) -> Unit,
     onClickManga: (EntryId) -> Unit,
     onContinueReadingClicked: ((LibraryItem) -> Unit)?,
-    onToggleSelection: (Category, LibraryItem) -> Unit,
-    onToggleRangeSelection: (Category, LibraryItem) -> Unit,
+    onToggleSelection: (LibraryBucket, LibraryItem) -> Unit,
+    onToggleRangeSelection: (LibraryBucket, LibraryItem) -> Unit,
     onRefresh: () -> Boolean,
     onGlobalSearchClicked: () -> Unit,
-    getItemCountForCategory: (Category) -> Int?,
+    getItemCountForCategory: (LibraryBucket) -> Int?,
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
-    getItemsForCategory: (Category) -> List<LibraryItem>,
+    getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
 ) {
     Column(
         modifier = Modifier.padding(
@@ -58,14 +59,16 @@ fun LibraryContent(
         val scope = rememberCoroutineScope()
         var isRefreshing by remember(pagerState.currentPage) { mutableStateOf(false) }
 
-        if (showPageTabs && categories.isNotEmpty() && (categories.size > 1 || !categories.first().isSystemCategory)) {
-            LaunchedEffect(categories) {
-                if (categories.size <= pagerState.currentPage) {
-                    pagerState.scrollToPage(categories.size - 1)
+        // RK: a lone dynamic group still gets tabs; only a lone real Default category hides them.
+        val onlySystemCategory = buckets.size == 1 && buckets.first().realCategory?.isSystemCategory == true
+        if (showPageTabs && buckets.isNotEmpty() && !onlySystemCategory) {
+            LaunchedEffect(buckets) {
+                if (buckets.size <= pagerState.currentPage) {
+                    pagerState.scrollToPage(buckets.size - 1)
                 }
             }
             LibraryTabs(
-                categories = categories,
+                buckets = buckets,
                 pagerState = pagerState,
                 getItemCountForCategory = getItemCountForCategory,
                 onTabItemClick = {
@@ -97,7 +100,7 @@ fun LibraryContent(
                 selection = selection,
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
-                getCategoryForPage = { page -> categories[page] },
+                getCategoryForPage = { page -> buckets[page] },
                 getDisplayMode = getDisplayMode,
                 getColumnsForOrientation = getColumnsForOrientation,
                 getItemsForCategory = getItemsForCategory,

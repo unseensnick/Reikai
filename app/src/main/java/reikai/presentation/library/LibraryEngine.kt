@@ -199,18 +199,18 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         } else {
             assembleDynamicGroups(active, rows, prefs, fields)
         }
-        val bucketsById = assembledList.associate { it.first.id to it.second }
+        val itemsByKey = assembledList.associate { it.first.key to it.second }
         val byType = providers.associateBy { it.contentType }
         val showCounts = prefs.showCounts || searchActive
         return LibraryAssembled(
             chip = chip,
-            categories = assembledList.map { it.first },
-            items = { category ->
-                bucketsById[category.id].orEmpty().map { item ->
+            buckets = assembledList.map { it.first },
+            items = { bucket ->
+                itemsByKey[bucket.key].orEmpty().map { item ->
                     byType[item.entryId.contentType]?.overlaid(item) ?: item
                 }
             },
-            counts = { category -> if (showCounts) bucketsById[category.id]?.size else null },
+            counts = { bucket -> if (showCounts) itemsByKey[bucket.key]?.size else null },
         )
     }
 
@@ -227,12 +227,11 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         rows: List<LibraryItem>,
         prefs: AssemblyPrefs,
         fields: LibrarySortFields<LibraryItem>,
-    ): List<Pair<Category, List<LibraryItem>>> {
+    ): List<Pair<LibraryBucket, List<LibraryItem>>> {
         val feeds = active.map { it.dynamicGroupingFeed(prefs.groupBy) }
         val grouped = LibraryDynamicGrouping.build(
             items = feeds.flatMap { it.items },
             groupType = prefs.groupBy,
-            inheritedSortFlag = prefs.sort.flag,
             collapsedDynamicCategories = prefs.collapsedDynamic,
             collapsedDynamicAtBottom = prefs.collapsedDynamicAtBottom,
             unknownLabel = context.stringResource(MR.strings.unknown),
@@ -262,9 +261,9 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         // The feed reads a state snapshot that can lag the rows emission by a tick, so an id with no row
         // is dropped and the next emission reconciles. A bucket left empty then hides, as everywhere else.
         val rowsByEntryId = rows.associateBy { it.entryId }
-        return grouped.mapNotNull { (category, ids) ->
+        return grouped.mapNotNull { (bucket, ids) ->
             val items = ids.mapNotNull { rowsByEntryId[it] }
-            if (items.isEmpty()) null else category to items.sortedWith(comparator)
+            if (items.isEmpty()) null else bucket to items.sortedWith(comparator)
         }
     }
 
@@ -319,7 +318,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
     val dialog: StateFlow<LibraryDialog?> = mutableDialog.asStateFlow()
 
     /** Anchor for range-select; not reactive, it only decides how the next long-press behaves. */
-    private var lastSelectionCategory: Long? = null
+    private var lastSelectionBucket: String? = null
 
     /** Every provider contributing rows to a [contentType] view. Both of them for [ContentType.ALL]. */
     fun providersFor(contentType: ContentType): List<LibraryProvider> =
@@ -406,8 +405,8 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         reikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey)
     }
 
-    fun toggleAllCategoriesCollapsed(categories: List<Category>) {
-        reikaiLibraryPreferences.toggleAllCategoriesCollapsed(categories)
+    fun toggleAllCategoriesCollapsed(buckets: List<LibraryBucket>) {
+        reikaiLibraryPreferences.toggleAllCategoriesCollapsed(buckets)
     }
 
     /**
@@ -428,22 +427,22 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         providersFor(contentType).map { it.refresh(category) }.any { it }
 
     /**
-     * A random entry from [categoryId], or the whole library when null, drawn from the assembled list.
+     * A random entry from [bucketKey], or the whole library when null, drawn from the assembled list.
      * Reading the assembly rather than the providers means the pick is from what is actually on screen,
-     * so a dynamic group's synthetic id resolves and rows in hidden or emptied categories are excluded.
+     * so a dynamic group resolves and rows in hidden or emptied categories are excluded.
      *
      * Null when nothing is pickable: no assembly yet, a chip flip the assembly has not caught up with
-     * (it lags by one emission), or an id that is not in the current list. The caller shows a snackbar.
+     * (it lags by one emission), or a key that is not in the current list. The caller shows a snackbar.
      */
-    fun randomEntry(contentType: ContentType, categoryId: Long?): EntryId? {
+    fun randomEntry(contentType: ContentType, bucketKey: String?): EntryId? {
         val current = assembled.value?.takeIf { it.chip == contentType } ?: return null
-        if (categoryId != null) {
-            val category = current.categories.find { it.id == categoryId } ?: return null
-            return current.itemsFor(category).randomOrNull()?.entryId
+        if (bucketKey != null) {
+            val bucket = current.buckets.find { it.key == bucketKey } ?: return null
+            return current.itemsFor(bucket).randomOrNull()?.entryId
         }
         // Distinct: an entry in several categories appears in several buckets, and without this it
         // would be that many times likelier to come up.
-        return current.categories
+        return current.buckets
             .flatMap { current.itemsFor(it) }
             .distinctBy { it.entryId }
             .randomOrNull()
@@ -454,42 +453,42 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
     // order, so the engine never has to resolve rows itself and stays free of per-type lookups.
 
     fun clearSelection() {
-        lastSelectionCategory = null
+        lastSelectionBucket = null
         mutableSelection.value = emptySet()
     }
 
-    fun toggleSelection(categoryId: Long, entry: EntryId) {
+    fun toggleSelection(bucketKey: String, entry: EntryId) {
         mutableSelection.update { if (entry in it) it - entry else it + entry }
-        lastSelectionCategory = categoryId.takeIf { mutableSelection.value.isNotEmpty() }
+        lastSelectionBucket = bucketKey.takeIf { mutableSelection.value.isNotEmpty() }
     }
 
     /**
-     * Select every entry between [entry] and the last selected one, within one category. Falls back to
+     * Select every entry between [entry] and the last selected one, within one bucket. Falls back to
      * selecting just [entry] when there is no usable anchor, which is what a long-press in a different
-     * category (or on a row that is no longer listed) means.
+     * bucket (or on a row that is no longer listed) means.
      */
-    fun toggleRangeSelection(categoryId: Long, entry: EntryId, ordered: List<EntryId>) {
+    fun toggleRangeSelection(bucketKey: String, entry: EntryId, ordered: List<EntryId>) {
         mutableSelection.update { current ->
             val anchor = current.lastOrNull()
             val from = ordered.indexOf(anchor)
             val to = ordered.indexOf(entry)
-            if (lastSelectionCategory != categoryId || anchor == null || from < 0 || to < 0) {
+            if (lastSelectionBucket != bucketKey || anchor == null || from < 0 || to < 0) {
                 current + entry
             } else {
                 current + ordered.subList(minOf(from, to), maxOf(from, to) + 1)
             }
         }
-        lastSelectionCategory = categoryId
+        lastSelectionBucket = bucketKey
     }
 
     fun selectAll(ordered: List<EntryId>) {
-        lastSelectionCategory = null
+        lastSelectionBucket = null
         mutableSelection.update { it + ordered }
     }
 
     /** Select every entry in one category, or deselect them when all are already selected. */
     fun selectAllInCategory(ordered: List<EntryId>) {
-        lastSelectionCategory = null
+        lastSelectionBucket = null
         mutableSelection.update { current ->
             if (ordered.isNotEmpty() && ordered.all { it in current }) {
                 current - ordered.toSet()
@@ -500,7 +499,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
     }
 
     fun invertSelection(ordered: List<EntryId>) {
-        lastSelectionCategory = null
+        lastSelectionBucket = null
         mutableSelection.update { current ->
             val (toRemove, toAdd) = ordered.partition { it in current }
             current - toRemove.toSet() + toAdd
