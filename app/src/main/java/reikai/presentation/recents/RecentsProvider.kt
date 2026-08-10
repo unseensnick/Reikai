@@ -59,6 +59,13 @@ interface RecentsProvider : RecentsBehavior {
     val lastUpdated: Flow<Long>
 
     /**
+     * Whether this type's library update is running now, so a refreshing state ends when the job does.
+     * A data flow, so it belongs here rather than on the verb seam above; it reports a scheduled update
+     * as well as a pulled one, which is what the job itself already treats as "already running".
+     */
+    val updating: Flow<Boolean>
+
+    /**
      * This type's entries that belong to a merge group, by group id, so a feed can show one row for a
      * series merged across sources. Empty while the user has series merging off, matching every other
      * path that resolves a group. Group ids are unique across both content types, so the two providers'

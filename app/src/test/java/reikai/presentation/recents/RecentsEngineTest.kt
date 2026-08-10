@@ -189,6 +189,31 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a running update behind the chip shows as refreshing`() = runTest {
+        val engine = engine(
+            listOf(
+                provider(ContentType.MANGA, updating = false),
+                provider(ContentType.NOVELS, updating = true),
+            ),
+        )
+
+        engine.refreshing.first { it } shouldBe true
+    }
+
+    @Test
+    fun `an update on the content type the chip hides is not this surface's refresh`() = runTest {
+        val engine = engine(
+            listOf(
+                provider(ContentType.MANGA, updating = false),
+                provider(ContentType.NOVELS, updating = true),
+            ),
+            chip = ContentType.MANGA,
+        )
+
+        engine.refreshing.value shouldBe false
+    }
+
+    @Test
     fun `the last updated line ignores the content type the chip hides`() = runTest {
         val engine = engine(
             listOf(
@@ -494,9 +519,10 @@ private fun provider(
     updatedAt: Long = 0L,
     titles: Map<EntryId, String> = emptyMap(),
     refreshStarts: Boolean = true,
+    updating: Boolean = false,
     decision: AddDecision<RecentsDuplicates>? = AddDecision.Add,
     addResult: AddFavoriteResult = AddFavoriteResult.Added,
-) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles, refreshStarts, decision, addResult)
+) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles, refreshStarts, updating, decision, addResult)
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
 private class FakeRecentsProvider(
@@ -507,6 +533,7 @@ private class FakeRecentsProvider(
     updatedAt: Long,
     private val titles: Map<EntryId, String>,
     private val refreshStarts: Boolean,
+    updating: Boolean,
     private val decision: AddDecision<RecentsDuplicates>?,
     private val addResult: AddFavoriteResult,
 ) : RecentsProvider {
@@ -528,6 +555,7 @@ private class FakeRecentsProvider(
     override val updatedLane: Flow<RecentsLaneRows> = flowOf(updatedRows)
     override val addedLane: Flow<RecentsLaneRows> = flowOf(addedRows)
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
+    override val updating: Flow<Boolean> = flowOf(updating)
     override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =

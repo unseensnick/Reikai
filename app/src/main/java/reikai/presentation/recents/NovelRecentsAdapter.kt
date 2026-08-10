@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import android.app.Application
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import kotlinx.coroutines.flow.Flow
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
+import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
@@ -57,6 +59,7 @@ class NovelRecentsAdapter(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
     private val novelLibraryAdder: NovelLibraryAdder by injectLazy()
+    private val application: Application by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -82,6 +85,8 @@ class NovelRecentsAdapter(
         }.asLane()
 
     override val lastUpdated: Flow<Long> = novelPreferences.novelLibraryUpdateLastTimestamp().changes()
+
+    override val updating: Flow<Boolean> = NovelUpdateJob.isRunningFlow(application)
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)

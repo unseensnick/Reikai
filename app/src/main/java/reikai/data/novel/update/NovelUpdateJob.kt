@@ -25,6 +25,7 @@ import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
@@ -42,6 +43,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.workRunningFlow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
@@ -243,6 +245,9 @@ class NovelUpdateJob(
         private const val WORK_NAME_AUTO = "NovelLibraryUpdate-auto"
         private const val WORK_NAME_MANUAL = "NovelLibraryUpdate-manual"
         private const val KEY_CATEGORY = "category"
+
+        /** Twin of `LibraryUpdateJob.isRunningFlow`, over the one rule in [workRunningFlow]. */
+        fun isRunningFlow(context: Context): Flow<Boolean> = context.workRunningFlow(TAG)
 
         /** (Re)schedule or cancel the periodic check from the stored interval (0 = off). Idempotent. */
         fun setupTask(context: Context, prefInterval: Int? = null) {

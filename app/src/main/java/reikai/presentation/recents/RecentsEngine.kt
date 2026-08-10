@@ -136,6 +136,20 @@ class RecentsEngine(
         }.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
     }
 
+    /**
+     * Whether a library behind the current chip is updating, so a refreshing indicator ends when the
+     * job does. The two replaced screens faked this with a fixed one-second delay, which said nothing
+     * about whether anything was actually running.
+     */
+    val refreshing: StateFlow<Boolean> by lazy {
+        combine(
+            contentType,
+            combine(providers.map { it.updating }) { it.toList() },
+        ) { chip, perProvider ->
+            activeIndices(chip).any { perProvider[it] }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    }
+
     /** Whether a filter is narrowing this surface, so an empty feed can say why. */
     val filterActive: StateFlow<Boolean> by lazy {
         combine(

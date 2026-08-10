@@ -1,8 +1,10 @@
 package reikai.presentation.recents
 
+import android.app.Application
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
@@ -61,6 +63,7 @@ class MangaRecentsAdapter(
     private val mergedChapterProvider: MergedChapterProvider by injectLazy()
     private val getManga: GetManga by injectLazy()
     private val mangaLibraryAdder: MangaLibraryAdder by injectLazy()
+    private val application: Application by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -88,6 +91,8 @@ class MangaRecentsAdapter(
         }.asLane()
 
     override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
+
+    override val updating: Flow<Boolean> = LibraryUpdateJob.isRunningFlow(application)
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)

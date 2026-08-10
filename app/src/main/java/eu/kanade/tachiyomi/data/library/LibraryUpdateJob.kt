@@ -35,6 +35,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.datetime.TimeZone
@@ -46,6 +47,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.domain.merge.ReconcileChapterMatchKeys
+import reikai.util.workRunningFlow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
@@ -448,6 +450,11 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         private const val TAG = "LibraryUpdate"
         private const val WORK_NAME_AUTO = "LibraryUpdate-auto"
         private const val WORK_NAME_MANUAL = "LibraryUpdate-manual"
+
+        // RK --> the recents surface shows a refreshing state that ends when the job does, and the tag
+        //        it needs is private here.
+        fun isRunningFlow(context: Context): Flow<Boolean> = context.workRunningFlow(TAG)
+        // RK <--
 
         private const val ERROR_LOG_HELP_URL = "https://mihon.app/docs/guides/troubleshooting/"
 
