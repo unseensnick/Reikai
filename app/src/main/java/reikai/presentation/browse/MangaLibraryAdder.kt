@@ -66,7 +66,10 @@ class MangaLibraryAdder(
      * rest of the series lives. Returns whether it filed any (false when the group is uncategorized).
      */
     suspend fun seedCategoriesFromGroup(mangaId: Long, memberIds: List<Long>): Boolean {
-        val categoryIds = memberIds.flatMap { getCategories.await(it) }.map { it.id }.filter { it != 0L }.distinct()
+        val categoryIds = memberIds.flatMap { getCategories.await(it) }
+            .map { it.id }
+            .filter { it != Category.UNCATEGORIZED_ID }
+            .distinct()
         if (categoryIds.isEmpty()) return false
         setMangaCategories.await(mangaId, categoryIds)
         return true
@@ -81,9 +84,9 @@ class MangaLibraryAdder(
      * default (or the picker, shown with `alreadyFavorited` so its confirm doesn't re-toggle the favorite).
      */
     suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
-        // Null means the favorite write failed, so nothing was written at all, not even the merge.
-        // No category prompt then: there is no library entry to file.
-        val seeded = addToGroup(manga, selectedIds) ?: return AddFavoriteResult.Added
+        // Null means the row was gone or the favorite write failed, so nothing was written at all, not
+        // even the merge. No category prompt then: there is no library entry to file.
+        val seeded = addToGroup(manga, selectedIds) ?: return AddFavoriteResult.Failed
         setMangaDefaultChapterFlags.await(manga)
         addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
         if (seeded) return AddFavoriteResult.Added
@@ -91,12 +94,12 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into
-     * that group's categories. Null when the row is gone or the write failed. Atomic because
-     * membership is not favorite-filtered: a merged copy that never got favorited feeds the group
-     * while invisible in the library, with nothing able to unmerge it. An already favorited row is
-     * not re-written (that would reset dateAdded), and the row is re-read because a stale snapshot
-     * would skip the write and still merge. Twin of `NovelLibraryAdder.addToGroup`.
+     * RK: favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into that
+     * group's categories. Null when the row is gone or the write failed. Atomic because membership is
+     * not favorite-filtered: a merged copy that never got favorited feeds the group while invisible in
+     * the library, with nothing able to unmerge it. The row is re-read rather than trusted from a
+     * snapshot, which would skip the write and still merge. Twin of `NovelLibraryAdder.addToGroup`,
+     * pinned by `AddToGroupConformanceTest`.
      */
     suspend fun addToGroup(manga: Manga, selectedIds: List<Long>): Boolean? {
         val stored = getManga.await(manga.id) ?: return null
@@ -148,7 +151,7 @@ class MangaLibraryAdder(
         }
 
     suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) {
-        setMangaCategories.await(manga.id, categoryIds.filter { it != 0L })
+        setMangaCategories.await(manga.id, categoryIds.filter { it != Category.UNCATEGORIZED_ID })
     }
 
     /**
@@ -165,19 +168,33 @@ class MangaLibraryAdder(
 
     /**
      * RK: the writes a picker's confirm owes for a stored row, in the shared order, so backing out of
-     * the picker adds nothing. An already-favorited row is not re-written: that would reset dateAdded.
-     * Twin of `NovelLibraryAdder.confirmCategories`.
+     * the picker adds nothing and the row is favorited only when the user confirms. Twin of
+     * `NovelLibraryAdder.confirmAddCategories`, pinned by `AddToGroupConformanceTest`'s confirm cases.
      */
-    suspend fun confirmCategories(manga: Manga, categoryIds: List<Long>): AddOutcome = finishAdd(
+    suspend fun confirmAddCategories(mangaId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
         categoryIds = categoryIds,
-        favorite = { manga.id.takeIf { manga.favorite || updateManga.awaitUpdateFavorite(manga.id, true) } },
-        fileCategories = { _, ids -> moveToCategories(manga, ids) },
+        favorite = { favoriteForAdd(mangaId) },
+        fileCategories = { id, ids -> setMangaCategories.await(id, ids.filter { it != Category.UNCATEGORIZED_ID }) },
     )
+
+    /**
+     * RK: favorite [mangaId] for an add, answering its id, or null when the row is gone or the write
+     * failed. The row is re-read rather than trusted from a snapshot, which can say favorited for an
+     * entry unfavorited since and would file categories against a row outside the library. An already
+     * favorited row is not re-written: that would reset dateAdded. Twin of
+     * `NovelLibraryAdder.favoriteForAdd`, pinned by `AddToGroupConformanceTest`'s confirm cases.
+     */
+    suspend fun favoriteForAdd(mangaId: Long): Long? {
+        val stored = getManga.await(mangaId) ?: return null
+        if (stored.favorite) return mangaId
+        return mangaId.takeIf { updateManga.awaitUpdateFavorite(mangaId, true) }
+    }
 
     /**
      * RK: where a new favorite should land, or null when the user has to be asked. Reads only, so a
      * caller can favorite between this and [moveToCategories]; the two cannot be split apart once
-     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `NovelLibraryAdder.resolveDefaultCategories`.
+     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `NovelLibraryAdder.resolveDefaultCategories`;
+     * both call the `resolveDefaultCategoryIds` kernel, pinned by `AddDecisionConformanceTest`.
      */
     suspend fun resolveDefaultCategories(): List<Long>? =
         resolveDefaultCategoryIds(getUserCategories(), libraryPreferences.defaultCategory.get())

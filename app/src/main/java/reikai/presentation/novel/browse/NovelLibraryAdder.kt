@@ -130,9 +130,22 @@ class NovelLibraryAdder(
         )
 
     /**
+     * The writes a picker's confirm owes for a stored row, in the shared order, so backing out adds
+     * nothing and the row is favorited only when the user confirms. Distinct from [confirmCategories]
+     * above, whose `Stored` case deliberately does not favorite because add-time grouping already did.
+     * Twin of `MangaLibraryAdder.confirmAddCategories`, pinned by `AddToGroupConformanceTest`.
+     */
+    suspend fun confirmAddCategories(novelId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
+        categoryIds = categoryIds,
+        favorite = { favoriteForAdd(novelId) },
+        fileCategories = { id, ids -> applyCategories(id, ids) },
+    )
+
+    /**
      * Favorite [novelId] for an add, answering its id, or null when the row is gone or the write
      * failed. An already-favorited row is not re-written: that would reset dateAdded, moving the entry
-     * in a date-added sort for something the user did not do.
+     * in a date-added sort for something the user did not do. Twin of `MangaLibraryAdder.favoriteForAdd`,
+     * pinned by `AddToGroupConformanceTest`'s confirm cases.
      */
     suspend fun favoriteForAdd(novelId: Long): Long? {
         val novel = novelRepository.getById(novelId) ?: return null
@@ -155,7 +168,7 @@ class NovelLibraryAdder(
         val categoryIds = memberIds
             .flatMap { getNovelCategories.awaitByNovelId(it) }
             .map { it.id }
-            .filter { it > 0L }
+            .filter { it != Category.UNCATEGORIZED_ID }
             .distinct()
         if (categoryIds.isEmpty()) return false
         setNovelCategories.await(novelId, categoryIds)
@@ -182,8 +195,8 @@ class NovelLibraryAdder(
 
     /**
      * Add a novel that already has a library row, through the shared sequence. Twin of
-     * `MangaLibraryAdder.resolveAddFavorite`, for the stored-row case its browse twin above cannot
-     * serve: nothing is inserted here, only favorited and filed.
+     * `MangaLibraryAdder.resolveAddFavorite`, both over the `addEntryOrPrompt` kernel, for the stored-row
+     * case its browse twin above cannot serve: nothing is inserted here, only favorited and filed.
      */
     suspend fun addStoredToLibrary(novelId: Long): AddFavoriteResult = addEntryOrPrompt(
         resolveCategories = { resolveDefaultCategories() },
@@ -208,7 +221,7 @@ class NovelLibraryAdder(
     /**
      * Favorite the novel and merge it into [selectedIds]'s group as ONE unit, then file it into that
      * group's categories. Returns whether any were seeded, null when the row is gone or the write
-     * failed. Twin of `MangaLibraryAdder.addToGroup`, which carries the why.
+     * failed. Twin of `MangaLibraryAdder.addToGroup`, which carries the why; pinned by `AddToGroupConformanceTest`.
      *
      * An already-favorited row is not re-written: that would reset dateAdded, moving the entry in a
      * date-added sort for what the user did as a grouping change.
@@ -273,7 +286,8 @@ class NovelLibraryAdder(
     /**
      * Where a new favorite should land, or null when the user has to be asked. Reads only, so a caller
      * can favorite between this and [applyCategories]; the two cannot be split apart once
-     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `MangaLibraryAdder.resolveDefaultCategories`.
+     * [applyDefaultCategoryOrPrompt] has joined them. Twin of `MangaLibraryAdder.resolveDefaultCategories`;
+     * both call the `resolveDefaultCategoryIds` kernel, pinned by `AddDecisionConformanceTest`.
      */
     suspend fun resolveDefaultCategories(): List<Long>? =
         resolveDefaultCategoryIds(userCategories(), novelPreferences.defaultNovelCategory().get())
@@ -299,12 +313,13 @@ class NovelLibraryAdder(
      * details picker do rather than in table order.
      */
     suspend fun userCategories(): List<Category> = reikaiSortCategories(
-        categories = getNovelCategories.await().filter { it.id > 0L },
+        categories = getNovelCategories.await().filterNot { it.isSystemCategory },
         sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
     )
 
+    /** The system category is not one a user can file into, so it never reaches a write. */
     suspend fun applyCategories(novelId: Long, categoryIds: List<Long>) {
-        setNovelCategories.await(novelId, categoryIds)
+        setNovelCategories.await(novelId, categoryIds.filter { it != Category.UNCATEGORIZED_ID })
     }
 
     /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */

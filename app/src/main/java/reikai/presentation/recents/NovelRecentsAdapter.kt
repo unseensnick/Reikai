@@ -31,7 +31,6 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.history.NovelHistoryViewModel
-import reikai.presentation.novel.browse.NovelCategoryTarget
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.updates.NovelUpdatesItem
@@ -108,7 +107,10 @@ class NovelRecentsAdapter(
                     .map { it.toRecentsChapter(group.readInOtherSources) },
                 rowChapterId = lane.chapter.chapterId,
             )
+            // Same fallback as the manga twin: the cross-source stitch can drop this novel's own
+            // chapters, and without it a merged row on this lane resolves nothing and the tap dies.
             RecentsLane.Added -> firstUnreadOf(groupChapters)
+                ?: getNextNovelChapter.awaitFirstUnread(novelId)?.id
         }
         return chapterId?.let { ChapterRef(item.entryId, it) }
     }
@@ -176,7 +178,7 @@ class NovelRecentsAdapter(
 
     override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
         val novel = novelOf(entry) ?: return
-        novelLibraryAdder.confirmCategories(NovelCategoryTarget.Stored(novel.id), categoryIds)
+        novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
@@ -197,6 +199,21 @@ class NovelRecentsAdapter(
     }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)
+
+    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = novelDownloadUi(item)
+}
+
+/**
+ * The novel row stores a state rather than a provider, and cannot answer byte progress at all until
+ * the download subsystems merge, which it declares rather than reporting a zero the renderer could
+ * not tell from a download that has genuinely started.
+ */
+internal fun novelDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
+    is NovelUpdatesItem -> RecentsDownloadUi(
+        state = { payload.downloadState },
+        progress = RecentsDownloadProgress.Unsupported,
+    )
+    else -> null
 }
 
 /** Free for the same reason as its manga twin: an adapter cannot be built in a unit test. */

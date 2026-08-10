@@ -81,6 +81,13 @@ interface RecentsProvider : RecentsBehavior {
     fun rowUi(item: RecentsItem): RecentsRowUi
 
     /**
+     * This row's download state, null where the row has no chapter to download. Separate from [rowUi]
+     * because these are callbacks the renderer polls, not values, and folding them into an immutable
+     * projection would make its equality meaningless.
+     */
+    fun downloadUi(item: RecentsItem): RecentsDownloadUi?
+
+    /**
      * The title this row displays, which is what a search matches. Every model already writes the
      * user's custom title into the row it emits, so a renamed entry is findable by the name on screen
      * without the engine ever unwrapping a payload.

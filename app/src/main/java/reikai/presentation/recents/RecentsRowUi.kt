@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
+import eu.kanade.tachiyomi.data.download.model.Download
 
 /**
  * What one recents row draws, answered by the provider that owns the entry so the shared layer never
@@ -18,6 +19,28 @@ data class RecentsRowUi(
 
 /** A payload no adapter recognises, which only a lane added later could produce. */
 val EMPTY_RECENTS_ROW = RecentsRowUi(cover = null, title = "", isFavorite = false, chapter = null)
+
+/**
+ * A row's live download state, handed over rather than recomputed: both engines already carry it on
+ * the row they emit, which is the shape Mihon's own updates item uses. Kept off [RecentsRowUi] so that
+ * stays an honestly immutable value; these are callbacks read during composition.
+ */
+data class RecentsDownloadUi(
+    val state: () -> Download.State,
+    val progress: RecentsDownloadProgress,
+)
+
+/**
+ * How far a download has got, where the engine behind it can say. A typed slot rather than a number,
+ * because one engine cannot answer at all and a zero there is indistinguishable from a download that
+ * has genuinely made no progress.
+ */
+sealed interface RecentsDownloadProgress {
+    data class Live(val percent: () -> Int) : RecentsDownloadProgress
+
+    /** The novel downloader reports none until the two download subsystems merge. */
+    data object Unsupported : RecentsDownloadProgress
+}
 
 /**
  * The chapter half of a row, shaped by the lane it came from: the read feed stores a chapter number

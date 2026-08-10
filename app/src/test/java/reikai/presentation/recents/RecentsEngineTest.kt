@@ -561,6 +561,8 @@ private class FakeRecentsProvider(
     override fun rowUi(item: RecentsItem): RecentsRowUi =
         EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty())
 
+    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = null
+
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 
     override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {

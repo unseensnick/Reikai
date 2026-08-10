@@ -205,7 +205,7 @@ class MangaRecentsAdapter(
 
     override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
         val manga = mangaOf(entry) ?: return
-        mangaLibraryAdder.confirmCategories(manga, categoryIds)
+        mangaLibraryAdder.confirmAddCategories(manga.id, categoryIds)
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
@@ -223,6 +223,17 @@ class MangaRecentsAdapter(
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = mangaRowUi(item)
+
+    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = mangaDownloadUi(item)
+}
+
+/** The updates model already builds both providers per row, so this only hands them over. */
+internal fun mangaDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
+    is UpdatesItem -> RecentsDownloadUi(
+        state = payload.downloadStateProvider,
+        progress = RecentsDownloadProgress.Live(payload.downloadProgressProvider),
+    )
+    else -> null
 }
 
 /**

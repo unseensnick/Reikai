@@ -87,6 +87,42 @@ class AddToGroupConformanceTest {
 
 private fun category(id: Long) = Category(id = id, name = "category $id", order = 0L, flags = 0L)
 
+/**
+ * The stored-row confirm, which had no case on either side and where the two halves disagreed: one
+ * trusted the snapshot it was handed and the other re-read the row.
+ */
+class ConfirmAddCategoriesConformanceTest {
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a confirm favorites the row it files into`(probe: GroupAddProbe) = runTest {
+        probe.confirmAddCategories(listOf(3L)).favoriteWritten shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a confirm on a row already in the library does not re-favorite it`(probe: GroupAddProbe) = runTest {
+        probe.confirmAddCategories(listOf(3L), alreadyFavorite = true).favoriteWritten shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a confirm on a row that has gone writes nothing`(probe: GroupAddProbe) = runTest {
+        probe.confirmAddCategories(listOf(3L), rowExists = false).filedCategories shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the system category is never filed`(probe: GroupAddProbe) = runTest {
+        probe.confirmAddCategories(listOf(Category.UNCATEGORIZED_ID, 3L)).filedCategories shouldBe listOf(3L)
+    }
+
+    companion object {
+        @JvmStatic
+        fun probes() = listOf(MangaGroupAddProbe(), NovelGroupAddProbe())
+    }
+}
+
 /** What one add-to-group attempt wrote, in terms both content types answer the same way. */
 data class GroupAddEffects(
     /** True when the group's categories were seeded, false when it had none, null when nothing ran. */
@@ -112,6 +148,13 @@ interface GroupAddProbe {
     ): GroupAddEffects
 
     suspend fun addToExistingGroup(userCategories: List<Category>, defaultCategoryId: Int): GroupAddOutcome
+
+    /** What a stored row's picker confirm wrote. Both types favorite here, then file. */
+    suspend fun confirmAddCategories(
+        categoryIds: List<Long>,
+        rowExists: Boolean = true,
+        alreadyFavorite: Boolean = false,
+    ): GroupAddEffects
 }
 
 class MangaGroupAddProbe : GroupAddProbe {
@@ -199,6 +242,22 @@ class MangaGroupAddProbe : GroupAddProbe {
             else -> GroupAddOutcome.Added(filed)
         }
     }
+
+    override suspend fun confirmAddCategories(
+        categoryIds: List<Long>,
+        rowExists: Boolean,
+        alreadyFavorite: Boolean,
+    ): GroupAddEffects {
+        reset()
+        adder(true, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
+            .confirmAddCategories(mangaId = 1L, categoryIds = categoryIds)
+        return GroupAddEffects(
+            seeded = null,
+            merged = merged,
+            favoriteWritten = favoriteWritten,
+            filedCategories = filed,
+        )
+    }
 }
 
 class NovelGroupAddProbe : GroupAddProbe {
@@ -283,5 +342,21 @@ class NovelGroupAddProbe : GroupAddProbe {
             is NovelBrowseDialog.ChangeCategory -> GroupAddOutcome.Prompt(dialog.initialSelection.map { it.value })
             else -> GroupAddOutcome.Added(filed)
         }
+    }
+
+    override suspend fun confirmAddCategories(
+        categoryIds: List<Long>,
+        rowExists: Boolean,
+        alreadyFavorite: Boolean,
+    ): GroupAddEffects {
+        reset()
+        adder(true, alreadyFavorite, rowExists, emptyList(), emptyList(), -1)
+            .confirmAddCategories(novelId = 1L, categoryIds = categoryIds)
+        return GroupAddEffects(
+            seeded = null,
+            merged = merged,
+            favoriteWritten = favoriteWritten,
+            filedCategories = filed,
+        )
     }
 }
