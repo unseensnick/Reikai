@@ -530,7 +530,8 @@ private class FakeRecentsProvider(
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
     override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
 
-    override fun title(item: RecentsItem): String = titles[item.entryId].orEmpty()
+    override fun rowUi(item: RecentsItem): RecentsRowUi =
+        EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty())
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 

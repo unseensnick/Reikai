@@ -217,12 +217,40 @@ class MangaRecentsAdapter(
     override suspend fun detailsScreen(entry: EntryId): Screen? =
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
 
-    override fun title(item: RecentsItem): String = when (val payload = item.payload) {
-        is UpdatesItem -> payload.update.mangaTitle
-        is HistoryWithRelations -> payload.title
-        is RecentlyAddedManga -> payload.title
-        else -> ""
-    }
+    override fun rowUi(item: RecentsItem): RecentsRowUi = mangaRowUi(item)
+}
+
+/**
+ * Free rather than a member for the same reason the item mappers below are: an adapter resolves Injekt
+ * while it is being constructed, so nothing on one can be reached from a unit test.
+ */
+internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = item.payload) {
+    is UpdatesItem -> RecentsRowUi(
+        cover = payload.update.coverData,
+        title = payload.update.mangaTitle,
+        // updatesView is favorite-gated, so a row on this lane is always in the library.
+        isFavorite = true,
+        chapter = namedChapter(
+            name = payload.update.chapterName,
+            read = payload.update.read,
+            bookmark = payload.update.bookmark,
+            progress = RecentsProgress.Pages(payload.update.lastPageRead),
+        ),
+    )
+    is HistoryWithRelations -> RecentsRowUi(
+        cover = payload.coverData,
+        title = payload.title,
+        // historyView is not favorite-gated: a read entry may never have been added.
+        isFavorite = payload.coverData.isMangaFavorite,
+        chapter = RecentsChapterUi.Number(payload.chapterNumber),
+    )
+    is RecentlyAddedManga -> RecentsRowUi(
+        cover = payload.coverData,
+        title = payload.title,
+        isFavorite = true,
+        chapter = null,
+    )
+    else -> EMPTY_RECENTS_ROW
 }
 
 internal fun UpdatesItem.toRecentsItem(): RecentsItem = RecentsItem(

@@ -3,9 +3,12 @@ package reikai.presentation.recents
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.coil.NovelCover
-import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.recents.RecentlyAddedManga
@@ -17,186 +20,224 @@ import tachiyomi.domain.updates.model.UpdatesWithRelations
 import java.util.Date
 
 /**
- * The adapters' row mapping, twinned per content type. Two things it pins that nothing else can: the
- * two engines' timestamps arrive in different types (`java.util.Date` on manga history, `Long` on
- * novel history) and must leave as one, and a raw row id must never become an identity a mixed feed
- * could confuse with the other type's.
+ * The adapters' row mapping and display projection, pinned once for both content types rather than as
+ * a twin pair. Three things it pins that nothing else can: the two engines hand over timestamps in
+ * different types and must leave as one, a raw row id must never become an identity a mixed feed could
+ * confuse with the other type's, and progress shows only where reading stopped short.
  */
 class RecentsMappingTest {
 
-    private val mangaCover = MangaCover(
-        mangaId = 7,
-        sourceId = 1,
-        isMangaFavorite = true,
-        url = null,
-        lastModified = 0,
-    )
-    private val novelCover = NovelCover(
-        url = null,
-        site = null,
-        isNovelFavorite = true,
-        lastModified = 0,
-        novelId = 7,
-    )
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an updated row is keyed by its own content type`(probe: RecentsMappingProbe) {
+        val mapped = probe.update()
 
-    @Test
-    fun `a manga update maps to the updated lane keyed as manga`() {
-        val item = mangaUpdate(mangaId = 7, chapterId = 70, dateFetch = 1000)
-
-        val mapped = item.toRecentsItem()
-
-        mapped.entryId shouldBe EntryId.Manga(7)
+        (mapped.entryId.contentType to mapped.entryId.rawId) shouldBe (probe.contentType to 7L)
     }
 
-    @Test
-    fun `a novel update maps to the updated lane keyed as novel`() {
-        val item = novelUpdate(novelId = 7, chapterId = 70, dateFetch = 1000)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a read time arrives as epoch millis whatever the engine stores`(probe: RecentsMappingProbe) {
+        probe.history(readAt = 4321L).timestamp shouldBe 4321L
+    }
 
-        val mapped = item.toRecentsItem()
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an entry never read carries no timestamp rather than a null one`(probe: RecentsMappingProbe) {
+        probe.history(readAt = null).timestamp shouldBe 0L
+    }
 
-        mapped.entryId shouldBe EntryId.Novel(7)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a recently added row has no chapter to open`(probe: RecentsMappingProbe) {
+        probe.added().lane shouldBe RecentsLane.Added
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an updated row projects the chapter's name and flags`(probe: RecentsMappingProbe) {
+        val chapter = probe.rowUi(probe.update(bookmark = true)).chapter
+            .shouldBeInstanceOf<RecentsChapterUi.Named>()
+
+        (chapter.name to chapter.bookmark) shouldBe ("c" to true)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a chapter left unfinished keeps its progress`(probe: RecentsMappingProbe) {
+        val chapter = probe.rowUi(probe.update(read = false, started = true)).chapter
+
+        chapter.shouldBeInstanceOf<RecentsChapterUi.Named>().progress shouldBe probe.startedProgress()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a chapter already read shows no progress`(probe: RecentsMappingProbe) {
+        val chapter = probe.rowUi(probe.update(read = true, started = true)).chapter
+
+        chapter.shouldBeInstanceOf<RecentsChapterUi.Named>().progress shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a read row projects a chapter number rather than a name`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.history(readAt = 4321L)).chapter shouldBe RecentsChapterUi.Number(1.0)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a recently added row projects no chapter at all`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.added()).chapter shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a row on a favorite-gated lane reports itself in the library`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.update()).isFavorite shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a title is read out of the row the feed emitted`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.update()).title shouldBe "t"
     }
 
     @Test
     fun `a manga and a novel sharing a row id are not the same entry`() {
-        val manga = mangaUpdate(mangaId = 7, chapterId = 70, dateFetch = 1000).toRecentsItem()
-        val novel = novelUpdate(novelId = 7, chapterId = 70, dateFetch = 1000).toRecentsItem()
+        val manga = MangaRecentsMappingProbe().update()
+        val novel = NovelRecentsMappingProbe().update()
 
         (manga.entryId == novel.entryId) shouldBe false
     }
 
     @Test
     fun `a manga and a novel sharing a chapter row id are not the same chapter`() {
-        val manga = mangaUpdate(mangaId = 7, chapterId = 70, dateFetch = 1000).toRecentsItem()
-        val novel = novelUpdate(novelId = 7, chapterId = 70, dateFetch = 1000).toRecentsItem()
-
         val chapters = setOf(
-            (manga.lane as RecentsLane.Updated).chapter,
-            (novel.lane as RecentsLane.Updated).chapter,
+            (MangaRecentsMappingProbe().update().lane as RecentsLane.Updated).chapter,
+            (NovelRecentsMappingProbe().update().lane as RecentsLane.Updated).chapter,
         )
 
         chapters.size shouldBe 2
     }
 
-    @Test
-    fun `manga history's Date timestamp arrives as epoch millis`() {
-        val row = HistoryWithRelations(
-            id = 1,
-            chapterId = 70,
-            mangaId = 7,
-            title = "t",
-            chapterNumber = 1.0,
-            readAt = Date(4321),
-            readDuration = 0,
-            coverData = mangaCover,
-        )
-
-        row.toRecentsItem().timestamp shouldBe 4321L
+    companion object {
+        @JvmStatic
+        fun probes() = listOf(MangaRecentsMappingProbe(), NovelRecentsMappingProbe())
     }
+}
 
-    @Test
-    fun `novel history's Long timestamp arrives as epoch millis`() {
-        val row = NovelHistoryWithRelations(
-            id = 1,
-            chapterId = 70,
-            novelId = 7,
-            title = "t",
-            chapterNumber = 1.0,
-            readAt = 4321,
-            readDuration = 0,
-            coverData = novelCover,
-        )
+/**
+ * One content type's rows, normalized so both answer in the same shape. Every row uses id 7 and
+ * chapter id 70, which is what lets the two cross-type cases above prove the id spaces stay apart.
+ */
+interface RecentsMappingProbe {
+    val contentType: ContentType
 
-        row.toRecentsItem().timestamp shouldBe 4321L
-    }
+    fun update(read: Boolean = false, bookmark: Boolean = false, started: Boolean = false): RecentsItem
 
-    @Test
-    fun `a manga never read carries no timestamp rather than a null one`() {
-        val row = HistoryWithRelations(
-            id = 1,
-            chapterId = 70,
-            mangaId = 7,
-            title = "t",
-            chapterNumber = 1.0,
-            readAt = null,
-            readDuration = 0,
-            coverData = mangaCover,
-        )
+    fun history(readAt: Long?): RecentsItem
 
-        row.toRecentsItem().timestamp shouldBe 0L
-    }
+    fun added(): RecentsItem
 
-    @Test
-    fun `a novel never read carries no timestamp rather than a null one`() {
-        val row = NovelHistoryWithRelations(
-            id = 1,
-            chapterId = 70,
-            novelId = 7,
-            title = "t",
-            chapterNumber = 1.0,
-            readAt = null,
-            readDuration = 0,
-            coverData = novelCover,
-        )
+    fun rowUi(item: RecentsItem): RecentsRowUi
 
-        row.toRecentsItem().timestamp shouldBe 0L
-    }
+    /** What a started chapter reports, in this engine's own unit. */
+    fun startedProgress(): RecentsProgress
+}
 
-    @Test
-    fun `a recently added manga has no chapter to open`() {
-        val row = RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = mangaCover)
+class MangaRecentsMappingProbe : RecentsMappingProbe {
 
-        row.toRecentsItem().lane shouldBe RecentsLane.Added
-    }
+    override val contentType = ContentType.MANGA
 
-    @Test
-    fun `a recently added novel has no chapter to open`() {
-        val row = RecentlyAddedNovel(
-            novelId = 7,
-            title = "t",
-            source = "s",
-            url = "u",
-            dateAdded = 99,
-            coverData = novelCover,
-        )
+    override fun toString() = "manga"
 
-        row.toRecentsItem().lane shouldBe RecentsLane.Added
-    }
+    private val cover = MangaCover(mangaId = 7, sourceId = 1, isMangaFavorite = true, url = null, lastModified = 0)
 
-    private fun mangaUpdate(mangaId: Long, chapterId: Long, dateFetch: Long) = UpdatesItem(
+    override fun update(read: Boolean, bookmark: Boolean, started: Boolean) = UpdatesItem(
         update = UpdatesWithRelations(
-            mangaId = mangaId,
+            mangaId = 7,
             mangaTitle = "t",
-            chapterId = chapterId,
+            chapterId = 70,
             chapterName = "c",
             scanlator = null,
             chapterUrl = "u",
-            read = false,
-            bookmark = false,
-            lastPageRead = 0,
+            read = read,
+            bookmark = bookmark,
+            lastPageRead = if (started) 5L else 0L,
             sourceId = 1,
-            dateFetch = dateFetch,
-            coverData = mangaCover,
+            dateFetch = 1000,
+            coverData = cover,
         ),
         downloadStateProvider = { Download.State.NOT_DOWNLOADED },
         downloadProgressProvider = { 0 },
-    )
+    ).toRecentsItem()
 
-    private fun novelUpdate(novelId: Long, chapterId: Long, dateFetch: Long) = NovelUpdatesItem(
+    override fun history(readAt: Long?) = HistoryWithRelations(
+        id = 1,
+        chapterId = 70,
+        mangaId = 7,
+        title = "t",
+        chapterNumber = 1.0,
+        readAt = readAt?.let { Date(it) },
+        readDuration = 0,
+        coverData = cover,
+    ).toRecentsItem()
+
+    override fun added() =
+        RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover).toRecentsItem()
+
+    override fun rowUi(item: RecentsItem) = mangaRowUi(item)
+
+    override fun startedProgress() = RecentsProgress.Pages(5L)
+}
+
+class NovelRecentsMappingProbe : RecentsMappingProbe {
+
+    override val contentType = ContentType.NOVELS
+
+    override fun toString() = "novel"
+
+    private val cover = NovelCover(url = null, site = null, isNovelFavorite = true, lastModified = 0, novelId = 7)
+
+    override fun update(read: Boolean, bookmark: Boolean, started: Boolean) = NovelUpdatesItem(
         update = NovelUpdateWithRelations(
-            novelId = novelId,
+            novelId = 7,
             novelTitle = "t",
-            chapterId = chapterId,
+            chapterId = 70,
             chapterName = "c",
             chapterUrl = "u",
-            read = false,
-            bookmark = false,
-            lastTextProgress = 0,
+            read = read,
+            bookmark = bookmark,
+            lastTextProgress = if (started) 5000L else 0L,
             source = "s",
-            dateFetch = dateFetch,
-            coverData = novelCover,
+            dateFetch = 1000,
+            coverData = cover,
             novelUrl = "nu",
         ),
         downloadState = Download.State.NOT_DOWNLOADED,
-    )
+    ).toRecentsItem()
+
+    override fun history(readAt: Long?) = NovelHistoryWithRelations(
+        id = 1,
+        chapterId = 70,
+        novelId = 7,
+        title = "t",
+        chapterNumber = 1.0,
+        readAt = readAt,
+        readDuration = 0,
+        coverData = cover,
+    ).toRecentsItem()
+
+    override fun added() = RecentlyAddedNovel(
+        novelId = 7,
+        title = "t",
+        source = "s",
+        url = "u",
+        dateAdded = 99,
+        coverData = cover,
+    ).toRecentsItem()
+
+    override fun rowUi(item: RecentsItem) = novelRowUi(item)
+
+    override fun startedProgress() = RecentsProgress.Percent(5000L)
 }

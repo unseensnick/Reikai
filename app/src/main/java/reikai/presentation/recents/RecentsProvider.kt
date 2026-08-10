@@ -67,11 +67,18 @@ interface RecentsProvider : RecentsBehavior {
     val membership: Flow<Map<EntryId, Long>>
 
     /**
-     * The title this row displays, which is what a search matches. Each adapter reads its own payload,
-     * and every model already writes the user's custom title into the row it emits, so a renamed entry
-     * is findable by the name on screen without the engine ever unwrapping a payload.
+     * Everything [item] draws, read out of this type's own payload. Answered per rendered row rather
+     * than baked into the item, matching the other two accessors here, so an assembly stays cheap and
+     * a row that never reaches the screen is never projected.
      */
-    fun title(item: RecentsItem): String
+    fun rowUi(item: RecentsItem): RecentsRowUi
+
+    /**
+     * The title this row displays, which is what a search matches. Every model already writes the
+     * user's custom title into the row it emits, so a renamed entry is findable by the name on screen
+     * without the engine ever unwrapping a payload.
+     */
+    fun title(item: RecentsItem): String = rowUi(item).title
 
     /**
      * The details screen for [entry], resolved rather than constructed by the caller: a novel screen is

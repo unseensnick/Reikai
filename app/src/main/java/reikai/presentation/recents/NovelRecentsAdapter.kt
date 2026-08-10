@@ -191,12 +191,37 @@ class NovelRecentsAdapter(
         return NovelScreen(novel.source, novel.url)
     }
 
-    override fun title(item: RecentsItem): String = when (val payload = item.payload) {
-        is NovelUpdatesItem -> payload.update.novelTitle
-        is NovelHistoryWithRelations -> payload.title
-        is RecentlyAddedNovel -> payload.title
-        else -> ""
-    }
+    override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)
+}
+
+/** Free for the same reason as its manga twin: an adapter cannot be built in a unit test. */
+internal fun novelRowUi(item: RecentsItem): RecentsRowUi = when (val payload = item.payload) {
+    is NovelUpdatesItem -> RecentsRowUi(
+        cover = payload.update.coverData,
+        title = payload.update.novelTitle,
+        // novelUpdatesView is favorite-gated, so a row on this lane is always in the library.
+        isFavorite = true,
+        chapter = namedChapter(
+            name = payload.update.chapterName,
+            read = payload.update.read,
+            bookmark = payload.update.bookmark,
+            progress = RecentsProgress.Percent(payload.update.lastTextProgress),
+        ),
+    )
+    is NovelHistoryWithRelations -> RecentsRowUi(
+        cover = payload.coverData,
+        title = payload.title,
+        // novelHistoryView is not favorite-gated: a read entry may never have been added.
+        isFavorite = payload.coverData.isNovelFavorite,
+        chapter = RecentsChapterUi.Number(payload.chapterNumber),
+    )
+    is RecentlyAddedNovel -> RecentsRowUi(
+        cover = payload.coverData,
+        title = payload.title,
+        isFavorite = true,
+        chapter = null,
+    )
+    else -> EMPTY_RECENTS_ROW
 }
 
 internal const val ADDED_LANE_LIMIT = 500L
