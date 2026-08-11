@@ -457,6 +457,27 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `flipping the chip drops a selection it may now hide`() {
+        val engine = engine(listOf(provider(ContentType.MANGA)))
+        engine.toggleSelection(ref(manga1, 1))
+
+        engine.setContentType(ContentType.NOVELS)
+
+        engine.selection.value shouldBe emptySet()
+    }
+
+    @Test
+    fun `History offers no affordance that would act on another surface`() {
+        RecentsMode.HISTORY.capabilities shouldBe emptySet()
+    }
+
+    @Test
+    fun `the grouping toggle belongs to the Updates mode alone`() {
+        RecentsMode.entries.filter { it.can(RecentsCapability.GROUPING) } shouldContainExactly
+            listOf(RecentsMode.UPDATES)
+    }
+
+    @Test
     fun `a refresh that starts one library reports a start, not an already-running`() {
         val manga = provider(ContentType.MANGA, refreshStarts = false)
         val novel = provider(ContentType.NOVELS, refreshStarts = true)

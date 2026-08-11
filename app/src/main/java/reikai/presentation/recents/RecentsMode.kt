@@ -31,10 +31,24 @@ enum class RecentsMode {
         }
 
     /**
-     * Whether rows here can be selected. History has never had selection and does not gain it at the
-     * cutover, so declaring it per mode is what stops the shared shell offering an action mode that
-     * reaches nothing.
+     * What this mode offers. One typed set rather than a Boolean per affordance: the shell asks about
+     * several of these, and a row of flags is the shape that lets two of them drift into an illegal
+     * combination nobody rules on. A capability a mode lacks is not drawn, never drawn disabled.
      */
-    val supportsSelection: Boolean
-        get() = this == UPDATES
+    val capabilities: Set<RecentsCapability>
+        get() = when (this) {
+            // History has never had either, and does not gain them at the cutover: the filter sheet
+            // still writes the Updates surface's keys, so offering it here would edit another feed.
+            HISTORY -> emptySet()
+            UPDATES -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER, RecentsCapability.GROUPING)
+            FEED, DIGEST -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER)
+        }
+
+    fun can(capability: RecentsCapability): Boolean = capability in capabilities
 }
+
+/**
+ * An affordance a mode either has or does not. [GROUPING] is the Updates mode's own display toggle;
+ * the combined modes leave it out because they have no ungrouped reading to switch to.
+ */
+enum class RecentsCapability { SELECTION, CHAPTER_FILTER, GROUPING }

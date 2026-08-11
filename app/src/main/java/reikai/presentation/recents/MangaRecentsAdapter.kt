@@ -46,11 +46,26 @@ import uy.kohesive.injekt.injectLazy
  * building the updates model and running its query. Nothing reaches an absent one: the engine asks
  * only for the lanes it renders, and [chapterActions] is null without the updates model.
  */
-class MangaRecentsAdapter(
+class MangaRecentsAdapter private constructor(
     private val updatesModel: UpdatesViewModel?,
     private val historyModel: HistoryViewModel?,
     private val surface: RecentsSurface,
 ) : RecentsProvider {
+
+    /**
+     * One entry point per surface, so the models a surface holds and the surface it says it is cannot
+     * disagree, and neither can a caller ask for an adapter with no models at all.
+     */
+    companion object {
+        fun forUpdates(updatesModel: UpdatesViewModel) =
+            MangaRecentsAdapter(updatesModel, historyModel = null, surface = RecentsSurface.UPDATES)
+
+        fun forHistory(historyModel: HistoryViewModel) =
+            MangaRecentsAdapter(updatesModel = null, historyModel = historyModel, surface = RecentsSurface.HISTORY)
+
+        fun forRecents(updatesModel: UpdatesViewModel, historyModel: HistoryViewModel) =
+            MangaRecentsAdapter(updatesModel, historyModel, surface = RecentsSurface.RECENTS)
+    }
 
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()

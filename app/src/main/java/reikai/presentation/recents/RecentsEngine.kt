@@ -114,7 +114,16 @@ class RecentsEngine(
         chipPreference.changes().stateIn(viewModelScope, SharingStarted.Eagerly, chipPreference.get())
     }
 
-    fun setContentType(type: ContentType) = chipPreference.set(type)
+    /**
+     * Flipping the chip drops the selection, matching the library engine. Rows the chip now hides
+     * would otherwise keep counting in the toolbar until the next assembly prunes them, promising
+     * more than the verbs would touch.
+     */
+    fun setContentType(type: ContentType) {
+        if (contentType.value == type) return
+        clearSelection()
+        chipPreference.set(type)
+    }
 
     private val chipPreference: Preference<ContentType>
         get() = when (surface) {

@@ -44,11 +44,23 @@ import kotlin.time.Clock
  * this adapter at the cutover, where the manga pair stays live behind theirs; until then both sides
  * are wrapped the same way so the seam is symmetric.
  */
-class NovelRecentsAdapter(
+class NovelRecentsAdapter private constructor(
     private val updatesModel: NovelUpdatesViewModel?,
     private val historyModel: NovelHistoryViewModel?,
     private val surface: RecentsSurface,
 ) : RecentsProvider {
+
+    /** One entry point per surface, the twin of [MangaRecentsAdapter]'s. */
+    companion object {
+        fun forUpdates(updatesModel: NovelUpdatesViewModel) =
+            NovelRecentsAdapter(updatesModel, historyModel = null, surface = RecentsSurface.UPDATES)
+
+        fun forHistory(historyModel: NovelHistoryViewModel) =
+            NovelRecentsAdapter(updatesModel = null, historyModel = historyModel, surface = RecentsSurface.HISTORY)
+
+        fun forRecents(updatesModel: NovelUpdatesViewModel, historyModel: NovelHistoryViewModel) =
+            NovelRecentsAdapter(updatesModel, historyModel, surface = RecentsSurface.RECENTS)
+    }
 
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
     private val recentlyAdded: RecentlyAddedRepository by injectLazy()
