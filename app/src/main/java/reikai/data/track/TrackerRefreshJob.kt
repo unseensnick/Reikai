@@ -75,7 +75,7 @@ class TrackerRefreshJob(
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
             setContentTitle(context.stringResource(MR.strings.tracker_refresh_progress))
-            setSmallIcon(android.R.drawable.stat_notify_sync)
+            setSmallIcon(R.drawable.ic_refresh_24dp)
             setOngoing(true)
             setOnlyAlertOnce(true)
             priority = NotificationCompat.PRIORITY_LOW
@@ -202,7 +202,7 @@ private class TrackerRefreshNotifier(
 
     private val progressBuilder = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
         setContentTitle(context.stringResource(MR.strings.tracker_refresh_progress))
-        setSmallIcon(android.R.drawable.stat_notify_sync)
+        setSmallIcon(R.drawable.ic_refresh_24dp)
         setOngoing(true)
         setOnlyAlertOnce(true)
         priority = NotificationCompat.PRIORITY_LOW
@@ -219,7 +219,7 @@ private class TrackerRefreshNotifier(
     fun showNothingTracked() {
         context.notify(Notifications.ID_TRACKER_REFRESH_RESULT, Notifications.CHANNEL_LIBRARY_PROGRESS) {
             setContentTitle(context.stringResource(MR.strings.tracker_refresh_none))
-            setSmallIcon(android.R.drawable.stat_notify_sync)
+            setSmallIcon(R.drawable.ic_refresh_24dp)
             setAutoCancel(true)
         }
     }
@@ -238,7 +238,7 @@ private class TrackerRefreshNotifier(
                         failedTrackers.takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = ": ").orEmpty(),
                 )
             }
-            setSmallIcon(android.R.drawable.stat_notify_sync)
+            setSmallIcon(R.drawable.ic_refresh_24dp)
             setAutoCancel(true)
         }
     }

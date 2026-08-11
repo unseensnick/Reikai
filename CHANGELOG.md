@@ -170,6 +170,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Tapping the Library button again while the Novels library is showing now opens the novel settings, not the manga ones.**
 - **Searching your library from another screen now searches the library you are looking at.** It always searched manga, whichever chip was selected.
 - **Updating the novel library now tells you when an update is already running.** It used to say it had started a new one every time.
+- **A big library update no longer loses the notification group it just posted.** Past a certain number Android refuses the rest, which cost novel updates their summary and left a stray system-drawn icon in the status bar.
+- **The tracker refresh notification now carries the Reikai icon.** It was showing a generic Android sync glyph.
 - **A novel filter that matches nothing no longer says your library is empty.** Your novels are still there, behind the filter.
 - **Collapsing a category in the novel library now sticks.** It sprang back open every time you left the library or restarted the app.
 - **Novel update notifications now carry the Reikai icon instead of a generic book, like manga.**

@@ -222,7 +222,9 @@ class LibraryUpdateNotifier(
         if (!securityPreferences.hideNotificationContent.get()) {
             launchUI {
                 context.notify(
-                    updates.map { (manga, chapters) ->
+                    // RK: capped, because everything a package posts past Android's 50 live
+                    //     notifications is refused, and a big update loses its tail unannounced.
+                    updates.take(Notifications.MAX_ENTRY_UPDATE_NOTIFICATIONS).map { (manga, chapters) ->
                         NotificationManagerCompat.NotificationWithIdAndTag(
                             manga.id.hashCode(),
                             // RK: hide the title + cover for adult manga

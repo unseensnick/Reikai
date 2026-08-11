@@ -58,7 +58,7 @@ class NovelUpdateNotifier(private val context: Context) {
      *  when nothing changed. Mirrors the manga per-title update notifications. */
     fun showResults(updates: List<Pair<Novel, Int>>) {
         if (updates.isEmpty()) return
-        val perNovel = updates.map { (novel, newChapters) ->
+        val perNovel = updates.take(Notifications.MAX_ENTRY_UPDATE_NOTIFICATIONS).map { (novel, newChapters) ->
             novel.id.hashCode() to context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
                 setContentTitle(novel.title)
                 setContentText(
@@ -80,8 +80,11 @@ class NovelUpdateNotifier(private val context: Context) {
             setContentIntent(openLibraryPendingIntent())
         }.build()
         with(context.notificationManager) {
-            perNovel.forEach { (id, notification) -> notify(id, notification) }
+            // The summary goes first, as the manga updater's does. Posted last it is the one Android
+            // refuses at the package budget, and children with no summary of their own get an
+            // invented one drawn with the launcher icon.
             notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
+            perNovel.forEach { (id, notification) -> notify(id, notification) }
         }
     }
 

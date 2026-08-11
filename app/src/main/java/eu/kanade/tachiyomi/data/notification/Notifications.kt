@@ -31,6 +31,12 @@ object Notifications {
     const val CHANNEL_LIBRARY_ERROR = "library_errors_channel"
     const val ID_LIBRARY_ERROR = -102
 
+    // RK: how many per-entry notifications either library updater may post. Android refuses
+    //     everything a package posts past 50 live notifications, so an unbounded update loses its
+    //     tail, and the group summary with it if the summary is posted last. Both updaters stop
+    //     short of the budget and leave room for downloads, backups and progress.
+    const val MAX_ENTRY_UPDATE_NOTIFICATIONS = 20
+
     // RK: light-novel chapter update job, grouped with the manga library updater
     const val CHANNEL_NOVEL_LIBRARY_PROGRESS = "novel_library_progress_channel"
     const val ID_NOVEL_LIBRARY_PROGRESS = -104
