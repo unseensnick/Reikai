@@ -2,6 +2,8 @@
 
 One Updates feed that interleaves manga and light-novel chapter updates behind an All / Manga / Novels chip, with shared filters, an include/exclude by-category filter, and an optional group-by-series collapse.
 
+**Superseded by the recents surface.** The feature described here shipped and still shipped every behaviour below, but the shell it names (`ReikaiUpdatesScreen`) has been replaced by the shared recents screen and engine, and the file is gone. Read this for why the surface works the way it does; read [content-layer-recents-surface.md](content-layer-recents-surface.md) for what runs today.
+
 ## Goal
 
 Give Reikai a single Updates surface where new manga chapters and new novel chapters appear together in one time-ordered feed, and where every cross-cutting Updates feature (the filter sheet, a filter-by-category control, and a group-by-series collapse) works the same on all three chips: All, Manga, and Novels.

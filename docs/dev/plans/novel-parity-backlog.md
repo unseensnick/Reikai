@@ -16,7 +16,7 @@ Grouped by the area of the app each touches. Each entry describes current behavi
 
 ### History
 
-**Novel reading history in the History tab.** Novel reads now appear in the same History tab as manga, behind an All / Manga / Novels chip, the way the Updates tab consolidates both content types. Mihon's untouched manga `HistoryViewModel` and a new `NovelHistoryViewModel` both render through one `ReikaiHistoryScreen`: one search box and one clear-all drive both, rows interleave by read time (newest first) under shared date headers. The novel reader records history on chapter switch and on exit via a session timer that accumulates `time_read` (the novel twin of `ReaderViewModel.updateHistory`). Data sits in a `novel_history` table plus a `novelHistoryView` that collapses to one row per novel (the chapter with the latest read time). Resume reopens the recorded chapter if it is still unread, else the next one. Soft-delete one row, reset by novel, and clear-all are all scoped to the active chip, so a Novels-scoped clear leaves manga history intact. This is the History half of the old "unified Recents," and is the direct twin of the Updates consolidation (see `unified-updates.md`).
+**Novel reading history in the History tab.** Novel reads now appear in the same History tab as manga, behind an All / Manga / Novels chip, the way the Updates tab consolidates both content types. Mihon's untouched manga `HistoryViewModel` and a new `NovelHistoryViewModel` both feed the shared recents screen: one search box and one clear-all drive both, rows interleave by read time (newest first) under shared date headers. The novel reader records history on chapter switch and on exit via a session timer that accumulates `time_read` (the novel twin of `ReaderViewModel.updateHistory`). Data sits in a `novel_history` table plus a `novelHistoryView` that collapses to one row per novel (the chapter with the latest read time). Resume reopens the recorded chapter if it is still unread, else the next one. Soft-delete one row, reset by novel, and clear-all are all scoped to the active chip, so a Novels-scoped clear leaves manga history intact. This is the History half of the old "unified Recents," and is the direct twin of the Updates consolidation (see `unified-updates.md`).
 
 ### Migration
 
@@ -65,7 +65,7 @@ Per-novel Notes introduced the additive `NovelUpdate` partial-update path: a fre
 ## Key files
 
 History
-- `app/src/main/java/reikai/presentation/history/ReikaiHistoryScreen.kt` (the host behind the All / Manga / Novels chip)
+- `app/src/main/java/reikai/presentation/recents/RecentsScreen.kt` (the host behind the All / Manga / Novels chip)
 - `app/src/main/java/reikai/presentation/history/NovelHistoryViewModel.kt`
 - `data/src/main/sqldelight/tachiyomi/data/novel_history.sq` (the `novel_history` table) and `data/src/main/sqldelight/tachiyomi/view/novelHistoryView.sq` (the per-novel view)
 
