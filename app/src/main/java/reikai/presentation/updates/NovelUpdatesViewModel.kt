@@ -56,7 +56,7 @@ import kotlin.time.Clock
  * Drives the light-novel side of the Updates tab, the novel twin of
  * [eu.kanade.tachiyomi.ui.updates.UpdatesViewModel]. Subscribes to the recent-novel-updates feed
  * (chapters fetched after the novel was added) and the download queue, exposing a flat list the
- * combined [ReikaiUpdatesScreen] groups by date. Chapter-read/bookmark/download actions reuse the
+ * shared recents screen groups by date. Chapter-read/bookmark/download actions reuse the
  * novel repos + [NovelDownloadManager]. Novels rely on the manga tab's unread-count badge reset, so
  * there is nothing to reset here.
  */

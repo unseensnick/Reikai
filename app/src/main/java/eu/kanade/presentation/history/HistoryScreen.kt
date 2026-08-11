@@ -7,9 +7,9 @@ package eu.kanade.presentation.history
 import kotlinx.datetime.LocalDate
 import tachiyomi.domain.history.model.HistoryWithRelations
 
-// RK: the screen body and its previews moved to the shared reikai.presentation.history
-// .ReikaiHistoryScreen (manga + novel history render through it now). Only the ui model stays,
-// because Mihon's HistoryViewModel still emits it and the shared screen consumes it.
+// RK: the screen body and its previews moved to the shared reikai.presentation.recents.RecentsScreen
+// (manga + novel history render through it now). Only the ui model stays, because Mihon's
+// HistoryViewModel still emits it and the recents engine consumes it.
 
 sealed interface HistoryUiModel {
     data class Header(val date: LocalDate) : HistoryUiModel

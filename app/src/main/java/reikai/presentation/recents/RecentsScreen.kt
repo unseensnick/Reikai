@@ -85,11 +85,13 @@ fun Screen.RecentsScreen(
     title: String,
     onFilterClicked: () -> Unit,
     modifier: Modifier = Modifier,
+    // Hoisted so a tab that speaks for itself can be heard: History's reselect resume answers "no next
+    // chapter" from outside this screen, and a host of its own would render nowhere.
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val context = LocalContext.current
     val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     val mode by engine.mode.collectAsState()
     val contentType by engine.contentType.collectAsState()
@@ -428,6 +430,7 @@ private fun LazyListScope.recentsRows(
                 item = row.item,
                 engine = engine,
                 selected = row.item.lane.chapterRef in selection,
+                selectionActive = selection.isNotEmpty(),
                 onPress = ::press,
                 onLongPress = ::longPress,
                 onOpenDetails = onOpenDetails,
@@ -492,6 +495,7 @@ private fun RecentsEntryRow(
     item: RecentsItem,
     engine: RecentsEngine,
     selected: Boolean,
+    selectionActive: Boolean,
     onPress: (RecentsItem) -> Unit,
     onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
@@ -512,10 +516,12 @@ private fun RecentsEntryRow(
                 readProgress = readProgressLabel(chapter.progress),
                 onClick = { onPress(item) },
                 onLongClick = { onLongPress(item) },
-                onClickCover = { onOpenDetails(item.entryId) },
-                onDownloadChapter = ref?.let {
-                    { action: ChapterDownloadAction -> engine.download(setOf(it), action) }
-                },
+                // Both go quiet during a sweep, as the replaced screen and upstream's row do: a cover
+                // tap mid-selection navigates away and takes the selection with it.
+                onClickCover = { onOpenDetails(item.entryId) }.takeIf { !selectionActive },
+                onDownloadChapter = ref
+                    ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action) } }
+                    ?.takeIf { !selectionActive },
                 downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                 downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
                 modifier = modifier,

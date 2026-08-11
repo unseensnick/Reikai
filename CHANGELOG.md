@@ -48,6 +48,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
 - **Set how a migration searches before it runs: an extra search term, deep search, and filters for unmatched entries or ones already up to date.** Novels get the options their sources can support.
 
+**Updates & History**
+
+- **You can now search the Updates feed.** Type part of a title to narrow it, the way History already worked.
+
 **App & backup**
 
 - **Reikai can now send crash reports so bugs get found and fixed faster.** Crash logs and anonymous usage data are both opt-out, from onboarding or Settings -> Security and privacy.
@@ -159,6 +163,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Filtering the library by category no longer forgets the categories of the type you are not looking at.** Picking categories under the All chip and then confirming the picker under Manga or Novels quietly dropped the other type's choices.
 - **Moving a series to another category now updates the Updates feed straight away.** The feed kept filtering by wherever the series was when you opened the screen, until you left and came back.
 - **Tapping History again now always resumes the most recent thing you read.** A search you had typed in could send it to a different entry.
+- **Pull to refresh on Updates now spins until the library update has actually finished.** It stopped after a second whatever the update was doing.
+- **Clearing your history with the All chip up now asks once instead of twice.**
+- **A group of new chapters you expanded now stays open when the screen rotates.**
 - **A date older than about a month now says how old it really is (synced from Mihon, mihonapp/mihon#3696).** Something read 40 days ago was described as 10 days old, wherever a date is shown relatively.
 - **Tapping the Library button again while the Novels library is showing now opens the novel settings, not the manga ones.**
 - **Searching your library from another screen now searches the library you are looking at.** It always searched manga, whichever chip was selected.

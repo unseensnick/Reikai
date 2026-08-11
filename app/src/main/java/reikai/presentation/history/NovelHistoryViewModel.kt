@@ -50,9 +50,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Novel side of the consolidated History tab (the novel twin of
  * [eu.kanade.tachiyomi.ui.history.HistoryViewModel]). Mihon's manga model drives manga rows; this
- * drives novel rows, both rendered by [ReikaiHistoryScreen]. The feed is one row per novel (its
- * most-recently-read chapter), searchable by title; the consolidated screen interleaves it with the
- * manga feed and inserts the date headers, so the raw list is exposed here (no per-model UI model).
+ * drives novel rows, both rendered by the shared recents screen. The feed is one row per novel (its
+ * most-recently-read chapter), searchable by title; the recents engine interleaves it with the manga
+ * feed and inserts the date headers, so the raw list is exposed here (no per-model UI model).
  */
 class NovelHistoryViewModel(
     private val getNovelHistory: GetNovelHistory = Injekt.get(),

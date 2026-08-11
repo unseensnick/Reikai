@@ -8,39 +8,25 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
-import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
-import reikai.domain.library.ContentType
-import reikai.presentation.browse.components.EntryDuplicateDialog
-import reikai.presentation.browse.components.toDuplicateCard
-import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryViewModel
-import reikai.presentation.history.ReikaiHistoryScreen
-import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
+import reikai.presentation.recents.RecentsScreen
+import reikai.presentation.recents.rememberHistoryEngine
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.i18n.MR
@@ -72,146 +58,25 @@ data object HistoryTab : Tab {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+        val engine = rememberHistoryEngine()
+        // RK: both models stay resolved for tab-reselect, which resumes the globally latest read and
+        //     has no engine path. The engine builds these same two out of this tab's store.
         val viewModel = viewModel<HistoryViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
-        // RK -->
         val novelViewModel = viewModel<NovelHistoryViewModel>()
-        val novelState by novelViewModel.state.collectAsStateWithLifecycle()
-        val contentType by novelViewModel.contentType.collectAsState()
-        val chip: @Composable () -> Unit = {
-            ContentTypeFilterChips(selected = contentType, onSelect = novelViewModel::setContentType)
-        }
 
-        // All three chips render through one consolidated Reikai screen; manga stays Mihon's untouched
-        // HistoryViewModel (passed in), so its behavior is unchanged.
-        ReikaiHistoryScreen(
-            contentType = contentType,
-            mangaModel = viewModel,
-            novelModel = novelViewModel,
+        RecentsScreen(
+            engine = engine,
+            title = stringResource(MR.strings.history),
+            // History has no filter control until its own entry point lands: the filter sheet writes
+            // the Updates surface's keys whatever surface opened it. The mode draws no filter action,
+            // so this is never called.
+            onFilterClicked = {},
             snackbarHostState = snackbarHostState,
-            chip = chip,
-            onClickMangaCover = { navigator.push(MangaScreen(it)) },
-            onClickMangaResume = viewModel::getNextChapterForManga,
-            onClickMangaFavorite = viewModel::addFavorite,
-            onClickNovelCover = novelViewModel::openDetails,
-            onClickNovelResume = novelViewModel::resume,
-            onClickNovelFavorite = novelViewModel::addFavorite,
         )
-        // RK <--
 
-        val onDismissRequest = { viewModel.setDialog(null) }
-        when (val dialog = state.dialog) {
-            is HistoryViewModel.Dialog.Delete -> {
-                HistoryDeleteDialog(
-                    onDismissRequest = onDismissRequest,
-                    onDelete = { all ->
-                        if (all) {
-                            viewModel.removeAllFromHistory(dialog.history.mangaId)
-                        } else {
-                            viewModel.removeFromHistory(dialog.history)
-                        }
-                    },
-                )
-            }
-            is HistoryViewModel.Dialog.DeleteAll -> {
-                HistoryDeleteAllDialog(
-                    onDismissRequest = onDismissRequest,
-                    onDelete = viewModel::removeAllHistory,
-                )
-            }
-            is HistoryViewModel.Dialog.DuplicateManga -> {
-                EntryDuplicateDialog(
-                    duplicates = dialog.duplicates,
-                    toUi = { it.toDuplicateCard(dialog.sourceLabels) },
-                    onDismissRequest = onDismissRequest,
-                    onConfirm = { viewModel.addFavorite(dialog.manga) },
-                    onOpen = { navigator.push(MangaScreen(it.manga.id)) },
-                    onMigrate = { viewModel.showMigrateDialog(dialog.manga, it.manga) },
-                    // RK: offer grouping when the same-title suggestion pref is on.
-                    groupIdByEntryId = dialog.groupIdByMangaId,
-                    onAddToGroup = { selectedIds: List<Long> ->
-                        viewModel.addToExistingGroup(dialog.manga, selectedIds)
-                    }.takeIf { dialog.suggestGroup },
-                )
-            }
-            is HistoryViewModel.Dialog.ChangeCategory -> {
-                ChangeCategoryDialog(
-                    initialSelection = dialog.initialSelection,
-                    onDismissRequest = onDismissRequest,
-                    onEditCategories = { navigator.push(CategoryScreen()) },
-                    onConfirm = { include, _ ->
-                        viewModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
-                    },
-                )
-            }
-            is HistoryViewModel.Dialog.Migrate -> {
-                EntryMigrateFor(
-                    contentType = ContentType.MANGA,
-                    currentId = dialog.current.id,
-                    targetId = dialog.target.id,
-                    onDismissRequest = onDismissRequest,
-                )
-            }
-            null -> {}
-        }
-
-        // RK --> novel history dialogs (delete one / delete all from novel / clear all)
-        val onDismissNovelDialog = { novelViewModel.setDialog(null) }
-        when (val dialog = novelState.dialog) {
-            is NovelHistoryViewModel.Dialog.Delete -> {
-                HistoryDeleteDialog(
-                    onDismissRequest = onDismissNovelDialog,
-                    onDelete = { all ->
-                        if (all) {
-                            novelViewModel.removeAllFromHistory(dialog.history.novelId)
-                        } else {
-                            novelViewModel.removeFromHistory(dialog.history)
-                        }
-                    },
-                )
-            }
-            is NovelHistoryViewModel.Dialog.DeleteAll -> {
-                HistoryDeleteAllDialog(
-                    onDismissRequest = onDismissNovelDialog,
-                    onDelete = novelViewModel::removeAllHistory,
-                )
-            }
-            is NovelHistoryViewModel.Dialog.DuplicateNovel -> {
-                EntryDuplicateDialog(
-                    duplicates = dialog.duplicates,
-                    toUi = { it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites) },
-                    onDismissRequest = onDismissNovelDialog,
-                    onConfirm = { novelViewModel.addFavoriteAnyway(dialog.novelId) },
-                    onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
-                    onMigrate = { dup -> novelViewModel.startMigrate(dup.novel.id, dialog.novelId) },
-                    groupIdByEntryId = dialog.groupIdByNovelId,
-                    onAddToGroup = { selectedIds: List<Long> ->
-                        novelViewModel.addToExistingGroup(dialog.novelId, selectedIds)
-                    }.takeIf { dialog.suggestGroup },
-                )
-            }
-            is NovelHistoryViewModel.Dialog.ChangeCategory -> {
-                ChangeCategoryDialog(
-                    initialSelection = dialog.initialSelection,
-                    onDismissRequest = onDismissNovelDialog,
-                    onEditCategories = { navigator.push(CategoryScreen()) },
-                    onConfirm = { include, _ -> novelViewModel.applyCategories(dialog.novelId, include) },
-                )
-            }
-            is NovelHistoryViewModel.Dialog.Migrate -> {
-                EntryMigrateFor(
-                    contentType = ContentType.NOVELS,
-                    currentId = dialog.currentId,
-                    targetId = dialog.targetId,
-                    onDismissRequest = onDismissNovelDialog,
-                )
-            }
-            null -> {}
-        }
-        // RK <--
-
-        LaunchedEffect(state.list) {
-            if (state.list != null) {
+        val loaded = engine.assembled.collectAsState().value?.loading == false
+        LaunchedEffect(loaded) {
+            if (loaded) {
                 (context as? MainActivity)?.ready = true
             }
         }
@@ -221,8 +86,8 @@ data object HistoryTab : Tab {
                 when (e) {
                     HistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                    HistoryViewModel.Event.HistoryCleared ->
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
+                    // The screen announces a cleared history off its own dialog.
+                    HistoryViewModel.Event.HistoryCleared -> Unit
                     is HistoryViewModel.Event.OpenChapter -> openChapter(context, e.chapter)
                 }
             }
@@ -234,8 +99,7 @@ data object HistoryTab : Tab {
                 when (e) {
                     NovelHistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                    NovelHistoryViewModel.Event.HistoryCleared ->
-                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
+                    NovelHistoryViewModel.Event.HistoryCleared -> Unit
                     is NovelHistoryViewModel.Event.OpenNovel ->
                         navigator.push(NovelScreen(e.source, e.url))
                     is NovelHistoryViewModel.Event.OpenChapter ->
