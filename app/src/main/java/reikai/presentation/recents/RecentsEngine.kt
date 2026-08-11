@@ -47,7 +47,7 @@ import kotlin.time.Duration.Companion.seconds
 class RecentsEngine(
     private val providers: List<RecentsProvider>,
     private val surface: RecentsSurface,
-    private val lanes: Set<RecentsLaneKind>,
+    private val modes: Set<RecentsMode>,
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
 ) : ViewModel() {
@@ -55,7 +55,7 @@ class RecentsEngine(
     companion object {
         val PROVIDERS_KEY = CreationExtras.Key<List<RecentsProvider>>()
         val SURFACE_KEY = CreationExtras.Key<RecentsSurface>()
-        val LANES_KEY = CreationExtras.Key<Set<RecentsLaneKind>>()
+        val MODES_KEY = CreationExtras.Key<Set<RecentsMode>>()
 
         /**
          * Anything derived over a provider holds that provider's feed subscription open, so it stops
@@ -74,7 +74,7 @@ class RecentsEngine(
                 RecentsEngine(
                     providers = get(PROVIDERS_KEY)!!,
                     surface = get(SURFACE_KEY)!!,
-                    lanes = get(LANES_KEY)!!,
+                    modes = get(MODES_KEY)!!,
                 )
             }
         }
@@ -84,7 +84,25 @@ class RecentsEngine(
         // Both are combined over, and `combine` of nothing never emits, so an empty one would leave the
         // surface loading forever rather than failing.
         require(providers.isNotEmpty()) { "A recents engine needs at least one provider" }
-        require(lanes.isNotEmpty()) { "A recents engine needs at least one lane to render" }
+        require(modes.isNotEmpty()) { "A recents engine needs at least one mode to render" }
+    }
+
+    /** Every lane any of this surface's modes draws from, which is what its providers open. */
+    private val lanes: Set<RecentsLaneKind> = modes.flatMapTo(mutableSetOf()) { it.lanes }
+
+    /**
+     * What is on screen now. One value for the surface, so switching mode cannot leave a stale
+     * selection or search behind; whether it survives a restart is the tab step's question, not this
+     * one's.
+     */
+    private val mutableMode = MutableStateFlow(modes.first())
+    val mode: StateFlow<RecentsMode> = mutableMode.asStateFlow()
+
+    fun setMode(mode: RecentsMode) {
+        require(mode in modes) { "$surface does not render $mode" }
+        if (mutableMode.value == mode) return
+        clearSelection()
+        mutableMode.value = mode
     }
 
     /**
@@ -173,6 +191,22 @@ class RecentsEngine(
         }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    }
+
+    /** The Updates mode's own display toggle. The combined modes ignore it: they have no ungrouped
+     *  reading, so nothing there is the user's to switch. */
+    val groupBySeries: StateFlow<Boolean> by lazy {
+        sourcePreferences.updatesGroupBySeries.changes()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.updatesGroupBySeries.get())
+    }
+
+    // Which grouped rows are open. Deliberately not persisted and not a preference: it describes this
+    // visit to the screen, and the screen it replaced kept it in a remember that died with the process.
+    private val mutableExpandedGroups = MutableStateFlow<Set<String>>(emptySet())
+    val expandedGroups: StateFlow<Set<String>> = mutableExpandedGroups.asStateFlow()
+
+    fun toggleGroupExpanded(key: String) {
+        mutableExpandedGroups.update { if (key in it) it - key else it + key }
     }
 
     // One query for the surface, matched here rather than in SQL. Every model already writes the user's
@@ -281,13 +315,16 @@ class RecentsEngine(
 
     fun downloadSelection() = dispatchAndClear { it.download(selection.value) }
 
-    fun deleteDownloads(chapters: Set<ChapterRef>) {
-        activeProviders().forEach { it.deleteDownloads(chapters) }
-        clearSelection()
-    }
+    fun deleteDownloads(chapters: Set<ChapterRef>) = dispatchAndClear { it.deleteDownloads(chapters) }
 
+    /** Drops every read record of these entries, which is the row action's "all" answer. */
     fun removeFromHistory(entries: Set<EntryId>) {
         providers.forEach { it.removeFromHistory(entries) }
+    }
+
+    /** Drops the one record a row stands for, which is the same action's other answer. */
+    fun removeHistoryRecord(item: RecentsItem) {
+        providersByType[item.entryId.contentType]?.removeHistoryRecord(item)
     }
 
     // The add flow, owned here rather than by either content type's model, so one shell renders one
@@ -370,8 +407,21 @@ class RecentsEngine(
     suspend fun detailsScreen(entry: EntryId): Screen? =
         providersByType[entry.contentType]?.detailsScreen(entry)
 
-    private fun dispatchAndClear(action: (RecentsProvider) -> Unit) {
-        activeProviders().forEach(action)
+    /** How a tap on [item] opens its chapter, or null when there is nothing left to open. */
+    suspend fun open(item: RecentsItem): RecentsOpen? =
+        providersByType[item.entryId.contentType]?.open(item)
+
+    // The render projection, forwarded because the providers themselves stay private: a renderer asks
+    // the engine about a row and never learns which content type answered.
+
+    fun rowUi(item: RecentsItem): RecentsRowUi =
+        providersByType[item.entryId.contentType]?.rowUi(item) ?: EMPTY_RECENTS_ROW
+
+    fun downloadUi(item: RecentsItem): RecentsDownloadUi? =
+        providersByType[item.entryId.contentType]?.downloadUi(item)
+
+    private fun dispatchAndClear(action: (RecentsChapterActions) -> Unit) {
+        activeProviders().mapNotNull { it.chapterActions }.forEach(action)
         clearSelection()
     }
 

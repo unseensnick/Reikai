@@ -64,13 +64,13 @@ class RecentsEngineTest {
     private fun engine(
         providers: List<RecentsProvider>,
         chip: ContentType = ContentType.ALL,
-        lanes: Set<RecentsLaneKind> = setOf(RecentsLaneKind.UPDATED),
+        modes: Set<RecentsMode> = setOf(RecentsMode.UPDATES),
     ): RecentsEngine {
         sourcePreferences.updatesContentType.set(chip)
         return RecentsEngine(
             providers = providers,
             surface = RecentsSurface.UPDATES,
-            lanes = lanes,
+            modes = modes,
             sourcePreferences = sourcePreferences,
             updatesPreferences = updatesPreferences,
         )
@@ -186,7 +186,7 @@ class RecentsEngineTest {
         val readRow = item(manga2, at = 300, lane = RecentsLane.Read(ChapterRef(manga2, chapterId = 1)))
         val engine = engine(
             listOf(provider(ContentType.MANGA, read = rows(readRow))),
-            lanes = setOf(RecentsLaneKind.UPDATED),
+            modes = setOf(RecentsMode.UPDATES),
         )
 
         engine.firstAssembly().items shouldContainExactly emptyList()
@@ -392,6 +392,71 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a bulk action passes over a provider that acts on no chapters`() {
+        val acting = provider(ContentType.MANGA)
+        val inert = provider(ContentType.NOVELS, actsOnChapters = false)
+        val engine = engine(listOf(acting, inert))
+        val chapter = ref(manga1, 1)
+
+        engine.toggleSelection(chapter)
+        engine.markReadSelection(read = true)
+
+        acting.markedRead shouldBe setOf(chapter)
+        inert.markedRead shouldBe null
+    }
+
+    @Test
+    fun `removing one read record reaches only the provider that owns the entry`() {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+        val engine = engine(listOf(manga, novel))
+        val row = item(novel1, at = 1)
+
+        engine.removeHistoryRecord(row)
+
+        novel.removedRecord shouldBe row
+        manga.removedRecord shouldBe null
+    }
+
+    @Test
+    fun `switching mode drops a selection the new mode need not show`() {
+        val engine = engine(
+            listOf(provider(ContentType.MANGA)),
+            modes = setOf(RecentsMode.UPDATES, RecentsMode.HISTORY),
+        )
+        engine.toggleSelection(ref(manga1, 1))
+
+        engine.setMode(RecentsMode.HISTORY)
+
+        engine.selection.value shouldBe emptySet()
+    }
+
+    // The lane decides the reader's scope, and the pairing is what keeps a launch openable: only the
+    // updated lane resolves its target inside the row's own source.
+
+    @Test
+    fun `the updated lane opens inside the row's own source`() {
+        RecentsLane.Updated(ref(manga1, 1)).sourceScoped shouldBe true
+    }
+
+    @Test
+    fun `the lanes that resolve over the merge group do not open source-scoped`() {
+        listOf(RecentsLane.Read(ref(manga1, 1)), RecentsLane.Added)
+            .map { it.sourceScoped } shouldContainExactly listOf(false, false)
+    }
+
+    @Test
+    fun `each single-lane mode opens only its own feed`() {
+        RecentsMode.UPDATES.lanes shouldBe setOf(RecentsLaneKind.UPDATED)
+        RecentsMode.HISTORY.lanes shouldBe setOf(RecentsLaneKind.READ)
+    }
+
+    @Test
+    fun `a combined mode opens every feed`() {
+        RecentsMode.FEED.lanes shouldBe RecentsLaneKind.entries.toSet()
+    }
+
+    @Test
     fun `a refresh that starts one library reports a start, not an already-running`() {
         val manga = provider(ContentType.MANGA, refreshStarts = false)
         val novel = provider(ContentType.NOVELS, refreshStarts = true)
@@ -553,7 +618,20 @@ private fun provider(
     updating: Boolean = false,
     decision: AddDecision<RecentsDuplicates>? = AddDecision.Add,
     addResult: AddFavoriteResult = AddFavoriteResult.Added,
-) = FakeRecentsProvider(type, read, updated, added, updatedAt, titles, refreshStarts, updating, decision, addResult)
+    actsOnChapters: Boolean = true,
+) = FakeRecentsProvider(
+    type,
+    read,
+    updated,
+    added,
+    updatedAt,
+    titles,
+    refreshStarts,
+    updating,
+    decision,
+    addResult,
+    actsOnChapters,
+)
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
 private class FakeRecentsProvider(
@@ -567,11 +645,14 @@ private class FakeRecentsProvider(
     updating: Boolean,
     private val decision: AddDecision<RecentsDuplicates>?,
     private val addResult: AddFavoriteResult,
+    actsOnChapters: Boolean,
 ) : RecentsProvider {
 
     var historyCleared = false
         private set
     var markedRead: Set<ChapterRef>? = null
+        private set
+    var removedRecord: RecentsItem? = null
         private set
     var refreshed = false
         private set
@@ -600,14 +681,28 @@ private class FakeRecentsProvider(
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 
-    override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-        markedRead = chapters
-    }
+    override suspend fun open(item: RecentsItem): RecentsOpen? = null
 
-    override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
-    override fun download(chapters: Set<ChapterRef>) = Unit
-    override fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
+    override val chapterActions: RecentsChapterActions? =
+        if (actsOnChapters) {
+            object : RecentsChapterActions {
+                override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
+                    markedRead = chapters
+                }
+
+                override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
+                override fun download(chapters: Set<ChapterRef>) = Unit
+                override fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
+            }
+        } else {
+            null
+        }
+
     override fun removeFromHistory(entries: Set<EntryId>) = Unit
+
+    override fun removeHistoryRecord(item: RecentsItem) {
+        removedRecord = item
+    }
 
     override suspend fun addDecision(entry: EntryId): AddDecision<RecentsDuplicates>? = decision
 

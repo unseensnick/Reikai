@@ -33,6 +33,7 @@ import reikai.presentation.browse.decideAdd
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
 import uy.kohesive.injekt.injectLazy
@@ -44,8 +45,8 @@ import kotlin.time.Clock
  * are wrapped the same way so the seam is symmetric.
  */
 class NovelRecentsAdapter(
-    private val updatesModel: NovelUpdatesViewModel,
-    private val historyModel: NovelHistoryViewModel,
+    private val updatesModel: NovelUpdatesViewModel?,
+    private val historyModel: NovelHistoryViewModel?,
     private val surface: RecentsSurface,
 ) : RecentsProvider {
 
@@ -62,16 +63,25 @@ class NovelRecentsAdapter(
 
     override val contentType = ContentType.NOVELS
 
-    override val readLane: Flow<RecentsLaneRows> = historyModel.state.map { state ->
-        RecentsLaneRows(
-            items = state.list.orEmpty().map { it.toRecentsItem() },
-            loaded = state.list != null,
-        )
+    // Lazy so a surface that renders neither lane never touches the model it was not given.
+    override val readLane: Flow<RecentsLaneRows> by lazy {
+        historyRows().state.map { state ->
+            RecentsLaneRows(
+                items = state.list.orEmpty().map { it.toRecentsItem() },
+                loaded = state.list != null,
+            )
+        }
     }
 
-    override val updatedLane: Flow<RecentsLaneRows> = updatesModel.state.map { state ->
-        RecentsLaneRows(items = state.items.map { it.toRecentsItem() }, loaded = !state.isLoading)
+    override val updatedLane: Flow<RecentsLaneRows> by lazy {
+        updatesRows().state.map { state ->
+            RecentsLaneRows(items = state.items.map { it.toRecentsItem() }, loaded = !state.isLoading)
+        }
     }
+
+    private fun historyRows() = requireNotNull(historyModel) { "$surface renders no read lane" }
+
+    private fun updatesRows() = requireNotNull(updatesModel) { "$surface renders no updated lane" }
 
     override val addedLane: Flow<RecentsLaneRows> =
         sourcePreferences.recentsCategoryFilterFlow(surface).flatMapLatest { categories ->
@@ -121,30 +131,41 @@ class NovelRecentsAdapter(
         read = read || id in readInOtherSources,
     )
 
-    private fun Set<ChapterRef>.ownItems(): List<NovelUpdatesItem> {
-        val ids = filter { it.entryId is EntryId.Novel }.mapTo(HashSet()) { it.chapterId }
-        if (ids.isEmpty()) return emptyList()
-        return updatesModel.state.value.items.filter { it.update.chapterId in ids }
-    }
+    /** Present only where the updates model is, the twin of [MangaRecentsAdapter.chapterActions]. */
+    override val chapterActions: RecentsChapterActions? = updatesModel?.let(::ModelChapterActions)
 
-    override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-        updatesModel.markRead(chapters.ownItems(), read)
-    }
+    private class ModelChapterActions(private val model: NovelUpdatesViewModel) : RecentsChapterActions {
 
-    override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
-        updatesModel.bookmark(chapters.ownItems(), bookmarked)
-    }
+        private fun Set<ChapterRef>.ownItems(): List<NovelUpdatesItem> {
+            val ids = filter { it.entryId is EntryId.Novel }.mapTo(HashSet()) { it.chapterId }
+            if (ids.isEmpty()) return emptyList()
+            return model.state.value.items.filter { it.update.chapterId in ids }
+        }
 
-    override fun download(chapters: Set<ChapterRef>) {
-        updatesModel.downloadChapters(chapters.ownItems())
-    }
+        override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
+            model.markRead(chapters.ownItems(), read)
+        }
 
-    override fun deleteDownloads(chapters: Set<ChapterRef>) {
-        updatesModel.deleteChapters(chapters.ownItems())
+        override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
+            model.bookmark(chapters.ownItems(), bookmarked)
+        }
+
+        override fun download(chapters: Set<ChapterRef>) {
+            model.downloadChapters(chapters.ownItems())
+        }
+
+        override fun deleteDownloads(chapters: Set<ChapterRef>) {
+            model.deleteChapters(chapters.ownItems())
+        }
     }
 
     override fun removeFromHistory(entries: Set<EntryId>) {
-        entries.filterIsInstance<EntryId.Novel>().forEach { historyModel.removeAllFromHistory(it.rawId) }
+        entries.filterIsInstance<EntryId.Novel>().forEach { historyModel?.removeAllFromHistory(it.rawId) }
+    }
+
+    override fun removeHistoryRecord(item: RecentsItem) {
+        val record = item.payload as? NovelHistoryWithRelations ?: return
+        historyModel?.removeFromHistory(record)
     }
 
     private suspend fun novelOf(entry: EntryId): Novel? =
@@ -187,15 +208,24 @@ class NovelRecentsAdapter(
     }
 
     override fun clearHistory() {
-        historyModel.removeAllHistory()
+        historyModel?.removeAllHistory()
     }
 
-    override fun refresh(): Boolean = updatesModel.updateLibrary()
+    // Straight to the job, the twin of the manga side and for the same two reasons.
+    override fun refresh(): Boolean = NovelUpdateJob.startNow(application)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? {
         val novelId = (entry as? EntryId.Novel)?.rawId ?: return null
         val novel = novelRepository.getById(novelId) ?: return null
         return NovelScreen(novel.source, novel.url)
+    }
+
+    // No lookup, unlike detailsScreen: the novel reader is keyed by id, not by source and url.
+    override suspend fun open(item: RecentsItem): RecentsOpen? {
+        val target = targetChapter(item) ?: return null
+        return RecentsOpen.ReaderScreen(
+            NovelReaderScreen(item.entryId.rawId, target.chapterId, sourceScoped = item.lane.sourceScoped),
+        )
     }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)

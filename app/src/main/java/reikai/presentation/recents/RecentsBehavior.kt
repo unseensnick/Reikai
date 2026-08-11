@@ -5,14 +5,12 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 
 /**
- * One content type's action verbs on recent activity, keyed neutrally so a mixed selection dispatches
- * without the caller knowing which engine answers. Every method takes what to act on rather than
- * reading a selection, because the selection belongs to the engine that can span both types.
- *
- * Carries no state, deliberately unlike `LibraryBehavior`, whose state flow the library's engine reads
- * a search query back out of. Reasoning: content-layer-recents-surface.md.
+ * Acting on the chapters a feed shows, answered only by a surface that renders a lane holding them.
+ * A slot rather than members every provider owes: a History surface builds no updates model, and an
+ * interface obliging it to answer would have it accept a call and do nothing, which is the silent
+ * no-op the capability rule exists to prevent.
  */
-interface RecentsBehavior {
+interface RecentsChapterActions {
     /** Marks read or unread, routed through this type's read interactor so delete-after-read fires. */
     fun markRead(chapters: Set<ChapterRef>, read: Boolean)
 
@@ -21,9 +19,29 @@ interface RecentsBehavior {
     fun download(chapters: Set<ChapterRef>)
 
     fun deleteDownloads(chapters: Set<ChapterRef>)
+}
 
-    /** Drops these entries' read records. Both types support it; History is where it is reachable. */
+/**
+ * One content type's action verbs on recent activity, keyed neutrally so a mixed selection dispatches
+ * without the caller knowing which engine answers. Every method takes what to act on rather than
+ * reading a selection, because the selection belongs to the engine that can span both types.
+ *
+ * Carries no state, deliberately unlike `LibraryBehavior`, whose state flow the library's engine reads
+ * a search query back out of. Reasoning: content-layer-recents-surface.md.
+ */
+interface RecentsBehavior {
+    /** Null where this surface renders no lane with chapters to act on. */
+    val chapterActions: RecentsChapterActions?
+
+    /** Drops every read record of these entries. Both types support it; History reaches it. */
     fun removeFromHistory(entries: Set<EntryId>)
+
+    /**
+     * Drops the one read record [item] stands for, leaving the entry's others. The per-row dialog has
+     * offered both this and the entry-wide sweep above since before the takeover, so a shell that
+     * carried only one of them would quietly narrow what the button does.
+     */
+    fun removeHistoryRecord(item: RecentsItem)
 
     /**
      * What adding [entry] should do, before anything is written: already there, a possible duplicate to
@@ -50,7 +68,8 @@ interface RecentsBehavior {
 
     /**
      * Starts this type's library update, answering whether it started rather than was already running.
-     * Each type has its own job, so the verb is per type and only the answer is combined.
+     * Goes to the job rather than through a model, so a surface that renders no updated lane can still
+     * offer a refresh; the answer is combined by the engine and the message belongs to the shell.
      */
     fun refresh(): Boolean
 }

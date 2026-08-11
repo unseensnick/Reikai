@@ -7,6 +7,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import kotlinx.coroutines.flow.Flow
@@ -39,13 +40,15 @@ import uy.kohesive.injekt.injectLazy
 
 /**
  * Adapts Mihon's two live models to the neutral [RecentsProvider]. Both stay live and upstream-tracked
- * (never made to implement a Reikai interface); this maps their rows and forwards each verb to the
- * model that owns it. The chapter verbs resolve refs through the updates model's own row list, the
- * only surface a chapter is selectable from today; a ref missing from it is dropped, not guessed at.
+ * (never made to implement a Reikai interface); this maps their rows and forwards each verb on.
+ *
+ * A model is absent where the surface renders no lane needing it, which keeps a History tab from
+ * building the updates model and running its query. Nothing reaches an absent one: the engine asks
+ * only for the lanes it renders, and [chapterActions] is null without the updates model.
  */
 class MangaRecentsAdapter(
-    private val updatesModel: UpdatesViewModel,
-    private val historyModel: HistoryViewModel,
+    private val updatesModel: UpdatesViewModel?,
+    private val historyModel: HistoryViewModel?,
     private val surface: RecentsSurface,
 ) : RecentsProvider {
 
@@ -68,16 +71,25 @@ class MangaRecentsAdapter(
     override val contentType = ContentType.MANGA
 
     // A null list is this model's "no emission yet", where the updates model carries a loading flag.
-    override val readLane: Flow<RecentsLaneRows> = historyModel.state.map { state ->
-        RecentsLaneRows(
-            items = state.list.orEmpty().mapNotNull { (it as? HistoryUiModel.Item)?.item?.toRecentsItem() },
-            loaded = state.list != null,
-        )
+    // Lazy so a surface that renders neither lane never touches the model it was not given.
+    override val readLane: Flow<RecentsLaneRows> by lazy {
+        historyRows().state.map { state ->
+            RecentsLaneRows(
+                items = state.list.orEmpty().mapNotNull { (it as? HistoryUiModel.Item)?.item?.toRecentsItem() },
+                loaded = state.list != null,
+            )
+        }
     }
 
-    override val updatedLane: Flow<RecentsLaneRows> = updatesModel.state.map { state ->
-        RecentsLaneRows(items = state.items.map { it.toRecentsItem() }, loaded = !state.isLoading)
+    override val updatedLane: Flow<RecentsLaneRows> by lazy {
+        updatesRows().state.map { state ->
+            RecentsLaneRows(items = state.items.map { it.toRecentsItem() }, loaded = !state.isLoading)
+        }
     }
+
+    private fun historyRows() = requireNotNull(historyModel) { "$surface renders no read lane" }
+
+    private fun updatesRows() = requireNotNull(updatesModel) { "$surface renders no updated lane" }
 
     // The only lane with no model behind it: nothing rendered a newly-added feed before this surface.
     override val addedLane: Flow<RecentsLaneRows> =
@@ -145,32 +157,43 @@ class MangaRecentsAdapter(
         read = read || id in readInOtherSources,
     )
 
-    // Each verb takes the neutral set and hands its model only its own content type's rows, so a mixed
-    // selection never reaches a provider that cannot act on it.
-    private fun Set<ChapterRef>.ownItems(): List<UpdatesItem> {
-        val ids = filter { it.entryId is EntryId.Manga }.mapTo(HashSet()) { it.chapterId }
-        if (ids.isEmpty()) return emptyList()
-        return updatesModel.state.value.items.filter { it.update.chapterId in ids }
-    }
+    /** Present only where the updates model is: every verb behind it acts on that model's rows. */
+    override val chapterActions: RecentsChapterActions? = updatesModel?.let(::ModelChapterActions)
 
-    override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-        updatesModel.markUpdatesRead(chapters.ownItems(), read)
-    }
+    private class ModelChapterActions(private val model: UpdatesViewModel) : RecentsChapterActions {
 
-    override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
-        updatesModel.bookmarkUpdates(chapters.ownItems(), bookmarked)
-    }
+        // Each verb takes the neutral set and hands the model only its own content type's rows, so a
+        // mixed selection never reaches a provider that cannot act on it.
+        private fun Set<ChapterRef>.ownItems(): List<UpdatesItem> {
+            val ids = filter { it.entryId is EntryId.Manga }.mapTo(HashSet()) { it.chapterId }
+            if (ids.isEmpty()) return emptyList()
+            return model.state.value.items.filter { it.update.chapterId in ids }
+        }
 
-    override fun download(chapters: Set<ChapterRef>) {
-        updatesModel.downloadChapters(chapters.ownItems(), ChapterDownloadAction.START)
-    }
+        override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
+            model.markUpdatesRead(chapters.ownItems(), read)
+        }
 
-    override fun deleteDownloads(chapters: Set<ChapterRef>) {
-        updatesModel.deleteChapters(chapters.ownItems())
+        override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
+            model.bookmarkUpdates(chapters.ownItems(), bookmarked)
+        }
+
+        override fun download(chapters: Set<ChapterRef>) {
+            model.downloadChapters(chapters.ownItems(), ChapterDownloadAction.START)
+        }
+
+        override fun deleteDownloads(chapters: Set<ChapterRef>) {
+            model.deleteChapters(chapters.ownItems())
+        }
     }
 
     override fun removeFromHistory(entries: Set<EntryId>) {
-        entries.filterIsInstance<EntryId.Manga>().forEach { historyModel.removeAllFromHistory(it.rawId) }
+        entries.filterIsInstance<EntryId.Manga>().forEach { historyModel?.removeAllFromHistory(it.rawId) }
+    }
+
+    override fun removeHistoryRecord(item: RecentsItem) {
+        val record = item.payload as? HistoryWithRelations ?: return
+        historyModel?.removeFromHistory(record)
     }
 
     // The add flow answers rather than prompts: the engine owns the surface's one dialog slot, so
@@ -214,13 +237,27 @@ class MangaRecentsAdapter(
     }
 
     override fun clearHistory() {
-        historyModel.removeAllHistory()
+        historyModel?.removeAllHistory()
     }
 
-    override fun refresh(): Boolean = updatesModel.updateLibrary()
+    // Straight to the job rather than through the updates model, which only wraps this same call in a
+    // snackbar event the shell now owns. It also lets a surface with no updated lane still refresh.
+    override fun refresh(): Boolean = LibraryUpdateJob.startNow(application)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? =
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
+
+    override suspend fun open(item: RecentsItem): RecentsOpen? {
+        val target = targetChapter(item) ?: return null
+        return RecentsOpen.ReaderIntent(
+            ReaderActivity.newIntent(
+                application,
+                item.entryId.rawId,
+                target.chapterId,
+                sourceScoped = item.lane.sourceScoped,
+            ),
+        )
+    }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = mangaRowUi(item)
 
