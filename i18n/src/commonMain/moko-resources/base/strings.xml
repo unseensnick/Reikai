@@ -277,6 +277,11 @@
     <!-- RK: Updates group-by-series -->
     <string name="updates_group_by_series">Group by series</string>
     <string name="updates_group_chapter_count">%1$d new chapters</string>
+    <!-- RK: the combined recents digest, one header per activity lane plus a way into that lane -->
+    <string name="recents_section_new_chapters">New chapters</string>
+    <string name="recents_section_continue_reading">Continue reading</string>
+    <string name="recents_section_newly_added">Newly added</string>
+    <string name="recents_section_view_all">View all</string>
     <!-- RK: refresh feedback on the combined All chip (both libraries update at once) -->
     <string name="updating_both_libraries">Updating both libraries</string>
     <!-- RK: light-novel browse (P5 S3a) -->

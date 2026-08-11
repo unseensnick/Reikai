@@ -1,23 +1,17 @@
 package reikai.presentation.updates
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Circle
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
@@ -37,23 +31,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
-import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
-import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -64,10 +50,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import reikai.domain.library.ContentType
+import reikai.presentation.recents.RecentsDownloadProgress
+import reikai.presentation.recents.RecentsDownloadUi
+import reikai.presentation.recents.RecentsGroupChildRow
+import reikai.presentation.recents.RecentsGroupRow
+import reikai.presentation.recents.RecentsProgress
+import reikai.presentation.recents.namedChapter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
-import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -76,7 +67,6 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.active
-import tachiyomi.presentation.core.util.selectedBackground
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -453,7 +443,7 @@ private fun LazyListScope.updateRows(
                 val toggleAll = {
                     row.members.forEach { toggleMemberSelection(it, !groupSelected, mangaModel, novelModel) }
                 }
-                UpdatesGroupRow(
+                RecentsGroupRow(
                     cover = first.memberCover(),
                     title = first.memberTitle(),
                     count = row.members.size,
@@ -475,15 +465,18 @@ private fun LazyListScope.updateRows(
             is UpdateRow.Child -> when (val member = row.member) {
                 is UpdateRow.Manga -> {
                     val item = member.item
-                    UpdatesGroupChildRow(
-                        name = item.update.chapterName,
-                        read = item.update.read,
+                    RecentsGroupChildRow(
+                        chapter = namedChapter(
+                            name = item.update.chapterName,
+                            read = item.update.read,
+                            bookmark = item.update.bookmark,
+                            progress = RecentsProgress.Pages(item.update.lastPageRead),
+                        ),
                         selected = item.selected,
-                        readProgress = item.update.lastPageRead
-                            .takeIf { !item.update.read && it > 0L }
-                            ?.let { stringResource(MR.strings.chapter_progress, it + 1) },
-                        downloadStateProvider = item.downloadStateProvider,
-                        downloadProgressProvider = item.downloadProgressProvider,
+                        download = RecentsDownloadUi(
+                            state = item.downloadStateProvider,
+                            progress = RecentsDownloadProgress.Live(item.downloadProgressProvider),
+                        ),
                         onClick = {
                             if (selectionMode) {
                                 mangaModel.toggleSelection(item, !item.selected, false)
@@ -502,15 +495,18 @@ private fun LazyListScope.updateRows(
                 }
                 is UpdateRow.Novel -> {
                     val item = member.item
-                    UpdatesGroupChildRow(
-                        name = item.update.chapterName,
-                        read = item.update.read,
+                    RecentsGroupChildRow(
+                        chapter = namedChapter(
+                            name = item.update.chapterName,
+                            read = item.update.read,
+                            bookmark = item.update.bookmark,
+                            progress = RecentsProgress.Percent(item.update.lastTextProgress),
+                        ),
                         selected = item.selected,
-                        readProgress = (item.update.lastTextProgress / 100L).toInt()
-                            .takeIf { !item.update.read && it > 0 }
-                            ?.let { "$it%" },
-                        downloadStateProvider = { item.downloadState },
-                        downloadProgressProvider = { 0 },
+                        download = RecentsDownloadUi(
+                            state = { item.downloadState },
+                            progress = RecentsDownloadProgress.Unsupported,
+                        ),
                         onClick = {
                             if (selectionMode) {
                                 novelModel.toggleSelection(item.update.chapterId, !item.selected)
@@ -530,153 +526,6 @@ private fun LazyListScope.updateRows(
                 else -> {}
             }
         }
-    }
-}
-
-/** Collapsed "N new chapters" row for a series with several same-date updates. */
-@Composable
-private fun UpdatesGroupRow(
-    cover: Any?,
-    title: String,
-    count: Int,
-    expanded: Boolean,
-    selected: Boolean,
-    anyUnread: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onClickCover: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val haptic = LocalHapticFeedback.current
-    val textAlpha = if (anyUnread) 1f else DISABLED_ALPHA
-    Row(
-        modifier = modifier
-            .selectedBackground(selected)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    onLongClick()
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                },
-            )
-            .height(56.dp)
-            .padding(horizontal = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MangaCover.Square(
-            modifier = Modifier
-                .padding(vertical = 6.dp)
-                .fillMaxHeight(),
-            data = cover,
-            onClick = onClickCover,
-        )
-        Column(
-            modifier = Modifier
-                .padding(horizontal = MaterialTheme.padding.medium)
-                .weight(1f),
-        ) {
-            Text(
-                text = title,
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalContentColor.current.copy(alpha = textAlpha),
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (anyUnread) {
-                    Icon(
-                        imageVector = Icons.Filled.Circle,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(8.dp)
-                            .padding(end = 4.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Text(
-                    text = stringResource(MR.strings.updates_group_chapter_count, count),
-                    maxLines = 1,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalContentColor.current.copy(alpha = textAlpha),
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Icon(
-            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = null,
-            modifier = Modifier.padding(start = 4.dp),
-        )
-    }
-}
-
-/** Indented, cover-less child chapter row shown when a series group is expanded. */
-@Composable
-private fun UpdatesGroupChildRow(
-    name: String,
-    read: Boolean,
-    selected: Boolean,
-    readProgress: String?,
-    downloadStateProvider: () -> Download.State,
-    downloadProgressProvider: () -> Int,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val haptic = LocalHapticFeedback.current
-    val textAlpha = if (read) DISABLED_ALPHA else 1f
-    Row(
-        modifier = modifier
-            .selectedBackground(selected)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    onLongClick()
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                },
-            )
-            .height(48.dp)
-            // Indent so children sit under the group title (cover width + paddings).
-            .padding(start = 72.dp, end = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (!read) {
-            Icon(
-                imageVector = Icons.Filled.Circle,
-                contentDescription = null,
-                modifier = Modifier
-                    .height(8.dp)
-                    .padding(end = 4.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = name,
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalContentColor.current.copy(alpha = textAlpha),
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(weight = 1f, fill = false),
-            )
-            if (readProgress != null) {
-                DotSeparatorText()
-                Text(
-                    text = readProgress,
-                    maxLines = 1,
-                    color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        ChapterDownloadIndicator(
-            enabled = onDownloadClick != null,
-            modifier = Modifier.padding(start = 4.dp),
-            downloadStateProvider = downloadStateProvider,
-            downloadProgressProvider = downloadProgressProvider,
-            onClick = { onDownloadClick?.invoke(it) },
-        )
     }
 }
 

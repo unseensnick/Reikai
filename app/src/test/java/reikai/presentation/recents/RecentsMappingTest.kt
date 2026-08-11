@@ -78,6 +78,29 @@ class RecentsMappingTest {
         chapter.shouldBeInstanceOf<RecentsChapterUi.Named>().progress shouldBe null
     }
 
+    // What that progress reads as on the row. Neutral, so it takes the typed slot directly rather
+    // than a probe: the point is that one rule writes out both engines' units.
+
+    @Test
+    fun `a page count reads one-based, because it is stored zero-based`() {
+        RecentsProgress.Pages(lastPageRead = 5).labelValue() shouldBe 6
+    }
+
+    @Test
+    fun `a chapter open at its first page claims no progress`() {
+        RecentsProgress.Pages(lastPageRead = 0).labelValue() shouldBe null
+    }
+
+    @Test
+    fun `hundredths of a percent round down to whole percent`() {
+        RecentsProgress.Percent(hundredths = 4999).labelValue() shouldBe 49
+    }
+
+    @Test
+    fun `a fraction of a percent claims no progress rather than rounding up to one`() {
+        RecentsProgress.Percent(hundredths = 99).labelValue() shouldBe null
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a read row projects a chapter number rather than a name`(probe: RecentsMappingProbe) {
