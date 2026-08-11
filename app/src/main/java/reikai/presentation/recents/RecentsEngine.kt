@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -322,7 +323,15 @@ class RecentsEngine(
     fun setBookmarkSelection(bookmarked: Boolean) =
         dispatchAndClear { it.setBookmark(selection.value, bookmarked) }
 
-    fun downloadSelection() = dispatchAndClear { it.download(selection.value) }
+    fun downloadSelection() = dispatchAndClear { it.download(selection.value, ChapterDownloadAction.START) }
+
+    /**
+     * One row's own download control, which does not touch the selection: it is not a bulk action and
+     * the indicator is only reachable while nothing is selected.
+     */
+    fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+        activeProviders().mapNotNull { it.chapterActions }.forEach { it.download(chapters, action) }
+    }
 
     fun deleteDownloads(chapters: Set<ChapterRef>) = dispatchAndClear { it.deleteDownloads(chapters) }
 

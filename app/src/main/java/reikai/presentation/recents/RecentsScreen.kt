@@ -1,17 +1,22 @@
 package reikai.presentation.recents
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -26,22 +31,32 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.components.relativeDateText
+import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
+import eu.kanade.presentation.history.components.HistoryDeleteDialog
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.manga.components.MangaBottomActionMenu
+import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.lang.toTimestampString
 import mihon.feature.upcoming.UpcomingScreen
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.EntryHistoryRow
 import reikai.presentation.history.EntryHistoryRowUi
+import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -65,7 +80,7 @@ import java.util.Date
  * how it looks. Record: content-layer-recents-surface.md.
  */
 @Composable
-fun RecentsScreen(
+fun Screen.RecentsScreen(
     engine: RecentsEngine,
     title: String,
     onFilterClicked: () -> Unit,
@@ -92,6 +107,12 @@ fun RecentsScreen(
     val rows = remember(mode, assembled, groupBySeries, expandedGroups) {
         assembled?.let { renderRows(mode, it, groupBySeries, expandedGroups) }.orEmpty()
     }
+    val selectionEnabled = mode.can(RecentsCapability.SELECTION)
+    // The order a sweep runs along, which only the renderer knows: both types interleaved, grouping
+    // and collapsing already applied.
+    val orderedRefs = remember(rows) { rows.orderedChapterRefs() }
+    val showsUpdated = RecentsLaneKind.UPDATED in mode.lanes
+    val showsRead = RecentsLaneKind.READ in mode.lanes
 
     fun open(item: RecentsItem) {
         scope.launchIO {
@@ -126,6 +147,8 @@ fun RecentsScreen(
         }
     }
 
+    BackHandler(enabled = selection.isNotEmpty(), onBack = engine::clearSelection)
+
     Scaffold(
         modifier = modifier,
         topBar = { scrollBehavior ->
@@ -135,13 +158,27 @@ fun RecentsScreen(
                 onQueryChange = engine::search,
                 selectionCount = selection.size,
                 onCancelSelection = engine::clearSelection,
+                onSelectAll = { engine.selectAll(orderedRefs) },
+                onInvertSelection = { engine.invertSelection(orderedRefs) },
                 showsFilter = mode.can(RecentsCapability.CHAPTER_FILTER),
                 filterActive = filterActive,
                 onFilterClicked = onFilterClicked,
-                showsCalendar = contentType != ContentType.NOVELS && RecentsLaneKind.UPDATED in mode.lanes,
+                showsCalendar = contentType != ContentType.NOVELS && showsUpdated,
                 onCalendarClicked = { navigator.push(UpcomingScreen()) },
+                // Both are the updated lane's: History has never offered either, and a takeover that
+                // added them would be inventing an affordance rather than carrying one across.
+                showsRefresh = showsUpdated,
                 onRefresh = ::refresh,
+                showsClearHistory = showsRead,
+                onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
                 scrollBehavior = scrollBehavior,
+            )
+        },
+        bottomBar = {
+            RecentsBottomBar(
+                engine = engine,
+                selected = assembled?.items.orEmpty().filter { it.lane.chapterRef in selection },
+                onDeleteDownloads = { engine.openDialog(RecentsDialog.DeleteDownloads(selection)) },
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -163,28 +200,51 @@ fun RecentsScreen(
                         onFilterClicked = onFilterClicked.takeIf { mode.can(RecentsCapability.CHAPTER_FILTER) },
                         modifier = Modifier.padding(bodyPadding),
                     )
-                    else -> PullRefresh(
-                        refreshing = refreshing,
-                        onRefresh = ::refresh,
-                        enabled = selection.isEmpty(),
-                        indicatorPadding = bodyPadding,
-                    ) {
-                        FastScrollLazyColumn(contentPadding = bodyPadding) {
-                            if (RecentsLaneKind.UPDATED in mode.lanes) {
-                                updatesLastUpdatedItem(lastUpdated)
+                    else -> {
+                        val feed: @Composable () -> Unit = {
+                            FastScrollLazyColumn(contentPadding = bodyPadding) {
+                                if (showsUpdated) {
+                                    updatesLastUpdatedItem(lastUpdated)
+                                }
+                                recentsRows(
+                                    rows = rows,
+                                    engine = engine,
+                                    selection = selection,
+                                    selectionEnabled = selectionEnabled,
+                                    orderedRefs = orderedRefs,
+                                    onOpen = ::open,
+                                    onOpenDetails = ::openDetails,
+                                )
                             }
-                            recentsRows(
-                                rows = rows,
-                                engine = engine,
-                                onOpen = ::open,
-                                onOpenDetails = ::openDetails,
-                            )
+                        }
+                        // Pull-to-refresh belongs to the feed a library update actually changes.
+                        if (showsUpdated) {
+                            PullRefresh(
+                                refreshing = refreshing,
+                                onRefresh = ::refresh,
+                                enabled = selection.isEmpty(),
+                                indicatorPadding = bodyPadding,
+                            ) { feed() }
+                        } else {
+                            feed()
                         }
                     }
                 }
             }
         }
     }
+
+    RecentsDialogs(
+        engine = engine,
+        onOpenDetails = ::openDetails,
+        onHistoryCleared = {
+            scope.launchIO {
+                withUIContext {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
+                }
+            }
+        },
+    )
 }
 
 /**
@@ -199,12 +259,17 @@ private fun RecentsToolbar(
     onQueryChange: (String?) -> Unit,
     selectionCount: Int,
     onCancelSelection: () -> Unit,
+    onSelectAll: () -> Unit,
+    onInvertSelection: () -> Unit,
     showsFilter: Boolean,
     filterActive: Boolean,
     onFilterClicked: () -> Unit,
     showsCalendar: Boolean,
     onCalendarClicked: () -> Unit,
+    showsRefresh: Boolean,
     onRefresh: () -> Unit,
+    showsClearHistory: Boolean,
+    onClearHistory: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior?,
 ) {
     if (selectionCount > 0) {
@@ -212,6 +277,22 @@ private fun RecentsToolbar(
             title = title,
             actionModeCounter = selectionCount,
             onCancelActionMode = onCancelSelection,
+            actionModeActions = {
+                AppBarActions(
+                    listOf(
+                        AppBar.Action(
+                            title = stringResource(MR.strings.action_select_all),
+                            icon = Icons.Outlined.SelectAll,
+                            onClick = onSelectAll,
+                        ),
+                        AppBar.Action(
+                            title = stringResource(MR.strings.action_select_inverse),
+                            icon = Icons.Outlined.FlipToBack,
+                            onClick = onInvertSelection,
+                        ),
+                    ),
+                )
+            },
             scrollBehavior = scrollBehavior,
         )
         return
@@ -246,13 +327,24 @@ private fun RecentsToolbar(
                             ),
                         )
                     }
-                    add(
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_update_library),
-                            icon = Icons.Outlined.Refresh,
-                            onClick = onRefresh,
-                        ),
-                    )
+                    if (showsRefresh) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_update_library),
+                                icon = Icons.Outlined.Refresh,
+                                onClick = onRefresh,
+                            ),
+                        )
+                    }
+                    if (showsClearHistory) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.pref_clear_history),
+                                icon = Icons.Outlined.DeleteSweep,
+                                onClick = onClearHistory,
+                            ),
+                        )
+                    }
                 },
             )
         },
@@ -296,9 +388,24 @@ private fun renderRows(
 private fun LazyListScope.recentsRows(
     rows: List<RecentsRow>,
     engine: RecentsEngine,
+    selection: Set<ChapterRef>,
+    selectionEnabled: Boolean,
+    orderedRefs: List<ChapterRef>,
     onOpen: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
 ) {
+    // A tap selects instead of opening once a selection exists, which is what makes a sweep possible
+    // without a mode switch. A long press starts one, and extends it to the row pressed.
+    fun press(item: RecentsItem) {
+        val ref = item.lane.chapterRef
+        if (selectionEnabled && ref != null && selection.isNotEmpty()) engine.toggleSelection(ref) else onOpen(item)
+    }
+
+    fun longPress(item: RecentsItem) {
+        val ref = item.lane.chapterRef ?: return
+        if (selectionEnabled) engine.toggleRangeSelection(ref, orderedRefs)
+    }
+
     items(
         items = rows,
         contentType = { it.contentTypeKey() },
@@ -320,22 +427,37 @@ private fun LazyListScope.recentsRows(
             is RecentsRow.Entry -> RecentsEntryRow(
                 item = row.item,
                 engine = engine,
-                onOpen = onOpen,
+                selected = row.item.lane.chapterRef in selection,
+                onPress = ::press,
+                onLongPress = ::longPress,
                 onOpenDetails = onOpenDetails,
                 modifier = Modifier.animateItem(),
             )
             is RecentsRow.Group -> {
                 val first = row.members.first()
                 val ui = engine.rowUi(first)
+                val refs = row.members.mapNotNull { it.lane.chapterRef }
+                val allSelected = refs.isNotEmpty() && refs.all { it in selection }
+                val toggleAll = {
+                    if (allSelected) refs.forEach(engine::toggleSelection) else engine.selectAll(refs)
+                }
                 RecentsGroupRow(
                     cover = ui.cover,
                     title = ui.title,
                     count = row.members.size,
                     expanded = row.expanded,
-                    selected = false,
+                    selected = allSelected,
                     anyUnread = row.members.any { !engine.rowUi(it).isRead() },
-                    onClick = { engine.toggleGroupExpanded(row.key) },
-                    onLongClick = {},
+                    onClick = {
+                        if (selectionEnabled &&
+                            selection.isNotEmpty()
+                        ) {
+                            toggleAll()
+                        } else {
+                            engine.toggleGroupExpanded(row.key)
+                        }
+                    },
+                    onLongClick = { if (selectionEnabled) toggleAll() },
                     onClickCover = { onOpenDetails(first.entryId) },
                     modifier = Modifier.animateItem(),
                 )
@@ -345,11 +467,13 @@ private fun LazyListScope.recentsRows(
                 if (chapter is RecentsChapterUi.Named) {
                     RecentsGroupChildRow(
                         chapter = chapter,
-                        selected = false,
+                        selected = row.item.lane.chapterRef in selection,
                         download = engine.downloadUi(row.item),
-                        onClick = { onOpen(row.item) },
-                        onLongClick = {},
-                        onDownloadClick = null,
+                        onClick = { press(row.item) },
+                        onLongClick = { longPress(row.item) },
+                        onDownloadClick = row.item.lane.chapterRef
+                            ?.let { ref -> { action: ChapterDownloadAction -> engine.download(setOf(ref), action) } }
+                            ?.takeIf { selection.isEmpty() },
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -367,7 +491,9 @@ private fun LazyListScope.recentsRows(
 private fun RecentsEntryRow(
     item: RecentsItem,
     engine: RecentsEngine,
-    onOpen: (RecentsItem) -> Unit,
+    selected: Boolean,
+    onPress: (RecentsItem) -> Unit,
+    onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -375,18 +501,21 @@ private fun RecentsEntryRow(
     when (val chapter = ui.chapter) {
         is RecentsChapterUi.Named -> {
             val download = engine.downloadUi(item)
+            val ref = item.lane.chapterRef
             EntryUpdatesRow(
                 cover = ui.cover,
                 title = ui.title,
                 chapterName = chapter.name,
                 read = chapter.read,
                 bookmark = chapter.bookmark,
-                selected = false,
+                selected = selected,
                 readProgress = readProgressLabel(chapter.progress),
-                onClick = { onOpen(item) },
-                onLongClick = {},
+                onClick = { onPress(item) },
+                onLongClick = { onLongPress(item) },
                 onClickCover = { onOpenDetails(item.entryId) },
-                onDownloadChapter = null,
+                onDownloadChapter = ref?.let {
+                    { action: ChapterDownloadAction -> engine.download(setOf(it), action) }
+                },
                 downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                 downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
                 modifier = modifier,
@@ -403,11 +532,125 @@ private fun RecentsEntryRow(
                 isFavorite = ui.isFavorite,
             ),
             onClickCover = { onOpenDetails(item.entryId) },
-            onClickResume = { onOpen(item) },
+            onClickResume = { onPress(item) },
             onClickDelete = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
             onClickFavorite = { engine.addToLibrary(item.entryId) },
             modifier = modifier,
         )
+    }
+}
+
+/**
+ * The bulk actions, each drawn only where the selection can answer for it. The predicates read the
+ * selected rows' own projections rather than a per-type row object, which is what lets one bar serve
+ * a selection spanning both content types.
+ */
+@Composable
+private fun RecentsBottomBar(
+    engine: RecentsEngine,
+    selected: List<RecentsItem>,
+    onDeleteDownloads: () -> Unit,
+) {
+    val chapters = selected.mapNotNull { engine.rowUi(it).chapter as? RecentsChapterUi.Named }
+    val downloads = selected.mapNotNull { engine.downloadUi(it) }
+    MangaBottomActionMenu(
+        visible = selected.isNotEmpty(),
+        modifier = Modifier.fillMaxWidth(),
+        onBookmarkClicked = { engine.setBookmarkSelection(true) }
+            .takeIf { chapters.any { chapter -> !chapter.bookmark } },
+        onRemoveBookmarkClicked = { engine.setBookmarkSelection(false) }
+            .takeIf { chapters.all { chapter -> chapter.bookmark } },
+        onMarkAsReadClicked = { engine.markReadSelection(true) }
+            .takeIf { chapters.any { chapter -> !chapter.read } },
+        // Started counts as readable-back: progress survives only where reading stopped short, so one
+        // expression covers what the two screens each spelled out in their own unit.
+        onMarkAsUnreadClicked = { engine.markReadSelection(false) }
+            .takeIf { chapters.any { chapter -> chapter.read || chapter.progress != null } },
+        onDownloadClicked = { engine.downloadSelection() }
+            .takeIf { downloads.any { it.state() != Download.State.DOWNLOADED } },
+        onDeleteClicked = onDeleteDownloads
+            .takeIf { downloads.any { it.state() == Download.State.DOWNLOADED } },
+    )
+}
+
+/** The surface's one dialog slot, drawn wherever the engine raised it. */
+@Composable
+private fun Screen.RecentsDialogs(
+    engine: RecentsEngine,
+    onOpenDetails: (EntryId) -> Unit,
+    onHistoryCleared: () -> Unit,
+) {
+    val navigator = LocalNavigator.currentOrThrow
+    val dialog by engine.dialog.collectAsState()
+    val onDismiss = engine::dismissDialog
+    when (val open = dialog) {
+        null -> Unit
+        RecentsDialog.ClearHistory -> HistoryDeleteAllDialog(
+            onDismissRequest = onDismiss,
+            onDelete = {
+                engine.clearHistory()
+                onHistoryCleared()
+            },
+        )
+        is RecentsDialog.RemoveHistory -> HistoryDeleteDialog(
+            onDismissRequest = onDismiss,
+            onDelete = { all ->
+                if (all) {
+                    engine.removeFromHistory(setOf(open.item.entryId))
+                } else {
+                    engine.removeHistoryRecord(open.item)
+                }
+            },
+        )
+        is RecentsDialog.DeleteDownloads -> UpdatesDeleteConfirmationDialog(
+            onDismissRequest = onDismiss,
+            onConfirm = { engine.deleteDownloads(open.chapters) },
+        )
+        is RecentsDialog.Duplicate -> EntryDuplicateDialog(
+            duplicates = open.duplicates.duplicates,
+            toUi = { it.card },
+            onDismissRequest = onDismiss,
+            onConfirm = { engine.addAnyway(open.entry) },
+            onOpen = { onOpenDetails(it.entry) },
+            onMigrate = { engine.migrateOntoEntry(open.entry, it.entry) },
+            groupIdByEntryId = open.duplicates.groupIdByRawId,
+            onAddToGroup = { picked: List<Long> ->
+                engine.addToGroup(
+                    open.entry,
+                    open.duplicates.duplicates.filter { it.card.id in picked }.map { it.entry },
+                )
+            }.takeIf { open.duplicates.suggestGroup },
+        )
+        is RecentsDialog.ChangeCategory -> ChangeCategoryDialog(
+            initialSelection = open.initialSelection,
+            onDismissRequest = onDismiss,
+            onEditCategories = { navigator.push(CategoryScreen()) },
+            onConfirm = { include, _ -> engine.applyAddCategories(open.entry, include) },
+        )
+        is RecentsDialog.Migrate -> EntryMigrateFor(
+            contentType = open.current.contentType,
+            currentId = open.current.rawId,
+            targetId = open.target.rawId,
+            onDismissRequest = onDismiss,
+        )
+    }
+}
+
+/**
+ * The refs a sweep runs along, in the order they are on screen. A collapsed group stands in for its
+ * members, since none of them are drawn; an expanded one leaves them to its children, so a member is
+ * never counted twice.
+ */
+internal fun List<RecentsRow>.orderedChapterRefs(): List<ChapterRef> = buildList {
+    this@orderedChapterRefs.forEach { row ->
+        when (row) {
+            is RecentsRow.Entry -> row.item.lane.chapterRef?.let(::add)
+            is RecentsRow.Child -> row.item.lane.chapterRef?.let(::add)
+            is RecentsRow.Group -> if (!row.expanded) {
+                row.members.forEach { member -> member.lane.chapterRef?.let(::add) }
+            }
+            else -> Unit
+        }
     }
 }
 

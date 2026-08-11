@@ -193,8 +193,8 @@ class MangaRecentsAdapter private constructor(
             model.bookmarkUpdates(chapters.ownItems(), bookmarked)
         }
 
-        override fun download(chapters: Set<ChapterRef>) {
-            model.downloadChapters(chapters.ownItems(), ChapterDownloadAction.START)
+        override fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+            model.downloadChapters(chapters.ownItems(), action)
         }
 
         override fun deleteDownloads(chapters: Set<ChapterRef>) {

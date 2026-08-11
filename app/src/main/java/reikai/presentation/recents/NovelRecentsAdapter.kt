@@ -162,8 +162,10 @@ class NovelRecentsAdapter private constructor(
             model.bookmark(chapters.ownItems(), bookmarked)
         }
 
-        override fun download(chapters: Set<ChapterRef>) {
-            model.downloadChapters(chapters.ownItems())
+        // Per row rather than in one call: this model's batch entry point only ever queues, and the
+        // row indicator also cancels, expedites and deletes.
+        override fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+            chapters.ownItems().forEach { model.onDownloadAction(it, action) }
         }
 
         override fun deleteDownloads(chapters: Set<ChapterRef>) {

@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -16,7 +17,12 @@ interface RecentsChapterActions {
 
     fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean)
 
-    fun download(chapters: Set<ChapterRef>)
+    /**
+     * Queues, expedites, cancels or deletes, per the action the row's own indicator raised. One verb
+     * with the action rather than one per action: the indicator already speaks in these four cases,
+     * and a bulk download is the same call with [ChapterDownloadAction.START].
+     */
+    fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction)
 
     fun deleteDownloads(chapters: Set<ChapterRef>)
 }

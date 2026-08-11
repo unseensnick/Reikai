@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import cafe.adriel.voyager.core.screen.Screen
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -457,6 +458,20 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a row's own download control carries its action and spares the selection`() {
+        val provider = provider(ContentType.MANGA)
+        val engine = engine(listOf(provider))
+        val selected = ref(manga2, 2)
+        val row = ref(manga1, 1)
+        engine.toggleSelection(selected)
+
+        engine.download(setOf(row), ChapterDownloadAction.START_NOW)
+
+        provider.downloaded shouldBe (setOf(row) to ChapterDownloadAction.START_NOW)
+        engine.selection.value shouldContainExactly listOf(selected)
+    }
+
+    @Test
     fun `flipping the chip drops a selection it may now hide`() {
         val engine = engine(listOf(provider(ContentType.MANGA)))
         engine.toggleSelection(ref(manga1, 1))
@@ -675,6 +690,8 @@ private class FakeRecentsProvider(
         private set
     var removedRecord: RecentsItem? = null
         private set
+    var downloaded: Pair<Set<ChapterRef>, ChapterDownloadAction>? = null
+        private set
     var refreshed = false
         private set
     var addedEntry: EntryId? = null
@@ -712,7 +729,11 @@ private class FakeRecentsProvider(
                 }
 
                 override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) = Unit
-                override fun download(chapters: Set<ChapterRef>) = Unit
+
+                override fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
+                    downloaded = chapters to action
+                }
+
                 override fun deleteDownloads(chapters: Set<ChapterRef>) = Unit
             }
         } else {
