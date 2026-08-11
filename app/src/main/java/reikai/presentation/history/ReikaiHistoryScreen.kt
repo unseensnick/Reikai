@@ -17,6 +17,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
@@ -57,8 +58,8 @@ fun ReikaiHistoryScreen(
     onClickNovelResume: (NovelHistoryWithRelations) -> Unit,
     onClickNovelFavorite: (novelId: Long) -> Unit,
 ) {
-    val mangaState by mangaModel.state.collectAsState()
-    val novelState by novelModel.state.collectAsState()
+    val mangaState by mangaModel.state.collectAsStateWithLifecycle()
+    val novelState by novelModel.state.collectAsStateWithLifecycle()
     val showsManga = contentType != ContentType.NOVELS
     val showsNovel = contentType != ContentType.MANGA
     val searchQuery = if (showsNovel) novelState.searchQuery else mangaState.searchQuery

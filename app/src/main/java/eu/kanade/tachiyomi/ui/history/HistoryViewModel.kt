@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.history
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.manga.interactor.UpdateManga
@@ -11,6 +12,10 @@ import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -18,10 +23,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.category.resolveDefaultCategoryIds
@@ -54,6 +59,7 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 class HistoryViewModel(
     private val addTracks: AddTracks = Injekt.get(),
@@ -75,48 +81,60 @@ class HistoryViewModel(
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
     // RK: the History tab's category filter, one selection covering both content types.
     private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-) : StateViewModel<HistoryViewModel.State>(State()) {
+) : ViewModel() {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
-    init {
-        viewModelScope.launch {
-            // RK: the recents category filter is a query parameter, so it joins the search query in
-            //     the key the subscription re-runs on.
+    private val searchQuery = MutableStateFlow<String?>(null)
+
+    private val dialog = MutableStateFlow<Dialog?>(null)
+
+    // RK: the recents category filter is a query parameter, so it joins the search query in the key
+    //     the subscription re-runs on.
+    private val history: StateFlow<List<HistoryUiModel>?> = combine(
+        searchQuery,
+        reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
+        ::Pair,
+    )
+        .distinctUntilChanged()
+        .flatMapLatest { (query, categories) ->
+            // RK: overlay the display-only custom title/cover onto each row, keyed by the real manga
+            //     id. The SQL search (getHistory.subscribe) still runs on the raw title.
             combine(
-                state.map { it.searchQuery }.distinctUntilChanged(),
-                reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
-                ::Pair,
-            )
-                .distinctUntilChanged()
-                .flatMapLatest { (query, categories) ->
-                    // RK: overlay the display-only custom title/cover onto each row, keyed by the real
-                    //     manga id. The SQL search (getHistory.subscribe) still runs on the raw title.
-                    combine(
-                        getHistory.subscribe(query ?: "", categories.include, categories.exclude),
-                        getCustomMangaInfo.subscribeAll(),
-                    ) { history, customInfo ->
-                        val overlay = customInfo.associateBy { it.mangaId }
-                        history.map { row ->
-                            val custom = overlay[row.mangaId] ?: return@map row
-                            row.copy(
-                                title = custom.title ?: row.title,
-                                coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
-                            )
-                        }
-                    }
-                        .distinctUntilChanged()
-                        .catch { error ->
-                            logcat(LogPriority.ERROR, error)
-                            _events.send(Event.InternalError)
-                        }
-                        .map { it.toHistoryUiModels() }
-                        .flowOn(Dispatchers.IO)
+                getHistory.subscribe(query ?: "", categories.include, categories.exclude),
+                getCustomMangaInfo.subscribeAll(),
+            ) { history, customInfo ->
+                val overlay = customInfo.associateBy { it.mangaId }
+                history.map { row ->
+                    val custom = overlay[row.mangaId] ?: return@map row
+                    row.copy(
+                        title = custom.title ?: row.title,
+                        coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
+                    )
                 }
-                .collect { newList -> mutableState.update { it.copy(list = newList) } }
+            }
+                .distinctUntilChanged()
+                .catch { error ->
+                    logcat(LogPriority.ERROR, error)
+                    _events.send(Event.InternalError)
+                }
+                .map { it.toHistoryUiModels() }
+                .flowOn(Dispatchers.IO)
         }
+        // RK: seeded null, where upstream seeds an empty list. Null is this feed's "not loaded yet",
+        //     read by the shared screen and by the recents read lane; an empty seed would make both
+        //     announce an empty history a tick before the query answers.
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    val state: StateFlow<State> = combine(
+        searchQuery,
+        history,
+        dialog,
+    ) { searchQuery, history, dialog ->
+        State(searchQuery = searchQuery, list = history, dialog = dialog)
     }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
         return map { HistoryUiModel.Item(it) }
@@ -171,11 +189,11 @@ class HistoryViewModel(
     }
 
     fun updateSearchQuery(query: String?) {
-        mutableState.update { it.copy(searchQuery = query) }
+        searchQuery.update { query }
     }
 
     fun setDialog(dialog: Dialog?) {
-        mutableState.update { it.copy(dialog = dialog) }
+        this.dialog.update { dialog }
     }
 
     /**
@@ -219,15 +237,13 @@ class HistoryViewModel(
             val duplicates = getDuplicateLibraryManga(manga)
             if (duplicates.isNotEmpty()) {
                 val groupIdByMangaId = mergeManager.groupIdsFor(duplicates.map { it.manga.id })
-                mutableState.update {
-                    it.copy(
-                        dialog = Dialog.DuplicateManga(
-                            manga,
-                            duplicates,
-                            mergeManager.suggestGroupingOnAdd,
-                            groupIdByMangaId,
-                            mangaLibraryAdder.duplicateSourceLabels(duplicates),
-                        ),
+                dialog.update {
+                    Dialog.DuplicateManga(
+                        manga,
+                        duplicates,
+                        mergeManager.suggestGroupingOnAdd,
+                        groupIdByMangaId,
+                        mangaLibraryAdder.duplicateSourceLabels(duplicates),
                     )
                 }
                 return@launchIO
@@ -277,21 +293,17 @@ class HistoryViewModel(
     }
 
     fun showMigrateDialog(target: Manga, current: Manga) {
-        mutableState.update { currentState ->
-            currentState.copy(dialog = Dialog.Migrate(target = target, current = current))
-        }
+        dialog.update { Dialog.Migrate(target = target, current = current) }
     }
 
     fun showChangeCategoryDialog(manga: Manga) {
         viewModelScope.launch {
             val categories = getCategories()
             val selection = getMangaCategoryIds(manga)
-            mutableState.update { currentState ->
-                currentState.copy(
-                    dialog = Dialog.ChangeCategory(
-                        manga = manga,
-                        initialSelection = categories.mapAsCheckboxState { it.id in selection },
-                    ),
+            dialog.update {
+                Dialog.ChangeCategory(
+                    manga = manga,
+                    initialSelection = categories.mapAsCheckboxState { it.id in selection },
                 )
             }
         }

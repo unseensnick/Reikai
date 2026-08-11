@@ -255,6 +255,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Code comments across Reikai's own files are capped in length and enforced on commit, with the longer explanations moved into the developer docs.
 - Screens are moving off Voyager's ScreenModel onto AndroidX ViewModel, matching Mihon, so future upstream changes to any screen apply cleanly instead of being hand-translated.
+- The manga and novel History feeds now stop querying a few seconds after you leave the tab, instead of running for as long as the app does (synced from Mihon, mihonapp/mihon#3728).
 
 ## [0.3.1]
 

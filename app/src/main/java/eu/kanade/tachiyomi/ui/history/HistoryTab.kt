@@ -11,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
@@ -72,10 +73,10 @@ data object HistoryTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val viewModel = viewModel<HistoryViewModel>()
-        val state by viewModel.state.collectAsState()
+        val state by viewModel.state.collectAsStateWithLifecycle()
         // RK -->
         val novelViewModel = viewModel<NovelHistoryViewModel>()
-        val novelState by novelViewModel.state.collectAsState()
+        val novelState by novelViewModel.state.collectAsStateWithLifecycle()
         val contentType by novelViewModel.contentType.collectAsState()
         val chip: @Composable () -> Unit = {
             ContentTypeFilterChips(selected = contentType, onSelect = novelViewModel::setContentType)

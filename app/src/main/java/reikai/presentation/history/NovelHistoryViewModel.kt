@@ -1,12 +1,15 @@
 package reikai.presentation.history
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -16,9 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.library.ContentType
@@ -44,6 +45,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Novel side of the consolidated History tab (the novel twin of
@@ -64,10 +66,14 @@ class NovelHistoryViewModel(
     private val novelLibraryAdder: NovelLibraryAdder = Injekt.get(),
     // RK: add-time grouping (the merge itself; the gate and the group's categories go through the adder).
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
-) : StateViewModel<NovelHistoryViewModel.State>(State()) {
+) : ViewModel() {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
+
+    private val searchQuery = MutableStateFlow<String?>(null)
+
+    private val dialog = MutableStateFlow<Dialog?>(null)
 
     /** Shared All / Manga / Novels chip, persisted under its own key (mirrors the Updates tab). */
     val contentType: StateFlow<ContentType> = sourcePreferences.historyContentType.changes()
@@ -83,42 +89,49 @@ class NovelHistoryViewModel(
             .map { it.active }
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    init {
-        viewModelScope.launch {
-            // The category filter is a query parameter, so it joins the search query in the key the
-            // subscription re-runs on.
+    // The category filter is a query parameter, so it joins the search query in the key the
+    // subscription re-runs on.
+    private val history: StateFlow<List<NovelHistoryWithRelations>?> = combine(
+        searchQuery,
+        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
+        ::Pair,
+    )
+        .distinctUntilChanged()
+        .flatMapLatest { (query, categories) ->
+            // Overlay the display-only custom title/cover onto each row, keyed by the real novel id.
+            // The SQL search (getNovelHistory.subscribe) still runs on the raw title.
             combine(
-                state.map { it.searchQuery }.distinctUntilChanged(),
-                sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
-                ::Pair,
-            )
-                .distinctUntilChanged()
-                .flatMapLatest { (query, categories) ->
-                    // Overlay the display-only custom title/cover onto each row, keyed by the real
-                    // novel id. The SQL search (getNovelHistory.subscribe) still runs on the raw title.
-                    combine(
-                        getNovelHistory.subscribe(query ?: "", categories.include, categories.exclude),
-                        getCustomNovelInfo.subscribeAll(),
-                    ) { history, customInfo ->
-                        val overlay = customInfo.associateBy { it.novelId }
-                        history.map { row ->
-                            val custom = overlay[row.novelId] ?: return@map row
-                            row.copy(
-                                title = custom.title ?: row.title,
-                                coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
-                            )
-                        }
-                    }
-                        .distinctUntilChanged()
-                        .catch { error ->
-                            logcat(LogPriority.ERROR, error)
-                            _events.send(Event.InternalError)
-                        }
-                        .flowOn(Dispatchers.IO)
+                getNovelHistory.subscribe(query ?: "", categories.include, categories.exclude),
+                getCustomNovelInfo.subscribeAll(),
+            ) { history, customInfo ->
+                val overlay = customInfo.associateBy { it.novelId }
+                history.map { row ->
+                    val custom = overlay[row.novelId] ?: return@map row
+                    row.copy(
+                        title = custom.title ?: row.title,
+                        coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
+                    )
                 }
-                .collect { newList -> mutableState.update { it.copy(list = newList) } }
+            }
+                .distinctUntilChanged()
+                .catch { error ->
+                    logcat(LogPriority.ERROR, error)
+                    _events.send(Event.InternalError)
+                }
+                .flowOn(Dispatchers.IO)
         }
+        // Null is this feed's "not loaded yet", read by the shared screen and by the recents read
+        // lane. Its manga twin seeds the same way and for the same reason.
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    val state: StateFlow<State> = combine(
+        searchQuery,
+        history,
+        dialog,
+    ) { searchQuery, history, dialog ->
+        State(searchQuery = searchQuery, list = history, dialog = dialog)
     }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     /** Resume a history row: reopen the recorded chapter if unread, else the next one (null = none left). */
     fun resume(history: NovelHistoryWithRelations) {
@@ -230,9 +243,9 @@ class NovelHistoryViewModel(
         }
     }
 
-    fun updateSearchQuery(query: String?) = mutableState.update { it.copy(searchQuery = query) }
+    fun updateSearchQuery(query: String?) = searchQuery.update { query }
 
-    fun setDialog(dialog: Dialog?) = mutableState.update { it.copy(dialog = dialog) }
+    fun setDialog(dialog: Dialog?) = this.dialog.update { dialog }
 
     @Immutable
     data class State(
