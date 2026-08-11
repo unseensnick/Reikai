@@ -26,8 +26,11 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -83,7 +86,6 @@ import java.util.Date
 fun Screen.RecentsScreen(
     engine: RecentsEngine,
     title: String,
-    onFilterClicked: () -> Unit,
     modifier: Modifier = Modifier,
     // Hoisted so a tab that speaks for itself can be heard: History's reselect resume answers "no next
     // chapter" from outside this screen, and a host of its own would render nowhere.
@@ -92,6 +94,7 @@ fun Screen.RecentsScreen(
     val context = LocalContext.current
     val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
+    var filterSheetOpen by rememberSaveable { mutableStateOf(false) }
 
     val mode by engine.mode.collectAsState()
     val contentType by engine.contentType.collectAsState()
@@ -162,9 +165,8 @@ fun Screen.RecentsScreen(
                 onCancelSelection = engine::clearSelection,
                 onSelectAll = { engine.selectAll(orderedRefs) },
                 onInvertSelection = { engine.invertSelection(orderedRefs) },
-                showsFilter = mode.can(RecentsCapability.CHAPTER_FILTER),
                 filterActive = filterActive,
-                onFilterClicked = onFilterClicked,
+                onFilterClicked = { filterSheetOpen = true },
                 showsCalendar = contentType != ContentType.NOVELS && showsUpdated,
                 onCalendarClicked = { navigator.push(UpcomingScreen()) },
                 // Both are the updated lane's: History has never offered either, and a takeover that
@@ -199,7 +201,7 @@ fun Screen.RecentsScreen(
                     rows.isEmpty() -> RecentsEmptyState(
                         query = query,
                         filterActive = filterActive,
-                        onFilterClicked = onFilterClicked.takeIf { mode.can(RecentsCapability.CHAPTER_FILTER) },
+                        onFilterClicked = { filterSheetOpen = true },
                         modifier = Modifier.padding(bodyPadding),
                     )
                     else -> {
@@ -236,6 +238,14 @@ fun Screen.RecentsScreen(
         }
     }
 
+    if (filterSheetOpen) {
+        RecentsFilterSheet(
+            mode = mode,
+            surface = engine.surface,
+            onDismissRequest = { filterSheetOpen = false },
+        )
+    }
+
     RecentsDialogs(
         engine = engine,
         onOpenDetails = ::openDetails,
@@ -263,7 +273,6 @@ private fun RecentsToolbar(
     onCancelSelection: () -> Unit,
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
-    showsFilter: Boolean,
     filterActive: Boolean,
     onFilterClicked: () -> Unit,
     showsCalendar: Boolean,
@@ -306,20 +315,20 @@ private fun RecentsToolbar(
         actions = {
             AppBarActions(
                 actions = buildList {
-                    if (showsFilter) {
-                        add(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.action_filter),
-                                icon = Icons.Outlined.FilterList,
-                                iconTint = if (filterActive) {
-                                    MaterialTheme.colorScheme.active
-                                } else {
-                                    LocalContentColor.current
-                                },
-                                onClick = onFilterClicked,
-                            ),
-                        )
-                    }
+                    // Every mode has a category filter, so every mode gets the way in; what the sheet
+                    // then draws is the mode's business.
+                    add(
+                        AppBar.Action(
+                            title = stringResource(MR.strings.action_filter),
+                            icon = Icons.Outlined.FilterList,
+                            iconTint = if (filterActive) {
+                                MaterialTheme.colorScheme.active
+                            } else {
+                                LocalContentColor.current
+                            },
+                            onClick = onFilterClicked,
+                        ),
+                    )
                     if (showsCalendar) {
                         add(
                             AppBar.Action(

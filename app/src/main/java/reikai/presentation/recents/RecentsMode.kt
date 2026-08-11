@@ -37,8 +37,9 @@ enum class RecentsMode {
      */
     val capabilities: Set<RecentsCapability>
         get() = when (this) {
-            // History has never had either, and does not gain them at the cutover: the filter sheet
-            // still writes the Updates surface's keys, so offering it here would edit another feed.
+            // A history feed carries no chapter state to filter on and no burst to group, and its
+            // selection arrives with the affordances that act on one. Its category filter is not a
+            // capability: every mode has one, so the sheet draws that part unconditionally.
             HISTORY -> emptySet()
             UPDATES -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER, RecentsCapability.GROUPING)
             FEED, DIGEST -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER)
@@ -48,7 +49,8 @@ enum class RecentsMode {
 }
 
 /**
- * An affordance a mode either has or does not. [GROUPING] is the Updates mode's own display toggle;
- * the combined modes leave it out because they have no ungrouped reading to switch to.
+ * An affordance a mode either has or does not. [CHAPTER_FILTER] and [GROUPING] are what the filter
+ * sheet asks about before drawing its chapter-state block and its grouping switch; [GROUPING] is the
+ * Updates mode's own, since the combined modes have no ungrouped reading to switch to.
  */
 enum class RecentsCapability { SELECTION, CHAPTER_FILTER, GROUPING }

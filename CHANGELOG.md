@@ -51,6 +51,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Updates & History**
 
 - **You can now search the Updates feed.** Type part of a title to narrow it, the way History already worked.
+- **History can now be filtered by category.** Its filter icon sits in the toolbar and its selection is its own, so filtering Updates leaves History alone.
 
 **App & backup**
 

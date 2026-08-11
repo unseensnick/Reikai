@@ -2,10 +2,15 @@ package eu.kanade.tachiyomi.ui.updates
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.category.RecentsSurface
+import reikai.domain.category.categoryFilterPrefs
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
@@ -20,6 +25,9 @@ import uy.kohesive.injekt.api.get
 class UpdatesSettingsViewModel(
     val updatesPreferences: UpdatesPreferences = Injekt.get(),
     // RK -->
+    // Which surface's sheet this is backing. The filter sheet is shared by every recents surface, and
+    // while the combined tab is off Updates and History are two tabs, so each edits its own selection.
+    private val surface: RecentsSurface = RecentsSurface.UPDATES,
     val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
@@ -46,15 +54,28 @@ class UpdatesSettingsViewModel(
         }
     }
 
-    // This sheet belongs to the Updates tab, so it edits that surface's selection. History and the
-    // combined Recents tab carry their own; see RecentsSurface.
+    // The one place this sheet's surface turns into keys. Exposed rather than read through, because the
+    // picker shows a stored selection even while the toggle is off, which the resolved filter clears.
+    private val categoryPrefs = reikaiSourcePreferences.categoryFilterPrefs(surface)
+    val filterCategories: Preference<Boolean> get() = categoryPrefs.first
+    val filterCategoriesInclude: Preference<Set<String>> get() = categoryPrefs.second
+    val filterCategoriesExclude: Preference<Set<String>> get() = categoryPrefs.third
+
     fun setFilterCategories(enabled: Boolean) {
-        reikaiSourcePreferences.updatesFilterCategories.set(enabled)
+        filterCategories.set(enabled)
     }
 
     fun setCategorySelections(include: Set<Long>, exclude: Set<Long>) {
-        reikaiSourcePreferences.updatesFilterCategoriesInclude.set(include.map(Long::toString).toSet())
-        reikaiSourcePreferences.updatesFilterCategoriesExclude.set(exclude.map(Long::toString).toSet())
+        filterCategoriesInclude.set(include.map(Long::toString).toSet())
+        filterCategoriesExclude.set(exclude.map(Long::toString).toSet())
+    }
+
+    companion object {
+        val SURFACE_KEY = CreationExtras.Key<RecentsSurface>()
+
+        val Factory = viewModelFactory {
+            initializer { UpdatesSettingsViewModel(surface = this[SURFACE_KEY]!!) }
+        }
     }
     // RK <--
 }

@@ -3,6 +3,7 @@ package reikai.domain.category
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import reikai.domain.source.ReikaiSourcePreferences
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Which recent-activity surface a category selection belongs to. One per rendered surface, not one
@@ -27,25 +28,34 @@ data class RecentsCategoryFilter(
     val active: Boolean get() = include.isNotEmpty() || exclude.isNotEmpty()
 }
 
+/**
+ * The three preferences one surface's selection lives in: the master toggle, the included ids and the
+ * excluded ids. Every read and every write resolves through here, so a picker opened on one surface
+ * cannot reach another's keys, which is what keeps two separate tabs behaving like two separate tabs.
+ */
+internal fun ReikaiSourcePreferences.categoryFilterPrefs(
+    surface: RecentsSurface,
+): Triple<Preference<Boolean>, Preference<Set<String>>, Preference<Set<String>>> = when (surface) {
+    RecentsSurface.UPDATES -> Triple(
+        updatesFilterCategories,
+        updatesFilterCategoriesInclude,
+        updatesFilterCategoriesExclude,
+    )
+    RecentsSurface.HISTORY -> Triple(
+        historyFilterCategories,
+        historyFilterCategoriesInclude,
+        historyFilterCategoriesExclude,
+    )
+    RecentsSurface.RECENTS -> Triple(
+        recentsFilterCategories,
+        recentsFilterCategoriesInclude,
+        recentsFilterCategoriesExclude,
+    )
+}
+
 /** One derivation for every recents feed; each model used to carry its own copy of this. */
 fun ReikaiSourcePreferences.recentsCategoryFilterFlow(surface: RecentsSurface): Flow<RecentsCategoryFilter> {
-    val (enabledPref, includePref, excludePref) = when (surface) {
-        RecentsSurface.UPDATES -> Triple(
-            updatesFilterCategories,
-            updatesFilterCategoriesInclude,
-            updatesFilterCategoriesExclude,
-        )
-        RecentsSurface.HISTORY -> Triple(
-            historyFilterCategories,
-            historyFilterCategoriesInclude,
-            historyFilterCategoriesExclude,
-        )
-        RecentsSurface.RECENTS -> Triple(
-            recentsFilterCategories,
-            recentsFilterCategoriesInclude,
-            recentsFilterCategoriesExclude,
-        )
-    }
+    val (enabledPref, includePref, excludePref) = categoryFilterPrefs(surface)
     return combine(
         enabledPref.changes(),
         includePref.changes(),

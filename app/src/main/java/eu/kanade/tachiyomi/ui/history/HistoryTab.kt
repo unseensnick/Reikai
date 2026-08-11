@@ -67,10 +67,6 @@ data object HistoryTab : Tab {
         RecentsScreen(
             engine = engine,
             title = stringResource(MR.strings.history),
-            // History has no filter control until its own entry point lands: the filter sheet writes
-            // the Updates surface's keys whatever surface opened it. The mode draws no filter action,
-            // so this is never called.
-            onFilterClicked = {},
             snackbarHostState = snackbarHostState,
         )
 
