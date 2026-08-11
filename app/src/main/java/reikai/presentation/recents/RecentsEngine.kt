@@ -12,11 +12,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.category.RecentsSurface
@@ -32,6 +34,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * One rendered surface's recent activity, assembled over its per-type [RecentsProvider]s. Everything
@@ -53,6 +56,13 @@ class RecentsEngine(
         val PROVIDERS_KEY = CreationExtras.Key<List<RecentsProvider>>()
         val SURFACE_KEY = CreationExtras.Key<RecentsSurface>()
         val LANES_KEY = CreationExtras.Key<Set<RecentsLaneKind>>()
+
+        /**
+         * Anything derived over a provider holds that provider's feed subscription open, so it stops
+         * once nothing renders it. The window matches the history models the read lane runs through.
+         * A value a verb reads synchronously stays eager instead: unsubscribed, `value` is the seed.
+         */
+        private val OVER_PROVIDERS = SharingStarted.WhileSubscribed(5.seconds)
 
         /**
          * Only the first [androidx.lifecycle.viewmodel.compose.viewModel] call for a given store builds
@@ -79,7 +89,8 @@ class RecentsEngine(
 
     /**
      * The Manga / Novels chip, one per rendered surface. It decides which providers' rows assemble,
-     * which is the engine's call and not one content type's.
+     * which is the engine's call and not one content type's. Eager, unlike the flows derived over it,
+     * because every verb reads this synchronously to pick the providers it dispatches to.
      */
     val contentType: StateFlow<ContentType> by lazy {
         chipPreference.changes().stateIn(viewModelScope, SharingStarted.Eagerly, chipPreference.get())
@@ -111,7 +122,6 @@ class RecentsEngine(
         ) { chip, lanesPerProvider, membership, query ->
             val active = activeIndices(chip).flatMap { lanesPerProvider[it] }
             val rows = orderRecents(active.flatMap { it.items }).filter { matchesQuery(it, query) }
-            pruneSelection(rows)
             RecentsAssembled(
                 chip = chip,
                 items = rows,
@@ -121,9 +131,12 @@ class RecentsEngine(
                 loading = active.any { !it.loaded },
             )
         }
+            // Pruning is an effect on the selection, so it sits beside the transform rather than
+            // inside it. Nothing to prune against while nothing collects: the feed is not moving.
+            .onEach { pruneSelection(it.items) }
             // The transform sorts the whole feed; keep it off the main thread.
             .flowOn(Dispatchers.Default)
-            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+            .stateIn(viewModelScope, OVER_PROVIDERS, null)
     }
 
     /** When the library behind the current chip last updated, the newer of the two under All. */
@@ -133,7 +146,7 @@ class RecentsEngine(
             combine(providers.map { it.lastUpdated }) { it.toList() },
         ) { chip, perProvider ->
             activeIndices(chip).maxOfOrNull { perProvider[it] } ?: 0L
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+        }.stateIn(viewModelScope, OVER_PROVIDERS, 0L)
     }
 
     /**
@@ -147,7 +160,7 @@ class RecentsEngine(
             combine(providers.map { it.updating }) { it.toList() },
         ) { chip, perProvider ->
             activeIndices(chip).any { perProvider[it] }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        }.stateIn(viewModelScope, OVER_PROVIDERS, false)
     }
 
     /** Whether a filter is narrowing this surface, so an empty feed can say why. */

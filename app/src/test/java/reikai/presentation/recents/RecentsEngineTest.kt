@@ -9,10 +9,15 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -72,6 +77,17 @@ class RecentsEngineTest {
     }
 
     private suspend fun RecentsEngine.firstAssembly(): RecentsAssembled = assembled.filterNotNull().first()
+
+    /**
+     * The derived value once it has been computed. A flow shared while subscribed answers its seed
+     * until something collects it, so reading `value` straight out asserts the seed rather than the
+     * derivation, which is exactly how a false-expecting assertion here used to pass for free.
+     */
+    private fun <T> TestScope.settled(flow: StateFlow<T>): T {
+        backgroundScope.launch { flow.collect { } }
+        advanceUntilIdle()
+        return flow.value
+    }
 
     private fun item(entryId: EntryId, at: Long, lane: RecentsLane = RecentsLane.Added) =
         RecentsItem(entryId = entryId, timestamp = at, lane = lane, payload = Unit)
@@ -210,7 +226,7 @@ class RecentsEngineTest {
             chip = ContentType.MANGA,
         )
 
-        engine.refreshing.value shouldBe false
+        settled(engine.refreshing) shouldBe false
     }
 
     @Test
@@ -224,6 +240,21 @@ class RecentsEngineTest {
         )
 
         engine.lastUpdated.first { it != 0L } shouldBe 5
+    }
+
+    @Test
+    fun `a provider flow is not opened until something collects what it feeds`() = runTest {
+        val provider = provider(ContentType.MANGA, updating = true)
+        val engine = engine(listOf(provider))
+
+        // Building a derived flow is not collecting it. Shared eagerly, this would open the provider's
+        // flow here and hold it for as long as the surface's engine lived. The other direction, that
+        // collecting does open it, is what every derived-value test above already reads. Pinned on
+        // refreshing rather than the assembly, whose upstream runs off the test scheduler.
+        engine.refreshing
+        advanceUntilIdle()
+
+        provider.updatingSubscriptions shouldBe 0
     }
 
     // Merge membership, pinned here rather than on the kernel: whether merging-off reaches the feed as
@@ -551,11 +582,15 @@ private class FakeRecentsProvider(
     var groupedWith: List<EntryId>? = null
         private set
 
+    /** How many times the engine has opened this provider's update signal, which it pays to render. */
+    var updatingSubscriptions = 0
+        private set
+
     override val readLane: Flow<RecentsLaneRows> = flowOf(readRows)
     override val updatedLane: Flow<RecentsLaneRows> = flowOf(updatedRows)
     override val addedLane: Flow<RecentsLaneRows> = flowOf(addedRows)
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
-    override val updating: Flow<Boolean> = flowOf(updating)
+    override val updating: Flow<Boolean> = flowOf(updating).onStart { updatingSubscriptions++ }
     override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =
