@@ -241,7 +241,7 @@ private fun sectionLabel(section: RecentsLaneKind) = when (section) {
 }
 
 /** An engine that cannot report progress draws none rather than a zero that reads as a stall. */
-private fun RecentsDownloadProgress.asProvider(): () -> Int = when (this) {
+internal fun RecentsDownloadProgress.asProvider(): () -> Int = when (this) {
     is RecentsDownloadProgress.Live -> percent
     RecentsDownloadProgress.Unsupported -> NO_PROGRESS
 }

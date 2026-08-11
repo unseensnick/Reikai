@@ -15,8 +15,12 @@ sealed interface RecentsDialog {
     /** Wipe every read record on the surface, for whichever content types the chip is showing. */
     data object ClearHistory : RecentsDialog
 
-    /** Drop one entry's read records, from a row's own action. */
-    data class RemoveHistory(val entry: EntryId) : RecentsDialog
+    /**
+     * Drop read records for the row [item] stands for. Carries the item, not just its entry, because
+     * the prompt offers both this one record and every record the entry has, and only the item can
+     * name the first.
+     */
+    data class RemoveHistory(val item: RecentsItem) : RecentsDialog
 
     /** Delete the downloaded files of a selection that can span both content types. */
     data class DeleteDownloads(val chapters: Set<ChapterRef>) : RecentsDialog
