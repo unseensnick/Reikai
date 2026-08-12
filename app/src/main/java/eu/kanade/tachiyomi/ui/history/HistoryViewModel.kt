@@ -24,9 +24,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.interactor.GetHistory
-import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
@@ -38,7 +36,6 @@ class HistoryViewModel(
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
     private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     private val getHistory: GetHistory = Injekt.get(),
-    private val getNextChapters: GetNextChapters = Injekt.get(),
     private val removeHistory: RemoveHistory = Injekt.get(),
     // RK: the History tab's category filter, one selection covering both content types.
     private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
@@ -83,19 +80,8 @@ class HistoryViewModel(
         .map { State(list = it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
-    fun getNextChapterForManga(mangaId: Long, chapterId: Long) {
-        viewModelScope.launchIO {
-            sendNextChapterEvent(getNextChapters.await(mangaId, chapterId, onlyUnread = false))
-        }
-    }
-
-    private suspend fun sendNextChapterEvent(chapters: List<Chapter>) {
-        val chapter = chapters.firstOrNull()
-        _events.send(Event.OpenChapter(chapter))
-    }
-
-    // RK: the latest manga read, for the tab-reselect global-latest resume. Reads the unfiltered
-    //     query rather than the rendered feed, so a category filter cannot change what resume opens.
+    // RK: the latest manga read, which the seam resumes from. Reads the unfiltered query rather than
+    //     the rendered feed, so a category filter cannot change what resume opens.
     suspend fun getLast(): HistoryWithRelations? = withIOContext { getHistory.getLast() }
 
     fun removeFromHistory(history: HistoryWithRelations) {
@@ -128,7 +114,6 @@ class HistoryViewModel(
     )
 
     sealed interface Event {
-        data class OpenChapter(val chapter: Chapter?) : Event
         data object InternalError : Event
         data object HistoryCleared : Event
     }

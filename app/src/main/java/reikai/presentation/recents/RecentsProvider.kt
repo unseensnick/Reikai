@@ -119,6 +119,13 @@ interface RecentsProvider : RecentsBehavior {
     suspend fun targetChapter(item: RecentsItem): ChapterRef?
 
     /**
+     * This type's most recently read entry, as a read-lane item, or null where the surface renders no
+     * read lane. Deliberately unfiltered: a search or a category filter narrows what you are looking
+     * through, and resuming is not about the list.
+     */
+    suspend fun latestRead(): RecentsItem?
+
+    /**
      * How a tap on [item] opens whatever [targetChapter] resolved, or null when nothing is left to
      * open. The provider builds it because only it knows which reader its content type has.
      */

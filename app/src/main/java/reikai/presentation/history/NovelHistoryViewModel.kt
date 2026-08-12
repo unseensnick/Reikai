@@ -21,7 +21,6 @@ import logcat.LogPriority
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.model.NovelHistoryWithRelations
@@ -44,7 +43,6 @@ class NovelHistoryViewModel(
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val removeNovelHistory: RemoveNovelHistory = Injekt.get(),
-    private val getNextNovelChapter: GetNextNovelChapter = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
 ) : ViewModel() {
 
@@ -86,15 +84,7 @@ class NovelHistoryViewModel(
         .map { State(list = it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
-    /** Resume a history row: reopen the recorded chapter if unread, else the next one (null = none left). */
-    fun resume(history: NovelHistoryWithRelations) {
-        viewModelScope.launchIO {
-            val next = getNextNovelChapter.await(history.novelId, history.chapterId)
-            _events.send(Event.OpenChapter(history.novelId, next?.id))
-        }
-    }
-
-    /** The latest novel read, for the tab-reselect global-latest resume. */
+    /** The latest novel read, which the seam resumes from. Unfiltered, unlike the feed above. */
     suspend fun getLast(): NovelHistoryWithRelations? = getNovelHistory.getLast()
 
     fun removeFromHistory(history: NovelHistoryWithRelations) {
@@ -118,7 +108,6 @@ class NovelHistoryViewModel(
     )
 
     sealed interface Event {
-        data class OpenChapter(val novelId: Long, val chapterId: Long?) : Event
         data object InternalError : Event
         data object HistoryCleared : Event
     }

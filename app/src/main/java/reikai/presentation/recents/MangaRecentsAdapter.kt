@@ -171,6 +171,8 @@ class MangaRecentsAdapter private constructor(
         read = read || id in readInOtherSources,
     )
 
+    override suspend fun latestRead(): RecentsItem? = historyModel?.getLast()?.toRecentsItem()
+
     /** Present only where the updates model is: every verb behind it acts on that model's rows. */
     override val chapterActions: RecentsChapterActions? = updatesModel?.let(::ModelChapterActions)
 

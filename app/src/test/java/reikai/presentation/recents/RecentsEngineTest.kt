@@ -687,6 +687,44 @@ class RecentsEngineTest {
         engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection)
     }
 
+    /**
+     * Resume used to compare both types whatever the chip was, so the Novels chip could open a manga.
+     * The chip decides which providers are asked at all, which is why it cannot come back.
+     */
+    @Test
+    fun `resume opens the newest read of the type the chip is showing`() = runTest {
+        val mangaRead = item(manga1, at = 300, lane = RecentsLane.Read(ChapterRef(manga1, 11)))
+        val novelRead = item(novel1, at = 100, lane = RecentsLane.Read(ChapterRef(novel1, 22)))
+        val manga = provider(ContentType.MANGA, latestRead = mangaRead)
+        val novel = provider(ContentType.NOVELS, latestRead = novelRead)
+
+        engine(listOf(manga, novel), chip = ContentType.NOVELS).resumeLatest()
+
+        (manga.openedItem to novel.openedItem) shouldBe (null to novelRead)
+    }
+
+    @Test
+    fun `resume under All opens whichever type was read last`() = runTest {
+        val mangaRead = item(manga1, at = 300, lane = RecentsLane.Read(ChapterRef(manga1, 11)))
+        val novelRead = item(novel1, at = 100, lane = RecentsLane.Read(ChapterRef(novel1, 22)))
+        val manga = provider(ContentType.MANGA, latestRead = mangaRead)
+        val novel = provider(ContentType.NOVELS, latestRead = novelRead)
+
+        engine(listOf(manga, novel)).resumeLatest()
+
+        (manga.openedItem to novel.openedItem) shouldBe (mangaRead to null)
+    }
+
+    @Test
+    fun `resume with nothing read anywhere opens nothing`() = runTest {
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS)
+
+        engine(listOf(manga, novel)).resumeLatest() shouldBe null
+
+        (manga.openedItem to novel.openedItem) shouldBe (null to null)
+    }
+
     @Test
     fun `the picker's confirm files through the provider that owns the entry`() = runTest {
         val manga = provider(ContentType.MANGA)
@@ -712,6 +750,7 @@ private fun provider(
     decision: AddDecision<RecentsDuplicates>? = AddDecision.Add,
     addResult: AddFavoriteResult = AddFavoriteResult.Added,
     actsOnChapters: Boolean = true,
+    latestRead: RecentsItem? = null,
 ) = FakeRecentsProvider(
     type,
     read,
@@ -724,6 +763,7 @@ private fun provider(
     decision,
     addResult,
     actsOnChapters,
+    latestRead,
 )
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
@@ -739,6 +779,7 @@ private class FakeRecentsProvider(
     private val decision: AddDecision<RecentsDuplicates>?,
     private val addResult: AddFavoriteResult,
     actsOnChapters: Boolean,
+    private val latestRead: RecentsItem?,
 ) : RecentsProvider {
 
     var historyCleared = false
@@ -776,7 +817,16 @@ private class FakeRecentsProvider(
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 
-    override suspend fun open(item: RecentsItem): RecentsOpen? = null
+    /** What the engine asked this provider to open, which is how a resume test says who answered. */
+    var openedItem: RecentsItem? = null
+        private set
+
+    override suspend fun open(item: RecentsItem): RecentsOpen? {
+        openedItem = item
+        return null
+    }
+
+    override suspend fun latestRead(): RecentsItem? = latestRead
 
     override val chapterActions: RecentsChapterActions? =
         if (actsOnChapters) {

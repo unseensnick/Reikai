@@ -121,14 +121,13 @@ fun Screen.RecentsScreen(
 
     fun open(item: RecentsItem) {
         scope.launchIO {
-            when (val target = engine.open(item)) {
+            val target = engine.open(item)
+            withUIContext {
                 // Every path that opens a chapter says so when there is none left; this one is the
                 // only one a recents row has.
-                null -> withUIContext {
+                target.launch(context, navigator) {
                     snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
                 }
-                is RecentsOpen.ReaderIntent -> withUIContext { context.startActivity(target.intent) }
-                is RecentsOpen.ReaderScreen -> withUIContext { navigator.push(target.screen) }
             }
         }
     }

@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.history
 
-import android.content.Context
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
@@ -18,16 +17,14 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.presentation.history.NovelHistoryViewModel
-import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.recents.RecentsScreen
+import reikai.presentation.recents.launch
 import reikai.presentation.recents.rememberHistoryEngine
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -58,8 +55,8 @@ data object HistoryTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val engine = rememberHistoryEngine()
-        // RK: both models stay resolved for tab-reselect, which resumes the globally latest read and
-        //     has no engine path. The engine builds these same two out of this tab's store.
+        // RK: both models stay resolved for their event channels, which report a failed write and a
+        //     cleared history. The engine builds these same two out of this tab's store.
         val viewModel = viewModel<HistoryViewModel>()
         val novelViewModel = viewModel<NovelHistoryViewModel>()
 
@@ -83,7 +80,6 @@ data object HistoryTab : Tab {
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
                     // The screen announces a cleared history off its own dialog.
                     HistoryViewModel.Event.HistoryCleared -> Unit
-                    is HistoryViewModel.Event.OpenChapter -> openChapter(context, e.chapter)
                 }
             }
         }
@@ -95,14 +91,6 @@ data object HistoryTab : Tab {
                     NovelHistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
                     NovelHistoryViewModel.Event.HistoryCleared -> Unit
-                    is NovelHistoryViewModel.Event.OpenChapter ->
-                        if (e.chapterId != null) {
-                            // RK: group scope (default) so a merged novel's prev/next spans every source
-                            // instead of degrading to the one source of the history entry.
-                            navigator.push(NovelReaderScreen(e.novelId, e.chapterId))
-                        } else {
-                            snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-                        }
                 }
             }
         }
@@ -110,31 +98,13 @@ data object HistoryTab : Tab {
 
         LaunchedEffect(Unit) {
             resumeLastChapterReadEvent.receiveAsFlow().collectLatest {
-                // RK: resume the globally-latest read across manga + novel. Both sides ask their own
-                // unfiltered latest-entry query, so search text or a category filter cannot move what
-                // resume opens. Whichever is newer wins.
-                val mangaLatest = viewModel.getLast()
-                val novelLatest = novelViewModel.getLast()
-                val mangaAt = mangaLatest?.readAt?.time ?: Long.MIN_VALUE
-                val novelAt = novelLatest?.readAt ?: Long.MIN_VALUE
-                when {
-                    novelLatest != null && novelAt >= mangaAt -> novelViewModel.resume(novelLatest)
-                    mangaLatest != null -> viewModel.getNextChapterForManga(
-                        mangaLatest.mangaId,
-                        mangaLatest.chapterId,
-                    )
-                    else -> openChapter(context, null)
+                // RK: resume the newest read the chip is showing. The engine asks only the providers
+                //     the chip selects, each through its own unfiltered query, so a search or a
+                //     category filter still cannot move what resume opens.
+                engine.resumeLatest().launch(context, navigator) {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
                 }
             }
-        }
-    }
-
-    private suspend fun openChapter(context: Context, chapter: Chapter?) {
-        if (chapter != null) {
-            val intent = ReaderActivity.newIntent(context, chapter.mangaId, chapter.id)
-            context.startActivity(intent)
-        } else {
-            snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
         }
     }
 }

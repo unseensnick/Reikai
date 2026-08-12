@@ -469,6 +469,17 @@ class RecentsEngine(
     suspend fun open(item: RecentsItem): RecentsOpen? =
         providersByType[item.entryId.contentType]?.open(item)
 
+    /**
+     * The newest read across the content types the chip is showing, opened the way its row would be.
+     * Only the active providers are asked, which is what keeps a Novels chip from resuming a manga:
+     * a check after the fact would have to be repeated by every caller, and was missing from the one
+     * that existed. Ordering is the feed's own, so the tie-break is not a second opinion.
+     */
+    suspend fun resumeLatest(): RecentsOpen? {
+        val latest = orderRecents(activeProviders().mapNotNull { it.latestRead() }).firstOrNull()
+        return latest?.let { open(it) }
+    }
+
     // The render projection, forwarded because the providers themselves stay private: a renderer asks
     // the engine about a row and never learns which content type answered.
 
