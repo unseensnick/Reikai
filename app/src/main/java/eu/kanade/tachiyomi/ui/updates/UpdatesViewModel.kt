@@ -1,31 +1,20 @@
 package eu.kanade.tachiyomi.ui.updates
 
-import android.app.Application
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.util.fastFilter
 import androidx.lifecycle.viewModelScope
-import eu.kanade.core.preference.asState
-import eu.kanade.core.util.addOrRemove
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
@@ -71,17 +60,7 @@ class UpdatesViewModel(
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     // RK: the Updates tab's category filter, one selection covering both content types, applied in SQL.
     private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateViewModel<UpdatesViewModel.State>(State()) {
-
-    private val _events: Channel<Event> = Channel(Int.MAX_VALUE)
-    val events: Flow<Event> = _events.receiveAsFlow()
-
-    val lastUpdated by libraryPreferences.lastUpdatedTimestamp.asState(viewModelScope)
-
-    // First and last selected index in list
-    private val selectedPositions: Array<Int> = arrayOf(-1, -1)
-    private val selectedChapterIds: HashSet<Long> = HashSet()
 
     init {
         viewModelScope.launchIO {
@@ -140,29 +119,6 @@ class UpdatesViewModel(
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect(this@UpdatesViewModel::updateDownloadState)
         }
-
-        // RK --> also reflect the include/exclude category filter in the active-filter tint
-        combine(
-            getUpdatesItemPreferenceFlow()
-                .map { prefs ->
-                    listOf(
-                        prefs.filterUnread,
-                        prefs.filterDownloaded,
-                        prefs.filterStarted,
-                        prefs.filterBookmarked,
-                    )
-                        .any { it != TriState.DISABLED }
-                },
-            reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES).map { it.active },
-        ) { baseFilters, categoryActive -> baseFilters || categoryActive }
-            .distinctUntilChanged()
-            .onEach {
-                mutableState.update { state ->
-                    state.copy(hasActiveFilters = it)
-                }
-            }
-            .launchIn(viewModelScope)
-        // RK <--
     }
 
     private fun List<UpdatesItem>.applyFilters(
@@ -217,17 +173,8 @@ class UpdatesViewModel(
                     update = update,
                     downloadStateProvider = { downloadState },
                     downloadProgressProvider = { activeDownload?.progress ?: 0 },
-                    selected = update.chapterId in selectedChapterIds,
                 )
             }
-    }
-
-    fun updateLibrary(): Boolean {
-        val started = LibraryUpdateJob.startNow(Injekt.get<Application>())
-        viewModelScope.launch {
-            _events.send(Event.LibraryUpdateTriggered(started))
-        }
-        return started
     }
 
     /**
@@ -273,7 +220,6 @@ class UpdatesViewModel(
                     deleteChapters(items)
                 }
             }
-            toggleAllSelection(false)
         }
     }
 
@@ -301,7 +247,6 @@ class UpdatesViewModel(
                     .toTypedArray(),
             )
         }
-        toggleAllSelection(false)
     }
 
     /**
@@ -315,7 +260,6 @@ class UpdatesViewModel(
                 .map { ChapterUpdate(id = it.update.chapterId, bookmark = bookmark) }
                 .let { updateChapter.awaitAll(it) }
         }
-        toggleAllSelection(false)
     }
 
     /**
@@ -353,103 +297,6 @@ class UpdatesViewModel(
                     downloadManager.deleteChapters(chapters, manga, source)
                 }
         }
-        toggleAllSelection(false)
-    }
-
-    fun showConfirmDeleteChapters(updatesItem: List<UpdatesItem>) {
-        setDialog(Dialog.DeleteConfirmation(updatesItem))
-    }
-
-    fun toggleSelection(
-        item: UpdatesItem,
-        selected: Boolean,
-        fromLongPress: Boolean = false,
-    ) {
-        mutableState.update { state ->
-            val newItems = state.items.toMutableList().apply {
-                val selectedIndex = indexOfFirst { it.update.chapterId == item.update.chapterId }
-                if (selectedIndex < 0) return@apply
-
-                val selectedItem = get(selectedIndex)
-                if (selectedItem.selected == selected) return@apply
-
-                val firstSelection = none { it.selected }
-                set(selectedIndex, selectedItem.copy(selected = selected))
-                selectedChapterIds.addOrRemove(item.update.chapterId, selected)
-
-                if (selected && fromLongPress) {
-                    if (firstSelection) {
-                        selectedPositions[0] = selectedIndex
-                        selectedPositions[1] = selectedIndex
-                    } else {
-                        // Try to select the items in-between when possible
-                        val range: IntRange
-                        if (selectedIndex < selectedPositions[0]) {
-                            range = selectedIndex + 1..<selectedPositions[0]
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            range = (selectedPositions[1] + 1)..<selectedIndex
-                            selectedPositions[1] = selectedIndex
-                        } else {
-                            // Just select itself
-                            range = IntRange.EMPTY
-                        }
-
-                        range.forEach {
-                            val inbetweenItem = get(it)
-                            if (!inbetweenItem.selected) {
-                                selectedChapterIds.add(inbetweenItem.update.chapterId)
-                                set(it, inbetweenItem.copy(selected = true))
-                            }
-                        }
-                    }
-                } else if (!fromLongPress) {
-                    if (!selected) {
-                        if (selectedIndex == selectedPositions[0]) {
-                            selectedPositions[0] = indexOfFirst { it.selected }
-                        } else if (selectedIndex == selectedPositions[1]) {
-                            selectedPositions[1] = indexOfLast { it.selected }
-                        }
-                    } else {
-                        if (selectedIndex < selectedPositions[0]) {
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            selectedPositions[1] = selectedIndex
-                        }
-                    }
-                }
-            }
-            state.copy(items = newItems)
-        }
-    }
-
-    fun toggleAllSelection(selected: Boolean) {
-        mutableState.update { state ->
-            val newItems = state.items.map {
-                selectedChapterIds.addOrRemove(it.update.chapterId, selected)
-                it.copy(selected = selected)
-            }
-            state.copy(items = newItems)
-        }
-
-        selectedPositions[0] = -1
-        selectedPositions[1] = -1
-    }
-
-    fun invertSelection() {
-        mutableState.update { state ->
-            val newItems = state.items.map {
-                selectedChapterIds.addOrRemove(it.update.chapterId, !it.selected)
-                it.copy(selected = !it.selected)
-            }
-            state.copy(items = newItems)
-        }
-        selectedPositions[0] = -1
-        selectedPositions[1] = -1
-    }
-
-    fun setDialog(dialog: Dialog?) {
-        mutableState.update { it.copy(dialog = dialog) }
     }
 
     fun resetNewUpdatesCount() {
@@ -474,10 +321,6 @@ class UpdatesViewModel(
         }
     }
 
-    fun showFilterDialog() {
-        mutableState.update { it.copy(dialog = Dialog.FilterSheet) }
-    }
-
     @Immutable
     private data class ItemPreferences(
         val filterDownloaded: TriState,
@@ -487,29 +330,14 @@ class UpdatesViewModel(
         val filterExcludedScanlators: Boolean,
     )
 
+    // RK: the state is down to the feed itself. Selection, the dialogs, the active-filter flag and the
+    // last-updated line moved to the recents engine, which owns them for both content types; upstream's
+    // getUiModel() went with the Mihon screen it fed.
     @Immutable
     data class State(
         val isLoading: Boolean = true,
-        val hasActiveFilters: Boolean = false,
         val items: List<UpdatesItem> = listOf(),
-        val dialog: Dialog? = null,
-    ) {
-        val selected = items.filter { it.selected }
-        val selectionMode = selected.isNotEmpty()
-
-        // RK: upstream's getUiModel() went with the Mihon screen it fed. The shared Reikai screen
-        // derives its own date headers over both feeds, so grouping one feed here would fork them.
-    }
-
-    sealed interface Dialog {
-        data class DeleteConfirmation(val toDelete: List<UpdatesItem>) : Dialog
-        data object FilterSheet : Dialog
-    }
-
-    sealed interface Event {
-        data object InternalError : Event
-        data class LibraryUpdateTriggered(val started: Boolean) : Event
-    }
+    )
 }
 
 private fun TriState.toBooleanOrNull(): Boolean? {
@@ -525,5 +353,4 @@ data class UpdatesItem(
     val update: UpdatesWithRelations,
     val downloadStateProvider: () -> Download.State,
     val downloadProgressProvider: () -> Int,
-    val selected: Boolean = false,
 )

@@ -23,7 +23,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.presentation.history.NovelHistoryViewModel
-import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.recents.RecentsScreen
 import reikai.presentation.recents.rememberHistoryEngine
@@ -96,8 +95,6 @@ data object HistoryTab : Tab {
                     NovelHistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
                     NovelHistoryViewModel.Event.HistoryCleared -> Unit
-                    is NovelHistoryViewModel.Event.OpenNovel ->
-                        navigator.push(NovelScreen(e.source, e.url))
                     is NovelHistoryViewModel.Event.OpenChapter ->
                         if (e.chapterId != null) {
                             // RK: group scope (default) so a merged novel's prev/next spans every source

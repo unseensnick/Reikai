@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
@@ -18,31 +17,17 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
-import reikai.domain.library.ContentType
-import reikai.domain.novel.NovelMergeManager
-import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
-import reikai.domain.novel.interactor.UpdateNovel
-import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelHistoryWithRelations
-import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.presentation.browse.AddOutcome
-import reikai.presentation.browse.addEntry
-import reikai.presentation.browse.components.EntrySourceLabel
-import reikai.presentation.browse.finishAdd
-import reikai.presentation.novel.browse.NovelLibraryAdder
-import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
@@ -50,9 +35,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Novel side of the consolidated History tab (the novel twin of
  * [eu.kanade.tachiyomi.ui.history.HistoryViewModel]). Mihon's manga model drives manga rows; this
- * drives novel rows, both rendered by the shared recents screen. The feed is one row per novel (its
- * most-recently-read chapter), searchable by title; the recents engine interleaves it with the manga
- * feed and inserts the date headers, so the raw list is exposed here (no per-model UI model).
+ * drives novel rows, both rendered by the shared recents screen. The feed is one row per novel, its
+ * most-recently-read chapter; the recents engine searches, interleaves and dates it, so what leaves
+ * here is the raw list and nothing else.
  */
 class NovelHistoryViewModel(
     private val getNovelHistory: GetNovelHistory = Injekt.get(),
@@ -60,77 +45,45 @@ class NovelHistoryViewModel(
     private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val removeNovelHistory: RemoveNovelHistory = Injekt.get(),
     private val getNextNovelChapter: GetNextNovelChapter = Injekt.get(),
-    private val novelRepository: NovelRepository = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val updateNovel: UpdateNovel = Injekt.get(),
-    private val novelLibraryAdder: NovelLibraryAdder = Injekt.get(),
-    // RK: add-time grouping (the merge itself; the gate and the group's categories go through the adder).
-    private val novelMergeManager: NovelMergeManager = Injekt.get(),
 ) : ViewModel() {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
-    private val searchQuery = MutableStateFlow<String?>(null)
-
-    private val dialog = MutableStateFlow<Dialog?>(null)
-
-    /** Shared All / Manga / Novels chip, persisted under its own key (mirrors the Updates tab). */
-    val contentType: StateFlow<ContentType> = sourcePreferences.historyContentType.changes()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.historyContentType.get())
-
-    fun setContentType(type: ContentType) = sourcePreferences.historyContentType.set(type)
-
-    /** Whether History's own category filter is constraining both feeds; drives the shell's empty
-     *  state, which otherwise blames an empty History on there being nothing to read. Always false
-     *  until History gains a filter entry point, since nothing can write that selection yet. */
-    val hasActiveCategoryFilter: StateFlow<Boolean> =
+    // The category filter is a query parameter, so the subscription re-runs on it. Search is not one:
+    // the engine matches the rows it has already been handed, so this feed asks for all of them.
+    private val history: StateFlow<List<NovelHistoryWithRelations>?> =
         sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY)
-            .map { it.active }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    // The category filter is a query parameter, so it joins the search query in the key the
-    // subscription re-runs on.
-    private val history: StateFlow<List<NovelHistoryWithRelations>?> = combine(
-        searchQuery,
-        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY),
-        ::Pair,
-    )
-        .distinctUntilChanged()
-        .flatMapLatest { (query, categories) ->
-            // Overlay the display-only custom title/cover onto each row, keyed by the real novel id.
-            // The SQL search (getNovelHistory.subscribe) still runs on the raw title.
-            combine(
-                getNovelHistory.subscribe(query ?: "", categories.include, categories.exclude),
-                getCustomNovelInfo.subscribeAll(),
-            ) { history, customInfo ->
-                val overlay = customInfo.associateBy { it.novelId }
-                history.map { row ->
-                    val custom = overlay[row.novelId] ?: return@map row
-                    row.copy(
-                        title = custom.title ?: row.title,
-                        coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
-                    )
+            .distinctUntilChanged()
+            .flatMapLatest { categories ->
+                // Overlay the display-only custom title/cover onto each row, keyed by the real novel id.
+                combine(
+                    getNovelHistory.subscribe("", categories.include, categories.exclude),
+                    getCustomNovelInfo.subscribeAll(),
+                ) { history, customInfo ->
+                    val overlay = customInfo.associateBy { it.novelId }
+                    history.map { row ->
+                        val custom = overlay[row.novelId] ?: return@map row
+                        row.copy(
+                            title = custom.title ?: row.title,
+                            coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
+                        )
+                    }
                 }
+                    .distinctUntilChanged()
+                    .catch { error ->
+                        logcat(LogPriority.ERROR, error)
+                        _events.send(Event.InternalError)
+                    }
+                    .flowOn(Dispatchers.IO)
             }
-                .distinctUntilChanged()
-                .catch { error ->
-                    logcat(LogPriority.ERROR, error)
-                    _events.send(Event.InternalError)
-                }
-                .flowOn(Dispatchers.IO)
-        }
-        // Null is this feed's "not loaded yet", read by the shared screen and by the recents read
-        // lane. Its manga twin seeds the same way and for the same reason.
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+            // Null is this feed's "not loaded yet", read by the shared screen and by the recents read
+            // lane. Its manga twin seeds the same way and for the same reason.
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
-    val state: StateFlow<State> = combine(
-        searchQuery,
-        history,
-        dialog,
-    ) { searchQuery, history, dialog ->
-        State(searchQuery = searchQuery, list = history, dialog = dialog)
-    }
+    val state: StateFlow<State> = history
+        .map { State(list = it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     /** Resume a history row: reopen the recorded chapter if unread, else the next one (null = none left). */
@@ -138,90 +91,6 @@ class NovelHistoryViewModel(
         viewModelScope.launchIO {
             val next = getNextNovelChapter.await(history.novelId, history.chapterId)
             _events.send(Event.OpenChapter(history.novelId, next?.id))
-        }
-    }
-
-    /** Open a novel's details. NovelScreen is keyed by (source, url), so resolve them from the id here. */
-    fun openDetails(novelId: Long) {
-        viewModelScope.launchIO {
-            val novel = novelRepository.getById(novelId) ?: return@launchIO
-            _events.send(Event.OpenNovel(novel.source, novel.url))
-        }
-    }
-
-    /** Add a not-yet-library novel from its history row. Warn on a similarly-named library novel first
-     *  (mirrors HistoryViewModel), then favorite the existing row and apply the default category or
-     *  prompt (reuses NovelLibraryAdder's add-to-library category logic). */
-    fun addFavorite(novelId: Long) {
-        viewModelScope.launchIO {
-            val novel = novelRepository.getById(novelId) ?: return@launchIO
-            novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
-                setDialog(
-                    Dialog.DuplicateNovel(
-                        novelId,
-                        dup.duplicates,
-                        dup.sourceLabels,
-                        dup.sourceSites,
-                        novelLibraryAdder.suggestGrouping,
-                        novelLibraryAdder.getDuplicateGroupIds(dup.duplicates),
-                    ),
-                )
-                return@launchIO
-            }
-            addToLibrary(novelId)
-        }
-    }
-
-    /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
-    fun addFavoriteAnyway(novelId: Long) {
-        viewModelScope.launchIO { addToLibrary(novelId) }
-    }
-
-    /** Raise the migrate dialog for the duplicate the user picked, onto the history novel. The lookup
-     *  confirms the row is still there; a history novel is already chapter-synced, so nothing is fetched. */
-    fun startMigrate(duplicateId: Long, novelId: Long) {
-        viewModelScope.launchIO {
-            val target = novelRepository.getById(novelId) ?: return@launchIO
-            setDialog(Dialog.Migrate(currentId = duplicateId, targetId = target.id))
-        }
-    }
-
-    /** Add-time grouping. Only the picks the user chose: the duplicate list is fuzzy, so merging every
-     *  match would fuse distinct series. The favorite-and-merge pair and the reason it has to be atomic
-     *  live in NovelLibraryAdder.addToGroup; null means it wrote nothing. */
-    fun addToExistingGroup(novelId: Long, selectedIds: List<Long>) {
-        viewModelScope.launchIO {
-            val seeded = novelLibraryAdder.addToGroup(novelId, selectedIds) ?: return@launchIO
-            // Group categories win: only fall back to the default (or picker) for an uncategorized group.
-            if (!seeded) {
-                novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { selection ->
-                    setDialog(Dialog.ChangeCategory(novelId, selection))
-                }
-            }
-        }
-    }
-
-    private suspend fun addToLibrary(novelId: Long) {
-        // The shared add sequence: decide, favorite, file, and abandon the whole add if the favorite
-        // write fails. A picker defers both writes to applyCategories, so backing out adds nothing.
-        val outcome = addEntry(
-            resolveCategories = { novelLibraryAdder.resolveDefaultCategories() },
-            favorite = { novelLibraryAdder.favoriteForAdd(novelId) },
-            fileCategories = { id, categoryIds -> novelLibraryAdder.applyCategories(id, categoryIds) },
-        )
-        if (outcome == AddOutcome.NeedsCategoryChoice) {
-            setDialog(Dialog.ChangeCategory(novelId, novelLibraryAdder.categoryPickerPrompt(novelId)))
-        }
-    }
-
-    fun applyCategories(novelId: Long, categoryIds: List<Long>) {
-        setDialog(null)
-        viewModelScope.launchIO {
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = { novelLibraryAdder.favoriteForAdd(novelId) },
-                fileCategories = { id, ids -> novelLibraryAdder.applyCategories(id, ids) },
-            )
         }
     }
 
@@ -243,43 +112,13 @@ class NovelHistoryViewModel(
         }
     }
 
-    fun updateSearchQuery(query: String?) = searchQuery.update { query }
-
-    fun setDialog(dialog: Dialog?) = this.dialog.update { dialog }
-
     @Immutable
     data class State(
-        val searchQuery: String? = null,
         val list: List<NovelHistoryWithRelations>? = null,
-        val dialog: Dialog? = null,
     )
-
-    sealed interface Dialog {
-        data object DeleteAll : Dialog
-        data class Delete(val history: NovelHistoryWithRelations) : Dialog
-        data class DuplicateNovel(
-            val novelId: Long,
-            val duplicates: List<NovelWithChapterCount>,
-            val sourceLabels: Map<String, EntrySourceLabel>,
-            val sourceSites: Map<String, String?>,
-            /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
-            val suggestGroup: Boolean,
-            /** Novel id -> group id, so same-group duplicates collapse into one card. */
-            val groupIdByNovelId: Map<Long, Long>,
-        ) : Dialog
-        data class ChangeCategory(
-            val novelId: Long,
-            val initialSelection: List<CheckboxState.State<Category>>,
-        ) : Dialog
-
-        /** Migrating the library's copy onto the history novel, both already stored by id. Replaces
-         *  [DuplicateNovel] in the same slot, as the manga twin does. */
-        data class Migrate(val currentId: Long, val targetId: Long) : Dialog
-    }
 
     sealed interface Event {
         data class OpenChapter(val novelId: Long, val chapterId: Long?) : Event
-        data class OpenNovel(val source: String, val url: String) : Event
         data object InternalError : Event
         data object HistoryCleared : Event
     }

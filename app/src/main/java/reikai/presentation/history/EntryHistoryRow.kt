@@ -21,21 +21,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.formatChapterNumber
-import eu.kanade.tachiyomi.util.lang.toTimestampString
-import reikai.domain.novel.model.NovelHistoryWithRelations
-import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import java.util.Date
 
 private val EntryHistoryRowHeight = 96.dp
 
 /**
- * The neutral display data for one History row. Both manga ([HistoryWithRelations]) and novels
- * ([NovelHistoryWithRelations]) map into this, so a single row composable draws either. This is the
- * unified-content-UI seam: the mappers below erase the per-type divergences (favorite-flag field,
- * [Date]-vs-[Long] read time, domain type) into plain data.
+ * The neutral display data for one History row, so a single composable draws either content type.
+ * The recents engine fills it from its own row projection, which is where the per-type divergences
+ * (favorite-flag field, Date-against-Long read time, domain type) are already erased.
  */
 data class EntryHistoryRowUi(
     // Coil model: a MangaCover or a NovelCover. MangaCover.Book accepts data: Any?.
@@ -45,22 +40,6 @@ data class EntryHistoryRowUi(
     // Pre-formatted timestamp so the composable never sees the two read-time types.
     val readAt: String,
     val isFavorite: Boolean,
-)
-
-fun HistoryWithRelations.toEntryHistoryRowUi() = EntryHistoryRowUi(
-    cover = coverData,
-    title = title,
-    chapterNumber = chapterNumber,
-    readAt = readAt?.toTimestampString().orEmpty(),
-    isFavorite = coverData.isMangaFavorite,
-)
-
-fun NovelHistoryWithRelations.toEntryHistoryRowUi() = EntryHistoryRowUi(
-    cover = coverData,
-    title = title,
-    chapterNumber = chapterNumber,
-    readAt = readAt?.let { Date(it).toTimestampString() }.orEmpty(),
-    isFavorite = coverData.isNovelFavorite,
 )
 
 /**
