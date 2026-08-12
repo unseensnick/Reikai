@@ -118,7 +118,13 @@ sites, with some of them wrong. Neither class shows up in the other's review.
 - **Engine files are never deleted.** They stay live and minimally patched on the render path. The
   only exceptions are ruled orchestration takeovers, recorded in the manifest's own carve-out note.
 - A **partially collapsed** file keeps its live remainder in place, marked `// RK` with what moved
-  out, and is manifested only once nothing live remains.
+  out, until that remainder can move too: take it into a Reikai-owned file, or retire it where the
+  takeover made it pointless, then delete and manifest the original. Nothing live remaining is the
+  bar, and moving the last piece out is how a file reaches it, as `MangaInfoHeader` did.
+- **Dead code is deleted, never marked** (owner, 2026-08-12), in a live Mihon file as much as in a
+  Reikai-owned one. A noted remnant is the retired keep-inert rule at member scale, and the diff base
+  a sync needs is `refs/mihon`, not a corpse in this tree. The download queue model is the one
+  sanctioned holdout, and it is named above.
 - The manifest is enforced by `pre-commit` and `commit-msg` hooks plus `docs-lint`, and read by
   `scripts/off-path-check.ps1` during a sync. Treat a VANISHED report as unresolved, never expected.
 
