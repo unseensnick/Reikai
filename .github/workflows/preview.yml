@@ -110,16 +110,28 @@ jobs:
           commit_count=$(git rev-list --count HEAD)
           echo "COMMIT_COUNT=$commit_count" >> "$GITHUB_ENV"
 
-          # Resolve the previous preview's commit: preview tags are r<commitCount>, so the commit it was
-          # cut from is HEAD~(count - prevCount).
+          # Resolve the previous preview's source commit by reading it back off that release's stamp
+          # commit, which records it. The old arithmetic (HEAD~(count - prevCount)) assumed every preview
+          # was cut from the same branch: counts on main and on a feature branch are unrelated, so a
+          # preview following one built elsewhere silently diffed against a stranger commit that happened
+          # to sit that far back, and the notes listed the whole [Unreleased] section.
           prev_ref=""
           prev_tag=$(gh release list --repo "$PREVIEW_REPO" --json tagName --limit 1 --jq 'select(length > 0) | .[0].tagName' || true)
           if [ -n "$prev_tag" ]; then
-            back=$((commit_count - ${prev_tag#r}))
-            if [ "$back" -ge 0 ] && git rev-parse -q --verify "HEAD~$back" >/dev/null 2>&1; then
-              prev_ref="HEAD~$back"
+            prev_sha=$(gh api "repos/$PREVIEW_REPO/commits/$prev_tag" --jq '.commit.message' 2>/dev/null \
+                       | sed -n 's/^preview r[0-9]* (\([0-9a-f]\{7,40\}\))$/\1/p' | head -1)
+            if [ -n "$prev_sha" ] && git cat-file -e "${prev_sha}^{commit}" 2>/dev/null; then
+              if git merge-base --is-ancestor "$prev_sha" HEAD; then
+                prev_ref="$prev_sha"
+              else
+                # That preview came off another branch, so the honest base is where the two diverged.
+                prev_ref=$(git merge-base "$prev_sha" HEAD || true)
+              fi
             fi
           fi
+          # A stamp with no recorded commit (or one this clone cannot see) leaves prev_ref empty, and the
+          # notes fall back to the whole [Unreleased] section rather than to a guess.
+          echo "Previous preview ${prev_tag:-none}, diffing against ${prev_ref:-nothing}"
 
           # Preview notes are the entries ADDED to CHANGELOG.md's [Unreleased] since the previous preview
           # (the running list would otherwise repeat every build). Diff the current [Unreleased] against
@@ -182,10 +194,12 @@ jobs:
           # Each release now gets its own commit dated at build time, so the primary sort works and the
           # tie-break never runs. The commit reuses main's tree and hangs off it as a sibling, reachable
           # only through its tag, so the preview repo's own history stays a single LICENSE commit.
+          # The message records the Reikai commit this preview was built from, in the exact shape the
+          # release-body step parses to find the previous preview's base. Keep the two in step.
           base=$(gh api "repos/$PREVIEW_REPO/git/ref/heads/main" --jq '.object.sha')
           tree=$(gh api "repos/$PREVIEW_REPO/commits/main" --jq '.commit.tree.sha')
           bot='{"name":"github-actions[bot]","email":"41898282+github-actions[bot]@users.noreply.github.com"}'
-          stamp=$(jq -n --arg m "preview r${COMMIT_COUNT}" --arg t "$tree" --arg p "$base" \
+          stamp=$(jq -n --arg m "preview r${COMMIT_COUNT} ($(git rev-parse HEAD))" --arg t "$tree" --arg p "$base" \
                         --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson who "$bot" \
                     '{message:$m, tree:$t, parents:[$p],
                       author:    ($who + {date:$d}),
