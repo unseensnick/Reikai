@@ -70,6 +70,29 @@ class RecentsAssemblyTest {
             listOf(EntryId.Manga(1), EntryId.Manga(2), EntryId.Manga(3))
     }
 
+    /**
+     * The keep rule runs before the collapse, so a hidden row cannot stand in for its entry: taking
+     * it out afterwards would leave the entry represented by a row nobody can see, or drop the entry
+     * entirely because its newest activity was the hidden one.
+     */
+    @Test
+    fun `a row the keep rule drops is not drawn, and does not stand in for its entry`() {
+        val hidden = manga(1, at = 30, lane = read(EntryId.Manga(1), chapterId = 300))
+        val shown = manga(1, at = 20, lane = updated(EntryId.Manga(1), chapterId = 200))
+        val assembled = RecentsAssembled(
+            items = listOf(hidden, shown),
+            chip = ContentType.ALL,
+            loading = false,
+            membership = emptyMap(),
+        )
+
+        val rows = renderRows(RecentsMode.FEED, assembled, groupBySeries = false, expandedGroups = emptySet()) {
+            it != hidden
+        }
+
+        rows.filterIsInstance<RecentsRow.Entry>().map { it.item } shouldBe listOf(shown)
+    }
+
     @Test
     fun `rows are ordered newest first`() {
         val items = listOf(manga(1, at = 10), manga(2, at = 30), manga(3, at = 20))

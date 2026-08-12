@@ -30,3 +30,26 @@ sealed interface RecentsRow {
     /** Jumps to the single-lane mode for [section], so only the lanes that have one carry it. */
     data class SectionFooter(val section: RecentsLaneKind) : RecentsRow
 }
+
+/**
+ * Every item this list offers to a selection, in the order it is drawn. A collapsed group stands in
+ * for its members, since none of them is drawn on its own; an expanded one leaves them to its
+ * children, so a member is never counted twice.
+ */
+fun List<RecentsRow>.selectableItems(): List<RecentsItem> = buildList {
+    this@selectableItems.forEach { row ->
+        when (row) {
+            is RecentsRow.Entry -> add(row.item)
+            is RecentsRow.Child -> add(row.item)
+            is RecentsRow.Group -> if (!row.expanded) addAll(row.members)
+            else -> Unit
+        }
+    }
+}
+
+/**
+ * The refs a sweep runs along, and the set a selection is pruned to. Derived from [selectableItems]
+ * rather than walked again: the two answers must not be able to disagree about what is on screen.
+ */
+internal fun List<RecentsRow>.orderedChapterRefs(): List<ChapterRef> =
+    selectableItems().mapNotNull { it.lane.chapterRef }

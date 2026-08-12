@@ -91,8 +91,10 @@ class RecentsEngineTest {
     private val emittingStore = EmittingPreferenceStore()
     private val emittingUpdatesPreferences = UpdatesPreferences(emittingStore)
 
-    private fun multiModeEngine(modes: Set<RecentsMode>) = RecentsEngine(
-        providers = listOf(provider(ContentType.MANGA)),
+    private fun multiModeEngine(modes: Set<RecentsMode>) = emittingEngine(provider(ContentType.MANGA), modes)
+
+    private fun emittingEngine(provider: RecentsProvider, modes: Set<RecentsMode>) = RecentsEngine(
+        providers = listOf(provider),
         surface = RecentsSurface.UPDATES,
         modes = modes,
         sourcePreferences = ReikaiSourcePreferences(emittingStore),
@@ -101,6 +103,12 @@ class RecentsEngineTest {
     )
 
     private suspend fun RecentsEngine.firstAssembly(): RecentsAssembled = assembled.filterNotNull().first()
+
+    /**
+     * The drawn rows, which is also what prunes the selection. Collecting the assembly instead would
+     * miss it: the prune moved onto this flow precisely because the assembly is not what is on screen.
+     */
+    private suspend fun RecentsEngine.firstRendered(): RecentsRendered = rendered.filterNotNull().first()
 
     /**
      * The derived value once it has been computed. A flow shared while subscribed answers its seed
@@ -406,9 +414,71 @@ class RecentsEngineTest {
         )
         engine.toggleSelection(chapter)
         engine.search("dan")
-        engine.firstAssembly()
+        engine.firstRendered()
 
         engine.selection.value shouldBe emptySet()
+    }
+
+    /**
+     * The cap is the digest's whole shape, so a row can stop being drawn while nothing about it
+     * changed: an arriving update burst takes the read section's budget. Selected, it would have kept
+     * counting in the toolbar and kept being acted on, with nothing on screen to say so.
+     */
+    @Test
+    fun `a selected row a section cap dropped leaves the selection`() = runTest {
+        val items = (1..12).map { n ->
+            val entry = EntryId.Manga(n.toLong())
+            item(entry, at = 100L - n, lane = RecentsLane.Read(ChapterRef(entry, chapterId = n.toLong())))
+        }
+        val engine = engine(
+            listOf(provider(ContentType.MANGA, read = rows(*items.toTypedArray()))),
+            modes = setOf(RecentsMode.DIGEST),
+        )
+        val drawn = ref(items.first().entryId, chapterId = 1)
+        val capped = ref(items.last().entryId, chapterId = 12)
+        engine.toggleSelection(drawn)
+        engine.toggleSelection(capped)
+
+        engine.firstRendered()
+
+        engine.selection.value shouldContainExactly listOf(drawn)
+    }
+
+    @Test
+    fun `a selected row the chapter filter hides leaves the selection`() = runTest {
+        emittingUpdatesPreferences.filterBookmarked.set(TriState.ENABLED_IS)
+        val kept = EntryId.Manga(1)
+        val hidden = EntryId.Manga(2)
+        val engine = emittingEngine(
+            provider(
+                ContentType.MANGA,
+                read = rows(
+                    item(kept, at = 20, lane = RecentsLane.Read(ChapterRef(kept, 1))),
+                    item(hidden, at = 10, lane = RecentsLane.Read(ChapterRef(hidden, 2))),
+                ),
+                states = mapOf(
+                    kept to RecentsChapterState(read = false, bookmark = true, progress = null),
+                    hidden to RecentsChapterState(read = false, bookmark = false, progress = null),
+                ),
+            ),
+            modes = setOf(RecentsMode.FEED),
+        )
+        engine.toggleSelection(ref(kept, 1))
+        engine.toggleSelection(ref(hidden, 2))
+
+        engine.firstRendered()
+
+        engine.selection.value shouldContainExactly listOf(ref(kept, 1))
+    }
+
+    @Test
+    fun `select all takes every row the surface draws`() {
+        val engine = engine(listOf(provider(ContentType.MANGA)))
+        val ordered = listOf(ref(manga1, 1), ref(novel1, 2))
+
+        engine.selectAll(ordered)
+
+        engine.selection.value shouldContainExactlyInAnyOrder ordered
     }
 
     @Test

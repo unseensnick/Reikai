@@ -166,10 +166,37 @@ class RecentsEngine(
                 loading = active.any { !it.loaded },
             )
         }
-            // Pruning is an effect on the selection, so it sits beside the transform rather than
-            // inside it. Nothing to prune against while nothing collects: the feed is not moving.
-            .onEach { pruneSelection(it.items) }
             // The transform sorts the whole feed; keep it off the main thread.
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, OVER_PROVIDERS, null)
+    }
+
+    /**
+     * What the surface actually draws: the mode's policy over the assembly, grouped and filtered.
+     * It lives here rather than in the renderer because the selection is pruned to it, and a rule
+     * about what is on screen cannot be enforced from a place that only learns it afterwards.
+     * Null while the assembly is a chip behind, which the screen draws as loading, exactly as it did
+     * when it applied that guard itself.
+     */
+    val rendered: StateFlow<RecentsRendered?> by lazy {
+        combine(
+            combine(assembled, contentType) { assembled, chip -> assembled?.takeIf { it.chip == chip } },
+            mode,
+            groupBySeries,
+            expandedGroups,
+            chapterFilters,
+        ) { assembled, mode, grouped, expanded, filters ->
+            assembled?.let {
+                RecentsRendered(
+                    rows = renderRows(mode, it, grouped, expanded) { item -> showsRow(item, filters) },
+                    loading = it.loading,
+                )
+            }
+        }
+            // Beside the transform rather than inside it, because it is an effect on the selection.
+            // A null carries no statement about what is on screen, so it prunes nothing: pruning
+            // there would empty a selection every time the chip flip lagged by one emission.
+            .onEach { rendered -> rendered?.let { pruneSelection(it.rows.orderedChapterRefs()) } }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, OVER_PROVIDERS, null)
     }
@@ -337,13 +364,18 @@ class RecentsEngine(
         }
     }
 
-    /** Drop selected chapters that the rendered feed no longer holds, so the toolbar count cannot
-     *  promise more than the verbs will touch. */
-    private fun pruneSelection(rows: List<RecentsItem>) {
+    /**
+     * Drop selected chapters the surface no longer draws, so the toolbar count cannot promise more
+     * than the verbs will touch. Against the drawn rows rather than the assembled ones: a mode caps
+     * its sections and a filter hides rows, and both used to leave a selection acting on what nobody
+     * could see. What navigation hides is not pruned, because a collapsed group's members are still
+     * drawn as far as this list is concerned.
+     */
+    private fun pruneSelection(present: List<ChapterRef>) {
         mutableSelection.update { selection ->
             if (selection.isEmpty()) return@update selection
-            val present = rows.mapNotNullTo(HashSet()) { it.lane.chapterRef }
-            val pruned = selection.filterTo(HashSet()) { it in present }
+            val drawn = present.toHashSet()
+            val pruned = selection.filterTo(HashSet()) { it in drawn }
             if (pruned.size == selection.size) selection else pruned
         }
     }
@@ -569,4 +601,15 @@ data class RecentsAssembled(
     val items: List<RecentsItem>,
     val loading: Boolean,
     val membership: Map<EntryId, Long> = emptyMap(),
+)
+
+/**
+ * One pass of what the surface draws. [loading] rides along rather than being read separately: the
+ * rows and the reason there are none have to describe the same emission, or a feed announces itself
+ * empty while its own query is still running.
+ */
+@Immutable
+data class RecentsRendered(
+    val rows: List<RecentsRow>,
+    val loading: Boolean,
 )

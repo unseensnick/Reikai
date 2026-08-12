@@ -37,7 +37,7 @@ internal fun Screen.RecentsTabBody(
         HomeScreen.showBottomNav(selectionEmpty)
     }
 
-    val loaded = engine.assembled.collectAsState().value?.loading == false
+    val loaded = engine.rendered.collectAsState().value?.loading == false
     LaunchedEffect(loaded) {
         if (loaded) {
             (context as? MainActivity)?.ready = true

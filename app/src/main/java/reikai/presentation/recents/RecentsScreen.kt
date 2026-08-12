@@ -111,21 +111,14 @@ fun Screen.RecentsScreen(
     val lastUpdated by engine.lastUpdated.collectAsState()
     val filterActive by engine.filterActive.collectAsState()
     val selection by engine.selection.collectAsState()
-    val groupBySeries by engine.groupBySeries.collectAsState()
     val swipeActions by engine.swipeActions.collectAsState()
-    val expandedGroups by engine.expandedGroups.collectAsState()
-    val chapterFilters by engine.chapterFilters.collectAsState()
-    // The assembly lags a chip flip by one emission, so it is drawn only once its tag catches up.
-    val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == contentType }
+    // Null until the assembly catches up with the chip, which is drawn as loading.
+    val rendered by engine.rendered.collectAsState()
 
-    val rows = remember(mode, assembled, groupBySeries, expandedGroups, chapterFilters) {
-        assembled?.let {
-            renderRows(mode, it, groupBySeries, expandedGroups) { item -> engine.showsRow(item, chapterFilters) }
-        }.orEmpty()
-    }
+    val rows = rendered?.rows.orEmpty()
     val selectionEnabled = mode.can(RecentsCapability.SELECTION)
-    // The order a sweep runs along, which only the renderer knows: both types interleaved, grouping
-    // and collapsing already applied.
+    // The order a sweep runs along: both types interleaved, grouping and collapsing already applied.
+    // The same list the engine prunes the selection to, so the two cannot disagree.
     val orderedRefs = remember(rows) { rows.orderedChapterRefs() }
     val showsUpdated = RecentsLaneKind.UPDATED in mode.lanes
     val showsRead = RecentsLaneKind.READ in mode.lanes
@@ -202,7 +195,9 @@ fun Screen.RecentsScreen(
         bottomBar = {
             RecentsBottomBar(
                 engine = engine,
-                selected = assembled?.items.orEmpty().filter { it.lane.chapterRef in selection },
+                // Off the drawn rows, not the assembly: a row the surface no longer shows must not
+                // answer for what the bar offers, any more than it stays in the selection.
+                selected = rows.selectableItems().filter { it.lane.chapterRef in selection },
                 onDeleteDownloads = { engine.openDialog(RecentsDialog.DeleteDownloads(selection)) },
             )
         },
@@ -222,7 +217,7 @@ fun Screen.RecentsScreen(
             )
             Box(modifier = Modifier.weight(1f)) {
                 when {
-                    assembled == null || assembled.loading -> LoadingScreen(Modifier.padding(bodyPadding))
+                    rendered == null || rendered?.loading == true -> LoadingScreen(Modifier.padding(bodyPadding))
                     rows.isEmpty() -> RecentsEmptyState(
                         mode = mode,
                         query = query,
@@ -834,24 +829,6 @@ private fun Screen.RecentsDialogs(
             targetId = open.target.rawId,
             onDismissRequest = onDismiss,
         )
-    }
-}
-
-/**
- * The refs a sweep runs along, in the order they are on screen. A collapsed group stands in for its
- * members, since none of them are drawn; an expanded one leaves them to its children, so a member is
- * never counted twice.
- */
-internal fun List<RecentsRow>.orderedChapterRefs(): List<ChapterRef> = buildList {
-    this@orderedChapterRefs.forEach { row ->
-        when (row) {
-            is RecentsRow.Entry -> row.item.lane.chapterRef?.let(::add)
-            is RecentsRow.Child -> row.item.lane.chapterRef?.let(::add)
-            is RecentsRow.Group -> if (!row.expanded) {
-                row.members.forEach { member -> member.lane.chapterRef?.let(::add) }
-            }
-            else -> Unit
-        }
     }
 }
 
