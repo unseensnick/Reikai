@@ -158,12 +158,36 @@ jobs:
           mv "$d/app-x86-preview.apk"          "reikai-x86-r${COMMIT_COUNT}.apk"
           mv "$d/app-x86_64-preview.apk"       "reikai-x86_64-r${COMMIT_COUNT}.apk"
 
+      - name: Stamp a dated commit for this release to hang on
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+        run: |
+          set -e
+          # The releases page orders by the TAG's commit date, not the publish date. Every preview tag
+          # used to point at the preview repo's single LICENSE commit, so that key tied across all of
+          # them and GitHub fell back to comparing tag names as strings, which sorts r1350 below r380.
+          # Each release now gets its own commit dated at build time, so the primary sort works and the
+          # tie-break never runs. The commit reuses main's tree and hangs off it as a sibling, reachable
+          # only through its tag, so the preview repo's own history stays a single LICENSE commit.
+          base=$(gh api "repos/$PREVIEW_REPO/git/ref/heads/main" --jq '.object.sha')
+          tree=$(gh api "repos/$PREVIEW_REPO/commits/main" --jq '.commit.tree.sha')
+          bot='{"name":"github-actions[bot]","email":"41898282+github-actions[bot]@users.noreply.github.com"}'
+          stamp=$(jq -n --arg m "preview r${COMMIT_COUNT}" --arg t "$tree" --arg p "$base" \
+                        --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson who "$bot" \
+                    '{message:$m, tree:$t, parents:[$p],
+                      author:    ($who + {date:$d}),
+                      committer: ($who + {date:$d})}' \
+                  | gh api "repos/$PREVIEW_REPO/git/commits" --input - --jq '.sha')
+          echo "STAMP_SHA=$stamp" >> "$GITHUB_ENV"
+
       - name: Publish preview release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           repository: ${{ env.PREVIEW_REPO }}
           token: ${{ secrets.PREVIEW_REPO_TOKEN }}
           tag_name: r${{ env.COMMIT_COUNT }}
+          # Creates the tag on the stamp commit above, which is what dates the release.
+          target_commitish: ${{ env.STAMP_SHA }}
           name: Reikai Preview r${{ env.COMMIT_COUNT }}
           body: |
             ${{ env.RELEASE_BODY }}
