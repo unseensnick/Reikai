@@ -238,6 +238,120 @@ fun RecentsGroupChildRow(
     }
 }
 
+/**
+ * One row of a feed that mixes lanes, which the two combined modes both are. Every lane draws through
+ * this: one height, one cover shape, one subtitle line, and whatever trailing control the lane can
+ * honestly offer. The per-lane rows are right where a mode shows a single lane and wrong here, since
+ * a list that alternates between a 56dp update and a 96dp history row reads as two lists spliced.
+ */
+@Composable
+fun RecentsCombinedRow(
+    cover: Any?,
+    title: String,
+    subtitle: String,
+    read: Boolean,
+    bookmark: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onClickCover: (() -> Unit)?,
+    chapterSwipeStartAction: ChapterSwipeAction,
+    chapterSwipeEndAction: ChapterSwipeAction,
+    onChapterSwipe: (ChapterSwipeAction) -> Unit,
+    downloadState: Download.State,
+    modifier: Modifier = Modifier,
+    trailing: @Composable () -> Unit = {},
+) {
+    val haptic = LocalHapticFeedback.current
+    val textAlpha = if (read) DISABLED_ALPHA else 1f
+    SwipeableActionsBox(
+        modifier = Modifier.clipToBounds(),
+        startActions = listOfNotNull(
+            getSwipeAction(
+                action = chapterSwipeStartAction,
+                read = read,
+                bookmark = bookmark,
+                downloadState = downloadState,
+                background = MaterialTheme.colorScheme.primaryContainer,
+                onSwipe = { onChapterSwipe(chapterSwipeStartAction) },
+            ),
+        ),
+        endActions = listOfNotNull(
+            getSwipeAction(
+                action = chapterSwipeEndAction,
+                read = read,
+                bookmark = bookmark,
+                downloadState = downloadState,
+                background = MaterialTheme.colorScheme.primaryContainer,
+                onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
+            ),
+        ),
+        swipeThreshold = swipeActionThreshold,
+        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ) {
+        Row(
+            modifier = modifier
+                .selectedBackground(selected)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = {
+                        onLongClick()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                )
+                .height(56.dp)
+                .padding(horizontal = MaterialTheme.padding.medium),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MangaCover.Square(
+                modifier = Modifier
+                    .padding(vertical = 6.dp)
+                    .fillMaxHeight(),
+                data = cover,
+                onClick = onClickCover,
+            )
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = MaterialTheme.padding.medium)
+                    .weight(1f),
+            ) {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalContentColor.current.copy(alpha = textAlpha),
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    var textHeight by remember { mutableIntStateOf(0) }
+                    if (!read) {
+                        UnreadDot()
+                    }
+                    if (bookmark) {
+                        Icon(
+                            imageVector = Icons.Filled.Bookmark,
+                            contentDescription = stringResource(MR.strings.action_filter_bookmarked),
+                            modifier = Modifier
+                                .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                    }
+                    Text(
+                        text = subtitle,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalContentColor.current.copy(alpha = textAlpha),
+                        overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { textHeight = it.size.height },
+                    )
+                }
+            }
+            trailing()
+        }
+    }
+}
+
 /** The digest's header for one lane. */
 @Composable
 fun RecentsSectionHeader(section: RecentsLaneKind, modifier: Modifier = Modifier) {

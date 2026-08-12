@@ -12,12 +12,15 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -34,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -46,8 +50,10 @@ import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
 import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
+import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.lang.toTimestampString
@@ -63,6 +69,7 @@ import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
@@ -216,6 +223,7 @@ fun Screen.RecentsScreen(
                                 recentsRows(
                                     rows = rows,
                                     engine = engine,
+                                    mode = mode,
                                     selection = selection,
                                     selectionEnabled = selectionEnabled,
                                     orderedRefs = orderedRefs,
@@ -388,9 +396,104 @@ private fun RecentsEmptyState(
     )
 }
 
+/**
+ * One row of a feed showing several lanes. The lane decides the subtitle and what the row can offer:
+ * an update downloads, a read row deletes its record, and a newly added row offers neither, because
+ * it has no chapter to download and no read record to remove. Offering it one anyway is what made
+ * the delete on a newly added row do nothing at all.
+ */
+@Composable
+private fun RecentsMixedLaneRow(
+    item: RecentsItem,
+    engine: RecentsEngine,
+    ui: RecentsRowUi,
+    selected: Boolean,
+    selectionActive: Boolean,
+    swipeActions: RecentsSwipeActions,
+    onPress: (RecentsItem) -> Unit,
+    onLongPress: (RecentsItem) -> Unit,
+    onOpenDetails: (EntryId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val named = ui.chapter as? RecentsChapterUi.Named
+    val download = engine.downloadUi(item)
+    val downloadState = download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED
+    val ref = item.lane.chapterRef
+    // Only an update can answer a swipe: the other two lanes carry no read, bookmark or download
+    // state for its icons to read, and Disabled draws no gesture rather than a dead one.
+    val swipe = if (named != null) swipeActions else DISABLED_SWIPE
+
+    RecentsCombinedRow(
+        cover = ui.cover,
+        title = ui.title,
+        subtitle = mixedLaneSubtitle(item, ui.chapter),
+        // A read row is read by definition; a newly added one is as new as it gets.
+        read = named?.read ?: (item.lane is RecentsLane.Read),
+        bookmark = named?.bookmark == true,
+        selected = selected,
+        onClick = { onPress(item) },
+        onLongClick = { onLongPress(item) },
+        onClickCover = { onOpenDetails(item.entryId) }.takeIf { !selectionActive },
+        chapterSwipeStartAction = swipe.start,
+        chapterSwipeEndAction = swipe.end,
+        onChapterSwipe = { action ->
+            if (named != null && ref != null) {
+                engine.runChapterSwipe(ref, named, { downloadState }, action)
+            }
+        },
+        downloadState = downloadState,
+        modifier = modifier,
+        trailing = {
+            when (item.lane) {
+                // Always drawn, even where the engine behind it cannot report a state: every update
+                // row carrying the same control is the point, and one row silently missing it is the
+                // raggedness this row shape exists to remove.
+                is RecentsLane.Updated -> ChapterDownloadIndicator(
+                    enabled = ref != null && !selectionActive,
+                    modifier = Modifier.padding(start = 4.dp),
+                    downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
+                    downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
+                    onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
+                )
+                is RecentsLane.Read -> IconButton(
+                    onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = stringResource(MR.strings.action_delete),
+                    )
+                }
+                RecentsLane.Added -> Unit
+            }
+        },
+    )
+}
+
+/** What a row says about itself once the list no longer speaks for one lane. */
+@Composable
+private fun mixedLaneSubtitle(item: RecentsItem, chapter: RecentsChapterUi?): String {
+    val time = remember(item.timestamp) { Date(item.timestamp).toTimestampString() }
+    return when (chapter) {
+        is RecentsChapterUi.Named ->
+            listOfNotNull(chapter.name, readProgressLabel(chapter.progress)).joinToString("  •  ")
+        is RecentsChapterUi.Number -> if (chapter.value > -1) {
+            stringResource(MR.strings.recent_manga_time, formatChapterNumber(chapter.value), time)
+        } else {
+            time
+        }
+        null -> stringResource(MR.strings.recents_row_added, time)
+    }
+}
+
+private val DISABLED_SWIPE = RecentsSwipeActions(
+    start = ChapterSwipeAction.Disabled,
+    end = ChapterSwipeAction.Disabled,
+)
+
 private fun LazyListScope.recentsRows(
     rows: List<RecentsRow>,
     engine: RecentsEngine,
+    mode: RecentsMode,
     selection: Set<ChapterRef>,
     selectionEnabled: Boolean,
     orderedRefs: List<ChapterRef>,
@@ -431,6 +534,7 @@ private fun LazyListScope.recentsRows(
             is RecentsRow.Entry -> RecentsEntryRow(
                 item = row.item,
                 engine = engine,
+                mode = mode,
                 selected = row.item.lane.chapterRef in selection,
                 selectionActive = selection.isNotEmpty(),
                 swipeActions = swipeActions,
@@ -511,6 +615,7 @@ private fun LazyListScope.recentsRows(
 private fun RecentsEntryRow(
     item: RecentsItem,
     engine: RecentsEngine,
+    mode: RecentsMode,
     selected: Boolean,
     selectionActive: Boolean,
     swipeActions: RecentsSwipeActions,
@@ -520,6 +625,21 @@ private fun RecentsEntryRow(
     modifier: Modifier = Modifier,
 ) {
     val ui = engine.rowUi(item)
+    if (mode.lanes.size > 1) {
+        RecentsMixedLaneRow(
+            item = item,
+            engine = engine,
+            ui = ui,
+            selected = selected,
+            selectionActive = selectionActive,
+            swipeActions = swipeActions,
+            onPress = onPress,
+            onLongPress = onLongPress,
+            onOpenDetails = onOpenDetails,
+            modifier = modifier,
+        )
+        return
+    }
     when (val chapter = ui.chapter) {
         is RecentsChapterUi.Named -> {
             val download = engine.downloadUi(item)
