@@ -26,6 +26,7 @@ import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -95,12 +96,8 @@ class NovelHistoryViewModel(
         viewModelScope.launchIO { removeNovelHistory.await(novelId) }
     }
 
-    fun removeAllHistory() {
-        viewModelScope.launchIO {
-            removeNovelHistory.awaitAll()
-            _events.send(Event.HistoryCleared)
-        }
-    }
+    /** Suspends and answers, the twin of its manga counterpart: the shell announces the wipe. */
+    suspend fun removeAllHistory(): Boolean = withIOContext { removeNovelHistory.awaitAll() }
 
     @Immutable
     data class State(
@@ -109,6 +106,5 @@ class NovelHistoryViewModel(
 
     sealed interface Event {
         data object InternalError : Event
-        data object HistoryCleared : Event
     }
 }

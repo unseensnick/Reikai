@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -41,6 +42,7 @@ import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
+import tachiyomi.i18n.MR
 
 /**
  * The engine over hand-built providers. The real adapters resolve Injekt at construction and cannot run
@@ -525,6 +527,20 @@ class RecentsEngineTest {
         RecentsMode.HISTORY.capabilities shouldBe emptySet()
     }
 
+    /**
+     * One line for every view is how History came to report itself as having no recent updates. The
+     * lanes answer it, so a view of one lane names that lane and a mixed one can only speak of activity.
+     */
+    @Test
+    fun `an empty view names the lanes it draws`() {
+        RECENTS_MODE_ORDER.map { it.emptyRes } shouldContainExactly listOf(
+            MR.strings.information_no_recent_activity,
+            MR.strings.information_no_recent_activity,
+            MR.strings.information_no_recent_manga,
+            MR.strings.information_no_recent,
+        )
+    }
+
     @Test
     fun `the grouping toggle belongs to the Updates mode alone`() {
         RecentsMode.entries.filter { it.can(RecentsCapability.GROUPING) } shouldContainExactly
@@ -560,7 +576,7 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `clearing history reaches both content types under All`() {
+    fun `clearing history reaches both content types under All`() = runTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
@@ -570,13 +586,111 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `clearing history under one chip spares the other content type`() {
+    fun `clearing history under one chip spares the other content type`() = runTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
         engine(listOf(manga, novel), chip = ContentType.MANGA).clearHistory()
 
         novel.historyCleared shouldBe false
+    }
+
+    /**
+     * The shell announces the wipe, so it is owed the truth about it. A clear that reached nothing used
+     * to report itself as done, which is the one message about a wipe the user cannot check.
+     */
+    @Test
+    fun `a clear that nothing managed reports no clear`() = runTest {
+        val manga = provider(ContentType.MANGA, historyClears = false)
+        val novel = provider(ContentType.NOVELS, historyClears = false)
+
+        engine(listOf(manga, novel)).clearHistory() shouldBe false
+    }
+
+    @Test
+    fun `a clear one content type managed is a clear`() = runTest {
+        val manga = provider(ContentType.MANGA, historyClears = false)
+        val novel = provider(ContentType.NOVELS, historyClears = true)
+
+        engine(listOf(manga, novel)).clearHistory() shouldBe true
+    }
+
+    // The chapter-state filters over the lanes no query filters. The updated lane is filtered in SQL,
+    // so only the read lane is judged here, and only where the mode draws the controls.
+
+    private val unreadOnly = RecentsChapterFilters(unread = TriState.ENABLED_IS)
+
+    private fun readRow(entryId: EntryId) =
+        item(entryId, at = 100, lane = RecentsLane.Read(ChapterRef(entryId, chapterId = 1)))
+
+    private fun readState(read: Boolean = false, bookmark: Boolean = false) =
+        RecentsChapterState(read = read, bookmark = bookmark, progress = null)
+
+    @Test
+    fun `a read row failing a filter is not drawn`() {
+        val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState(read = true)))
+
+        engine(listOf(provider)).showsRow(readRow(manga1), unreadOnly) shouldBe false
+    }
+
+    @Test
+    fun `a read row matching a filter is drawn`() {
+        val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState()))
+
+        engine(listOf(provider)).showsRow(readRow(manga1), unreadOnly) shouldBe true
+    }
+
+    /**
+     * Judging it here would filter it twice, against a rule written twice: its own query already
+     * applied these, and the row that survived that is the row the feed is meant to show.
+     */
+    @Test
+    fun `an updated row is left to the query that already filtered it`() {
+        val row = item(manga1, at = 100, lane = RecentsLane.Updated(ChapterRef(manga1, 1)))
+        val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState(read = true)))
+
+        engine(listOf(provider)).showsRow(row, unreadOnly) shouldBe true
+    }
+
+    /**
+     * The lane is what spares it, which is why the row is given a chapter state here: without one it
+     * would survive for having nothing to answer with, and the rule this pins would go untested.
+     */
+    @Test
+    fun `a newly added row is not judged by a question about chapters`() {
+        val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState(read = true)))
+
+        engine(listOf(provider)).showsRow(item(manga1, at = 100), unreadOnly) shouldBe true
+    }
+
+    @Test
+    fun `the downloaded filter reads the row's own download state`() {
+        val downloaded = RecentsChapterFilters(downloaded = TriState.ENABLED_IS)
+        val provider = provider(
+            ContentType.MANGA,
+            states = mapOf(manga1 to readState(), manga2 to readState()),
+            downloadedEntries = setOf(manga1),
+        )
+        val engine = engine(listOf(provider))
+
+        (engine.showsRow(readRow(manga1), downloaded) to engine.showsRow(readRow(manga2), downloaded)) shouldBe
+            (true to false)
+    }
+
+    /**
+     * The four preferences are shared with the Updates mode, so a mode drawing no control for them must
+     * filter by none: obeying a filter with nothing on screen saying so is a feed silently narrowed.
+     */
+    @Test
+    fun `a mode that offers no chapter filters is judged by none`() = runTest {
+        emittingUpdatesPreferences.filterUnread.set(TriState.ENABLED_IS)
+        val engine = multiModeEngine(setOf(RecentsMode.UPDATES, RecentsMode.HISTORY))
+
+        settled(engine.chapterFilters).isActive shouldBe true
+
+        engine.setMode(RecentsMode.HISTORY)
+
+        settled(engine.chapterFilters) shouldBe RecentsChapterFilters.NONE
     }
 
     /**
@@ -789,6 +903,9 @@ private fun provider(
     addResult: AddFavoriteResult = AddFavoriteResult.Added,
     actsOnChapters: Boolean = true,
     latestRead: RecentsItem? = null,
+    historyClears: Boolean = true,
+    states: Map<EntryId, RecentsChapterState> = emptyMap(),
+    downloadedEntries: Set<EntryId> = emptySet(),
 ) = FakeRecentsProvider(
     type,
     read,
@@ -802,6 +919,9 @@ private fun provider(
     addResult,
     actsOnChapters,
     latestRead,
+    historyClears,
+    states,
+    downloadedEntries,
 )
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
@@ -818,6 +938,9 @@ private class FakeRecentsProvider(
     private val addResult: AddFavoriteResult,
     actsOnChapters: Boolean,
     private val latestRead: RecentsItem?,
+    private val historyClears: Boolean,
+    private val states: Map<EntryId, RecentsChapterState>,
+    private val downloadedEntries: Set<EntryId>,
 ) : RecentsProvider {
 
     var historyCleared = false
@@ -849,9 +972,12 @@ private class FakeRecentsProvider(
     override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =
-        EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty())
+        EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty(), state = states[item.entryId])
 
-    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = null
+    override fun downloadUi(item: RecentsItem): RecentsDownloadUi = RecentsDownloadUi(
+        state = { if (item.entryId in downloadedEntries) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },
+        progress = RecentsDownloadProgress.Unsupported,
+    )
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
 
@@ -907,8 +1033,9 @@ private class FakeRecentsProvider(
         return addResult
     }
 
-    override fun clearHistory() {
+    override suspend fun clearHistory(): Boolean {
         historyCleared = true
+        return historyClears
     }
 
     override fun refresh(): Boolean {

@@ -48,13 +48,14 @@ class NovelHistoryRepositoryImpl(
         }
     }
 
-    override suspend fun deleteAllNovelHistory() {
+    override suspend fun deleteAllNovelHistory(): Boolean =
         try {
             database.novel_historyQueries.removeAll()
+            true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to clear novel history" }
+            false
         }
-    }
 
     override suspend fun upsertNovelHistory(update: NovelHistoryUpdate) {
         try {

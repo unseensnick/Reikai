@@ -96,13 +96,10 @@ class HistoryViewModel(
         }
     }
 
-    fun removeAllHistory() {
-        viewModelScope.launchIO {
-            val result = removeHistory.awaitAll()
-            if (!result) return@launchIO
-            _events.send(Event.HistoryCleared)
-        }
-    }
+    // RK: suspends and answers, where upstream launched and announced itself through an event. The
+    //     shared surface clears both content types behind one confirmation, so the message belongs to
+    //     the shell that asked, and it is owed the truth about whether the wipe happened.
+    suspend fun removeAllHistory(): Boolean = withIOContext { removeHistory.awaitAll() }
 
     // RK: the state is down to the feed itself. Search, the dialogs and the whole add-from-a-row flow
     // moved to the recents engine, which runs one add sequence for both content types. The rows leave
@@ -115,6 +112,5 @@ class HistoryViewModel(
 
     sealed interface Event {
         data object InternalError : Event
-        data object HistoryCleared : Event
     }
 }

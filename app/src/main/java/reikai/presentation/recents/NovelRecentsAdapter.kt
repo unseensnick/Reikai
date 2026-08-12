@@ -228,9 +228,7 @@ class NovelRecentsAdapter private constructor(
         return novelLibraryAdder.addToExistingGroup(novel.id, duplicates.map { it.rawId })
     }
 
-    override fun clearHistory() {
-        historyModel?.removeAllHistory()
-    }
+    override suspend fun clearHistory(): Boolean = historyModel?.removeAllHistory() == true
 
     // Straight to the job, the twin of the manga side and for the same two reasons.
     override fun refresh(): Boolean = NovelUpdateJob.startNow(application)

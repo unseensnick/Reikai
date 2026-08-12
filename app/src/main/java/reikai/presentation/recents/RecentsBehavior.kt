@@ -69,8 +69,12 @@ interface RecentsBehavior {
     /** Adds [entry] and merges it into the group of the [duplicates] the user picked. */
     suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult
 
-    /** Drops every read record of this content type, behind the engine's one confirmation. */
-    fun clearHistory()
+    /**
+     * Drops every read record of this content type, behind the engine's one confirmation, answering
+     * whether the wipe succeeded. The shell says so afterwards, and a surface that announced a clear
+     * it had not managed would be the one message the user cannot check.
+     */
+    suspend fun clearHistory(): Boolean
 
     /**
      * Starts this type's library update, answering whether it started rather than was already running.

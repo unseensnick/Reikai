@@ -6,7 +6,7 @@ import reikai.domain.novel.model.NovelHistoryWithRelations
 class RemoveNovelHistory(
     private val repository: NovelHistoryRepository,
 ) {
-    suspend fun awaitAll() = repository.deleteAllNovelHistory()
+    suspend fun awaitAll(): Boolean = repository.deleteAllNovelHistory()
 
     suspend fun await(history: NovelHistoryWithRelations) = repository.resetNovelHistory(history.id)
 

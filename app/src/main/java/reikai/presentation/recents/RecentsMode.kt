@@ -56,6 +56,18 @@ enum class RecentsMode {
             UPDATES -> MR.strings.label_recent_updates
             HISTORY -> MR.strings.history
         }
+
+    /**
+     * What an empty feed says, which is the lanes' answer rather than the mode's: a view of one lane
+     * names that lane, and one mixing several can only speak of activity. One line for every mode is
+     * how History came to report itself as having no recent updates.
+     */
+    val emptyRes: StringResource
+        get() = when {
+            lanes.size > 1 -> MR.strings.information_no_recent_activity
+            RecentsLaneKind.READ in lanes -> MR.strings.information_no_recent_manga
+            else -> MR.strings.information_no_recent
+        }
 }
 
 /**

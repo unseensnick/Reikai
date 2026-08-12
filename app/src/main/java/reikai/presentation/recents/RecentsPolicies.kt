@@ -20,14 +20,17 @@ private const val DIGEST_CHAPTER_ROWS_CAP = 9
  * The rows one mode draws, which is where the mode picks its policy and its share of the stream. The
  * engine collects every lane the surface renders, so on a surface holding several modes the assembly
  * carries rows this mode does not show: a single-lane mode would otherwise draw the other lanes'.
+ * [keep] is the chapter-state filter, which needs a row's own projection and so is asked rather than
+ * applied here; it runs before the collapse, so a hidden row cannot stand in for a series.
  */
 fun renderRows(
     mode: RecentsMode,
     assembled: RecentsAssembled,
     groupBySeries: Boolean,
     expandedGroups: Set<String>,
+    keep: (RecentsItem) -> Boolean = { true },
 ): List<RecentsRow> {
-    val items = assembled.items.filter { it.lane.kind in mode.lanes }
+    val items = assembled.items.filter { it.lane.kind in mode.lanes && keep(it) }
     val membership = assembled.membership
     return when (mode) {
         RecentsMode.UPDATES -> updatesRows(items, groupBySeries, membership, expandedGroups)

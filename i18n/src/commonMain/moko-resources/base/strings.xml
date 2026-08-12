@@ -1220,6 +1220,8 @@
     <!-- RK: shown instead of the two above when a filter, not a lack of activity, emptied the feed -->
     <string name="information_no_recent_filtered">No recent activity matches your filters</string>
     <string name="information_no_recent_manga">Nothing read recently</string>
+    <!-- RK: the empty feed of a view that mixes reading, updates and newly added entries -->
+    <string name="information_no_recent_activity">No recent activity</string>
     <string name="information_empty_library">Your library is empty</string>
     <string name="information_no_manga_category">Category is empty</string>
     <string name="information_no_entries_found">No entries found in this category</string>

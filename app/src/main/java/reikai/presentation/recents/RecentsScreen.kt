@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.Refresh
@@ -113,11 +114,14 @@ fun Screen.RecentsScreen(
     val groupBySeries by engine.groupBySeries.collectAsState()
     val swipeActions by engine.swipeActions.collectAsState()
     val expandedGroups by engine.expandedGroups.collectAsState()
+    val chapterFilters by engine.chapterFilters.collectAsState()
     // The assembly lags a chip flip by one emission, so it is drawn only once its tag catches up.
     val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == contentType }
 
-    val rows = remember(mode, assembled, groupBySeries, expandedGroups) {
-        assembled?.let { renderRows(mode, it, groupBySeries, expandedGroups) }.orEmpty()
+    val rows = remember(mode, assembled, groupBySeries, expandedGroups, chapterFilters) {
+        assembled?.let {
+            renderRows(mode, it, groupBySeries, expandedGroups) { item -> engine.showsRow(item, chapterFilters) }
+        }.orEmpty()
     }
     val selectionEnabled = mode.can(RecentsCapability.SELECTION)
     // The order a sweep runs along, which only the renderer knows: both types interleaved, grouping
@@ -143,6 +147,17 @@ fun Screen.RecentsScreen(
         scope.launchIO {
             val screen = engine.detailsScreen(entry) ?: return@launchIO
             withUIContext { navigator.push(screen) }
+        }
+    }
+
+    fun clearHistory() {
+        scope.launchIO {
+            // Only announced once it has actually happened: the wipe can fail, and this is the one
+            // message about it the user has no way of checking.
+            if (!engine.clearHistory()) return@launchIO
+            withUIContext {
+                snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
+            }
         }
     }
 
@@ -209,6 +224,7 @@ fun Screen.RecentsScreen(
                 when {
                     assembled == null || assembled.loading -> LoadingScreen(Modifier.padding(bodyPadding))
                     rows.isEmpty() -> RecentsEmptyState(
+                        mode = mode,
                         query = query,
                         filterActive = filterActive,
                         onFilterClicked = { filterSheetOpen = true },
@@ -261,13 +277,7 @@ fun Screen.RecentsScreen(
     RecentsDialogs(
         engine = engine,
         onOpenDetails = ::openDetails,
-        onHistoryCleared = {
-            scope.launchIO {
-                withUIContext {
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
-                }
-            }
-        },
+        onClearHistory = ::clearHistory,
     )
 }
 
@@ -378,6 +388,7 @@ private fun RecentsToolbar(
 /** Why the feed is empty, which the replaced screens could not always say. */
 @Composable
 private fun RecentsEmptyState(
+    mode: RecentsMode,
     query: String?,
     filterActive: Boolean,
     onFilterClicked: (() -> Unit)?,
@@ -387,7 +398,7 @@ private fun RecentsEmptyState(
         stringRes = when {
             !query.isNullOrEmpty() -> MR.strings.no_results_found
             filterActive -> MR.strings.information_no_recent_filtered
-            else -> MR.strings.information_no_recent
+            else -> mode.emptyRes
         },
         modifier = modifier,
         actions = onFilterClicked
@@ -462,13 +473,29 @@ private fun RecentsMixedLaneRow(
                     downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
                     onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
                 )
-                is RecentsLane.Read -> IconButton(
-                    onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = stringResource(MR.strings.action_delete),
-                    )
+                // Both go quiet during a sweep, like every other control on this row: the read lane
+                // is not favorite-gated, so a row here may be an entry the library does not hold.
+                is RecentsLane.Read -> {
+                    if (!ui.isFavorite) {
+                        IconButton(
+                            onClick = { engine.addToLibrary(item.entryId) },
+                            enabled = !selectionActive,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.FavoriteBorder,
+                                contentDescription = stringResource(MR.strings.add_to_library),
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
+                        enabled = !selectionActive,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = stringResource(MR.strings.action_delete),
+                        )
+                    }
                 }
                 RecentsLane.Added -> Unit
             }
@@ -579,7 +606,9 @@ private fun LazyListScope.recentsRows(
                         }
                     },
                     onLongClick = { if (selectionEnabled) toggleAll() },
-                    onClickCover = { onOpenDetails(first.entryId) },
+                    // Quiet during a sweep, as the flat rows are: navigating away mid-selection takes
+                    // the selection with it.
+                    onClickCover = { onOpenDetails(first.entryId) }.takeIf { selection.isEmpty() },
                     modifier = Modifier.animateItem(),
                 )
             }
@@ -753,7 +782,7 @@ private fun RecentsBottomBar(
 private fun Screen.RecentsDialogs(
     engine: RecentsEngine,
     onOpenDetails: (EntryId) -> Unit,
-    onHistoryCleared: () -> Unit,
+    onClearHistory: () -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val dialog by engine.dialog.collectAsState()
@@ -762,10 +791,7 @@ private fun Screen.RecentsDialogs(
         null -> Unit
         RecentsDialog.ClearHistory -> HistoryDeleteAllDialog(
             onDismissRequest = onDismiss,
-            onDelete = {
-                engine.clearHistory()
-                onHistoryCleared()
-            },
+            onDelete = onClearHistory,
         )
         is RecentsDialog.RemoveHistory -> HistoryDeleteDialog(
             onDismissRequest = onDismiss,

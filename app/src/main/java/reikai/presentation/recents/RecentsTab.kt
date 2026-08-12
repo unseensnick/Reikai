@@ -102,8 +102,6 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
                 when (e) {
                     HistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                    // The screen announces a cleared history off its own dialog.
-                    HistoryViewModel.Event.HistoryCleared -> Unit
                 }
             }
         }
@@ -113,7 +111,6 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
                 when (e) {
                     NovelHistoryViewModel.Event.InternalError ->
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
-                    NovelHistoryViewModel.Event.HistoryCleared -> Unit
                 }
             }
         }

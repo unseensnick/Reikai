@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +31,6 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import tachiyomi.core.common.preference.Preference
-import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
@@ -207,13 +207,26 @@ class RecentsEngine(
     val filterActive: StateFlow<Boolean> by lazy {
         combine(
             sourcePreferences.recentsCategoryFilterFlow(surface).map { it.active },
-            chapterStateFilterActive(),
+            rawChapterFilters.map { it.isActive },
             mode,
         ) { byCategory, byChapterState, mode ->
             recentsFilterActive(byCategory, byChapterState, mode.lanes)
         }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    }
+
+    /**
+     * The chapter-state filters the mode on screen offers, which is what a row is judged against. A
+     * mode that draws no control for them filters by none: the four preferences are shared with the
+     * Updates mode, and obeying them anyway would narrow a feed with nothing on screen saying so.
+     */
+    val chapterFilters: StateFlow<RecentsChapterFilters> by lazy {
+        combine(mode, rawChapterFilters) { mode, filters ->
+            if (mode.can(RecentsCapability.CHAPTER_FILTER)) filters else RecentsChapterFilters.NONE
+        }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, RecentsChapterFilters.NONE)
     }
 
     /**
@@ -455,10 +468,12 @@ class RecentsEngine(
         }
     }
 
-    /** Clears the history of every content type on screen, which is why it is one confirmation. */
-    fun clearHistory() {
-        activeProviders().forEach { it.clearHistory() }
-    }
+    /**
+     * Clears the history of every content type on screen, which is why it is one confirmation, and
+     * answers whether anything was actually cleared. Mapped before it is reduced, like [refresh], so
+     * one type failing cannot skip the other's wipe.
+     */
+    suspend fun clearHistory(): Boolean = activeProviders().map { it.clearHistory() }.any { it }
 
     /**
      * Updates every library on screen, answering whether anything actually started. Mapped before it is
@@ -494,6 +509,17 @@ class RecentsEngine(
     fun downloadUi(item: RecentsItem): RecentsDownloadUi? =
         providersByType[item.entryId.contentType]?.downloadUi(item)
 
+    /**
+     * Whether [item] survives [filters]. Only the read lane is judged: the updated lane is filtered by
+     * the query behind it, and the newly added lane names no chapter, so filtering it by chapter state
+     * would hide rows for failing a question they were never asked.
+     */
+    fun showsRow(item: RecentsItem, filters: RecentsChapterFilters): Boolean {
+        if (!filters.isActive || item.lane !is RecentsLane.Read) return true
+        val state = rowUi(item).state ?: return true
+        return filters.matches(state) { downloadUi(item)?.state?.invoke() == Download.State.DOWNLOADED }
+    }
+
     private fun dispatchAndClear(action: (RecentsChapterActions) -> Unit) {
         activeProviders().mapNotNull { it.chapterActions }.forEach(action)
         clearSelection()
@@ -502,12 +528,14 @@ class RecentsEngine(
     private fun activeProviders(): List<RecentsProvider> =
         activeIndices(contentType.value).map { providers[it] }
 
-    private fun chapterStateFilterActive(): Flow<Boolean> = combine(
+    private val rawChapterFilters: Flow<RecentsChapterFilters> = combine(
         updatesPreferences.filterUnread.changes(),
-        updatesPreferences.filterDownloaded.changes(),
         updatesPreferences.filterStarted.changes(),
         updatesPreferences.filterBookmarked.changes(),
-    ) { filters -> filters.any { it != TriState.DISABLED } }
+        updatesPreferences.filterDownloaded.changes(),
+    ) { unread, started, bookmarked, downloaded ->
+        RecentsChapterFilters(unread, started, bookmarked, downloaded)
+    }
 
     /** Every lane this surface renders, from one provider. Always collected, whatever the chip is. */
     private fun collectedLanes(provider: RecentsProvider): Flow<List<RecentsLaneRows>> =

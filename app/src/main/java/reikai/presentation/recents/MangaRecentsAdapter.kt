@@ -253,9 +253,7 @@ class MangaRecentsAdapter private constructor(
         return mangaLibraryAdder.addToExistingGroup(manga, duplicates.map { it.rawId })
     }
 
-    override fun clearHistory() {
-        historyModel?.removeAllHistory()
-    }
+    override suspend fun clearHistory(): Boolean = historyModel?.removeAllHistory() == true
 
     // Straight to the job rather than through the updates model, which only wraps this same call in a
     // snackbar event the shell now owns. It also lets a surface with no updated lane still refresh.

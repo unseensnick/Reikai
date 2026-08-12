@@ -20,7 +20,9 @@ interface NovelHistoryRepository {
     suspend fun getLastNovelHistory(): NovelHistoryWithRelations?
     suspend fun resetNovelHistory(historyId: Long)
     suspend fun resetNovelHistoryByNovelId(novelId: Long)
-    suspend fun deleteAllNovelHistory()
+
+    /** Answers whether the wipe went through, so a surface can say so only when it did. */
+    suspend fun deleteAllNovelHistory(): Boolean
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
 
     /** Total novel reading time (ms) across all chapters, for the Stats screen. */
