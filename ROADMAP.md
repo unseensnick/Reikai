@@ -9,7 +9,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Next
 
-- **The recents surface: affordances, the tab set and the inventory** `[M]` - swipe actions on both feeds and History's time grouping; a Settings preference that collapses the two tabs into one Recents tab with four modes inside it, serving the combined feed requested in `unseensnick/Reikai#57`; then the end-to-end behaviour inventory that closes the takeover. [Plan](docs/dev/plans/content-layer-recents-surface.md).
+- **The recents surface: the tab set and the inventory** `[M]` - a Settings preference that collapses the two tabs into one Recents tab with four modes inside it, serving the combined feed requested in `unseensnick/Reikai#57`; then the end-to-end behaviour inventory that closes the takeover. [Plan](docs/dev/plans/content-layer-recents-surface.md).
 - **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift. A code merge, not a data migration; touches Mihon's download files (`// RK`), sequenced last of the redo surfaces since its upstream churn is the heaviest. Tsundoku is not the reference: it gets one subsystem by making novels manga rows and branching inside the engine, both ruled out here. [Plan](docs/dev/plans/content-layer-architecture.md).
 - **Tsundoku-based novel reader migration (Option 3)** `[XL]` - replace the bespoke WebView + LNReader-core.js novel reader with a native reader lifting tsundoku's `NovelViewer` text engine onto Reikai's existing novel domain via `ReaderChapter` / `Page` / `PageLoader` adapters (novel tables stay separate; merging novels into manga rows is ruled out on the `String` plugin-source-id cost). Native rendering, the full tsundoku feature set, a maintained upstream to sync from; committed to 0.4.0, and starts with a migration-planning `/scout`. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
 
@@ -74,6 +74,7 @@ From the same audit.
 
 - **Pause and resume novel downloads from the notification** `[S]` - the novel downloader's notification offers only Cancel, where manga also offers Pause and Resume. The actions themselves are trivial; what is missing first is a paused-state notification, since pausing today stops the worker and takes the ongoing notification with it, leaving nothing to resume from.
 - **Novel download/update pacing controls** `[M]` - per-source throttle, update staggering, and a per-source override map for novel scrapers (tsundoku's `NovelDownloadPreferences`), a more complete anti-detection pacing layer than Reikai's current per-chapter backoff. Independent of Road B.
+- **History time grouping, if it earns its place** `[M]` - Yokai groups history by series within a week or day bucket, with the other chapters read in that bucket behind an expander. Reikai's History already collapses to one row per entry in SQL and draws day headers, so the only new parts are week buckets and that expander, and the expander needs the history query to stop collapsing and return read records instead. Cut from the affordance step on those grounds (owner, 2026-08-12); revive if one row per series per period turns out to be what is wanted. [Plan](docs/dev/plans/content-layer-recents-surface.md).
 
 ### Data & backup
 
