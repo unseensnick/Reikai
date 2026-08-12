@@ -118,6 +118,42 @@ class LibraryAssemblyTest {
         assembleLibrary(rows, listOf(hidden), inputs(showHidden = true), fields).size shouldBe 1
     }
 
+    /**
+     * What a selection is pruned to. Reading it off the rows instead would keep an entry the assembly
+     * dropped: it is still in the library, still resolvable by every bulk verb, and on no screen.
+     */
+    @Test
+    fun `an entry the assembly dropped is not present, though its row still exists`() {
+        val hidden = category(10, flags = CATEGORY_HIDDEN_MASK)
+        val shown = category(11)
+        val rows = listOf(item(1, categories = listOf(10)), item(2, categories = listOf(11)))
+
+        val present = presentIdsOf(assembleLibrary(rows, listOf(hidden, shown), inputs(showHidden = false), fields))
+
+        present shouldBe setOf(EntryId.Manga(2))
+    }
+
+    @Test
+    fun `revealing the category brings its entry back`() {
+        val hidden = category(10, flags = CATEGORY_HIDDEN_MASK)
+        val rows = listOf(item(1, categories = listOf(10)))
+
+        val present = presentIdsOf(assembleLibrary(rows, listOf(hidden), inputs(showHidden = true), fields))
+
+        present shouldBe setOf(EntryId.Manga(1))
+    }
+
+    @Test
+    fun `an entry in several categories is present once`() {
+        val rows = listOf(item(1, categories = listOf(10, 11)))
+
+        val present = presentIdsOf(
+            assembleLibrary(rows, listOf(category(10), category(11)), inputs(), fields),
+        )
+
+        present shouldBe setOf(EntryId.Manga(1))
+    }
+
     @Test
     fun `a per-category override sorts only its category`() {
         val overridden = category(

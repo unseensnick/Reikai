@@ -62,6 +62,15 @@ fun assembleLibrary(
 }
 
 /**
+ * Every entry an assembly kept, which is what a selection is pruned to. Taken from the buckets rather
+ * than the rows they were built from, because a filter is not the only thing that can drop an entry: a
+ * hidden category, a bucket left empty and a lagging dynamic group all do, and each of those leaves the
+ * entry sitting in the rows, where a verb would still find and act on something nobody can see.
+ */
+fun presentIdsOf(assembled: List<Pair<LibraryBucket, List<LibraryItem>>>): Set<EntryId> =
+    assembled.flatMapTo(HashSet()) { (_, items) -> items.map { it.entryId } }
+
+/**
  * The assembled list the tab renders: the ordered buckets, the per-bucket display read as a function
  * so the per-type custom-info overlay is applied at read time, only for what is rendered, and the one
  * count rule: the chip-filtered bucket size, shown when the count preference is on or a search is
@@ -72,6 +81,12 @@ fun assembleLibrary(
 class LibraryAssembled(
     val chip: ContentType,
     val buckets: List<LibraryBucket>,
+    /**
+     * Everything this assembly kept, which is what a selection is pruned to. Held as a plain set
+     * rather than read back through [items], because that read applies the display overlay, and the
+     * overlay must never reach a decision about which entries exist.
+     */
+    val presentIds: Set<EntryId>,
     private val items: (LibraryBucket) -> List<LibraryItem>,
     private val counts: (LibraryBucket) -> Int? = { null },
 ) {

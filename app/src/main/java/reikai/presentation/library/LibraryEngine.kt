@@ -39,6 +39,8 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -49,7 +51,15 @@ import uy.kohesive.injekt.injectLazy
  * [providersFor] answers with every provider whose rows belong in a view, both under [ContentType.ALL];
  * [behaviorFor] still fails loudly there, since one behaviour cannot answer for two content types.
  */
-class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() {
+class LibraryEngine(
+    private val providers: List<LibraryProvider>,
+    // Handed in rather than resolved lazily inside, so a test can drive the assembly. Selection is not
+    // pure maths any more: it is pruned to what the assembly kept, and a rule about the assembly can
+    // only be pinned by a test that can actually run one.
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val categoryRepository: CategoryRepository = Injekt.get(),
+) : ViewModel() {
 
     companion object {
         val PROVIDERS_KEY = CreationExtras.Key<List<LibraryProvider>>()
@@ -64,17 +74,13 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         }
     }
 
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
-    private val libraryPreferences: LibraryPreferences by injectLazy()
-    private val categoryRepository: CategoryRepository by injectLazy()
-
     // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
     private val context: Application by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
 
-    // These two are `by lazy` rather than plain vals so constructing the engine touches neither the DI
-    // container nor the coroutine scope. Selection is pure maths and is unit-tested by direct
-    // construction; only the view ever reads a preference-backed flow.
+    // The flows below are `by lazy` so constructing the engine touches no coroutine scope: only the
+    // view ever reads a preference-backed flow, and a selection test that never renders should not
+    // start one.
 
     /**
      * The Manga / Novels chip. It lives here rather than on either provider because it decides which
@@ -150,12 +156,14 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
         ) { chip, rowsPerProvider, queryAndOverlay, allCategories, prefs ->
-            // Piggybacked here rather than a collector of its own so it runs exactly when the
-            // rendered rows change: a selected row that a filter, search or removal took out of
-            // the list must leave the selection too, or the toolbar count promises more than the
-            // verbs (which resolve ids through the filtered rows) will actually touch.
-            pruneSelection(rowsPerProvider)
+            // Piggybacked here rather than a collector of its own so it runs exactly when the list
+            // changes: a selected entry the assembly dropped must leave the selection too, or the
+            // toolbar count promises more than the verbs will touch. Pruned after the assembly, not
+            // before it, because a filter is not the only thing that can drop an entry: a hidden
+            // category, an emptied bucket and a lagging dynamic group all do, and those leave the
+            // entry in the providers' rows, where the verbs would still find and act on it.
             assembleFor(chip, rowsPerProvider, queryAndOverlay.map { it.first }, allCategories, prefs)
+                .also { pruneSelection(it.presentIds) }
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
             .flowOn(Dispatchers.Default)
@@ -205,6 +213,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
         return LibraryAssembled(
             chip = chip,
             buckets = assembledList.map { it.first },
+            presentIds = presentIdsOf(assembledList),
             items = { bucket ->
                 itemsByKey[bucket.key].orEmpty().map { item ->
                     byType[item.entryId.contentType]?.overlaid(item) ?: item
@@ -303,12 +312,15 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ViewModel() 
     private val mutableSelection = MutableStateFlow<Set<EntryId>>(emptySet())
     val selection: StateFlow<Set<EntryId>> = mutableSelection.asStateFlow()
 
-    /** Drop selected ids that are no longer in any provider's rendered rows. */
-    private fun pruneSelection(rowsPerProvider: List<List<LibraryItem>>) {
+    /**
+     * Drop selected ids the assembly no longer holds. What the assembly excluded is gone from this
+     * view until a setting changes; what navigation hides is not pruned, because a collapsed
+     * category and an off-screen pager page are one gesture from being back and their entries are
+     * still the library's.
+     */
+    private fun pruneSelection(present: Set<EntryId>) {
         mutableSelection.update { selection ->
             if (selection.isEmpty()) return@update selection
-            val present = HashSet<EntryId>()
-            rowsPerProvider.forEach { rows -> rows.forEach { present.add(it.entryId) } }
             val pruned = selection.filterTo(HashSet()) { it in present }
             if (pruned.size == selection.size) selection else pruned
         }
