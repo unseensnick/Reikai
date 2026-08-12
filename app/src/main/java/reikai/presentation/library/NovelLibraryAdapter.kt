@@ -18,6 +18,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.groupedSourceIdsOf
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.novels.novelDynamicGroupingFeed
@@ -190,9 +191,8 @@ class NovelLibraryAdapter(
     override fun containsLocal(entries: Set<EntryId>) = false
 
     override fun groupedSourceCount(entries: Set<EntryId>): Int {
-        val ids = entries.ownIds()
         val state = model.state.value
-        return if (state.containsMerged(ids)) state.memberIdsFor(ids).size else 0
+        return groupedSourceIdsOf(entries.ownIds()) { state.memberIdsFor(listOf(it)) }.size
     }
 
     override suspend fun assignableCategories() =

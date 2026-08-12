@@ -597,17 +597,30 @@ class LibraryEngine(
     // Dialog confirms. Dispatched by the entries' own content types rather than the view's, since the
     // dialog outlives neither the selection nor the chip it was opened from.
 
-    fun setCategories(entries: Set<EntryId>, addCategories: List<Long>, removeCategories: List<Long>) =
-        providers.owning(entries).forEach { it.setCategories(entries, addCategories, removeCategories) }
+    fun setCategories(entries: Set<EntryId>, addCategories: List<Long>, removeCategories: List<Long>) {
+        val live = stillSelected(entries)
+        providers.owning(live).forEach { it.setCategories(live, addCategories, removeCategories) }
+    }
 
     fun deleteEntries(
         entries: Set<EntryId>,
         deleteFromLibrary: Boolean,
         deleteDownloads: Boolean,
         removeGroupedSources: Boolean,
-    ) = providers.owning(entries).forEach {
-        it.deleteEntries(entries, deleteFromLibrary, deleteDownloads, removeGroupedSources)
+    ) {
+        val live = stillSelected(entries)
+        providers.owning(live).forEach {
+            it.deleteEntries(live, deleteFromLibrary, deleteDownloads, removeGroupedSources)
+        }
     }
+
+    /**
+     * The entries a confirm may act on: those a dialog was opened with that the selection still holds.
+     * A dialog carries the set it was opened with, and the prune cannot reach a captured copy, so an
+     * entry the library dropped while the dialog sat open would otherwise still be deleted or refiled.
+     */
+    private fun stillSelected(entries: Set<EntryId>): Set<EntryId> =
+        entries.intersect(selection.value)
 
     /** Any selected entry is a merge group; drives the bulk Unmerge action. */
     fun selectionContainsMerged(contentType: ContentType): Boolean =

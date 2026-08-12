@@ -145,10 +145,12 @@
         <item quantity="one">%1$d source</item>
         <item quantity="other">%1$d sources</item>
     </plurals>
-    <!-- RK: opt-in on the library Remove dialog to remove every source in a merged group -->
+    <!-- RK: opt-in on the library Remove dialog to remove every source in a merged group. The count
+         is the sources behind the merged rows, so it is never one; the singular is here for locales
+         whose plural rules need it. -->
     <plurals name="action_remove_grouped_sources">
-        <item quantity="one">All %1$d grouped source</item>
-        <item quantity="other">All %1$d grouped sources</item>
+        <item quantity="one">All grouped sources (%1$d)</item>
+        <item quantity="other">All grouped sources (%1$d)</item>
     </plurals>
     <!-- RK: relative-time strings for the E-Hentai updater statistics (Batch D, ported from Komikku) -->
     <plurals name="humanize_year">

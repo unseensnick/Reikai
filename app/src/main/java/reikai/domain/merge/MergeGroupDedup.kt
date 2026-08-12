@@ -13,3 +13,12 @@ fun <T, K> List<T>.dedupeByMergeGroup(membership: Map<K, Long>, id: (T) -> K): L
     val seenGroups = HashSet<Long>()
     return filter { item -> membership[id(item)]?.let(seenGroups::add) ?: true }
 }
+
+/**
+ * The source entries sitting behind the merged rows of a selection, which is what a removal widened to
+ * the whole group reaches. An unmerged row contributes nothing: it is one entry whether that option is
+ * on or off, so counting it states a number the option cannot change. [membersOf] answers one row's
+ * members, which is per content type; the rule about which rows count is not.
+ */
+fun groupedSourceIdsOf(ids: List<Long>, membersOf: (Long) -> List<Long>): Set<Long> =
+    ids.flatMapTo(HashSet()) { id -> membersOf(id).takeIf { it.size > 1 }.orEmpty() }

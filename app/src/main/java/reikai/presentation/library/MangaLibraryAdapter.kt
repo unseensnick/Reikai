@@ -20,6 +20,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.groupedSourceIdsOf
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
@@ -207,9 +208,8 @@ class MangaLibraryAdapter(
         model.state.value.mangaFor(entries.ownIds()).let { it.isNotEmpty() && it.fastAll { m -> !m.isLocal() } }
 
     override fun groupedSourceCount(entries: Set<EntryId>): Int {
-        val ids = entries.ownIds()
         val state = model.state.value
-        return if (state.containsMerged(ids)) state.memberIdsFor(ids).size else 0
+        return groupedSourceIdsOf(entries.ownIds()) { state.memberIdsFor(listOf(it)) }.size
     }
 
     override fun containsLocal(entries: Set<EntryId>) =

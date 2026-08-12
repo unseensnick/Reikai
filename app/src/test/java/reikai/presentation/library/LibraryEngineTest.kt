@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,6 +134,34 @@ class LibraryEngineTest {
         engine.assembled.filterNotNull().first()
 
         engine.selection.value shouldContainExactly listOf(m2)
+    }
+
+    /**
+     * A dialog carries the entries it was opened with, and the prune cannot reach that captured copy,
+     * so a confirm is held to what the selection still holds. Without it an entry the library dropped
+     * while the dialog sat open is deleted anyway, which is the one outcome nobody can undo.
+     */
+    @Test
+    fun `a confirm acts only on entries the selection still holds`() {
+        engine.toggleSelection(bucket, m1)
+
+        engine.deleteEntries(
+            entries = setOf(m1, m2),
+            deleteFromLibrary = true,
+            deleteDownloads = false,
+            removeGroupedSources = false,
+        )
+
+        verify { manga.deleteEntries(setOf(m1), true, false, false) }
+    }
+
+    @Test
+    fun `a category confirm is held to the same set`() {
+        engine.toggleSelection(bucket, m1)
+
+        engine.setCategories(entries = setOf(m1, m2), addCategories = listOf(3L), removeCategories = emptyList())
+
+        verify { manga.setCategories(setOf(m1), listOf(3L), emptyList()) }
     }
 
     @Test
