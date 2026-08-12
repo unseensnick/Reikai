@@ -687,6 +687,44 @@ class RecentsEngineTest {
         engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection)
     }
 
+    @Test
+    fun `a surface comes back to the mode it was left on`() = runTest {
+        sourcePreferences.recentsMode.set(RecentsMode.HISTORY)
+
+        val engine = engine(
+            listOf(provider(ContentType.MANGA)),
+            modes = setOf(RecentsMode.UPDATES, RecentsMode.HISTORY),
+        )
+
+        engine.mode.value shouldBe RecentsMode.HISTORY
+    }
+
+    /**
+     * One key serves every surface, so a stored mode routinely names something the surface does not
+     * draw. Obeying it would leave a single-mode tab rendering nothing it has an engine for; the same
+     * filter is what absorbs a mode that has since been removed.
+     */
+    @Test
+    fun `a stored mode this surface does not render is ignored`() = runTest {
+        sourcePreferences.recentsMode.set(RecentsMode.DIGEST)
+
+        val engine = engine(listOf(provider(ContentType.MANGA)), modes = setOf(RecentsMode.UPDATES))
+
+        engine.mode.value shouldBe RecentsMode.UPDATES
+    }
+
+    @Test
+    fun `switching mode is remembered for next time`() = runTest {
+        val engine = engine(
+            listOf(provider(ContentType.MANGA)),
+            modes = setOf(RecentsMode.UPDATES, RecentsMode.HISTORY),
+        )
+
+        engine.setMode(RecentsMode.HISTORY)
+
+        sourcePreferences.recentsMode.get() shouldBe RecentsMode.HISTORY
+    }
+
     /**
      * Resume used to compare both types whatever the chip was, so the Novels chip could open a manga.
      * The chip decides which providers are asked at all, which is why it cannot come back.

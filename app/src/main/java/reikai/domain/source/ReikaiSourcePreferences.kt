@@ -1,6 +1,7 @@
 package reikai.domain.source
 
 import reikai.domain.library.ContentType
+import reikai.presentation.recents.RecentsMode
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -93,6 +94,15 @@ class ReikaiSourcePreferences(
      */
     val recentsContentType: Preference<ContentType> =
         preferenceStore.getEnum("recents_content_type", ContentType.ALL)
+
+    /**
+     * Which mode the combined Recents tab was last showing. One key rather than one per surface: the
+     * two single-mode surfaces have nothing to remember, and an engine ignores a stored mode it does
+     * not render. Stored by constant name, so [reikai.presentation.recents.RecentsMode]'s names are
+     * the on-disk format.
+     */
+    val recentsMode: Preference<RecentsMode> =
+        preferenceStore.getEnum("recents_mode", RecentsMode.FEED)
 
     /** Sticky content-type filter on the Stats screen (manga + novels), its own key. */
     val statsContentType: Preference<ContentType> =

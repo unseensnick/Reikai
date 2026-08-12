@@ -94,11 +94,14 @@ class RecentsEngine(
     private val lanes: Set<RecentsLaneKind> = modes.flatMapTo(mutableSetOf()) { it.lanes }
 
     /**
-     * What is on screen now. One value for the surface, so switching mode cannot leave a stale
-     * selection or search behind; whether it survives a restart is the tab step's question, not this
-     * one's.
+     * What is on screen now, restored from the last visit. One value for the surface, so switching
+     * mode cannot leave a stale selection or search behind. A stored mode this surface does not render
+     * is ignored rather than obeyed, which is what makes the preference safe to share across surfaces
+     * and what absorbs a mode that no longer exists.
      */
-    private val mutableMode = MutableStateFlow(modes.first())
+    private val mutableMode = MutableStateFlow(
+        sourcePreferences.recentsMode.get().takeIf { it in modes } ?: modes.first(),
+    )
     val mode: StateFlow<RecentsMode> = mutableMode.asStateFlow()
 
     fun setMode(mode: RecentsMode) {
@@ -106,6 +109,7 @@ class RecentsEngine(
         if (mutableMode.value == mode) return
         clearSelection()
         mutableMode.value = mode
+        sourcePreferences.recentsMode.set(mode)
     }
 
     /**

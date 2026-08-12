@@ -1,10 +1,9 @@
 package reikai.presentation.recents
 
 /**
- * What a recents surface is rendering. Created before anything persists one: the tab-shortcut step
- * stores this through `getEnum`, which writes the constant's own name and falls back to the default
- * when it reads a name it does not know, so renaming a case here resets every user's mode. Treat
- * these four names as the on-disk format.
+ * What a recents surface is rendering, and what it comes back to. Persisted through `getEnum`, which
+ * writes the constant's own name and falls back to the default when it reads a name it does not know,
+ * so renaming a case here resets every user's mode. Treat these four names as the on-disk format.
  */
 enum class RecentsMode {
     /** One row per title across every lane, newest activity first. */
