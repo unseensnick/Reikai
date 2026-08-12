@@ -188,6 +188,10 @@ fun Screen.RecentsScreen(
     ) { contentPadding ->
         val layoutDirection = LocalLayoutDirection.current
         Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
+            val modes = remember(engine.modes) { RECENTS_MODE_ORDER.filter { it in engine.modes } }
+            if (modes.size > 1) {
+                RecentsModeTabs(modes = modes, selected = mode, onSelect = engine::setMode)
+            }
             ContentTypeFilterChips(selected = contentType, onSelect = engine::setContentType)
             val bodyPadding = PaddingValues(
                 start = contentPadding.calculateStartPadding(layoutDirection),

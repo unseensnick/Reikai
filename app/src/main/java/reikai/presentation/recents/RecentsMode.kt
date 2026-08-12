@@ -1,5 +1,8 @@
 package reikai.presentation.recents
 
+import dev.icerock.moko.resources.StringResource
+import tachiyomi.i18n.MR
+
 /**
  * What a recents surface is rendering, and what it comes back to. Persisted through `getEnum`, which
  * writes the constant's own name and falls back to the default when it reads a name it does not know,
@@ -45,7 +48,26 @@ enum class RecentsMode {
         }
 
     fun can(capability: RecentsCapability): Boolean = capability in capabilities
+
+    val labelRes: StringResource
+        get() = when (this) {
+            FEED -> MR.strings.recents_mode_feed
+            DIGEST -> MR.strings.recents_mode_grouped
+            UPDATES -> MR.strings.label_recent_updates
+            HISTORY -> MR.strings.history
+        }
 }
+
+/**
+ * The order the mode switcher draws, widest view first. Deliberately not the declaration order,
+ * which decides the fallback mode and is therefore not free to rearrange.
+ */
+val RECENTS_MODE_ORDER = listOf(
+    RecentsMode.DIGEST,
+    RecentsMode.FEED,
+    RecentsMode.HISTORY,
+    RecentsMode.UPDATES,
+)
 
 /**
  * An affordance a mode either has or does not. [CHAPTER_FILTER] and [GROUPING] are what the filter

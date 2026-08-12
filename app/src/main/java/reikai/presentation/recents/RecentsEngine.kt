@@ -49,7 +49,8 @@ import kotlin.time.Duration.Companion.seconds
 class RecentsEngine(
     private val providers: List<RecentsProvider>,
     val surface: RecentsSurface,
-    private val modes: Set<RecentsMode>,
+    /** Public so the screen can offer the choice; the engine still owns which one is on. */
+    val modes: Set<RecentsMode>,
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
