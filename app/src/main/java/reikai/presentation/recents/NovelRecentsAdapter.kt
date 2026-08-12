@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import android.app.Application
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -26,6 +27,9 @@ import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.download.NovelDownloadCache
+import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.toDownloadState
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.toDuplicateCard
@@ -71,6 +75,8 @@ class NovelRecentsAdapter private constructor(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
     private val novelLibraryAdder: NovelLibraryAdder by injectLazy()
+    private val novelDownloadManager: NovelDownloadManager by injectLazy()
+    private val novelDownloadCache: NovelDownloadCache by injectLazy()
     private val application: Application by injectLazy()
 
     override val contentType = ContentType.NOVELS
@@ -150,28 +156,27 @@ class NovelRecentsAdapter private constructor(
 
     private class ModelChapterActions(private val model: NovelUpdatesViewModel) : RecentsChapterActions {
 
-        private fun Set<ChapterRef>.ownItems(): List<NovelUpdatesItem> {
-            val ids = filter { it.entryId is EntryId.Novel }.mapTo(HashSet()) { it.chapterId }
-            if (ids.isEmpty()) return emptyList()
-            return model.state.value.items.filter { it.update.chapterId in ids }
-        }
+        // Keyed by chapter id rather than resolved against the rendered updates feed, which holds no
+        // read-lane row. Mirrors the manga adapter.
+        private fun Set<ChapterRef>.ownIds(): List<Long> =
+            filter { it.entryId is EntryId.Novel }.map { it.chapterId }
 
         override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-            model.markRead(chapters.ownItems(), read)
+            model.markRead(chapters.ownIds(), read)
         }
 
         override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
-            model.bookmark(chapters.ownItems(), bookmarked)
+            model.bookmark(chapters.ownIds(), bookmarked)
         }
 
         // Per row rather than in one call: this model's batch entry point only ever queues, and the
         // row indicator also cancels, expedites and deletes.
         override fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
-            chapters.ownItems().forEach { model.onDownloadAction(it, action) }
+            chapters.ownIds().forEach { model.onDownloadAction(it, action) }
         }
 
         override fun deleteDownloads(chapters: Set<ChapterRef>) {
-            model.deleteChapters(chapters.ownItems())
+            model.deleteChapters(chapters.ownIds())
         }
     }
 
@@ -246,7 +251,30 @@ class NovelRecentsAdapter private constructor(
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)
 
-    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = novelDownloadUi(item)
+    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
+        is NovelHistoryWithRelations -> historyDownloadUi(payload)
+        else -> novelDownloadUi(item)
+    }
+
+    /** Twin of the manga adapter's: the queue first, then the on-disk index, resolved on call. */
+    private fun historyDownloadUi(payload: NovelHistoryWithRelations) = RecentsDownloadUi(
+        state = {
+            val queued = novelDownloadManager.queueState.value.find { it.chapterId == payload.chapterId }
+            when {
+                queued != null -> queued.state.toDownloadState()
+                novelDownloadCache.isChapterDownloaded(
+                    payload.source,
+                    payload.storedTitle,
+                    payload.chapterName,
+                    payload.chapterUrl,
+                ) -> Download.State.DOWNLOADED
+                else -> Download.State.NOT_DOWNLOADED
+            }
+        },
+        // Same declaration the updated lane makes: this engine reports no byte progress until the two
+        // download subsystems merge, and a zero would read as a download that has genuinely stalled.
+        progress = RecentsDownloadProgress.Unsupported,
+    )
 }
 
 /**
@@ -269,8 +297,8 @@ internal fun novelRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         title = payload.update.novelTitle,
         // novelUpdatesView is favorite-gated, so a row on this lane is always in the library.
         isFavorite = true,
-        chapter = namedChapter(
-            name = payload.update.chapterName,
+        chapter = RecentsChapterUi.Named(payload.update.chapterName),
+        state = chapterState(
             read = payload.update.read,
             bookmark = payload.update.bookmark,
             progress = RecentsProgress.Percent(payload.update.lastTextProgress),
@@ -282,12 +310,18 @@ internal fun novelRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         // novelHistoryView is not favorite-gated: a read entry may never have been added.
         isFavorite = payload.coverData.isNovelFavorite,
         chapter = RecentsChapterUi.Number(payload.chapterNumber),
+        state = chapterState(
+            read = payload.read,
+            bookmark = payload.bookmark,
+            progress = RecentsProgress.Percent(payload.lastTextProgress),
+        ),
     )
     is RecentlyAddedNovel -> RecentsRowUi(
         cover = payload.coverData,
         title = payload.title,
         isFavorite = true,
         chapter = null,
+        state = null,
     )
     else -> EMPTY_RECENTS_ROW
 }

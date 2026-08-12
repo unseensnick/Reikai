@@ -23,6 +23,7 @@ import eu.kanade.presentation.reader.toSwipeDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownload
+import reikai.novel.download.toDownloadState
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -125,10 +126,4 @@ fun NovelReaderChapterListDialog(
             }
         }
     }
-}
-
-private fun NovelDownload.State.toDownloadState(): Download.State = when (this) {
-    NovelDownload.State.QUEUE -> Download.State.QUEUE
-    NovelDownload.State.DOWNLOADING -> Download.State.DOWNLOADING
-    NovelDownload.State.ERROR -> Download.State.ERROR
 }

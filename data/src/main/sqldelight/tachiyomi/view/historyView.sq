@@ -9,6 +9,16 @@ SELECT
     mangas.favorite,
     mangas.cover_last_modified,
     chapters.chapter_number AS chapterNumber,
+-- RK --> the recents read lane acts on the chapter it names, so the row carries that chapter's own
+-- state (read, bookmark, progress) and the four values its download state is looked up by. Upstream
+-- selects none of these: its History screen only ever showed a number and a time.
+    chapters.name AS chapterName,
+    chapters.scanlator,
+    chapters.url AS chapterUrl,
+    chapters.read,
+    chapters.bookmark,
+    chapters.last_page_read AS lastPageRead,
+-- RK <--
     history.last_read AS readAt,
     history.time_read AS readDuration,
     max_last_read.last_read AS maxReadAt,
@@ -37,6 +47,13 @@ source,
 favorite,
 cover_last_modified,
 chapterNumber,
+-- RK: the read lane's chapter state and download-lookup keys, see the view above.
+chapterName,
+scanlator,
+chapterUrl,
+read,
+bookmark,
+lastPageRead,
 readAt,
 readDuration
 FROM historyView
@@ -86,6 +103,13 @@ source,
 favorite,
 cover_last_modified,
 chapterNumber,
+-- RK: the read lane's chapter state and download-lookup keys, see the view above.
+chapterName,
+scanlator,
+chapterUrl,
+read,
+bookmark,
+lastPageRead,
 readAt,
 readDuration
 FROM historyView

@@ -55,27 +55,62 @@ class RecentsMappingTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `an updated row projects the chapter's name and flags`(probe: RecentsMappingProbe) {
+    fun `an updated row is labelled by the chapter's name`(probe: RecentsMappingProbe) {
         val chapter = probe.rowUi(probe.update(bookmark = true)).chapter
             .shouldBeInstanceOf<RecentsChapterUi.Named>()
 
-        (chapter.name to chapter.bookmark) shouldBe ("c" to true)
+        chapter.name shouldBe "c"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an updated row answers for its chapter's flags`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.update(bookmark = true)).state?.bookmark shouldBe true
+    }
+
+    // The read lane's own state. It carried none until the feed could act on one of its rows, which
+    // is what left every chapter verb aimed at a read row silently doing nothing.
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a read row answers for its chapter's flags`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.history(readAt = 1L, bookmark = true)).state?.bookmark shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a read row whose chapter was marked unread does not claim to be read`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.history(readAt = 1L, read = false)).state?.read shouldBe false
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a chapter left unfinished keeps its progress`(probe: RecentsMappingProbe) {
-        val chapter = probe.rowUi(probe.update(read = false, started = true)).chapter
+        val row = probe.rowUi(probe.update(read = false, started = true))
 
-        chapter.shouldBeInstanceOf<RecentsChapterUi.Named>().progress shouldBe probe.startedProgress()
+        row.state?.progress shouldBe probe.startedProgress()
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a chapter already read shows no progress`(probe: RecentsMappingProbe) {
-        val chapter = probe.rowUi(probe.update(read = true, started = true)).chapter
+        val row = probe.rowUi(probe.update(read = true, started = true))
 
-        chapter.shouldBeInstanceOf<RecentsChapterUi.Named>().progress shouldBe null
+        row.state?.progress shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the unfinished-progress rule reaches the read lane too`(probe: RecentsMappingProbe) {
+        val row = probe.rowUi(probe.history(readAt = 1L, read = false, started = true))
+
+        row.state?.progress shouldBe probe.startedProgress()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a recently added row answers for no chapter state`(probe: RecentsMappingProbe) {
+        probe.rowUi(probe.added()).state shouldBe null
     }
 
     // What that progress reads as on the row. Neutral, so it takes the typed slot directly rather
@@ -158,7 +193,13 @@ interface RecentsMappingProbe {
 
     fun update(read: Boolean = false, bookmark: Boolean = false, started: Boolean = false): RecentsItem
 
-    fun history(readAt: Long?): RecentsItem
+    /** Takes the same chapter flags as [update]: a read row names a real chapter, with real state. */
+    fun history(
+        readAt: Long?,
+        read: Boolean = true,
+        bookmark: Boolean = false,
+        started: Boolean = false,
+    ): RecentsItem
 
     fun added(): RecentsItem
 
@@ -195,16 +236,25 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
         downloadProgressProvider = { 0 },
     ).toRecentsItem()
 
-    override fun history(readAt: Long?) = HistoryWithRelations(
-        id = 1,
-        chapterId = 70,
-        mangaId = 7,
-        title = "t",
-        chapterNumber = 1.0,
-        readAt = readAt?.let { Date(it) },
-        readDuration = 0,
-        coverData = cover,
-    ).toRecentsItem()
+    override fun history(readAt: Long?, read: Boolean, bookmark: Boolean, started: Boolean) =
+        HistoryWithRelations(
+            id = 1,
+            chapterId = 70,
+            mangaId = 7,
+            title = "t",
+            chapterNumber = 1.0,
+            readAt = readAt?.let { Date(it) },
+            readDuration = 0,
+            coverData = cover,
+            chapterName = "c",
+            scanlator = null,
+            chapterUrl = "u",
+            read = read,
+            bookmark = bookmark,
+            lastPageRead = if (started) 5L else 0L,
+            sourceId = 1,
+            storedTitle = "t",
+        ).toRecentsItem()
 
     override fun added() =
         RecentlyAddedManga(mangaId = 7, title = "t", dateAdded = 99, coverData = cover).toRecentsItem()
@@ -240,16 +290,24 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
         downloadState = Download.State.NOT_DOWNLOADED,
     ).toRecentsItem()
 
-    override fun history(readAt: Long?) = NovelHistoryWithRelations(
-        id = 1,
-        chapterId = 70,
-        novelId = 7,
-        title = "t",
-        chapterNumber = 1.0,
-        readAt = readAt,
-        readDuration = 0,
-        coverData = cover,
-    ).toRecentsItem()
+    override fun history(readAt: Long?, read: Boolean, bookmark: Boolean, started: Boolean) =
+        NovelHistoryWithRelations(
+            id = 1,
+            chapterId = 70,
+            novelId = 7,
+            title = "t",
+            chapterNumber = 1.0,
+            readAt = readAt,
+            readDuration = 0,
+            coverData = cover,
+            chapterName = "c",
+            chapterUrl = "u",
+            read = read,
+            bookmark = bookmark,
+            lastTextProgress = if (started) 5000L else 0L,
+            source = "s",
+            storedTitle = "t",
+        ).toRecentsItem()
 
     override fun added() = RecentlyAddedNovel(
         novelId = 7,

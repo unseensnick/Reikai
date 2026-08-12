@@ -137,6 +137,7 @@ fun RecentsGroupRow(
 @Composable
 fun RecentsGroupChildRow(
     chapter: RecentsChapterUi.Named,
+    state: RecentsChapterState,
     selected: Boolean,
     download: RecentsDownloadUi?,
     onClick: () -> Unit,
@@ -148,16 +149,16 @@ fun RecentsGroupChildRow(
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
-    val textAlpha = if (chapter.read) DISABLED_ALPHA else 1f
-    val progress = readProgressLabel(chapter.progress)
+    val textAlpha = if (state.read) DISABLED_ALPHA else 1f
+    val progress = readProgressLabel(state.progress)
     val downloadState = download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED
     SwipeableActionsBox(
         modifier = Modifier.clipToBounds(),
         startActions = listOfNotNull(
             getSwipeAction(
                 action = chapterSwipeStartAction,
-                read = chapter.read,
-                bookmark = chapter.bookmark,
+                read = state.read,
+                bookmark = state.bookmark,
                 downloadState = downloadState,
                 background = MaterialTheme.colorScheme.primaryContainer,
                 onSwipe = { onChapterSwipe(chapterSwipeStartAction) },
@@ -166,8 +167,8 @@ fun RecentsGroupChildRow(
         endActions = listOfNotNull(
             getSwipeAction(
                 action = chapterSwipeEndAction,
-                read = chapter.read,
-                bookmark = chapter.bookmark,
+                read = state.read,
+                bookmark = state.bookmark,
                 downloadState = downloadState,
                 background = MaterialTheme.colorScheme.primaryContainer,
                 onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
@@ -191,12 +192,12 @@ fun RecentsGroupChildRow(
                 .padding(start = 72.dp, end = MaterialTheme.padding.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!chapter.read) {
+            if (!state.read) {
                 UnreadDot()
             }
             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 var textHeight by remember { mutableIntStateOf(0) }
-                if (chapter.bookmark) {
+                if (state.bookmark) {
                     Icon(
                         imageVector = Icons.Filled.Bookmark,
                         contentDescription = stringResource(MR.strings.action_filter_bookmarked),

@@ -415,21 +415,28 @@ private fun RecentsMixedLaneRow(
     onOpenDetails: (EntryId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val named = ui.chapter as? RecentsChapterUi.Named
+    val state = ui.state
     val download = engine.downloadUi(item)
-    val downloadState = download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED
     val ref = item.lane.chapterRef
-    // Only an update can answer a swipe: the other two lanes carry no read, bookmark or download
-    // state for its icons to read, and Disabled draws no gesture rather than a dead one.
-    val swipe = if (named != null) swipeActions else DISABLED_SWIPE
+    // Swipe stays on the updated lane by ruling rather than by capability: the read lane carries its
+    // own chapter state now, so it could answer one, but giving History swipe is its own decision.
+    val swipeable = item.lane is RecentsLane.Updated
+    val swipe = if (swipeable) swipeActions else DISABLED_SWIPE
+    // Only resolved where a gesture or an indicator draws it. The read lane answers this by asking
+    // the queue and the on-disk index, so invoking it per row would put that lookup in every
+    // composition to feed a control that lane does not draw.
+    val downloadState = when {
+        swipeable -> download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED
+        else -> Download.State.NOT_DOWNLOADED
+    }
 
     RecentsCombinedRow(
         cover = ui.cover,
         title = ui.title,
-        subtitle = mixedLaneSubtitle(item, ui.chapter),
-        // A read row is read by definition; a newly added one is as new as it gets.
-        read = named?.read ?: (item.lane is RecentsLane.Read),
-        bookmark = named?.bookmark == true,
+        subtitle = mixedLaneSubtitle(item, ui.chapter, state),
+        // A newly added row has no chapter, so nothing about it is read.
+        read = state?.read == true,
+        bookmark = state?.bookmark == true,
         selected = selected,
         onClick = { onPress(item) },
         onLongClick = { onLongPress(item) },
@@ -437,8 +444,8 @@ private fun RecentsMixedLaneRow(
         chapterSwipeStartAction = swipe.start,
         chapterSwipeEndAction = swipe.end,
         onChapterSwipe = { action ->
-            if (named != null && ref != null) {
-                engine.runChapterSwipe(ref, named, { downloadState }, action)
+            if (state != null && ref != null) {
+                engine.runChapterSwipe(ref, state, { downloadState }, action)
             }
         },
         downloadState = downloadState,
@@ -471,11 +478,15 @@ private fun RecentsMixedLaneRow(
 
 /** What a row says about itself once the list no longer speaks for one lane. */
 @Composable
-private fun mixedLaneSubtitle(item: RecentsItem, chapter: RecentsChapterUi?): String {
+private fun mixedLaneSubtitle(
+    item: RecentsItem,
+    chapter: RecentsChapterUi?,
+    state: RecentsChapterState?,
+): String {
     val time = remember(item.timestamp) { Date(item.timestamp).toTimestampString() }
     return when (chapter) {
         is RecentsChapterUi.Named ->
-            listOfNotNull(chapter.name, readProgressLabel(chapter.progress)).joinToString("  •  ")
+            listOfNotNull(chapter.name, readProgressLabel(state?.progress)).joinToString("  •  ")
         is RecentsChapterUi.Number -> if (chapter.value > -1) {
             stringResource(MR.strings.recent_manga_time, formatChapterNumber(chapter.value), time)
         } else {
@@ -573,12 +584,15 @@ private fun LazyListScope.recentsRows(
                 )
             }
             is RecentsRow.Child -> {
-                val chapter = engine.rowUi(row.item).chapter
-                if (chapter is RecentsChapterUi.Named) {
+                val childUi = engine.rowUi(row.item)
+                val chapter = childUi.chapter
+                val state = childUi.state
+                if (chapter is RecentsChapterUi.Named && state != null) {
                     val download = engine.downloadUi(row.item)
                     val ref = row.item.lane.chapterRef
                     RecentsGroupChildRow(
                         chapter = chapter,
+                        state = state,
                         selected = ref in selection,
                         download = download,
                         onClick = { press(row.item) },
@@ -592,7 +606,7 @@ private fun LazyListScope.recentsRows(
                             if (ref != null) {
                                 engine.runChapterSwipe(
                                     ref = ref,
-                                    chapter = chapter,
+                                    state = state,
                                     downloadState = download?.state ?: NOT_DOWNLOADED,
                                     action = action,
                                 )
@@ -640,6 +654,7 @@ private fun RecentsEntryRow(
         )
         return
     }
+    val state = ui.state
     when (val chapter = ui.chapter) {
         is RecentsChapterUi.Named -> {
             val download = engine.downloadUi(item)
@@ -648,10 +663,10 @@ private fun RecentsEntryRow(
                 cover = ui.cover,
                 title = ui.title,
                 chapterName = chapter.name,
-                read = chapter.read,
-                bookmark = chapter.bookmark,
+                read = state?.read == true,
+                bookmark = state?.bookmark == true,
                 selected = selected,
-                readProgress = readProgressLabel(chapter.progress),
+                readProgress = readProgressLabel(state?.progress),
                 onClick = { onPress(item) },
                 onLongClick = { onLongPress(item) },
                 // Both go quiet during a sweep, as the replaced screen and upstream's row do: a cover
@@ -667,10 +682,10 @@ private fun RecentsEntryRow(
                 // A Named row only ever comes off the updated lane, which only a surface holding the
                 // updates model collects, so the provider behind it always answers these verbs.
                 onChapterSwipe = { action ->
-                    if (ref != null) {
+                    if (ref != null && state != null) {
                         engine.runChapterSwipe(
                             ref = ref,
-                            chapter = chapter,
+                            state = state,
                             downloadState = download?.state ?: NOT_DOWNLOADED,
                             action = action,
                         )
@@ -709,15 +724,17 @@ private fun RecentsBottomBar(
     selected: List<RecentsItem>,
     onDeleteDownloads: () -> Unit,
 ) {
-    val chapters = selected.mapNotNull { engine.rowUi(it).chapter as? RecentsChapterUi.Named }
+    val chapters = selected.mapNotNull { engine.rowUi(it).state }
     val downloads = selected.mapNotNull { engine.downloadUi(it) }
     MangaBottomActionMenu(
         visible = selected.isNotEmpty(),
         modifier = Modifier.fillMaxWidth(),
         onBookmarkClicked = { engine.setBookmarkSelection(true) }
             .takeIf { chapters.any { chapter -> !chapter.bookmark } },
+        // Guarded on non-empty, unlike its five siblings: `all` is vacuously true over nothing, so a
+        // selection that answers for no chapter would offer this one action and no other.
         onRemoveBookmarkClicked = { engine.setBookmarkSelection(false) }
-            .takeIf { chapters.all { chapter -> chapter.bookmark } },
+            .takeIf { chapters.isNotEmpty() && chapters.all { chapter -> chapter.bookmark } },
         onMarkAsReadClicked = { engine.markReadSelection(true) }
             .takeIf { chapters.any { chapter -> !chapter.read } },
         // Started counts as readable-back: progress survives only where reading stopped short, so one
@@ -812,7 +829,7 @@ internal fun List<RecentsRow>.orderedChapterRefs(): List<ChapterRef> = buildList
     }
 }
 
-private fun RecentsRowUi.isRead(): Boolean = (chapter as? RecentsChapterUi.Named)?.read ?: true
+private fun RecentsRowUi.isRead(): Boolean = state?.read ?: true
 
 /** The mode a digest section's footer jumps to. Newly added has none, and draws no footer. */
 private fun RecentsLaneKind.singleLaneMode(): RecentsMode = when (this) {

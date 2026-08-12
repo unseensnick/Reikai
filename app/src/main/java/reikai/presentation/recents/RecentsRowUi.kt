@@ -15,10 +15,13 @@ data class RecentsRowUi(
     val isFavorite: Boolean,
     /** Absent on the newly-added lane, whose rows have no chapter at all. */
     val chapter: RecentsChapterUi?,
+    /** Absent on the same lane, and for the same reason: no chapter, no state to hold. */
+    val state: RecentsChapterState?,
 )
 
 /** A payload no adapter recognises, which only a lane added later could produce. */
-val EMPTY_RECENTS_ROW = RecentsRowUi(cover = null, title = "", isFavorite = false, chapter = null)
+val EMPTY_RECENTS_ROW =
+    RecentsRowUi(cover = null, title = "", isFavorite = false, chapter = null, state = null)
 
 /**
  * A row's live download state, handed over rather than recomputed: both engines already carry it on
@@ -43,22 +46,29 @@ sealed interface RecentsDownloadProgress {
 }
 
 /**
- * The chapter half of a row, shaped by the lane it came from: the read feed stores a chapter number
- * and no name, the updated feed the reverse. One flat type would need a sentinel for whichever half
- * a given feed does not carry, which is what the two screens do today.
+ * How a row labels its chapter, which is a display choice the lane makes: History names the chapter
+ * by number and the time it was read, an update by the chapter's own name. Labelling only. What a
+ * row's verbs act on is [RecentsChapterState], because both lanes name a real chapter.
  */
 @Immutable
 sealed interface RecentsChapterUi {
     /** How far into the series the reader is. Negative when the source numbered nothing. */
     data class Number(val value: Double) : RecentsChapterUi
 
-    data class Named(
-        val name: String,
-        val read: Boolean,
-        val bookmark: Boolean,
-        val progress: RecentsProgress?,
-    ) : RecentsChapterUi
+    data class Named(val name: String) : RecentsChapterUi
 }
+
+/**
+ * The chapter state a row's actions, icons and dimming read. Held apart from [RecentsChapterUi] since
+ * the label a lane picks says nothing about what its chapter can do: keeping the two together is what
+ * left a read row unable to say whether it was bookmarked, so every verb aimed at one did nothing.
+ */
+@Immutable
+data class RecentsChapterState(
+    val read: Boolean,
+    val bookmark: Boolean,
+    val progress: RecentsProgress?,
+)
 
 /**
  * How far into a chapter the reader got, in the engine's own unit, so nothing shared has to know what
@@ -74,17 +84,15 @@ sealed interface RecentsProgress {
 }
 
 /**
- * A named chapter row, carrying the one rule both feeds share: progress shows only where reading
+ * A chapter's state, carrying the one rule both feeds share: progress shows only where reading
  * stopped short of the end. Both screens restate that rule today, once per content type and again for
  * a grouped row's children.
  */
-fun namedChapter(
-    name: String,
+fun chapterState(
     read: Boolean,
     bookmark: Boolean,
     progress: RecentsProgress,
-): RecentsChapterUi.Named = RecentsChapterUi.Named(
-    name = name,
+): RecentsChapterState = RecentsChapterState(
     read = read,
     bookmark = bookmark,
     progress = progress.takeIf { !read },

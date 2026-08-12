@@ -28,6 +28,13 @@ object HistoryMapper {
         isFavorite: Boolean,
         coverLastModified: Long,
         chapterNumber: Double,
+        // RK: the chapter's own state and download-lookup keys, see HistoryWithRelations.
+        chapterName: String,
+        scanlator: String?,
+        chapterUrl: String,
+        read: Boolean,
+        bookmark: Boolean,
+        lastPageRead: Long,
         readAt: Date?,
         readDuration: Long,
     ): HistoryWithRelations = HistoryWithRelations(
@@ -38,6 +45,16 @@ object HistoryMapper {
         chapterNumber = chapterNumber,
         readAt = readAt,
         readDuration = readDuration,
+        // RK -->
+        chapterName = chapterName,
+        scanlator = scanlator,
+        chapterUrl = chapterUrl,
+        read = read,
+        bookmark = bookmark,
+        lastPageRead = lastPageRead,
+        sourceId = sourceId,
+        storedTitle = title,
+        // RK <--
         coverData = MangaCover(
             mangaId = mangaId,
             sourceId = sourceId,

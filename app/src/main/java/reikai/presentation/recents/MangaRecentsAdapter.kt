@@ -3,6 +3,8 @@ package reikai.presentation.recents
 import android.app.Application
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -71,6 +73,7 @@ class MangaRecentsAdapter private constructor(
     private val recentlyAdded: RecentlyAddedRepository by injectLazy()
     private val getNextChapters: GetNextChapters by injectLazy()
     private val getChaptersByMangaId: GetChaptersByMangaId by injectLazy()
+    private val downloadManager: DownloadManager by injectLazy()
 
     // Read from the preference rather than off the model, whose copy is a Compose State the engine
     // cannot collect.
@@ -178,28 +181,26 @@ class MangaRecentsAdapter private constructor(
 
     private class ModelChapterActions(private val model: UpdatesViewModel) : RecentsChapterActions {
 
-        // Each verb takes the neutral set and hands the model only its own content type's rows, so a
-        // mixed selection never reaches a provider that cannot act on it.
-        private fun Set<ChapterRef>.ownItems(): List<UpdatesItem> {
-            val ids = filter { it.entryId is EntryId.Manga }.mapTo(HashSet()) { it.chapterId }
-            if (ids.isEmpty()) return emptyList()
-            return model.state.value.items.filter { it.update.chapterId in ids }
-        }
+        // Each verb takes the neutral set and hands the model only its own content type's chapters,
+        // so a mixed selection never reaches a provider that cannot act on it. Keyed by chapter id
+        // rather than resolved against the rendered updates feed, which holds no read-lane row.
+        private fun Set<ChapterRef>.ownIds(): List<Long> =
+            filter { it.entryId is EntryId.Manga }.map { it.chapterId }
 
         override fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
-            model.markUpdatesRead(chapters.ownItems(), read)
+            model.markUpdatesRead(chapters.ownIds(), read)
         }
 
         override fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
-            model.bookmarkUpdates(chapters.ownItems(), bookmarked)
+            model.bookmarkUpdates(chapters.ownIds(), bookmarked)
         }
 
         override fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
-            model.downloadChapters(chapters.ownItems(), action)
+            model.downloadChapters(chapters.ownIds(), action)
         }
 
         override fun deleteDownloads(chapters: Set<ChapterRef>) {
-            model.deleteChapters(chapters.ownItems())
+            model.deleteChapters(chapters.ownIds())
         }
     }
 
@@ -277,7 +278,36 @@ class MangaRecentsAdapter private constructor(
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = mangaRowUi(item)
 
-    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = mangaDownloadUi(item)
+    override fun downloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
+        is HistoryWithRelations -> historyDownloadUi(payload)
+        else -> mangaDownloadUi(item)
+    }
+
+    /**
+     * The read lane has no model computing this per row, so it asks the same two sources the updates
+     * model does: the live queue first, then the on-disk index. Resolved on call rather than carried
+     * on the row, because combining the whole history feed with the download queue would re-map every
+     * row of it on each download tick, to feed a control this lane does not draw.
+     */
+    private fun historyDownloadUi(payload: HistoryWithRelations) = RecentsDownloadUi(
+        state = {
+            val active = downloadManager.getQueuedDownloadOrNull(payload.chapterId)
+            when {
+                active != null -> active.status
+                downloadManager.isChapterDownloaded(
+                    chapterName = payload.chapterName,
+                    chapterScanlator = payload.scanlator,
+                    chapterUrl = payload.chapterUrl,
+                    mangaTitle = payload.storedTitle,
+                    sourceId = payload.sourceId,
+                ) -> Download.State.DOWNLOADED
+                else -> Download.State.NOT_DOWNLOADED
+            }
+        },
+        progress = RecentsDownloadProgress.Live {
+            downloadManager.getQueuedDownloadOrNull(payload.chapterId)?.progress ?: 0
+        },
+    )
 }
 
 /** The updates model already builds both providers per row, so this only hands them over. */
@@ -299,8 +329,8 @@ internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         title = payload.update.mangaTitle,
         // updatesView is favorite-gated, so a row on this lane is always in the library.
         isFavorite = true,
-        chapter = namedChapter(
-            name = payload.update.chapterName,
+        chapter = RecentsChapterUi.Named(payload.update.chapterName),
+        state = chapterState(
             read = payload.update.read,
             bookmark = payload.update.bookmark,
             progress = RecentsProgress.Pages(payload.update.lastPageRead),
@@ -312,12 +342,18 @@ internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         // historyView is not favorite-gated: a read entry may never have been added.
         isFavorite = payload.coverData.isMangaFavorite,
         chapter = RecentsChapterUi.Number(payload.chapterNumber),
+        state = chapterState(
+            read = payload.read,
+            bookmark = payload.bookmark,
+            progress = RecentsProgress.Pages(payload.lastPageRead),
+        ),
     )
     is RecentlyAddedManga -> RecentsRowUi(
         cover = payload.coverData,
         title = payload.title,
         isFavorite = true,
         chapter = null,
+        state = null,
     )
     else -> EMPTY_RECENTS_ROW
 }

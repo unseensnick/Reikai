@@ -81,6 +81,7 @@ import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -1260,12 +1261,6 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO { downloadManager.deleteChapters(chapters) }
         clearSelection()
         dismissDialog()
-    }
-
-    private fun NovelDownload.State.toDownloadState(): Download.State = when (this) {
-        NovelDownload.State.QUEUE -> Download.State.QUEUE
-        NovelDownload.State.DOWNLOADING -> Download.State.DOWNLOADING
-        NovelDownload.State.ERROR -> Download.State.ERROR
     }
 
     fun dismissDialog() = updateLoaded { it.copy(dialog = null) }

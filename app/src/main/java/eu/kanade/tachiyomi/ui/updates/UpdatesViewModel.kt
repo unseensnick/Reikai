@@ -198,30 +198,30 @@ class UpdatesViewModel(
         }
     }
 
-    fun downloadChapters(items: List<UpdatesItem>, action: ChapterDownloadAction) {
-        if (items.isEmpty()) return
+    // RK --> The four chapter verbs take chapter ids rather than rendered rows. Recents dispatches
+    // over a mixed feed whose read-lane rows have no UpdatesItem to look one up by, and every verb
+    // already re-read the chapter from that id, so the row was only ever indirection.
+    fun downloadChapters(chapterIds: List<Long>, action: ChapterDownloadAction) {
+        if (chapterIds.isEmpty()) return
         viewModelScope.launch {
             when (action) {
                 ChapterDownloadAction.START -> {
-                    downloadChapters(items)
-                    if (items.any { it.downloadStateProvider() == Download.State.ERROR }) {
+                    downloadChapters(chapterIds)
+                    if (anyDownloadFailed(chapterIds)) {
                         downloadManager.startDownloads()
                     }
                 }
-                ChapterDownloadAction.START_NOW -> {
-                    val chapterId = items.singleOrNull()?.update?.chapterId ?: return@launch
-                    startDownloadingNow(chapterId)
-                }
-                ChapterDownloadAction.CANCEL -> {
-                    val chapterId = items.singleOrNull()?.update?.chapterId ?: return@launch
-                    cancelDownload(chapterId)
-                }
-                ChapterDownloadAction.DELETE -> {
-                    deleteChapters(items)
-                }
+                ChapterDownloadAction.START_NOW -> startDownloadingNow(chapterIds.singleOrNull() ?: return@launch)
+                ChapterDownloadAction.CANCEL -> cancelDownload(chapterIds.singleOrNull() ?: return@launch)
+                ChapterDownloadAction.DELETE -> deleteChapters(chapterIds)
             }
         }
     }
+
+    /** Upstream read this off the row's own state provider; the queue is where that value came from. */
+    private fun anyDownloadFailed(chapterIds: List<Long>): Boolean =
+        chapterIds.any { downloadManager.getQueuedDownloadOrNull(it)?.status == Download.State.ERROR }
+    // RK <--
 
     private fun startDownloadingNow(chapterId: Long) {
         downloadManager.startDownloadNow(chapterId)
@@ -234,16 +234,17 @@ class UpdatesViewModel(
     }
 
     /**
-     * Mark the selected updates list as read/unread.
-     * @param updates the list of selected updates.
+     * Mark the given chapters as read/unread.
+     * @param chapterIds the chapters to mark.
      * @param read whether to mark chapters as read or unread.
      */
-    fun markUpdatesRead(updates: List<UpdatesItem>, read: Boolean) {
+    // RK: keyed by chapter id, see the download island above.
+    fun markUpdatesRead(chapterIds: List<Long>, read: Boolean) {
         viewModelScope.launchIO {
             setReadStatus.await(
                 read = read,
-                chapters = updates
-                    .mapNotNull { getChapter.await(it.update.chapterId) }
+                chapters = chapterIds
+                    .mapNotNull { getChapter.await(it) }
                     .toTypedArray(),
             )
         }
@@ -251,49 +252,53 @@ class UpdatesViewModel(
 
     /**
      * Bookmarks the given list of chapters.
-     * @param updates the list of chapters to bookmark.
+     * @param chapterIds the chapters to bookmark.
      */
-    fun bookmarkUpdates(updates: List<UpdatesItem>, bookmark: Boolean) {
+    // RK: keyed by chapter id. The already-at-this-value skip reads the stored chapter rather than a
+    // rendered row's copy of it, which is the only value a read-lane row could not have supplied.
+    fun bookmarkUpdates(chapterIds: List<Long>, bookmark: Boolean) {
         viewModelScope.launchIO {
-            updates
-                .filterNot { it.update.bookmark == bookmark }
-                .map { ChapterUpdate(id = it.update.chapterId, bookmark = bookmark) }
+            chapterIds
+                .mapNotNull { getChapter.await(it) }
+                .filterNot { it.bookmark == bookmark }
+                .map { ChapterUpdate(id = it.id, bookmark = bookmark) }
                 .let { updateChapter.awaitAll(it) }
         }
     }
 
     /**
      * Downloads the given list of chapters with the manager.
-     * @param updatesItem the list of chapters to download.
+     * @param chapterIds the chapters to download.
      */
-    private fun downloadChapters(updatesItem: List<UpdatesItem>) {
+    // RK: keyed by chapter id, so the manga is resolved from the chapter rather than from the row.
+    private fun downloadChapters(chapterIds: List<Long>) {
         viewModelScope.launchNonCancellable {
-            val groupedUpdates = updatesItem.groupBy { it.update.mangaId }.values
-            for (updates in groupedUpdates) {
-                val mangaId = updates.first().update.mangaId
-                val manga = getManga.await(mangaId) ?: continue
-                // Don't download if source isn't available
-                sourceManager.get(manga.source) ?: continue
-                val chapters = updates.mapNotNull { getChapter.await(it.update.chapterId) }
-                downloadManager.downloadChapters(manga, chapters)
-            }
+            chapterIds
+                .mapNotNull { getChapter.await(it) }
+                .groupBy { it.mangaId }
+                .forEach { (mangaId, chapters) ->
+                    val manga = getManga.await(mangaId) ?: return@forEach
+                    // Don't download if source isn't available
+                    sourceManager.get(manga.source) ?: return@forEach
+                    downloadManager.downloadChapters(manga, chapters)
+                }
         }
     }
 
     /**
      * Delete selected chapters
      *
-     * @param updatesItem list of chapters
+     * @param chapterIds list of chapters
      */
-    fun deleteChapters(updatesItem: List<UpdatesItem>) {
+    // RK: keyed by chapter id, see above.
+    fun deleteChapters(chapterIds: List<Long>) {
         viewModelScope.launchNonCancellable {
-            updatesItem
-                .groupBy { it.update.mangaId }
-                .entries
-                .forEach { (mangaId, updates) ->
+            chapterIds
+                .mapNotNull { getChapter.await(it) }
+                .groupBy { it.mangaId }
+                .forEach { (mangaId, chapters) ->
                     val manga = getManga.await(mangaId) ?: return@forEach
                     val source = sourceManager.get(manga.source) ?: return@forEach
-                    val chapters = updates.mapNotNull { getChapter.await(it.update.chapterId) }
                     downloadManager.deleteChapters(chapters, manga, source)
                 }
         }

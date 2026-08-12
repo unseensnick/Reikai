@@ -26,6 +26,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.toDownloadState
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.model.applyFilter
@@ -142,32 +143,35 @@ class NovelUpdatesViewModel(
         }
     }
 
-    fun markRead(items: List<NovelUpdatesItem>, read: Boolean) {
+    // The four verbs take chapter ids rather than rendered rows, matching the manga model: recents
+    // dispatches over a mixed feed whose read-lane rows have no updates row to look one up by, and
+    // each of these already resolved the chapter from that id.
+    fun markRead(chapterIds: List<Long>, read: Boolean) {
         viewModelScope.launchIO {
             // Route through the shared read interactor so mark-read here also deletes downloads when
             // "delete after read" is on, matching manga (and the novel details/reader/library paths).
-            val chapters = items.mapNotNull { chapterRepo.getById(it.update.chapterId) }
+            val chapters = chapterIds.mapNotNull { chapterRepo.getById(it) }
             setNovelReadStatus.await(read, chapters)
         }
     }
 
-    fun bookmark(items: List<NovelUpdatesItem>, bookmark: Boolean) {
+    fun bookmark(chapterIds: List<Long>, bookmark: Boolean) {
         viewModelScope.launchIO {
-            items.forEach { chapterRepo.setBookmark(it.update.chapterId, bookmark) }
+            chapterIds.forEach { chapterRepo.setBookmark(it, bookmark) }
         }
     }
 
-    fun deleteChapters(items: List<NovelUpdatesItem>) {
+    fun deleteChapters(chapterIds: List<Long>) {
         viewModelScope.launchIO {
-            val chapters = items.mapNotNull { chapterRepo.getById(it.update.chapterId) }
+            val chapters = chapterIds.mapNotNull { chapterRepo.getById(it) }
             if (chapters.isNotEmpty()) downloadManager.deleteChapters(chapters)
         }
     }
 
     /** Per-row download icon, mirroring the novel details download-action mapping. */
-    fun onDownloadAction(item: NovelUpdatesItem, action: ChapterDownloadAction) {
+    fun onDownloadAction(chapterId: Long, action: ChapterDownloadAction) {
         viewModelScope.launchIO {
-            val chapter = chapterRepo.getById(item.update.chapterId) ?: return@launchIO
+            val chapter = chapterRepo.getById(chapterId) ?: return@launchIO
             when (action) {
                 ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
                 ChapterDownloadAction.START_NOW -> {
@@ -178,12 +182,6 @@ class NovelUpdatesViewModel(
                 ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
             }
         }
-    }
-
-    private fun NovelDownload.State.toDownloadState(): Download.State = when (this) {
-        NovelDownload.State.QUEUE -> Download.State.QUEUE
-        NovelDownload.State.DOWNLOADING -> Download.State.DOWNLOADING
-        NovelDownload.State.ERROR -> Download.State.ERROR
     }
 
     @Immutable

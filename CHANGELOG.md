@@ -100,6 +100,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Updates & History**
 
 - **Tapping the History tab again now resumes something from the library you are actually looking at.** With the Novels chip on it could pick up a manga instead, and the other way round.
+- **Selecting a recently read row in the combined Recents tab now lets you act on it.** Bookmark, mark read or unread and download work there; before, the only button offered did nothing at all.
+- **Fixed a crash on startup that could arrive with a future update.** Some reading data was being left behind when a source replaced a chapter, and it would have stopped the app from opening.
 
 **Browse**
 
