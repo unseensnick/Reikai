@@ -3,9 +3,6 @@ package eu.kanade.tachiyomi.ui.history
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import eu.kanade.core.util.insertSeparators
-import eu.kanade.presentation.history.HistoryUiModel
-import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -52,7 +49,7 @@ class HistoryViewModel(
 
     // RK: the recents category filter is a query parameter, so the subscription re-runs on it. Search
     //     is not one: the engine matches the rows it already holds, so this feed asks for all of them.
-    private val history: StateFlow<List<HistoryUiModel>?> =
+    private val history: StateFlow<List<HistoryWithRelations>?> =
         reikaiSourcePreferences.recentsCategoryFilterFlow(RecentsSurface.HISTORY)
             .distinctUntilChanged()
             .flatMapLatest { categories ->
@@ -75,7 +72,6 @@ class HistoryViewModel(
                         logcat(LogPriority.ERROR, error)
                         _events.send(Event.InternalError)
                     }
-                    .map { it.toHistoryUiModels() }
                     .flowOn(Dispatchers.IO)
             }
             // RK: seeded null, where upstream seeds an empty list. Null is this feed's "not loaded yet",
@@ -86,19 +82,6 @@ class HistoryViewModel(
     val state: StateFlow<State> = history
         .map { State(list = it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
-
-    private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
-        return map { HistoryUiModel.Item(it) }
-            .insertSeparators { before, after ->
-                val beforeDate = before?.item?.readAt?.time?.toLocalDate()
-                val afterDate = after?.item?.readAt?.time?.toLocalDate()
-                when {
-                    beforeDate != afterDate && afterDate != null -> HistoryUiModel.Header(afterDate)
-                    // Return null to avoid adding a separator between two items.
-                    else -> null
-                }
-            }
-    }
 
     fun getNextChapterForManga(mangaId: Long, chapterId: Long) {
         viewModelScope.launchIO {
@@ -136,10 +119,12 @@ class HistoryViewModel(
     }
 
     // RK: the state is down to the feed itself. Search, the dialogs and the whole add-from-a-row flow
-    // moved to the recents engine, which runs one add sequence for both content types.
+    // moved to the recents engine, which runs one add sequence for both content types. The rows leave
+    // as they are stored: upstream's date-grouped ui model went with the screen that drew it, and the
+    // engine dates its own rows over both feeds.
     @Immutable
     data class State(
-        val list: List<HistoryUiModel>? = null,
+        val list: List<HistoryWithRelations>? = null,
     )
 
     sealed interface Event {

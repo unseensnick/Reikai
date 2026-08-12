@@ -3,12 +3,14 @@ package reikai.presentation.recents
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.ExpandLess
@@ -22,12 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.presentation.util.relativeTimeSpanString
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
@@ -244,6 +248,25 @@ private fun sectionLabel(section: RecentsLaneKind) = when (section) {
 internal fun RecentsDownloadProgress.asProvider(): () -> Int = when (this) {
     is RecentsDownloadProgress.Live -> percent
     RecentsDownloadProgress.Unsupported -> NO_PROGRESS
+}
+
+/**
+ * The "library last updated" line above an updated feed, carried over from Mihon's updates list. It is
+ * type-neutral: the engine derives one timestamp over whichever content types the chip is showing.
+ */
+internal fun LazyListScope.lastUpdatedItem(lastUpdated: Long) {
+    item(key = "recents-lastUpdated") {
+        Box(
+            modifier = Modifier
+                .animateItem(fadeInSpec = null, fadeOutSpec = null)
+                .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
+        ) {
+            Text(
+                text = stringResource(MR.strings.updates_last_update_info, relativeTimeSpanString(lastUpdated)),
+                fontStyle = FontStyle.Italic,
+            )
+        }
+    }
 }
 
 private val NO_PROGRESS: () -> Int = { 0 }

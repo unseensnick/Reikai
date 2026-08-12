@@ -2,7 +2,6 @@ package reikai.presentation.recents
 
 import android.app.Application
 import cafe.adriel.voyager.core.screen.Screen
-import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
@@ -90,7 +89,7 @@ class MangaRecentsAdapter private constructor(
     override val readLane: Flow<RecentsLaneRows> by lazy {
         historyRows().state.map { state ->
             RecentsLaneRows(
-                items = state.list.orEmpty().mapNotNull { (it as? HistoryUiModel.Item)?.item?.toRecentsItem() },
+                items = state.list.orEmpty().map { it.toRecentsItem() },
                 loaded = state.list != null,
             )
         }

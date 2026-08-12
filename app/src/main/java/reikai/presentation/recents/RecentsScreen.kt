@@ -48,7 +48,6 @@ import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
-import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.lang.toTimestampString
@@ -208,7 +207,7 @@ fun Screen.RecentsScreen(
                         val feed: @Composable () -> Unit = {
                             FastScrollLazyColumn(contentPadding = bodyPadding) {
                                 if (showsUpdated) {
-                                    updatesLastUpdatedItem(lastUpdated)
+                                    lastUpdatedItem(lastUpdated)
                                 }
                                 recentsRows(
                                     rows = rows,
