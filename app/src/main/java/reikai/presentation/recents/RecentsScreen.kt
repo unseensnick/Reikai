@@ -104,6 +104,7 @@ fun Screen.RecentsScreen(
     val filterActive by engine.filterActive.collectAsState()
     val selection by engine.selection.collectAsState()
     val groupBySeries by engine.groupBySeries.collectAsState()
+    val swipeActions by engine.swipeActions.collectAsState()
     val expandedGroups by engine.expandedGroups.collectAsState()
     // The assembly lags a chip flip by one emission, so it is drawn only once its tag catches up.
     val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == contentType }
@@ -215,6 +216,7 @@ fun Screen.RecentsScreen(
                                     selection = selection,
                                     selectionEnabled = selectionEnabled,
                                     orderedRefs = orderedRefs,
+                                    swipeActions = swipeActions,
                                     onOpen = ::open,
                                     onOpenDetails = ::openDetails,
                                 )
@@ -401,6 +403,7 @@ private fun LazyListScope.recentsRows(
     selection: Set<ChapterRef>,
     selectionEnabled: Boolean,
     orderedRefs: List<ChapterRef>,
+    swipeActions: RecentsSwipeActions,
     onOpen: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
 ) {
@@ -439,6 +442,7 @@ private fun LazyListScope.recentsRows(
                 engine = engine,
                 selected = row.item.lane.chapterRef in selection,
                 selectionActive = selection.isNotEmpty(),
+                swipeActions = swipeActions,
                 onPress = ::press,
                 onLongPress = ::longPress,
                 onOpenDetails = onOpenDetails,
@@ -476,15 +480,29 @@ private fun LazyListScope.recentsRows(
             is RecentsRow.Child -> {
                 val chapter = engine.rowUi(row.item).chapter
                 if (chapter is RecentsChapterUi.Named) {
+                    val download = engine.downloadUi(row.item)
+                    val ref = row.item.lane.chapterRef
                     RecentsGroupChildRow(
                         chapter = chapter,
-                        selected = row.item.lane.chapterRef in selection,
-                        download = engine.downloadUi(row.item),
+                        selected = ref in selection,
+                        download = download,
                         onClick = { press(row.item) },
                         onLongClick = { longPress(row.item) },
-                        onDownloadClick = row.item.lane.chapterRef
-                            ?.let { ref -> { action: ChapterDownloadAction -> engine.download(setOf(ref), action) } }
+                        onDownloadClick = ref
+                            ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action) } }
                             ?.takeIf { selection.isEmpty() },
+                        chapterSwipeStartAction = swipeActions.start,
+                        chapterSwipeEndAction = swipeActions.end,
+                        onChapterSwipe = { action ->
+                            if (ref != null) {
+                                engine.runChapterSwipe(
+                                    ref = ref,
+                                    chapter = chapter,
+                                    downloadState = download?.state ?: NOT_DOWNLOADED,
+                                    action = action,
+                                )
+                            }
+                        },
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -504,6 +522,7 @@ private fun RecentsEntryRow(
     engine: RecentsEngine,
     selected: Boolean,
     selectionActive: Boolean,
+    swipeActions: RecentsSwipeActions,
     onPress: (RecentsItem) -> Unit,
     onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
@@ -532,6 +551,20 @@ private fun RecentsEntryRow(
                     ?.takeIf { !selectionActive },
                 downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                 downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
+                chapterSwipeStartAction = swipeActions.start,
+                chapterSwipeEndAction = swipeActions.end,
+                // A Named row only ever comes off the updated lane, which only a surface holding the
+                // updates model collects, so the provider behind it always answers these verbs.
+                onChapterSwipe = { action ->
+                    if (ref != null) {
+                        engine.runChapterSwipe(
+                            ref = ref,
+                            chapter = chapter,
+                            downloadState = download?.state ?: NOT_DOWNLOADED,
+                            action = action,
+                        )
+                    }
+                },
                 modifier = modifier,
             )
         }

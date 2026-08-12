@@ -6,12 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -20,9 +24,15 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,7 +41,12 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.presentation.manga.components.getSwipeAction
+import eu.kanade.presentation.manga.components.swipeActionThreshold
 import eu.kanade.presentation.util.relativeTimeSpanString
+import eu.kanade.tachiyomi.data.download.model.Download
+import me.saket.swipe.SwipeableActionsBox
+import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
@@ -115,7 +130,10 @@ fun RecentsGroupRow(
     }
 }
 
-/** Indented, cover-less chapter row shown while a series group is expanded. */
+/**
+ * Indented, cover-less chapter row shown while a series group is expanded. Swipes like the flat row
+ * it stands in for: whether a chapter is behind a group is the display's business, not the gesture's.
+ */
 @Composable
 fun RecentsGroupChildRow(
     chapter: RecentsChapterUi.Named,
@@ -124,56 +142,98 @@ fun RecentsGroupChildRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
+    chapterSwipeStartAction: ChapterSwipeAction,
+    chapterSwipeEndAction: ChapterSwipeAction,
+    onChapterSwipe: (ChapterSwipeAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     val textAlpha = if (chapter.read) DISABLED_ALPHA else 1f
     val progress = readProgressLabel(chapter.progress)
-    Row(
-        modifier = modifier
-            .selectedBackground(selected)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    onLongClick()
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                },
-            )
-            .height(48.dp)
-            // Indent so children sit under the group title (cover width + paddings).
-            .padding(start = 72.dp, end = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
+    val downloadState = download?.state?.invoke() ?: Download.State.NOT_DOWNLOADED
+    SwipeableActionsBox(
+        modifier = Modifier.clipToBounds(),
+        startActions = listOfNotNull(
+            getSwipeAction(
+                action = chapterSwipeStartAction,
+                read = chapter.read,
+                bookmark = chapter.bookmark,
+                downloadState = downloadState,
+                background = MaterialTheme.colorScheme.primaryContainer,
+                onSwipe = { onChapterSwipe(chapterSwipeStartAction) },
+            ),
+        ),
+        endActions = listOfNotNull(
+            getSwipeAction(
+                action = chapterSwipeEndAction,
+                read = chapter.read,
+                bookmark = chapter.bookmark,
+                downloadState = downloadState,
+                background = MaterialTheme.colorScheme.primaryContainer,
+                onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
+            ),
+        ),
+        swipeThreshold = swipeActionThreshold,
+        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) {
-        if (!chapter.read) {
-            UnreadDot()
-        }
-        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = chapter.name,
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalContentColor.current.copy(alpha = textAlpha),
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(weight = 1f, fill = false),
-            )
-            if (progress != null) {
-                DotSeparatorText()
+        Row(
+            modifier = modifier
+                .selectedBackground(selected)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = {
+                        onLongClick()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                )
+                .height(48.dp)
+                // Indent so children sit under the group title (cover width + paddings).
+                .padding(start = 72.dp, end = MaterialTheme.padding.medium),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!chapter.read) {
+                UnreadDot()
+            }
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                var textHeight by remember { mutableIntStateOf(0) }
+                if (chapter.bookmark) {
+                    Icon(
+                        imageVector = Icons.Filled.Bookmark,
+                        contentDescription = stringResource(MR.strings.action_filter_bookmarked),
+                        modifier = Modifier
+                            .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                }
                 Text(
-                    text = progress,
+                    text = chapter.name,
                     maxLines = 1,
-                    color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalContentColor.current.copy(alpha = textAlpha),
                     overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { textHeight = it.size.height },
+                    modifier = Modifier.weight(weight = 1f, fill = false),
+                )
+                if (progress != null) {
+                    DotSeparatorText()
+                    Text(
+                        text = progress,
+                        maxLines = 1,
+                        color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (download != null) {
+                ChapterDownloadIndicator(
+                    enabled = onDownloadClick != null,
+                    modifier = Modifier.padding(start = 4.dp),
+                    downloadStateProvider = download.state,
+                    downloadProgressProvider = download.progress.asProvider(),
+                    onClick = { onDownloadClick?.invoke(it) },
                 )
             }
-        }
-        if (download != null) {
-            ChapterDownloadIndicator(
-                enabled = onDownloadClick != null,
-                modifier = Modifier.padding(start = 4.dp),
-                downloadStateProvider = download.state,
-                downloadProgressProvider = download.progress.asProvider(),
-                onClick = { onDownloadClick?.invoke(it) },
-            )
         }
     }
 }

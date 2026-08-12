@@ -186,7 +186,9 @@ fun MangaChapterListItem(
     }
 }
 
-private fun getSwipeAction(
+// RK: internal, not private, so the recents feed's rows draw this same swipe. One definition keeps
+// the icons, the threshold and the undo semantics from drifting between a details row and a feed row.
+internal fun getSwipeAction(
     action: LibraryPreferences.ChapterSwipeAction,
     read: Boolean,
     bookmark: Boolean,
@@ -241,4 +243,5 @@ private fun swipeAction(
     )
 }
 
-private val swipeActionThreshold = 56.dp
+// RK: internal alongside getSwipeAction above.
+internal val swipeActionThreshold = 56.dp

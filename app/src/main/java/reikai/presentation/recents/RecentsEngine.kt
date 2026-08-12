@@ -32,6 +32,7 @@ import reikai.presentation.browse.AddFavoriteResult
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -51,6 +52,7 @@ class RecentsEngine(
     private val modes: Set<RecentsMode>,
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
+    private val libraryPreferences: LibraryPreferences = Injekt.get(),
 ) : ViewModel() {
 
     companion object {
@@ -203,6 +205,26 @@ class RecentsEngine(
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
     }
 
+    /**
+     * The swipe choices, read from the same two preferences the details screens use, so one setting
+     * governs a chapter row wherever it is drawn. The property names are crossed on purpose: the
+     * preference called `swipeToEndAction` is the action the start side runs.
+     */
+    val swipeActions: StateFlow<RecentsSwipeActions> by lazy {
+        combine(
+            libraryPreferences.swipeToEndAction.changes(),
+            libraryPreferences.swipeToStartAction.changes(),
+        ) { start, end -> RecentsSwipeActions(start = start, end = end) }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                RecentsSwipeActions(
+                    start = libraryPreferences.swipeToEndAction.get(),
+                    end = libraryPreferences.swipeToStartAction.get(),
+                ),
+            )
+    }
+
     /** The Updates mode's own display toggle. The combined modes ignore it: they have no ungrouped
      *  reading, so nothing there is the user's to switch. */
     val groupBySeries: StateFlow<Boolean> by lazy {
@@ -331,6 +353,18 @@ class RecentsEngine(
      */
     fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction) {
         activeProviders().mapNotNull { it.chapterActions }.forEach { it.download(chapters, action) }
+    }
+
+    /**
+     * One row's own read and bookmark toggles, for a swipe. Separate from the selection verbs above
+     * because a swipe acts on the row under the finger and must leave a running selection standing.
+     */
+    fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
+        activeProviders().mapNotNull { it.chapterActions }.forEach { it.markRead(chapters, read) }
+    }
+
+    fun setBookmark(chapters: Set<ChapterRef>, bookmarked: Boolean) {
+        activeProviders().mapNotNull { it.chapterActions }.forEach { it.setBookmark(chapters, bookmarked) }
     }
 
     fun deleteDownloads(chapters: Set<ChapterRef>) = dispatchAndClear { it.deleteDownloads(chapters) }
