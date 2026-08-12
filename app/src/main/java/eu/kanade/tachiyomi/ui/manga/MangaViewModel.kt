@@ -1952,12 +1952,6 @@ class MangaViewModel(
                 chapters.applyFilters(manga).toList()
             }
 
-            // RK: dead since the details takeover, which reads selection off the neutral state
-            // instead. Left in place because upstream still has it; delete on a sync that drops it.
-            val isAnySelected by lazy {
-                chapters.fastAny { it.selected }
-            }
-
             val chapterListItems by lazy {
                 if (hideMissingChapters) {
                     return@lazy processedChapters

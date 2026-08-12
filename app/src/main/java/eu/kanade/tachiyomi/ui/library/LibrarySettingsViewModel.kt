@@ -7,15 +7,8 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.core.common.preference.Preference
-import tachiyomi.core.common.preference.TriState
-import tachiyomi.core.common.preference.getAndSet
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.SetDisplayMode
-import tachiyomi.domain.category.interactor.SetSortModeForCategory
-import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -28,7 +21,6 @@ class LibrarySettingsViewModel(
     val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     // RK <--
     private val setDisplayMode: SetDisplayMode = Injekt.get(),
-    private val setSortModeForCategory: SetSortModeForCategory = Injekt.get(),
     trackerManager: TrackerManager = Injekt.get(),
 ) : ViewModel() {
 
@@ -39,30 +31,13 @@ class LibrarySettingsViewModel(
             initialValue = trackerManager.loggedInTrackers(),
         )
 
-    fun toggleFilter(preference: (LibraryPreferences) -> Preference<TriState>) {
-        preference(libraryPreferences).getAndSet {
-            it.next()
-        }
-    }
-
-    fun toggleTracker(id: Int) {
-        toggleFilter { libraryPreferences.filterTracking(id) }
-    }
-
     fun setDisplayMode(mode: LibraryDisplayMode) {
         setDisplayMode.await(mode)
     }
 
-    fun setSort(category: Category?, mode: LibrarySort.Type, direction: LibrarySort.Direction) {
-        viewModelScope.launchIO {
-            setSortModeForCategory.await(category, mode, direction)
-        }
-    }
-
     // RK --> Reikai settings-sheet actions still on the Display tab. The filter, sort and group actions
     // that used to live here moved to MangaLibraryAdapter's LibrarySettingsBinding, which the one shared
-    // sheet drives; upstream's own toggleFilter / toggleTracker / setSort above are unused by it but are
-    // left untouched so this file keeps diffing cleanly against Mihon.
+    // sheet drives, so upstream's own toggleFilter / toggleTracker / setSort went with them.
 
     /** Category list order (0 = manual, 1 = A->Z, 2 = Z->A). */
     fun setCategorySortOrder(value: Int) {

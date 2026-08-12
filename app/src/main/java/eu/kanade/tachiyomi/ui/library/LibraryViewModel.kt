@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
 import mihon.core.viewmodel.StateViewModel
 import mihon.domain.library.model.search.QueryNode
-import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.library.ContentType
@@ -67,7 +66,6 @@ import reikai.presentation.library.libraryStateFlow
 import reikai.presentation.library.mangaTrackerMeans
 import reikai.presentation.library.toQueryOverlay
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -757,13 +755,6 @@ class LibraryViewModel(
     // RK: picking a random entry moved to LibraryEngine, which reads the assembled list and so can pick
     // from a dynamic group and from either content type. Upstream's version is gone with the list it read.
 
-    // RK: DEAD. The library dialogs are built and owned by reikai.presentation.library.LibraryEngine, so
-    // nothing renders this state any more. Kept because upstream has its own copy and deleting it would
-    // widen the sync diff for no gain; it goes when this file does. Do not add to it.
-    fun showSettingsDialog(initialTab: Int = 0, categoryId: Long? = null) {
-        mutableState.update { it.copy(dialog = Dialog.SettingsSheet(initialTab, categoryId)) }
-    }
-
     // RK: manually merge the selected manga into one group (covers both library views)
     fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
@@ -788,60 +779,6 @@ class LibraryViewModel(
         mutableState.update { state -> state.copy(activeCategoryIndex = index) }
         // RK: upstream persisted lastUsedCategory here; LibraryEngine owns that now, per chip, so
         // a swipe under All can no longer overwrite the Manga chip's restore point.
-    }
-
-    // RK: DEAD, along with openDeleteMangaDialog, closeDialog, the Dialog union and State.dialog below.
-    // LibraryEngine builds these now, asking the adapter for the entries' category ids instead. Kept for
-    // the same reason as showSettingsDialog above. Do not add to it.
-    fun openChangeCategoryDialog(ids: List<Long>) {
-        viewModelScope.launchIO {
-            // Create a copy of selected manga
-            val mangaList = state.value.mangaFor(ids)
-
-            // Hide the default category because it has a different behavior than the ones from db.
-            // RK: a fresh read, not displayedCategories. That list is filtered by the hidden-category
-            // toggle and by an active search, so assigning to a hidden category was impossible: its
-            // checkbox never appeared. Matches the novel dialog, which already read the full list.
-            val categories = getCategories.await().filterNot { it.isSystemCategory }
-
-            // RK: shared manga/novel category-diff over each entry's category ids (common = on all,
-            // mix = on some) so the change-categories tri-state can't drift between the two types.
-            val perManga = mangaList.map { getCategories.await(it.id).map { category -> category.id }.toSet() }
-            val (common, mix) = categoryDiff(perManga)
-            val preselected = categories
-                .map {
-                    when (it.id) {
-                        in common -> CheckboxState.State.Checked(it)
-                        in mix -> CheckboxState.TriState.Exclude(it)
-                        else -> CheckboxState.State.None(it)
-                    }
-                }
-
-            mutableState.update { it.copy(dialog = Dialog.ChangeCategory(mangaList, preselected)) }
-        }
-    }
-
-    fun openDeleteMangaDialog(ids: List<Long>) {
-        val current = state.value
-        // RK: N grouped sources to offer removing, when the selection includes a merged cover (else 0).
-        val groupedCount = if (current.containsMerged(ids)) current.memberIdsFor(ids).size else 0
-        mutableState.update { it.copy(dialog = Dialog.DeleteManga(current.mangaFor(ids), groupedCount)) }
-    }
-
-    fun closeDialog() {
-        mutableState.update { it.copy(dialog = null) }
-    }
-
-    sealed interface Dialog {
-        // RK: initialTab = which settings tab to open on (0 = Filter)
-        data class SettingsSheet(val initialTab: Int = 0, val categoryId: Long? = null) : Dialog
-        data class ChangeCategory(
-            val manga: List<Manga>,
-            val initialSelection: List<CheckboxState<Category>>,
-        ) : Dialog
-
-        // RK: groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
-        data class DeleteManga(val manga: List<Manga>, val groupedSourceCount: Int = 0) : Dialog
     }
 
     @Immutable
@@ -893,7 +830,6 @@ class LibraryViewModel(
         val showCategoryTabs: Boolean = false,
         val showMangaCount: Boolean = false,
         val showMangaContinueButton: Boolean = false,
-        val dialog: Dialog? = null,
         val libraryData: LibraryData = LibraryData(),
         // RK: exposed (upstream keeps it private) so the adapter can hand the tab the RAW index. The
         // coercion below is against this model's own category list, which is the wrong list under the
