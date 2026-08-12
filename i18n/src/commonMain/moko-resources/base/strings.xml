@@ -282,6 +282,8 @@
     <string name="recents_section_continue_reading">Continue reading</string>
     <string name="recents_section_newly_added">Newly added</string>
     <string name="recents_section_view_all">View all</string>
+    <!-- RK: the combined tab holding those modes, when the Appearance setting turns it on -->
+    <string name="label_recents">Recents</string>
     <!-- RK: refresh feedback on the combined All chip (both libraries update at once) -->
     <string name="updating_both_libraries">Updating both libraries</string>
     <!-- RK: light-novel browse (P5 S3a) -->

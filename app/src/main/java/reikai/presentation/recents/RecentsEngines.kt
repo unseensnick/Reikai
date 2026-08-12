@@ -36,6 +36,25 @@ fun rememberHistoryEngine(): RecentsEngine {
     }
 }
 
+/**
+ * The combined tab: every lane, so all four models are built and every mode is declared. Declaring
+ * them all is not optional, since the digest's section footers jump to a single-lane mode and the
+ * engine refuses a mode its surface does not render.
+ */
+@Composable
+fun rememberRecentsEngine(): RecentsEngine {
+    val mangaUpdates = viewModel<UpdatesViewModel>()
+    val novelUpdates = viewModel<NovelUpdatesViewModel>()
+    val mangaHistory = viewModel<HistoryViewModel>()
+    val novelHistory = viewModel<NovelHistoryViewModel>()
+    return recentsEngine(RecentsSurface.RECENTS, RecentsMode.entries.toSet()) {
+        listOf(
+            MangaRecentsAdapter.forRecents(mangaUpdates, mangaHistory),
+            NovelRecentsAdapter.forRecents(novelUpdates, novelHistory),
+        )
+    }
+}
+
 @Composable
 private fun recentsEngine(
     surface: RecentsSurface,
