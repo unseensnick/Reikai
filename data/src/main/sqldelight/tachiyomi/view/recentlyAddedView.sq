@@ -50,8 +50,6 @@ getRecentlyAddedNovels:
 SELECT
     novels._id AS novelId,
     novels.title,
-    novels.source,
-    novels.url,
     novels.thumbnail_url AS thumbnailUrl,
     novels.cover_last_modified AS coverLastModified,
     COALESCE(novels.date_added, 0) AS dateAdded

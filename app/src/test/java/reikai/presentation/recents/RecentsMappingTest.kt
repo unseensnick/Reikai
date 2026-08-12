@@ -312,8 +312,6 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
     override fun added() = RecentlyAddedNovel(
         novelId = 7,
         title = "t",
-        source = "s",
-        url = "u",
         dateAdded = 99,
         coverData = cover,
     ).toRecentsItem()

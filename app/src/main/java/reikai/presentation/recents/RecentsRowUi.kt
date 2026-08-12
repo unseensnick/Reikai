@@ -85,8 +85,8 @@ sealed interface RecentsProgress {
 
 /**
  * A chapter's state, carrying the one rule both feeds share: progress shows only where reading
- * stopped short of the end. Both screens restate that rule today, once per content type and again for
- * a grouped row's children.
+ * stopped short of the end. The replaced screens restated it four times over, once per content type
+ * and again for a grouped row's children.
  */
 fun chapterState(
     read: Boolean,

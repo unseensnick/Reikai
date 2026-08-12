@@ -210,7 +210,7 @@ class RecentsEngine(
             rawChapterFilters.map { it.isActive },
             mode,
         ) { byCategory, byChapterState, mode ->
-            recentsFilterActive(byCategory, byChapterState, mode.lanes)
+            recentsFilterActive(byCategory, byChapterState, mode)
         }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -546,15 +546,16 @@ class RecentsEngine(
 }
 
 /**
- * The chapter-state filters count only where the updated lane renders. The read and added lanes are
- * not filtered by them, so History would otherwise report itself filtered because of a filter set on
- * Updates, and send a user looking for rows nothing is hiding.
+ * The chapter-state filters count only where the view offers them, which is the same question
+ * [RecentsEngine.showsRow] is judged under: asking it a second way (whether the updated lane renders)
+ * gives the same four answers today and would drift the moment a view's lanes and its controls stop
+ * lining up. Without the gate, History reports itself filtered by a filter set on Updates.
  */
 internal fun recentsFilterActive(
     byCategory: Boolean,
     byChapterState: Boolean,
-    lanes: Set<RecentsLaneKind>,
-): Boolean = byCategory || (byChapterState && RecentsLaneKind.UPDATED in lanes)
+    mode: RecentsMode,
+): Boolean = byCategory || (byChapterState && mode.can(RecentsCapability.CHAPTER_FILTER))
 
 /**
  * One assembly pass: the ordered rows and what the surface can say about them. [chip] is what the rows
@@ -568,7 +569,4 @@ data class RecentsAssembled(
     val items: List<RecentsItem>,
     val loading: Boolean,
     val membership: Map<EntryId, Long> = emptyMap(),
-) {
-    /** Empty means empty, never "not here yet"; the two want different things on screen. */
-    val isEmpty: Boolean get() = !loading && items.isEmpty()
-}
+)

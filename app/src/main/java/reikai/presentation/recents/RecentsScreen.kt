@@ -409,9 +409,9 @@ private fun RecentsEmptyState(
 
 /**
  * One row of a feed showing several lanes. The lane decides the subtitle and what the row can offer:
- * an update downloads, a read row deletes its record, and a newly added row offers neither, because
- * it has no chapter to download and no read record to remove. Offering it one anyway is what made
- * the delete on a newly added row do nothing at all.
+ * an update downloads, a read row deletes its record and can be added to the library, and a newly
+ * added row offers none of it, having no chapter to download and no read record to remove. Offering
+ * it one anyway is what made the delete on a newly added row do nothing at all.
  */
 @Composable
 private fun RecentsMixedLaneRow(

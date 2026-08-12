@@ -10,7 +10,7 @@ import tachiyomi.core.common.preference.Preference
  * per content type and not one for the app: with the combined Recents tab off, Updates and History
  * are two tabs that look and behave independently, so linking their filters would move something for
  * someone who never opted in. Mirrors the content-type chip keys, which split for the same reason.
- * Nothing reads [RECENTS] until the combined tab ships.
+ * [RECENTS] is the combined tab's own, seeded once from Updates by [seedRecentsSurfaceFromUpdates].
  */
 enum class RecentsSurface { UPDATES, HISTORY, RECENTS }
 

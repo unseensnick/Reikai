@@ -38,9 +38,10 @@ import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 
 /**
  * The filter sheet every recents surface opens, drawing only what its [mode] can answer for: the
- * chapter-state filters reach the updated lane alone, so a history feed would show five controls that
- * change nothing, while the category filter reaches every lane and is always here. The selection it
- * edits belongs to [surface], because two separate tabs must not move each other's filters. Replaces
+ * chapter-state filters belong to the views that draw them, so a history feed would show five
+ * controls it never obeys, while the category filter reaches every lane and is always here. The
+ * selection it edits belongs to [surface], because two separate tabs must not move each other's
+ * filters. Replaces
  * Mihon's UpdatesFilterDialog, whose filters and scanlator switch are carried across unchanged.
  */
 @Composable

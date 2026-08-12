@@ -217,13 +217,6 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `a loading feed is not an empty one`() = runTest {
-        val engine = engine(listOf(provider(ContentType.MANGA, updated = RecentsLaneRows.Loading)))
-
-        engine.firstAssembly().isEmpty shouldBe false
-    }
-
-    @Test
     fun `only the lanes this surface renders are collected`() = runTest {
         val readRow = item(manga2, at = 300, lane = RecentsLane.Read(ChapterRef(manga2, chapterId = 1)))
         val engine = engine(
@@ -712,30 +705,41 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `a chapter state filter marks a surface that renders the updated lane`() {
+    fun `a chapter state filter marks a view that offers those filters`() {
         recentsFilterActive(
             byCategory = false,
             byChapterState = true,
-            lanes = setOf(RecentsLaneKind.UPDATED),
+            mode = RecentsMode.UPDATES,
         ) shouldBe true
     }
 
     @Test
-    fun `a chapter state filter does not mark a surface without the updated lane`() {
+    fun `a chapter state filter does not mark a view that offers none`() {
         recentsFilterActive(
             byCategory = false,
             byChapterState = true,
-            lanes = setOf(RecentsLaneKind.READ),
+            mode = RecentsMode.HISTORY,
         ) shouldBe false
     }
 
     @Test
-    fun `a category filter marks every surface`() {
+    fun `a category filter marks every view`() {
         recentsFilterActive(
             byCategory = true,
             byChapterState = false,
-            lanes = setOf(RecentsLaneKind.READ),
+            mode = RecentsMode.HISTORY,
         ) shouldBe true
+    }
+
+    /**
+     * The rule and the filtering must ask one question. They agree on all four views today, so this
+     * is what would catch them diverging: a view that judged rows it reported as unfiltered would
+     * hide entries with nothing on screen saying why.
+     */
+    @Test
+    fun `every view that judges rows says it is filtered`() {
+        RecentsMode.entries.map { recentsFilterActive(false, byChapterState = true, mode = it) } shouldContainExactly
+            RecentsMode.entries.map { it.can(RecentsCapability.CHAPTER_FILTER) }
     }
 
     @Test

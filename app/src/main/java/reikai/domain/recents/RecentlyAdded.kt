@@ -16,12 +16,13 @@ data class RecentlyAddedManga(
     val coverData: MangaCover,
 )
 
-/** Novel twin. Carries [url] because the novel details screen is keyed by (source, url), not by id. */
+/**
+ * Novel twin. Carries no source or url, though the novel details screen is keyed by that pair: a row
+ * only ever reaches it through the adapter, which is handed an entry id and looks the novel up.
+ */
 data class RecentlyAddedNovel(
     val novelId: Long,
     val title: String,
-    val source: String,
-    val url: String,
     val dateAdded: Long,
     val coverData: NovelCover,
 )
