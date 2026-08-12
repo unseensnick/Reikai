@@ -193,13 +193,19 @@ class RecentsEngine(
         }.stateIn(viewModelScope, OVER_PROVIDERS, false)
     }
 
-    /** Whether a filter is narrowing this surface, so an empty feed can say why. */
+    /**
+     * Whether a filter is narrowing this surface, so an empty feed can say why. Asked of the mode on
+     * screen rather than of every mode the surface renders: a surface drawing several of them always
+     * has the updated lane somewhere, which would report a history feed as filtered by a filter that
+     * cannot reach it.
+     */
     val filterActive: StateFlow<Boolean> by lazy {
         combine(
             sourcePreferences.recentsCategoryFilterFlow(surface).map { it.active },
             chapterStateFilterActive(),
-        ) { byCategory, byChapterState ->
-            recentsFilterActive(byCategory, byChapterState, lanes)
+            mode,
+        ) { byCategory, byChapterState, mode ->
+            recentsFilterActive(byCategory, byChapterState, mode.lanes)
         }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)

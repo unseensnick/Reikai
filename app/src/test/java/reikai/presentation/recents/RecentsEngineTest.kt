@@ -37,6 +37,7 @@ import reikai.presentation.browse.components.EntrySourceLabel
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
@@ -79,6 +80,23 @@ class RecentsEngineTest {
             libraryPreferences = libraryPreferences,
         )
     }
+
+    /**
+     * An engine over a store whose preference flows emit, which the in-memory one's do not. Only the
+     * derivations that combine a preference with something else need it; everything above reads a
+     * value seeded from `get()` and is fine on the cheaper store.
+     */
+    private val emittingStore = EmittingPreferenceStore()
+    private val emittingUpdatesPreferences = UpdatesPreferences(emittingStore)
+
+    private fun multiModeEngine(modes: Set<RecentsMode>) = RecentsEngine(
+        providers = listOf(provider(ContentType.MANGA)),
+        surface = RecentsSurface.UPDATES,
+        modes = modes,
+        sourcePreferences = ReikaiSourcePreferences(emittingStore),
+        updatesPreferences = emittingUpdatesPreferences,
+        libraryPreferences = LibraryPreferences(emittingStore),
+    )
 
     private suspend fun RecentsEngine.firstAssembly(): RecentsAssembled = assembled.filterNotNull().first()
 
@@ -559,6 +577,24 @@ class RecentsEngineTest {
         engine(listOf(manga, novel), chip = ContentType.MANGA).clearHistory()
 
         novel.historyCleared shouldBe false
+    }
+
+    /**
+     * The rule below is pinned as a pure function, but which lanes reach it is the engine's call, and
+     * a surface rendering several modes always has the updated lane in one of them. Asking about the
+     * surface rather than the mode on screen reports a history feed as filtered by a filter that
+     * cannot touch it.
+     */
+    @Test
+    fun `a chapter state filter marks only the mode whose lane it can reach`() = runTest {
+        emittingUpdatesPreferences.filterUnread.set(TriState.ENABLED_IS)
+        val engine = multiModeEngine(setOf(RecentsMode.UPDATES, RecentsMode.HISTORY))
+
+        settled(engine.filterActive) shouldBe true
+
+        engine.setMode(RecentsMode.HISTORY)
+
+        settled(engine.filterActive) shouldBe false
     }
 
     @Test
