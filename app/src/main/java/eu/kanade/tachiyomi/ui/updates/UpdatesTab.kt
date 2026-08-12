@@ -13,11 +13,13 @@ import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import reikai.presentation.recents.RecentsTabBody
+import reikai.presentation.recents.ShowsUpdatesBadge
 import reikai.presentation.recents.rememberUpdatesEngine
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
-data object UpdatesTab : Tab {
+// RK: the badge marker, since which tab shows Updates is now a setting.
+data object UpdatesTab : Tab, ShowsUpdatesBadge {
 
     override val options: TabOptions
         @Composable

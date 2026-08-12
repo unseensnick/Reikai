@@ -23,6 +23,8 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import reikai.domain.category.seedRecentsSurfaceFromUpdates
+import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -131,6 +133,9 @@ object SettingsAppearanceScreen : SearchableSettings {
         // RK: adult-source page-preview rows on the details screen
         val previewsRowCount by uiPreferences.previewsRowCount.collectAsState()
 
+        // RK: the combined Recents tab's seed reads and writes this surface's own keys.
+        val sourcePreferences = remember { Injekt.get<ReikaiSourcePreferences>() }
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),
             preferenceItems = listOf(
@@ -170,6 +175,18 @@ object SettingsAppearanceScreen : SearchableSettings {
                     preference = uiPreferences.imagesInDescription,
                     title = stringResource(MR.strings.pref_display_images_description),
                 ),
+                // RK --> Updates and History as one Recents tab. Turning it on hands the combined
+                // surface the filter Updates was using, once, so the feed does not quietly widen.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.combinedRecentsTab,
+                    title = stringResource(MR.strings.pref_combined_recents_tab),
+                    subtitle = stringResource(MR.strings.pref_combined_recents_tab_summary),
+                    onValueChanged = { enabled ->
+                        if (enabled) sourcePreferences.seedRecentsSurfaceFromUpdates()
+                        true
+                    },
+                ),
+                // RK <--
                 // RK: rows of adult-source page-preview thumbnails on details (0 = off)
                 Preference.PreferenceItem.SliderPreference(
                     value = previewsRowCount,

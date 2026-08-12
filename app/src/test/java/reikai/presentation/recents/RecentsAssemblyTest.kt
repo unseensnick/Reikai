@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 
 /**
  * The recents kernel: one order and one collapse, both pure. Fixtures are built by hand because the
@@ -24,6 +25,50 @@ class RecentsAssemblyTest {
         RecentsLane.Read(ChapterRef(entryId, chapterId))
 
     private fun ids(items: List<RecentsItem>) = items.map { it.entryId }
+
+    /**
+     * A surface rendering several modes collects every lane those modes need, so the assembly a
+     * single-lane mode is handed carries rows it must not draw. The two-tab shape hid this: each of
+     * those surfaces collects one lane, so the assembly could only ever hold what the mode wanted.
+     */
+    @Test
+    fun `a single-lane mode draws only its own lane`() {
+        val id = EntryId.Manga(1)
+        val assembled = RecentsAssembled(
+            items = listOf(
+                manga(1, at = 30, lane = updated(id, chapterId = 300)),
+                manga(2, at = 20, lane = read(EntryId.Manga(2), chapterId = 200)),
+                manga(3, at = 10),
+            ),
+            chip = ContentType.ALL,
+            loading = false,
+            membership = emptyMap(),
+        )
+
+        val rows = renderRows(RecentsMode.UPDATES, assembled, groupBySeries = false, expandedGroups = emptySet())
+
+        ids(rows.filterIsInstance<RecentsRow.Entry>().map { it.item }) shouldBe listOf(EntryId.Manga(1))
+    }
+
+    @Test
+    fun `a combined mode draws every lane it collects`() {
+        val id = EntryId.Manga(1)
+        val assembled = RecentsAssembled(
+            items = listOf(
+                manga(1, at = 30, lane = updated(id, chapterId = 300)),
+                manga(2, at = 20, lane = read(EntryId.Manga(2), chapterId = 200)),
+                manga(3, at = 10),
+            ),
+            chip = ContentType.ALL,
+            loading = false,
+            membership = emptyMap(),
+        )
+
+        val rows = renderRows(RecentsMode.FEED, assembled, groupBySeries = false, expandedGroups = emptySet())
+
+        ids(rows.filterIsInstance<RecentsRow.Entry>().map { it.item }) shouldBe
+            listOf(EntryId.Manga(1), EntryId.Manga(2), EntryId.Manga(3))
+    }
 
     @Test
     fun `rows are ordered newest first`() {

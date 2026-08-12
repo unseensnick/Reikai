@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -34,11 +35,22 @@ import tachiyomi.presentation.core.i18n.stringResource
  * one because the bottom nav selects by tab class: a shared Tab would light two entries at once, and
  * the badge asks what kind of tab it is drawing.
  */
-data object RecentsTab : Tab {
+data object RecentsTab : Tab, ShowsUpdatesBadge {
 
     private val snackbarHostState = SnackbarHostState()
 
     private val reselectEvent = Channel<Unit>()
+
+    /**
+     * Buffered, so a launcher shortcut can name a mode before this tab has ever been composed: the
+     * value waits for the first collector instead of being dropped, and a newer one replaces it.
+     */
+    private val showModeEvent = Channel<RecentsMode>(1, BufferOverflow.DROP_OLDEST)
+
+    /** Opens this tab on [mode], for the two shortcuts that used to reach a tab of their own. */
+    fun showMode(mode: RecentsMode) {
+        showModeEvent.trySend(mode)
+    }
 
     override val options: TabOptions
         @Composable
@@ -104,6 +116,10 @@ data object RecentsTab : Tab {
                     NovelHistoryViewModel.Event.HistoryCleared -> Unit
                 }
             }
+        }
+
+        LaunchedEffect(Unit) {
+            showModeEvent.receiveAsFlow().collectLatest(engine::setMode)
         }
 
         LaunchedEffect(Unit) {

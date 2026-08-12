@@ -53,6 +53,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **You can now search the Updates feed.** Type part of a title to narrow it, the way History already worked.
 - **History can now be filtered by category.** Its filter icon sits in the toolbar and its selection is its own, so filtering Updates leaves History alone.
 - **Swipe a row in Updates to mark it read, bookmark it or download it.** Both directions use the actions you already picked under Settings -> Library, and they work on manga and novels alike.
+- **Settings -> Appearance can now merge Updates and History into one Recents tab.** It holds both feeds plus a combined one, it is off until you turn it on, and its filters start out copied from Updates.
 
 **App & backup**
 

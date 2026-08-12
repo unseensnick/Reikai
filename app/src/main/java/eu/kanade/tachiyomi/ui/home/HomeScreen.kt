@@ -23,6 +23,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -34,6 +35,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
@@ -48,6 +50,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import reikai.presentation.recents.RecentsMode
+import reikai.presentation.recents.RecentsTab
+import reikai.presentation.recents.ShowsUpdatesBadge
 import soup.compose.material.motion.animation.materialFadeThroughIn
 import soup.compose.material.motion.animation.materialFadeThroughOut
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -56,8 +61,10 @@ import tachiyomi.presentation.core.components.material.NavigationBar
 import tachiyomi.presentation.core.components.material.NavigationRail
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
+import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import eu.kanade.presentation.util.Tab as NavTab
 
 object HomeScreen : Screen() {
 
@@ -71,28 +78,59 @@ object HomeScreen : Screen() {
     @Suppress("ConstPropertyName")
     private const val TabNavigatorKey = "HomeTabs"
 
-    private val TABS = listOf(
+    // RK --> the tab set is a value now, not a constant: one setting replaces Updates and History
+    // with a single Recents tab holding both. Off by default, so this is the upstream list until
+    // someone asks for the other one. `NavTab` is the navigable kind, aliased because this file's
+    // own `Tab` is the sealed intent declared at the bottom.
+    private fun tabs(combinedRecents: Boolean): List<NavTab> = listOfNotNull(
         LibraryTab,
-        UpdatesTab,
-        HistoryTab,
+        RecentsTab.takeIf { combinedRecents },
+        UpdatesTab.takeUnless { combinedRecents },
+        HistoryTab.takeUnless { combinedRecents },
         BrowseTab,
         MoreTab,
     )
 
+    /** The tab a recents intent opens, told which mode it meant so the combined tab can honour it. */
+    private fun recentsTarget(combinedRecents: Boolean, mode: RecentsMode): NavTab = when {
+        combinedRecents -> RecentsTab.also { it.showMode(mode) }
+        mode == RecentsMode.HISTORY -> HistoryTab
+        else -> UpdatesTab
+    }
+
+    /** Where a tab that just left the set sends the user, so nothing is left rendering unselected. */
+    private fun replacementFor(
+        tab: cafe.adriel.voyager.navigator.tab.Tab,
+        combinedRecents: Boolean,
+    ): NavTab? = when {
+        combinedRecents && (tab is UpdatesTab || tab is HistoryTab) -> RecentsTab
+        !combinedRecents && tab is RecentsTab -> UpdatesTab
+        else -> null
+    }
+    // RK <--
+
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        // RK: read here rather than per bar, so both bars and the fixup below agree within a frame.
+        val combinedRecents by remember { Injekt.get<UiPreferences>().combinedRecentsTab }.collectAsState()
+        val tabs = tabs(combinedRecents)
         TabNavigator(
             tab = LibraryTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
+            // RK: a tab dropped from the list keeps rendering with nothing selected, since selection
+            // is a per-item class comparison rather than a lookup, so it is moved on deliberately.
+            LaunchedEffect(combinedRecents) {
+                replacementFor(tabNavigator.current, combinedRecents)?.let { tabNavigator.current = it }
+            }
             // Provide usable navigator to content screen
             CompositionLocalProvider(LocalNavigator provides navigator) {
                 Scaffold(
                     startBar = {
                         if (isTabletUi()) {
                             NavigationRail {
-                                TABS.fastForEach {
+                                tabs.fastForEach {
                                     NavigationRailItem(it)
                                 }
                             }
@@ -109,7 +147,7 @@ object HomeScreen : Screen() {
                                 exit = shrinkVertically(),
                             ) {
                                 NavigationBar {
-                                    TABS.fastForEach {
+                                    tabs.fastForEach {
                                         NavigationBarItem(it)
                                     }
                                 }
@@ -154,8 +192,10 @@ object HomeScreen : Screen() {
                     openTabEvent.receiveAsFlow().collectLatest {
                         tabNavigator.current = when (it) {
                             is Tab.Library -> LibraryTab
-                            Tab.Updates -> UpdatesTab
-                            Tab.History -> HistoryTab
+                            // RK: the two recents intents keep their meaning and change their target.
+                            // With one tab holding both, they open it on the matching mode instead.
+                            Tab.Updates -> recentsTarget(combinedRecents, RecentsMode.UPDATES)
+                            Tab.History -> recentsTarget(combinedRecents, RecentsMode.HISTORY)
                             is Tab.Browse -> {
                                 if (it.toExtensions) {
                                     BrowseTab.showExtension()
@@ -238,7 +278,9 @@ object HomeScreen : Screen() {
         BadgedBox(
             badge = {
                 when {
-                    tab is UpdatesTab -> {
+                    // RK: asks what the tab does rather than which class it is, since the Updates
+                    // feed can now be drawn by the combined tab instead.
+                    tab is ShowsUpdatesBadge -> {
                         val count by produceState(initialValue = 0) {
                             val pref = Injekt.get<LibraryPreferences>()
                             combine(

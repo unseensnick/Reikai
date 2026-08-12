@@ -17,6 +17,27 @@ private const val DIGEST_SECTION_CAP = 4
 private const val DIGEST_CHAPTER_ROWS_CAP = 9
 
 /**
+ * The rows one mode draws, which is where the mode picks its policy and its share of the stream. The
+ * engine collects every lane the surface renders, so on a surface holding several modes the assembly
+ * carries rows this mode does not show: a single-lane mode would otherwise draw the other lanes'.
+ */
+fun renderRows(
+    mode: RecentsMode,
+    assembled: RecentsAssembled,
+    groupBySeries: Boolean,
+    expandedGroups: Set<String>,
+): List<RecentsRow> {
+    val items = assembled.items.filter { it.lane.kind in mode.lanes }
+    val membership = assembled.membership
+    return when (mode) {
+        RecentsMode.UPDATES -> updatesRows(items, groupBySeries, membership, expandedGroups)
+        RecentsMode.HISTORY -> historyRows(items, membership)
+        RecentsMode.FEED -> flatRecentsRows(items, membership)
+        RecentsMode.DIGEST -> digestRows(items, membership)
+    }
+}
+
+/**
  * History: the stream under one header per day. Already one row per entry when it arrives (the feed
  * queries collapse on last-read), so the collapse here is only about merge groups, which SQL cannot
  * see: two sources of one series are two entries, and reading either is reading the same book.

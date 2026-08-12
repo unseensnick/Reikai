@@ -384,18 +384,6 @@ private fun RecentsEmptyState(
     )
 }
 
-private fun renderRows(
-    mode: RecentsMode,
-    assembled: RecentsAssembled,
-    groupBySeries: Boolean,
-    expandedGroups: Set<String>,
-): List<RecentsRow> = when (mode) {
-    RecentsMode.UPDATES -> updatesRows(assembled.items, groupBySeries, assembled.membership, expandedGroups)
-    RecentsMode.HISTORY -> historyRows(assembled.items, assembled.membership)
-    RecentsMode.FEED -> flatRecentsRows(assembled.items, assembled.membership)
-    RecentsMode.DIGEST -> digestRows(assembled.items, assembled.membership)
-}
-
 private fun LazyListScope.recentsRows(
     rows: List<RecentsRow>,
     engine: RecentsEngine,

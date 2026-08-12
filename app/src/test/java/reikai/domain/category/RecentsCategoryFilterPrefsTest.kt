@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
@@ -23,6 +24,40 @@ class RecentsCategoryFilterPrefsTest {
             "${prefix}_filter_categories_include",
             "${prefix}_filter_categories_exclude",
         )
+    }
+
+    @Test
+    fun `turning the combined tab on carries the filter Updates was using`() {
+        val (enabled, include, exclude) = preferences.categoryFilterPrefs(RecentsSurface.UPDATES)
+        enabled.set(true)
+        include.set(setOf("7"))
+        exclude.set(setOf("9"))
+        preferences.updatesContentType.set(ContentType.NOVELS)
+
+        preferences.seedRecentsSurfaceFromUpdates()
+
+        val (toEnabled, toInclude, toExclude) = preferences.categoryFilterPrefs(RecentsSurface.RECENTS)
+        listOf(toEnabled.get(), toInclude.get(), toExclude.get(), preferences.recentsContentType.get()) shouldBe
+            listOf(true, setOf("7"), setOf("9"), ContentType.NOVELS)
+    }
+
+    /**
+     * Only the first time. The seed runs on a switch the user can flip back and forth, and a second
+     * pass would throw away whatever they had since chosen for the combined tab.
+     */
+    @Test
+    fun `a combined selection already made is never overwritten`() {
+        preferences.recentsContentType.set(ContentType.MANGA)
+        val (enabled, include, _) = preferences.categoryFilterPrefs(RecentsSurface.RECENTS)
+        enabled.set(true)
+        include.set(setOf("3"))
+        preferences.updatesContentType.set(ContentType.NOVELS)
+        preferences.categoryFilterPrefs(RecentsSurface.UPDATES).second.set(setOf("7"))
+
+        preferences.seedRecentsSurfaceFromUpdates()
+
+        listOf(include.get(), preferences.recentsContentType.get()) shouldBe
+            listOf(setOf("3"), ContentType.MANGA)
     }
 
     @Test

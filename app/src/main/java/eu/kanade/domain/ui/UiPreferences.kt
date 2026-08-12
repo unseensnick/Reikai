@@ -38,6 +38,10 @@ class UiPreferences(
 
     val imagesInDescription: Preference<Boolean> = preferenceStore.getBoolean("pref_render_images_description", true)
 
+    // RK --> Updates and History as one Recents tab, off so nothing moves until it is asked for
+    val combinedRecentsTab: Preference<Boolean> = preferenceStore.getBoolean("pref_combined_recents_tab", false)
+    // RK <--
+
     // RK --> cover-based theming (Y11)
     val themeCoverBased: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_cover_based_key", true)
 
