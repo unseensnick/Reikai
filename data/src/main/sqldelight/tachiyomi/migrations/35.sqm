@@ -1,0 +1,16 @@
+-- Drop cross-source chapter identities whose chapter is gone. These are derived rows: the owning
+-- chapter no longer exists, nothing reads them (every query joins back to the chapter table), and
+-- reconciliation rewrites what is genuinely needed on its next pass.
+--
+-- They exist because reconciliation wrote a key for a chapter it had read in an earlier transaction,
+-- after a chapter sync deleted that chapter and re-added it under a new row id. The write is now
+-- guarded inside the statement (see chapter_match_key.sq), so no new ones can appear; this clears
+-- what the unguarded version left behind.
+--
+-- Left behind, they are fatal rather than cosmetic: the driver verifies foreign keys after applying
+-- migrations, so the next migration to ship would crash on startup for anyone carrying one.
+DELETE FROM chapter_match_key
+WHERE chapter_id NOT IN (SELECT _id FROM chapters);
+
+DELETE FROM novel_chapter_match_key
+WHERE chapter_id NOT IN (SELECT _id FROM novel_chapters);

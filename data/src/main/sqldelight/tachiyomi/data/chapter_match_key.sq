@@ -51,13 +51,19 @@ CREATE TABLE novel_chapter_match_key (
     ON DELETE CASCADE
 );
 
+-- The EXISTS guard is load-bearing, not defensive. Reconciliation reads the stale chapters and writes
+-- their keys in a later transaction, so a chapter deleted in between (a sync re-adding a chapter under
+-- a new row id is the common case) would otherwise get a key written to an id that no longer exists.
+-- Guarding inside the statement closes that window without holding a transaction across the read.
 upsert:
 INSERT OR REPLACE INTO chapter_match_key(chapter_id, match_key, derived_number)
-VALUES (:chapterId, :matchKey, :derivedNumber);
+SELECT :chapterId, :matchKey, :derivedNumber
+WHERE EXISTS (SELECT 1 FROM chapters WHERE _id = :chapterId);
 
 upsertNovel:
 INSERT OR REPLACE INTO novel_chapter_match_key(chapter_id, match_key, derived_name, derived_number)
-VALUES (:chapterId, :matchKey, :derivedName, :derivedNumber);
+SELECT :chapterId, :matchKey, :derivedName, :derivedNumber
+WHERE EXISTS (SELECT 1 FROM novel_chapters WHERE _id = :chapterId);
 
 deleteByMangaId:
 DELETE FROM chapter_match_key
