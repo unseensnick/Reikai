@@ -588,9 +588,15 @@ class RecentsEngineTest {
         engine.selection.value shouldBe emptySet()
     }
 
+    /**
+     * History takes a selection because every verb behind one acts on the chapter a row names, which
+     * a history row has. It does not take grouping (no burst to group) or the chapter-state filters
+     * (those preferences are the Updates view's, and obeying them here would narrow this feed with
+     * nothing on screen saying so).
+     */
     @Test
-    fun `History offers no affordance that would act on another surface`() {
-        RecentsMode.HISTORY.capabilities shouldBe emptySet()
+    fun `History takes a selection and nothing aimed at an update burst`() {
+        RecentsMode.HISTORY.capabilities shouldBe setOf(RecentsCapability.SELECTION)
     }
 
     /**

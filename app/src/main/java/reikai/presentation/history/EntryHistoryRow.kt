@@ -1,6 +1,7 @@
 package reikai.presentation.history
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,14 +17,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.data.download.model.Download
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.selectedBackground
 
 private val EntryHistoryRowHeight = 96.dp
 
@@ -43,9 +50,13 @@ data class EntryHistoryRowUi(
 )
 
 /**
- * One History row, shared by manga and novels. Cover opens details; the row resumes reading; the
- * trash icon deletes the entry; a not-yet-library entry also shows an add-to-library button. The
- * shared twin of Mihon's `HistoryItem`, which it replaced for both content types.
+ * One History row, shared by manga and novels. Cover opens details; the row resumes reading; long
+ * press selects it; the chapter it names can be downloaded; the trash deletes the entry; a
+ * not-yet-library entry also shows an add-to-library button. The shared twin of Mihon's `HistoryItem`,
+ * which it replaced for both content types.
+ *
+ * The download control and the long press are the same ones a read row carries in the combined modes.
+ * A row's capabilities follow the chapter it names, never the tab that happens to be drawing it.
  */
 @Composable
 fun EntryHistoryRow(
@@ -55,10 +66,23 @@ fun EntryHistoryRow(
     onClickDelete: () -> Unit,
     onClickFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    downloadStateProvider: (() -> Download.State)? = null,
+    downloadProgressProvider: () -> Int = { 0 },
+    onDownloadClick: ((ChapterDownloadAction) -> Unit)? = null,
 ) {
+    val haptic = LocalHapticFeedback.current
     Row(
         modifier = modifier
-            .clickable(onClick = onClickResume)
+            .selectedBackground(selected)
+            .combinedClickable(
+                onClick = onClickResume,
+                onLongClick = {
+                    onLongClick()
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                },
+            )
             .height(EntryHistoryRowHeight)
             .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
@@ -99,6 +123,15 @@ fun EntryHistoryRow(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
+        }
+        if (downloadStateProvider != null && onDownloadClick != null) {
+            ChapterDownloadIndicator(
+                enabled = true,
+                modifier = Modifier.padding(start = 4.dp),
+                downloadStateProvider = downloadStateProvider,
+                downloadProgressProvider = downloadProgressProvider,
+                onClick = onDownloadClick,
+            )
         }
         IconButton(onClick = onClickDelete) {
             Icon(

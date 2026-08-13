@@ -290,8 +290,8 @@ class MangaRecentsAdapter private constructor(
      * The read lane has no model computing this per row, so it asks the same two sources the updates
      * model does: the live queue first, then the on-disk index. Resolved on call rather than carried
      * on the row, because combining the whole history feed with the download queue would re-map every
-     * row of it on each download tick. Two callers pay it: a selection's download verbs, and the
-     * downloaded filter while it is on. The row itself draws no download control.
+     * row of it on each download tick. The combined modes' download indicator now calls it per drawn
+     * row, alongside the selection's download verbs and the downloaded filter while it is on.
      */
     private fun historyDownloadUi(payload: HistoryWithRelations) = RecentsDownloadUi(
         state = {

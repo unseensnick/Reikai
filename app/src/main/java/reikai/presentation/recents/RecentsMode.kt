@@ -39,12 +39,13 @@ enum class RecentsMode {
      */
     val capabilities: Set<RecentsCapability>
         get() = when (this) {
-            // A history feed has no burst to group, and its selection would arrive with the
-            // affordances that act on one. It could answer the chapter-state filters (its rows carry
-            // that state), but the four preferences behind them are the Updates view's, and this view
-            // draws no control for them. Its category filter is not a capability: every view has one,
-            // so the sheet draws that part unconditionally.
-            HISTORY -> emptySet()
+            // A history feed has no burst to group, so no GROUPING. It does take a selection: the
+            // combined modes already give a read row one, and every verb behind it acts on the
+            // chapter that row names rather than on an update burst. Withholding it here made the
+            // same row answer differently depending on which tab drew it. It could also answer the
+            // chapter-state filters (its rows carry that state), but the four preferences behind them
+            // are the Updates view's, and obeying them unprompted would narrow this feed silently.
+            HISTORY -> setOf(RecentsCapability.SELECTION)
             UPDATES -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER, RecentsCapability.GROUPING)
             FEED, DIGEST -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER)
         }

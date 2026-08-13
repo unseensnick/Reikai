@@ -492,6 +492,16 @@ private fun RecentsMixedLaneRow(
                             )
                         }
                     }
+                    // A read row names a real chapter, so it can download exactly like an update row,
+                    // and the selection menu has always offered it. Withholding the row control while
+                    // the same action sat two taps away was an asymmetry, not a capability limit.
+                    ChapterDownloadIndicator(
+                        enabled = ref != null && !selectionActive,
+                        modifier = Modifier.padding(start = 4.dp),
+                        downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
+                        downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
+                        onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
+                    )
                     IconButton(
                         onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
                         enabled = !selectionActive,
@@ -738,22 +748,35 @@ private fun RecentsEntryRow(
                 modifier = modifier,
             )
         }
-        else -> EntryHistoryRow(
-            ui = EntryHistoryRowUi(
-                cover = ui.cover,
-                title = ui.title,
-                // A newly added row has no chapter at all, and this row reads a negative number as
-                // "say nothing about chapters" rather than needing a second flag.
-                chapterNumber = (chapter as? RecentsChapterUi.Number)?.value ?: -1.0,
-                readAt = Date(item.timestamp).toTimestampString(),
-                isFavorite = ui.isFavorite,
-            ),
-            onClickCover = { onOpenDetails(item.entryId) },
-            onClickResume = { onPress(item) },
-            onClickDelete = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
-            onClickFavorite = { engine.addToLibrary(item.entryId) },
-            modifier = modifier,
-        )
+        else -> {
+            val download = engine.downloadUi(item)
+            val ref = item.lane.chapterRef
+            EntryHistoryRow(
+                ui = EntryHistoryRowUi(
+                    cover = ui.cover,
+                    title = ui.title,
+                    // A newly added row has no chapter at all, and this row reads a negative number as
+                    // "say nothing about chapters" rather than needing a second flag.
+                    chapterNumber = (chapter as? RecentsChapterUi.Number)?.value ?: -1.0,
+                    readAt = Date(item.timestamp).toTimestampString(),
+                    isFavorite = ui.isFavorite,
+                ),
+                onClickCover = { onOpenDetails(item.entryId) },
+                onClickResume = { onPress(item) },
+                onClickDelete = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
+                onClickFavorite = { engine.addToLibrary(item.entryId) },
+                modifier = modifier,
+                selected = selected,
+                onLongClick = { onLongPress(item) },
+                // Only where the row names a chapter. A newly added row reaches this branch with
+                // none, and download is the one control here that needs one.
+                downloadStateProvider = (download?.state ?: NOT_DOWNLOADED).takeIf { ref != null },
+                downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
+                onDownloadClick = ref
+                    ?.let { { action: ChapterDownloadAction -> engine.download(setOf(it), action) } }
+                    ?.takeIf { !selectionActive },
+            )
+        }
     }
 }
 
