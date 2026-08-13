@@ -17,7 +17,6 @@ import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -175,7 +174,11 @@ fun Screen.RecentsScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { scrollBehavior ->
+        // The Scaffold's pinned scroll behaviour is deliberately dropped rather than passed on. All it
+        // does here is tint the bar once content slides under it, and with the mode strip between the
+        // bar and the list the outer nested scroll never sees the list return to the top, so the tint
+        // stays after scrolling back up. Browse ignores it the same way.
+        topBar = {
             RecentsToolbar(
                 title = title,
                 query = query,
@@ -194,7 +197,7 @@ fun Screen.RecentsScreen(
                 onRefresh = ::refresh,
                 showsClearHistory = showsRead,
                 onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
-                scrollBehavior = scrollBehavior,
+                scrollBehavior = null,
             )
         },
         bottomBar = {
@@ -350,51 +353,32 @@ private fun RecentsToolbar(
                             onClick = onFilterClicked,
                         ),
                     )
-                    // Upcoming, update library and clear history go to the overflow on a phone,
-                    // where four icons plus the mode strip crowd the bar; a tablet has the width, so
-                    // they stay reachable in one tap there. Filter keeps its slot on both, since it
-                    // is the control this screen is actually driven by and it carries the active tint.
-                    val inlineSecondary = isTabletUi()
+                    // Upcoming, update library and clear history live in the overflow at every width.
+                    // Search and Filter are what this screen is driven by, and the mode strip below
+                    // already carries a row of targets; a second row of icons beside them reads as
+                    // clutter on a tablet as much as on a phone.
                     if (showsCalendar) {
-                        val title = stringResource(MR.strings.action_view_upcoming)
                         add(
-                            if (inlineSecondary) {
-                                AppBar.Action(
-                                    title = title,
-                                    icon = Icons.Outlined.CalendarMonth,
-                                    onClick = onCalendarClicked,
-                                )
-                            } else {
-                                AppBar.OverflowAction(title = title, onClick = onCalendarClicked)
-                            },
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_view_upcoming),
+                                onClick = onCalendarClicked,
+                            ),
                         )
                     }
                     if (showsRefresh) {
-                        val title = stringResource(MR.strings.action_update_library)
                         add(
-                            if (inlineSecondary) {
-                                AppBar.Action(
-                                    title = title,
-                                    icon = Icons.Outlined.Refresh,
-                                    onClick = onRefresh,
-                                )
-                            } else {
-                                AppBar.OverflowAction(title = title, onClick = onRefresh)
-                            },
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_update_library),
+                                onClick = onRefresh,
+                            ),
                         )
                     }
                     if (showsClearHistory) {
-                        val title = stringResource(MR.strings.pref_clear_history)
                         add(
-                            if (inlineSecondary) {
-                                AppBar.Action(
-                                    title = title,
-                                    icon = Icons.Outlined.DeleteSweep,
-                                    onClick = onClearHistory,
-                                )
-                            } else {
-                                AppBar.OverflowAction(title = title, onClick = onClearHistory)
-                            },
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.pref_clear_history),
+                                onClick = onClearHistory,
+                            ),
                         )
                     }
                 },
