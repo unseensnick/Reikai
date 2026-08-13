@@ -88,6 +88,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Updates & History**
 
+- **The Recents toolbar keeps more room for search on a phone.** Upcoming, Update library and Clear history moved into the three-dot menu there, and stay one tap away on tablets and unfolded foldables.
 - **The Updates category filter is now one list covering manga and novels, and the category pick you had there is cleared.** The filter is off by default, so most people will see nothing; picking a manga-only category now hides novels, like the library filter already does.
 - **Updates now tells you when a filter is what emptied the feed, with a button straight to it.** It used to say "No recent updates" whether nothing was new or your own filter had hidden everything.
 - **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.

@@ -56,6 +56,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.lang.toTimestampString
@@ -350,31 +351,51 @@ private fun RecentsToolbar(
                             onClick = onFilterClicked,
                         ),
                     )
+                    // Upcoming, update library and clear history go to the overflow on a phone,
+                    // where four icons plus the mode strip crowd the bar; a tablet has the width, so
+                    // they stay reachable in one tap there. Filter keeps its slot on both, since it
+                    // is the control this screen is actually driven by and it carries the active tint.
+                    val inlineSecondary = isTabletUi()
                     if (showsCalendar) {
+                        val title = stringResource(MR.strings.action_view_upcoming)
                         add(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.action_view_upcoming),
-                                icon = Icons.Outlined.CalendarMonth,
-                                onClick = onCalendarClicked,
-                            ),
+                            if (inlineSecondary) {
+                                AppBar.Action(
+                                    title = title,
+                                    icon = Icons.Outlined.CalendarMonth,
+                                    onClick = onCalendarClicked,
+                                )
+                            } else {
+                                AppBar.OverflowAction(title = title, onClick = onCalendarClicked)
+                            },
                         )
                     }
                     if (showsRefresh) {
+                        val title = stringResource(MR.strings.action_update_library)
                         add(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.action_update_library),
-                                icon = Icons.Outlined.Refresh,
-                                onClick = onRefresh,
-                            ),
+                            if (inlineSecondary) {
+                                AppBar.Action(
+                                    title = title,
+                                    icon = Icons.Outlined.Refresh,
+                                    onClick = onRefresh,
+                                )
+                            } else {
+                                AppBar.OverflowAction(title = title, onClick = onRefresh)
+                            },
                         )
                     }
                     if (showsClearHistory) {
+                        val title = stringResource(MR.strings.pref_clear_history)
                         add(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.pref_clear_history),
-                                icon = Icons.Outlined.DeleteSweep,
-                                onClick = onClearHistory,
-                            ),
+                            if (inlineSecondary) {
+                                AppBar.Action(
+                                    title = title,
+                                    icon = Icons.Outlined.DeleteSweep,
+                                    onClick = onClearHistory,
+                                )
+                            } else {
+                                AppBar.OverflowAction(title = title, onClick = onClearHistory)
+                            },
                         )
                     }
                 },
