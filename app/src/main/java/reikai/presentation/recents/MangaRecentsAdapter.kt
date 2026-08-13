@@ -144,10 +144,10 @@ class MangaRecentsAdapter private constructor(
         val readElsewhere = group?.readInOtherSources.orEmpty()
         val groupChapters = readingOrder(manga, group?.chapters).map { it.toRecentsChapter(readElsewhere) }
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeInGroup(groupChapters, lane.chapter.chapterId)
-                // The stitch drops a chapter another source represents, so a recorded chapter can be
-                // missing from the group list; resume it from its own source rather than nowhere.
-                ?: getNextChapters.await(mangaId, lane.chapter.chapterId, onlyUnread = false).firstOrNull()?.id
+            is RecentsLane.Read -> resumeTarget(groupChapters, lane.chapter.chapterId) {
+                readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
+                    .map { it.toRecentsChapter(readElsewhere) }
+            }
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // The burst is one source's: fetch times do not line up across sources, so only the
                 // read-elsewhere carry-over crosses the group here.

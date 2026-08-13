@@ -130,9 +130,10 @@ class NovelRecentsAdapter private constructor(
         val group = getNextNovelChapter.groupChapters(novelId)
         val groupChapters = group.chapters.map { it.toRecentsChapter(group.readInOtherSources) }
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeInGroup(groupChapters, lane.chapter.chapterId)
-                // A recorded chapter the cross-source stitch dropped resumes from its own source.
-                ?: getNextNovelChapter.await(novelId, lane.chapter.chapterId)?.id
+            is RecentsLane.Read -> resumeTarget(groupChapters, lane.chapter.chapterId) {
+                chapterRepository.getByNovelId(novelId)
+                    .map { it.toRecentsChapter(group.readInOtherSources) }
+            }
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // Source order is this type's reading order, which is what getByNovelId returns. The
                 // burst stays within one source; only the read-elsewhere carry-over crosses the group.

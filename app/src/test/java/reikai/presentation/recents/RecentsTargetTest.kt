@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
 /**
@@ -37,10 +38,19 @@ class RecentsTargetTest {
     }
 
     @Test
-    fun `resume never goes back to an unread chapter before the recorded one`() {
+    fun `a finished recorded chapter goes back to a backlog left behind it`() {
         val chapters = listOf(chapter(1), chapter(2, read = true), chapter(3))
 
-        resumeInGroup(chapters, recordedId = 2) shouldBe 3L
+        resumeInGroup(chapters, recordedId = 2) shouldBe 1L
+    }
+
+    @Test
+    fun `the newest chapter finished still resumes when earlier ones are unread`() {
+        // Caught up on the newest with a backlog behind it. The forward-only answer was null, which is
+        // a row the caught-up filter keeps and a tap cannot open.
+        val chapters = listOf(chapter(1), chapter(2), chapter(3, read = true))
+
+        resumeInGroup(chapters, recordedId = 3) shouldBe 1L
     }
 
     @Test
@@ -67,6 +77,41 @@ class RecentsTargetTest {
         val chapters = listOf(chapter(1), chapter(2))
 
         resumeInGroup(chapters, recordedId = 99) shouldBe null
+    }
+
+    @Test
+    fun `a recorded chapter missing from the group resumes from the entry's own source`() = runTest {
+        val group = listOf(chapter(1, read = true), chapter(2))
+        val ownSource = listOf(chapter(9), chapter(2))
+
+        resumeTarget(group, recordedId = 9) { ownSource } shouldBe 9L
+    }
+
+    @Test
+    fun `a recorded chapter neither list holds still opens the oldest unread`() = runTest {
+        val group = listOf(chapter(1, read = true), chapter(2))
+
+        resumeTarget(group, recordedId = 99) { emptyList() } shouldBe 2L
+    }
+
+    @Test
+    fun `nothing unread anywhere resolves no target at all`() = runTest {
+        val group = listOf(chapter(1, read = true))
+
+        resumeTarget(group, recordedId = 1) { emptyList() } shouldBe null
+    }
+
+    @Test
+    fun `the entry's own source is not fetched while the group can answer`() = runTest {
+        var fetched = false
+        val group = listOf(chapter(1, read = true), chapter(2))
+
+        resumeTarget(group, recordedId = 2) {
+            fetched = true
+            emptyList()
+        }
+
+        fetched shouldBe false
     }
 
     @Test

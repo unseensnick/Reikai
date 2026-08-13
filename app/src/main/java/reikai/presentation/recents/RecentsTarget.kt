@@ -16,17 +16,34 @@ data class RecentsChapter(
 )
 
 /**
- * Resume over a merge group: reopen the recorded chapter while it is unfinished, else the next unread
- * after it. One rule for both engines, over each one's own unified list, with a chapter another source
- * already read passed in as read. Null when [recordedId] is not in [chapters], which happens when the
- * cross-source stitch dropped that copy; the caller then falls back to its own single-source resume.
+ * Resume over a merge group: reopen the recorded chapter while it is unfinished, else the earliest
+ * chapter still unread, which is what the library's continue button opens too. Earliest rather than
+ * the next one after it, because a series read from the middle leaves unread chapters behind the
+ * bookmark that a forward-only answer can never reach. Null when [recordedId] is not in [chapters],
+ * which happens when the cross-source stitch dropped that copy. A chapter another source of the group
+ * has already read arrives here as read.
  */
 fun resumeInGroup(chapters: List<RecentsChapter>, recordedId: Long): Long? {
     val index = chapters.indexOfFirst { it.id == recordedId }
     if (index < 0) return null
     if (!chapters[index].read) return recordedId
-    return chapters.drop(index + 1).firstOrNull { !it.read }?.id
+    return firstUnreadOf(chapters)
 }
+
+/**
+ * The chapter a read row opens, asked of the group list first and this entry's own source second. The
+ * second pass is not the same question twice: the stitch drops a chapter another source represents, so
+ * a recorded chapter missing from [group] can still resume in its own list, and only that case pays
+ * [ownSource]'s query. The last clause is the added lane's rule, and it is what makes every row the
+ * caught-up filter kept resolve something instead of dying on a tap.
+ */
+suspend fun resumeTarget(
+    group: List<RecentsChapter>,
+    recordedId: Long,
+    ownSource: suspend () -> List<RecentsChapter>,
+): Long? = resumeInGroup(group, recordedId)
+    ?: resumeInGroup(ownSource(), recordedId)
+    ?: firstUnreadOf(group)
 
 /**
  * The first chapter left to read, for a row that has no recorded chapter to resume from. One rule for

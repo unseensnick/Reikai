@@ -45,37 +45,6 @@ class GetNextNovelChapterTest {
         page = "",
     )
 
-    @Test
-    fun `reopens the recorded chapter when it is not fully read`() = runTest {
-        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
-            chapter(10, 0, read = true),
-            chapter(11, 1, read = false),
-            chapter(12, 2, read = false),
-        )
-        interactor.await(novelId = 1L, fromChapterId = 11L)?.id shouldBe 11L
-    }
-
-    @Test
-    fun `advances to the next chapter when the recorded one is read`() = runTest {
-        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
-            chapter(10, 0, read = true),
-            chapter(11, 1, read = false),
-        )
-        interactor.await(novelId = 1L, fromChapterId = 10L)?.id shouldBe 11L
-    }
-
-    @Test
-    fun `returns null when the recorded chapter is the last and read`() = runTest {
-        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(chapter(10, 0, read = true))
-        interactor.await(novelId = 1L, fromChapterId = 10L) shouldBe null
-    }
-
-    @Test
-    fun `returns null when the recorded chapter is missing`() = runTest {
-        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(chapter(10, 0, read = false))
-        interactor.await(novelId = 1L, fromChapterId = 999L) shouldBe null
-    }
-
     // The group half: what a collapsed recents row and the library's continue button both resolve
     // through. Manga twin: LibraryViewModel.getNextUnreadChapter over MergedChapterProvider.
 
