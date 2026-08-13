@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -37,7 +38,7 @@ internal fun Screen.RecentsTabBody(
         HomeScreen.showBottomNav(selectionEmpty)
     }
 
-    val loaded = engine.rendered.collectAsState().value?.loading == false
+    val loaded = engine.rendered.collectAsStateWithLifecycle().value?.loading == false
     LaunchedEffect(loaded) {
         if (loaded) {
             (context as? MainActivity)?.ready = true

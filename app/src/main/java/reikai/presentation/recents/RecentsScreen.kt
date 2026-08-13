@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -106,14 +107,17 @@ fun Screen.RecentsScreen(
     val mode by engine.mode.collectAsState()
     val contentType by engine.contentType.collectAsState()
     val query by engine.query.collectAsState()
-    val refreshing by engine.refreshing.collectAsState()
+    // The three flows the engine shares with WhileSubscribed are read with a lifecycle, so the window
+    // can actually close: a plain collectAsState runs for as long as this tab stays composed, which
+    // is the whole time the app is backgrounded, and the providers behind them never stop.
+    val refreshing by engine.refreshing.collectAsStateWithLifecycle()
     // Collected, never read as `value`: shared while subscribed, it answers its seed to nobody.
-    val lastUpdated by engine.lastUpdated.collectAsState()
+    val lastUpdated by engine.lastUpdated.collectAsStateWithLifecycle()
     val filterActive by engine.filterActive.collectAsState()
     val selection by engine.selection.collectAsState()
     val swipeActions by engine.swipeActions.collectAsState()
     // Null until the assembly catches up with the chip, which is drawn as loading.
-    val rendered by engine.rendered.collectAsState()
+    val rendered by engine.rendered.collectAsStateWithLifecycle()
 
     val rows = rendered?.rows.orEmpty()
     val selectionEnabled = mode.can(RecentsCapability.SELECTION)

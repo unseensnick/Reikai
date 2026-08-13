@@ -275,7 +275,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594).
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
-- The History feeds, the source and extension lists, the category, migration, cover and upcoming screens now stop querying a few seconds after you leave them, for both content types, instead of running for as long as the app does (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3729).
+- The Recents tab, the source and extension lists, the category, migration, cover and upcoming screens now stop querying a few seconds after you leave them, for both content types, instead of running for as long as the app does (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3729).
 
 ## [0.3.1]
 
