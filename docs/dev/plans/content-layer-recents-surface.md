@@ -382,6 +382,53 @@ Two costs are recorded rather than fixed. A read row's download state is resolve
 
 Both gates the forward work waited on are cleared: the ViewModel migration shipped for every Mihon file on these surfaces, and the upstream sync base reached upstream head. `mihonapp/mihon#3589` (mihon `1d8a2b05d`) is the one upstream commit sitting below the synced base and this surface owns it; `GetUpdates.kt` was deliberately taken at mihon `6d69903a5` rather than head, and is byte-identical to that blob, so the four lines that commit adds are still there to port.
 
+## Post-cutover feedback round (2026-08-13)
+
+The requester tried the shipped combined tab from preview r1350 and raised four things in
+`unseensnick/Reikai#57`. All four landed across `425c32ce0`, `e15a3a926`, `da3cc8796`, `fc0670848`
+and `d3f49ff54`, and the reply went back on r1369.
+
+**Rows in the combined modes now draw at History's height** with a poster cover, and the room that
+buys carries the chapter, the time with its lane's verb (added, updated, read) and the reading
+progress as separate lines. `RecentsGroupRow` moved with the flat row: Grouped draws both kinds in
+one list, so leaving groups at the old height would have recreated the spliced-lists effect one row
+shape exists to avoid.
+
+**A caught-up series drops out of Grouped and Feed**, behind a `recentsShowRead` preference that
+defaults to hiding, matching Yokai's `showReadInAllRecents`. Which entries still have an unread
+chapter is one query per emission (`recentsUnread.sq`), read from the chapter side so the partial
+indexes both chapter tables already carry answer it alone. Deliberately **not** resolved through
+`RecentsProvider.targetChapter`, whose own KDoc rules that out: it is per rendered row by design, and
+filtering the feed there would put a chapter query per row on every re-emission. The rule itself is
+one pure function, `RecentsRowGate.keeps`, pinned by a test parameterized over both content types.
+
+**The filter sheet is tabbed** (General, Chapters, Updates) and draws every control from every mode,
+where it used to hide whatever the current mode could not answer. The scope that hiding used to state
+is now said out loud: the Chapters and Updates pages each carry a line naming the sections they
+reach. Yokai's `TabbedRecentsOptionsSheet` is the same shape, three always-present tabs.
+
+**The toolbar's secondary actions moved into the overflow at every width**, after a first pass that
+kept them inline on a tablet. It also stopped taking the Scaffold's pinned scroll behaviour, whose
+only effect here was tinting the bar once content slid under it; with the mode strip between the bar
+and the list, the outer nested scroll never sees the list return to the top, so the tint stuck.
+
+**History gained `SELECTION`**, reversing the `emptySet()` ruling recorded in `RecentsMode`. The old
+reason was that a History selection "would arrive with the affordances that act on [a burst]", but
+the combined modes already give a read row that selection and every verb behind it acts on the
+chapter the row names. Withholding it made one row answer differently depending on the tab drawing
+it. Both surfaces also gained the per-row download control. **Not gated on the combined-tab
+preference**: what a row can do follows its chapter, never a display setting, and gating it would
+have left the two configurations permanently apart given the tab is off by default. History still
+takes no grouping (no burst) and no chapter-state filters (those preferences are the Updates view's).
+
+**Three Yokai settings were assessed and none were added**, all for the same reason: Reikai already
+behaves the way the setting toggles *into*. `groupChaptersHistory` is moot because both history views
+collapse per entry in SQL (`GROUP BY` on the entry id, see also the ROADMAP's History-time-grouping
+line); `sortFetchedTime` is moot because both adapters already stamp an update row with `dateFetch`,
+and the inverse is blocked because novel updates carry no usable upload date; `collapseGroupedUpdates`
+is moot because `expandedGroups` seeds empty, so groups already start folded. Worth knowing before
+mining that sheet again.
+
 ## Decisions & tradeoffs
 
 - **All-first rather than a mode-scoped chip.** Chosen by the owner after the library proved it. The alternative, letting the chip decide what gets collected, is what produces the class of defect this surface already has: state that describes one list stored once per content type, with the two copies free to disagree.
