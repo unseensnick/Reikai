@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -66,9 +67,9 @@ fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabCo
     val uriHandler = LocalUriHandler.current
     val navigator = LocalNavigator.currentOrThrow
     val mangaModel = viewModel<MigrateSourceViewModel>()
-    val mangaState by mangaModel.state.collectAsState()
+    val mangaState by mangaModel.state.collectAsStateWithLifecycle()
     val novelModel = viewModel<MigrateNovelSourcesViewModel>()
-    val novelState by novelModel.state.collectAsState()
+    val novelState by novelModel.state.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
 
     return TabContent(

@@ -225,6 +225,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Sorting the library by tracker score no longer floats signed-out trackers above your rated entries.** A merged series also counts each tracker once instead of doubling it across sources.
 - **The tracker refresh notification now carries the Reikai icon.** It was showing a generic Android sync glyph.
 - **A MyAnimeList entry dated with only a year, or a year and month, no longer errors out (synced from Mihon, mihonapp/mihon#3573).**
+- **A score you pick on MangaBaka is now saved as that score, at every step size (synced from Mihon, mihonapp/mihon#3740).** With steps larger than 1 it was sending the score's position in the list instead.
+- **A MangaBaka score no longer skews your library's tracker-score sort and your statistics.** Its 0 to 100 scale was being read as if it were out of 10, so one scored entry floated to the top and pulled the average with it.
 
 **Backup & restore**
 
@@ -273,7 +275,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594).
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
-- The manga and novel History feeds now stop querying a few seconds after you leave the tab, instead of running for as long as the app does (synced from Mihon, mihonapp/mihon#3728).
+- The History feeds, the source and extension lists, the category, migration, cover and upcoming screens now stop querying a few seconds after you leave them, for both content types, instead of running for as long as the app does (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3729).
 
 ## [0.3.1]
 

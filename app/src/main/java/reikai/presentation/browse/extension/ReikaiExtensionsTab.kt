@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -44,7 +45,10 @@ fun Screen.reikaiExtensionsTab(
 ): TabContent {
     val navigator = LocalNavigator.currentOrThrow
     val mihonTab = extensionsTab(extensionsViewModel)
-    val extState by extensionsViewModel.state.collectAsState()
+    // The badge reads the dedicated count flow, never the whole state: collecting the full state out
+    // here would hold the extension subscription open for the tab strip, which is what upstream's
+    // WhileSubscribed conversion exists to stop (mihonapp/mihon#3729).
+    val updatesCount by extensionsViewModel.updatesCount.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
     val lnCount by browseViewModel.lnUpdatesCount.collectAsState()
     val lnModel = viewModel<LnPluginManagerViewModel>()
@@ -52,7 +56,7 @@ fun Screen.reikaiExtensionsTab(
     val openRepos = { navigator.push(ExtensionStoresScreen()) }
 
     return mihonTab.copy(
-        badgeNumber = (extState.updates + lnCount).takeIf { it > 0 },
+        badgeNumber = (updatesCount + lnCount).takeIf { it > 0 },
         // Single "Repos" action -> Mihon's ExtensionStoresScreen, now extended to manage both manga
         // and light-novel repos; keep the Filter action.
         actions = listOfNotNull(
@@ -79,6 +83,7 @@ fun Screen.reikaiExtensionsTab(
             ),
         ),
         content = { contentPadding, snackbarHostState ->
+            val extState by extensionsViewModel.state.collectAsStateWithLifecycle()
             // The shared Browse search bar drives extensionsViewModel (manga only); apply the same
             // query to the novel plugin list so searching filters both sides, not just manga.
             val query = extState.searchQuery

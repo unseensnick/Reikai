@@ -1,20 +1,27 @@
 package reikai.presentation.browse.source
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import tachiyomi.core.common.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Lists the installed light-novel sources for the Browse → Sources tab (Novels chip). Loads the
@@ -27,23 +34,28 @@ class NovelSourcesViewModel(
     private val installer: LnPluginInstaller = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
-) : StateViewModel<NovelSourcesViewModel.State>(State()) {
+) : ViewModel() {
 
-    init {
-        viewModelScope.launchIO {
-            installer.ensureLoaded()
-            combine(
-                manager.sources,
-                sourcePreferences.pinnedNovelSources.changes(),
-                sourcePreferences.disabledNovelSources.changes(),
-                sourcePreferences.disabledNovelLanguages.changes(),
-                novelPreferences.lastUsedNovelSource().changes(),
-            ) { sources, pinned, disabled, disabledLangs, lastUsed ->
-                sources.toUiModels(pinned, disabled, disabledLangs, lastUsed)
-            }
-                .collectLatest { items -> mutableState.update { it.copy(isLoading = false, items = items) } }
-        }
+    private val dialog = MutableStateFlow<Dialog?>(null)
+
+    private val items = combine(
+        manager.sources,
+        sourcePreferences.pinnedNovelSources.changes(),
+        sourcePreferences.disabledNovelSources.changes(),
+        sourcePreferences.disabledNovelLanguages.changes(),
+        novelPreferences.lastUsedNovelSource().changes(),
+    ) { sources, pinned, disabled, disabledLangs, lastUsed ->
+        sources.toUiModels(pinned, disabled, disabledLangs, lastUsed)
     }
+        // The plugin host has to be loaded before the source list means anything, and this runs on
+        // every (re)subscription now that the feed is not always-on. ensureLoaded is idempotent.
+        .onStart { installer.ensureLoaded() }
+
+    val state: StateFlow<State> = combine(items, dialog) { items, dialog ->
+        State(isLoading = false, items = items, dialog = dialog)
+    }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     fun togglePin(sourceId: String) {
         val pref = sourcePreferences.pinnedNovelSources
@@ -57,16 +69,11 @@ class NovelSourcesViewModel(
         pref.set(if (sourceId in current) current - sourceId else current + sourceId)
     }
 
-    fun showSourceDialog(source: NovelSource) = mutableState.update {
-        it.copy(
-            dialog = Dialog(
-                source = source,
-                isPinned = source.id in sourcePreferences.pinnedNovelSources.get(),
-            ),
-        )
+    fun showSourceDialog(source: NovelSource) = dialog.update {
+        Dialog(source = source, isPinned = source.id in sourcePreferences.pinnedNovelSources.get())
     }
 
-    fun closeDialog() = mutableState.update { it.copy(dialog = null) }
+    fun closeDialog() = dialog.update { null }
 
     private fun List<NovelSource>.toUiModels(
         pinned: Set<String>,

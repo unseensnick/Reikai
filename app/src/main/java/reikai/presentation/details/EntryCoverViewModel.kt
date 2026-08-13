@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.util.system.toShareIntent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -32,6 +33,7 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.InputStream
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Shared backing for the full-cover dialog, holding the save / share / set-custom / delete-custom logic
@@ -63,17 +65,18 @@ abstract class EntryCoverViewModel<T : Any>(
     protected abstract suspend fun removeCustomCover(entry: T)
 
     /**
-     * The loaded entry. Collection starts lazily on the first subscriber, never from the base constructor:
+     * The loaded entry. Collection starts on the first subscriber, never from the base constructor:
      * an init-block collect would call the overridden [subscribe] (which reads the subclass's injected deps)
      * while the super constructor is still running, before those deps are assigned, so they would be null.
+     * It also stops once the dialog goes away, matching upstream's cover model (mihonapp/mihon#3716).
      */
     val entry: StateFlow<T?> = flow { emitAll(subscribe()) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
     /** The loaded entry's coil model, so the shared dialog can render the cover without knowing the type. */
     val coverModel: StateFlow<Any?> = entry
         .map { it?.let(::coilModel) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
     fun saveCover(context: Context) {
         viewModelScope.launch {

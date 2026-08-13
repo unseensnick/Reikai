@@ -1,19 +1,25 @@
 package reikai.presentation.browse.migrate
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.domain.source.service.SourcePreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import mihon.core.viewmodel.StateViewModel
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.preference.getAndSet
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Novel side of the Browse migration source list: favorited novels grouped by their source, with a
@@ -27,53 +33,50 @@ class MigrateNovelSourcesViewModel(
     private val sourceManager: NovelSourceManager = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
     private val sourcePreferences: SourcePreferences = Injekt.get(),
-    private val setMigrateSorting: SetMigrateSorting = Injekt.get(),
-) : StateViewModel<MigrateNovelSourcesViewModel.State>(State()) {
+) : ViewModel() {
 
-    init {
-        combine(
-            novelRepository.getLibraryNovelAsFlow(),
-            sourceManager.sources,
-            novelPreferences.seenNovelSources().changes(),
-            sourcePreferences.migrationSortingMode.changes(),
-            sourcePreferences.migrationSortingDirection.changes(),
-        ) { libraryNovels, installedSources, cached, mode, direction ->
-            val installed = installedSources.associate {
-                it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
-            }
-            val rows = buildNovelMigrateSources(
-                sourceIdsPerNovel = libraryNovels.map { it.novel.source },
-                installed = installed,
-                cached = cached,
-            )
-            State(
-                isLoading = false,
-                items = sortNovelMigrateSources(rows, mode, direction),
-                sortingMode = mode,
-                sortingDirection = direction,
-            )
+    val state: StateFlow<State> = combine(
+        novelRepository.getLibraryNovelAsFlow(),
+        sourceManager.sources,
+        novelPreferences.seenNovelSources().changes(),
+        sourcePreferences.migrationSortingMode.changes(),
+        sourcePreferences.migrationSortingDirection.changes(),
+    ) { libraryNovels, installedSources, cached, mode, direction ->
+        val installed = installedSources.associate {
+            it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
         }
-            .onEach { mutableState.value = it }
-            .launchIn(viewModelScope)
+        val rows = buildNovelMigrateSources(
+            sourceIdsPerNovel = libraryNovels.map { it.novel.source },
+            installed = installed,
+            cached = cached,
+        )
+        State(
+            isLoading = false,
+            items = sortNovelMigrateSources(rows, mode, direction),
+            sortingMode = mode,
+            sortingDirection = direction,
+        )
     }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
+    // Both toggles read the preference, never state.value: the shared state answers its seed while
+    // nothing is subscribed, so reading it here would flip the sort back to the default.
     fun toggleSortingMode() {
-        with(state.value) {
-            val newMode = when (sortingMode) {
+        sourcePreferences.migrationSortingMode.getAndSet { mode ->
+            when (mode) {
                 SetMigrateSorting.Mode.ALPHABETICAL -> SetMigrateSorting.Mode.TOTAL
                 SetMigrateSorting.Mode.TOTAL -> SetMigrateSorting.Mode.ALPHABETICAL
             }
-            setMigrateSorting.await(newMode, sortingDirection)
         }
     }
 
     fun toggleSortingDirection() {
-        with(state.value) {
-            val newDirection = when (sortingDirection) {
+        sourcePreferences.migrationSortingDirection.getAndSet { direction ->
+            when (direction) {
                 SetMigrateSorting.Direction.ASCENDING -> SetMigrateSorting.Direction.DESCENDING
                 SetMigrateSorting.Direction.DESCENDING -> SetMigrateSorting.Direction.ASCENDING
             }
-            setMigrateSorting.await(sortingMode, newDirection)
         }
     }
 

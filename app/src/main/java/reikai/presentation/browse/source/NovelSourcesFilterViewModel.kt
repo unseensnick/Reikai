@@ -1,19 +1,22 @@
 package reikai.presentation.browse.source
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import tachiyomi.core.common.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Backs the bulk novel source filter screen: lists every installed light-novel source grouped by
@@ -26,26 +29,25 @@ class NovelSourcesFilterViewModel(
     manager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-) : StateViewModel<NovelSourcesFilterViewModel.State>(State.Loading) {
+) : ViewModel() {
 
-    init {
-        viewModelScope.launchIO {
-            installer.ensureLoaded()
-            combine(
-                manager.sources,
-                sourcePreferences.disabledNovelSources.changes(),
-                sourcePreferences.disabledNovelLanguages.changes(),
-            ) { sources, disabled, disabledLanguages ->
-                State.Success(
-                    items = sources.groupBy { it.lang }
-                        .toSortedMap(LocaleHelper.comparator)
-                        .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } },
-                    disabledSources = disabled,
-                    disabledLanguages = disabledLanguages,
-                )
-            }.collectLatest { success -> mutableState.update { success } }
-        }
+    val state: StateFlow<State> = combine(
+        manager.sources,
+        sourcePreferences.disabledNovelSources.changes(),
+        sourcePreferences.disabledNovelLanguages.changes(),
+    ) { sources, disabled, disabledLanguages ->
+        State.Success(
+            items = sources.groupBy { it.lang }
+                .toSortedMap(LocaleHelper.comparator)
+                .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } },
+            disabledSources = disabled,
+            disabledLanguages = disabledLanguages,
+        )
     }
+        // The plugin host has to be loaded before the source list means anything, and this runs on
+        // every (re)subscription now that the feed is not always-on. ensureLoaded is idempotent.
+        .onStart { installer.ensureLoaded() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State.Loading)
 
     fun toggleSource(sourceId: String) {
         val pref = sourcePreferences.disabledNovelSources

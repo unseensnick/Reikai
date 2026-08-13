@@ -1,17 +1,20 @@
 package eu.kanade.tachiyomi.ui.category
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -23,13 +26,14 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 // RK: one model over one list spanning both libraries. Rows carry their own content type, so there is no
 // longer a per-type model or write path; [CategoryActions] dispatches on the row where it has to.
 class CategoryViewModel(
     private val actions: CategoryActions = CategoryActions(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
-) : StateViewModel<CategoryScreenState>(CategoryScreenState.Loading) {
+) : ViewModel() {
 
     // RK: a SharedFlow rather than a receiveAsFlow Channel, which can only be collected once.
     private val _events = MutableSharedFlow<CategoryEvent>(extraBufferCapacity = 8)
@@ -48,43 +52,43 @@ class CategoryViewModel(
     // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
     // settings destination rather than somewhere the user lives.
     private val chipContentType = MutableStateFlow(ContentType.ALL)
+
+    private val dialog = MutableStateFlow<CategoryDialog?>(null)
     // RK <--
 
-    init {
-        viewModelScope.launch {
-            // RK --> show the manage list in the same order as every other category surface.
-            // Drag-reorder is only offered in Manual (off) mode; the screen hides the drag handle
-            // when sorted A->Z / Z->A, since those override the manual order anyway.
-            combine(
-                actions.subscribe(),
-                reikaiLibraryPreferences.categorySortOrder.changes(),
-                selectedIds,
-                pendingDelete,
-                chipContentType,
-            ) { categories, sortOrder, selected, pending, contentType ->
-                val pendingIds = pending.mapTo(HashSet()) { it.id }
-                val visible = categories
-                    .filterNot(Category::isSystemCategory)
-                    .filterNot { it.id in pendingIds }
-                val shown = categoriesForContentType(visible, contentType)
-                CategoryScreenState.Success(
-                    categories = reikaiSortCategories(shown, sortOrder),
-                    // RK: every name, not just the shown ones, so the chip cannot let a duplicate
-                    // name through the create and rename dialogs' check.
-                    allNames = visible.map { it.name },
-                    categorySortOrder = sortOrder,
-                    selection = selected.intersect(shown.mapTo(HashSet()) { it.id }),
-                    contentType = contentType,
-                )
-            }
-                .collectLatest { newState ->
-                    mutableState.update { current ->
-                        newState.copy(dialog = (current as? CategoryScreenState.Success)?.dialog)
-                    }
-                }
-            // RK <--
-        }
+    // RK --> show the manage list in the same order as every other category surface.
+    // Drag-reorder is only offered in Manual (off) mode; the screen hides the drag handle
+    // when sorted A->Z / Z->A, since those override the manual order anyway.
+    private val content = combine(
+        actions.subscribe(),
+        reikaiLibraryPreferences.categorySortOrder.changes(),
+        selectedIds,
+        pendingDelete,
+        chipContentType,
+    ) { categories, sortOrder, selected, pending, contentType ->
+        val pendingIds = pending.mapTo(HashSet()) { it.id }
+        val visible = categories
+            .filterNot(Category::isSystemCategory)
+            .filterNot { it.id in pendingIds }
+        val shown = categoriesForContentType(visible, contentType)
+        CategoryScreenState.Success(
+            categories = reikaiSortCategories(shown, sortOrder),
+            // RK: every name, not just the shown ones, so the chip cannot let a duplicate
+            // name through the create and rename dialogs' check.
+            allNames = visible.map { it.name },
+            categorySortOrder = sortOrder,
+            selection = selected.intersect(shown.mapTo(HashSet()) { it.id }),
+            contentType = contentType,
+        )
     }
+    // RK <--
+
+    // The dialog is combined in rather than folded into the list flow, so a re-emission from the DB
+    // cannot drop an open dialog and the list flow stays a pure derivation.
+    val state: StateFlow<CategoryScreenState> = combine(content, dialog) { content, dialog ->
+        content.copy(dialog = dialog)
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), CategoryScreenState.Loading)
 
     fun setContentType(contentType: ContentType) {
         chipContentType.value = contentType
@@ -183,21 +187,11 @@ class CategoryViewModel(
     }
 
     fun showDialog(dialog: CategoryDialog) {
-        mutableState.update {
-            when (it) {
-                CategoryScreenState.Loading -> it
-                is CategoryScreenState.Success -> it.copy(dialog = dialog)
-            }
-        }
+        this.dialog.update { dialog }
     }
 
     fun dismissDialog() {
-        mutableState.update {
-            when (it) {
-                CategoryScreenState.Loading -> it
-                is CategoryScreenState.Success -> it.copy(dialog = null)
-            }
-        }
+        dialog.update { null }
     }
 }
 

@@ -17,12 +17,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,14 +35,24 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -54,6 +65,7 @@ import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.presentation.core.util.shouldExpandFAB
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The library entries of one source, to pick which of them to migrate away from it. This is the
@@ -77,7 +89,7 @@ class EntryMigrationFavoritesScreen(
                 set(EntryMigrationFavoritesViewModel.SOURCE_KEY_KEY, sourceKey)
             },
         )
-        val state by viewModel.state.collectAsState()
+        val state by viewModel.state.collectAsStateWithLifecycle()
         val listState = rememberLazyListState()
 
         if (state.isLoading) {
@@ -200,7 +212,7 @@ private fun FavoriteRow(
 class EntryMigrationFavoritesViewModel(
     contentType: ContentType,
     private val sourceKey: String,
-) : StateViewModel<EntryMigrationFavoritesViewModel.State>(State()) {
+) : ViewModel() {
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -220,41 +232,65 @@ class EntryMigrationFavoritesViewModel(
 
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
-    init {
-        viewModelScope.launchIO {
-            adapter.prepare()
-            val sourceName = adapter.sourceDisplayName(sourceKey)
-            mutableState.update { it.copy(sourceName = sourceName) }
-            // Kept subscribed: migrating an entry away removes it from this source's library, and
-            // the list should say so rather than offering it again. A throw here used to escape and
-            // leave the screen on its spinner for good, since nothing else ever clears isLoading.
+    private val selected = MutableStateFlow<Set<EntryId>>(emptySet())
+
+    /**
+     * The source's name and its favorites, as one value so the screen never shows a loaded list under
+     * an empty source name. Stays subscribed while the screen is: migrating an entry away removes it
+     * from this source's library, and the list should say so rather than offering it again. A throw
+     * used to escape and leave the screen on its spinner for good, since nothing clears isLoading.
+     */
+    private val content: Flow<Content> = flow {
+        adapter.prepare()
+        val sourceName = adapter.sourceDisplayName(sourceKey)
+        emit(Content(sourceName = sourceName))
+        emitAll(
             adapter.favorites(sourceKey)
+                .map { entries -> Content(isLoading = false, sourceName = sourceName, entries = entries) }
                 .catch { e ->
                     logcat(LogPriority.ERROR, e) { "Failed to read favorites for $sourceKey" }
-                    mutableState.update { it.copy(isLoading = false, failed = true) }
-                }
-                .collectLatest { entries ->
-                    mutableState.update { state ->
-                        val present = entries.mapTo(HashSet()) { it.id }
-                        state.copy(
-                            isLoading = false,
-                            entries = entries,
-                            selected = state.selected.intersect(present),
-                        )
-                    }
-                }
+                    emit(Content(isLoading = false, failed = true, sourceName = sourceName))
+                },
+        )
+    }
+        // Drop a selected entry that left the list, so a migration cannot act on a stale id.
+        .onEach { content ->
+            if (!content.isLoading) {
+                val present = content.entries.mapTo(HashSet()) { it.id }
+                selected.update { it.intersect(present) }
+            }
         }
+
+    val state: StateFlow<State> = combine(content, selected) { content, selected ->
+        State(
+            isLoading = content.isLoading,
+            failed = content.failed,
+            sourceName = content.sourceName,
+            entries = content.entries,
+            selected = selected,
+        )
+    }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+
+    fun toggle(id: EntryId) = selected.update { if (id in it) it - id else it + id }
+
+    fun selectAll() {
+        val ids = state.value.entries.mapTo(HashSet()) { it.id }
+        selected.update { ids }
     }
 
-    fun toggle(id: EntryId) = mutableState.update {
-        it.copy(selected = if (id in it.selected) it.selected - id else it.selected + id)
+    fun invertSelection() {
+        val entries = state.value.entries
+        selected.update { current -> entries.mapNotNull { it.id.takeIf { id -> id !in current } }.toSet() }
     }
 
-    fun selectAll() = mutableState.update { it.copy(selected = it.entries.mapTo(HashSet()) { entry -> entry.id }) }
-
-    fun invertSelection() = mutableState.update { state ->
-        state.copy(selected = state.entries.mapNotNull { it.id.takeIf { id -> id !in state.selected } }.toSet())
-    }
+    private data class Content(
+        val isLoading: Boolean = true,
+        val failed: Boolean = false,
+        val sourceName: String = "",
+        val entries: List<MigrationFavorite> = emptyList(),
+    )
 
     data class State(
         val isLoading: Boolean = true,

@@ -4,12 +4,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -102,7 +102,7 @@ fun Screen.EntryDetailsDialogHost(
                 viewModelFactory { initializer { behavior.createCoverViewModel() } }
             }
             val coverViewModel = viewModel<EntryCoverViewModel<*>>(factory = coverFactory)
-            val cover by coverViewModel.coverModel.collectAsState()
+            val cover by coverViewModel.coverModel.collectAsStateWithLifecycle()
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                     if (uri != null) coverViewModel.editCover(context, uri)

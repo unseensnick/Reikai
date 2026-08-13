@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -65,9 +66,9 @@ import tachiyomi.source.local.isLocal
 fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val navigator = LocalNavigator.currentOrThrow
     val sourcesModel = viewModel<SourcesViewModel>()
-    val sourcesState by sourcesModel.state.collectAsState()
+    val sourcesState by sourcesModel.state.collectAsStateWithLifecycle()
     val novelModel = viewModel<NovelSourcesViewModel>()
-    val novelState by novelModel.state.collectAsState()
+    val novelState by novelModel.state.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
 
     // Open a novel source's browse grid, recording it as last-used so the sources list populates.
