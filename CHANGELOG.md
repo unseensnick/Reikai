@@ -88,7 +88,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Updates & History**
 
-- **History rows can now be downloaded and long-pressed for bulk actions, the same as everywhere else.** Downloading a read chapter already worked from the combined tab, so the History tab was the odd one out; it now offers the download button and the same bookmark, mark-as-read and download actions on a long press.
+- **History rows can now be long-pressed for bulk actions, the same as everywhere else.** Bookmark, mark as read or unread and download from the selection, the way the combined tab already worked.
 - **Every Recents setting is now reachable from any of its sections, sorted into General, Chapters and Updates tabs.** You no longer have to switch to Updates to change an Updates setting, and each tab says which sections it affects.
 - **Grouped and Feed now leave out series you are caught up on, so they answer what to read next.** Turn "Show caught-up series" back on in the filter to see them; the Updates and History tabs are unchanged, since those are a record of what happened.
 - **Rows in Grouped and Feed now match the History list, with the chapter, the time and your page on their own lines.** Each row says whether it was updated, read or added, so a mixed feed no longer leaves you guessing which.
@@ -181,6 +181,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Pull to refresh on Updates now spins until the library update has actually finished.** It stopped after a second whatever the update was doing.
 - **Clearing your history with the All chip selected now asks once instead of twice.**
 - **An Updates row you expanded to see its new chapters now stays open when the screen rotates.**
+- **Continue reading now offers the oldest chapter you have not read.** A series you read out of order used to offer the chapter you had just finished, and on a series you were caught up with, tapping it did nothing at all.
 
 **Details**
 

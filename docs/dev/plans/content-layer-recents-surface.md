@@ -80,7 +80,7 @@ There is one rule: **one row per merge group, falling back to one row per entry 
 
 The row a user sees and the chapter a tap opens are different things, and the rule is the lane's, not one global winner. This is why the item model separates them.
 
-- **Read lane**: resume where you were, which is Mihon's existing history semantics (reopen the recorded chapter if it is unfinished, otherwise the next one). Do not "upgrade" this to the library's next-unread rule; they encode different intents and both are correct where they are.
+- **Read lane**: reopen the recorded chapter while it is unfinished, otherwise the oldest chapter still unread. This reverses the forward-only rule the surface shipped with, on 2026-08-13; the reasoning is in the second feedback round below.
 - **Updated lane**: the first unread chapter of the update burst, Yokai's rule (the first unread chapter fetched within twelve hours of the row's own chapter), falling back to the row's own chapter.
 - **Added lane**: the first unread chapter.
 
@@ -416,10 +416,17 @@ and the list, the outer nested scroll never sees the list return to the top, so 
 reason was that a History selection "would arrive with the affordances that act on [a burst]", but
 the combined modes already give a read row that selection and every verb behind it acts on the
 chapter the row names. Withholding it made one row answer differently depending on the tab drawing
-it. Both surfaces also gained the per-row download control. **Not gated on the combined-tab
+it. **Not gated on the combined-tab
 preference**: what a row can do follows its chapter, never a display setting, and gating it would
 have left the two configurations permanently apart given the tab is off by default. History still
 takes no grouping (no burst) and no chapter-state filters (those preferences are the Updates view's).
+
+The per-row download control that came with it was **taken back off History** (owner, 2026-08-14).
+The rule it was added under still holds, and it is the rule that removes it: a History row names the
+chapter you finished, so a button offering to fetch that chapter is busywork, where the same button
+on a combined-mode row names the chapter you have not read yet. It also restores parity with
+upstream, which draws no download control on a history row. The selection keeps its download verb,
+gated as every other verb there is on what the selected chapters can answer for.
 
 **Three Yokai settings were assessed and none were added**, all for the same reason: Reikai already
 behaves the way the setting toggles *into*. `groupChaptersHistory` is moot because both history views
@@ -428,6 +435,32 @@ line); `sortFetchedTime` is moot because both adapters already stamp an update r
 and the inverse is blocked because novel updates carry no usable upload date; `collapseGroupedUpdates`
 is moot because `expandedGroups` seeds empty, so groups already start folded. Worth knowing before
 mining that sheet again.
+
+## Second feedback round (2026-08-13)
+
+**The read lane's target rule is reversed.** The requester's case: a hundred-chapter series read from
+95 to 100 with 1 to 94 untouched. The caught-up filter keeps that row, correctly, because the entry
+has unread chapters; the rule picking the chapter walked forward from the recorded one and so could
+reach none of them, leaving a live Continue reading row whose tap answered "No next chapter". It now
+reopens the recorded chapter while it is unfinished and otherwise takes the oldest chapter still
+unread, which `resumeInGroup` composes out of `firstUnreadOf` beside it. Sequential readers see no
+change at all: the two answers differ only where unread chapters sit behind the bookmark. It also puts
+this surface back in step with the library's continue button and the details resume, which have always
+opened the oldest unread for the same series.
+
+`resumeTarget` now carries the fallback chain the two adapters used to spell out separately, and its
+last clause is the added lane's rule. That clause is what makes the gate's promise true: the filter
+keeps a row because the entry has something unread, so the rule has to be able to name it. The
+own-source pass in the middle stays lazy, since it is only for a recorded chapter the cross-source
+stitch dropped, and it costs a query.
+
+**The row itself has not moved yet, and moving it is its own piece of work.** Display and target were
+already free to disagree, and the reversal widened the gap: a row can say chapter 100 and open chapter
+1. Renaming the row alone was tried and rejected on device, because a row's dimming, unread dot,
+bookmark and download control all still describe the recorded chapter, so a renamed row draws itself as
+read while naming something unread. The row moves whole or not at all, and the plan for that is
+[recents-continue-reading-row.md](recents-continue-reading-row.md). History is deliberately excluded
+there, because that tab is a log of what was read rather than a list of what to read next.
 
 ## Decisions & tradeoffs
 
@@ -453,7 +486,8 @@ mining that sheet again.
 - **An empty feed says whether a filter caused it, and offers a way in** (built in step 1). The surface previously showed the same message whether nothing was new or a filter had hidden everything, which sends the user looking for chapters that are behind their own filter. This also covers the chapter-state filters, which the rejected proposal above would not have.
 - **The picker marks a category restricted to one library**, on a second line in the secondary colour rather than in the label, since one selection now spans both libraries and picking a manga-only row while thinking about novels is otherwise invisible. Universal rows carry no line: a label on every row marks nothing. This needed an optional subtitle on Mihon's `TriStateItem`, declared before `onClick` so existing trailing-lambda call sites keep binding correctly.
 - **The chapter-state filters reach every lane that has a chapter, judged in memory where no query can** (owner, 2026-08-12). A view drawing four filter controls that narrow one of its three lanes is the partial rule this program exists to remove, and the read lane can now answer all four: it carries the chapter's read, bookmark and progress since the read lane became actionable, and its download state is resolvable on demand. The updated lane is left to the query that already filtered it rather than judged twice against a rule written twice. The newly added lane is not judged at all, because it names no chapter, which is a capability it genuinely lacks rather than a filter quietly skipped. The filters apply only where the view offers the controls, since the four preferences are shared with the Updates mode and obeying them elsewhere would narrow a feed with nothing on screen saying so. Two costs, both recorded in Status: the downloaded filter pays a per-row lookup while it is on, and it re-evaluates with the feed rather than with the download index.
-- **Resuming a finished chapter opens the next unread, diverging from upstream** (owner, 2026-08-12). Upstream's history resume hands back the recorded chapter itself whatever its state, so tapping a row you have finished reopens what you just read. Both lanes here resolve their target through the shared rule instead, which reopens the recorded chapter while it is unfinished and moves on when it is not. Kept because it is what the row is for, and because the two content types would otherwise need the upstream rule re-implemented on the novel side to match a behaviour neither wants.
+- **Resuming a finished chapter opens the oldest unread, diverging from upstream** (owner, 2026-08-12, widened 2026-08-13). Upstream's history resume hands back the recorded chapter itself whatever its state, so tapping a row you have finished reopens what you just read. Both lanes here resolve their target through the shared rule instead, which reopens the recorded chapter while it is unfinished and otherwise moves to the oldest chapter left. Kept because it is what the row is for, and because the two content types would otherwise need the upstream rule re-implemented on the novel side to match a behaviour neither wants.
+- **The target rule reads no chapter filters, and that is a correctness requirement rather than a preference** (ruled 2026-08-13). The library's continue button narrows by the entry's own unread, bookmarked and downloaded filters before it picks. Doing the same here would answer a narrower question than the caught-up filter that admitted the row, so a bookmarked-only entry with no bookmarked chapter, or one set to show read chapters only, would be kept on screen and resolve nothing, which is the exact defect the rule was reversed to remove. Teaching the gate the same filters is not available either: it is one sweep over every entry, and download state is not in the database. The price is that an entry carrying its own chapter filters can resume differently here than from its details page.
 - **Tracker push stays where it is, on the details screens** (ruled 2026-08-08). Marking read from this surface will not push progress, which matches both these screens today and upstream's Updates tab. The swipe affordance makes the surface a plausible place to finish a chapter, so the alternative was arguable, but it would put a remote write behind a gesture on a feed built for skimming, and diverge from Mihon for no parity gain.
 
 ## Gotchas worth knowing before starting
