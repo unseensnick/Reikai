@@ -22,11 +22,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.formatChapterNumber
-import eu.kanade.tachiyomi.data.download.model.Download
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -51,12 +48,11 @@ data class EntryHistoryRowUi(
 
 /**
  * One History row, shared by manga and novels. Cover opens details; the row resumes reading; long
- * press selects it; the chapter it names can be downloaded; the trash deletes the entry; a
- * not-yet-library entry also shows an add-to-library button. The shared twin of Mihon's `HistoryItem`,
- * which it replaced for both content types.
+ * press selects it; the trash deletes the record; a not-yet-library entry also shows an add-to-library
+ * button. The shared twin of Mihon's `HistoryItem`, which it replaced for both content types.
  *
- * The download control and the long press are the same ones a read row carries in the combined modes.
- * A row's capabilities follow the chapter it names, never the tab that happens to be drawing it.
+ * No download control here, unlike a read row in the combined modes: this row names a chapter you have
+ * finished, and offering to download that is busywork. Upstream draws none here either.
  */
 @Composable
 fun EntryHistoryRow(
@@ -68,9 +64,6 @@ fun EntryHistoryRow(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     onLongClick: () -> Unit = {},
-    downloadStateProvider: (() -> Download.State)? = null,
-    downloadProgressProvider: () -> Int = { 0 },
-    onDownloadClick: ((ChapterDownloadAction) -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     Row(
@@ -123,15 +116,6 @@ fun EntryHistoryRow(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
-        }
-        if (downloadStateProvider != null && onDownloadClick != null) {
-            ChapterDownloadIndicator(
-                enabled = true,
-                modifier = Modifier.padding(start = 4.dp),
-                downloadStateProvider = downloadStateProvider,
-                downloadProgressProvider = downloadProgressProvider,
-                onClick = onDownloadClick,
-            )
         }
         IconButton(onClick = onClickDelete) {
             Icon(
