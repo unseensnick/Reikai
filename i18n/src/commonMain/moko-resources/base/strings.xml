@@ -285,6 +285,9 @@
     <!-- RK: the combined tab holding those modes, when the Appearance setting turns it on -->
     <string name="label_recents">Recents</string>
     <string name="recents_row_added">Added %1$s</string>
+    <string name="recents_row_chapter">Ch. %1$s</string>
+    <string name="recents_row_updated">Updated %1$s</string>
+    <string name="recents_row_read">Read %1$s</string>
     <string name="recents_mode_grouped">Grouped</string>
     <string name="recents_mode_feed">Feed</string>
     <string name="pref_combined_recents_tab">Combine Updates and History</string>

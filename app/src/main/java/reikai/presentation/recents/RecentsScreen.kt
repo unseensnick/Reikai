@@ -464,7 +464,9 @@ private fun RecentsMixedLaneRow(
     RecentsCombinedRow(
         cover = ui.cover,
         title = ui.title,
-        subtitle = mixedLaneSubtitle(item, ui.chapter, state),
+        chapterLine = mixedLaneChapter(ui.chapter),
+        timeLine = mixedLaneTime(item),
+        progressLine = readProgressLabel(state?.progress),
         // A newly added row has no chapter, so nothing about it is read.
         read = state?.read == true,
         bookmark = state?.bookmark == true,
@@ -523,24 +525,34 @@ private fun RecentsMixedLaneRow(
     )
 }
 
-/** What a row says about itself once the list no longer speaks for one lane. */
+/**
+ * The chapter a row is about, or null on the newly added lane, which names none. A source that
+ * numbered nothing gives a negative number and is treated the same way: there is no chapter to name.
+ */
 @Composable
-private fun mixedLaneSubtitle(
-    item: RecentsItem,
-    chapter: RecentsChapterUi?,
-    state: RecentsChapterState?,
-): String {
+private fun mixedLaneChapter(chapter: RecentsChapterUi?): String? = when (chapter) {
+    is RecentsChapterUi.Named -> chapter.name
+    is RecentsChapterUi.Number ->
+        chapter.value
+            .takeIf { it > -1 }
+            ?.let { stringResource(MR.strings.recents_row_chapter, formatChapterNumber(it)) }
+    null -> null
+}
+
+/**
+ * When the activity happened, carrying the verb its lane implies. Feed mixes the three lanes into one
+ * list, so a bare timestamp there cannot say whether a row is something you read or something that
+ * arrived; the section headers answer that in Grouped, and nothing does in Feed.
+ */
+@Composable
+private fun mixedLaneTime(item: RecentsItem): String {
     val time = remember(item.timestamp) { Date(item.timestamp).toTimestampString() }
-    return when (chapter) {
-        is RecentsChapterUi.Named ->
-            listOfNotNull(chapter.name, readProgressLabel(state?.progress)).joinToString("  •  ")
-        is RecentsChapterUi.Number -> if (chapter.value > -1) {
-            stringResource(MR.strings.recent_manga_time, formatChapterNumber(chapter.value), time)
-        } else {
-            time
-        }
-        null -> stringResource(MR.strings.recents_row_added, time)
+    val res = when (item.lane) {
+        is RecentsLane.Read -> MR.strings.recents_row_read
+        is RecentsLane.Updated -> MR.strings.recents_row_updated
+        RecentsLane.Added -> MR.strings.recents_row_added
     }
+    return stringResource(res, time)
 }
 
 private val DISABLED_SWIPE = RecentsSwipeActions(

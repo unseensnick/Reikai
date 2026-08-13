@@ -35,6 +35,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
@@ -60,7 +61,15 @@ import tachiyomi.presentation.core.util.selectedBackground
  * mode shares with the screens being replaced.
  */
 
-/** Collapsed "N new chapters" row for a series with several updates on one day. */
+/** The height every top-level recents row draws at, taken from History so a mixed feed is uniform. */
+val RECENTS_ROW_HEIGHT = 96.dp
+
+/**
+ * Collapsed "N new chapters" row for a series with several updates on one day. Shares
+ * [RECENTS_ROW_HEIGHT] with the flat row: Grouped draws both kinds in one list, so a group sitting at
+ * a different height than the single row below it is the same spliced-lists effect one row shape
+ * exists to avoid.
+ */
 @Composable
 fun RecentsGroupRow(
     cover: Any?,
@@ -86,14 +95,12 @@ fun RecentsGroupRow(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 },
             )
-            .height(56.dp)
-            .padding(horizontal = MaterialTheme.padding.medium),
+            .height(RECENTS_ROW_HEIGHT)
+            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MangaCover.Square(
-            modifier = Modifier
-                .padding(vertical = 6.dp)
-                .fillMaxHeight(),
+        MangaCover.Book(
+            modifier = Modifier.fillMaxHeight(),
             data = cover,
             onClick = onClickCover,
         )
@@ -241,15 +248,21 @@ fun RecentsGroupChildRow(
 
 /**
  * One row of a feed that mixes lanes, which the two combined modes both are. Every lane draws through
- * this: one height, one cover shape, one subtitle line, and whatever trailing control the lane can
- * honestly offer. The per-lane rows are right where a mode shows a single lane and wrong here, since
- * a list that alternates between a 56dp update and a 96dp history row reads as two lists spliced.
+ * this, because a list that alternates two row heights reads as two lists spliced. Height and cover
+ * are History's, matching the surface most of these rows come from, and the room it buys carries the
+ * chapter, the time and the reading progress as their own lines. The trailing control still follows
+ * the lane, which is the one thing a row cannot honestly share.
  */
 @Composable
 fun RecentsCombinedRow(
     cover: Any?,
     title: String,
-    subtitle: String,
+    /** The chapter this row is about, absent on the newly added lane, which names no chapter. */
+    chapterLine: String?,
+    /** When the activity happened, already carrying its verb: added, updated or read. */
+    timeLine: String,
+    /** How far into the chapter reading got, drawn only where it stopped short of the end. */
+    progressLine: String?,
     read: Boolean,
     bookmark: Boolean,
     selected: Boolean,
@@ -300,14 +313,12 @@ fun RecentsCombinedRow(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                 )
-                .height(56.dp)
-                .padding(horizontal = MaterialTheme.padding.medium),
+                .height(RECENTS_ROW_HEIGHT)
+                .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MangaCover.Square(
-                modifier = Modifier
-                    .padding(vertical = 6.dp)
-                    .fillMaxHeight(),
+            MangaCover.Book(
+                modifier = Modifier.fillMaxHeight(),
                 data = cover,
                 onClick = onClickCover,
             )
@@ -320,31 +331,50 @@ fun RecentsCombinedRow(
                     text = title,
                     maxLines = 1,
                     style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = LocalContentColor.current.copy(alpha = textAlpha),
                     overflow = TextOverflow.Ellipsis,
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    var textHeight by remember { mutableIntStateOf(0) }
-                    if (!read) {
-                        UnreadDot()
-                    }
-                    if (bookmark) {
-                        Icon(
-                            imageVector = Icons.Filled.Bookmark,
-                            contentDescription = stringResource(MR.strings.action_filter_bookmarked),
-                            modifier = Modifier
-                                .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
-                            tint = MaterialTheme.colorScheme.primary,
+                if (chapterLine != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        var textHeight by remember { mutableIntStateOf(0) }
+                        if (!read) {
+                            UnreadDot()
+                        }
+                        if (bookmark) {
+                            Icon(
+                                imageVector = Icons.Filled.Bookmark,
+                                contentDescription = stringResource(MR.strings.action_filter_bookmarked),
+                                modifier = Modifier
+                                    .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                        }
+                        Text(
+                            text = chapterLine,
+                            maxLines = 1,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LocalContentColor.current.copy(alpha = textAlpha),
+                            overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { textHeight = it.size.height },
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
                     }
+                }
+                Text(
+                    text = timeLine,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalContentColor.current.copy(alpha = textAlpha),
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (progressLine != null) {
                     Text(
-                        text = subtitle,
+                        text = progressLine,
                         maxLines = 1,
                         style = MaterialTheme.typography.bodySmall,
                         color = LocalContentColor.current.copy(alpha = textAlpha),
                         overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { textHeight = it.size.height },
                     )
                 }
             }
