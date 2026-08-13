@@ -460,6 +460,9 @@ class RecentsEngineTest {
                     kept to RecentsChapterState(read = false, bookmark = true, progress = null),
                     hidden to RecentsChapterState(read = false, bookmark = false, progress = null),
                 ),
+                // Both still have something to read, so the show-read gate stands aside and the
+                // chapter filter is what decides, which is what this test is about.
+                unreadEntries = setOf(kept, hidden),
             ),
             modes = setOf(RecentsMode.FEED),
         )
@@ -693,14 +696,14 @@ class RecentsEngineTest {
     fun `a read row failing a filter is not drawn`() {
         val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState(read = true)))
 
-        engine(listOf(provider)).showsRow(readRow(manga1), unreadOnly) shouldBe false
+        engine(listOf(provider)).showsRow(readRow(manga1), gate(unreadOnly), RecentsMode.HISTORY) shouldBe false
     }
 
     @Test
     fun `a read row matching a filter is drawn`() {
         val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState()))
 
-        engine(listOf(provider)).showsRow(readRow(manga1), unreadOnly) shouldBe true
+        engine(listOf(provider)).showsRow(readRow(manga1), gate(unreadOnly), RecentsMode.HISTORY) shouldBe true
     }
 
     /**
@@ -712,7 +715,7 @@ class RecentsEngineTest {
         val row = item(manga1, at = 100, lane = RecentsLane.Updated(ChapterRef(manga1, 1)))
         val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState(read = true)))
 
-        engine(listOf(provider)).showsRow(row, unreadOnly) shouldBe true
+        engine(listOf(provider)).showsRow(row, gate(unreadOnly), RecentsMode.HISTORY) shouldBe true
     }
 
     /**
@@ -723,7 +726,8 @@ class RecentsEngineTest {
     fun `a newly added row is not judged by a question about chapters`() {
         val provider = provider(ContentType.MANGA, states = mapOf(manga1 to readState(read = true)))
 
-        engine(listOf(provider)).showsRow(item(manga1, at = 100), unreadOnly) shouldBe true
+        engine(listOf(provider))
+            .showsRow(item(manga1, at = 100), gate(unreadOnly), RecentsMode.HISTORY) shouldBe true
     }
 
     @Test
@@ -736,8 +740,10 @@ class RecentsEngineTest {
         )
         val engine = engine(listOf(provider))
 
-        (engine.showsRow(readRow(manga1), downloaded) to engine.showsRow(readRow(manga2), downloaded)) shouldBe
-            (true to false)
+        val show = { entry: EntryId ->
+            engine.showsRow(readRow(entry), gate(downloaded), RecentsMode.HISTORY)
+        }
+        (show(manga1) to show(manga2)) shouldBe (true to false)
     }
 
     /**
@@ -980,6 +986,7 @@ private fun provider(
     historyClears: Boolean = true,
     states: Map<EntryId, RecentsChapterState> = emptyMap(),
     downloadedEntries: Set<EntryId> = emptySet(),
+    unreadEntries: Set<EntryId> = emptySet(),
 ) = FakeRecentsProvider(
     type,
     read,
@@ -996,7 +1003,12 @@ private fun provider(
     historyClears,
     states,
     downloadedEntries,
+    unreadEntries,
 )
+
+/** The chapter-state filters alone, with the show-read rule open so only the filters are judged. */
+private fun gate(filters: RecentsChapterFilters) =
+    RecentsRowGate(filters = filters, showRead = true, unread = emptySet())
 
 /** A provider with canned lanes, recording the verbs the engine dispatched to it. */
 private class FakeRecentsProvider(
@@ -1015,6 +1027,7 @@ private class FakeRecentsProvider(
     private val historyClears: Boolean,
     private val states: Map<EntryId, RecentsChapterState>,
     private val downloadedEntries: Set<EntryId>,
+    unread: Set<EntryId>,
 ) : RecentsProvider {
 
     var historyCleared = false
@@ -1044,6 +1057,10 @@ private class FakeRecentsProvider(
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
     override val updating: Flow<Boolean> = flowOf(updating).onStart { updatingSubscriptions++ }
     override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
+
+    // Named apart from the property on purpose: a same-named constructor parameter reads back as the
+    // property here, which is null while the object is still being built.
+    override val unreadEntries: Flow<Set<EntryId>> = flowOf(unread)
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =
         EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty(), state = states[item.entryId])

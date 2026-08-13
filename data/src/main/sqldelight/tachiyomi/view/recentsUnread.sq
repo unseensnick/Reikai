@@ -1,0 +1,23 @@
+-- RK: which entries still have something left to read, for the recents surface's "show read" filter.
+-- Declares no view or table, so it needs no .sqm: these are queries over the base chapter tables.
+--
+-- Read from the chapter side rather than from mangas/novels so the partial indexes carry the whole
+-- query (chapters_unread_by_manga_index and novel_chapters_unread_by_novel_index are both
+-- WHERE read = 0). Scanning the entry tables instead would touch every row in the library to ask a
+-- question the index already answers.
+--
+-- One query per emission, never one per row: RecentsProvider.targetChapter is deliberately resolved
+-- per rendered row, and filtering the feed cannot pay that per row on every re-emission.
+--
+-- Not restricted to favorites. The read lane shows entries that are no longer in the library, and
+-- excluding them here would file them as caught up and hide them.
+
+getMangaIdsWithUnread:
+SELECT DISTINCT chapters.manga_id AS mangaId
+FROM chapters
+WHERE chapters.read = 0;
+
+getNovelIdsWithUnread:
+SELECT DISTINCT novel_chapters.novel_id AS novelId
+FROM novel_chapters
+WHERE novel_chapters.read = 0;

@@ -73,6 +73,13 @@ enum class RecentsMode {
 }
 
 /**
+ * Whether this mode mixes lanes, which is what makes it a suggestion of what to read next rather than
+ * a record of one kind of event. Derived from the lanes so a mode added later cannot forget to say.
+ */
+val RecentsMode.isCombined: Boolean
+    get() = lanes.size > 1
+
+/**
  * The order the mode switcher draws, widest view first. Deliberately not the declaration order,
  * which decides the fallback mode and is therefore not free to rearrange.
  */

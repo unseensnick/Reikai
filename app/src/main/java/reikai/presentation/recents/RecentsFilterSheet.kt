@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -37,45 +38,83 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 
 /**
- * The filter sheet every recents surface opens, drawing only what its [mode] can answer for: the
- * chapter-state filters belong to the views that draw them, so a history feed would show five
- * controls it never obeys, while the category filter reaches every lane and is always here. The
- * selection it edits belongs to [surface], because two separate tabs must not move each other's
- * filters. Replaces
- * Mihon's UpdatesFilterDialog, whose filters and scanlator switch are carried across unchanged.
+ * The filter sheet every recents surface opens. Every control is drawn from every mode, tabbed by what
+ * it acts on, so a setting is never somewhere you must switch section to reach. Each tab states the
+ * sections it reaches, which is the scope the old sheet stated by hiding things. The selection it
+ * edits belongs to [surface], so two separate tabs cannot move each other's filters.
  */
 @Composable
 fun RecentsFilterSheet(
-    mode: RecentsMode,
     surface: RecentsSurface,
     onDismissRequest: () -> Unit,
+    initialTab: Int = 0,
 ) {
     val viewModel = viewModel<UpdatesSettingsViewModel>(
         factory = UpdatesSettingsViewModel.Factory,
         extras = CreationExtras { set(UpdatesSettingsViewModel.SURFACE_KEY, surface) },
     )
-    val filtersChapters = mode.can(RecentsCapability.CHAPTER_FILTER)
+    val tabTitles = listOf(
+        stringResource(MR.strings.recents_filter_general),
+        stringResource(MR.strings.chapters),
+        stringResource(MR.strings.label_recent_updates),
+    )
     TabbedDialog(
         onDismissRequest = onDismissRequest,
-        tabTitles = listOf(stringResource(MR.strings.action_filter)),
-    ) {
+        pagerState = rememberPagerState(initialPage = initialTab.coerceIn(0, tabTitles.lastIndex)) { tabTitles.size },
+        tabTitles = tabTitles,
+    ) { page ->
         Column(
             modifier = Modifier
                 .padding(vertical = TabbedDialogPaddings.Vertical)
                 .verticalScroll(rememberScrollState()),
         ) {
-            if (filtersChapters) {
-                ChapterStateFilters(viewModel)
-            }
-            CategoryFilter(viewModel)
-            if (filtersChapters) {
-                ExcludedScanlatorsSwitch(viewModel)
-            }
-            if (mode.can(RecentsCapability.GROUPING)) {
-                GroupBySeriesSwitch(viewModel)
+            when (page) {
+                0 -> GeneralPage(viewModel)
+                1 -> ChaptersPage(viewModel)
+                2 -> UpdatesPage(viewModel)
             }
         }
     }
+}
+
+/** What reaches every mode: which categories a feed draws from, and whether it keeps finished series. */
+@Composable
+private fun ColumnScope.GeneralPage(viewModel: UpdatesSettingsViewModel) {
+    CategoryFilter(viewModel)
+    ShowReadSwitch(viewModel)
+}
+
+/** The chapter-state filters, which narrow the updated lane and both combined modes. */
+@Composable
+private fun ColumnScope.ChaptersPage(viewModel: UpdatesSettingsViewModel) {
+    ScopeCaption(stringResource(MR.strings.recents_filter_scope_chapters))
+    ChapterStateFilters(viewModel)
+    ExcludedScanlatorsSwitch(viewModel)
+}
+
+/** What only the updated lane has: how its several-chapters-in-a-day rows are drawn. */
+@Composable
+private fun ColumnScope.UpdatesPage(viewModel: UpdatesSettingsViewModel) {
+    ScopeCaption(stringResource(MR.strings.recents_filter_scope_updates))
+    GroupBySeriesSwitch(viewModel)
+}
+
+/**
+ * Which sections a tab's settings reach. The sheet draws every control from every mode now, so the
+ * scope the old sheet stated by hiding a control has to be said out loud instead; without this, the
+ * chapter filters read as doing nothing when you set them from History, which does not obey them.
+ */
+@Composable
+private fun ColumnScope.ScopeCaption(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(
+            horizontal = SettingsItemsPaddings.Horizontal,
+            vertical = SettingsItemsPaddings.Vertical,
+        ),
+    )
 }
 
 @Composable
@@ -141,10 +180,24 @@ private fun ColumnScope.CategoryFilter(viewModel: UpdatesSettingsViewModel) {
     )
 }
 
+/**
+ * Obeyed by the combined modes only: Updates and History are a record of what happened, so hiding a
+ * caught-up series there would be hiding the event you came to look at. Drawn from every mode all the
+ * same, since it is a property of the feed rather than of where you happen to be standing.
+ */
+@Composable
+private fun ColumnScope.ShowReadSwitch(viewModel: UpdatesSettingsViewModel) {
+    val showRead by viewModel.showRead.collectAsPrefState()
+
+    SwitchRow(
+        label = stringResource(MR.strings.recents_filter_show_read),
+        checked = showRead,
+        onToggle = { viewModel.showRead.getAndSet { !it } },
+    )
+}
+
 @Composable
 private fun ColumnScope.ExcludedScanlatorsSwitch(viewModel: UpdatesSettingsViewModel) {
-    HorizontalDivider(modifier = Modifier.padding(MaterialTheme.padding.small))
-
     val filterExcludedScanlators by viewModel.updatesPreferences.filterExcludedScanlators.collectAsPrefState()
 
     fun toggle() = viewModel.updatesPreferences.filterExcludedScanlators.getAndSet { !it }
@@ -170,10 +223,10 @@ private fun ColumnScope.GroupBySeriesSwitch(viewModel: UpdatesSettingsViewModel)
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
+private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit, enabled: Boolean = true) {
     Row(
         modifier = Modifier
-            .clickable { onToggle() }
+            .clickable(enabled = enabled) { onToggle() }
             .fillMaxWidth()
             .padding(horizontal = SettingsItemsPaddings.Horizontal),
         verticalAlignment = Alignment.CenterVertically,
@@ -184,6 +237,6 @@ private fun SwitchRow(label: String, checked: Boolean, onToggle: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
         )
-        Switch(checked = checked, onCheckedChange = { onToggle() })
+        Switch(checked = checked, enabled = enabled, onCheckedChange = { onToggle() })
     }
 }

@@ -23,6 +23,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
+import reikai.domain.recents.RecentsUnreadRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -71,6 +72,7 @@ class MangaRecentsAdapter private constructor(
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
     private val recentlyAdded: RecentlyAddedRepository by injectLazy()
+    private val recentsUnread: RecentsUnreadRepository by injectLazy()
     private val getNextChapters: GetNextChapters by injectLazy()
     private val getChaptersByMangaId: GetChaptersByMangaId by injectLazy()
     private val downloadManager: DownloadManager by injectLazy()
@@ -118,6 +120,9 @@ class MangaRecentsAdapter private constructor(
                 excludedCategories = categories.exclude,
             ).map { rows -> rows.map { it.toRecentsItem() } }
         }.asLane()
+
+    override val unreadEntries: Flow<Set<EntryId>> =
+        recentsUnread.subscribeMangaIdsWithUnread().map { ids -> ids.mapTo(HashSet(), EntryId::Manga) }
 
     override val lastUpdated: Flow<Long> = libraryPreferences.lastUpdatedTimestamp.changes()
 

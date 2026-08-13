@@ -53,6 +53,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.novel.updateerror.NovelUpdateErrorRepositoryImpl
 import reikai.data.recents.RecentlyAddedRepositoryImpl
+import reikai.data.recents.RecentsUnreadRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.Transactions
@@ -101,6 +102,7 @@ import reikai.domain.novel.updateerror.GetNovelUpdateErrors
 import reikai.domain.novel.updateerror.NovelUpdateErrorRepository
 import reikai.domain.novel.updateerror.UpsertNovelUpdateError
 import reikai.domain.recents.RecentlyAddedRepository
+import reikai.domain.recents.RecentsUnreadRepository
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
@@ -248,6 +250,7 @@ class DomainModule : InjektModule {
         // RK <--
         // RK: the recents surface's newly-added lane, one repository serving both content types.
         addSingletonFactory<RecentlyAddedRepository> { RecentlyAddedRepositoryImpl(get()) }
+        addSingletonFactory<RecentsUnreadRepository> { RecentsUnreadRepositoryImpl(get()) }
         // RK --> novel trackers
         addSingletonFactory<NovelTrackRepository> { NovelTrackRepositoryImpl(get()) }
         addFactory { GetNovelTracks(get(), get(), get()) }

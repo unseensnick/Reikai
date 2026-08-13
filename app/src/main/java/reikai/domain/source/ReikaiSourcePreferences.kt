@@ -154,6 +154,15 @@ class ReikaiSourcePreferences(
     val recentsFilterCategoriesExclude: Preference<Set<String>> =
         preferenceStore.getStringSet("recents_filter_categories_exclude", emptySet())
 
+    /**
+     * Whether the combined modes keep a series with nothing left to read. Off by default, matching
+     * Yokai's `show_read_in_all_recents`: those modes answer "what do I read next", which a caught-up
+     * series has no answer to. The single-lane Updates and History modes ignore this, since they are
+     * a record of what happened rather than a suggestion.
+     */
+    val recentsShowRead: Preference<Boolean> =
+        preferenceStore.getBoolean("recents_show_read", false)
+
     /** Collapse a series' multiple same-date new chapters into one expandable row on the Updates tab. */
     val updatesGroupBySeries: Preference<Boolean> =
         preferenceStore.getBoolean("updates_group_by_series", false)

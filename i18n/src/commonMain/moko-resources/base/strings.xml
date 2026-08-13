@@ -285,6 +285,10 @@
     <!-- RK: the combined tab holding those modes, when the Appearance setting turns it on -->
     <string name="label_recents">Recents</string>
     <string name="recents_row_added">Added %1$s</string>
+    <string name="recents_filter_general">General</string>
+    <string name="recents_filter_scope_chapters">Applies to Grouped, Feed and Updates.</string>
+    <string name="recents_filter_scope_updates">Applies to Updates.</string>
+    <string name="recents_filter_show_read">Show caught-up series</string>
     <string name="recents_row_chapter">Ch. %1$s</string>
     <string name="recents_row_updated">Updated %1$s</string>
     <string name="recents_row_read">Read %1$s</string>

@@ -61,6 +61,10 @@ class UpdatesSettingsViewModel(
     val filterCategoriesInclude: Preference<Set<String>> get() = categoryPrefs.second
     val filterCategoriesExclude: Preference<Set<String>> get() = categoryPrefs.third
 
+    // Not surface-scoped like the category prefs: only the combined tab draws the modes this applies
+    // to, so there is no second surface to hold a competing value.
+    val showRead: Preference<Boolean> get() = reikaiSourcePreferences.recentsShowRead
+
     fun setFilterCategories(enabled: Boolean) {
         filterCategories.set(enabled)
     }

@@ -26,6 +26,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
+import reikai.domain.recents.RecentsUnreadRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -68,6 +69,7 @@ class NovelRecentsAdapter private constructor(
 
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
     private val recentlyAdded: RecentlyAddedRepository by injectLazy()
+    private val recentsUnread: RecentsUnreadRepository by injectLazy()
     private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
     private val chapterRepository: NovelChapterRepository by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
@@ -110,6 +112,9 @@ class NovelRecentsAdapter private constructor(
                 excludedCategories = categories.exclude,
             ).map { rows -> rows.map { it.toRecentsItem() } }
         }.asLane()
+
+    override val unreadEntries: Flow<Set<EntryId>> =
+        recentsUnread.subscribeNovelIdsWithUnread().map { ids -> ids.mapTo(HashSet(), EntryId::Novel) }
 
     override val lastUpdated: Flow<Long> = novelPreferences.novelLibraryUpdateLastTimestamp().changes()
 

@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
+import reikai.domain.entry.EntryId
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.applyFilter
 
@@ -31,6 +32,35 @@ data class RecentsChapterFilters(
 
     companion object {
         val NONE = RecentsChapterFilters()
+    }
+}
+
+/**
+ * Everything that decides whether one row survives: the four chapter-state filters, plus whether a
+ * series with nothing left to read is kept. Carried as one value so the render combine stays inside
+ * the five-argument overload, and so the two rules are read at the same emission.
+ */
+@Immutable
+data class RecentsRowGate(
+    val filters: RecentsChapterFilters,
+    val showRead: Boolean,
+    val unread: Set<EntryId>,
+) {
+    /**
+     * Whether [item] survives the show-read rule. Only the combined modes apply it, and only to the
+     * two lanes that name a chapter: the added lane has none, so "read" says nothing about it, and
+     * Updates and History are a record of what happened rather than a list of what to read next.
+     */
+    fun keeps(item: RecentsItem, mode: RecentsMode): Boolean {
+        if (showRead || !mode.isCombined) return true
+        return when (item.lane) {
+            is RecentsLane.Read, is RecentsLane.Updated -> item.entryId in unread
+            RecentsLane.Added -> true
+        }
+    }
+
+    companion object {
+        val NONE = RecentsRowGate(RecentsChapterFilters.NONE, showRead = true, unread = emptySet())
     }
 }
 

@@ -268,7 +268,6 @@ fun Screen.RecentsScreen(
 
     if (filterSheetOpen) {
         RecentsFilterSheet(
-            mode = mode,
             surface = engine.surface,
             onDismissRequest = { filterSheetOpen = false },
         )

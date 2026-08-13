@@ -184,11 +184,11 @@ class RecentsEngine(
             mode,
             groupBySeries,
             expandedGroups,
-            chapterFilters,
-        ) { assembled, mode, grouped, expanded, filters ->
+            rowGate,
+        ) { assembled, mode, grouped, expanded, gate ->
             assembled?.let {
                 RecentsRendered(
-                    rows = renderRows(mode, it, grouped, expanded) { item -> showsRow(item, filters) },
+                    rows = renderRows(mode, it, grouped, expanded) { item -> showsRow(item, gate, mode) },
                     loading = it.loading,
                 )
             }
@@ -546,10 +546,40 @@ class RecentsEngine(
      * the query behind it, and the newly added lane names no chapter, so filtering it by chapter state
      * would hide rows for failing a question they were never asked.
      */
-    fun showsRow(item: RecentsItem, filters: RecentsChapterFilters): Boolean {
+    fun showsRow(item: RecentsItem, gate: RecentsRowGate, mode: RecentsMode): Boolean {
+        if (!gate.keeps(item, mode)) return false
+        val filters = gate.filters
         if (!filters.isActive || item.lane !is RecentsLane.Read) return true
         val state = rowUi(item).state ?: return true
         return filters.matches(state) { downloadUi(item)?.state?.invoke() == Download.State.DOWNLOADED }
+    }
+
+    /**
+     * Every entry with an unread chapter, both types at once. Type-tagged ids, so the two providers'
+     * sets union without collision, and independent of the chip: narrowing it per chip would rebuild
+     * the set on every chip flip to answer a question that does not change with one.
+     */
+    private val unreadEntries: Flow<Set<EntryId>> by lazy {
+        combine(providers.map { it.unreadEntries }) { sets -> sets.flatMapTo(HashSet()) { it } }
+    }
+
+    // Lazy like the flows it draws from: built eagerly it would force `chapterFilters`, whose own
+    // source is declared below this and is still null while the constructor is running.
+
+    /**
+     * Seeded open, like [chapterFilters] beside it: until the unread set has actually been answered,
+     * an unseeded gate would either stall the render or hide every row on an empty set. Hiding on
+     * incomplete data is the wrong way to be wrong here, so the seed shows everything.
+     */
+    private val rowGate: StateFlow<RecentsRowGate> by lazy {
+        combine(
+            chapterFilters,
+            sourcePreferences.recentsShowRead.changes(),
+            unreadEntries,
+        ) { filters, showRead, unread ->
+            RecentsRowGate(filters = filters, showRead = showRead, unread = unread)
+        }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, RecentsRowGate.NONE)
     }
 
     private fun dispatchAndClear(action: (RecentsChapterActions) -> Unit) {

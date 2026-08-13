@@ -55,6 +55,13 @@ interface RecentsProvider : RecentsBehavior {
     /** Entries recently added to the library, newest first. */
     val addedLane: Flow<RecentsLaneRows>
 
+    /**
+     * This type's entries that still have an unread chapter, so the combined modes can drop a row
+     * with nothing left to read. One set per emission, never a question per row: the feed re-emits on
+     * every library change, and [targetChapter] already pays a query per rendered row by design.
+     */
+    val unreadEntries: Flow<Set<EntryId>>
+
     /** When this type's library last finished updating. Each type has its own update job and key. */
     val lastUpdated: Flow<Long>
 
