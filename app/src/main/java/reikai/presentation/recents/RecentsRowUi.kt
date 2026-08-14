@@ -90,7 +90,8 @@ data class RecentsChapterState(
  */
 @Immutable
 sealed interface RecentsProgress {
-    data class Pages(val lastPageRead: Long) : RecentsProgress
+    /** [pageCount] is 0 where the reader has never loaded the chapter, so the row leaves it off. */
+    data class Pages(val lastPageRead: Long, val pageCount: Long) : RecentsProgress
 
     /** Hundredths of a percent, the unit the novel reader stores. */
     data class Percent(val hundredths: Long) : RecentsProgress

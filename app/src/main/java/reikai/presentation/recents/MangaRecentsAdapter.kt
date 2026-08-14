@@ -146,7 +146,7 @@ class MangaRecentsAdapter private constructor(
             state = chapterState(
                 read = chapter.read,
                 bookmark = chapter.bookmark,
-                progress = RecentsProgress.Pages(chapter.lastPageRead),
+                progress = RecentsProgress.Pages(chapter.lastPageRead, chapter.pageCount),
             ),
             download = chapterDownloadUi(
                 chapterId = chapter.id,
@@ -400,7 +400,7 @@ internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         state = chapterState(
             read = payload.update.read,
             bookmark = payload.update.bookmark,
-            progress = RecentsProgress.Pages(payload.update.lastPageRead),
+            progress = RecentsProgress.Pages(payload.update.lastPageRead, payload.update.pageCount),
         ),
     )
     is HistoryWithRelations -> RecentsRowUi(
@@ -412,7 +412,7 @@ internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         state = chapterState(
             read = payload.read,
             bookmark = payload.bookmark,
-            progress = RecentsProgress.Pages(payload.lastPageRead),
+            progress = RecentsProgress.Pages(payload.lastPageRead, payload.pageCount),
         ),
     )
     is RecentlyAddedManga -> RecentsRowUi(

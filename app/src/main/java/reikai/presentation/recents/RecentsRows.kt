@@ -47,6 +47,8 @@ import eu.kanade.presentation.manga.components.swipeActionThreshold
 import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.download.model.Download
 import me.saket.swipe.SwipeableActionsBox
+import reikai.presentation.components.pageProgressLabel
+import reikai.presentation.components.percentProgressLabel
 import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ListGroupHeader
@@ -57,8 +59,8 @@ import tachiyomi.presentation.core.util.selectedBackground
 
 /*
  * The rows only a recents feed draws: a collapsed series group, its children, and the digest's
- * section chrome. The flat row leaves live on in EntryUpdatesRow and EntryHistoryRow, which every
- * mode shares with the screens being replaced.
+ * section chrome. RecentsCombinedRow below is the flat row every mode but Updates draws, History
+ * included; Updates keeps EntryUpdatesRow, which it shares with the screen it replaced.
  */
 
 /** The height every top-level recents row draws at, taken from History so a mixed feed is uniform. */
@@ -410,25 +412,16 @@ fun RecentsSectionFooter(onClick: () -> Unit, modifier: Modifier = Modifier) {
 /**
  * How far into a chapter reading stopped, written out in whichever unit the engine behind it counts.
  * One definition: the two feeds and the two row shapes each carried their own before, so a rounding
- * or a hide-at-zero rule could differ by content type without anyone reading both.
+ * or a hide-at-zero rule could differ by content type without anyone reading both. The rules
+ * themselves live in [pageProgressLabel] / [percentProgressLabel], which the details chapter list
+ * calls too.
  */
 @Composable
-fun readProgressLabel(progress: RecentsProgress?): String? {
-    val value = progress?.labelValue() ?: return null
-    return when (progress) {
-        is RecentsProgress.Pages -> stringResource(MR.strings.chapter_progress, value)
-        is RecentsProgress.Percent -> "$value%"
-    }
-}
-
-/**
- * The number that label shows, or null where reading has not visibly started. Split from the label so
- * the arithmetic is testable: a page count is stored zero-based and reads one-based, and a novel's
- * hundredths round down, so a stalled-at-nothing row must not claim progress on either type.
- */
-fun RecentsProgress.labelValue(): Int? = when (this) {
-    is RecentsProgress.Pages -> lastPageRead.takeIf { it > 0L }?.let { (it + 1).toInt() }
-    is RecentsProgress.Percent -> (hundredths / 100L).toInt().takeIf { it > 0 }
+fun readProgressLabel(progress: RecentsProgress?): String? = when (progress) {
+    null -> null
+    is RecentsProgress.Pages -> pageProgressLabel(progress.lastPageRead, progress.pageCount)
+        ?.let { (resource, args) -> stringResource(resource, *args) }
+    is RecentsProgress.Percent -> percentProgressLabel(progress.hundredths)
 }
 
 @Composable

@@ -99,7 +99,7 @@ class RecentsChapterFiltersTest {
     companion object {
         @JvmStatic
         fun startedProbes() = listOf(
-            StartedProbe("pages") { RecentsProgress.Pages(it) },
+            StartedProbe("pages") { RecentsProgress.Pages(it, pageCount = 38) },
             StartedProbe("percent") { RecentsProgress.Percent(it) },
         )
     }

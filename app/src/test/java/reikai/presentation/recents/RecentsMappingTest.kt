@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import io.kotest.matchers.shouldBe
@@ -13,10 +14,13 @@ import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedNovel
+import reikai.presentation.components.pageProgressLabel
+import reikai.presentation.components.percentProgressLabel
 import reikai.presentation.updates.NovelUpdatesItem
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.model.UpdatesWithRelations
+import tachiyomi.i18n.MR
 import java.util.Date
 
 /**
@@ -113,27 +117,44 @@ class RecentsMappingTest {
         probe.rowUi(probe.added()).state shouldBe null
     }
 
-    // What that progress reads as on the row. Neutral, so it takes the typed slot directly rather
-    // than a probe: the point is that one rule writes out both engines' units.
+    // What that progress reads as on the row. Taken off the shared rules directly rather than through
+    // a probe: the point is that one pair of rules writes out both engines' units, for the details
+    // chapter list as much as for a row here.
 
     @Test
     fun `a page count reads one-based, because it is stored zero-based`() {
-        RecentsProgress.Pages(lastPageRead = 5).labelValue() shouldBe 6
+        pageProgressLabel(lastPageRead = 5, pageCount = 0).pageArgs() shouldBe listOf(6L)
     }
 
     @Test
     fun `a chapter open at its first page claims no progress`() {
-        RecentsProgress.Pages(lastPageRead = 0).labelValue() shouldBe null
+        pageProgressLabel(lastPageRead = 0, pageCount = 38) shouldBe null
     }
 
     @Test
-    fun `hundredths of a percent round down to whole percent`() {
-        RecentsProgress.Percent(hundredths = 4999).labelValue() shouldBe 49
+    fun `a known length is written out alongside the page`() {
+        pageProgressLabel(lastPageRead = 5, pageCount = 38).pageArgs() shouldBe listOf(6L, 38L)
+    }
+
+    @Test
+    fun `a chapter the reader has never loaded is written without a total`() {
+        pageProgressLabel(lastPageRead = 5, pageCount = 0)?.first shouldBe MR.strings.chapter_progress
+    }
+
+    @Test
+    fun `a known length picks the string that has somewhere to put it`() {
+        pageProgressLabel(lastPageRead = 5, pageCount = 38)
+            ?.first shouldBe MR.strings.chapter_progress_of_total
+    }
+
+    @Test
+    fun `hundredths of a percent round down to a whole percent`() {
+        percentProgressLabel(hundredths = 4999) shouldBe "49%"
     }
 
     @Test
     fun `a fraction of a percent claims no progress rather than rounding up to one`() {
-        RecentsProgress.Percent(hundredths = 99).labelValue() shouldBe null
+        percentProgressLabel(hundredths = 99) shouldBe null
     }
 
     @ParameterizedTest(name = "{0}")
@@ -177,6 +198,8 @@ class RecentsMappingTest {
 
         chapters.size shouldBe 2
     }
+
+    private fun Pair<StringResource, Array<Any>>?.pageArgs(): List<Any>? = this?.second?.toList()
 
     companion object {
         @JvmStatic
@@ -228,6 +251,7 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
             read = read,
             bookmark = bookmark,
             lastPageRead = if (started) 5L else 0L,
+            pageCount = 38,
             sourceId = 1,
             dateFetch = 1000,
             coverData = cover,
@@ -252,6 +276,7 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
             read = read,
             bookmark = bookmark,
             lastPageRead = if (started) 5L else 0L,
+            pageCount = 38,
             sourceId = 1,
             storedTitle = "t",
         ).toRecentsItem()
@@ -261,7 +286,7 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
 
     override fun rowUi(item: RecentsItem) = mangaRowUi(item)
 
-    override fun startedProgress() = RecentsProgress.Pages(5L)
+    override fun startedProgress() = RecentsProgress.Pages(5L, 38L)
 }
 
 class NovelRecentsMappingProbe : RecentsMappingProbe {

@@ -35,6 +35,7 @@ object HistoryMapper {
         read: Boolean,
         bookmark: Boolean,
         lastPageRead: Long,
+        pageCount: Long,
         readAt: Date?,
         readDuration: Long,
     ): HistoryWithRelations = HistoryWithRelations(
@@ -52,6 +53,7 @@ object HistoryMapper {
         read = read,
         bookmark = bookmark,
         lastPageRead = lastPageRead,
+        pageCount = pageCount,
         sourceId = sourceId,
         storedTitle = title,
         // RK <--

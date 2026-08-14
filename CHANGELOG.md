@@ -95,12 +95,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **History rows can now be long-pressed for bulk actions, the same as everywhere else.** Bookmark, mark as read or unread and download from the selection, the way the combined tab already worked.
 - **Every Recents setting is now reachable from any of its sections, sorted into General, Chapters and Updates tabs.** You no longer have to switch to Updates to change an Updates setting, and each tab says which sections it affects.
 - **Grouped and Feed now leave out series you are caught up on, so they answer what to read next.** Turn "Show caught-up series" back on in the filter to see them; the Updates and History tabs are unchanged, since those are a record of what happened.
-- **Rows in Grouped and Feed now match the History list, with the chapter, the time and your page on their own lines.** Each row says whether it was updated, read or added, so a mixed feed no longer leaves you guessing which.
+- **Every Recents view now draws the same row: the chapter, the time and your place in it, each on its own line.** Each row says whether it was updated, read or added, and History rows gained that shape along with a download button.
 - **Grouped now shows a series once, under whichever section it was most recently active in.** A series you added, that then updated, that you then read took a slot in all three sections to tell you one thing.
 - **The Recents toolbar is quieter: Upcoming, Update library and Clear history moved into the three-dot menu.** It also stops changing colour as you scroll, which used to stick even after you came back to the top.
 - **The Updates category filter is now one list covering manga and novels, and the category pick you had there is cleared.** The filter is off by default, so most people will see nothing; picking a manga-only category now hides novels, like the library filter already does.
 - **Updates now tells you when a filter is what emptied the feed, with a button straight to it.** It used to say "No recent updates" whether nothing was new or your own filter had hidden everything.
 - **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.
+- **A half-read manga chapter now says how long it is, as "Page: 5/38".** Shows on the recents rows and the chapter list once you have opened that chapter, since that is when the length becomes known; novels already showed a percentage.
 
 **Details**
 

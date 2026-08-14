@@ -105,6 +105,7 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.finishAdd
+import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
@@ -1736,11 +1737,11 @@ class MangaViewModel(
 
     /** The localized "Page N" resume hint for a started-but-unread chapter, else null. Resolved here (needs
      *  the context) so MangaEntryAdapter can pre-format the neutral chapter row's readProgress without a
-     *  composable, the way the chapter row builds it inline today. */
+     *  composable. The rule itself is shared with the recents row, which draws the same line. */
     fun readProgressLabel(chapter: Chapter): String? =
-        chapter.lastPageRead
-            .takeIf { !chapter.read && it > 0L }
-            ?.let { context.stringResource(MR.strings.chapter_progress, it + 1) }
+        chapter.takeIf { !it.read }
+            ?.let { pageProgressLabel(it.lastPageRead, it.pageCount) }
+            ?.let { (resource, args) -> context.stringResource(resource, *args) }
 
     fun showManageSourcesDialog() {
         val state = successState ?: return

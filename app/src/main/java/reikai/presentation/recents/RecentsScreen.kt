@@ -66,8 +66,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.history.EntryHistoryRow
-import reikai.presentation.history.EntryHistoryRowUi
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
@@ -817,23 +815,64 @@ private fun RecentsEntryRow(
             )
         }
         else -> {
-            EntryHistoryRow(
-                ui = EntryHistoryRowUi(
-                    cover = ui.cover,
-                    title = ui.title,
-                    // A newly added row has no chapter at all, and this row reads a negative number as
-                    // "say nothing about chapters" rather than needing a second flag.
-                    chapterNumber = (chapter as? RecentsChapterUi.Number)?.value ?: -1.0,
-                    readAt = Date(item.timestamp).toTimestampString(),
-                    isFavorite = ui.isFavorite,
-                ),
-                onClickCover = { onOpenDetails(item.entryId) },
-                onClickResume = { onPress(item) },
-                onClickDelete = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
-                onClickFavorite = { engine.addToLibrary(item.entryId) },
-                modifier = modifier,
+            // History draws the combined modes' row shape, so a record says the same things wherever
+            // you meet it: the chapter, when you read it, and how far in you stopped. What stays
+            // History's own is the semantics, not the shape: the row names the record rather than
+            // resolving a target, and it takes no swipe.
+            val ref = item.lane.chapterRef
+            RecentsCombinedRow(
+                cover = ui.cover,
+                title = ui.title,
+                chapterLine = mixedLaneChapter(chapter),
+                timeLine = mixedLaneTime(item),
+                progressLine = readProgressLabel(state?.progress),
+                read = state?.read == true,
+                bookmark = state?.bookmark == true,
                 selected = selected,
+                onClick = { onPress(item) },
                 onLongClick = { onLongPress(item) },
+                onClickCover = { onOpenDetails(item.entryId) }.takeIf { !selectionActive },
+                chapterSwipeStartAction = DISABLED_SWIPE.start,
+                chapterSwipeEndAction = DISABLED_SWIPE.end,
+                onChapterSwipe = {},
+                downloadState = Download.State.NOT_DOWNLOADED,
+                modifier = modifier,
+                trailing = {
+                    // The read lane is not favorite-gated, so a row here may be an entry the library
+                    // does not hold. Every control goes quiet during a sweep.
+                    if (!ui.isFavorite) {
+                        IconButton(
+                            onClick = { engine.addToLibrary(item.entryId) },
+                            enabled = !selectionActive,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.FavoriteBorder,
+                                contentDescription = stringResource(MR.strings.add_to_library),
+                            )
+                        }
+                    }
+                    // Always drawn, like every other row on this surface: the selection menu has
+                    // always offered this on a read row, so withholding the row control was an
+                    // asymmetry rather than a capability limit, and a control that comes and goes
+                    // encodes a state the dot and the dimming already say.
+                    val download = engine.downloadUi(item)
+                    ChapterDownloadIndicator(
+                        enabled = ref != null && !selectionActive,
+                        modifier = Modifier.padding(start = 4.dp),
+                        downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
+                        downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
+                        onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
+                    )
+                    IconButton(
+                        onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
+                        enabled = !selectionActive,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = stringResource(MR.strings.action_delete),
+                        )
+                    }
+                },
             )
         }
     }

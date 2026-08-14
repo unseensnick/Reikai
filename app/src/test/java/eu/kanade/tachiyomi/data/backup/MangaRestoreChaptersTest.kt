@@ -23,19 +23,22 @@ import tachiyomi.domain.manga.model.Manga
  * progress is preserved when the backup hasn't progressed. Losing this silently rewinds a user's
  * progress, so it's a high data-loss-risk path.
  *
- * The update happens inside a suspend transaction, run inline here; the chapters update's read (arg 4)
- * and last_page_read (arg 6) are captured.
+ * The update happens inside a suspend transaction, run inline here; the chapters update's read (arg 4),
+ * last_page_read (arg 6) and page_count (arg 14) are captured.
  */
 class MangaRestoreChaptersTest {
 
     private val mangaId = 7L
 
-    /** Restores [backup] over [dbChapters] and returns (read, lastPageRead) of the single chapter update. */
+    /** One restored chapter update: read, lastPageRead and pageCount as written. */
+    private data class RestoredUpdate(val read: Boolean?, val lastPageRead: Long?, val pageCount: Long?)
+
+    /** Restores [backup] over [dbChapter] and returns the single chapter update it wrote. */
     private suspend fun restoredChapterUpdate(
         backup: BackupChapter,
         dbChapter: Chapter,
-    ): Pair<Boolean?, Long?> {
-        val updates = mutableListOf<Pair<Boolean?, Long?>>()
+    ): RestoredUpdate {
+        val updates = mutableListOf<RestoredUpdate>()
         val database = mockk<Database>(relaxed = true) {
             coEvery { transaction(any(), any()) } coAnswers {
                 secondArg<suspend SuspendingTransactionWithoutReturn.() -> Unit>().invoke(mockk(relaxed = true))
@@ -43,10 +46,10 @@ class MangaRestoreChaptersTest {
             coEvery {
                 chaptersQueries.update(
                     any(), any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(), any(),
                 )
             } coAnswers {
-                updates.add(arg<Boolean?>(4) to arg<Long?>(6))
+                updates.add(RestoredUpdate(arg<Boolean?>(4), arg<Long?>(6), arg<Long?>(14)))
                 0L
             }
         }
@@ -85,7 +88,7 @@ class MangaRestoreChaptersTest {
             lastPageRead = 50,
         )
 
-        restoredChapterUpdate(backup, dbChapter).first shouldBe true
+        restoredChapterUpdate(backup, dbChapter).read shouldBe true
     }
 
     @Test
@@ -100,6 +103,37 @@ class MangaRestoreChaptersTest {
             lastPageRead = 30,
         )
 
-        restoredChapterUpdate(backup, dbChapter).second shouldBe 30L
+        restoredChapterUpdate(backup, dbChapter).lastPageRead shouldBe 30L
+    }
+
+    @Test
+    fun `a page count already on the device survives a backup that predates the column`() = runTest {
+        val backup = BackupChapter(url = "c1", name = "C1", read = false, lastPageRead = 0)
+        val dbChapter = Chapter.create().copy(
+            id = 1,
+            mangaId = mangaId,
+            url = "c1",
+            name = "C1",
+            read = false,
+            lastPageRead = 30,
+            pageCount = 38,
+        )
+
+        restoredChapterUpdate(backup, dbChapter).pageCount shouldBe 38L
+    }
+
+    @Test
+    fun `a page count in the backup fills one the device does not have`() = runTest {
+        val backup = BackupChapter(url = "c1", name = "C1", read = true, lastPageRead = 37, pageCount = 38)
+        val dbChapter = Chapter.create().copy(
+            id = 1,
+            mangaId = mangaId,
+            url = "c1",
+            name = "C1",
+            read = false,
+            lastPageRead = 0,
+        )
+
+        restoredChapterUpdate(backup, dbChapter).pageCount shouldBe 38L
     }
 }

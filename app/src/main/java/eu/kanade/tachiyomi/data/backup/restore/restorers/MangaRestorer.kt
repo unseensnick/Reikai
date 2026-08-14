@@ -199,6 +199,13 @@ class MangaRestorer(
                         lastPageRead = dbChapter.lastPageRead,
                     )
                 }
+                // RK: 0 means the reader never loaded the chapter, so whichever side knows the count
+                // wins and a backup predating the column cannot erase one already on the device.
+                // RK: 0 means the reader never loaded the chapter, so whichever side knows the count
+                // wins and a backup predating the column cannot erase one already on the device.
+                updatedChapter = updatedChapter.copy(
+                    pageCount = maxOf(updatedChapter.pageCount, dbChapter.pageCount),
+                )
                 updatedChapter
             }
             .partition { it.id > 0 }
@@ -207,8 +214,17 @@ class MangaRestorer(
         updateExistingChapters(existingChapters)
     }
 
-    private fun Chapter.forComparison() =
-        this.copy(id = 0L, mangaId = 0L, dateFetch = 0L, dateUpload = 0L, lastModifiedAt = 0L, version = 0L)
+    // RK: pageCount is excluded because it is derived rather than user state. Comparing it would make
+    // every restore from a backup predating the column rewrite the whole chapter list to no effect.
+    private fun Chapter.forComparison() = this.copy(
+        id = 0L,
+        mangaId = 0L,
+        dateFetch = 0L,
+        dateUpload = 0L,
+        lastModifiedAt = 0L,
+        version = 0L,
+        pageCount = 0L,
+    )
 
     private suspend fun insertNewChapters(chapters: List<Chapter>) {
         database.transaction {
@@ -227,6 +243,7 @@ class MangaRestorer(
                     chapter.dateUpload,
                     chapter.version,
                     chapter.memo,
+                    chapter.pageCount,
                 )
             }
         }
@@ -251,6 +268,7 @@ class MangaRestorer(
                     version = chapter.version,
                     isSyncing = 0,
                     memo = chapter.memo.let(MemoColumnAdapter::encode),
+                    pageCount = chapter.pageCount,
                 )
             }
         }

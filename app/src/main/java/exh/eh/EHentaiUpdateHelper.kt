@@ -232,6 +232,8 @@ class EHentaiUpdateHelper(context: Context) {
                         lastModifiedAt = 0,
                         version = 0,
                         memo = JsonObject.EMPTY,
+                        // The same chapter moving to the accepted gallery, so its length comes with it.
+                        pageCount = chapter.pageCount,
                     )
                 }
             }

@@ -9,6 +9,7 @@ SELECT
     chapters.read,
     chapters.bookmark,
     chapters.last_page_read,
+    chapters.page_count,
     mangas.source,
     mangas.favorite,
     mangas.thumbnail_url AS thumbnailUrl,

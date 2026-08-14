@@ -48,5 +48,8 @@ fun Chapter.toDomainChapter(): DomainChapter? {
         lastModifiedAt = last_modified,
         version = version,
         memo = memo,
+        // RK: the view-model chapter predates the column and never carries it; only the reader writes
+        // a count, and it does so from its own loaded page list rather than from this model.
+        pageCount = 0,
     )
 }

@@ -257,8 +257,45 @@ emulator's sources do not download), and delete-downloads on a resolved row.
 - **The caught-up filter is unchanged.** It asks once per emission whether an entry has any unread
   chapter. The reversed target rule is what made that promise keepable, and nothing here weakens it.
 
-## Not in scope
+## The progress line names the chapter's length
 
-Showing progress as `Page: n/t` rather than `Page: n`, which is agreed and queued behind this. It needs
-a `total_pages` column on `chapters` with its own migration, the reader writing it, a second string and
-a backup field, and it is manga only: novels store a scroll percentage and have no page concept.
+A manga progress line reads `Page: 5/38` where it read `Page: 5`, on the recents rows and on the details
+chapter list. Novels are unchanged: their reader stores a scroll percentage, so a novel row already
+answers the same question as `47%` and has no page to count. That is the mechanism the write-once rule
+takes as the gate here, and it holds only while the novel reader has no page concept.
+
+### Only the reader can fill it
+
+`chapters.page_count` is written by `updateChapterProgress` in `ReaderViewModel`, out of the page list
+the loader already resolved, on the same update that saves the page. Every other writer of reading
+progress (mark-as-read, a restore, the gallery-update reconciler, the legacy import) acts on chapters
+that were never loaded, so none of them can supply a count and nothing backfills one.
+
+So 0 means unknown rather than empty, and the label falls back to `Page: 5` while it is 0. A count
+arrives the first time that chapter is opened. Writing it on every save rather than once is also what
+re-heals a count left stale by a source re-paginating a chapter, which until the next open can read
+`Page: 39/40` for a chapter that is in fact finished.
+
+### One rule, two surfaces
+
+`pageProgressLabel` picks the string and its arguments; `percentProgressLabel` does the novel half. Both
+are plain functions in `reikai/presentation/components/ReadProgressLabel.kt`, because the same line is
+drawn from a composable on a recents row and from `MangaViewModel` on the details chapter list, and the
+two had already restated the hide-at-zero and one-based rules separately.
+
+The label still shows only on a chapter started and not finished, which is enforced above it: a read
+chapter carries no progress slot at all, and marking one unread resets `last_page_read` to 0.
+
+### Backup
+
+`BackupChapter` carries the count at proto 700. A restore takes the higher of the two sides, so a
+backup predating the column cannot erase a count the device already has, and the count is excluded from
+the restorer's change comparison: it is derived rather than user state, and comparing it would make
+every restore from an older backup rewrite the whole chapter list to no effect.
+
+### Schema
+
+`37.sqm` adds the column and re-creates `historyView` and `updatesView`, which name their columns
+explicitly and so do not absorb an added one. No `versionCode` bump: SQLDelight migrates off the
+database's own schema version, and `versionCode` gates only the preference migrations in
+`mihon.core.migration`.

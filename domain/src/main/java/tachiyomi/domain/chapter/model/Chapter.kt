@@ -19,6 +19,8 @@ data class Chapter(
     val lastModifiedAt: Long,
     val version: Long,
     val memo: JsonObject,
+    // RK: pages in the chapter, 0 where the reader has never loaded it. Unknown, not empty.
+    val pageCount: Long,
 ) {
     val isRecognizedNumber: Boolean
         get() = chapterNumber >= 0f
@@ -50,6 +52,7 @@ data class Chapter(
             lastModifiedAt = 0,
             version = 1,
             memo = JsonObject.EMPTY,
+            pageCount = 0,
         )
     }
 }

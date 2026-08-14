@@ -26,6 +26,9 @@ class BackupChapter(
     @ProtoNumber(11) var lastModifiedAt: Long = 0,
     @ProtoNumber(12) var version: Long = 0,
     @ProtoNumber(13) var memo: ByteArray = JsonObjectEmptyBytes,
+    // RK: the chapter's page count, so a restored library keeps "Page: 5/38" instead of falling back
+    // to "Page: 5" until every chapter is opened again. 700-range stays clear of Mihon's numbers.
+    @ProtoNumber(700) var pageCount: Long = 0,
 ) {
     fun toChapterImpl(): Chapter {
         return Chapter.create().copy(
@@ -42,6 +45,7 @@ class BackupChapter(
             lastModifiedAt = this@BackupChapter.lastModifiedAt,
             version = this@BackupChapter.version,
             memo = MemoColumnAdapter.decode(this@BackupChapter.memo),
+            pageCount = this@BackupChapter.pageCount,
         )
     }
 }
@@ -63,6 +67,7 @@ val backupChapterMapper = {
         version: Long,
         _: Long,
         memo: JsonObject,
+        pageCount: Long,
     ->
     BackupChapter(
         url = url,
@@ -78,5 +83,6 @@ val backupChapterMapper = {
         lastModifiedAt = lastModifiedAt,
         version = version,
         memo = MemoColumnAdapter.encode(memo),
+        pageCount = pageCount,
     )
 }

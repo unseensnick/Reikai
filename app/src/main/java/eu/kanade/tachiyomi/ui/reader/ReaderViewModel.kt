@@ -681,6 +681,10 @@ class ReaderViewModel @JvmOverloads constructor(
                     id = readerChapter.chapter.id!!,
                     read = readerChapter.chapter.read,
                     lastPageRead = readerChapter.chapter.last_page_read.toLong(),
+                    // RK: the reader is the only thing that ever knows this, so it is written on every
+                    // save rather than once, which is also what re-heals a total left stale by a source
+                    // re-paginating the chapter.
+                    pageCount = readerChapter.pages?.size?.toLong(),
                 ),
             )
         }

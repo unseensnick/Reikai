@@ -81,6 +81,7 @@ class UpdatesRepositoryImpl(
         read: Boolean,
         bookmark: Boolean,
         lastPageRead: Long,
+        pageCount: Long,
         sourceId: Long,
         favorite: Boolean,
         thumbnailUrl: String?,
@@ -98,6 +99,7 @@ class UpdatesRepositoryImpl(
         read = read,
         bookmark = bookmark,
         lastPageRead = lastPageRead,
+        pageCount = pageCount,
         sourceId = sourceId,
         dateFetch = dateFetch,
         coverData = MangaCover(

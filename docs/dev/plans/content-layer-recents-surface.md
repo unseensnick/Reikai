@@ -95,7 +95,7 @@ Per content type the mechanics stay behind the provider: manga resolves through 
 Checked against [off-path-manifest.md](../off-path-manifest.md), whose `pre-commit` hook requires that no manifested path exists in the working tree **and that every `Replacement` exists**.
 
 - **Two live rows name files this takeover deletes, and must be repointed in the same commit**: `UpdatesScreen.kt` currently points at `ReikaiUpdatesScreen.kt`, and `HistoryviewModelStateProvider.kt` points at `ReikaiHistoryScreen.kt`. Both replacements go away at the cutover, so both rows move to the new engine's file. Miss this and every subsequent commit fails the hook.
-- **Two rows are unaffected**: `HistoryItem.kt` and `HistoryWithRelationsProvider.kt` point at `EntryHistoryRow`, which survives.
+- **Two rows are unaffected**: `HistoryItem.kt` and `HistoryWithRelationsProvider.kt` point at `EntryHistoryRow`, which survives. (It stopped surviving later, when History adopted the combined row; both rows were repointed at `RecentsRows.kt`. See "History draws the combined row" below.)
 - **Explicitly ruled live and unlisted, do not delete**: `eu/kanade/presentation/history/HistoryScreen.kt` still holds `HistoryUiModel`, which Mihon's own model emits and the shared screen consumes, and `eu/kanade/presentation/updates/UpdatesUiItem.kt` still holds the type-neutral last-updated line. The manifest records both as partially collapsed. If the takeover removes the last live symbol from either, that is when its row gets added.
 - **Genuine candidates**: `UpdatesDeleteConfirmationDialog.kt` and `eu/kanade/presentation/history/components/HistoryDialogs.kt` at the cutover; `UpdatesFilterDialog.kt` only once the mode-scoped sheet actually replaces it, which is the affordance step, so it is deleted and manifested there rather than at the cutover.
 - **Note that `EntryUpdatesRow` has no manifest row**, unlike its history twin. Nothing is wrong with that (its Mihon original is still partially live), but do not assume symmetry.
@@ -255,7 +255,7 @@ To be created, under `app/src/main/java/reikai/presentation/recents/`: the engin
 
 Surviving into the new engine:
 
-- `reikai/presentation/updates/EntryUpdatesRow.kt` and `reikai/presentation/history/EntryHistoryRow.kt`: the neutral row leaves.
+- `reikai/presentation/updates/EntryUpdatesRow.kt` and `reikai/presentation/history/EntryHistoryRow.kt`: the neutral row leaves. (The history one was later replaced by the combined row and deleted; see "History draws the combined row" below.)
 - `reikai/domain/entry/EntryId.kt`: the identity every keyed structure uses.
 - `reikai/presentation/library/LibraryProvider.kt`, `LibraryBehavior.kt`, `LibraryEngine.kt` and `LibraryAssembly.kt`: not consumed, but the structural template, down to the chip-tagged assembly and the lazily-resolved preference flows.
 
@@ -472,6 +472,30 @@ it is emptied on a mode switch so a resolution made in Grouped cannot answer for
 the four selection verbs now take the chapters to act on rather than reading the selection back out of
 the engine, because the mapping suspends and a verb resolving internally would have to clear the
 selection out from under its own dispatch.
+
+## History draws the combined row (2026-08-14)
+
+A History row and a Grouped read row are about the same thing, and they used to look nothing alike.
+History drew its own leaf, `EntryHistoryRow`, which carried only cover, title, chapter number and read
+time, so it said "Ch. 31 - 6:33 AM" on one line and nothing about how far in you got. So History now
+draws `RecentsCombinedRow` like every mode but Updates: title, then the chapter with its unread dot,
+then when you read it, then the progress line. `EntryHistoryRow.kt` is deleted, and the two manifest
+rows that named it are repointed at `RecentsRows.kt`.
+
+It is the shape that moved, not the semantics. The row still names the record rather than resolving a
+target, and it still takes no swipe. Both content types moved together, because the row is the shared
+one.
+
+The download control comes back with it, on every row, superseding `fde3a86fd` (owner, 2026-08-14).
+That commit removed it because downloading a chapter you have finished is busywork, which holds for a
+default action but not for an affordance: the selection menu has always offered download on a read
+row, so withholding the row control was an asymmetry rather than a capability limit. It was first
+tried gated on the record's read flag, and the gate was worse than either end of it: a control that
+appears and disappears down the column encodes a state the unread dot and the dimming already say,
+and it reintroduces exactly the raggedness the flat row shape exists to remove.
+
+This also closes the "tsundoku history progress suffix" line above, which the pre-cutover comparison
+recorded as backlog rather than a loss.
 
 ## Decisions & tradeoffs
 

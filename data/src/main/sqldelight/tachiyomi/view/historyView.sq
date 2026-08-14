@@ -18,6 +18,7 @@ SELECT
     chapters.read,
     chapters.bookmark,
     chapters.last_page_read AS lastPageRead,
+    chapters.page_count AS pageCount,
 -- RK <--
     history.last_read AS readAt,
     history.time_read AS readDuration,
@@ -54,6 +55,7 @@ chapterUrl,
 read,
 bookmark,
 lastPageRead,
+pageCount,
 readAt,
 readDuration
 FROM historyView
@@ -110,6 +112,7 @@ chapterUrl,
 read,
 bookmark,
 lastPageRead,
+pageCount,
 readAt,
 readDuration
 FROM historyView

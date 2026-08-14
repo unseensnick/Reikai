@@ -21,6 +21,7 @@ data class HistoryWithRelations(
     val read: Boolean,
     val bookmark: Boolean,
     val lastPageRead: Long,
+    val pageCount: Long,
     val sourceId: Long,
     /**
      * The title as stored, which the display-only custom-title overlay does not rewrite. A download
