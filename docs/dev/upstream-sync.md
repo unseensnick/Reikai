@@ -34,6 +34,29 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 - **Collapsing a Mihon file onto a Reikai twin: delete pure-UI, keep engine + partial.** When a Mihon file's UI is *fully* replaced by a Reikai-owned twin (`reikai.*`), **delete** the Mihon original and record it in the [off-path manifest](off-path-manifest.md), rather than keeping it `// RK: inert`. A solo+AI workflow cannot afford a dead file an edit might silently land in; the `refs/mihon` clone holds the pre-delete blob as the diff base, and the manifest's sync check (`off-path-check.ps1`, step 2 of [How to sync](#how-to-sync)) fails loudly if upstream later changes the file, so a buried change is impossible. This supersedes the old keep-inert rule for pure-UI files (the `// RK: inert` tombstones `MangaCoverDialog`, `TrackInfoDialog`, `GlobalSearchCardRow` were deleted and manifested). Two things still stay live, never deleted: an **engine** file (a ViewModel, repository, source manager) is minimally patched on the render path (e.g. `DownloadQueueViewModel`, awaiting Road B); and a **partially collapsed** file keeps its live remainder in place, marked `// RK` with what moved out, so it is not manifested until nothing live remains (as `MangaInfoHeader` was once its last live piece, the expandable description, became `ExpandableEntryDescription`).
 - **Review for it:** the manifest is the enforcement, but a *new* reroute that skips it is invisible. Whenever a sync or a feature reroutes a Mihon file to a `reikai.*` twin, add it to the manifest (or the next sync silently misses upstream's change to it). Periodically audit for un-manifested reroutes with `git log -M20% --find-copies-harder --name-status` over the whole source tree: `git` records a move as a rename only above its 50 percent similarity default, so a heavily rewritten twin reads as an unrelated delete plus add, and a pathspec limited to `eu/` cannot pair a rename landing in `reikai/` at all.
 
+  A cheaper audit answers the same question without relying on rename detection: list every file in the
+  `refs/mihon` tree, subtract the ones that exist here, and subtract the manifest. Anything left is a reroute
+  nobody declared. **Audited that way 2026-08-14 and it came back empty:** of Mihon's Kotlin and SQLDelight
+  files at `77e88a215`, every one either exists in this tree or has a manifest row, and the only upstream
+  resources missing are Mihon's own launcher icon, logo and splash, which Reikai replaces by identity. The
+  same audit over the 456 files upstream changed since `b3e190c62` found 64 absent here, all explained: a
+  manifest row, a file upstream deleted too, a rename from the ViewModel migration, the `source-api` /
+  `source-local` move out of `commonMain`, or the `az` locale Reikai does not ship. Nothing upstream-live was
+  quietly dropped, and no sync commit justifies a skip on the grounds that Reikai no longer has the file.
+
+- **Reconciliation is a separate question from the manifest, and it needs its own pass.** The manifest proves
+  a change was *reported*; only reading the twin proves it was *carried*. Ten manifested paths have been
+  changed upstream since the deletion that manifested them, and all ten were re-verified on 2026-08-14 by
+  comparing the upstream hunks against the twin: the four `java.time` conversions (`EntryDetailsColumn`,
+  `EntryActionRow`'s `daysUntil`, `LibraryQueryMatch`, and all nine date lines in `EntryTrackInfoDialog`),
+  the three `collectAsStateWithLifecycle` moves (`EntryMigrationFavoritesScreen`, `ReikaiMigrateSourceTab`,
+  `ReikaiSourcesTab`, the last two carrying it for the novel model too), `updateAllOrders` in both
+  `CategoryActions` and `DeleteCategoryCleanup`, and the cover dialog's dropped issue-tracker comment.
+  **When following a row, note that Replacement names the twin that renders the surface, not necessarily the
+  file a given hunk lands in**: `MangaScreen`'s row points at `EntryDetailsContent` while its import change
+  lives in `EntryDetailsColumn`, and `MangaInfoHeader`'s points at `EntryInfoBox` while its day math lives in
+  `EntryActionRow`. Search the twin's package, not just the named file.
+
 ## Recurring gotchas
 
 - **The EXH-override tax:** changing a Reikai-`open`ed `source-api` method breaks Reikai's two EXH overrides (`exh/source/DelegatedHttpSource.kt`, `EnhancedHttpSource.kt`, absent from Mihon). Re-type both overrides too.
