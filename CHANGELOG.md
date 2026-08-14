@@ -58,6 +58,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel's update notification now names the chapters it found and offers Mark as read and Download.** It only ever said how many there were, and gave you nothing to do about them.
 - **Updating your novel library now shows how far along it is, as a percentage.** Manga already did.
 
+**Reader**
+
+- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transition animations and a display cutout mode with it.
+
 **App**
 
 - **Reikai can now send crash reports so bugs get found and fixed faster, and both they and anonymous usage data are opt-out under Settings -> Security and privacy.** Onboarding offers the same choice on a fresh install.
@@ -291,6 +295,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - The Recents tab, the source and extension lists, the category, migration, cover and upcoming screens now stop querying a few seconds after you leave them, for both content types, instead of running for as long as the app does (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3729).
+- Dependency updates: appcompat, paging, webkit and the baseline-profile plugin (synced from Mihon).
 
 ## [0.3.1]
 
