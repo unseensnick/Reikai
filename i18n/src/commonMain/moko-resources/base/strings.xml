@@ -292,6 +292,7 @@
     <string name="recents_row_chapter">Ch. %1$s</string>
     <string name="recents_row_updated">Updated %1$s</string>
     <string name="recents_row_read">Read %1$s</string>
+    <string name="recents_row_last_read">Last read %1$s</string>
     <string name="recents_mode_grouped">Grouped</string>
     <string name="recents_mode_feed">Feed</string>
     <string name="pref_combined_recents_tab">Combine Updates and History</string>

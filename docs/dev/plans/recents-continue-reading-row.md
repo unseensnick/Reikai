@@ -246,9 +246,13 @@ emulator's sources do not download), and delete-downloads on a resolved row.
   engine's rendered transform, over every item, synchronously, before any row has drawn. Reading
   targets there is bulk resolution by another name. So a combined-mode read row can be named by its
   target and filtered by its record.
-- **The row keeps the record's timestamp.** It says when you last read this series, and it orders the
-  feed. A row can therefore read "Ch. 3, read 11:54 PM" for a chapter you have not opened; if that
-  lands badly on device, changing the verb is a separate decision.
+- **The row keeps the record's timestamp, and the verb weakens to match** (owner, 2026-08-14). The
+  timestamp says when you last read the series and it orders the feed, so it stays whatever the row
+  names. What changed is the claim it makes: a row that has resolved past its record onto a chapter
+  you have never opened reads "Last read 11:54 PM" rather than "Read 11:54 PM". Dropping the line
+  instead was rejected, since it would leave those rows shorter than their neighbours, which is the
+  raggedness the shared row shape exists to remove. Compared by chapter id, because a merged row's
+  target ref names the sibling that owns the chapter rather than the row's own entry.
 - **Mark-as-unread stays offered, and that is correct.** A target can be a chapter you started and
   left, so it has progress, and resetting that progress is a real thing to want.
 - **History is not touched.** Its rows name, dim and act on the record. The two tabs name different

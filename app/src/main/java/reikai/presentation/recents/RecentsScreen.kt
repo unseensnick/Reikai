@@ -481,7 +481,11 @@ private fun RecentsMixedLaneRow(
         cover = ui.cover,
         title = ui.title,
         chapterLine = mixedLaneChapter(target?.chapter ?: ui.chapter),
-        timeLine = mixedLaneTime(item),
+        // A resolved row names a chapter you have never opened, so the record's time cannot claim you
+        // read that one. The timestamp still says when you last read the series, which is also what
+        // orders the feed, so the verb moves off the chapter rather than the line going away. Compared
+        // by chapter id: a merged row's target ref names the sibling that owns it, not this row's entry.
+        timeLine = mixedLaneTime(item, movedOn = target != null && target.ref.chapterId != ref?.chapterId),
         progressLine = readProgressLabel(state?.progress),
         // A newly added row has no chapter, so nothing about it is read.
         read = state?.read == true,
@@ -597,12 +601,15 @@ private fun mixedLaneChapter(chapter: RecentsChapterUi?): String? = when (chapte
  * When the activity happened, carrying the verb its lane implies. Feed mixes the three lanes into one
  * list, so a bare timestamp there cannot say whether a row is something you read or something that
  * arrived; the section headers answer that in Grouped, and nothing does in Feed.
+ *
+ * [movedOn] weakens the read verb to "Last read", for a row that has resolved past its record onto a
+ * chapter you have never opened: the time is then about the series rather than the chapter named.
  */
 @Composable
-private fun mixedLaneTime(item: RecentsItem): String {
+private fun mixedLaneTime(item: RecentsItem, movedOn: Boolean = false): String {
     val time = remember(item.timestamp) { Date(item.timestamp).toTimestampString() }
     val res = when (item.lane) {
-        is RecentsLane.Read -> MR.strings.recents_row_read
+        is RecentsLane.Read -> if (movedOn) MR.strings.recents_row_last_read else MR.strings.recents_row_read
         is RecentsLane.Updated -> MR.strings.recents_row_updated
         RecentsLane.Added -> MR.strings.recents_row_added
     }
