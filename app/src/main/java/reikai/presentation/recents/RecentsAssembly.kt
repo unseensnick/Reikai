@@ -6,10 +6,8 @@ import reikai.domain.merge.dedupeByMergeGroup
 /*
  * The two algorithms every recents view is built from: one order, and one collapse. They are separate
  * functions rather than one assembly because the scope of the collapse is a render policy's decision,
- * not the kernel's: the flat modes collapse across all lanes, the digest collapses within each lane so
- * a series can appear under both new chapters and continue reading, and the Updates mode does not
- * collapse at all. Yokai collapses globally before sectioning, which costs its digest a row whenever a
- * series is in two lanes. Record: content-layer-recents-surface.md.
+ * not the kernel's: the flat modes and the digest both collapse across all lanes, so an entry gets one
+ * row, while the Updates mode does not collapse at all. Record: content-layer-recents-surface.md.
  */
 
 /**

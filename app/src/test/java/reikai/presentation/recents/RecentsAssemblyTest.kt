@@ -443,14 +443,38 @@ class RecentsAssemblyTest {
     }
 
     @Test
-    fun `the digest shows a series read and updated today under both sections`() {
+    fun `a series read and updated today takes one digest row, not one per section`() {
         val id = EntryId.Manga(1)
         val items = listOf(
             manga(1, at = day2, lane = read(id, chapterId = 9)),
             manga(1, at = day1, lane = updated(id, chapterId = 1)),
         )
 
-        entries(digestRows(items, emptyMap())).size shouldBe 2
+        entries(digestRows(items, emptyMap())).size shouldBe 1
+    }
+
+    @Test
+    fun `the section a series lands in is the one holding its newest activity`() {
+        val id = EntryId.Manga(1)
+        val items = listOf(
+            manga(1, at = day1, lane = read(id, chapterId = 9)),
+            manga(1, at = day2, lane = updated(id, chapterId = 1)),
+        )
+
+        sections(digestRows(items, emptyMap())) shouldBe listOf(RecentsLaneKind.UPDATED)
+    }
+
+    /** The collapse is per merge group, so two sources of one series cannot each claim a section. */
+    @Test
+    fun `a merged series read on one source and updated on the other takes one digest row`() {
+        val first = EntryId.Manga(1)
+        val second = EntryId.Manga(2)
+        val items = listOf(
+            manga(1, at = day2, lane = read(first, chapterId = 9)),
+            manga(2, at = day1, lane = updated(second, chapterId = 1)),
+        )
+
+        entries(digestRows(items, grouped(first, second))).size shouldBe 1
     }
 
     @Test

@@ -94,8 +94,12 @@ fun flatRecentsRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): L
  * does not have, invisibly. Record: content-layer-recents-surface.md.
  */
 fun digestRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsRow> {
-    val byLane = items.groupBy { it.lane.kind }
-    fun lane(kind: RecentsLaneKind) = collapseByGroup(byLane[kind].orEmpty(), membership)
+    // Collapsed across the three lanes before sectioning, so an entry claims one section rather than
+    // spending a slot in each. Which section is whichever lane holds its newest activity, because the
+    // collapse keeps the first row after ordering, and the caps below are small enough that a series
+    // added, updated and read on one day used to cost three of them to say one thing.
+    val byLane = collapseByGroup(items, membership).groupBy { it.lane.kind }
+    fun lane(kind: RecentsLaneKind) = byLane[kind].orEmpty()
 
     val updated = lane(RecentsLaneKind.UPDATED).take(DIGEST_SECTION_CAP)
     val read = lane(RecentsLaneKind.READ).take((DIGEST_CHAPTER_ROWS_CAP - updated.size).coerceAtLeast(0))
