@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,7 +52,9 @@ fun PreferredSourcesContent(
     onAdd: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(modifier = modifier.fillMaxWidth(), contentPadding = contentPadding) {
+    // fillMaxSize, not fillMaxWidth: a wrap-height list gets centred by the pager page, which reads as
+    // a broken screen when the ranking is short enough to leave a gap above it.
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
         item {
             Text(
                 text = stringResource(MR.strings.pref_preferred_sources_guide),

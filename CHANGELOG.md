@@ -131,6 +131,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library**
 
+- **Settings -> Library -> Preferred sources no longer opens with a large empty gap above the list.** A short ranking was being centred on the screen, which read as a broken page; it now starts under the tabs.
 - **Backing out of the category picker no longer adds a novel anyway.** Nothing is written until you confirm, matching how manga has always behaved.
 - **A series that fails to be added no longer ends up filed under a category it never joined.** If the add cannot complete, nothing is written at all now, on both manga and novels.
 - **The category picker now follows your category sort order everywhere.** Adding from browse, global search, History or a bulk selection listed them in database order while a series' own page sorted them, on both manga and novels.
