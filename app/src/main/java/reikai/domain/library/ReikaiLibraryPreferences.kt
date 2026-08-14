@@ -58,11 +58,12 @@ class ReikaiLibraryPreferences(
 
     // region Update errors
 
-    /** Opt-in: record manga library update failures and expose them in the Update errors screen. */
-    val trackUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_update_errors", false)
+    /** Opt-out: record manga library update failures and expose them in the Update errors screen.
+     *  Off falls back to the dump file a failed-update notification opens instead. */
+    val trackUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_update_errors", true)
 
-    /** Opt-in: record novel library update failures and expose them in the Update errors screen. */
-    val trackNovelUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_novel_update_errors", false)
+    /** Opt-out: the novel half of [trackUpdateErrors], same fallback. */
+    val trackNovelUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_novel_update_errors", true)
 
     // endregion
 

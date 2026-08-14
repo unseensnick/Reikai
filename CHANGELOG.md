@@ -75,6 +75,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Manga and novels now share one library sort, filter set and grouping, so your novel library takes on whatever the manga library was using.** Set any of them under either chip and both follow; per-category sorts are untouched.
 - **Empty categories are now always hidden, and the "Show number of items" setting is obeyed on novels too.** A category with nothing to show never renders a bare header, on any chip.
 - **A category that only applies to one library now says so in the filter picker.** Each row carries "Manga only" or "Novels only" under its name, so picking one while looking at the other library is no longer a silent surprise.
+- **A failed library update now takes you straight to the list of what failed.** Tapping the notification used to open a log file on manga, and the library on novels.
+- **Failed updates are now recorded by default, for manga and light novels alike.** Switch it off under Settings -> Advanced and the notification opens a log file instead, one file covering both libraries rather than one each.
 
 **Merged series**
 

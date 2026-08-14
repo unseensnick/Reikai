@@ -13,6 +13,9 @@ object Constants {
     const val NOVEL_SOURCE_EXTRA = "novel_source"
     const val NOVEL_URL_EXTRA = "novel_url"
 
+    // RK: which content type an Update errors deep link opens on (a ContentType name)
+    const val CONTENT_TYPE_EXTRA = "content_type"
+
     const val MAIN_ACTIVITY = "eu.kanade.tachiyomi.ui.main.MainActivity"
 
     // Shortcut actions
@@ -25,4 +28,5 @@ object Constants {
     const val SHORTCUT_SOURCES = "eu.kanade.tachiyomi.SHOW_CATALOGUES"
     const val SHORTCUT_EXTENSIONS = "eu.kanade.tachiyomi.EXTENSIONS"
     const val SHORTCUT_DOWNLOADS = "eu.kanade.tachiyomi.SHOW_DOWNLOADS"
+    const val SHORTCUT_UPDATE_ERRORS = "eu.kanade.tachiyomi.SHOW_UPDATE_ERRORS" // RK
 }

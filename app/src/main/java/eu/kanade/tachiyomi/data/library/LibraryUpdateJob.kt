@@ -24,7 +24,6 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.source.nHentaiDelegatedSourceIds
 import eu.kanade.tachiyomi.util.storage.getUriCompat
-import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
@@ -43,6 +42,9 @@ import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.updateerror.UpdateErrorEntry
+import reikai.data.updateerror.UpdateErrorLog
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
@@ -73,7 +75,6 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -95,10 +96,12 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get()
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get()
 
-    // RK: opt-in persistence of per-manga update failures (the Update errors screen, R11)
+    // RK: persistence of per-manga update failures (the Update errors screen), plus the dump file
+    //     both content types share when that persistence is off
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
     private val upsertLibraryUpdateError: UpsertLibraryUpdateError = Injekt.get()
     private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get()
+    private val updateErrorLog = UpdateErrorLog(context)
 
     // RK: keeps a merged entry's deduplicated unread count in step with newly fetched chapters
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get()
@@ -352,13 +355,26 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             }
         }
 
+        // RK --> the dump is one file shared with the novel updater, rewritten on every run so an
+        //        entry that has since updated stops appearing in it.
+        val errorFile = updateErrorLog.write(
+            ContentType.MANGA,
+            failedUpdates.map { (manga, message) ->
+                UpdateErrorEntry(
+                    title = manga.title,
+                    sourceName = sourceManager.getOrStub(manga.source).toString(),
+                    message = message ?: context.stringResource(MR.strings.unknown),
+                )
+            },
+        )
         if (failedUpdates.isNotEmpty()) {
-            val errorFile = writeErrorFile(failedUpdates)
             notifier.showUpdateErrorNotification(
                 failedUpdates.size,
                 errorFile.getUriCompat(context),
+                reikaiLibraryPreferences.trackUpdateErrors.get(),
             )
         }
+        // RK <--
     }
 
     private fun downloadChapters(manga: Manga, chapters: List<Chapter>) {
@@ -416,36 +432,6 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         )
     }
 
-    /**
-     * Writes basic file of update errors to cache dir.
-     */
-    private fun writeErrorFile(errors: List<Pair<Manga, String?>>): File {
-        try {
-            if (errors.isNotEmpty()) {
-                val file = context.createFileInCacheDir("reikai_update_errors.txt") // RK: Reikai-branded dump name
-                file.bufferedWriter().use { out ->
-                    out.write(context.stringResource(MR.strings.library_errors_help, ERROR_LOG_HELP_URL) + "\n\n")
-                    // Error file format:
-                    // ! Error
-                    //   # Source
-                    //     - Manga
-                    errors.groupBy({ it.second }, { it.first }).forEach { (error, mangas) ->
-                        out.write("\n! ${error}\n")
-                        mangas.groupBy { it.source }.forEach { (srcId, mangas) ->
-                            val source = sourceManager.getOrStub(srcId)
-                            out.write("  # $source\n")
-                            mangas.forEach {
-                                out.write("    - ${it.title}\n")
-                            }
-                        }
-                    }
-                }
-                return file
-            }
-        } catch (_: Exception) {}
-        return File("")
-    }
-
     companion object {
         private const val TAG = "LibraryUpdate"
         private const val WORK_NAME_AUTO = "LibraryUpdate-auto"
@@ -455,8 +441,6 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         //        it needs is private here.
         fun isRunningFlow(context: Context): Flow<Boolean> = context.workRunningFlow(TAG)
         // RK <--
-
-        private const val ERROR_LOG_HELP_URL = "https://mihon.app/docs/guides/troubleshooting/"
 
         private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60
 

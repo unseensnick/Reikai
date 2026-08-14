@@ -19,6 +19,7 @@ import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -29,7 +30,10 @@ import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
+import reikai.data.updateerror.UpdateErrorEntry
+import reikai.data.updateerror.UpdateErrorLog
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.domain.novel.NovelChapterRepository
@@ -80,6 +84,7 @@ class NovelUpdateJob(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
     private val upsertNovelUpdateError: UpsertNovelUpdateError = Injekt.get()
     private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get()
+    private val updateErrorLog = UpdateErrorLog(context)
 
     // Keeps a merged entry's deduplicated unread count in step with newly fetched chapters
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get()
@@ -138,7 +143,7 @@ class NovelUpdateJob(
         // The chapters ride along rather than being counted here: a notification names them the way
         // the manga updater's does, which it cannot do from a total.
         val updates = mutableListOf<Pair<Novel, List<NovelChapter>>>()
-        val failed = mutableListOf<Novel>()
+        val failed = mutableListOf<UpdateErrorEntry>()
         var newChapterTotal = 0
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
@@ -161,10 +166,10 @@ class NovelUpdateJob(
                 throw e
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
-                failed += novel
+                val message = e.message ?: context.stringResource(MR.strings.unknown)
+                failed += UpdateErrorEntry(novel.title, source.name, message)
                 // Record the failure for the Update errors screen.
                 if (trackErrors) {
-                    val message = e.message ?: context.stringResource(MR.strings.unknown)
                     runCatching { upsertNovelUpdateError.await(novel.id, message) }
                 }
             }
@@ -181,7 +186,12 @@ class NovelUpdateJob(
             reconcileChapterMatchKeys.await()
         }
         notifier.showResults(updates)
-        notifier.showUpdateErrors(failed.size)
+        // The dump is one file shared with the manga updater, rewritten on every run so a novel that
+        // has since updated stops appearing in it.
+        val errorFile = updateErrorLog.write(ContentType.NOVELS, failed)
+        if (failed.isNotEmpty()) {
+            notifier.showUpdateErrors(failed.size, errorFile.getUriCompat(context), trackErrors)
+        }
     }
 
     /** Re-parse the novel, persist metadata edit-lock-safely, sync page 1, and walk any newly-opened

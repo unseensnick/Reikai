@@ -98,6 +98,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.core.migration.Migrator
+import reikai.domain.library.ContentType
+import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelVolumeKeyHost
 import tachiyomi.core.common.Constants
@@ -435,6 +437,16 @@ class MainActivity :
                     navigator.popUntilRoot()
                     navigator.push(NovelScreen(source, url))
                 }
+                null
+            }
+            // RK: open the Update errors screen from a failed-update notification, on the type that
+            //     failed. The extra is untrusted, so an unknown name falls back to showing everything.
+            Constants.SHORTCUT_UPDATE_ERRORS -> {
+                val contentType = intent.getStringExtra(Constants.CONTENT_TYPE_EXTRA)
+                    ?.let { name -> ContentType.entries.firstOrNull { it.name == name } }
+                    ?: ContentType.ALL
+                navigator.popUntilRoot()
+                navigator.push(UpdateErrorsScreen(contentType))
                 null
             }
             Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates

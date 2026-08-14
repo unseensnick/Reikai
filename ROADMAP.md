@@ -25,8 +25,6 @@ Remaining manga/novel parity work, smaller enhancements and polish. The write-on
 - **Skeleton loading on the novel details page** `[S]` - placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a non-library novel. An enhancement, not a parity gap (manga also uses a plain spinner).
 - **Smart update (auto fetch-interval) for novels** `[M]` (open gap) - give novels manga's per-entry update-interval prediction (the details "next update" action-row button plus a Set-interval dialog), so the novel action row matches manga's and Share can move to the overflow. Needs a `fetch_interval` / `next_update` schema migration on novels, the `FetchInterval` algorithm re-typed onto novel chapters, and the novel update job honouring it (algorithm reference: Mihon / tsundoku `FetchInterval`).
 
-- **Deep-link the update-errors screen** `[S]` - `UpdateErrorsScreen` can only be reached from the library toolbar, so a failed-update notification has to drop you at the library instead. Needs a `SHORTCUT_*` action and its `MainActivity` handling; serves both content types, since the manga error notification opens a dumped log file rather than that screen.
-
 Opportunistic polish:
 - Browse: Latest shortcut, hide-in-library, per-row language, genre-tap-search.
 - Novel global search: opening on Pinned-only with nothing pinned shows a bare empty screen. Default novels to All, or say the list is empty because nothing is pinned.

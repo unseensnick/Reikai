@@ -29,6 +29,8 @@ import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.newChaptersDescription
+import reikai.data.updateerror.updateErrorPendingIntent
+import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.pluralStringResource
@@ -150,8 +152,9 @@ class LibraryUpdateNotifier(
      *
      * @param failed Number of entries that failed to update.
      * @param uri Uri for error log file containing all titles that failed.
+     * @param tracked Whether the failures were recorded, which decides where the tap goes (RK).
      */
-    fun showUpdateErrorNotification(failed: Int, uri: Uri) {
+    fun showUpdateErrorNotification(failed: Int, uri: Uri, tracked: Boolean) {
         if (failed == 0) {
             return
         }
@@ -164,7 +167,11 @@ class LibraryUpdateNotifier(
             setContentText(context.stringResource(MR.strings.action_show_errors))
             setSmallIcon(R.drawable.ic_reikai)
 
-            setContentIntent(NotificationReceiver.openErrorLogPendingActivity(context, uri))
+            // RK --> the tap opens the Update errors screen when failures are recorded and the shared
+            //        dump when they are not, through the rule the novel updater answers by too.
+            setAutoCancel(true)
+            setContentIntent(updateErrorPendingIntent(context, ContentType.MANGA, uri, tracked))
+            // RK <--
         }
     }
 

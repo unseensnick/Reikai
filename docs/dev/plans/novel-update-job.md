@@ -47,7 +47,7 @@ A result entry names the chapters it found rather than counting them, through `n
 
 Each result entry also carries Mark as read and Download, dispatched through two `// RK` actions on `NotificationReceiver`. They are keyed by chapter id, unlike the manga twins' chapter urls, because a url is not unique across the sources of a merged novel. There is no View action: the entry's own tap already opens the novel, which is where manga's View goes.
 
-A failed run raises an error entry, which novels previously had no equivalent of. It opens the library rather than `UpdateErrorsScreen`, which has no deep link of its own; giving it one is a roadmap item that would serve manga too.
+A failed run raises an error entry, which novels previously had no equivalent of. Its tap opens `UpdateErrorsScreen` on the Novels chip when novel failures are being recorded, and the shared dump file otherwise, through `updateErrorPendingIntent` (see [library-screen-carry.md](library-screen-carry.md)). The dump is the same file the manga updater writes, with a section per content type, which is why the job now carries each failure's message and source name rather than just the novel.
 
 Every novel notification posts through `Context.notify`, which applies the `POST_NOTIFICATIONS` check that posting straight to `NotificationManager` was bypassing.
 

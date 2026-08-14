@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -15,6 +16,8 @@ import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.newChaptersDescription
+import reikai.data.updateerror.updateErrorPendingIntent
+import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.Constants
@@ -82,14 +85,14 @@ class NovelUpdateNotifier(private val context: Context) {
     }
 
     /** The twin of the manga updater's error notification; novels used to only log a failure. */
-    fun showUpdateErrors(failed: Int) {
+    fun showUpdateErrors(failed: Int, log: Uri, tracked: Boolean) {
         if (failed == 0) return
         context.notify(Notifications.ID_NOVEL_LIBRARY_ERROR, Notifications.CHANNEL_NOVEL_LIBRARY_ERROR) {
             setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
             setContentText(context.stringResource(MR.strings.action_show_errors))
             setSmallIcon(R.drawable.ic_reikai)
             setAutoCancel(true)
-            setContentIntent(openUpdateErrorsPendingIntent())
+            setContentIntent(updateErrorPendingIntent(context, ContentType.NOVELS, log, tracked))
         }
     }
 
@@ -152,12 +155,6 @@ class NovelUpdateNotifier(private val context: Context) {
         context.notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
         perNovel.forEach { (id, notification) -> context.notify(id, notification) }
     }
-
-    /**
-     * Where a failed novel update sends you. The library rather than the errors screen itself, which
-     * has no deep link of its own; its entry point is that screen's own overflow.
-     */
-    private fun openUpdateErrorsPendingIntent(): PendingIntent = openLibraryPendingIntent()
 
     /** Deep-link a per-novel notification into its details via the [Constants.SHORTCUT_NOVEL] action. */
     private fun openNovelPendingIntent(novel: Novel): PendingIntent {
