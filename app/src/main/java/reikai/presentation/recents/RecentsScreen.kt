@@ -60,7 +60,10 @@ import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.lang.toTimestampString
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import mihon.feature.upcoming.UpcomingScreen
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -83,6 +86,7 @@ import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.active
 import java.util.Date
+import kotlin.time.Clock
 
 /**
  * The one recent-activity screen, rendering whichever mode its [engine] is on. Both tabs call it and
@@ -485,7 +489,11 @@ private fun RecentsMixedLaneRow(
         // read that one. The timestamp still says when you last read the series, which is also what
         // orders the feed, so the verb moves off the chapter rather than the line going away. Compared
         // by chapter id: a merged row's target ref names the sibling that owns it, not this row's entry.
-        timeLine = mixedLaneTime(item, movedOn = target != null && target.ref.chapterId != ref?.chapterId),
+        timeLine = mixedLaneTime(
+            item,
+            movedOn = target != null && target.ref.chapterId != ref?.chapterId,
+            datesOlderRows = true,
+        ),
         progressLine = readProgressLabel(state?.progress),
         // A newly added row has no chapter, so nothing about it is read.
         read = state?.read == true,
@@ -602,12 +610,21 @@ private fun mixedLaneChapter(chapter: RecentsChapterUi?): String? = when (chapte
  * list, so a bare timestamp there cannot say whether a row is something you read or something that
  * arrived; the section headers answer that in Grouped, and nothing does in Feed.
  *
- * [movedOn] weakens the read verb to "Last read", for a row that has resolved past its record onto a
- * chapter you have never opened: the time is then about the series rather than the chapter named.
+ * @param movedOn weakens the read verb to "Last read", where the row has resolved past its record
+ *   onto a chapter never opened, so the time is about the series rather than the chapter named.
+ * @param datesOlderRows swaps the clock time for the date once a row is not from today, for the two
+ *   modes that draw no day header to carry it. Record: content-layer-recents-surface.md.
  */
 @Composable
-private fun mixedLaneTime(item: RecentsItem, movedOn: Boolean = false): String {
-    val time = remember(item.timestamp) { Date(item.timestamp).toTimestampString() }
+private fun mixedLaneTime(
+    item: RecentsItem,
+    movedOn: Boolean = false,
+    datesOlderRows: Boolean = false,
+): String {
+    val time = when {
+        datesOlderRows && !item.isFromToday() -> relativeDateText(item.timestamp)
+        else -> remember(item.timestamp) { Date(item.timestamp).toTimestampString() }
+    }
     val res = when (item.lane) {
         is RecentsLane.Read -> if (movedOn) MR.strings.recents_row_last_read else MR.strings.recents_row_read
         is RecentsLane.Updated -> MR.strings.recents_row_updated
@@ -615,6 +632,10 @@ private fun mixedLaneTime(item: RecentsItem, movedOn: Boolean = false): String {
     }
     return stringResource(res, time)
 }
+
+/** Whether the row happened today, in the device's own zone, which is the zone its date header uses. */
+private fun RecentsItem.isFromToday(): Boolean =
+    timestamp.toLocalDate() == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
 private val DISABLED_SWIPE = RecentsSwipeActions(
     start = ChapterSwipeAction.Disabled,

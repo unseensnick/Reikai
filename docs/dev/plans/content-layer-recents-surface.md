@@ -497,6 +497,22 @@ and it reintroduces exactly the raggedness the flat row shape exists to remove.
 This also closes the "tsundoku history progress suffix" line above, which the pre-cutover comparison
 recorded as backlog rather than a loss.
 
+## Grouped and Feed date their older rows (2026-08-14)
+
+The two combined modes draw no day header, by design: History and Updates group under one, and a day
+header in Feed "would make it History again". That left their rows carrying a bare clock time with
+nothing to anchor it, so a row read three weeks ago read exactly like one read this morning.
+
+A row from today still shows the clock time. Older than that, the slot takes the date from
+`relativeDateText`, the same function the day headers use, so it honours both Appearance settings:
+Today / "3 days ago" within a week, the user's date format beyond it or whenever relative timestamps
+are off. History and Updates rows are untouched, since their header already says the day and the clock
+time is the part their row adds, which is upstream's shape.
+
+Deliberately not `relativeTimeSpanString`, which is what the "Library last updated" banner uses: it
+reads neither preference, so a user who set a date format would see it ignored on this one surface.
+Upstream applies `relativeTime` to dates only, and this stays inside that convention.
+
 ## Decisions & tradeoffs
 
 - **All-first rather than a mode-scoped chip.** Chosen by the owner after the library proved it. The alternative, letting the chip decide what gets collected, is what produces the class of defect this surface already has: state that describes one list stored once per content type, with the two copies free to disagree.

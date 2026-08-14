@@ -101,6 +101,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Updates category filter is now one list covering manga and novels, and the category pick you had there is cleared.** The filter is off by default, so most people will see nothing; picking a manga-only category now hides novels, like the library filter already does.
 - **Updates now tells you when a filter is what emptied the feed, with a button straight to it.** It used to say "No recent updates" whether nothing was new or your own filter had hidden everything.
 - **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.
+- **Grouped and Feed rows older than today now name the day instead of showing a bare clock time.** Neither view has a date header, so "Read 4:13 AM" could have been this morning or last month; it follows your Appearance date-format and relative-timestamp settings.
 - **A half-read manga chapter now says how long it is, as "Page: 5/38".** Shows on the recents rows and the chapter list once you have opened that chapter, since that is when the length becomes known; novels already showed a percentage.
 
 **Details**
