@@ -3,7 +3,8 @@ package reikai.domain.manga
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.online.MetadataSource
+import eu.kanade.tachiyomi.source.online.NamespaceSource
+import exh.source.MANGADEX_IDS
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -40,9 +41,26 @@ class AdultContentCheckerTest {
         return AdultContentChecker(extensionManager, sourceManager)
     }
 
+    /** What every built-in gallery source is: namespaced, so each chapter is a standalone work. */
+    private fun namespacedSource(name: String): Source {
+        val source = mockk<NamespaceSource>()
+        every { source.name } returns name
+        return source
+    }
+
     @Test
-    fun `flags a built-in metadata source as adult`() {
-        checker(source = mockk<MetadataSource<*, *>>()).isAdult(manga(1L)) shouldBe true
+    fun `flags a built-in gallery source as adult`() {
+        checker(source = namespacedSource("Some Gallery")).isAdult(manga(1L)) shouldBe true
+    }
+
+    /**
+     * MangaDex is namespaced like every gallery source, so a check that keyed on that alone hid every
+     * MangaDex title behind the generic notification string. It is excluded by source id.
+     */
+    @Test
+    fun `does not flag MangaDex, which is namespaced but not a gallery`() {
+        checker(source = namespacedSource("MangaDex"))
+            .isAdult(manga(MANGADEX_IDS.first(), genre = listOf("Action"))) shouldBe false
     }
 
     @Test

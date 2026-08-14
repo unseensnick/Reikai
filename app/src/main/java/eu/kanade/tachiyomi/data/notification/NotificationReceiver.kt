@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.runBlocking
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.Constants
@@ -51,6 +53,10 @@ class NotificationReceiver : BroadcastReceiver() {
     // RK: the novel downloader's own manager, so its notification actions clear the queue rather than
     // only stopping the worker, which left a cancelled queue to restart on the next app open.
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
+
+    // RK: the novel update notification's mark-read and download actions resolve chapters by id.
+    private val novelChapterRepository: NovelChapterRepository by injectLazy()
+    private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -116,8 +122,43 @@ class NotificationReceiver : BroadcastReceiver() {
                     downloadChapters(urls, mangaId)
                 }
             }
+            // RK --> the same two actions for a novel's update notification. Keyed by chapter id
+            //        rather than url: a novel chapter's id is stable and its url is not unique across
+            //        the sources of a merged novel.
+            ACTION_MARK_NOVEL_AS_READ -> {
+                dismissNovelNotification(context, intent)
+                markNovelChaptersAsRead(intent.getLongArrayExtra(EXTRA_NOVEL_CHAPTER_IDS) ?: return)
+            }
+            ACTION_DOWNLOAD_NOVEL_CHAPTER -> {
+                dismissNovelNotification(context, intent)
+                downloadNovelChapters(intent.getLongArrayExtra(EXTRA_NOVEL_CHAPTER_IDS) ?: return)
+            }
+            // RK <--
         }
     }
+
+    // RK --> novel update-notification actions
+    private fun dismissNovelNotification(context: Context, intent: Intent) {
+        val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
+        if (notificationId > -1) {
+            dismissNotification(context, notificationId, intent.getIntExtra(EXTRA_GROUP_ID, 0))
+        }
+    }
+
+    private fun markNovelChaptersAsRead(chapterIds: LongArray) {
+        launchIO {
+            val chapters = chapterIds.toList().mapNotNull { novelChapterRepository.getById(it) }
+            // Through the interactor, so delete-after-read applies exactly as it does in the reader.
+            setNovelReadStatus.await(read = true, chapters = chapters)
+        }
+    }
+
+    private fun downloadNovelChapters(chapterIds: LongArray) {
+        launchIO {
+            novelDownloadManager.downloadChapters(chapterIds.toList().mapNotNull { novelChapterRepository.getById(it) })
+        }
+    }
+    // RK <--
 
     /**
      * Dismiss the notification
@@ -247,6 +288,11 @@ class NotificationReceiver : BroadcastReceiver() {
 
         // RK: cancel the background novel library update
         private const val ACTION_CANCEL_NOVEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_NOVEL_LIBRARY_UPDATE"
+
+        // RK: the novel twins of the two update-notification actions below
+        private const val ACTION_MARK_NOVEL_AS_READ = "$ID.$NAME.MARK_NOVEL_AS_READ"
+        private const val ACTION_DOWNLOAD_NOVEL_CHAPTER = "$ID.$NAME.ACTION_DOWNLOAD_NOVEL_CHAPTER"
+        private const val EXTRA_NOVEL_CHAPTER_IDS = "$ID.$NAME.EXTRA_NOVEL_CHAPTER_IDS"
 
         private const val ACTION_MARK_AS_READ = "$ID.$NAME.MARK_AS_READ"
         private const val ACTION_OPEN_CHAPTER = "$ID.$NAME.ACTION_OPEN_CHAPTER"
@@ -551,6 +597,56 @@ class NotificationReceiver : BroadcastReceiver() {
             return PendingIntent.getBroadcast(
                 context,
                 0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+        // RK <--
+
+        // RK --> the novel twins of markAsReadPendingBroadcast / downloadChaptersPendingBroadcast.
+        //        The request code is the novel's id, so two novels' actions cannot share one intent.
+        internal fun markNovelAsReadPendingBroadcast(
+            context: Context,
+            novelId: Long,
+            chapterIds: LongArray,
+            groupId: Int,
+        ): PendingIntent = novelChapterPendingBroadcast(
+            context,
+            ACTION_MARK_NOVEL_AS_READ,
+            novelId,
+            chapterIds,
+            groupId,
+        )
+
+        internal fun downloadNovelChaptersPendingBroadcast(
+            context: Context,
+            novelId: Long,
+            chapterIds: LongArray,
+            groupId: Int,
+        ): PendingIntent = novelChapterPendingBroadcast(
+            context,
+            ACTION_DOWNLOAD_NOVEL_CHAPTER,
+            novelId,
+            chapterIds,
+            groupId,
+        )
+
+        private fun novelChapterPendingBroadcast(
+            context: Context,
+            broadcastAction: String,
+            novelId: Long,
+            chapterIds: LongArray,
+            groupId: Int,
+        ): PendingIntent {
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = broadcastAction
+                putExtra(EXTRA_NOVEL_CHAPTER_IDS, chapterIds)
+                putExtra(EXTRA_NOTIFICATION_ID, novelId.hashCode())
+                putExtra(EXTRA_GROUP_ID, groupId)
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                novelId.hashCode(),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )

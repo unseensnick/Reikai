@@ -43,6 +43,8 @@ object Notifications {
     const val CHANNEL_NOVEL_LIBRARY_RESULT = "novel_library_result_channel"
     const val ID_NOVEL_LIBRARY_RESULT = -105
     const val GROUP_NOVEL_NEW_CHAPTERS = "eu.kanade.tachiyomi.NOVEL_NEW_CHAPTERS"
+    const val CHANNEL_NOVEL_LIBRARY_ERROR = "novel_library_errors_channel"
+    const val ID_NOVEL_LIBRARY_ERROR = -106
 
     // RK: E-Hentai favorited-gallery update checker, grouped with the library updater.
     const val CHANNEL_LIBRARY_EHENTAI = "library_ehentai_channel"
@@ -182,6 +184,11 @@ object Notifications {
                 buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_RESULT, IMPORTANCE_DEFAULT) {
                     setName(context.stringResource(MR.strings.channel_new_chapters))
                     setGroup(GROUP_LIBRARY)
+                },
+                buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_ERROR, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_errors))
+                    setGroup(GROUP_LIBRARY)
+                    setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_LIBRARY_EHENTAI, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.channel_progress))

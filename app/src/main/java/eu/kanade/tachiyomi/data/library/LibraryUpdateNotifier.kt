@@ -14,7 +14,6 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.transform.CircleCropTransformation
-import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.Downloader
@@ -28,6 +27,8 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.NOTIF_TITLE_MAX_LEN
+import reikai.data.notification.newChaptersDescription
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.pluralStringResource
@@ -245,7 +246,13 @@ class LibraryUpdateNotifier(
         val icon = if (hideContent) null else getMangaIcon(manga)
         return context.notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {
             setContentTitle(
-                if (hideContent) context.stringResource(MR.strings.notification_new_chapters) else manga.title,
+                // RK: chopped, because a collapsed group draws the title and the chapters on one line
+                //     and a long title pushed the chapters off the end.
+                if (hideContent) {
+                    context.stringResource(MR.strings.notification_new_chapters)
+                } else {
+                    manga.title.chop(NOTIF_TITLE_MAX_LEN)
+                },
             )
 
             val description = if (hideContent) {
@@ -325,66 +332,10 @@ class LibraryUpdateNotifier(
         return drawable?.getBitmapOrNull()
     }
 
-    private fun getNewChaptersDescription(chapters: Array<Chapter>): String {
-        val displayableChapterNumbers = chapters
-            .filter { it.isRecognizedNumber }
-            .sortedBy { it.chapterNumber }
-            .map { formatChapterNumber(it.chapterNumber) }
-            .toSet()
-
-        return when (displayableChapterNumbers.size) {
-            // No sensible chapter numbers to show (i.e. no chapters have parsed chapter number)
-            0 -> {
-                // "1 new chapter" or "5 new chapters"
-                context.pluralStringResource(
-                    MR.plurals.notification_chapters_generic,
-                    chapters.size,
-                    chapters.size,
-                )
-            }
-            // Only 1 chapter has a parsed chapter number
-            1 -> {
-                val remaining = chapters.size - displayableChapterNumbers.size
-                if (remaining == 0) {
-                    // "Chapter 2.5"
-                    context.stringResource(
-                        MR.strings.notification_chapters_single,
-                        displayableChapterNumbers.first(),
-                    )
-                } else {
-                    // "Chapter 2.5 and 10 more"
-                    context.stringResource(
-                        MR.strings.notification_chapters_single_and_more,
-                        displayableChapterNumbers.first(),
-                        remaining,
-                    )
-                }
-            }
-            // Everything else (i.e. multiple parsed chapter numbers)
-            else -> {
-                val shouldTruncate = displayableChapterNumbers.size > NOTIF_MAX_CHAPTERS
-                if (shouldTruncate) {
-                    // "Chapters 1, 2.5, 3, 4, 5 and 10 more"
-                    val remaining = displayableChapterNumbers.size - NOTIF_MAX_CHAPTERS
-                    val joinedChapterNumbers = displayableChapterNumbers
-                        .take(NOTIF_MAX_CHAPTERS)
-                        .joinToString(", ")
-                    context.pluralStringResource(
-                        MR.plurals.notification_chapters_multiple_and_more,
-                        remaining,
-                        joinedChapterNumbers,
-                        remaining,
-                    )
-                } else {
-                    // "Chapters 1, 2.5, 3"
-                    context.stringResource(
-                        MR.strings.notification_chapters_multiple,
-                        displayableChapterNumbers.joinToString(", "),
-                    )
-                }
-            }
-        }
-    }
+    // RK: the rule itself moved to reikai.data.notification, so the novel updater answers the same
+    //     way instead of only ever reporting a count.
+    private fun getNewChaptersDescription(chapters: Array<Chapter>): String =
+        context.newChaptersDescription(chapters.map { it.chapterNumber }, chapters.size)
 
     /**
      * Returns an intent to open the main activity.
@@ -408,7 +359,5 @@ class LibraryUpdateNotifier(
     }
 }
 
-private const val NOTIF_MAX_CHAPTERS = 5
-private const val NOTIF_TITLE_MAX_LEN = 45
 private const val NOTIF_ICON_SIZE = 192
 private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60

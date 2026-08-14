@@ -135,16 +135,20 @@ class NovelUpdateJob(
         if (favorites.isEmpty()) return
 
         val downloadNew = preferences.downloadNewChapters().get()
-        val updates = mutableListOf<Pair<Novel, Int>>()
+        // The chapters ride along rather than being counted here: a notification names them the way
+        // the manga updater's does, which it cannot do from a total.
+        val updates = mutableListOf<Pair<Novel, List<NovelChapter>>>()
+        val failed = mutableListOf<Novel>()
         var newChapterTotal = 0
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
+            // [index] is how many are already done, which is what the bar reports while this one runs.
             notifier.showProgress(novel.title, index, favorites.size)
             val source = sourceManager.get(novel.source) ?: return@forEachIndexed
             try {
                 val newChapters = checkNovel(novel, source)
                 if (newChapters.isNotEmpty()) {
-                    updates.add(novel to newChapters.size)
+                    updates.add(novel to newChapters)
                     newChapterTotal += newChapters.size
                     if (downloadNew) {
                         val toDownload = filterChaptersForDownload(novel, newChapters)
@@ -157,12 +161,16 @@ class NovelUpdateJob(
                 throw e
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
+                failed += novel
                 // Record the failure for the Update errors screen.
                 if (trackErrors) {
                     val message = e.message ?: context.stringResource(MR.strings.unknown)
                     runCatching { upsertNovelUpdateError.await(novel.id, message) }
                 }
             }
+            // Again once the entry is done, so the bar actually reaches its end; the manga job posts
+            // the same pair around each entry.
+            notifier.showProgress(novel.title, index + 1, favorites.size)
         }
         // Feed the shared Updates-icon badge (manga + novel share one total; reset on Updates open).
         if (newChapterTotal > 0) {
@@ -173,6 +181,7 @@ class NovelUpdateJob(
             reconcileChapterMatchKeys.await()
         }
         notifier.showResults(updates)
+        notifier.showUpdateErrors(failed.size)
     }
 
     /** Re-parse the novel, persist metadata edit-lock-safely, sync page 1, and walk any newly-opened

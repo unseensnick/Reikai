@@ -55,6 +55,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adding a duplicate novel now gives you a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
 - **Settings -> Advanced can now repair novels that are showing another novel's title or cover.** It finds the affected entries and re-fetches them from their own source.
 - **Clear database now also removes novels that aren't in your library.** Novel sources get their own rows on the screen, and the keep-read toggle protects novels with reading progress, like manga.
+- **A novel's update notification now names the chapters it found and offers Mark as read and Download.** It only ever said how many there were, and gave you nothing to do about them.
+- **Updating your novel library now shows how far along it is, as a percentage.** Manga already did.
 
 **App**
 
@@ -264,6 +266,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A date older than about a month now says how old it really is (synced from Mihon, mihonapp/mihon#3696).** Something read 40 days ago was described as 10 days old, wherever a date is shown relatively.
 - **Statistics now counts a merged series once instead of once per source.** The title, completed, started and tracked figures all read higher than the library they describe.
 - **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.
+- **Update notifications no longer hide the title of every series from a source that carries extra metadata.** "Hide adult content in notifications" was treating those as adult, so their notifications arrived blank.
+- **A long series title no longer pushes the chapter numbers out of its update notification.**
 
 ### Other
 
