@@ -246,7 +246,8 @@ emulator's sources do not download), and delete-downloads on a resolved row.
   engine's rendered transform, over every item, synchronously, before any row has drawn. Reading
   targets there is bulk resolution by another name. So a combined-mode read row can be named by its
   target and filtered by its record.
-- **The row keeps the record's timestamp, and the verb weakens to match** (owner, 2026-08-14). The
+- **The row keeps the record's timestamp, and the verb weakens to match** (owner, 2026-08-14,
+  `1ff288356`). The
   timestamp says when you last read the series and it orders the feed, so it stays whatever the row
   names. What changed is the claim it makes: a row that has resolved past its record onto a chapter
   you have never opened reads "Last read 11:54 PM" rather than "Read 11:54 PM". Dropping the line
@@ -261,7 +262,7 @@ emulator's sources do not download), and delete-downloads on a resolved row.
 - **The caught-up filter is unchanged.** It asks once per emission whether an entry has any unread
   chapter. The reversed target rule is what made that promise keepable, and nothing here weakens it.
 
-## The progress line names the chapter's length
+## The progress line names the chapter's length (`48f3fe85a`)
 
 A manga progress line reads `Page: 5/38` where it read `Page: 5`, on the recents rows and on the details
 chapter list. Novels are unchanged: their reader stores a scroll percentage, so a novel row already

@@ -473,7 +473,7 @@ the four selection verbs now take the chapters to act on rather than reading the
 the engine, because the mapping suspends and a verb resolving internally would have to clear the
 selection out from under its own dispatch.
 
-## History draws the combined row (2026-08-14)
+## History draws the combined row (2026-08-14, `48f3fe85a`)
 
 A History row and a Grouped read row are about the same thing, and they used to look nothing alike.
 History drew its own leaf, `EntryHistoryRow`, which carried only cover, title, chapter number and read
@@ -497,7 +497,7 @@ and it reintroduces exactly the raggedness the flat row shape exists to remove.
 This also closes the "tsundoku history progress suffix" line above, which the pre-cutover comparison
 recorded as backlog rather than a loss.
 
-## Grouped and Feed date their older rows (2026-08-14)
+## Grouped and Feed date their older rows (2026-08-14, `719eb5b1b`)
 
 The two combined modes draw no day header, by design: History and Updates group under one, and a day
 header in Feed "would make it History again". That left their rows carrying a bare clock time with
