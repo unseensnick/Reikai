@@ -123,30 +123,64 @@ class NovelRecentsAdapter private constructor(
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
 
-    /** Merge-aware on all three lanes, the twin of [MangaRecentsAdapter.targetChapter]. */
-    override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
+    override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
+        resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }
+
+    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
+        val resolved = resolveTarget(item) ?: return null
+        val chapter = resolved.chapters[resolved.chapterId] ?: return null
+        // Not necessarily this row's novel: a merged row resolves across the group, and the download
+        // lookup is keyed by the owner's stored title and source.
+        val owner = novelRepository.getById(chapter.novelId) ?: return null
+        return RecentsTargetRow(
+            ref = ChapterRef(EntryId.Novel(owner.id), chapter.id),
+            chapter = RecentsChapterUi.Number(chapter.chapterNumber),
+            state = chapterState(
+                read = chapter.read,
+                bookmark = chapter.bookmark,
+                progress = RecentsProgress.Percent(chapter.lastTextProgress),
+            ),
+            download = chapterDownloadUi(
+                chapterId = chapter.id,
+                source = owner.source,
+                storedTitle = owner.title,
+                chapterName = chapter.name,
+                chapterUrl = chapter.url,
+            ),
+        )
+    }
+
+    /** The twin of the manga adapter's, holding this type's chapters. */
+    private class TargetResolution(val chapterId: Long, val chapters: Map<Long, NovelChapter>)
+
+    /** Merge-aware on all three lanes, the twin of [MangaRecentsAdapter]'s. */
+    private suspend fun resolveTarget(item: RecentsItem): TargetResolution? {
         val novelId = item.entryId.rawId
         // Already ascending reading order, which is the contract every rule below reads under.
         val group = getNextNovelChapter.groupChapters(novelId)
-        val groupChapters = group.chapters.map { it.toRecentsChapter(group.readInOtherSources) }
+        // Every chapter a rule below could name, so the id it returns can be projected back into a
+        // row: the stitch drops the copies another source stands in for, so the two lists differ.
+        val chapters = group.chapters.associateByTo(mutableMapOf()) { it.id }
+        suspend fun ownSource(): List<NovelChapter> =
+            chapterRepository.getByNovelId(novelId).onEach { chapters[it.id] = it }
+
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeTarget(groupChapters, lane.chapter.chapterId) {
-                chapterRepository.getByNovelId(novelId)
-                    .map { it.toRecentsChapter(group.readInOtherSources) }
-            }
+            is RecentsLane.Read -> resumeTarget(
+                group.chapters.map { it.toRecentsChapter(group.readInOtherSources) },
+                lane.chapter.chapterId,
+            ) { ownSource().map { it.toRecentsChapter(group.readInOtherSources) } }
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // Source order is this type's reading order, which is what getByNovelId returns. The
                 // burst stays within one source; only the read-elsewhere carry-over crosses the group.
-                chapters = chapterRepository.getByNovelId(novelId)
-                    .map { it.toRecentsChapter(group.readInOtherSources) },
+                chapters = ownSource().map { it.toRecentsChapter(group.readInOtherSources) },
                 rowChapterId = lane.chapter.chapterId,
             )
             // Same fallback as the manga twin: the cross-source stitch can drop this novel's own
             // chapters, and without it a merged row on this lane resolves nothing and the tap dies.
-            RecentsLane.Added -> firstUnreadOf(groupChapters)
-                ?: getNextNovelChapter.awaitFirstUnread(novelId)?.id
-        }
-        return chapterId?.let { ChapterRef(item.entryId, it) }
+            RecentsLane.Added -> firstUnreadOf(group.chapters.map { it.toRecentsChapter(group.readInOtherSources) })
+                ?: getNextNovelChapter.awaitFirstUnread(novelId)?.also { chapters[it.id] = it }?.id
+        } ?: return null
+        return TargetResolution(chapterId, chapters)
     }
 
     private fun NovelChapter.toRecentsChapter(readInOtherSources: Set<Long>) = RecentsChapter(
@@ -260,17 +294,36 @@ class NovelRecentsAdapter private constructor(
         else -> novelDownloadUi(item)
     }
 
-    /** Twin of the manga adapter's: the queue first, then the on-disk index, resolved on call. */
-    private fun historyDownloadUi(payload: NovelHistoryWithRelations) = RecentsDownloadUi(
+    private fun historyDownloadUi(payload: NovelHistoryWithRelations) = chapterDownloadUi(
+        chapterId = payload.chapterId,
+        source = payload.source,
+        // The stored title, never the displayed one: a download folder is named from the former and
+        // the history row carries the user's custom title in the latter.
+        storedTitle = payload.storedTitle,
+        chapterName = payload.chapterName,
+        chapterUrl = payload.chapterUrl,
+    )
+
+    /**
+     * Twin of the manga adapter's: the queue first, then the on-disk index, resolved on call. One
+     * definition for this type, whichever chapter is asking.
+     */
+    private fun chapterDownloadUi(
+        chapterId: Long,
+        source: String,
+        storedTitle: String,
+        chapterName: String,
+        chapterUrl: String,
+    ) = RecentsDownloadUi(
         state = {
-            val queued = novelDownloadManager.queueState.value.find { it.chapterId == payload.chapterId }
+            val queued = novelDownloadManager.queueState.value.find { it.chapterId == chapterId }
             when {
                 queued != null -> queued.state.toDownloadState()
                 novelDownloadCache.isChapterDownloaded(
-                    payload.source,
-                    payload.storedTitle,
-                    payload.chapterName,
-                    payload.chapterUrl,
+                    source,
+                    storedTitle,
+                    chapterName,
+                    chapterUrl,
                 ) -> Download.State.DOWNLOADED
                 else -> Download.State.NOT_DOWNLOADED
             }

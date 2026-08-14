@@ -46,6 +46,19 @@ sealed interface RecentsDownloadProgress {
 }
 
 /**
+ * Everything a continue-reading row draws once its target is known: the chapter a tap will open,
+ * rather than the one the history record was written from. All four fields describe that chapter, so
+ * the row cannot name one while its dimming, its bookmark or its download control describe another,
+ * which is what a half-move produced the first time. Not immutable, for [RecentsDownloadUi]'s reason.
+ */
+data class RecentsTargetRow(
+    val ref: ChapterRef,
+    val chapter: RecentsChapterUi,
+    val state: RecentsChapterState,
+    val download: RecentsDownloadUi,
+)
+
+/**
  * How a row labels its chapter, which is a display choice the lane makes: History names the chapter
  * by number and the time it was read, an update by the chapter's own name. Labelling only. What a
  * row's verbs act on is [RecentsChapterState], because both lanes name a real chapter.

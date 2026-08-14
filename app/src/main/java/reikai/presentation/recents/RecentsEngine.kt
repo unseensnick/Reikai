@@ -109,6 +109,9 @@ class RecentsEngine(
         require(mode in modes) { "$surface does not render $mode" }
         if (mutableMode.value == mode) return
         clearSelection()
+        // Only the combined modes name a target, so a memo carried into History would let a row there
+        // act on a chapter it does not name.
+        mutableTargets.value = emptyMap()
         mutableMode.value = mode
         sourcePreferences.recentsMode.set(mode)
     }
@@ -149,7 +152,11 @@ class RecentsEngine(
     val assembled: StateFlow<RecentsAssembled?> by lazy {
         combine(
             contentType,
-            combine(providers.map(::collectedLanes)) { it.toList() },
+            // The memo is emptied here rather than on the assembly, which folds the search query in as
+            // well: a keystroke must not throw away resolutions, while a chapter write must, because
+            // it re-runs the lane queries and the target it resolved to may now be read.
+            combine(providers.map(::collectedLanes)) { it.toList() }
+                .onEach { mutableTargets.value = emptyMap() },
             // Every provider's, not just the active ones': the keys are EntryIds and group ids are
             // unique across both content types, so one map serves whatever the chip ends up showing.
             combine(providers.map { it.membership }) { maps -> maps.fold(emptyMap<EntryId, Long>()) { a, b -> a + b } },
@@ -190,6 +197,7 @@ class RecentsEngine(
                 RecentsRendered(
                     rows = renderRows(mode, it, grouped, expanded) { item -> showsRow(item, gate, mode) },
                     loading = it.loading,
+                    membership = it.membership,
                 )
             }
         }
@@ -394,14 +402,18 @@ class RecentsEngine(
     }
 
     // The verbs. Each is handed to every provider in view, which narrows it to its own rows, so one
-    // call covers a selection spanning both content types.
+    // call covers a selection spanning both content types. Each takes the chapters to act on rather
+    // than reading the selection, because a continue-reading row acts on the chapter it names and only
+    // a suspend pass can resolve that; see [actingChapters], which is where the mapping happens.
 
-    fun markReadSelection(read: Boolean) = dispatchAndClear { it.markRead(selection.value, read) }
+    fun markReadSelection(chapters: Set<ChapterRef>, read: Boolean) =
+        dispatchAndClear { it.markRead(chapters, read) }
 
-    fun setBookmarkSelection(bookmarked: Boolean) =
-        dispatchAndClear { it.setBookmark(selection.value, bookmarked) }
+    fun setBookmarkSelection(chapters: Set<ChapterRef>, bookmarked: Boolean) =
+        dispatchAndClear { it.setBookmark(chapters, bookmarked) }
 
-    fun downloadSelection() = dispatchAndClear { it.download(selection.value, ChapterDownloadAction.START) }
+    fun downloadSelection(chapters: Set<ChapterRef>) =
+        dispatchAndClear { it.download(chapters, ChapterDownloadAction.START) }
 
     /**
      * One row's own download control, which does not touch the selection: it is not a bulk action and
@@ -541,6 +553,50 @@ class RecentsEngine(
     fun downloadUi(item: RecentsItem): RecentsDownloadUi? =
         providersByType[item.entryId.contentType]?.downloadUi(item)
 
+    // The resolved continue-reading rows, keyed by the chapter each row was recorded from. That key is
+    // unique among the rows using this memo: only read-lane rows resolve, and every mode that draws
+    // one collapses its read lane to a row per entry before anything is drawn.
+
+    private val mutableTargets = MutableStateFlow<Map<ChapterRef, RecentsTargetRow>>(emptyMap())
+    val targets: StateFlow<Map<ChapterRef, RecentsTargetRow>> = mutableTargets.asStateFlow()
+
+    /**
+     * Whether [item] can name a chapter other than the one it was recorded from, which is the only
+     * reason to pay a resolution: both providers load the entry's whole chapter list before any rule
+     * runs, one list per member for a merged entry. A record that reads as unread resumes itself,
+     * unless the entry is merged, where a chapter another source of the group has read counts as read
+     * to the rule and not to this row's own flag. An unmerged entry cannot be in that state.
+     */
+    fun resolvesTarget(item: RecentsItem, mode: RecentsMode, membership: Map<EntryId, Long>): Boolean =
+        mode.isCombined &&
+            item.lane is RecentsLane.Read &&
+            (rowUi(item).state?.read == true || item.entryId in membership)
+
+    /** The resolved row for [item], from the memo where it is warm and by resolving where it is not. */
+    suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
+        val recorded = item.lane.chapterRef ?: return null
+        mutableTargets.value[recorded]?.let { return it }
+        val resolved = providersByType[item.entryId.contentType]?.targetRow(item) ?: return null
+        mutableTargets.update { it + (recorded to resolved) }
+        return resolved
+    }
+
+    /**
+     * The chapters the bulk verbs act on: a continue-reading row answers for the chapter it names,
+     * which in the combined modes is its target, and every other row for its own. Resolved in one
+     * place so the four verbs cannot disagree about what a row is, and taken off the drawn [items]
+     * rather than the selection, which holds refs and not rows.
+     */
+    suspend fun actingChapters(
+        items: List<RecentsItem>,
+        mode: RecentsMode,
+        membership: Map<EntryId, Long>,
+    ): Set<ChapterRef> = items.mapNotNullTo(mutableSetOf()) { item ->
+        val recorded = item.lane.chapterRef ?: return@mapNotNullTo null
+        if (!resolvesTarget(item, mode, membership)) return@mapNotNullTo recorded
+        targetRow(item)?.ref ?: recorded
+    }
+
     /**
      * Whether [item] survives [filters]. Only the read lane is judged: the updated lane is filtered by
      * the query behind it, and the newly added lane names no chapter, so filtering it by chapter state
@@ -642,4 +698,7 @@ data class RecentsAssembled(
 data class RecentsRendered(
     val rows: List<RecentsRow>,
     val loading: Boolean,
+    /** Rides along for the same reason [loading] does: the gate deciding which rows resolve a target
+     *  has to ask about the emission it is drawing, not whichever one the assembly is on now. */
+    val membership: Map<EntryId, Long> = emptyMap(),
 )

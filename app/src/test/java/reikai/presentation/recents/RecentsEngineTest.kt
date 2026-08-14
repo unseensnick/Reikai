@@ -11,6 +11,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -492,7 +493,7 @@ class RecentsEngineTest {
         val chapter = ref(manga1, 1)
 
         engine.toggleSelection(chapter)
-        engine.markReadSelection(read = true)
+        engine.markReadSelection(setOf(chapter), read = true)
 
         manga.markedRead shouldBe setOf(chapter)
         novel.markedRead shouldBe setOf(chapter)
@@ -507,7 +508,7 @@ class RecentsEngineTest {
         val chapter = ref(manga1, 1)
 
         engine.toggleSelection(chapter)
-        engine.markReadSelection(read = true)
+        engine.markReadSelection(setOf(chapter), read = true)
 
         acting.markedRead shouldBe setOf(chapter)
         inert.markedRead shouldBe null
@@ -972,6 +973,223 @@ class RecentsEngineTest {
 
         (manga.filedCategories to novel.filedCategories) shouldBe (null to (novel1 to listOf(3L)))
     }
+
+    // The continue-reading row: which rows pay for a target, and what the verbs then act on.
+
+    private fun readRow(entry: EntryId, chapterId: Long, at: Long = 100) =
+        item(entry, at = at, lane = RecentsLane.Read(ChapterRef(entry, chapterId)))
+
+    /** Feed, so the read lane renders and the row is combined-mode; the fake's rows carry the states. */
+    private fun feedEngine(provider: RecentsProvider) =
+        engine(listOf(provider), chip = ContentType.MANGA, modes = setOf(RecentsMode.FEED))
+
+    @Test
+    fun `a read record still unread resolves nothing, since it resumes itself`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = feedEngine(
+            provider(ContentType.MANGA, read = rows(row), states = mapOf(manga1 to readState(read = false))),
+        )
+
+        engine.resolvesTarget(row, RecentsMode.FEED, membership = emptyMap()) shouldBe false
+    }
+
+    @Test
+    fun `a merged entry resolves even where its own record reads as unread`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = feedEngine(
+            provider(ContentType.MANGA, read = rows(row), states = mapOf(manga1 to readState(read = false))),
+        )
+
+        engine.resolvesTarget(row, RecentsMode.FEED, membership = mapOf(manga1 to 7L)) shouldBe true
+    }
+
+    @Test
+    fun `History resolves nothing, because its rows are about the record`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = feedEngine(
+            provider(ContentType.MANGA, read = rows(row), states = mapOf(manga1 to readState(read = true))),
+        )
+
+        engine.resolvesTarget(row, RecentsMode.HISTORY, membership = emptyMap()) shouldBe false
+    }
+
+    @Test
+    fun `an updated row resolves nothing, whatever its state`() = runTest {
+        val row = item(manga1, at = 100, lane = RecentsLane.Updated(ChapterRef(manga1, 5)))
+        val engine = feedEngine(
+            provider(ContentType.MANGA, updated = rows(row), states = mapOf(manga1 to readState(read = true))),
+        )
+
+        engine.resolvesTarget(row, RecentsMode.FEED, membership = emptyMap()) shouldBe false
+    }
+
+    @Test
+    fun `a resolved row is remembered, so a second reader pays nothing`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val target = targetRow(ref(manga1, 2), readState(read = false))
+        val fake = provider(
+            ContentType.MANGA,
+            read = rows(row),
+            states = mapOf(manga1 to readState(read = true)),
+            targetRows = mapOf(ref(manga1, 5) to target),
+        )
+        val engine = feedEngine(fake)
+
+        engine.targetRow(row)
+        engine.targetRow(row)
+
+        engine.targets.value shouldBe mapOf(ref(manga1, 5) to target)
+        fake.targetRowResolutions shouldBe 1
+    }
+
+    /**
+     * The memo hangs off the lane data, which only a live assembly runs. Without a collector the two
+     * tests below pass on a memo nothing ever reached, which is how a clear on the wrong flow would
+     * have gone unnoticed.
+     */
+    private suspend fun TestScope.resolvedFeed(
+        fake: FakeRecentsProvider,
+        row: RecentsItem,
+    ): RecentsEngine {
+        val engine = feedEngine(fake)
+        backgroundScope.launch { engine.rendered.collect { } }
+        // Awaited, not advanced: the first lane emission empties the memo on its own dispatcher, and
+        // resolving before it lands leaves the test asserting against a clear that has yet to happen.
+        engine.assembled.filterNotNull().first()
+        engine.targetRow(row)
+        return engine
+    }
+
+    private fun resolvingProvider(row: RecentsItem, target: RecentsTargetRow) = provider(
+        ContentType.MANGA,
+        read = rows(row),
+        states = mapOf(manga1 to readState(read = true)),
+        targetRows = mapOf(ref(manga1, 5) to target),
+    )
+
+    /**
+     * The assembly runs on its own dispatcher, so virtual time says nothing about whether an emission
+     * has been through it. Awaiting the emission itself is what makes an assertion about the memo land
+     * after the clear rather than racing it.
+     */
+    private suspend fun RecentsEngine.assemblyWhere(predicate: (RecentsAssembled) -> Boolean) {
+        assembled.filterNotNull().first(predicate)
+    }
+
+    @Test
+    fun `a search keystroke leaves the resolved rows alone`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val target = targetRow(ref(manga1, 2), readState(read = false))
+        val engine = resolvedFeed(resolvingProvider(row, target), row)
+
+        engine.search("nothing this row is called")
+        engine.assemblyWhere { it.items.isEmpty() }
+
+        engine.targets.value shouldBe mapOf(ref(manga1, 5) to target)
+    }
+
+    @Test
+    fun `a lane re-emission drops the resolved rows, because the target may now be read`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val fake = resolvingProvider(row, targetRow(ref(manga1, 2), readState(read = false)))
+        val engine = resolvedFeed(fake, row)
+
+        fake.readLaneRows.value = rows(readRow(manga1, chapterId = 5, at = 200))
+        engine.assemblyWhere { assembly -> assembly.items.any { it.timestamp == 200L } }
+
+        engine.targets.value shouldBe emptyMap()
+    }
+
+    @Test
+    fun `switching to History drops the resolved rows`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = engine(
+            listOf(
+                provider(
+                    ContentType.MANGA,
+                    read = rows(row),
+                    states = mapOf(manga1 to readState(read = true)),
+                    targetRows = mapOf(ref(manga1, 5) to targetRow(ref(manga1, 2), readState())),
+                ),
+            ),
+            chip = ContentType.MANGA,
+            modes = setOf(RecentsMode.FEED, RecentsMode.HISTORY),
+        )
+        engine.setMode(RecentsMode.FEED)
+        engine.targetRow(row)
+
+        engine.setMode(RecentsMode.HISTORY)
+
+        engine.targets.value shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a bulk verb acts on the chapter a continue-reading row names`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = feedEngine(
+            provider(
+                ContentType.MANGA,
+                read = rows(row),
+                states = mapOf(manga1 to readState(read = true)),
+                targetRows = mapOf(ref(manga1, 5) to targetRow(ref(manga1, 2), readState())),
+            ),
+        )
+
+        engine.actingChapters(listOf(row), RecentsMode.FEED, membership = emptyMap()) shouldBe
+            setOf(ref(manga1, 2))
+    }
+
+    @Test
+    fun `a selection mixing lanes maps only the rows that name a target`() = runTest {
+        val read = readRow(manga1, chapterId = 5)
+        val updated = item(manga2, at = 50, lane = RecentsLane.Updated(ChapterRef(manga2, 9)))
+        val engine = feedEngine(
+            provider(
+                ContentType.MANGA,
+                read = rows(read),
+                updated = rows(updated),
+                states = mapOf(manga1 to readState(read = true), manga2 to readState(read = true)),
+                targetRows = mapOf(
+                    ref(manga1, 5) to targetRow(ref(manga1, 2), readState()),
+                    ref(manga2, 9) to targetRow(ref(manga2, 3), readState()),
+                ),
+            ),
+        )
+
+        engine.actingChapters(listOf(read, updated), RecentsMode.FEED, membership = emptyMap()) shouldBe
+            setOf(ref(manga1, 2), ref(manga2, 9))
+    }
+
+    @Test
+    fun `a row whose target is its own record acts on that record`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = feedEngine(
+            provider(
+                ContentType.MANGA,
+                read = rows(row),
+                states = mapOf(manga1 to readState(read = true)),
+                targetRows = mapOf(ref(manga1, 5) to targetRow(ref(manga1, 5), readState())),
+            ),
+        )
+
+        engine.actingChapters(listOf(row), RecentsMode.FEED, membership = emptyMap()) shouldBe
+            setOf(ref(manga1, 5))
+    }
+
+    @Test
+    fun `a row with nothing left to open still acts on its own record`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val engine = feedEngine(
+            provider(
+                ContentType.MANGA,
+                read = rows(row),
+                states = mapOf(manga1 to readState(read = true)),
+            ),
+        )
+
+        engine.actingChapters(listOf(row), RecentsMode.FEED, membership = emptyMap()) shouldBe
+            setOf(ref(manga1, 5))
+    }
 }
 
 private fun rows(vararg items: RecentsItem) = RecentsLaneRows(items.toList(), loaded = true)
@@ -993,6 +1211,8 @@ private fun provider(
     states: Map<EntryId, RecentsChapterState> = emptyMap(),
     downloadedEntries: Set<EntryId> = emptySet(),
     unreadEntries: Set<EntryId> = emptySet(),
+    targetRows: Map<ChapterRef, RecentsTargetRow> = emptyMap(),
+    membership: Map<EntryId, Long> = emptyMap(),
 ) = FakeRecentsProvider(
     type,
     read,
@@ -1010,7 +1230,21 @@ private fun provider(
     states,
     downloadedEntries,
     unreadEntries,
+    targetRows,
+    membership,
 )
+
+/** A resolved target row, carrying only what the engine and the bar read off one. */
+internal fun targetRow(ref: ChapterRef, state: RecentsChapterState, downloaded: Boolean = false) =
+    RecentsTargetRow(
+        ref = ref,
+        chapter = RecentsChapterUi.Number(ref.chapterId.toDouble()),
+        state = state,
+        download = RecentsDownloadUi(
+            state = { if (downloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },
+            progress = RecentsDownloadProgress.Unsupported,
+        ),
+    )
 
 /** The chapter-state filters alone, with the show-read rule open so only the filters are judged. */
 private fun gate(filters: RecentsChapterFilters) =
@@ -1034,6 +1268,8 @@ private class FakeRecentsProvider(
     private val states: Map<EntryId, RecentsChapterState>,
     private val downloadedEntries: Set<EntryId>,
     unread: Set<EntryId>,
+    private val targetRows: Map<ChapterRef, RecentsTargetRow>,
+    memberships: Map<EntryId, Long>,
 ) : RecentsProvider {
 
     var historyCleared = false
@@ -1057,12 +1293,15 @@ private class FakeRecentsProvider(
     var updatingSubscriptions = 0
         private set
 
-    override val readLane: Flow<RecentsLaneRows> = flowOf(readRows)
+    /** Mutable, so a test can re-emit the lane the way a chapter write does. */
+    val readLaneRows = MutableStateFlow(readRows)
+
+    override val readLane: Flow<RecentsLaneRows> = readLaneRows
     override val updatedLane: Flow<RecentsLaneRows> = flowOf(updatedRows)
     override val addedLane: Flow<RecentsLaneRows> = flowOf(addedRows)
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
     override val updating: Flow<Boolean> = flowOf(updating).onStart { updatingSubscriptions++ }
-    override val membership: Flow<Map<EntryId, Long>> = flowOf(emptyMap())
+    override val membership: Flow<Map<EntryId, Long>> = flowOf(memberships)
 
     // Named apart from the property on purpose: a same-named constructor parameter reads back as the
     // property here, which is null while the object is still being built.
@@ -1077,6 +1316,15 @@ private class FakeRecentsProvider(
     )
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? = null
+
+    /** How many times the engine paid for a resolution, which is what the memo is meant to bound. */
+    var targetRowResolutions = 0
+        private set
+
+    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
+        targetRowResolutions++
+        return targetRows[item.lane.chapterRef]
+    }
 
     /** What the engine asked this provider to open, which is how a resume test says who answered. */
     var openedItem: RecentsItem? = null

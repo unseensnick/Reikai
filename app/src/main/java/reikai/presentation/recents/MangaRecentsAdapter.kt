@@ -131,34 +131,78 @@ class MangaRecentsAdapter private constructor(
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)
 
+    override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
+        resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }
+
+    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
+        val resolved = resolveTarget(item) ?: return null
+        val chapter = resolved.chapters[resolved.chapterId] ?: return null
+        // Not necessarily this row's manga: a merged row resolves across the group, and the download
+        // lookup is keyed by the owner's stored title and source.
+        val owner = resolved.mangaById[chapter.mangaId] ?: return null
+        return RecentsTargetRow(
+            ref = ChapterRef(EntryId.Manga(owner.id), chapter.id),
+            chapter = RecentsChapterUi.Number(chapter.chapterNumber),
+            state = chapterState(
+                read = chapter.read,
+                bookmark = chapter.bookmark,
+                progress = RecentsProgress.Pages(chapter.lastPageRead),
+            ),
+            download = chapterDownloadUi(
+                chapterId = chapter.id,
+                chapterName = chapter.name,
+                scanlator = chapter.scanlator,
+                chapterUrl = chapter.url,
+                storedTitle = owner.title,
+                sourceId = owner.source,
+            ),
+        )
+    }
+
+    /** The chapter a lane's rule picked, with everything a row needs to be drawn from it. */
+    private class TargetResolution(
+        val chapterId: Long,
+        val chapters: Map<Long, Chapter>,
+        val mangaById: Map<Long, Manga>,
+    )
+
     /**
      * Merge-aware on all three lanes: a collapsed row stands for the whole group, so it must not reopen
-     * what another of its sources already read. The group list is resolved per rendered row, which is
-     * what [targetChapter] is lazy for. An unmerged entry gets its own list back, so this is the plain
-     * path too.
+     * what another of its sources already read. An unmerged entry gets its own list back, so this is
+     * the plain path too. Resolved per rendered row rather than at assembly, which is what keeps a
+     * five-hundred-row feed from paying a chapter query per row on every emission.
      */
-    override suspend fun targetChapter(item: RecentsItem): ChapterRef? {
+    private suspend fun resolveTarget(item: RecentsItem): TargetResolution? {
         val mangaId = item.entryId.rawId
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
         val readElsewhere = group?.readInOtherSources.orEmpty()
-        val groupChapters = readingOrder(manga, group?.chapters).map { it.toRecentsChapter(readElsewhere) }
+        val groupChapters = readingOrder(manga, group?.chapters)
+        // Every chapter a rule below could name, so the id it returns can be projected back into a
+        // row. The own-source list is not a subset of the group's: the cross-source stitch drops the
+        // copies another source stands in for.
+        val chapters = groupChapters.associateByTo(mutableMapOf()) { it.id }
+        suspend fun ownSource(): List<Chapter> =
+            readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
+                .onEach { chapters[it.id] = it }
+
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeTarget(groupChapters, lane.chapter.chapterId) {
-                readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
-                    .map { it.toRecentsChapter(readElsewhere) }
-            }
+            is RecentsLane.Read -> resumeTarget(
+                groupChapters.map { it.toRecentsChapter(readElsewhere) },
+                lane.chapter.chapterId,
+            ) { ownSource().map { it.toRecentsChapter(readElsewhere) } }
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // The burst is one source's: fetch times do not line up across sources, so only the
                 // read-elsewhere carry-over crosses the group here.
-                chapters = readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
-                    .map { it.toRecentsChapter(readElsewhere) },
+                chapters = ownSource().map { it.toRecentsChapter(readElsewhere) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> firstUnreadOf(groupChapters)
-                ?: getNextChapters.await(mangaId, onlyUnread = true).firstOrNull()?.id
-        }
-        return chapterId?.let { ChapterRef(item.entryId, it) }
+            RecentsLane.Added -> firstUnreadOf(groupChapters.map { it.toRecentsChapter(readElsewhere) })
+                ?: getNextChapters.await(mangaId, onlyUnread = true).firstOrNull()
+                    ?.also { chapters[it.id] = it }
+                    ?.id
+        } ?: return null
+        return TargetResolution(chapterId, chapters, group?.mangaById.orEmpty())
     }
 
     /**
@@ -293,23 +337,42 @@ class MangaRecentsAdapter private constructor(
      * row of it on each download tick. The combined modes' download indicator now calls it per drawn
      * row, alongside the selection's download verbs and the downloaded filter while it is on.
      */
-    private fun historyDownloadUi(payload: HistoryWithRelations) = RecentsDownloadUi(
+    private fun historyDownloadUi(payload: HistoryWithRelations) = chapterDownloadUi(
+        chapterId = payload.chapterId,
+        chapterName = payload.chapterName,
+        scanlator = payload.scanlator,
+        chapterUrl = payload.chapterUrl,
+        // The stored title, never the displayed one: a download folder is named from the former and
+        // the history row carries the user's custom title in the latter.
+        storedTitle = payload.storedTitle,
+        sourceId = payload.sourceId,
+    )
+
+    /** One definition of a chapter's download state for this type, whichever chapter is asking. */
+    private fun chapterDownloadUi(
+        chapterId: Long,
+        chapterName: String,
+        scanlator: String?,
+        chapterUrl: String,
+        storedTitle: String,
+        sourceId: Long,
+    ) = RecentsDownloadUi(
         state = {
-            val active = downloadManager.getQueuedDownloadOrNull(payload.chapterId)
+            val active = downloadManager.getQueuedDownloadOrNull(chapterId)
             when {
                 active != null -> active.status
                 downloadManager.isChapterDownloaded(
-                    chapterName = payload.chapterName,
-                    chapterScanlator = payload.scanlator,
-                    chapterUrl = payload.chapterUrl,
-                    mangaTitle = payload.storedTitle,
-                    sourceId = payload.sourceId,
+                    chapterName = chapterName,
+                    chapterScanlator = scanlator,
+                    chapterUrl = chapterUrl,
+                    mangaTitle = storedTitle,
+                    sourceId = sourceId,
                 ) -> Download.State.DOWNLOADED
                 else -> Download.State.NOT_DOWNLOADED
             }
         },
         progress = RecentsDownloadProgress.Live {
-            downloadManager.getQueuedDownloadOrNull(payload.chapterId)?.progress ?: 0
+            downloadManager.getQueuedDownloadOrNull(chapterId)?.progress ?: 0
         },
     )
 }

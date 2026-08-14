@@ -126,6 +126,15 @@ interface RecentsProvider : RecentsBehavior {
     suspend fun targetChapter(item: RecentsItem): ChapterRef?
 
     /**
+     * The same chapter [targetChapter] resolves, projected into everything a row draws about it, or
+     * null where nothing is left to open and where the chapter or its entry has gone. The ref names
+     * the entry that owns the chapter, which a merged row can resolve to a sibling of its own, while
+     * [targetChapter] stamps the row's entry on the same id; only the verb dispatch reads that, and it
+     * cares about content type alone. Answered per rendered row, at the same cost as [targetChapter].
+     */
+    suspend fun targetRow(item: RecentsItem): RecentsTargetRow?
+
+    /**
      * This type's most recently read entry, as a read-lane item, or null where the surface renders no
      * read lane. Deliberately unfiltered: a search or a category filter narrows what you are looking
      * through, and resuming is not about the list.

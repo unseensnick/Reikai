@@ -27,7 +27,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -140,6 +142,22 @@ fun Screen.RecentsScreen(
         }
     }
 
+    // The membership behind the rows being drawn, which decides whether a row can name a chapter other
+    // than its record. Off the rendered emission, so the gate and the rows describe the same pass.
+    val membership = rendered?.membership.orEmpty()
+
+    /**
+     * Run a bulk verb on what the selected rows are actually about. Resolved here rather than in the
+     * bar because this is where the coroutine is, and once rather than per verb so the four cannot
+     * disagree; a row whose target is still unresolved pays for it now, off the main thread.
+     */
+    fun actOnSelection(items: List<RecentsItem>, action: (Set<ChapterRef>) -> Unit) {
+        scope.launchIO {
+            val chapters = engine.actingChapters(items, mode, membership)
+            withUIContext { action(chapters) }
+        }
+    }
+
     fun openDetails(entry: EntryId) {
         scope.launchIO {
             val screen = engine.detailsScreen(entry) ?: return@launchIO
@@ -201,12 +219,18 @@ fun Screen.RecentsScreen(
             )
         },
         bottomBar = {
+            // Off the drawn rows, not the assembly: a row the surface no longer shows must not answer
+            // for what the bar offers, any more than it stays in the selection.
+            val selectedItems = rows.selectableItems().filter { it.lane.chapterRef in selection }
             RecentsBottomBar(
                 engine = engine,
-                // Off the drawn rows, not the assembly: a row the surface no longer shows must not
-                // answer for what the bar offers, any more than it stays in the selection.
-                selected = rows.selectableItems().filter { it.lane.chapterRef in selection },
-                onDeleteDownloads = { engine.openDialog(RecentsDialog.DeleteDownloads(selection)) },
+                selected = selectedItems,
+                onAct = { action -> actOnSelection(selectedItems, action) },
+                // The dialog carries the resolved chapters, decided when it is raised rather than when
+                // it is confirmed, so the confirm cannot act on a row the list has since dropped.
+                onDeleteDownloads = {
+                    actOnSelection(selectedItems) { engine.openDialog(RecentsDialog.DeleteDownloads(it)) }
+                },
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -243,6 +267,7 @@ fun Screen.RecentsScreen(
                                     rows = rows,
                                     engine = engine,
                                     mode = mode,
+                                    membership = membership,
                                     selection = selection,
                                     selectionEnabled = selectionEnabled,
                                     orderedRefs = orderedRefs,
@@ -421,6 +446,8 @@ private fun RecentsMixedLaneRow(
     item: RecentsItem,
     engine: RecentsEngine,
     ui: RecentsRowUi,
+    mode: RecentsMode,
+    membership: Map<EntryId, Long>,
     selected: Boolean,
     selectionActive: Boolean,
     swipeActions: RecentsSwipeActions,
@@ -429,9 +456,17 @@ private fun RecentsMixedLaneRow(
     onOpenDetails: (EntryId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val state = ui.state
-    val download = engine.downloadUi(item)
+    // A continue-reading row is about the chapter a tap opens, not the one its record was written
+    // from, so its name, its state and its download control all come from the target once that
+    // resolves. Null until then, and for every row whose record is what a tap would reopen anyway;
+    // both fall back to the record, so the row never blanks.
+    val target = rememberTargetRow(engine, item, mode, membership)
+    val state = target?.state ?: ui.state
+    val download = target?.download ?: engine.downloadUi(item)
+    // The record keys the selection and the history verbs; the target is what the download control
+    // acts on, so that button cannot fetch a different chapter than the one the row names.
     val ref = item.lane.chapterRef
+    val actingRef = target?.ref ?: ref
     // Swipe stays on the updated lane by ruling rather than by capability: the read lane carries its
     // own chapter state now, so it could answer one, but giving History swipe is its own decision.
     val swipeable = item.lane is RecentsLane.Updated
@@ -447,7 +482,7 @@ private fun RecentsMixedLaneRow(
     RecentsCombinedRow(
         cover = ui.cover,
         title = ui.title,
-        chapterLine = mixedLaneChapter(ui.chapter),
+        chapterLine = mixedLaneChapter(target?.chapter ?: ui.chapter),
         timeLine = mixedLaneTime(item),
         progressLine = readProgressLabel(state?.progress),
         // A newly added row has no chapter, so nothing about it is read.
@@ -496,11 +531,11 @@ private fun RecentsMixedLaneRow(
                     // and the selection menu has always offered it. Withholding the row control while
                     // the same action sat two taps away was an asymmetry, not a capability limit.
                     ChapterDownloadIndicator(
-                        enabled = ref != null && !selectionActive,
+                        enabled = actingRef != null && !selectionActive,
                         modifier = Modifier.padding(start = 4.dp),
                         downloadStateProvider = download?.state ?: NOT_DOWNLOADED,
                         downloadProgressProvider = download?.progress?.asProvider() ?: NO_DOWNLOAD_PROGRESS,
-                        onClick = { action -> ref?.let { engine.download(setOf(it), action) } },
+                        onClick = { action -> actingRef?.let { engine.download(setOf(it), action) } },
                     )
                     IconButton(
                         onClick = { engine.openDialog(RecentsDialog.RemoveHistory(item)) },
@@ -516,6 +551,34 @@ private fun RecentsMixedLaneRow(
             }
         },
     )
+}
+
+/**
+ * The resolved continue-reading row for [item], resolving it the first time the row is drawn and
+ * whenever the memo has dropped it. Only the rows that can name something other than their record ask,
+ * because both providers load the entry's whole chapter list to answer, one list per member for a
+ * merged entry. Reading the memo through a derived state keeps one row's resolution from recomposing
+ * every other row on screen.
+ */
+@Composable
+private fun rememberTargetRow(
+    engine: RecentsEngine,
+    item: RecentsItem,
+    mode: RecentsMode,
+    membership: Map<EntryId, Long>,
+): RecentsTargetRow? {
+    val resolves = engine.resolvesTarget(item, mode, membership)
+    val recorded = item.lane.chapterRef
+    val targets by engine.targets.collectAsState()
+    val target by remember(recorded, resolves) {
+        derivedStateOf { if (resolves) targets[recorded] else null }
+    }
+    // Keyed on the value as well as the row, so a memo emptied by a chapter write resolves again
+    // instead of leaving the row silently back on its record.
+    LaunchedEffect(recorded, resolves, target) {
+        if (resolves && target == null) engine.targetRow(item)
+    }
+    return target
 }
 
 /**
@@ -557,6 +620,7 @@ private fun LazyListScope.recentsRows(
     rows: List<RecentsRow>,
     engine: RecentsEngine,
     mode: RecentsMode,
+    membership: Map<EntryId, Long>,
     selection: Set<ChapterRef>,
     selectionEnabled: Boolean,
     orderedRefs: List<ChapterRef>,
@@ -598,6 +662,7 @@ private fun LazyListScope.recentsRows(
                 item = row.item,
                 engine = engine,
                 mode = mode,
+                membership = membership,
                 selected = row.item.lane.chapterRef in selection,
                 selectionActive = selection.isNotEmpty(),
                 swipeActions = swipeActions,
@@ -684,6 +749,7 @@ private fun RecentsEntryRow(
     item: RecentsItem,
     engine: RecentsEngine,
     mode: RecentsMode,
+    membership: Map<EntryId, Long>,
     selected: Boolean,
     selectionActive: Boolean,
     swipeActions: RecentsSwipeActions,
@@ -698,6 +764,8 @@ private fun RecentsEntryRow(
             item = item,
             engine = engine,
             ui = ui,
+            mode = mode,
+            membership = membership,
             selected = selected,
             selectionActive = selectionActive,
             swipeActions = swipeActions,
@@ -780,29 +848,38 @@ private fun RecentsEntryRow(
 private fun RecentsBottomBar(
     engine: RecentsEngine,
     selected: List<RecentsItem>,
+    onAct: ((Set<ChapterRef>) -> Unit) -> Unit,
     onDeleteDownloads: () -> Unit,
 ) {
-    val chapters = selected.mapNotNull { engine.rowUi(it).state }
+    val targets by engine.targets.collectAsState()
     // Read state and download state paired per row, because fetching a chapter you have finished is
     // busywork and the verb has to answer for one chapter being both unread and absent. Read off the
-    // two as separate lists, one row's unread state would license another row's fetch.
-    val perRow = selected.map { engine.rowUi(it).state to engine.downloadUi(it)?.state?.invoke() }
+    // two as separate lists, one row's unread state would license another row's fetch. A resolved
+    // continue-reading row answers from its target, falling back to its record until that lands: what
+    // that changes is which buttons appear, never what they do, since the verbs resolve before they
+    // dispatch.
+    val perRow = selected.map { item ->
+        val target = targets[item.lane.chapterRef]
+        val state = target?.state ?: engine.rowUi(item).state
+        state to (target?.download ?: engine.downloadUi(item))?.state?.invoke()
+    }
+    val chapters = perRow.mapNotNull { it.first }
     MangaBottomActionMenu(
         visible = selected.isNotEmpty(),
         modifier = Modifier.fillMaxWidth(),
-        onBookmarkClicked = { engine.setBookmarkSelection(true) }
+        onBookmarkClicked = { onAct { engine.setBookmarkSelection(it, true) } }
             .takeIf { chapters.any { chapter -> !chapter.bookmark } },
         // Guarded on non-empty, unlike its five siblings: `all` is vacuously true over nothing, so a
         // selection that answers for no chapter would offer this one action and no other.
-        onRemoveBookmarkClicked = { engine.setBookmarkSelection(false) }
+        onRemoveBookmarkClicked = { onAct { engine.setBookmarkSelection(it, false) } }
             .takeIf { chapters.isNotEmpty() && chapters.all { chapter -> chapter.bookmark } },
-        onMarkAsReadClicked = { engine.markReadSelection(true) }
+        onMarkAsReadClicked = { onAct { engine.markReadSelection(it, true) } }
             .takeIf { chapters.any { chapter -> !chapter.read } },
         // Started counts as readable-back: progress survives only where reading stopped short, so one
         // expression covers what the two screens each spelled out in their own unit.
-        onMarkAsUnreadClicked = { engine.markReadSelection(false) }
+        onMarkAsUnreadClicked = { onAct { engine.markReadSelection(it, false) } }
             .takeIf { chapters.any { chapter -> chapter.read || chapter.progress != null } },
-        onDownloadClicked = { engine.downloadSelection() }
+        onDownloadClicked = { onAct { engine.downloadSelection(it) } }
             .takeIf {
                 perRow.any { (state, download) ->
                     state?.read == false && download != null && download != Download.State.DOWNLOADED
