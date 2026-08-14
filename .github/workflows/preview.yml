@@ -8,23 +8,30 @@ name: Build & publish preview
 on:
   push:
     branches:
+      # Work happens on the release branch, which main only receives at the merge, so automation has
+      # to watch both. They are safe to list together only because of the guard job below: tags are
+      # r<commitCount> and the two branches count independently, so a preview cut from main while a
+      # release branch is ahead would be numbered below the newest one, and the guard refuses that
+      # rather than publishing a release its own prune would delete.
+      - "feat/**"
+      - "fix/**"
       - main
     paths:
       # Allow-list of app-affecting inputs: only a change to one of these can alter the built APK,
       # so only these trigger a preview. Anything else (docs, .github, .githooks, .claude, repo
       # meta) is repo-only and skipped. Whitelisting means new non-app content is excluded by
       # default, and a new module / gradle file is covered automatically.
-      - '**/src/**'        # all module sources: Kotlin/Java, AndroidManifest, res, sqldelight, moko-resources
-      - '**.kts'           # gradle build scripts (root, modules, build-logic)
-      - '**.pro'           # proguard / R8 rules
-      - 'gradle/**'        # version catalogs, build-logic, wrapper
-      - 'gradle.properties'
-      - 'gradlew'
-      - 'gradlew.bat'
+      - "**/src/**" # all module sources: Kotlin/Java, AndroidManifest, res, sqldelight, moko-resources
+      - "**.kts" # gradle build scripts (root, modules, build-logic)
+      - "**.pro" # proguard / R8 rules
+      - "gradle/**" # version catalogs, build-logic, wrapper
+      - "gradle.properties"
+      - "gradlew"
+      - "gradlew.bat"
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Create a draft (test) preview release instead of publishing'
+        description: "Create a draft (test) preview release instead of publishing"
         required: false
         type: boolean
         default: false
@@ -41,9 +48,70 @@ env:
   PREVIEW_REPO: unseensnick/Reikai-preview
 
 jobs:
+  # Refuses a build that would publish nothing new. Adapted from Mihon's own preview workflow
+  # (mihonapp/mihon-preview 64135ef), which skips a scheduled run when no commits landed since the
+  # last release. Reikai has no schedule, so the same idea is pointed at what actually bites here:
+  # a tag that does not climb, and a merge that rebuilds a tree already published.
+  check:
+    name: Check the build would publish something new
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Compare against the newest preview
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+        run: |
+          set -e
+          # Only ever written when skipping, so the build job's `!= 'true'` does not depend on which
+          # of two writes to the same output key wins.
+          skip() { echo "skip=true" >> "$GITHUB_OUTPUT"; echo "::notice::Skipping preview: $1"; exit 0; }
+
+          # A commit carrying a release tag ships as that release; a preview of it duplicates it.
+          if git tag --points-at HEAD | grep -qE '^v[0-9]'; then
+            skip "$(git tag --points-at HEAD | grep -E '^v[0-9]' | head -1) is a release commit"
+          fi
+
+          commit_count=$(git rev-list --count HEAD)
+          prev_tag=$(gh release list --repo "$PREVIEW_REPO" --json tagName --limit 1 \
+                     --jq 'select(length > 0) | .[0].tagName' || true)
+          if [ -z "$prev_tag" ]; then
+            echo "No previous preview; building r${commit_count}"
+            exit 0
+          fi
+
+          # Tags are r<commitCount> and the prune keeps the highest numbers, so a build numbered at
+          # or below the newest would be deleted by its own run and ignored by the in-app updater,
+          # which compares the tag number against the installed build's commit count.
+          prev_count=${prev_tag#r}
+          if [ "$commit_count" -le "$prev_count" ]; then
+            skip "r${commit_count} would not climb above ${prev_tag}; is this branch behind the one that built it?"
+          fi
+
+          # Same content as the last preview means the same APK. Compare trees, not commits: a merge
+          # into another branch is a new commit over an identical tree. A manual run builds anyway,
+          # since asking for one is deliberate.
+          prev_sha=$(gh api "repos/$PREVIEW_REPO/commits/$prev_tag" --jq '.commit.message' 2>/dev/null \
+                     | sed -n 's/^preview r[0-9]* (\([0-9a-f]\{7,40\}\))$/\1/p' | head -1)
+          if [ "${{ github.event_name }}" = 'push' ] && [ -n "$prev_sha" ] && git cat-file -e "${prev_sha}^{commit}" 2>/dev/null; then
+            if [ "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "${prev_sha}^{tree}")" ]; then
+              skip "tree is identical to ${prev_tag}, so the APK would be the same"
+            fi
+          fi
+
+          echo "Building r${commit_count}, previous ${prev_tag}"
+
   preview:
     name: Build signed preview
     runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.skip != 'true'
     steps:
       - name: Clone repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -220,17 +288,19 @@ jobs:
           draft: ${{ github.event.inputs.dry-run == 'true' }}
           prerelease: false
 
-      - name: Prune old previews (keep newest 28)
+      - name: Prune old previews (keep newest 365)
         if: ${{ github.event.inputs.dry-run != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
         run: |
           set -e
-          # Keep the 28 highest build numbers (tags are r<commitCount>). Sorting by the numeric tag,
+          # Keep the 365 highest build numbers (tags are r<commitCount>). Sorting by the numeric tag,
           # not createdAt: a history-rewrite force-push can leave every release with the same createdAt,
           # which made the old date sort delete the just-published release instead of the oldest.
-          gh release list --repo "$PREVIEW_REPO" --json tagName --limit 100 \
-            | jq -r 'sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[28:] | .[].tagName' \
+          # The list limit has to stay above the retention or the slice below is always empty and the
+          # prune silently stops deleting anything.
+          gh release list --repo "$PREVIEW_REPO" --json tagName --limit 500 \
+            | jq -r 'sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[365:] | .[].tagName' \
             | while read -r tag; do
                 [ -n "$tag" ] && gh release delete "$tag" --repo "$PREVIEW_REPO" --cleanup-tag --yes
               done
