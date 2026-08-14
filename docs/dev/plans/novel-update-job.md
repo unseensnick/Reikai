@@ -37,7 +37,19 @@ Smart update is `passesSmartUpdate`. It reads `NovelPreferences.novelUpdateRestr
 
 Auto-download (when `downloadNewChapters` is on) queues the new chapters through `NovelDownloadManager`, optionally narrowed to the novel's download categories and, when "only unread" is set, dropping chapters whose number matches an already-read one (`filterChaptersForDownload`). New-chapter totals feed the shared `newUpdatesCount` badge so the unified Updates tab lights up.
 
-Notifications are `NovelUpdateNotifier` (progress + result), using novel-specific notification channels so a user can mute novel updates while keeping manga ones.
+Notifications are `NovelUpdateNotifier` (progress, result and errors), using novel-specific notification channels so a user can mute novel updates while keeping manga ones.
+
+### What a notification says (2026-08-14)
+
+The progress entry shows a percentage, formatted the way the manga updater formats its own, with "Light novel updates" moved into the header line: the title now carries the percentage, and two libraries updating at once would otherwise post two identically-titled entries. Progress is reported both before and after each novel, so the bar reaches its end rather than stopping one short.
+
+A result entry names the chapters it found rather than counting them, through `newChapters` in [NewChaptersDescription.kt](../../../app/src/main/java/reikai/data/notification/NewChaptersDescription.kt). That rule was Mihon's, private to the manga notifier; it is now a Reikai-owned pure function over a sealed answer that both notifiers call, so the two engines cannot drift on what a row says, and it is unit-testable where the original needed resources. The job carries the new chapters to the notifier instead of a count, which is what makes any of this possible.
+
+Each result entry also carries Mark as read and Download, dispatched through two `// RK` actions on `NotificationReceiver`. They are keyed by chapter id, unlike the manga twins' chapter urls, because a url is not unique across the sources of a merged novel. There is no View action: the entry's own tap already opens the novel, which is where manga's View goes.
+
+A failed run raises an error entry, which novels previously had no equivalent of. It opens the library rather than `UpdateErrorsScreen`, which has no deep link of its own; giving it one is a roadmap item that would serve manga too.
+
+Every novel notification posts through `Context.notify`, which applies the `POST_NOTIFICATIONS` check that posting straight to `NotificationManager` was bypassing.
 
 ### Settings parity
 
@@ -47,13 +59,16 @@ The "Light novel updates" group is built by `getNovelUpdateGroup` in `SettingsLi
 
 - [app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt): the worker: WorkManager scheduling (`setupTask` / `startNow` / `stop`), `updateNovels`, `checkNovel`, `categoryGate`, `passesSmartUpdate`, the auto-download path.
 - [app/src/main/java/reikai/data/novel/NovelRefresh.kt](../../../app/src/main/java/reikai/data/novel/NovelRefresh.kt): `refreshNovelFromSource`, the shared per-novel re-parse + page-1 sync + page-walk helper, reused by `NovelUpdateJob.checkNovel` and `NovelDetailsViewModel.refreshNovel`.
-- [app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt): progress + result notifications on novel-specific channels.
+- [app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt): progress, result and error notifications on novel-specific channels.
+- [app/src/main/java/reikai/data/notification/NewChaptersDescription.kt](../../../app/src/main/java/reikai/data/notification/NewChaptersDescription.kt): the one rule both update notifiers name their chapters by, plus the title cap a collapsed group needs.
 - [app/src/main/java/reikai/domain/novel/NovelPreferences.kt](../../../app/src/main/java/reikai/domain/novel/NovelPreferences.kt): `libraryUpdateInterval()`, the device-restriction prefs, `novelUpdateCategories()` / `novelUpdateCategoriesExclude()`, `novelUpdateRestrictions()`, and the auto-download category prefs.
 - [app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt](../../../app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt): `getNovelUpdateGroup` (the `// RK` "Light novel updates" settings block: interval, restrictions, Categories, Smart update).
 
 ## Status
 
-Shipped (P5 round 1, the light-novel vertical) and on-device verified. `refreshNovelFromSource` and `categoryGate` were later promoted to shared helpers in the Tier 0 / Tier 2-3 duplication cleanup; the per-title result notification (deep-linked per-novel entries instead of one "N novels" line) is a tracked round-2 small-polish item.
+Shipped with the light-novel vertical and on-device verified. `refreshNovelFromSource` and `categoryGate` were later promoted to shared helpers in the duplication cleanup, and the per-title result notification (deep-linked per-novel entries instead of one "N novels" line) shipped in `41325f9d5`.
+
+The notification rework above is `c4c79bbad`. Verified on the emulator: the progress percentage on both content types, and a result entry reading "Chapters 611, 612" where it used to read "2 new chapters". **Its two shade actions were not exercised**, because `NotificationReceiver` is `android:exported="false"` and so unreachable from adb, and no second novel notification arrived to tap. They want a tap on a real update.
 
 ## Decisions & tradeoffs
 
