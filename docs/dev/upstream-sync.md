@@ -52,10 +52,8 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
   the three `collectAsStateWithLifecycle` moves (`EntryMigrationFavoritesScreen`, `ReikaiMigrateSourceTab`,
   `ReikaiSourcesTab`, the last two carrying it for the novel model too), `updateAllOrders` in both
   `CategoryActions` and `DeleteCategoryCleanup`, and the cover dialog's dropped issue-tracker comment.
-  **When following a row, note that Replacement names the twin that renders the surface, not necessarily the
-  file a given hunk lands in**: `MangaScreen`'s row points at `EntryDetailsContent` while its import change
-  lives in `EntryDetailsColumn`, and `MangaInfoHeader`'s points at `EntryInfoBox` while its day math lives in
-  `EntryActionRow`. Search the twin's package, not just the named file.
+  Two of those hunks sat one file over from the row that named them, which is why a Replacement is an entry
+  point rather than an address; the manifest states that convention.
 
 ## Recurring gotchas
 

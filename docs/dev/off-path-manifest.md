@@ -4,6 +4,8 @@ Every Mihon file Reikai has **deleted** because a Reikai-owned twin (`reikai.*`)
 
 When the check flags a path, open its **Replacement** and reconcile the upstream change into that twin by hand, exactly as if the file were still `// RK: inert`. The `refs/mihon` clone holds the pre-delete blob, so the change is a diff of upstream-before against upstream-after, applied deliberately into the twin.
 
+**Replacement names the entry point into the surface, not the file every piece lives in.** A collapsed surface usually became several composables, and the row names the one that reaches the rest: `MangaInfoHeader`'s row points at `EntryDetailsColumn.kt`, whose `entryInfoItems` composes `EntryInfoBox`, `EntryActionRow` and the expandable description, because the header's pieces are siblings and opening any one of them is a dead end. Expect to read one hop down from the named file, and search its package before concluding a past change was dropped: a 2026-08-14 audit found every hunk present, but two of them one file over from the row that named them.
+
 ## What enforces this
 
 The manifest used to be enforced by remembering to run the sync check. Three things now fail loudly instead,
@@ -45,7 +47,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/migration/sources/MigrateSourceTab.kt | mihon | reikai/presentation/browse/migrate/ReikaiMigrateSourceTab.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/track/TrackInfoDialog.kt | mihon | reikai/presentation/track/EntryTrackInfoDialog.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverViewModel.kt | mihon | reikai/presentation/details/EntryCoverViewModel.kt |
-| app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryInfoBox.kt |
+| app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryDetailsColumn.kt |
 | app/src/main/java/eu/kanade/presentation/library/LibrarySettingsDialog.kt | mihon | reikai/presentation/library/LibrarySettingsSheet.kt |
 | app/src/main/java/mihon/feature/library/QueryNodeExtensions.kt | mihon | reikai/presentation/library/LibraryQueryMatch.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/CreateCategoryWithName.kt | mihon | reikai/presentation/category/CategoryActions.kt |
