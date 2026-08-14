@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,10 +34,11 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.i18n.MR
@@ -216,7 +218,10 @@ class EntryMigrationSearchViewModel(
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     private val extraQuery: String? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : StateViewModel<EntryMigrationSearchViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<EntryMigrationSearchViewModel.State>
+        field = MutableStateFlow<EntryMigrationSearchViewModel.State>(State())
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -245,7 +250,7 @@ class EntryMigrationSearchViewModel(
         viewModelScope.launch(io) {
             adapter.prepare()
             val entry = adapter.loadEntries(listOf(entryId)).firstOrNull()
-            mutableState.update { it.copy(isLoading = false, entry = entry) }
+            state.update { it.copy(isLoading = false, entry = entry) }
             if (entry != null) search(entry.title)
         }
     }
@@ -261,7 +266,7 @@ class EntryMigrationSearchViewModel(
         val sources = adapter.sourcesFor()
         val fullQuery = query.withExtraQuery(extraQuery)
         searchJob?.cancel()
-        mutableState.update { state ->
+        state.update { state ->
             state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
         }
         searchJob = viewModelScope.launch(io) {
@@ -273,7 +278,7 @@ class EntryMigrationSearchViewModel(
                 permits = permits,
                 isCurrent = { searchJob === myJob },
             ) { sourceKey, landed ->
-                mutableState.update { state ->
+                state.update { state ->
                     state.copy(
                         sections = state.sections.map {
                             if (it.sourceKey == sourceKey) it.copy(result = landed) else it
@@ -292,11 +297,11 @@ class EntryMigrationSearchViewModel(
 
     /** Held in model state, not the composition, so a rotation mid-migrate keeps the dialog alive
      *  to receive its result. */
-    fun showDialog(target: MigrationCandidate) = mutableState.update { it.copy(dialogTarget = target) }
+    fun showDialog(target: MigrationCandidate) = state.update { it.copy(dialogTarget = target) }
 
-    fun dismissDialog() = mutableState.update { it.copy(dialogTarget = null) }
+    fun dismissDialog() = state.update { it.copy(dialogTarget = null) }
 
-    fun toggleOnlyResults() = mutableState.update { it.copy(onlyShowHasResults = !it.onlyShowHasResults) }
+    fun toggleOnlyResults() = state.update { it.copy(onlyShowHasResults = !it.onlyShowHasResults) }
 
     /**
      * Open the migrate dialog for a target picked on a pushed browse screen, if one came back for
@@ -308,14 +313,14 @@ class EntryMigrationSearchViewModel(
         viewModelScope.launch(io) {
             when (val pick = adapter.takePendingPick(pickHandoff, entry.id)) {
                 null -> return@launch
-                is PendingPick.Ready -> mutableState.update { it.copy(dialogTarget = pick.candidate) }
-                is PendingPick.Rejected -> mutableState.update { it.copy(pickOutcome = pick.outcome) }
+                is PendingPick.Ready -> state.update { it.copy(dialogTarget = pick.candidate) }
+                is PendingPick.Rejected -> state.update { it.copy(pickOutcome = pick.outcome) }
             }
         }
     }
 
     /** Called once the screen has shown the outcome; see [PickOutcome]. */
-    fun consumePickOutcome() = mutableState.update { it.copy(pickOutcome = null) }
+    fun consumePickOutcome() = state.update { it.copy(pickOutcome = null) }
 
     data class Section(
         val sourceKey: String,

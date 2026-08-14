@@ -2,6 +2,7 @@ package reikai.presentation.novel.browse
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -9,13 +10,14 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -43,7 +45,10 @@ import uy.kohesive.injekt.injectLazy
 class NovelBrowseViewModel(
     private val sourceId: String,
     private val initialQuery: String = "",
-) : StateViewModel<NovelBrowseState>(NovelBrowseState()) {
+) : ViewModel() {
+
+    val state: StateFlow<NovelBrowseState>
+        field = MutableStateFlow<NovelBrowseState>(NovelBrowseState())
 
     private val installer: LnPluginInstaller by injectLazy()
     private val manager: NovelSourceManager by injectLazy()
@@ -74,7 +79,7 @@ class NovelBrowseViewModel(
         // badged like the manga catalogue. Read-only; nothing written back.
         viewModelScope.launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
-                mutableState.update { it.copy(favoritedKeys = keys) }
+                state.update { it.copy(favoritedKeys = keys) }
             }
         }
         viewModelScope.launchIO {
@@ -83,10 +88,10 @@ class NovelBrowseViewModel(
             } catch (_: Throwable) {}
             val source = manager.get(sourceId)
             if (source == null) {
-                mutableState.update { it.copy(error = "Source not installed: $sourceId") }
+                state.update { it.copy(error = "Source not installed: $sourceId") }
                 return@launchIO
             }
-            mutableState.update {
+            state.update {
                 it.copy(source = source, filterValues = defaultFilterValues(source.filters))
             }
             // Opened from global search with a query: jump straight to those results; else the listing.
@@ -98,7 +103,7 @@ class NovelBrowseViewModel(
     fun setListing(listing: NovelBrowseState.Listing) {
         val source = state.value.source ?: return
         if (state.value.loading) return
-        mutableState.update { it.copy(listing = listing, query = "") }
+        state.update { it.copy(listing = listing, query = "") }
         fetchFirstPage(source)
     }
 
@@ -107,16 +112,16 @@ class NovelBrowseViewModel(
         val source = state.value.source ?: return
         if (state.value.loading) return
         if (query.isBlank()) {
-            mutableState.update { it.copy(query = "") }
+            state.update { it.copy(query = "") }
             fetchFirstPage(source)
             return
         }
-        mutableState.update { it.copy(loading = true, error = null, query = query) }
+        state.update { it.copy(loading = true, error = null, query = query) }
         viewModelScope.launchIO {
-            runFetch(error = { e -> mutableState.update { it.copy(loading = false, error = errorText(e)) } }) {
+            runFetch(error = { e -> state.update { it.copy(loading = false, error = errorText(e)) } }) {
                 val novels = source.searchNovels(query, 1)
                 val more = hasMore(novels, 1) { p -> source.searchNovels(query, p) }
-                mutableState.update {
+                state.update {
                     it.copy(loading = false, novels = novels.dropInLibrary(), page = 1, endReached = !more)
                 }
                 continuePastHiddenFirstPage()
@@ -127,28 +132,28 @@ class NovelBrowseViewModel(
     /** Re-fetch the current Popular / Latest listing with the filter draft applied. */
     fun applyFilters() {
         if (state.value.query.isNotBlank()) {
-            mutableState.update { it.copy(query = "") }
+            state.update { it.copy(query = "") }
         }
         state.value.source?.let { fetchFirstPage(it) }
     }
 
     fun setFilterValue(key: String, value: JsonElement) =
-        mutableState.update { it.copy(filterValues = it.filterValues + (key to value)) }
+        state.update { it.copy(filterValues = it.filterValues + (key to value)) }
 
     fun resetFilters() =
-        mutableState.update { it.copy(filterValues = defaultFilterValues(it.source?.filters)) }
+        state.update { it.copy(filterValues = defaultFilterValues(it.source?.filters)) }
 
-    fun openFilterSheet() = mutableState.update { it.copy(filterSheetOpen = true) }
-    fun closeFilterSheet() = mutableState.update { it.copy(filterSheetOpen = false) }
-    fun openSettingsSheet() = mutableState.update { it.copy(settingsSheetOpen = true) }
-    fun closeSettingsSheet() = mutableState.update { it.copy(settingsSheetOpen = false) }
+    fun openFilterSheet() = state.update { it.copy(filterSheetOpen = true) }
+    fun closeFilterSheet() = state.update { it.copy(filterSheetOpen = false) }
+    fun openSettingsSheet() = state.update { it.copy(settingsSheetOpen = true) }
+    fun closeSettingsSheet() = state.update { it.copy(settingsSheetOpen = false) }
 
     // --- Favorite from browse (long-press), via the shared [NovelLibraryAdder] ---
 
     fun onLongClickItem(item: NovelItem) {
         viewModelScope.launchIO {
             val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
-            mutableState.update { it.copy(dialog = dialog) }
+            state.update { it.copy(dialog = dialog) }
         }
     }
 
@@ -175,7 +180,7 @@ class NovelBrowseViewModel(
     /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
     fun addFromDuplicate(item: NovelItem) {
         viewModelScope.launchIO {
-            mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
+            state.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
         }
     }
 
@@ -184,7 +189,7 @@ class NovelBrowseViewModel(
     fun startMigrate(duplicateId: Long, item: NovelItem) {
         viewModelScope.launchIO {
             val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
-            mutableState.update {
+            state.update {
                 it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
             }
         }
@@ -194,25 +199,25 @@ class NovelBrowseViewModel(
     fun addToExistingGroup(item: NovelItem, selectedIds: List<Long>) {
         viewModelScope.launchIO {
             val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
-            mutableState.update { it.copy(dialog = dialog) }
+            state.update { it.copy(dialog = dialog) }
         }
     }
 
     fun applyCategories(target: NovelCategoryTarget, categoryIds: List<Long>) {
         viewModelScope.launchIO {
             libraryAdder.confirmCategories(target, categoryIds)
-            mutableState.update { it.copy(dialog = null) }
+            state.update { it.copy(dialog = null) }
         }
     }
 
     fun confirmRemove(item: NovelItem) {
         viewModelScope.launchIO {
             libraryAdder.confirmRemove(item, sourceId)
-            mutableState.update { it.copy(dialog = null) }
+            state.update { it.copy(dialog = null) }
         }
     }
 
-    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
+    fun dismissDialog() = state.update { it.copy(dialog = null) }
 
     /** Re-run the current listing (popular/latest) or search after an error. */
     fun retry() {
@@ -223,7 +228,7 @@ class NovelBrowseViewModel(
                     installer.ensureLoaded()
                 } catch (_: Throwable) {}
                 manager.get(sourceId)?.let { s ->
-                    mutableState.update {
+                    state.update {
                         it.copy(source = s, error = null, filterValues = defaultFilterValues(s.filters))
                     }
                     fetchFirstPage(s)
@@ -271,7 +276,7 @@ class NovelBrowseViewModel(
         val source = state.value.source ?: return
         val current = state.value
         if (current.loading || current.loadingMore || current.endReached) return
-        mutableState.update { it.copy(loadingMore = true) }
+        state.update { it.copy(loadingMore = true) }
         viewModelScope.launchIO {
             try {
                 val fetchPage: suspend (Int) -> List<NovelItem> = if (current.query.isBlank()) {
@@ -293,12 +298,12 @@ class NovelBrowseViewModel(
                     val more = cached ?: fetchPage(next)
                     if (more.isEmpty()) {
                         probe = null
-                        mutableState.update { it.copy(loadingMore = false, endReached = true) }
+                        state.update { it.copy(loadingMore = false, endReached = true) }
                         break
                     }
                     val end = !hasMore(more, next, fetchPage)
                     var appended = false
-                    mutableState.update {
+                    state.update {
                         // Dedupe by path so a source repeating entries across a page boundary doesn't
                         // produce duplicate LazyGrid keys.
                         val seen = it.novels.mapTo(HashSet()) { n -> n.path }
@@ -319,19 +324,19 @@ class NovelBrowseViewModel(
             } catch (e: Throwable) {
                 // Don't latch endReached on a transient error: a single network hiccup mid-scroll must
                 // not permanently kill paging. Keep the page retryable and surface the error instead.
-                mutableState.update { it.copy(loadingMore = false, error = errorText(e)) }
+                state.update { it.copy(loadingMore = false, error = errorText(e)) }
             }
         }
     }
 
     private fun fetchFirstPage(source: NovelSource) {
-        mutableState.update { it.copy(loading = true, error = null) }
+        state.update { it.copy(loading = true, error = null) }
         viewModelScope.launchIO {
-            runFetch(error = { e -> mutableState.update { it.copy(loading = false, error = errorText(e)) } }) {
+            runFetch(error = { e -> state.update { it.copy(loading = false, error = errorText(e)) } }) {
                 val opts = buildOptions(source.filters, state.value.filterValues, state.value.showLatest)
                 val novels = source.popularNovels(1, opts)
                 val more = hasMore(novels, 1) { p -> source.popularNovels(p, opts) }
-                mutableState.update {
+                state.update {
                     it.copy(loading = false, novels = novels.dropInLibrary(), page = 1, endReached = !more)
                 }
                 continuePastHiddenFirstPage()

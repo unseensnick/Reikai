@@ -1,13 +1,15 @@
 package reikai.presentation.browse.extension
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
@@ -32,13 +34,16 @@ class LnPluginManagerViewModel(
     manager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val prefs: NovelPreferences = Injekt.get(),
-) : StateViewModel<LnPluginManagerViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<LnPluginManagerViewModel.State>
+        field = MutableStateFlow<LnPluginManagerViewModel.State>(State())
 
     init {
         viewModelScope.launchIO {
             installer.ensureLoaded()
             manager.sources.collectLatest { sources ->
-                mutableState.update { it.copy(installed = sources) }
+                state.update { it.copy(installed = sources) }
             }
         }
         // Re-fetch when the added-repos set changes (e.g. a backup restore or adding a repo on another
@@ -53,7 +58,7 @@ class LnPluginManagerViewModel(
     fun refresh() {
         viewModelScope.launchIO {
             val repos = prefs.addedRepoUrls().get()
-            mutableState.update { it.copy(isRefreshing = true, hasRepos = repos.isNotEmpty()) }
+            state.update { it.copy(isRefreshing = true, hasRepos = repos.isNotEmpty()) }
             val installedUrls = prefs.installedPluginUrls().get()
             val metadata = prefs.installedPluginMetadata().get()
 
@@ -86,7 +91,7 @@ class LnPluginManagerViewModel(
 
             // Keep the Browse badge in sync with what the user is looking at.
             prefs.pluginUpdatesCount().set(updates.size)
-            mutableState.update {
+            state.update {
                 it.copy(isRefreshing = false, hasLoaded = true, available = available, updates = updates)
             }
         }
@@ -104,14 +109,14 @@ class LnPluginManagerViewModel(
     fun install(entry: LnRegistryEntry) {
         val key = canonicalizePluginUrl(entry.url)
         viewModelScope.launchIO {
-            mutableState.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
+            state.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
             try {
                 installer.installFromUrl(entry.url, entry.toMetadata())
                 refresh()
             } catch (e: Throwable) {
-                mutableState.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }
+                state.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }
             } finally {
-                mutableState.update { it.copy(inProgress = it.inProgress - key) }
+                state.update { it.copy(inProgress = it.inProgress - key) }
             }
         }
     }

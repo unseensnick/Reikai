@@ -61,6 +61,8 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -70,7 +72,6 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.novel.interactor.AddNovelTrack
@@ -188,7 +189,10 @@ data class EntryTrackInfoDialogHomeScreen(
         private val isNovel: Boolean,
         private val getTracksInGroup: GetTracksInGroup = Injekt.get(),
         private val getNovelTracks: GetNovelTracks = Injekt.get(),
-    ) : StateViewModel<Model.State>(State()) {
+    ) : ViewModel() {
+
+        val state: StateFlow<Model.State>
+            field = MutableStateFlow<Model.State>(State())
 
         companion object {
             val ENTRY_ID_KEY = CreationExtras.Key<Long>()
@@ -216,7 +220,7 @@ data class EntryTrackInfoDialogHomeScreen(
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
                     .map { it.mapToTrackItem() }
-                    .collectLatest { trackItems -> mutableState.update { it.copy(trackItems = trackItems) } }
+                    .collectLatest { trackItems -> state.update { it.copy(trackItems = trackItems) } }
             }
         }
 
@@ -324,7 +328,10 @@ private data class EntryTrackStatusSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val writer: TrackWriter,
-    ) : StateViewModel<Model.State>(State(track.status)) {
+    ) : ViewModel() {
+
+        val state: StateFlow<Model.State>
+            field = MutableStateFlow<Model.State>(State(track.status))
 
         companion object {
             val TRACK_KEY = CreationExtras.Key<Track>()
@@ -348,7 +355,7 @@ private data class EntryTrackStatusSelectorScreen(
         fun getSelections(): Map<Long, StringResource?> =
             tracker.getStatusList().associateWith { tracker.getStatus(it) }
 
-        fun setSelection(selection: Long) = mutableState.update { it.copy(selection = selection) }
+        fun setSelection(selection: Long) = state.update { it.copy(selection = selection) }
 
         fun setStatus() {
             viewModelScope.launchNonCancellable {
@@ -395,7 +402,10 @@ private data class EntryTrackChapterSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val writer: TrackWriter,
-    ) : StateViewModel<Model.State>(State(track.lastChapterRead.toInt())) {
+    ) : ViewModel() {
+
+        val state: StateFlow<Model.State>
+            field = MutableStateFlow<Model.State>(State(track.lastChapterRead.toInt()))
 
         companion object {
             val TRACK_KEY = CreationExtras.Key<Track>()
@@ -418,7 +428,7 @@ private data class EntryTrackChapterSelectorScreen(
             return 0..endRange.toInt()
         }
 
-        fun setSelection(selection: Int) = mutableState.update { it.copy(selection = selection) }
+        fun setSelection(selection: Int) = state.update { it.copy(selection = selection) }
 
         fun setChapter() {
             viewModelScope.launchNonCancellable {
@@ -465,7 +475,10 @@ private data class EntryTrackScoreSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
         private val writer: TrackWriter,
-    ) : StateViewModel<Model.State>(State(tracker.displayScore(track))) {
+    ) : ViewModel() {
+
+        val state: StateFlow<Model.State>
+            field = MutableStateFlow<Model.State>(State(tracker.displayScore(track)))
 
         companion object {
             val TRACK_KEY = CreationExtras.Key<Track>()
@@ -485,7 +498,7 @@ private data class EntryTrackScoreSelectorScreen(
 
         fun getSelections(): List<String> = tracker.getScoreList()
 
-        fun setSelection(selection: String) = mutableState.update { it.copy(selection = selection) }
+        fun setSelection(selection: String) = state.update { it.copy(selection = selection) }
 
         fun setScore() {
             viewModelScope.launchNonCancellable {
@@ -785,7 +798,10 @@ data class EntryTrackerSearchScreen(
         initialQuery: String,
         private val tracker: Tracker,
         private val isNovel: Boolean,
-    ) : StateViewModel<Model.State>(State()) {
+    ) : ViewModel() {
+
+        val state: StateFlow<Model.State>
+            field = MutableStateFlow<Model.State>(State())
 
         companion object {
             val ENTRY_ID_KEY = CreationExtras.Key<Long>()
@@ -819,7 +835,7 @@ data class EntryTrackerSearchScreen(
         fun trackingSearch(query: String) {
             viewModelScope.launch {
                 // To show loading state
-                mutableState.update { it.copy(queryResult = null, selected = null) }
+                state.update { it.copy(queryResult = null, selected = null) }
 
                 val result = withIOContext {
                     try {
@@ -830,7 +846,7 @@ data class EntryTrackerSearchScreen(
                         Result.failure(e)
                     }
                 }
-                mutableState.update { oldState ->
+                state.update { oldState ->
                     oldState.copy(
                         queryResult = result,
                         selected = result.getOrNull()?.find { it.tracking_url == currentUrl },
@@ -849,7 +865,7 @@ data class EntryTrackerSearchScreen(
             }
         }
 
-        fun updateSelection(selected: TrackSearch) = mutableState.update { it.copy(selected = selected) }
+        fun updateSelection(selected: TrackSearch) = state.update { it.copy(selected = selected) }
 
         @Immutable
         data class State(

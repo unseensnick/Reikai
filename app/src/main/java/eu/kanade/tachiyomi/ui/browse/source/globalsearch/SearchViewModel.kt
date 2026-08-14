@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.browse.source.globalsearch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.produceState
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -11,13 +12,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -48,7 +50,16 @@ abstract class SearchViewModel(
     private val preferences: SourcePreferences = Injekt.get(),
     // RK: shared long-press add-to-library orchestration (also used by the Browse screen)
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
-) : StateViewModel<SearchViewModel.State>(initialState) {
+) : ViewModel() {
+
+    val state: StateFlow<State>
+        field = MutableStateFlow<State>(initialState)
+
+    // Subclasses can't touch the backing field (Kotlin forbids a visibility modifier on one),
+    // so state writes from them go through here.
+    protected fun updateState(function: (State) -> State) {
+        state.update(function)
+    }
 
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
     private var searchJob: Job? = null
@@ -72,8 +83,8 @@ abstract class SearchViewModel(
 
     init {
         viewModelScope.launch {
-            preferences.globalSearchFilterState.changes().collectLatest { state ->
-                mutableState.update { it.copy(onlyShowHasResults = state) }
+            preferences.globalSearchFilterState.changes().collectLatest { onlyShowHasResults ->
+                state.update { it.copy(onlyShowHasResults = onlyShowHasResults) }
             }
         }
     }
@@ -115,11 +126,11 @@ abstract class SearchViewModel(
     }
 
     fun updateSearchQuery(query: String?) {
-        mutableState.update { it.copy(searchQuery = query) }
+        state.update { it.copy(searchQuery = query) }
     }
 
     fun setSourceFilter(filter: SourceFilter) {
-        mutableState.update { it.copy(sourceFilter = filter) }
+        state.update { it.copy(sourceFilter = filter) }
         search()
     }
 
@@ -189,7 +200,7 @@ abstract class SearchViewModel(
     }
 
     private fun updateItems(items: Map<Source, SearchItemResult>) {
-        mutableState.update {
+        state.update {
             it.copy(
                 items = items
                     .toSortedMap(sortComparator(items)),
@@ -204,7 +215,7 @@ abstract class SearchViewModel(
     fun setMigrateDialog(currentId: Long, target: Manga) {
         viewModelScope.launchIO {
             val current = getManga.await(currentId) ?: return@launchIO
-            mutableState.update { it.copy(dialog = Dialog.Migrate(target, current)) }
+            state.update { it.copy(dialog = Dialog.Migrate(target, current)) }
         }
     }
 
@@ -212,7 +223,7 @@ abstract class SearchViewModel(
     // (networkToLocalManga), so no materialize is needed. The source is resolved per-manga inside the
     // adder since global search spans sources.
     fun setDialog(dialog: Dialog?) {
-        mutableState.update { it.copy(dialog = dialog) }
+        state.update { it.copy(dialog = dialog) }
     }
 
     suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> =
@@ -231,8 +242,8 @@ abstract class SearchViewModel(
                     findDuplicates = { getDuplicateLibraryManga(manga).takeIf { it.isNotEmpty() } },
                 )
             ) {
-                AddDecision.Remove -> mutableState.update { it.copy(dialog = Dialog.RemoveManga(manga)) }
-                is AddDecision.ConfirmDuplicate -> mutableState.update {
+                AddDecision.Remove -> state.update { it.copy(dialog = Dialog.RemoveManga(manga)) }
+                is AddDecision.ConfirmDuplicate -> state.update {
                     it.copy(
                         dialog = Dialog.AddDuplicateManga(
                             manga,
@@ -254,7 +265,7 @@ abstract class SearchViewModel(
                 // Failed wrote nothing, so there is nothing to undo and nothing to show.
                 AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
-                    mutableState.update {
+                    state.update {
                         it.copy(dialog = Dialog.ChangeMangaCategory(manga, result.initialSelection))
                     }
             }
@@ -272,7 +283,7 @@ abstract class SearchViewModel(
             when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
                 AddFavoriteResult.Added, AddFavoriteResult.Failed -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
-                    mutableState.update {
+                    state.update {
                         it.copy(
                             dialog = Dialog.ChangeMangaCategory(
                                 manga,
@@ -304,7 +315,7 @@ abstract class SearchViewModel(
     // RK <--
 
     fun clearDialog() {
-        mutableState.update { it.copy(dialog = null) }
+        state.update { it.copy(dialog = null) }
     }
 
     @Immutable

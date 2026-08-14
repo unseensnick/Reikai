@@ -18,15 +18,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -133,7 +135,10 @@ fun Screen.EntryMigrateDialog(
 
 internal class EntryMigrateDialogViewModel(
     contentType: ContentType,
-) : StateViewModel<EntryMigrateDialogViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<EntryMigrateDialogViewModel.State>
+        field = MutableStateFlow<EntryMigrateDialogViewModel.State>(State())
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -151,12 +156,12 @@ internal class EntryMigrateDialogViewModel(
      *  already mutated the database. */
     fun load(pairKey: String, entry: MigrationEntry) {
         if (state.value.isMigrating) return
-        mutableState.update { State(pairKey = pairKey) }
+        state.update { State(pairKey = pairKey) }
         viewModelScope.launchIO {
             adapter.prepare()
             val applicable = adapter.applicableFlags(listOf(entry))
             val saved = adapter.savedFlags()
-            mutableState.update {
+            state.update {
                 if (it.pairKey != pairKey) return@update it
                 // Seeded with the FULL saved set: only applicable flags render, so a hidden flag
                 // keeps its saved state instead of being cleared for the next migration.
@@ -165,12 +170,12 @@ internal class EntryMigrateDialogViewModel(
         }
     }
 
-    fun toggleFlag(flag: MigrationDataFlag) = mutableState.update {
+    fun toggleFlag(flag: MigrationDataFlag) = state.update {
         val selected = if (flag in it.selectedFlags) it.selectedFlags - flag else it.selectedFlags + flag
         it.copy(selectedFlags = selected)
     }
 
-    fun consumeFinished() = mutableState.update { it.copy(finishedWith = null) }
+    fun consumeFinished() = state.update { it.copy(finishedWith = null) }
 
     fun migrate(entry: MigrationEntry, target: MigrationCandidate, replace: Boolean) {
         // finishedWith also blocks: between a success and the composable consuming it, a second tap
@@ -180,12 +185,12 @@ internal class EntryMigrateDialogViewModel(
         // under a live commit, nor land this pair's outcome on the next pair's dialog.
         val flags = state.value.selectedFlags
         val pairKey = state.value.pairKey
-        mutableState.update { it.copy(isMigrating = true, failed = false) }
+        state.update { it.copy(isMigrating = true, failed = false) }
         viewModelScope.launchIO {
             adapter.persistFlags(flags)
             val result = runCatchingCancellable { adapter.commitMigration(entry, target, replace, flags) }
             result.onFailure { logcat(LogPriority.ERROR, it) { "Single-item migration failed" } }
-            mutableState.update {
+            state.update {
                 if (it.pairKey != pairKey) return@update it
                 it.copy(
                     isMigrating = false,

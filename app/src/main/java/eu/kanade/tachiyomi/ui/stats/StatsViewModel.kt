@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.stats
 
 import androidx.compose.ui.util.fastDistinctBy
 import androidx.compose.ui.util.fastFilter
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.core.util.fastCountNot
 import eu.kanade.presentation.more.stats.StatsScreenState
@@ -9,13 +10,13 @@ import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
@@ -58,7 +59,10 @@ class StatsViewModel(
     private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     // RK <--
-) : StateViewModel<StatsScreenState>(StatsScreenState.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<StatsScreenState>
+        field = MutableStateFlow<StatsScreenState>(StatsScreenState.Loading)
 
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
 
@@ -107,7 +111,7 @@ class StatsViewModel(
 
             sourcePreferences.statsContentType.changes()
                 .onStart { emit(sourcePreferences.statsContentType.get()) }
-                .collectLatest { mutableState.value = buildSuccess(it, ingredients) }
+                .collectLatest { state.value = buildSuccess(it, ingredients) }
             // RK <--
         }
     }

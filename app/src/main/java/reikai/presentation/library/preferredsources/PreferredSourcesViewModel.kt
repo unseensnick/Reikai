@@ -1,12 +1,14 @@
 package reikai.presentation.library.preferredsources
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.source.CatalogueSource
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.service.SourceManager
@@ -24,7 +26,10 @@ import uy.kohesive.injekt.api.get
 class PreferredSourcesViewModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val preferences: ReikaiLibraryPreferences = Injekt.get(),
-) : StateViewModel<PreferredSourcesViewModel.State>(State.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<PreferredSourcesViewModel.State>
+        field = MutableStateFlow<PreferredSourcesViewModel.State>(State.Loading)
 
     private val pref = preferences.preferredMangaSources
 
@@ -32,7 +37,7 @@ class PreferredSourcesViewModel(
         viewModelScope.launchIO {
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
                 buildState(sources.filterIsInstance<CatalogueSource>(), ordered)
-            }.collectLatest { success -> mutableState.update { success } }
+            }.collectLatest { success -> state.update { success } }
         }
     }
 

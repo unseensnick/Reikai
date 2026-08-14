@@ -1,11 +1,13 @@
 package reikai.presentation.library.preferredsources
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -25,7 +27,10 @@ class NovelPreferredSourcesViewModel(
     private val sourceManager: NovelSourceManager = Injekt.get(),
     private val installer: LnPluginInstaller = Injekt.get(),
     private val preferences: ReikaiLibraryPreferences = Injekt.get(),
-) : StateViewModel<NovelPreferredSourcesViewModel.State>(State.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<NovelPreferredSourcesViewModel.State>
+        field = MutableStateFlow<NovelPreferredSourcesViewModel.State>(State.Loading)
 
     private val pref = preferences.preferredNovelSources
 
@@ -34,7 +39,7 @@ class NovelPreferredSourcesViewModel(
             runCatching { installer.ensureLoaded() }
             combine(sourceManager.sources, pref.changes()) { sources, ordered ->
                 buildState(sources, ordered)
-            }.collectLatest { success -> mutableState.update { success } }
+            }.collectLatest { success -> state.update { success } }
         }
     }
 

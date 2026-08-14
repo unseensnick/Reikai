@@ -5,6 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -27,6 +28,7 @@ import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -36,7 +38,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.mergeRefreshedNovel
@@ -127,7 +128,10 @@ import uy.kohesive.injekt.injectLazy
 class NovelDetailsViewModel(
     private val sourceId: String,
     private val novelUrl: String,
-) : StateViewModel<NovelDetailsState>(NovelDetailsState.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<NovelDetailsState>
+        field = MutableStateFlow<NovelDetailsState>(NovelDetailsState.Loading)
 
     companion object {
         /** A novel source id is a plugin string, so these keys are Reikai's rather than upstream's Long. */
@@ -275,7 +279,7 @@ class NovelDetailsViewModel(
                 }
                 .collectLatest { count ->
                     currentTrackingCount = count
-                    mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(trackingCount = count) ?: it }
+                    state.update { (it as? NovelDetailsState.Loaded)?.copy(trackingCount = count) ?: it }
                 }
         }
     }
@@ -294,7 +298,7 @@ class NovelDetailsViewModel(
                 }
                 .collectLatest { info ->
                     currentCustomInfo = info
-                    mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(customInfo = info) ?: it }
+                    state.update { (it as? NovelDetailsState.Loaded)?.copy(customInfo = info) ?: it }
                 }
         }
     }
@@ -306,7 +310,7 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             downloadManager.queueState.collectLatest { queue ->
                 val map = queue.associate { it.chapterId to it.state.toDownloadState() }
-                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(downloadStates = map) ?: it }
+                state.update { (it as? NovelDetailsState.Loaded)?.copy(downloadStates = map) ?: it }
             }
         }
     }
@@ -319,11 +323,11 @@ class NovelDetailsViewModel(
             val resolved = sourceManager.get(sourceId)
             if (resolved == null) {
                 if (state.value !is NovelDetailsState.Loaded) {
-                    mutableState.value = NovelDetailsState.Failed("Source not installed: $sourceId")
+                    state.value = NovelDetailsState.Failed("Source not installed: $sourceId")
                 }
             } else {
                 source = resolved
-                mutableState.update {
+                state.update {
                     (it as? NovelDetailsState.Loaded)?.let { l ->
                         l.copy(
                             sourceName = resolved.name,
@@ -504,7 +508,7 @@ class NovelDetailsViewModel(
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
         val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, showHidden, ::hiddenKey) { it.id }
         val viewSource = siblingSources.value[viewNovel.id]
-        mutableState.update { prev ->
+        state.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
             NovelDetailsState.Loaded(
                 novel = anchor,
@@ -562,7 +566,7 @@ class NovelDetailsViewModel(
             lastModified = novel.coverLastModified,
         )
         cover.vibrantCoverColor?.let { color ->
-            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
+            state.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
             return
         }
         viewModelScope.launchIO {
@@ -585,7 +589,7 @@ class NovelDetailsViewModel(
                 ?.getBitmapOrNull() ?: return@launchIO
             val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
             cover.vibrantCoverColor = color
-            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
+            state.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
         }
     }
 
@@ -596,7 +600,7 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             runCatching { fetchAndSync(src, existing) }.onFailure { e ->
                 if (state.value !is NovelDetailsState.Loaded) {
-                    mutableState.value = NovelDetailsState.Failed(e.message ?: "Failed to load novel")
+                    state.value = NovelDetailsState.Failed(e.message ?: "Failed to load novel")
                 }
             }
         }
@@ -647,7 +651,7 @@ class NovelDetailsViewModel(
         }
         if (!triedPages.add(pageKey)) return
         viewModelScope.launchIO {
-            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
+            state.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
                     syncChaptersWithNovelSource(
@@ -662,7 +666,7 @@ class NovelDetailsViewModel(
                 }
             } catch (_: Throwable) {
             } finally {
-                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = false) ?: it }
+                state.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = false) ?: it }
             }
         }
     }
@@ -765,7 +769,7 @@ class NovelDetailsViewModel(
         val anchorSrc = source ?: return
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launchIO {
-            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
+            state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
                 // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
                 // every other grouped source so the unified list picks up new chapters everywhere.
@@ -782,7 +786,7 @@ class NovelDetailsViewModel(
                     forceRefreshViewedPage(loaded, anchorUpdated, anchorSrc)
                 }
             } finally {
-                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
+                state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
             }
         }
     }
@@ -1272,7 +1276,7 @@ class NovelDetailsViewModel(
     }
 
     private inline fun updateLoaded(crossinline transform: (NovelDetailsState.Loaded) -> NovelDetailsState.Loaded) {
-        mutableState.update { (it as? NovelDetailsState.Loaded)?.let(transform) ?: it }
+        state.update { (it as? NovelDetailsState.Loaded)?.let(transform) ?: it }
     }
 }
 

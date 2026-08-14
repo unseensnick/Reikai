@@ -20,6 +20,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.core.net.toUri
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,8 +35,9 @@ import eu.kanade.tachiyomi.data.backup.BackupFileValidator
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.util.system.DeviceUtil
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -178,7 +180,10 @@ class RestoreBackupScreen(
 class RestoreBackupViewModel(
     private val context: Context,
     private val uri: String,
-) : StateViewModel<RestoreBackupViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<RestoreBackupViewModel.State>
+        field = MutableStateFlow<RestoreBackupViewModel.State>(State())
 
     companion object {
         val URI_KEY = CreationExtras.Key<String>()
@@ -201,7 +206,7 @@ class RestoreBackupViewModel(
     }
 
     fun toggle(setter: (RestoreOptions, Boolean) -> RestoreOptions, enabled: Boolean) {
-        mutableState.update {
+        state.update {
             it.copy(
                 options = setter(it.options, enabled),
             )
@@ -239,7 +244,7 @@ class RestoreBackupViewModel(
     }
 
     private fun setError(error: Any?, canRestore: Boolean) {
-        mutableState.update {
+        state.update {
             it.copy(
                 error = error,
                 canRestore = canRestore,

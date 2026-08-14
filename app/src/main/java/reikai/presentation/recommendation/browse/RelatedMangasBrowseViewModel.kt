@@ -6,13 +6,15 @@ import android.content.res.Configuration
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.domain.manga.interactor.UpdateManga
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.recommendation.BuildRecommendationHideFilter
@@ -56,7 +58,10 @@ class RelatedMangasBrowseViewModel(
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val buildRecommendationHideFilter: BuildRecommendationHideFilter = Injekt.get(),
-) : StateViewModel<RelatedMangasBrowseViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<RelatedMangasBrowseViewModel.State>
+        field = MutableStateFlow<RelatedMangasBrowseViewModel.State>(State())
 
     companion object {
         val MANGA_ID_KEY = CreationExtras.Key<Long>()
@@ -88,14 +93,14 @@ class RelatedMangasBrowseViewModel(
                 val items = pool.map {
                     BrowseItem(it, (it.manga.url to it.sourceId) in favoriteKeys, hidden = hideFilter.shouldHide(it))
                 }
-                mutableState.update {
+                state.update {
                     it.copy(items = items, loading = pool.isEmpty() && entry?.isComplete != true)
                 }
             }
         }
     }
 
-    fun toggleShowHidden() = mutableState.update { it.copy(showHidden = !it.showHidden) }
+    fun toggleShowHidden() = state.update { it.copy(showHidden = !it.showHidden) }
 
     /** Span count from the shared library grid-size prefs, mirroring browse-source. */
     fun getColumns(orientation: Int): GridCells {
@@ -107,12 +112,12 @@ class RelatedMangasBrowseViewModel(
         return if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns)
     }
 
-    fun toggleGrouping() = mutableState.update { it.copy(grouped = !it.grouped) }
+    fun toggleGrouping() = state.update { it.copy(grouped = !it.grouped) }
 
     /** Enter selection mode from the toolbar Select button (long-press is the other entry point). */
-    fun enterSelectionMode() = mutableState.update { it.copy(selectionMode = true) }
+    fun enterSelectionMode() = state.update { it.copy(selectionMode = true) }
 
-    fun toggleSelection(url: String) = mutableState.update { st ->
+    fun toggleSelection(url: String) = state.update { st ->
         val selection = st.selectedUrls.toMutableSet()
         if (!selection.add(url)) selection.remove(url)
         lastSelectedUrl = url.takeIf { selection.isNotEmpty() }
@@ -120,7 +125,7 @@ class RelatedMangasBrowseViewModel(
     }
 
     /** Select every item between the last-toggled anchor and [url] (inclusive), in display order. */
-    fun toggleRangeSelection(url: String) = mutableState.update { st ->
+    fun toggleRangeSelection(url: String) = state.update { st ->
         val urls = st.visibleItems().map { it.candidate.manga.url }
         val anchorIndex = lastSelectedUrl?.let(urls::indexOf) ?: -1
         val currentIndex = urls.indexOf(url)
@@ -135,16 +140,16 @@ class RelatedMangasBrowseViewModel(
         st.copy(selectedUrls = selection, selectionMode = true)
     }
 
-    fun selectAll() = mutableState.update { st ->
+    fun selectAll() = state.update { st ->
         st.copy(selectedUrls = st.visibleItems().mapTo(HashSet()) { it.candidate.manga.url })
     }
 
-    fun clearSelection() = mutableState.update {
+    fun clearSelection() = state.update {
         lastSelectedUrl = null
         it.copy(selectedUrls = emptySet(), selectionMode = false)
     }
 
-    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
+    fun dismissDialog() = state.update { it.copy(dialog = null) }
 
     /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card
      *  (whose URL belongs to no installed source) so the caller can route it through global search. */
@@ -177,7 +182,7 @@ class RelatedMangasBrowseViewModel(
                 applyAdd(resolved, directIds)
                 finishAdd(resolved.size, trackerOrigin.size)
             } else {
-                mutableState.update {
+                state.update {
                     // Freshly-added manga have no categories yet, so every checkbox starts unchecked.
                     it.copy(
                         dialog = Dialog.ChangeCategory(
@@ -214,7 +219,7 @@ class RelatedMangasBrowseViewModel(
 
     private suspend fun finishAdd(added: Int, skipped: Int) {
         val favoriteKeys = currentFavoriteKeys()
-        mutableState.update { st ->
+        state.update { st ->
             st.copy(
                 items = st.items.map {
                     it.copy(

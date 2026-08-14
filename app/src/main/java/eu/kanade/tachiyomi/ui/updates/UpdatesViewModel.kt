@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.updates
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.util.fastFilter
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
@@ -9,6 +10,8 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -21,7 +24,6 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.source.ReikaiSourcePreferences
@@ -60,7 +62,10 @@ class UpdatesViewModel(
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     // RK: the Updates tab's category filter, one selection covering both content types, applied in SQL.
     private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-) : StateViewModel<UpdatesViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<UpdatesViewModel.State>
+        field = MutableStateFlow<UpdatesViewModel.State>(State())
 
     init {
         viewModelScope.launchIO {
@@ -105,7 +110,7 @@ class UpdatesViewModel(
                     .overlayCustomInfo(customInfo)
             }
                 .collectLatest { updateItems ->
-                    mutableState.update {
+                    state.update {
                         it.copy(
                             isLoading = false,
                             items = updateItems,
@@ -183,7 +188,7 @@ class UpdatesViewModel(
      * @param download download object containing progress.
      */
     private fun updateDownloadState(download: Download) {
-        mutableState.update { state ->
+        state.update { state ->
             val newItems = state.items.toMutableList().also { list ->
                 val modifiedIndex = list.indexOfFirst { it.update.chapterId == download.chapter.id }
                 if (modifiedIndex < 0) return@also

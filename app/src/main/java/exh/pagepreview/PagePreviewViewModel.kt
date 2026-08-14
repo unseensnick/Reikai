@@ -3,6 +3,7 @@ package exh.pagepreview
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -11,11 +12,11 @@ import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -31,7 +32,10 @@ class PagePreviewViewModel(
     private val getManga: GetManga = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
-) : StateViewModel<PagePreviewState>(PagePreviewState.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<PagePreviewState>
+        field = MutableStateFlow<PagePreviewState>(PagePreviewState.Loading)
 
     private val page = MutableStateFlow(1)
 
@@ -42,7 +46,7 @@ class PagePreviewViewModel(
             val manga = getManga.await(mangaId)!!
             val chapter = getChaptersByMangaId.await(mangaId).minByOrNull { it.sourceOrder }
             if (chapter == null) {
-                mutableState.update {
+                state.update {
                     PagePreviewState.Error(Exception("No chapters found"))
                 }
                 return@launchIO
@@ -53,10 +57,10 @@ class PagePreviewViewModel(
                     when (
                         val previews = getPagePreviews.await(manga, source, page)
                     ) {
-                        is GetPagePreviews.Result.Error -> mutableState.update {
+                        is GetPagePreviews.Result.Error -> state.update {
                             PagePreviewState.Error(previews.error)
                         }
-                        is GetPagePreviews.Result.Success -> mutableState.update {
+                        is GetPagePreviews.Result.Success -> state.update {
                             when (it) {
                                 PagePreviewState.Loading, is PagePreviewState.Error -> {
                                     PagePreviewState.Success(
@@ -81,7 +85,7 @@ class PagePreviewViewModel(
                     }
                 }
                 .catch { e ->
-                    mutableState.update {
+                    state.update {
                         PagePreviewState.Error(e)
                     }
                 }

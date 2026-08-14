@@ -1,9 +1,12 @@
 package reikai.presentation.updates
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -12,7 +15,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.RecentsCategoryFilter
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
@@ -53,7 +55,10 @@ class NovelUpdatesViewModel(
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
-) : StateViewModel<NovelUpdatesViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<NovelUpdatesViewModel.State>
+        field = MutableStateFlow<NovelUpdatesViewModel.State>(State())
 
     init {
         viewModelScope.launchIO {
@@ -115,7 +120,7 @@ class NovelUpdatesViewModel(
                     // Filters and download detection ran on the raw values above.
                     .overlayCustomInfo(customInfo)
             }.collectLatest { items ->
-                mutableState.update { it.copy(isLoading = false, items = items) }
+                state.update { it.copy(isLoading = false, items = items) }
             }
         }
     }

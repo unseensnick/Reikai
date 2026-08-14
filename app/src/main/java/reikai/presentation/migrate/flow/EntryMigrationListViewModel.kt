@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -14,13 +15,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
@@ -53,7 +55,10 @@ class EntryMigrationListViewModel(
     // Injected so a test can drive the driver and the commits on its own scheduler; production
     // callers take the default, which is what launchIO would have used.
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : StateViewModel<EntryMigrationListViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<EntryMigrationListViewModel.State>
+        field = MutableStateFlow<EntryMigrationListViewModel.State>(State())
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -118,7 +123,7 @@ class EntryMigrationListViewModel(
                 MigratingEntryRow(it, viewModelScope.coroutineContext, io)
             }
             everHadRows = built.isNotEmpty()
-            mutableState.update {
+            state.update {
                 it.copy(
                     isLoading = false,
                     tuning = tuning,
@@ -301,7 +306,7 @@ class EntryMigrationListViewModel(
      * its own, so every action that changes what the toolbar and commit bar report ends by calling
      * this.
      */
-    private fun syncCounts() = mutableState.update { state ->
+    private fun syncCounts() = state.update { state ->
         state.copy(
             emptyReason = when {
                 // Only a list that never had rows can blame the sources. One emptied by working
@@ -415,10 +420,10 @@ class EntryMigrationListViewModel(
         }
     }
 
-    private fun reportPick(outcome: PickOutcome) = mutableState.update { it.copy(pickOutcome = outcome) }
+    private fun reportPick(outcome: PickOutcome) = state.update { it.copy(pickOutcome = outcome) }
 
     /** Called once the screen has shown the outcome; see [PickOutcome]. */
-    fun consumePickOutcome() = mutableState.update { it.copy(pickOutcome = null) }
+    fun consumePickOutcome() = state.update { it.copy(pickOutcome = null) }
 
     /** Display name for a candidate's source, for the row status line. */
     fun sourceDisplayName(sourceKey: String): String = adapter.sourceDisplayName(sourceKey)
@@ -546,7 +551,7 @@ class EntryMigrationListViewModel(
      */
     private fun removeRow(row: MigratingEntryRow) {
         row.scope.cancel()
-        mutableState.update { it.copy(rows = it.rows.filterNot { candidate -> candidate === row }) }
+        state.update { it.copy(rows = it.rows.filterNot { candidate -> candidate === row }) }
         syncCounts()
         finishIfNothingFailed()
     }
@@ -561,7 +566,7 @@ class EntryMigrationListViewModel(
         if (targets.isEmpty()) return
         // The confirm request is consumed by the batch it started, in the same write that starts it,
         // so it cannot come back when the batch ends on a partial failure.
-        mutableState.update {
+        state.update {
             it.copy(
                 savedFlags = flags,
                 dialog = null,
@@ -578,13 +583,13 @@ class EntryMigrationListViewModel(
                 targets.forEachIndexed { index, row ->
                     ensureActive()
                     commitRow(row, replace, flags)
-                    mutableState.update { it.copy(commit = CommitActivity.Batch(index + 1, targets.size)) }
+                    state.update { it.copy(commit = CommitActivity.Batch(index + 1, targets.size)) }
                 }
                 // Only a clean run leaves: a failure keeps the screen open so the row that failed
                 // stays visible with its retry, instead of vanishing with the rest.
                 finishIfNothingFailed()
             } finally {
-                mutableState.update { it.copy(commit = CommitActivity.Idle) }
+                state.update { it.copy(commit = CommitActivity.Idle) }
                 commitJob = null
             }
         }
@@ -615,7 +620,7 @@ class EntryMigrationListViewModel(
      * entry twice.
      */
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
-        mutableState.update { it.copy(commit = CommitActivity.Single(row.entry.id)) }
+        state.update { it.copy(commit = CommitActivity.Single(row.entry.id)) }
         // Recorded like the batch's, so [cancelCommit] reaches BOTH commit shapes. It only ever held
         // the batch job, which made the exit dialog's cancel a no-op on the per-row path: Stop fell
         // through to the pop, and the migration was cancelled by the scope teardown mid-write instead.
@@ -627,7 +632,7 @@ class EntryMigrationListViewModel(
                 commitRow(row, replace, flags)
                 finishIfNothingFailed()
             } finally {
-                mutableState.update { it.copy(commit = CommitActivity.Idle) }
+                state.update { it.copy(commit = CommitActivity.Idle) }
                 commitJob = null
             }
         }
@@ -643,7 +648,7 @@ class EntryMigrationListViewModel(
      */
     private fun finishIfNothingFailed() {
         if (everHadRows && rows.isEmpty()) {
-            mutableState.update { it.copy(finished = true) }
+            state.update { it.copy(finished = true) }
             return
         }
         if (!batchRan || state.value.migratedCount == 0) return
@@ -654,7 +659,7 @@ class EntryMigrationListViewModel(
         }
         if (!anyBusy && !anyCommittable) {
             batchRan = false
-            mutableState.update { it.copy(finished = true) }
+            state.update { it.copy(finished = true) }
         }
     }
 
@@ -699,7 +704,7 @@ class EntryMigrationListViewModel(
             // CAS, not a plain write: if anything legitimately changed chosen mid-commit, the user's
             // choice wins over the bookkeeping copy.
             row.acceptance.compareAndSet(Acceptance.Accepted(target), Acceptance.Accepted(resolved))
-            mutableState.update { it.copy(migratedCount = it.migratedCount + 1) }
+            state.update { it.copy(migratedCount = it.migratedCount + 1) }
             // The row is done, so it leaves, as upstream does. Only a failure keeps its row, because
             // a failure is the one outcome that still needs the user. This is also what releases the
             // claim: there is no terminal phase to write it to.
@@ -726,7 +731,7 @@ class EntryMigrationListViewModel(
     fun showConfirm(replace: Boolean) {
         if (state.value.isBusy) return
         val scan = ++confirmScanId
-        mutableState.update {
+        state.update {
             it.copy(dialog = Dialog.Confirm(replace, it.committableCount, it.untouchedCount))
         }
         viewModelScope.launch(io) {
@@ -737,7 +742,7 @@ class EntryMigrationListViewModel(
             // The saved set is re-read rather than reused: an earlier commit in this session rewrote
             // the preference, and the seed has to match what the next migration will actually use.
             val saved = adapter.savedFlags()
-            mutableState.update {
+            state.update {
                 val open = it.dialog
                 if (scan != confirmScanId || open !is Dialog.Confirm) return@update it
                 it.copy(dialog = open.copy(applicableFlags = applicable, savedFlags = saved, loadingFlags = false))
@@ -747,10 +752,10 @@ class EntryMigrationListViewModel(
 
     /** Ask before leaving. Allowed mid-commit, and it cannot touch the commit cell: back used to
      *  overwrite the one cell that held both, which cleared the busy state under a running migration. */
-    fun showExitConfirm() = mutableState.update { it.copy(dialog = Dialog.ExitConfirm) }
+    fun showExitConfirm() = state.update { it.copy(dialog = Dialog.ExitConfirm) }
 
     /** Close an open dialog. Only a dialog: a commit is not something a dismissal may cancel. */
-    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
+    fun dismissDialog() = state.update { it.copy(dialog = null) }
 
     override fun onCleared() {
         super.onCleared()

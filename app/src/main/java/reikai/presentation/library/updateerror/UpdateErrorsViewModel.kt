@@ -2,15 +2,17 @@ package reikai.presentation.library.updateerror
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ContentType
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
@@ -38,7 +40,10 @@ class UpdateErrorsViewModel(
     private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val novelSourceManager: NovelSourceManager = Injekt.get(),
-) : StateViewModel<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<UpdateErrorsScreenState>
+        field = MutableStateFlow<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading)
 
     companion object {
         val INITIAL_CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -68,7 +73,7 @@ class UpdateErrorsViewModel(
                 manga + novel
             }.collectLatest { entries ->
                 val validKeys = entries.mapTo(mutableSetOf()) { it.key }
-                mutableState.update { current ->
+                state.update { current ->
                     val prev = current as? UpdateErrorsScreenState.Success
                     UpdateErrorsScreenState.Success(
                         entries = entries,
@@ -80,24 +85,24 @@ class UpdateErrorsViewModel(
         }
     }
 
-    fun setContentType(type: ContentType) = mutableState.update { state ->
+    fun setContentType(type: ContentType) = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
         // Selection is per-list; switching the chip drops a now-hidden selection.
         state.copy(contentType = type, selected = emptySet())
     }
 
-    fun toggleSelection(key: String) = mutableState.update { state ->
+    fun toggleSelection(key: String) = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
         val selected = state.selected.toMutableSet().apply { if (!add(key)) remove(key) }
         state.copy(selected = selected)
     }
 
-    fun selectAll() = mutableState.update { state ->
+    fun selectAll() = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
         state.copy(selected = state.visibleEntries.mapTo(mutableSetOf()) { it.key })
     }
 
-    fun clearSelection() = mutableState.update { state ->
+    fun clearSelection() = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
         state.copy(selected = emptySet())
     }

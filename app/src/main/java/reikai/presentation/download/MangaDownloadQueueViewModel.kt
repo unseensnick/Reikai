@@ -1,16 +1,17 @@
 package reikai.presentation.download
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -24,7 +25,10 @@ import uy.kohesive.injekt.injectLazy
  * are the parked per-chapter view, left inert.
  */
 class MangaDownloadQueueViewModel :
-    StateViewModel<List<EntryDownloadCardUi>>(emptyList()) {
+    ViewModel() {
+
+    val state: StateFlow<List<EntryDownloadCardUi>>
+        field = MutableStateFlow<List<EntryDownloadCardUi>>(emptyList())
 
     private val downloadManager: DownloadManager by injectLazy()
     private val downloadPreferences: DownloadPreferences by injectLazy()
@@ -75,7 +79,7 @@ class MangaDownloadQueueViewModel :
                 } else {
                     emptySet()
                 }
-                mutableState.value = byManga.map { (mangaId, downloads) ->
+                state.value = byManga.map { (mangaId, downloads) ->
                     val remaining = downloads.size
                     val total = maxOf(initialTotals[mangaId] ?: 0, remaining)
                         .also { initialTotals[mangaId] = it }

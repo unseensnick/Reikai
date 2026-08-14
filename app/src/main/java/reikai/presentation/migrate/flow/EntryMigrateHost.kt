@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.autoSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,8 +21,9 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
@@ -87,7 +89,10 @@ internal data class EntryMigratePair(val currentId: Long, val targetId: Long)
 
 internal class EntryMigrateHostViewModel(
     contentType: ContentType,
-) : StateViewModel<EntryMigrateHostViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<EntryMigrateHostViewModel.State>
+        field = MutableStateFlow<EntryMigrateHostViewModel.State>(State())
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -100,14 +105,14 @@ internal class EntryMigrateHostViewModel(
     private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     fun load(request: EntryMigratePair) {
-        mutableState.update { State(request = request) }
+        state.update { State(request = request) }
         viewModelScope.launchIO {
             // The novel source layer has to be warm before names and covers resolve; this is often
             // the first migration surface a session touches.
             adapter.prepare()
             val entry = adapter.loadEntries(listOf(request.currentId)).firstOrNull()
             val target = adapter.storedCandidate(request.targetId)
-            mutableState.update {
+            state.update {
                 if (it.request != request) return@update it
                 it.copy(loaded = true, entry = entry, target = target)
             }

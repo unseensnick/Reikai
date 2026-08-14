@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,12 +52,13 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceIcon
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -373,7 +375,10 @@ class EntryMigrationConfigViewModel(
     // so a plain JVM test can still construct this directly with its own adapter and dispatcher.
     private val adapter: MigrationFlowAdapter,
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : StateViewModel<EntryMigrationConfigViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<EntryMigrationConfigViewModel.State>
+        field = MutableStateFlow<EntryMigrationConfigViewModel.State>(State())
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -411,7 +416,7 @@ class EntryMigrationConfigViewModel(
                 .ifEmpty { enabled.filter { it.key in pinned } }
                 .ifEmpty { enabled }
             val selectedKeys = selected.mapTo(HashSet()) { it.key }
-            mutableState.update {
+            state.update {
                 it.copy(
                     isLoading = false,
                     selected = selected,
@@ -432,7 +437,7 @@ class EntryMigrationConfigViewModel(
      */
     fun applyTuning(edited: MigrationTuning) {
         val tuning = edited.normalizedFor(adapter.matchStrategy)
-        mutableState.update { it.copy(tuning = tuning) }
+        state.update { it.copy(tuning = tuning) }
         viewModelScope.launch(io) { adapter.persistTuning(tuning) }
     }
 
@@ -487,7 +492,7 @@ class EntryMigrationConfigViewModel(
      * edits used to race, and the older order could land last and be what the flow then searched.
      */
     private fun editSelection(edit: (State) -> State) {
-        val settled = mutableState.updateAndGet(edit)
+        val settled = state.updateAndGet(edit)
         val version = ++selectionVersion
         viewModelScope.launch(io) {
             persistLock.withLock {

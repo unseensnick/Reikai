@@ -1,5 +1,6 @@
 package reikai.presentation.novel.globalsearch
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -8,11 +9,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
@@ -35,7 +37,10 @@ private const val SEARCH_CONCURRENCY = 5
  */
 class NovelGlobalSearchViewModel(
     initialQuery: String,
-) : StateViewModel<NovelGlobalSearchState>(NovelGlobalSearchState(query = initialQuery)) {
+) : ViewModel() {
+
+    val state: StateFlow<NovelGlobalSearchState>
+        field = MutableStateFlow<NovelGlobalSearchState>(NovelGlobalSearchState(query = initialQuery))
 
     companion object {
         val INITIAL_QUERY_KEY = CreationExtras.Key<String>()
@@ -54,7 +59,7 @@ class NovelGlobalSearchViewModel(
     private var searchJob: Job? = null
 
     init {
-        mutableState.update { it.copy(onlyShowHasResults = sourcePreferences.novelGlobalSearchHasResults.get()) }
+        state.update { it.copy(onlyShowHasResults = sourcePreferences.novelGlobalSearchHasResults.get()) }
         viewModelScope.launchIO {
             try {
                 installer.ensureLoaded()
@@ -64,7 +69,7 @@ class NovelGlobalSearchViewModel(
         // In-library marking, same read-only (source, url) key set as browse.
         viewModelScope.launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
-                mutableState.update { it.copy(favoritedKeys = keys) }
+                state.update { it.copy(favoritedKeys = keys) }
             }
         }
     }
@@ -72,7 +77,7 @@ class NovelGlobalSearchViewModel(
     /** Switch Pinned-only vs All sources, then re-run the current query over the new source set. */
     fun setSourceFilter(filter: SourceFilter) {
         if (state.value.sourceFilter == filter) return
-        mutableState.update { it.copy(sourceFilter = filter) }
+        state.update { it.copy(sourceFilter = filter) }
         search(state.value.query)
     }
 
@@ -80,7 +85,7 @@ class NovelGlobalSearchViewModel(
     fun toggleHasResults() {
         val newValue = !state.value.onlyShowHasResults
         sourcePreferences.novelGlobalSearchHasResults.set(newValue)
-        mutableState.update { it.copy(onlyShowHasResults = newValue) }
+        state.update { it.copy(onlyShowHasResults = newValue) }
     }
 
     // --- Long-press add-to-library, via the shared [NovelLibraryAdder]. The source id comes from the
@@ -89,13 +94,13 @@ class NovelGlobalSearchViewModel(
     fun onLongClickItem(item: NovelItem, sourceId: String) {
         viewModelScope.launchIO {
             val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
-            mutableState.update { it.copy(dialog = dialog) }
+            state.update { it.copy(dialog = dialog) }
         }
     }
 
     fun addFromDuplicate(item: NovelItem, sourceId: String) {
         viewModelScope.launchIO {
-            mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
+            state.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
         }
     }
 
@@ -104,7 +109,7 @@ class NovelGlobalSearchViewModel(
     fun startMigrate(duplicateId: Long, item: NovelItem, sourceId: String) {
         viewModelScope.launchIO {
             val target = libraryAdder.materialize(item, sourceId) ?: return@launchIO
-            mutableState.update {
+            state.update {
                 it.copy(dialog = NovelBrowseDialog.Migrate(currentId = duplicateId, targetId = target.id))
             }
         }
@@ -114,37 +119,37 @@ class NovelGlobalSearchViewModel(
     fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>) {
         viewModelScope.launchIO {
             val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
-            mutableState.update { it.copy(dialog = dialog) }
+            state.update { it.copy(dialog = dialog) }
         }
     }
 
     fun applyCategories(target: NovelCategoryTarget, categoryIds: List<Long>) {
         viewModelScope.launchIO {
             libraryAdder.confirmCategories(target, categoryIds)
-            mutableState.update { it.copy(dialog = null) }
+            state.update { it.copy(dialog = null) }
         }
     }
 
     fun confirmRemove(item: NovelItem, sourceId: String) {
         viewModelScope.launchIO {
             libraryAdder.confirmRemove(item, sourceId)
-            mutableState.update { it.copy(dialog = null) }
+            state.update { it.copy(dialog = null) }
         }
     }
 
-    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
+    fun dismissDialog() = state.update { it.copy(dialog = null) }
 
     fun search(query: String) {
         searchJob?.cancel()
         // Match manga: don't show any source rows / loaders until a real search runs. A blank query
         // clears the list instead of leaving every source spinning forever.
         if (query.isBlank()) {
-            mutableState.update { it.copy(query = "", results = emptyList()) }
+            state.update { it.copy(query = "", results = emptyList()) }
             return
         }
         val pinned = sourcePreferences.pinnedNovelSources.get()
         val sources = selectGlobalSearchSources(getEnabledNovelSources.get(), pinned, state.value.sourceFilter)
-        mutableState.update {
+        state.update {
             it.copy(
                 query = query,
                 results = sources.map { source -> SourceSearchResult(source, SearchState.Loading) },
@@ -163,7 +168,7 @@ class NovelGlobalSearchViewModel(
                             SearchState.Error("${e.javaClass.simpleName}: ${e.message ?: ""}")
                         }
                     }
-                    mutableState.update { st ->
+                    state.update { st ->
                         st.copy(
                             results = st.results
                                 .map { if (it.source.id == source.id) it.copy(state = result) else it }

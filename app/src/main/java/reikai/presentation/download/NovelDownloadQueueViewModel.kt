@@ -1,12 +1,13 @@
 package reikai.presentation.download
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -27,7 +28,10 @@ import uy.kohesive.injekt.injectLazy
  * additive.
  */
 class NovelDownloadQueueViewModel :
-    StateViewModel<List<EntryDownloadCardUi>>(emptyList()) {
+    ViewModel() {
+
+    val state: StateFlow<List<EntryDownloadCardUi>>
+        field = MutableStateFlow<List<EntryDownloadCardUi>>(emptyList())
 
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val novelRepo: NovelRepository by injectLazy()
@@ -59,7 +63,7 @@ class NovelDownloadQueueViewModel :
                     val byNovel = queue.groupBy { it.novelId }
                     metaCache.keys.retainAll(byNovel.keys)
                     initialTotals.keys.retainAll(byNovel.keys)
-                    mutableState.value = byNovel.map { (novelId, downloads) ->
+                    state.value = byNovel.map { (novelId, downloads) ->
                         val (title, sourceName) = metaCache.getOrPut(novelId) {
                             val novel = novelRepo.getById(novelId)
                             val sourceId = novel?.source.orEmpty()

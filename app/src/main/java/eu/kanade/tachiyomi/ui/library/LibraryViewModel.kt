@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
@@ -25,6 +26,8 @@ import eu.kanade.tachiyomi.util.removeCovers
 import exh.search.SearchEngine
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -38,7 +41,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
-import mihon.core.viewmodel.StateViewModel
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
@@ -136,14 +138,17 @@ class LibraryViewModel(
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get(),
     // RK <--
-) : StateViewModel<LibraryViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<LibraryViewModel.State>
+        field = MutableStateFlow<LibraryViewModel.State>(State())
 
     // RK: parses a typed query into structured tag components (cached); used by the library
     // tag-search for adult/metadata sources.
     private val searchEngine = SearchEngine()
 
     init {
-        mutableState.update { state ->
+        state.update { state ->
             state.copy(activeCategoryIndex = libraryPreferences.lastUsedCategory.get())
         }
         // RK: a newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
@@ -222,7 +227,7 @@ class LibraryViewModel(
             }
                 .distinctUntilChanged()
                 .collectLatest { libraryData ->
-                    mutableState.update { state ->
+                    state.update { state ->
                         // RK: loading ends here, not in a later grouping pass: the model no longer
                         // assembles a list, so this is the last point that knows the data has arrived.
                         // The shared assembly emits a tick later, and that one empty frame renders the
@@ -242,7 +247,7 @@ class LibraryViewModel(
             libraryPreferences.showContinueReadingButton.changes(),
         ) { a, b, c -> arrayOf(a, b, c) }
             .onEach { (showCategoryTabs, showMangaCount, showMangaContinueButton) ->
-                mutableState.update { state ->
+                state.update { state ->
                     state.copy(
                         showCategoryTabs = showCategoryTabs,
                         showMangaCount = showMangaCount,
@@ -279,7 +284,7 @@ class LibraryViewModel(
         }
             .distinctUntilChanged()
             .onEach {
-                mutableState.update { state ->
+                state.update { state ->
                     state.copy(hasActiveFilters = it)
                 }
             }
@@ -772,11 +777,11 @@ class LibraryViewModel(
     }
 
     fun search(query: String?) {
-        mutableState.update { it.copy(searchQuery = query) }
+        state.update { it.copy(searchQuery = query) }
     }
 
     fun updateActiveCategoryIndex(index: Int) {
-        mutableState.update { state -> state.copy(activeCategoryIndex = index) }
+        state.update { state -> state.copy(activeCategoryIndex = index) }
         // RK: upstream persisted lastUsedCategory here; LibraryEngine owns that now, per chip, so
         // a swipe under All can no longer overwrite the Manga chip's restore point.
     }

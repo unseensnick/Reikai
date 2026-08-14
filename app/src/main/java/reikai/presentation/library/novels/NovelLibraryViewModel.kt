@@ -1,6 +1,7 @@
 package reikai.presentation.library.novels
 
 import android.app.Application
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.manga.DownloadAction
@@ -21,7 +22,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
@@ -86,7 +86,10 @@ import kotlin.time.Duration.Companion.seconds
  * machinery via [getNovelTracks].
  */
 class NovelLibraryViewModel :
-    StateViewModel<NovelLibraryViewModel.State>(State()) {
+    ViewModel() {
+
+    val state: StateFlow<NovelLibraryViewModel.State>
+        field = MutableStateFlow<NovelLibraryViewModel.State>(State())
 
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
@@ -159,7 +162,7 @@ class NovelLibraryViewModel :
                 // overwriting the query here resets the search field to a stale value mid-input and
                 // scrambles fast keystrokes. search() owns it synchronously instead. The selection is
                 // not here at all; the shared engine owns it.
-                mutableState.update { current ->
+                state.update { current ->
                     built.copy(
                         activeCategoryIndex = current.activeCategoryIndex,
                         searchQuery = current.searchQuery,
@@ -472,12 +475,12 @@ class NovelLibraryViewModel :
     fun search(query: String?) {
         // Update the field's state synchronously so it stays responsive to fast typing (mirrors the
         // manga LibraryViewModel); searchQuery also drives the async filter combine below.
-        mutableState.update { it.copy(searchQuery = query) }
+        state.update { it.copy(searchQuery = query) }
         searchQuery.value = query
     }
 
     fun updateActiveCategoryIndex(index: Int) {
-        mutableState.update { it.copy(activeCategoryIndex = index) }
+        state.update { it.copy(activeCategoryIndex = index) }
     }
 
     // --- multi-select actions ---

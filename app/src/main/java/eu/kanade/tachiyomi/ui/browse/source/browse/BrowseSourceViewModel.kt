@@ -6,6 +6,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -26,7 +27,9 @@ import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -35,7 +38,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import mihon.core.viewmodel.StateViewModel
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
@@ -75,7 +77,10 @@ open class BrowseSourceViewModel(
     // RK --> metadata DB-join for adult-source rich browse rows
     private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
     // RK <--
-) : StateViewModel<BrowseSourceViewModel.State>(State(Listing.valueOf(listingQuery))) {
+) : ViewModel() {
+
+    val state: StateFlow<BrowseSourceViewModel.State>
+        field = MutableStateFlow<BrowseSourceViewModel.State>(State(Listing.valueOf(listingQuery)))
 
     companion object {
         val SOURCE_ID_KEY = CreationExtras.Key<Long>()
@@ -99,7 +104,7 @@ open class BrowseSourceViewModel(
     val useEhentaiView = source.id in eHentaiSourceIds && sourcePreferences.enableEnhancedEhView.get()
 
     init {
-        mutableState.update {
+        state.update {
             var query: String? = null
             var listing = it.listing
 
@@ -182,15 +187,15 @@ open class BrowseSourceViewModel(
     }
 
     fun resetFilters() {
-        mutableState.update { it.copy(filters = source.getFilterList()) }
+        state.update { it.copy(filters = source.getFilterList()) }
     }
 
     fun setListing(listing: Listing) {
-        mutableState.update { it.copy(listing = listing, toolbarQuery = null) }
+        state.update { it.copy(listing = listing, toolbarQuery = null) }
     }
 
     fun setFilters(filters: FilterList) {
-        mutableState.update {
+        state.update {
             it.copy(
                 filters = filters,
             )
@@ -201,7 +206,7 @@ open class BrowseSourceViewModel(
         val input = state.value.listing as? Listing.Search
             ?: Listing.Search(query = null, filters = source.getFilterList())
 
-        mutableState.update {
+        state.update {
             it.copy(
                 listing = input.copy(
                     query = query ?: input.query,
@@ -241,7 +246,7 @@ open class BrowseSourceViewModel(
             }
         }
 
-        mutableState.update {
+        state.update {
             val listing = if (genreExists) {
                 Listing.Search(query = null, filters = defaultFilters)
             } else {
@@ -349,11 +354,11 @@ open class BrowseSourceViewModel(
     }
 
     fun setDialog(dialog: Dialog?) {
-        mutableState.update { it.copy(dialog = dialog) }
+        state.update { it.copy(dialog = dialog) }
     }
 
     fun setToolbarQuery(query: String?) {
-        mutableState.update { it.copy(toolbarQuery = query) }
+        state.update { it.copy(toolbarQuery = query) }
     }
 
     // RK -->
@@ -368,12 +373,12 @@ open class BrowseSourceViewModel(
                 .onFailure { if (it is CancellationException) throw it }
                 .getOrNull()
                 ?: return@launchIO
-            mutableState.update { it.copy(randomMangaTarget = "id:$id") }
+            state.update { it.copy(randomMangaTarget = "id:$id") }
         }
     }
 
     fun consumeRandomTarget() {
-        mutableState.update { it.copy(randomMangaTarget = null) }
+        state.update { it.copy(randomMangaTarget = null) }
     }
     // RK <--
 

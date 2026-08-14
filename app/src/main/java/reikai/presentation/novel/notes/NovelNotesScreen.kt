@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -12,8 +13,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import reikai.presentation.notes.EntryNotesScreen
@@ -58,7 +60,10 @@ class NovelNotesScreen(
         private val novelId: Long,
         initialNotes: String,
         private val novelRepository: NovelRepository = Injekt.get(),
-    ) : StateViewModel<State>(State(initialNotes)) {
+    ) : ViewModel() {
+
+        val state: StateFlow<State>
+            field = MutableStateFlow<State>(State(initialNotes))
 
         companion object {
             val NOVEL_ID_KEY = CreationExtras.Key<Long>()
@@ -76,7 +81,7 @@ class NovelNotesScreen(
 
         fun updateNotes(content: String) {
             if (content == state.value.notes) return
-            mutableState.update { it.copy(notes = content) }
+            state.update { it.copy(notes = content) }
             viewModelScope.launchNonCancellable {
                 novelRepository.update(NovelUpdate(id = novelId, notes = content))
             }

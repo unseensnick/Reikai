@@ -1,6 +1,7 @@
 package exh.ui.batchadd
 
 import android.content.Context
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import exh.GalleryAddEvent
 import exh.GalleryAdder
@@ -9,10 +10,11 @@ import exh.util.trimOrNull
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -23,14 +25,17 @@ import uy.kohesive.injekt.api.get
 
 class BatchAddViewModel(
     private val exhPreferences: ExhPreferences = Injekt.get(),
-) : StateViewModel<BatchAddState>(BatchAddState()) {
+) : ViewModel() {
+
+    val state: StateFlow<BatchAddState>
+        field = MutableStateFlow<BatchAddState>(BatchAddState())
     private val galleryAdder by lazy { GalleryAdder() }
 
     fun addGalleries(context: Context) {
         val galleries = state.value.galleries
         // Check text box has content
         if (galleries.isBlank()) {
-            mutableState.update { it.copy(dialog = Dialog.NoGalleriesSpecified) }
+            state.update { it.copy(dialog = Dialog.NoGalleriesSpecified) }
             return
         }
 
@@ -53,7 +58,7 @@ class BatchAddViewModel(
                 .mapNotNull(String::trimOrNull)
         }
 
-        mutableState.update { state ->
+        state.update { state ->
             state.copy(
                 progress = 0,
                 progressTotal = splitGalleries.size,
@@ -88,7 +93,7 @@ class BatchAddViewModel(
                     is GalleryAddEvent.Success -> context.stringResource(MR.strings.batch_add_ok)
                     is GalleryAddEvent.Fail -> context.stringResource(MR.strings.batch_add_error)
                 } + " " + result.logMessage
-                mutableState.update { state ->
+                state.update { state ->
                     state.copy(
                         progress = i + 1,
                         events = state.events + BatchAddEvent(message, (result as? GalleryAddEvent.Success)?.manga),
@@ -98,7 +103,7 @@ class BatchAddViewModel(
 
             // Show report
             val summary = context.stringResource(MR.strings.batch_add_summary, succeeded.size, failed.size)
-            mutableState.update { state ->
+            state.update { state ->
                 state.copy(
                     events = state.events + BatchAddEvent(summary),
                 )
@@ -107,7 +112,7 @@ class BatchAddViewModel(
     }
 
     fun finish() {
-        mutableState.update { state ->
+        state.update { state ->
             state.copy(
                 progressTotal = 0,
                 progress = 0,
@@ -119,11 +124,11 @@ class BatchAddViewModel(
     }
 
     fun updateGalleries(galleries: String) {
-        mutableState.update { it.copy(galleries = galleries) }
+        state.update { it.copy(galleries = galleries) }
     }
 
     fun dismissDialog() {
-        mutableState.update { it.copy(dialog = null) }
+        state.update { it.copy(dialog = null) }
     }
 
     enum class State {

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -12,8 +13,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.MigrationSourcePickContent
 import reikai.presentation.migrate.PickMember
@@ -72,7 +74,10 @@ class EntryMigrationSourcePickScreen(
 class EntryMigrationSourcePickViewModel(
     contentType: ContentType,
     private val entryIds: List<Long>,
-) : StateViewModel<EntryMigrationSourcePickViewModel.State>(State()) {
+) : ViewModel() {
+
+    val state: StateFlow<EntryMigrationSourcePickViewModel.State>
+        field = MutableStateFlow<EntryMigrationSourcePickViewModel.State>(State())
 
     companion object {
         val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
@@ -97,16 +102,16 @@ class EntryMigrationSourcePickViewModel(
             val members = adapter.mergeGroupMembers(entryIds)
             // The group adds nothing beyond what was selected, so there is no choice to make.
             if (members.map { it.id }.toSet() == entryIds.toSet()) {
-                mutableState.update { it.copy(isLoading = false, forward = true) }
+                state.update { it.copy(isLoading = false, forward = true) }
                 return@launchIO
             }
-            mutableState.update {
+            state.update {
                 it.copy(isLoading = false, members = members, checked = entryIds.toSet())
             }
         }
     }
 
-    fun toggle(id: Long) = mutableState.update {
+    fun toggle(id: Long) = state.update {
         it.copy(checked = if (id in it.checked) it.checked - id else it.checked + id)
     }
 

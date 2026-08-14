@@ -8,6 +8,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
@@ -66,6 +67,7 @@ import exh.source.isEhBasedManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -79,7 +81,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import mihon.core.viewmodel.StateViewModel
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
@@ -218,7 +219,10 @@ class MangaViewModel(
     private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
-) : StateViewModel<MangaViewModel.State>(State.Loading) {
+) : ViewModel() {
+
+    val state: StateFlow<State>
+        field = MutableStateFlow<State>(State.Loading)
 
     companion object {
         val MANGA_ID_KEY = CreationExtras.Key<Long>()
@@ -291,7 +295,7 @@ class MangaViewModel(
      * Helper function to update the UI state only if it's currently in success state
      */
     private inline fun updateSuccessState(func: (State.Success) -> State.Success) {
-        mutableState.update {
+        state.update {
             when (it) {
                 State.Loading -> it
                 is State.Success -> func(it)
@@ -472,7 +476,7 @@ class MangaViewModel(
             if (supportsPagePreview) {
                 getPagePreviews(manga, source)
             }
-            mutableState.update {
+            state.update {
                 State.Success(
                     manga = manga,
                     source = source,

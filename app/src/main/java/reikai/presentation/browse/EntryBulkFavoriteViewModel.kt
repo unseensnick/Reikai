@@ -3,13 +3,15 @@ package reikai.presentation.browse
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastDistinctBy
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import mihon.core.viewmodel.StateViewModel
 import reikai.domain.category.resolveDefaultCategoryIds
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -25,7 +27,10 @@ import tachiyomi.domain.category.model.Category
  * per-duplicate prompt.
  */
 abstract class EntryBulkFavoriteViewModel<T : Any> :
-    StateViewModel<EntryBulkFavoriteViewModel.State<T>>(State()) {
+    ViewModel() {
+
+    val state: StateFlow<EntryBulkFavoriteViewModel.State<T>>
+        field = MutableStateFlow<EntryBulkFavoriteViewModel.State<T>>(State())
 
     /** Selection identity: two items with the same key are the same selection entry. */
     protected abstract fun keyOf(item: T): Any
@@ -42,7 +47,7 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
     fun backHandler() = toggleSelectionMode(false)
 
     fun toggleSelectionMode(newMode: Boolean? = null) {
-        mutableState.update { state ->
+        state.update { state ->
             val mode = newMode ?: !state.selectionMode
             state.copy(
                 selectionMode = mode,
@@ -56,7 +61,7 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
     /** @param toSelectedState `true` to only select, `false` to only unselect, null to toggle. */
     fun toggleSelection(item: T, toSelectedState: Boolean? = null) {
         val target = keyOf(item)
-        mutableState.update { state ->
+        state.update { state ->
             val newSelection = state.selection.mutate { list ->
                 val isSelected = list.fastAny { keyOf(it) == target }
                 val shouldSelect = toSelectedState ?: !isSelected
@@ -71,7 +76,7 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
     }
 
     fun reverseSelection(items: List<T>) {
-        mutableState.update { state ->
+        state.update { state ->
             val newSelection = items
                 .filterNot { candidate -> state.selection.fastAny { keyOf(it) == keyOf(candidate) } }
                 .fastDistinctBy { keyOf(it) }
@@ -115,7 +120,7 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
     }
 
     fun setDialog(dialog: Dialog<T>?) {
-        mutableState.update { it.copy(dialog = dialog) }
+        state.update { it.copy(dialog = dialog) }
     }
 
     sealed interface Dialog<out T> {
