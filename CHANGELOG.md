@@ -181,7 +181,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Pull to refresh on Updates now spins until the library update has actually finished.** It stopped after a second whatever the update was doing.
 - **Clearing your history with the All chip selected now asks once instead of twice.**
 - **An Updates row you expanded to see its new chapters now stays open when the screen rotates.**
-- **Continue reading now offers the oldest chapter you have not read.** A series you read out of order used to offer the chapter you had just finished, and on a series you were caught up with, tapping it did nothing at all.
+- **Continue reading now points at the oldest chapter you have not read, and the row is about that chapter throughout.** Its name, progress, unread dot, download button and the bulk actions all follow it; a series read out of order used to offer the chapter you had just finished, and look finished while offering it.
 
 **Details**
 

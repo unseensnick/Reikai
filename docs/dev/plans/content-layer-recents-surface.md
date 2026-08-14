@@ -454,13 +454,22 @@ keeps a row because the entry has something unread, so the rule has to be able t
 own-source pass in the middle stays lazy, since it is only for a recorded chapter the cross-source
 stitch dropped, and it costs a query.
 
-**The row itself has not moved yet, and moving it is its own piece of work.** Display and target were
-already free to disagree, and the reversal widened the gap: a row can say chapter 100 and open chapter
-1. Renaming the row alone was tried and rejected on device, because a row's dimming, unread dot,
-bookmark and download control all still describe the recorded chapter, so a renamed row draws itself as
-read while naming something unread. The row moves whole or not at all, and the plan for that is
-[recents-continue-reading-row.md](recents-continue-reading-row.md). History is deliberately excluded
-there, because that tab is a log of what was read rather than a list of what to read next.
+**The row then moved onto its target, whole** (`8c982480c`). Display and target were already free to
+disagree, and the reversal widened the gap: a row could say chapter 100 and open chapter 1. Renaming
+the row alone was tried and rejected on device, because its dimming, unread dot, bookmark and download
+control all still described the recorded chapter, so a renamed row drew itself as read while naming
+something unread. What landed instead moves the lot: `RecentsProvider.targetRow` projects the resolved
+chapter into a label, a state and a download control, the engine remembers one per record, and the four
+bulk verbs are mapped onto it before they dispatch. The record is untouched, so History still names,
+dims and acts on it: that tab is a log of what was read rather than a list of what to read next. Full
+record: [recents-continue-reading-row.md](recents-continue-reading-row.md).
+
+Two seam facts worth carrying forward. The memo hangs off the lane data rather than the assembly,
+which is what lets a search keystroke leave resolutions alone while a chapter write clears them, and
+it is emptied on a mode switch so a resolution made in Grouped cannot answer for a History row. And
+the four selection verbs now take the chapters to act on rather than reading the selection back out of
+the engine, because the mapping suspends and a verb resolving internally would have to clear the
+selection out from under its own dispatch.
 
 ## Decisions & tradeoffs
 

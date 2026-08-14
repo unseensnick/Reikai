@@ -45,17 +45,21 @@ suspend fun targetRow(item: RecentsItem): RecentsTargetRow?
 ```
 
 `RecentsTargetRow` holds the target's `ChapterRef`, its `RecentsChapterUi`, its `RecentsChapterState`
-(read, bookmark, progress) and its `RecentsDownloadUi`. Null where nothing is left to open. It replaces
-the narrower `chapterLabel` on the same seam.
+(read, bookmark, progress) and its `RecentsDownloadUi`. Null where nothing is left to open.
 
-Each adapter implements it by calling its existing `targetChapter` and then projecting the result the
-way `rowUi` projects a record. That projection needs two lookups, not one. The chapter itself comes by
-id (`GetChapter` for manga, `NovelChapterRepository.getById` for novels), because the shared rules work
-over `RecentsChapter`, which holds only id, fetch time and read state, and `resumeTarget` returns a
-bare id that may come from the group list, the entry's own source list, or the oldest-unread clause.
-The owning entry comes second, because download state is keyed by the entry's stored title and source
-alongside the chapter's name and scanlator, and for a merged series the resolved chapter can belong to
-a sibling entry in the group.
+Both adapters answer it out of the load their target rule already pays for. The rules work over
+`RecentsChapter`, which holds only id, fetch time and read state, so each adapter now resolves through
+a private `resolveTarget` that keeps the chapter objects the rule chose between and returns the picked
+id alongside them; `targetChapter` is the same function reading only the id, so a tap and a row cannot
+resolve differently. The pool has to hold the entry's own source list as well as the group's, because
+the cross-source stitch drops the copies another source stands in for, and `resumeTarget` can pick out
+of either.
+
+The owning entry is the second half, because download state is keyed by that entry's stored title and
+source alongside the chapter's name and scanlator, and a merged row can resolve a chapter belonging to
+a sibling. Manga needs no query for it: `MergedChapterProvider.Group` already carries `mangaById`, and
+populates it with the anchor when the entry is unmerged. Novels need one, `NovelRepository.getById` on
+the chapter's own `novelId`, since `groupChapters` returns no such map.
 
 Download state has to come out of the same call. Both adapters build a row's `RecentsDownloadUi` from
 the row's payload, keyed on the recorded chapter, so a row naming its target while its indicator
@@ -88,7 +92,6 @@ A row whose target turns out to be the recorded chapter draws exactly as it does
 ### The engine remembers it
 
 A `StateFlow<Map<ChapterRef, RecentsTargetRow>>` keyed by the recorded ref, filled as rows resolve.
-This widens the existing `targetLabels` memo rather than replacing it.
 
 The recorded ref is unique among the rows that use this memo, which is what makes it a safe key: only
 read-lane rows resolve a target, and `collapseByEntry` reduces each lane to one row per entry before
@@ -98,8 +101,10 @@ can share a chapter ref in Grouped, and that costs nothing here, because the upd
 The memo is emptied when the lane data changes rather than when the assembly emits. The assembly folds
 the search query in with the lanes, and the lane combination is already its own sub-flow, so the clear
 hangs there and a keystroke leaves the memo alone. Hanging it on the lanes is also what invalidates a
-row after its chapter is marked read: the write lands, the lane queries re-run, the memo empties. That
-the history views do re-emit on a chapter write is an assumption to confirm on device.
+row after its chapter is marked read: the write lands, the lane queries re-run, the memo empties. The
+history views do re-emit on a chapter write, confirmed on device: marking a row's target read moves
+the row straight on to the next chapter. A mode switch empties it too, so a memo filled in Grouped
+cannot answer for a History row, which is about its record.
 
 ### The row and the bar read it
 
@@ -113,12 +118,17 @@ what they do, because the verbs resolve before dispatching.
 
 ### The verbs act per row, without changing the selection
 
-The selection stays a `Set<ChapterRef>` of recorded refs, and every verb keeps its current signature.
-What changes is one step in front of them: before dispatching, the screen maps each selected row to the
-chapter that row is about, taking the target for a combined-mode read row and the recorded chapter
-otherwise, from the memo where it is warm and by resolving where it is not. The screen already
-materialises the live items for the selection when it builds the bar, so it is the one place that has
-both the rows and a coroutine to resolve in.
+The selection stays a `Set<ChapterRef>` of recorded refs. What changes is one step in front of the
+verbs: `RecentsEngine.actingChapters` maps each selected row to the chapter that row is about, taking
+the target for a combined-mode read row and the recorded chapter otherwise, from the memo where it is
+warm and by resolving where it is not. The screen calls it, because it already materialises the live
+items for the selection when it builds the bar and is the one place that has both the rows and a
+coroutine to resolve in.
+
+The four verbs therefore take the chapters to act on rather than reading the selection back out of the
+engine. That is a signature change the plan first expected to avoid, and it is forced: the mapping
+suspends, and a verb that resolved internally would either have to launch and clear the selection out
+from under the dispatch, or hide the timing entirely.
 
 Four verbs need this, and `deleteDownloads` is the one easily forgotten: `markReadSelection`,
 `setBookmarkSelection`, `downloadSelection` and `deleteDownloads`. The last raises a confirmation
@@ -129,7 +139,7 @@ is confirmed.
 
 All under `app/src/main/java/reikai/presentation/recents/` unless noted:
 
-- `RecentsProvider.kt`: the seam, where `targetRow` replaces `chapterLabel`.
+- `RecentsProvider.kt`: the seam, where `targetRow` sits beside `targetChapter`.
 - `RecentsRowUi.kt`: where `RecentsTargetRow` belongs, beside the projections it composes.
 - `MangaRecentsAdapter.kt`, `NovelRecentsAdapter.kt`: the two implementations, including the target's
   download state and its owning entry.
@@ -140,9 +150,12 @@ All under `app/src/main/java/reikai/presentation/recents/` unless noted:
 
 ## Steps
 
-1. The seam: `RecentsTargetRow` and `targetRow` in both adapters, replacing `chapterLabel`.
-2. The engine: widen the memo to hold a target row, move its clear onto the lane data, and carry
-   membership through `RecentsRendered` for the gate.
+Steps 1 to 5 landed as one commit: step 1 alone adds a seam nothing calls, and step 3 is what makes
+any of it observable, so splitting them would have shipped dead code and an untestable half-move.
+
+1. The seam: `RecentsTargetRow` and `targetRow` in both adapters.
+2. The engine: the memo, its clear on the lane data and on a mode switch, and membership carried
+   through `RecentsRendered` for the gate.
 3. The row: the read-lane branch of `RecentsMixedLaneRow` draws the target. Its other two branches are
    untouched.
 4. The verbs: map each selected row to its chapter in front of the four bulk verbs, including the
@@ -189,10 +202,17 @@ A `uiautomator` dump lists only rendered rows, so a scrolled list reads exactly 
 
 ## Status
 
-Not started; the backlog line is in [ROADMAP.md](../../../ROADMAP.md) under Now. Two pieces it builds
-on are done and device-verified, and their short-SHAs belong here once they land: the reversed target
-rule, and the removal of the download control from History rows (the row button, and the bulk verb
-wherever the selected chapter is already read).
+Shipped. The reversed target rule is `fe65fb90f` and the removal of the download control from History
+rows is `fde3a86fd`; the row move itself is `8c982480c`, which carried steps 1 to 5.
+
+Verified on the emulator for both content types. A novel whose recorded chapter is finished names the
+oldest unread one in Grouped while History still names the record, and a tap opens the chapter the row
+names. On the manga side the bulk mark-as-read hit the target rather than the record, and the row then
+moved on to the next chapter with its progress line gone, which is also the on-device confirmation
+that a chapter write re-runs the lane queries and empties the memo.
+
+Two things the device pass did not reach: the download control actually fetching the target (the
+emulator's sources do not download), and delete-downloads on a resolved row.
 
 ## Decisions & tradeoffs
 
