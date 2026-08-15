@@ -25,21 +25,22 @@ import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import exh.search.SearchEngine
 import exh.source.getMainSource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.categoryFilterActive
@@ -140,158 +141,159 @@ class LibraryViewModel(
     // RK <--
 ) : ViewModel() {
 
-    val state: StateFlow<LibraryViewModel.State>
-        field = MutableStateFlow<LibraryViewModel.State>(State())
-
     // RK: parses a typed query into structured tag components (cached); used by the library
     // tag-search for adult/metadata sources.
     private val searchEngine = SearchEngine()
 
-    init {
-        state.update { state ->
-            state.copy(activeCategoryIndex = libraryPreferences.lastUsedCategory.get())
+    private val searchQuery = MutableStateFlow<String?>(null)
+
+    private val activeCategoryIndex = MutableStateFlow(libraryPreferences.lastUsedCategory.get())
+
+    private val displayPreferences = combine(
+        libraryPreferences.categoryTabs.changes(),
+        libraryPreferences.categoryNumberOfItems.changes(),
+        libraryPreferences.showContinueReadingButton.changes(),
+        ::DisplayPreferences,
+    )
+
+    private val hasActiveFilters = combine(
+        getLibraryItemPreferencesFlow(),
+        getTrackingFiltersFlow(),
+    ) { prefs, trackFilters ->
+        listOf(
+            prefs.filterDownloaded,
+            prefs.filterUnread,
+            prefs.filterStarted,
+            prefs.filterBookmarked,
+            prefs.filterCompleted,
+            prefs.filterIntervalCustom,
+            // RK --> lewd counts as an active filter dim
+            prefs.filterLewd,
+            // RK <--
+            *trackFilters.values.toTypedArray(),
+        )
+            .any { it != TriState.DISABLED } ||
+            // RK --> include/exclude category filter is a Boolean dim, not a TriState
+            categoryFilterActive(
+                prefs.filterCategories,
+                prefs.filterCategoriesInclude,
+                prefs.filterCategoriesExclude,
+            )
+        // RK <--
+    }
+        .distinctUntilChanged()
+
+    // RK: upstream's second pipeline (bucket favorites into categories, then sort each) is gone, so this
+    // is the whole query. The model is a row provider now: LibraryEngine assembles and sorts the list,
+    // because only it sees both content types.
+    private val libraryData: StateFlow<LibraryData?> =
+        combine(
+            // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
+            //     lookup runs once per query change rather than on every favorites tick (this combine
+            //     is at its 5-source cap, so it rides here rather than taking a slot of its own).
+            searchQuery.debounce(0.25.seconds)
+                .map { query -> query to resolveChapterMatches(query) },
+            getCategories.subscribe(),
+            // RK: the custom-info overlay rides with favorites (combine caps at 5 sources) but is
+            //     NOT applied here: search/filter/sort below all read the raw favorites. It is
+            //     carried into LibraryData and applied only at the display read (see State).
+            combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
+            combine(getTracksPerManga.subscribe(), getTrackingFiltersFlow(), ::Pair),
+            getLibraryItemPreferencesFlow(),
+        ) {
+                (searchQuery, chapterMatches),
+                categories,
+                (favorites, customInfo),
+                (tracksMap, trackingFilters),
+                itemPreferences,
+            ->
+            val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
+            val filteredFavorites = favorites
+                .applyFilters(tracksMap, trackingFilters, itemPreferences)
+                // RK: parse once, then filter through the shared query kernel, the same one the novel
+                //     library runs, so one typed query means one thing on every row of the All list.
+                //     A gallery entry ALSO gets the EXH tag grammar, which is a manga-only capability
+                //     the AST has no equivalent for; the two are ORed rather than routed between, so a
+                //     row appears if either grammar it supports matches.
+                .let { items ->
+                    if (searchQuery == null) {
+                        items
+                    } else {
+                        val parsedQuery = searchEngine.parseQuery(searchQuery)
+                        val queryNode = QueryNode.from(searchQuery)
+                        val queryFields = mangaQueryFields(chapterMatches, customInfo)
+                        // An excluded component the tag grammar cannot resolve (no such namespace,
+                        // no text hit) passes vacuously, so ORing it into an exclusion-only query
+                        // would resurrect every gallery row the kernel excluded. Positive queries
+                        // OR (either grammar can find a row); exclusion-only queries AND (each
+                        // grammar removes what it understands).
+                        val hasPositive = parsedQuery.any { !it.excluded }
+                        items.filter { m ->
+                            val kernel = libraryQueryMatches(queryNode, m, queryFields)
+                            when {
+                                m.metadataSourceName == null -> kernel
+                                hasPositive -> kernel || m.matchesMetadataQuery(parsedQuery)
+                                else -> kernel && m.matchesMetadataQuery(parsedQuery)
+                            }
+                        }
+                    }
+                }
+
+            LibraryData(
+                isInitialized = true,
+                showSystemCategory = showSystemCategory,
+                categories = categories,
+                favorites = filteredFavorites,
+                tracksMap = tracksMap,
+                loggedInTrackerIds = trackingFilters.keys,
+                // RK: display-only overrides, keyed by real manga id; applied at the display read.
+                customInfo = customInfo.associateBy { it.mangaId },
+            )
         }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.IO)
+            // RK: seeded null, which the derived state reads as still loading. The shared assembly emits
+            //     a tick after this one, and that one empty frame renders the list branch with no
+            //     categories rather than the empty-library screen, so loading must not end before it.
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    val state: StateFlow<State> = combine(
+        libraryData,
+        searchQuery,
+        activeCategoryIndex,
+        displayPreferences,
+        hasActiveFilters,
+    ) { libraryData, searchQuery, activeCategoryIndex, display, hasActiveFilters ->
+        State(
+            isLoading = libraryData == null,
+            searchQuery = searchQuery,
+            hasActiveFilters = hasActiveFilters,
+            showCategoryTabs = display.showCategoryTabs,
+            showMangaCount = display.showMangaCount,
+            showMangaContinueButton = display.showMangaContinueButton,
+            libraryData = libraryData ?: LibraryData(),
+            activeCategoryIndex = activeCategoryIndex,
+        )
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+
+    private data class DisplayPreferences(
+        val showCategoryTabs: Boolean,
+        val showMangaCount: Boolean,
+        val showMangaContinueButton: Boolean,
+    )
+
+    init {
         // RK: a newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         //     unread count would be wrong until something wrote them. Reconciling off the membership
         //     flow covers every merge and unmerge from one place, instead of hooking each action, and
-        //     costs one indexed query when nothing changed.
+        //     costs one indexed query when nothing changed. Stays always-on rather than riding the
+        //     shared state: a restore can regroup entries while the library renders nothing.
         viewModelScope.launchIO {
             mergeGroupRepository.getAllMembershipsAsFlow(ContentType.MANGA)
                 .distinctUntilChanged()
                 .collectLatest { reconcileChapterMatchKeys.await() }
         }
-
-        viewModelScope.launchIO {
-            combine(
-                // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
-                //     lookup runs once per query change rather than on every favorites tick (this combine
-                //     is at its 5-source cap, so it rides here rather than taking a slot of its own).
-                state.map { it.searchQuery }.distinctUntilChanged().debounce(0.25.seconds)
-                    .map { query -> query to resolveChapterMatches(query) },
-                getCategories.subscribe(),
-                // RK: the custom-info overlay rides with favorites (combine caps at 5 sources) but is
-                //     NOT applied here: search/filter/sort below all read the raw favorites. It is
-                //     carried into LibraryData and applied only at the display read (see State).
-                combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-                combine(getTracksPerManga.subscribe(), getTrackingFiltersFlow(), ::Pair),
-                getLibraryItemPreferencesFlow(),
-            ) {
-                    (searchQuery, chapterMatches),
-                    categories,
-                    (favorites, customInfo),
-                    (tracksMap, trackingFilters),
-                    itemPreferences,
-                ->
-                val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
-                val filteredFavorites = favorites
-                    .applyFilters(tracksMap, trackingFilters, itemPreferences)
-                    // RK: parse once, then filter through the shared query kernel, the same one the novel
-                    //     library runs, so one typed query means one thing on every row of the All list.
-                    //     A gallery entry ALSO gets the EXH tag grammar, which is a manga-only capability
-                    //     the AST has no equivalent for; the two are ORed rather than routed between, so a
-                    //     row appears if either grammar it supports matches.
-                    .let { items ->
-                        if (searchQuery == null) {
-                            items
-                        } else {
-                            val parsedQuery = searchEngine.parseQuery(searchQuery)
-                            val queryNode = QueryNode.from(searchQuery)
-                            val queryFields = mangaQueryFields(chapterMatches, customInfo)
-                            // An excluded component the tag grammar cannot resolve (no such namespace,
-                            // no text hit) passes vacuously, so ORing it into an exclusion-only query
-                            // would resurrect every gallery row the kernel excluded. Positive queries
-                            // OR (either grammar can find a row); exclusion-only queries AND (each
-                            // grammar removes what it understands).
-                            val hasPositive = parsedQuery.any { !it.excluded }
-                            items.filter { m ->
-                                val kernel = libraryQueryMatches(queryNode, m, queryFields)
-                                when {
-                                    m.metadataSourceName == null -> kernel
-                                    hasPositive -> kernel || m.matchesMetadataQuery(parsedQuery)
-                                    else -> kernel && m.matchesMetadataQuery(parsedQuery)
-                                }
-                            }
-                        }
-                    }
-
-                LibraryData(
-                    isInitialized = true,
-                    showSystemCategory = showSystemCategory,
-                    categories = categories,
-                    favorites = filteredFavorites,
-                    tracksMap = tracksMap,
-                    loggedInTrackerIds = trackingFilters.keys,
-                    // RK: display-only overrides, keyed by real manga id; applied at the display read.
-                    customInfo = customInfo.associateBy { it.mangaId },
-                )
-            }
-                .distinctUntilChanged()
-                .collectLatest { libraryData ->
-                    state.update { state ->
-                        // RK: loading ends here, not in a later grouping pass: the model no longer
-                        // assembles a list, so this is the last point that knows the data has arrived.
-                        // The shared assembly emits a tick later, and that one empty frame renders the
-                        // list branch with no categories rather than the empty-library screen.
-                        state.copy(libraryData = libraryData, isLoading = false)
-                    }
-                }
-        }
-
-        // RK: upstream's second pipeline (bucket favorites into categories, then sort each) is gone. The
-        // model is a row provider now: LibraryEngine assembles and sorts the list, because only it sees
-        // both content types. Everything below still belongs to the manga library alone.
-
-        combine(
-            libraryPreferences.categoryTabs.changes(),
-            libraryPreferences.categoryNumberOfItems.changes(),
-            libraryPreferences.showContinueReadingButton.changes(),
-        ) { a, b, c -> arrayOf(a, b, c) }
-            .onEach { (showCategoryTabs, showMangaCount, showMangaContinueButton) ->
-                state.update { state ->
-                    state.copy(
-                        showCategoryTabs = showCategoryTabs,
-                        showMangaCount = showMangaCount,
-                        showMangaContinueButton = showMangaContinueButton,
-                    )
-                }
-            }
-            .launchIn(viewModelScope)
-
-        combine(
-            getLibraryItemPreferencesFlow(),
-            getTrackingFiltersFlow(),
-        ) { prefs, trackFilters ->
-            listOf(
-                prefs.filterDownloaded,
-                prefs.filterUnread,
-                prefs.filterStarted,
-                prefs.filterBookmarked,
-                prefs.filterCompleted,
-                prefs.filterIntervalCustom,
-                // RK --> lewd counts as an active filter dim
-                prefs.filterLewd,
-                // RK <--
-                *trackFilters.values.toTypedArray(),
-            )
-                .any { it != TriState.DISABLED } ||
-                // RK --> include/exclude category filter is a Boolean dim, not a TriState
-                categoryFilterActive(
-                    prefs.filterCategories,
-                    prefs.filterCategoriesInclude,
-                    prefs.filterCategoriesExclude,
-                )
-            // RK <--
-        }
-            .distinctUntilChanged()
-            .onEach {
-                state.update { state ->
-                    state.copy(hasActiveFilters = it)
-                }
-            }
-            .launchIn(viewModelScope)
-
-        // RK: the Reikai display state used to be mirrored onto this State for grouping and the toolbar
-        // title. Both moved out (LibraryEngine.display feeds the tab directly), so nothing mirrors it.
     }
 
     // RK -->
@@ -777,13 +779,14 @@ class LibraryViewModel(
     }
 
     fun search(query: String?) {
-        state.update { it.copy(searchQuery = query) }
+        searchQuery.update { query }
     }
 
     fun updateActiveCategoryIndex(index: Int) {
-        state.update { state -> state.copy(activeCategoryIndex = index) }
-        // RK: upstream persisted lastUsedCategory here; LibraryEngine owns that now, per chip, so
-        // a swipe under All can no longer overwrite the Manga chip's restore point.
+        activeCategoryIndex.update { index }
+        // RK: upstream persisted lastUsedCategory here, coercing the index it read back off the derived
+        // state; LibraryEngine owns that now, per chip, so a swipe under All can no longer overwrite the
+        // Manga chip's restore point, and there is nothing to read back.
     }
 
     @Immutable

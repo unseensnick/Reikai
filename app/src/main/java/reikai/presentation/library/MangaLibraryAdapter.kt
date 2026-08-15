@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -32,6 +33,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.injectLazy
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Adapts the live Mihon [LibraryViewModel] to the neutral [LibraryBehavior]. The model stays live and
@@ -111,10 +113,18 @@ class MangaLibraryAdapter(
         add(LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd))
     }
 
+    // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
+    // which would hold its own WhileSubscribed window open for the model's whole life and make its
+    // conversion buy nothing. The tab collects both adapters at once, so the inactive content type
+    // still stays warm for an instant chip swap.
     override val state: StateFlow<LibraryScreenState> =
         model.state
             .map { it.toNeutral() }
-            .stateIn(model.viewModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+            .stateIn(
+                model.viewModelScope,
+                SharingStarted.WhileSubscribed(5.seconds),
+                model.state.value.toNeutral(),
+            )
 
     // The split point: filtered but pre-grouping, pre-sort (LibraryData.favorites). distinctUntilChanged
     // because the state re-emits for grouping/badge changes the row list is upstream of.

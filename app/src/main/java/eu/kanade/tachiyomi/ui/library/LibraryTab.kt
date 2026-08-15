@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -133,7 +134,7 @@ data object LibraryTab : Tab {
 
         val viewModel = viewModel<LibraryViewModel>()
         val settingsViewModel = viewModel<LibrarySettingsViewModel>()
-        val state by viewModel.state.collectAsState()
+        val state by viewModel.state.collectAsStateWithLifecycle()
 
         // RK --> novels in the library behind the Manga/Novels chip. Both models stay live; a per-type
         // adapter maps each onto the neutral LibraryScreenState / LibraryBehavior, so the tab reads one
@@ -142,7 +143,7 @@ data object LibraryTab : Tab {
         // need the navigator / per-type screen types). The `active*` locals are kept as thin aliases over
         // `libState` so every downstream view reads them unchanged.
         val novelModel = viewModel<NovelLibraryViewModel>()
-        val novelState by novelModel.state.collectAsState()
+        val novelState by novelModel.state.collectAsStateWithLifecycle()
         // The engine owns which provider drives the view and every dialog, so the content type is decided
         // in one place rather than at each call site. It is shaped to merge both providers for an All view
         // later, and is a ViewModel for its scope: building the change-categories dialog reads categories.
@@ -167,9 +168,10 @@ data object LibraryTab : Tab {
         // RK: collect BOTH adapters' state and pick synchronously, so flipping the chip switches
         // instantly. Collecting a single `behavior.state` over the switched adapter re-subscribes on the
         // flow change, holding the old value for a frame, which stutters the manga<->novel transition.
-        // Both stateIn flows are eager, so the inactive side stays current for an instant swap.
-        val mangaLibState by engine.behaviorFor(ContentType.MANGA).state.collectAsState()
-        val novelLibState by engine.behaviorFor(ContentType.NOVELS).state.collectAsState()
+        // Both are collected for as long as this tab is on screen, so the inactive side stays current
+        // for an instant swap; the lifecycle read is what lets the models stop once it is not.
+        val mangaLibState by engine.behaviorFor(ContentType.MANGA).state.collectAsStateWithLifecycle()
+        val novelLibState by engine.behaviorFor(ContentType.NOVELS).state.collectAsStateWithLifecycle()
         val libState = when (libraryContentType) {
             ContentType.MANGA -> mangaLibState
             ContentType.NOVELS -> novelLibState
@@ -191,7 +193,8 @@ data object LibraryTab : Tab {
         // the only place that can bucket both content types into one list. The assembly lags a chip
         // flip by one emission, so it renders only when its chip matches; the empty defaults below
         // cover that single frame and the cold-start frame, both of which sit behind isLoading.
-        val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == libraryContentType }
+        val assembled = engine.assembled.collectAsStateWithLifecycle().value
+            ?.takeIf { it.chip == libraryContentType }
         val activeBuckets = assembled?.buckets.orEmpty()
         // RK: the selection is the engine's, not a provider's: it can span both content types.
         val activeSelection by engine.selection.collectAsState()

@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -42,6 +43,7 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Orchestrates the library over its per-type [LibraryProvider]s: owns the selection, dispatches the
@@ -167,7 +169,12 @@ class LibraryEngine(
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
             .flowOn(Dispatchers.Default)
-            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+            // Shared while subscribed, because this is what holds both providers' feeds open: eager here
+            // means the models query for as long as the app runs. The chip and the display config below
+            // stay eager instead, on the rule the recents engine states: a value a verb reads
+            // synchronously is not shared while subscribed. `randomEntry` reads this one, and it holds
+            // because a share that has emitted keeps its last value after the window closes.
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
     }
 
     private fun assembleFor(

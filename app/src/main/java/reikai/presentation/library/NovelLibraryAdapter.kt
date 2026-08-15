@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +30,7 @@ import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Adapts the Reikai [NovelLibraryViewModel] to the neutral [LibraryBehavior], the novel twin of
@@ -98,10 +100,18 @@ class NovelLibraryAdapter(
         )
     }
 
+    // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
+    // which would hold its own WhileSubscribed window open for the model's whole life and make its
+    // conversion buy nothing. The tab collects both adapters at once, so the inactive content type
+    // still stays warm for an instant chip swap.
     override val state: StateFlow<LibraryScreenState> =
         model.state
             .map { it.toNeutral() }
-            .stateIn(model.viewModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+            .stateIn(
+                model.viewModelScope,
+                SharingStarted.WhileSubscribed(5.seconds),
+                model.state.value.toNeutral(),
+            )
 
     // The split point: filtered but pre-grouping, pre-sort (State.favorites). distinctUntilChanged
     // because the state re-emits for grouping/collapse changes the row list is upstream of.

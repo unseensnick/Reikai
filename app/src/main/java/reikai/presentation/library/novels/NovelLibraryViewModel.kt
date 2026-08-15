@@ -8,20 +8,22 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
@@ -88,9 +90,6 @@ import kotlin.time.Duration.Companion.seconds
 class NovelLibraryViewModel :
     ViewModel() {
 
-    val state: StateFlow<NovelLibraryViewModel.State>
-        field = MutableStateFlow<NovelLibraryViewModel.State>(State())
-
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
     private val updateNovel: UpdateNovel by injectLazy()
@@ -118,57 +117,67 @@ class NovelLibraryViewModel :
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
+    private val activeCategoryIndex = MutableStateFlow(0)
+
+    /** Null until the first build answers, which the derived state reads as still loading. */
+    private val built: StateFlow<State?> =
+        combine(
+            getNovelCategories.subscribe(),
+            // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
+            // The custom-info overlay rides with the library so a title/cover edit re-emits too.
+            combine(
+                novelRepository.getLibraryNovelAsFlow()
+                    .combine(sourceManager.sources) { library, _ -> library }
+                    // Re-emit when a download/delete changes the disk index so the badge + filter refresh.
+                    .combine(novelDownloadCache.changes) { library, _ -> library },
+                getCustomNovelInfo.subscribeAll(),
+                // Whole-library novel tracks (novelId -> tracks) ride with the library so a bind/unbind
+                // re-sinks the tracker filter/sort/group; folded here to keep the main combine at 5 args.
+                getNovelTracks.subscribeAll(),
+                ::Triple,
+            ),
+            // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
+            // No distinctUntilChanged: a StateFlow already conflates equal values. The resolved
+            // `chapter:` id sets ride the slot so the chapter-table scan runs once per query
+            // change, not on every library, download-cache or track tick (mirrors the manga side).
+            searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
+            // The collapse preferences no longer reach this pipeline. They only ever fed grouping,
+            // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
+            // whole filtered novel list (merge collapse, tracker scores, filtering) for nothing.
+            settingsFlow(),
+        ) { categories, (library, customInfo, tracks), search, settings ->
+            buildState(categories, library, customInfo, tracks, search, settings)
+        }
+            .flowOn(Dispatchers.IO)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    val state: StateFlow<State> = combine(
+        built,
+        searchQuery,
+        activeCategoryIndex,
+    ) { built, searchQuery, activeCategoryIndex ->
+        // The query and the active page come from their own holders, never from [built]: that lags the
+        // user by a debounce plus a query, so taking its copy resets the search field to a stale value
+        // mid-input and scrambles fast keystrokes. The selection is not here at all; the engine owns it.
+        (built ?: State()).copy(
+            searchQuery = searchQuery,
+            activeCategoryIndex = activeCategoryIndex,
+        )
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
-        // badges); the source flow below re-emits buildState once the sources register.
+        // badges); the source flow above re-emits the build once the sources register.
         viewModelScope.launchIO { runCatching { installer.ensureLoaded() } }
         // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         // unread count would be wrong until something wrote them. Reconciling off the membership flow
-        // covers every merge and unmerge from one place, and costs one indexed query when nothing changed.
+        // covers every merge and unmerge from one place, and costs one indexed query when nothing
+        // changed. Stays always-on: a restore can regroup entries while the library renders nothing.
         viewModelScope.launchIO {
             mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS)
                 .distinctUntilChanged()
                 .collectLatest { reconcileChapterMatchKeys.await() }
-        }
-        viewModelScope.launchIO {
-            combine(
-                getNovelCategories.subscribe(),
-                // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
-                // The custom-info overlay rides with the library so a title/cover edit re-emits too.
-                combine(
-                    novelRepository.getLibraryNovelAsFlow()
-                        .combine(sourceManager.sources) { library, _ -> library }
-                        // Re-emit when a download/delete changes the disk index so the badge + filter refresh.
-                        .combine(novelDownloadCache.changes) { library, _ -> library },
-                    getCustomNovelInfo.subscribeAll(),
-                    // Whole-library novel tracks (novelId -> tracks) ride with the library so a bind/unbind
-                    // re-sinks the tracker filter/sort/group; folded here to keep the main combine at 5 args.
-                    getNovelTracks.subscribeAll(),
-                    ::Triple,
-                ),
-                // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
-                // No distinctUntilChanged: a StateFlow already conflates equal values. The resolved
-                // `chapter:` id sets ride the slot so the chapter-table scan runs once per query
-                // change, not on every library, download-cache or track tick (mirrors the manga side).
-                searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
-                // The collapse preferences no longer reach this pipeline. They only ever fed grouping,
-                // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
-                // whole filtered novel list (merge collapse, tracker scores, filtering) for nothing.
-                settingsFlow(),
-            ) { categories, (library, customInfo, tracks), search, settings ->
-                buildState(categories, library, customInfo, tracks, search, settings)
-            }.collectLatest { built ->
-                // Preserve the live searchQuery and active page: the async buildState lags the user, so
-                // overwriting the query here resets the search field to a stale value mid-input and
-                // scrambles fast keystrokes. search() owns it synchronously instead. The selection is
-                // not here at all; the shared engine owns it.
-                state.update { current ->
-                    built.copy(
-                        activeCategoryIndex = current.activeCategoryIndex,
-                        searchQuery = current.searchQuery,
-                    )
-                }
-            }
         }
     }
 
@@ -473,14 +482,11 @@ class NovelLibraryViewModel :
     // --- search / selection / collapse mutators (read by LibraryTab) ---
 
     fun search(query: String?) {
-        // Update the field's state synchronously so it stays responsive to fast typing (mirrors the
-        // manga LibraryViewModel); searchQuery also drives the async filter combine below.
-        state.update { it.copy(searchQuery = query) }
         searchQuery.value = query
     }
 
     fun updateActiveCategoryIndex(index: Int) {
-        state.update { it.copy(activeCategoryIndex = index) }
+        activeCategoryIndex.value = index
     }
 
     // --- multi-select actions ---
