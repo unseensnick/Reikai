@@ -5,13 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
@@ -36,6 +40,7 @@ import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Drives the light-novel side of the Updates tab, the novel twin of
@@ -57,73 +62,76 @@ class NovelUpdatesViewModel(
     private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
 ) : ViewModel() {
 
-    val state: StateFlow<NovelUpdatesViewModel.State>
-        field = MutableStateFlow<NovelUpdatesViewModel.State>(State())
-
-    init {
-        viewModelScope.launchIO {
-            val after = Clock.System.now()
-                .minus(RECENT_MONTHS, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
-                .toEpochMilliseconds()
-            // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
-            // Everything the database can answer rides this flow, so a change re-runs the query.
-            val feedFlow = combine(
-                updatesPreferences.filterUnread.changes(),
-                updatesPreferences.filterStarted.changes(),
-                updatesPreferences.filterBookmarked.changes(),
-                sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES),
-            ) { unread, started, bookmarked, categories -> SqlFilters(unread, started, bookmarked, categories) }
-                .distinctUntilChanged()
-                .flatMapLatest { f ->
-                    novelRepo.getFilteredNovelUpdatesAsFlow(
-                        after = after,
-                        limit = LIMIT,
-                        unread = f.unread.toBooleanOrNull(),
-                        started = f.started.toBooleanOrNull(),
-                        bookmarked = f.bookmarked.toBooleanOrNull(),
-                        includedCategories = f.categories.include,
-                        excludedCategories = f.categories.exclude,
-                    )
-                }
-
-            combine(
-                feedFlow,
-                downloadManager.queueState,
-                // Downloaded stays a Kotlin filter: download state is on disk, not in the database.
-                updatesPreferences.filterDownloaded.changes(),
-                getCustomNovelInfo.subscribeAll(),
-                // Re-emit when a download/delete changes the disk index so the row icon refreshes.
-                novelDownloadCache.changes,
-            ) { updates, queue, filterDownloaded, customInfo, _ ->
-                val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
-                updates
-                    .map { update ->
-                        NovelUpdatesItem(
-                            update = update,
-                            downloadState = queueById[update.chapterId]
-                                ?: if (
-                                    novelDownloadCache.isChapterDownloaded(
-                                        update.source,
-                                        update.novelTitle,
-                                        update.chapterName,
-                                        update.chapterUrl,
-                                    )
-                                ) {
-                                    Download.State.DOWNLOADED
-                                } else {
-                                    Download.State.NOT_DOWNLOADED
-                                },
-                        )
-                    }
-                    .filter { applyFilter(filterDownloaded) { it.downloadState == Download.State.DOWNLOADED } }
-                    // Display-only custom-info overlay, applied last and keyed by the real novel id.
-                    // Filters and download detection ran on the raw values above.
-                    .overlayCustomInfo(customInfo)
-            }.collectLatest { items ->
-                state.update { it.copy(isLoading = false, items = items) }
-            }
+    // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
+    // Everything the database can answer rides this flow, so a change re-runs the query.
+    private fun feedFlow(): Flow<List<NovelUpdateWithRelations>> = combine(
+        updatesPreferences.filterUnread.changes(),
+        updatesPreferences.filterStarted.changes(),
+        updatesPreferences.filterBookmarked.changes(),
+        sourcePreferences.recentsCategoryFilterFlow(RecentsSurface.UPDATES),
+    ) { unread, started, bookmarked, categories -> SqlFilters(unread, started, bookmarked, categories) }
+        .distinctUntilChanged()
+        .flatMapLatest { f ->
+            novelRepo.getFilteredNovelUpdatesAsFlow(
+                // Recomputed per subscription, like its manga twin, so a long-running process keeps
+                // a three month window from now rather than from whenever the model was built.
+                after = Clock.System.now()
+                    .minus(RECENT_MONTHS, DateTimeUnit.MONTH, TimeZone.currentSystemDefault())
+                    .toEpochMilliseconds(),
+                limit = LIMIT,
+                unread = f.unread.toBooleanOrNull(),
+                started = f.started.toBooleanOrNull(),
+                bookmarked = f.bookmarked.toBooleanOrNull(),
+                includedCategories = f.categories.include,
+                excludedCategories = f.categories.exclude,
+            )
         }
+
+    /**
+     * Null until the first query answers, read by the recents updated lane as `loaded`. Novels need no
+     * download-override map like the manga twin: progress is not a novel capability, so the queue state
+     * rides this combine and a queue change re-derives the rows outright.
+     */
+    private val updateItems: StateFlow<List<NovelUpdatesItem>?> = combine(
+        feedFlow(),
+        downloadManager.queueState,
+        // Downloaded stays a Kotlin filter: download state is on disk, not in the database.
+        updatesPreferences.filterDownloaded.changes(),
+        getCustomNovelInfo.subscribeAll(),
+        // Re-emit when a download/delete changes the disk index so the row icon refreshes.
+        novelDownloadCache.changes,
+    ) { updates, queue, filterDownloaded, customInfo, _ ->
+        val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
+        updates
+            .map { update ->
+                NovelUpdatesItem(
+                    update = update,
+                    downloadState = queueById[update.chapterId]
+                        ?: if (
+                            novelDownloadCache.isChapterDownloaded(
+                                update.source,
+                                update.novelTitle,
+                                update.chapterName,
+                                update.chapterUrl,
+                            )
+                        ) {
+                            Download.State.DOWNLOADED
+                        } else {
+                            Download.State.NOT_DOWNLOADED
+                        },
+                )
+            }
+            .filter { applyFilter(filterDownloaded) { it.downloadState == Download.State.DOWNLOADED } }
+            // Display-only custom-info overlay, applied last and keyed by the real novel id.
+            // Filters and download detection ran on the raw values above.
+            .overlayCustomInfo(customInfo)
     }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+
+    val state: StateFlow<State> = updateItems
+        .map { State(isLoading = it == null, items = it.orEmpty()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     /** Everything the feed query answers. Scanlator-exclusion is manga-only, so it has no twin here. */
     private data class SqlFilters(
