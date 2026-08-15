@@ -126,6 +126,14 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          # The action writes the Gradle cache only from the default branch by default, and preview
+          # builds run almost entirely from the release branch (feat/**), so every one of them was
+          # restoring whatever main last wrote and discarding its own dependencies, transforms and
+          # build-cache entries. Writing here keeps a release branch warm across its own cycle.
+          # Not done on release.yml: a tag ref's cache is restorable only by that same tag, so a
+          # release build can read main's cache but writing one would never be read again.
+          cache-read-only: false
 
       - name: Setup Android SDK
         run: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.0"
