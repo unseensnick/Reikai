@@ -169,10 +169,10 @@ class UpdatesViewModel(
     }
     // RK <--
 
-    // RK --> upstream merges the override map inline in its state combine, where it also stamps each
-    // row's `selected`. Selection lives on the recents engine here, so the merge is the whole job and
-    // reads better beside the other row overlay. The empty guard matters: progress ticks are frequent.
-    /** Overlays live queue progress onto the queried rows, which only know what the disk index said. */
+    // RK --> overlay live queue progress onto the queried rows, which only know what the disk index
+    // said. Upstream merges this inline in its state combine, where it also stamps each row's
+    // `selected`; selection lives on the recents engine here, so the merge is the whole job and reads
+    // better beside the other row overlay. The empty guard matters: progress ticks are frequent.
     private fun List<UpdatesItem>.applyDownloadOverrides(
         downloads: Map<Long, DownloadProgress>,
     ): List<UpdatesItem> {
