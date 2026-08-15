@@ -75,6 +75,8 @@ Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer doe
 
 - **`action_view_upcoming` reads "Upcoming Updates", where upstream says "View Upcoming Updates".** Reikai's only caller is the Recents toolbar, where the label sits in an overflow menu on phones and the verb was redundant next to the other entries. The key is unchanged so existing translations still attach; a Weblate merge that carries upstream's English back over is the thing to watch, since the scripted three-way merge would take it silently.
 
+- **Reikai keeps a CI `gradle.properties`, which upstream has deleted.** Mihon's workflows now run off the repo's own `gradle.properties` with no copy step; Reikai still copies `.github/runner-files/ci-gradle.properties` over the Gradle home in all three workflows. Two settings are the reason to keep it: `-Xmx5120m` where the repo asks for `-Xmx4g` (Reikai carries more modules), and `kotlin.incremental=false`, which is right for a clean CI checkout. The `org.gradle.workers.max=2` cap that used to sit beside them is gone, so `org.gradle.parallel=true` can use the whole runner. Revisit whether the file is still earning its keep the next time a sync touches CI.
+
 - **Both History feeds seed `null` where upstream seeds an empty list.** `HistoryViewModel` and `NovelHistoryViewModel` share their feed with `WhileSubscribed`, and the seed is the value the screen sees before the query answers. Upstream uses `emptyList()` while leaving `State.list` nullable, so its own loading branch stopped firing; Reikai seeds `null`, which is what the shared recents screen and its read lane both read as "not loaded yet". Keep the null when syncing either file, or an empty history flashes on screen a tick before the rows arrive.
 
 _Previously:_
