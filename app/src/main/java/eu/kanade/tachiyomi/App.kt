@@ -34,13 +34,13 @@ import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
+import eu.kanade.tachiyomi.data.coil.ImageDecoder
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.PagePreviewFetcher
 import eu.kanade.tachiyomi.data.coil.PagePreviewKeyer
-import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.di.AppModule
 import eu.kanade.tachiyomi.di.PreferenceModule
@@ -48,7 +48,6 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
 import eu.kanade.tachiyomi.util.system.DeviceUtil
-import eu.kanade.tachiyomi.util.system.GLUtil
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -73,7 +72,6 @@ import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
-import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
@@ -170,14 +168,6 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             .onEach(TelemetryConfig::setCrashlyticsEnabled)
             .launchIn(scope)
 
-        basePreferences.hardwareBitmapThreshold.let { preference ->
-            if (!preference.isSet()) preference.set(GLUtil.DEVICE_TEXTURE_LIMIT)
-        }
-
-        basePreferences.hardwareBitmapThreshold.changes()
-            .onEach { ImageUtil.hardwareBitmapThreshold = it }
-            .launchIn(scope)
-
         setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode.get())
 
         // Updates widget update
@@ -237,7 +227,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 // NetworkFetcher.Factory
                 add(OkHttpNetworkFetcherFactory(callFactoryLazy::value))
                 // Decoder.Factory
-                add(TachiyomiImageDecoder.Factory())
+                add(ImageDecoder.Factory())
                 // Fetcher.Factory
                 add(BufferedSourceFetcher.Factory())
                 add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy))

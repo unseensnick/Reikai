@@ -43,6 +43,17 @@ abstract class BaseTracker(
 
     // RK --> novel search capability; overridden true by the novel-capable trackers
     override val supportsNovels: Boolean = false
+
+    /**
+     * The `id:` search prefix, defined once so a tracker's manga and novel searches cannot answer it
+     * differently. [parse] turns the rest of the query into that service's own id; returning null
+     * falls through to an ordinary title search, which is what an unparseable id does.
+     */
+    protected fun <T : Any> String.trackerSearchId(parse: (String) -> T?): T? =
+        takeIf { it.startsWith(SEARCH_ID_PREFIX) }
+            ?.substringAfter(SEARCH_ID_PREFIX)
+            ?.trim()
+            ?.let(parse)
     // RK <--
 
     // TODO: Store all scores as 10 point in the future maybe?
@@ -147,3 +158,6 @@ abstract class BaseTracker(
         }
     }
 }
+
+// RK: the prefix every tracker's id search is spelled with.
+private const val SEARCH_ID_PREFIX = "id:"

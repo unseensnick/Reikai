@@ -11,12 +11,15 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuListSearchResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuMetadataResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchResult
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSingleManga
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUser
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.POST
+import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
@@ -362,6 +365,28 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         }
     }
     // RK <--
+
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
+        return withIOContext {
+            val url = "$BASE_URL/manga/$id"
+            try {
+                with(json) {
+                    authClient.newCall(GET(url))
+                        .await()
+                        .parseAs<KitsuSingleManga>()
+                        // RK: the same subtype split the title search filters on.
+                        .takeIf { (it.data.attributes.mangaType == "novel") == novel }
+                        ?.toTrackSearch()
+                }
+            } catch (e: HttpException) {
+                if (e.code == 404) {
+                    null
+                } else {
+                    throw e
+                }
+            }
+        }
+    }
 
     companion object {
         private const val CLIENT_ID = "dd031b32d2f56c990b1425efe6c42ad847e7fe3ab46bf1299f05ecd856bdb7dd"

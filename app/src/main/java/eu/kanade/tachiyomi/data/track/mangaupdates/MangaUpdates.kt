@@ -91,6 +91,10 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        query.trackerSearchId(::seriesId)?.let { seriesId ->
+            return api.getSeriesDetails(seriesId)?.let { listOf(it.toTrackSearch(id)) } ?: emptyList()
+        }
+
         return api.search(query)
             .map {
                 it.toTrackSearch(id)
@@ -101,12 +105,22 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
+        query.trackerSearchId(::seriesId)?.let { seriesId ->
+            return api.getSeriesDetails(seriesId)
+                ?.takeIf { it.type?.equals("novel", ignoreCase = true) == true }
+                ?.let { listOf(it.toTrackSearch(id)) }
+                ?: emptyList()
+        }
+
         return api.search(query, novel = true)
             .filter { it.type?.equals("novel", ignoreCase = true) == true }
             .map {
                 it.toTrackSearch(id)
             }
     }
+
+    /** A series id is written decimal or in the base 36 form the site's own URLs carry. */
+    private fun seriesId(text: String): Long? = text.toLongOrNull() ?: text.toLongOrNull(36)
     // RK <--
 
     override suspend fun refresh(track: Track): Track {

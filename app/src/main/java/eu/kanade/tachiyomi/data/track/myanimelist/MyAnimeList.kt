@@ -24,7 +24,6 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         const val PLAN_TO_READ = 6L
         const val REREADING = 7L
 
-        private const val SEARCH_ID_PREFIX = "id:"
         private const val SEARCH_LIST_PREFIX = "my:"
 
         private val SCORE_LIST = IntRange(0, 10)
@@ -116,10 +115,8 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
-        if (query.startsWith(SEARCH_ID_PREFIX)) {
-            query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->
-                return listOf(api.getMangaDetails(id))
-            }
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return listOf(api.getMangaDetails(id))
         }
 
         if (query.startsWith(SEARCH_LIST_PREFIX)) {
@@ -135,10 +132,8 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
-        if (query.startsWith(SEARCH_ID_PREFIX)) {
-            query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->
-                return listOf(api.getMangaDetails(id))
-            }
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return listOf(api.getMangaDetails(id))
         }
 
         if (query.startsWith(SEARCH_LIST_PREFIX)) {

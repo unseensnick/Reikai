@@ -58,6 +58,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel's update notification now names the chapters it found and offers Mark as read and Download.** It only ever said how many there were, and gave you nothing to do about them.
 - **Updating your novel library now shows how far along it is, as a percentage.** Manga already did.
 
+**Tracking**
+
+- **A tracker search can now take an id, written as `id:12345` (synced from Mihon, mihonapp/mihon#3776).** AniList, Bangumi, Hikka, Kitsu, MangaUpdates and Shikimori join MyAnimeList and MangaBaka, on manga and novels alike.
+
 **Reader**
 
 - **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transition animations and a display cutout mode with it.
@@ -106,6 +110,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Updates now tells you when a filter is what emptied the feed, with a button straight to it.** It used to say "No recent updates" whether nothing was new or your own filter had hidden everything.
 - **The Upcoming calendar can now be filtered by category (synced from Mihon, mihonapp/mihon#3607).** Exclude the categories you don't follow closely and the calendar only shows the rest.
 - **Grouped and Feed rows older than today now name the day instead of showing a bare clock time.** Neither view has a date header, so "Read 4:13 AM" could have been this morning or last month; it follows your Appearance date-format and relative-timestamp settings.
+- **The filter icon now lights up for every filter you have set, not just the chapter ones (synced from Mihon, mihonapp/mihon#3772).** A category filter used to leave it plain, so a narrowed feed looked unfiltered; the Upcoming calendar gained the same.
 - **A half-read manga chapter now says how long it is, as "Page: 5/38".** Shows on the recents rows and the chapter list once you have opened that chapter, since that is when the length becomes known; novels already showed a percentage.
 
 **Details**
@@ -116,6 +121,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
+
+**Reader**
+
+- **Manga pages now decode through one modern image decoder (synced from Mihon, mihonapp/mihon#3786).** The legacy decoder went with it, along with the hardware bitmap threshold, legacy long strip decoding and custom display profile settings under Settings -> Advanced.
 
 **Tracking**
 
@@ -298,6 +307,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Every list screen now stops querying a few seconds after you leave it, instead of running as long as the app does: the library, Recents, the source and extension lists, and the category, migration, cover and upcoming screens (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3762).
 - Dependency updates: appcompat, paging, webkit and the baseline-profile plugin (synced from Mihon).
 - Every screen now holds its state in its own field rather than through a shared base class, matching Mihon so future upstream screen changes apply cleanly (synced from Mihon, mihonapp/mihon#3763).
+- Installed extensions are now read off the main thread, so they no longer hold up a cold start (synced from Mihon, mihonapp/mihon#3788).
+- Dependency updates: okhttp, kim, the image decoder and the subsampling image view (synced from Mihon).
 
 ## [0.3.1]
 

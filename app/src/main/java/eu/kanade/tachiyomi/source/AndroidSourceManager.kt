@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -83,6 +84,8 @@ class AndroidSourceManager(
 
     init {
         scope.launch {
+            extensionManager.isInitialized.first { it }
+
             extensionManager.installedExtensionsFlow
                 // RK: re-collect whenever the EXH gates flip so the built-in EH/ExH sources
                 //     appear or disappear without an app restart.

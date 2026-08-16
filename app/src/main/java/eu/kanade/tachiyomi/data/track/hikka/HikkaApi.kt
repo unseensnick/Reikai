@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.PUT
+import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
@@ -103,6 +104,31 @@ class HikkaApi(
                     .parseAs<HKMangaPagination>()
                     .list
                     .map { it.toTrack(trackId, contentType) }
+            }
+        }
+    }
+
+    suspend fun getMangaDetails(slug: String): TrackSearch? = contentDetails(slug, "manga")
+
+    // RK --> novel-aware id lookup, the same split the title search makes.
+    suspend fun getNovelDetails(slug: String): TrackSearch? = contentDetails(slug, "novel")
+    // RK <--
+
+    private suspend fun contentDetails(slug: String, contentType: String): TrackSearch? {
+        return withIOContext {
+            val url = "$BASE_API_URL/$contentType/$slug"
+
+            with(json) {
+                val response = authClient.newCall(GET(url))
+                    .await()
+
+                if (response.code == 404) {
+                    null
+                } else {
+                    response
+                        .parseAs<HKManga>()
+                        .toTrack(trackId, contentType)
+                }
             }
         }
     }

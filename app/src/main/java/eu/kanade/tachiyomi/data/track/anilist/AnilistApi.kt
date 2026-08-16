@@ -230,6 +230,77 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
         }
     }
 
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
+        return withIOContext {
+            // RK --> same split the title search makes: a light novel is type MANGA, format NOVEL
+            val formatFilter = if (novel) "format: NOVEL" else "format_not_in: [NOVEL]"
+            // RK <--
+            val query = $$"""
+            |query Search($manga_id: Int) {
+                |Page (perPage: 1) {
+                    |media(id: $manga_id, type: MANGA, $${formatFilter}) {
+                        |id
+                        |staff {
+                            |edges {
+                                |role
+                                |id
+                                |node {
+                                    |name {
+                                        |full
+                                        |userPreferred
+                                        |native
+                                    |}
+                                |}
+                            |}
+                        |}
+                        |title {
+                            |userPreferred
+                        |}
+                        |coverImage {
+                            |large
+                        |}
+                        |format
+                        |countryOfOrigin
+                        |status
+                        |chapters
+                        |description
+                        |startDate {
+                            |year
+                            |month
+                            |day
+                        |}
+                        |averageScore
+                    |}
+                |}
+            |}
+            |
+            """.trimMargin()
+
+            val payload = buildJsonObject {
+                put("query", query)
+                putJsonObject("variables") {
+                    put("manga_id", id)
+                }
+            }
+
+            with(json) {
+                authClient.newCall(
+                    POST(
+                        API_URL,
+                        body = payload.toString().toRequestBody(jsonMime),
+                    ),
+                )
+                    .awaitSuccess()
+                    .also { it.parseALError() } // RK
+                    .parseAs<ALSearchResult>()
+                    .data.page.media
+                    .firstOrNull()
+                    ?.toALManga()
+                    ?.toTrack()
+            }
+        }
+    }
+
     // RK --> metadata for the "Fill from tracker" editor action (Fill from tracker). Ported from Komikku,
     // plus genres.
     suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {

@@ -237,15 +237,18 @@ class RecentsEngine(
      * Whether a filter is narrowing this surface, so an empty feed can say why. Asked of the mode on
      * screen rather than of every mode the surface renders: a surface drawing several of them always
      * has the updated lane somewhere, which would report a history feed as filtered by a filter that
-     * cannot reach it.
+     * cannot reach it. The chip is asked for the same reason, since scanlator exclusion reaches
+     * nothing on a novel feed.
      */
     val filterActive: StateFlow<Boolean> by lazy {
         combine(
             sourcePreferences.recentsCategoryFilterFlow(surface).map { it.active },
             rawChapterFilters.map { it.isActive },
+            updatesPreferences.filterExcludedScanlators.changes(),
+            contentType.map { chip -> activeIndices(chip).any { providers[it].contentType == ContentType.MANGA } },
             mode,
-        ) { byCategory, byChapterState, mode ->
-            recentsFilterActive(byCategory, byChapterState, mode)
+        ) { byCategory, byChapterState, byScanlator, chipShowsManga, mode ->
+            recentsFilterActive(byCategory, byChapterState, byScanlator, chipShowsManga, mode)
         }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -668,12 +671,16 @@ class RecentsEngine(
  * [RecentsEngine.showsRow] is judged under: asking it a second way (whether the updated lane renders)
  * gives the same four answers today and would drift the moment a view's lanes and its controls stop
  * lining up. Without the gate, History reports itself filtered by a filter set on Updates.
+ * Scanlator exclusion takes a second gate: a novel chapter has no scanlator to exclude.
  */
 internal fun recentsFilterActive(
     byCategory: Boolean,
     byChapterState: Boolean,
+    byScanlator: Boolean,
+    chipShowsManga: Boolean,
     mode: RecentsMode,
-): Boolean = byCategory || (byChapterState && mode.can(RecentsCapability.CHAPTER_FILTER))
+): Boolean = byCategory ||
+    ((byChapterState || (byScanlator && chipShowsManga)) && mode.can(RecentsCapability.CHAPTER_FILTER))
 
 /**
  * One assembly pass: the ordered rows and what the surface can say about them. [chip] is what the rows

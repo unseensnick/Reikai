@@ -146,6 +146,20 @@ class BangumiApi(
             .joinToString(", ") { it.value }
     // RK <--
 
+    suspend fun getMangaDetails(id: Int): TrackSearch? {
+        return withIOContext {
+            val url = "$API_URL/v0/subjects/$id"
+
+            with(json) {
+                authClient.newCall(GET(url, headers = headersOf("Content-Type", APP_JSON)))
+                    .awaitSuccess()
+                    .parseAs<BGMSubject>()
+                    .takeIf { it.platform == null || it.platform == "漫画" }
+                    ?.toTrackSearch(trackId)
+            }
+        }
+    }
+
     suspend fun statusLibManga(track: Track, username: String): Track? {
         return withIOContext {
             val url = "$API_URL/v0/users/$username/collections/${track.remote_id}"

@@ -135,6 +135,63 @@ class ShikimoriApi(
         }
     }
 
+    suspend fun getMangaDetails(id: Int): TrackSearch? = detailsByKind(id, "!light_novel,!novel")
+
+    // RK --> novel-aware id lookup: the same kind flip the title search makes.
+    suspend fun getNovelDetails(id: Int): TrackSearch? = detailsByKind(id, "light_novel,novel")
+    // RK <--
+
+    private suspend fun detailsByKind(id: Int, kindFilter: String): TrackSearch? {
+        return withIOContext {
+            val query = $$"""
+            |query($query: String) {
+                |mangas(ids: $query, limit: 1, kind:"$${kindFilter}") {
+                    |id
+                    |name
+                    |chapters
+                    |kind
+                    |poster {
+                        |mainUrl
+                    |}
+                    |score
+                    |url
+                    |status
+                    |airedOn {
+                        |date
+                    |}
+                    |description
+                    |personRoles {
+                        |person {
+                            |name
+                        |}
+                        |rolesEn
+                    |}
+                |}
+            |}
+            """.trimMargin()
+            val payload = buildJsonObject {
+                put("query", query)
+                putJsonObject("variables") {
+                    put("query", "$id")
+                }
+            }
+
+            with(json) {
+                authClient.newCall(
+                    POST(
+                        GRAPHQL_API_URL,
+                        body = payload.toString().toRequestBody(jsonMime),
+                    ),
+                )
+                    .awaitSuccess()
+                    .parseAs<SMSearchResult>()
+                    .data.mangas
+                    .firstOrNull()
+                    ?.toTrack(trackId)
+            }
+        }
+    }
+
     suspend fun findLibManga(track: Track): Track? {
         return withIOContext {
             val query = $$"""

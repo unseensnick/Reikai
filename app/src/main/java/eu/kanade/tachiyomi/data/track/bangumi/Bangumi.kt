@@ -72,6 +72,10 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
+        }
+
         return api.search(query)
     }
 

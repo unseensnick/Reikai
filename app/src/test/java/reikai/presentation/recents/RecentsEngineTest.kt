@@ -792,6 +792,8 @@ class RecentsEngineTest {
         recentsFilterActive(
             byCategory = false,
             byChapterState = true,
+            byScanlator = false,
+            chipShowsManga = true,
             mode = RecentsMode.UPDATES,
         ) shouldBe true
     }
@@ -801,6 +803,8 @@ class RecentsEngineTest {
         recentsFilterActive(
             byCategory = false,
             byChapterState = true,
+            byScanlator = false,
+            chipShowsManga = true,
             mode = RecentsMode.HISTORY,
         ) shouldBe false
     }
@@ -810,8 +814,32 @@ class RecentsEngineTest {
         recentsFilterActive(
             byCategory = true,
             byChapterState = false,
+            byScanlator = false,
+            chipShowsManga = true,
             mode = RecentsMode.HISTORY,
         ) shouldBe true
+    }
+
+    @Test
+    fun `excluded scanlators mark a manga feed that offers the chapter filters`() {
+        recentsFilterActive(
+            byCategory = false,
+            byChapterState = false,
+            byScanlator = true,
+            chipShowsManga = true,
+            mode = RecentsMode.UPDATES,
+        ) shouldBe true
+    }
+
+    @Test
+    fun `excluded scanlators do not mark a feed with no manga behind it`() {
+        recentsFilterActive(
+            byCategory = false,
+            byChapterState = false,
+            byScanlator = true,
+            chipShowsManga = false,
+            mode = RecentsMode.UPDATES,
+        ) shouldBe false
     }
 
     /**
@@ -821,8 +849,15 @@ class RecentsEngineTest {
      */
     @Test
     fun `every view that judges rows says it is filtered`() {
-        RecentsMode.entries.map { recentsFilterActive(false, byChapterState = true, mode = it) } shouldContainExactly
-            RecentsMode.entries.map { it.can(RecentsCapability.CHAPTER_FILTER) }
+        RecentsMode.entries.map {
+            recentsFilterActive(
+                byCategory = false,
+                byChapterState = true,
+                byScanlator = false,
+                chipShowsManga = true,
+                mode = it,
+            )
+        } shouldContainExactly RecentsMode.entries.map { it.can(RecentsCapability.CHAPTER_FILTER) }
     }
 
     @Test

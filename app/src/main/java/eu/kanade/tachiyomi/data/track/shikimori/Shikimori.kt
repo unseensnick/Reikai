@@ -86,6 +86,10 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
+        }
+
         return api.search(query)
     }
 
@@ -93,6 +97,10 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getNovelDetails(id)?.let { listOf(it) } ?: emptyList()
+        }
+
         return api.searchNovel(query)
     }
     // RK <--

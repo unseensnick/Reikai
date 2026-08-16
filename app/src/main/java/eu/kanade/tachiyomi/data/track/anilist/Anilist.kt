@@ -205,6 +205,10 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
+        }
+
         return api.search(query)
     }
 
@@ -212,6 +216,10 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getMangaDetails(id, novel = true)?.let { listOf(it) } ?: emptyList()
+        }
+
         return api.search(query, novel = true)
     }
     // RK <--

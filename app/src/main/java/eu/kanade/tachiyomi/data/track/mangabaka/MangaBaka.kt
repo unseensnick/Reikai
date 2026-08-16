@@ -104,10 +104,8 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
-        if (query.startsWith(SEARCH_ID_PREFIX)) {
-            query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->
-                return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
-            }
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }
 
         return api.search(query)
@@ -117,10 +115,8 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
-        if (query.startsWith(SEARCH_ID_PREFIX)) {
-            query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->
-                return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
-            }
+        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }
 
         return api.searchNovel(query)
@@ -226,7 +222,5 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
 
         // 25, 50, 75, 100
         private val STEP_25_SCORES = IntRange(0, 100).step(25)
-
-        private const val SEARCH_ID_PREFIX = "id:"
     }
 }
