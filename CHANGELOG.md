@@ -308,6 +308,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Dependency updates: appcompat, paging, webkit and the baseline-profile plugin (synced from Mihon).
 - Every screen now holds its state in its own field rather than through a shared base class, matching Mihon so future upstream screen changes apply cleanly (synced from Mihon, mihonapp/mihon#3763).
 - Installed extensions are now read off the main thread, so they no longer hold up a cold start (synced from Mihon, mihonapp/mihon#3788).
+- Extension trust is re-checked from the repo list itself rather than by the two screens that happened to change it, so adding or removing a repo anywhere re-checks straight away, and a re-check can no longer be undone by the startup scan finishing after it.
 - Dependency updates: okhttp, kim, the image decoder and the subsampling image view (synced from Mihon).
 
 ## [0.3.1]

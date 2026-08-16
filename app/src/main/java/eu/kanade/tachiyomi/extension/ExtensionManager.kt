@@ -24,11 +24,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import mihon.domain.extension.interactor.GetExtensionStores
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -51,6 +56,8 @@ class ExtensionManager(
     private val trustExtension: TrustExtension = Injekt.get(),
     // RK: gates hiding the stock E-Hentai extension while built-in EH is active.
     private val exhPreferences: ExhPreferences = Injekt.get(),
+    // RK: the store list drives re-trusting, see the collector in init.
+    private val getExtensionStores: GetExtensionStores = Injekt.get(),
 ) {
 
     val scope = CoroutineScope(SupervisorJob())
@@ -79,11 +86,31 @@ class ExtensionManager(
     private val untrustedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Untrusted>())
     val untrustedExtensionsFlow = untrustedExtensionMapFlow.mapExtensions(scope)
 
+    // RK --> one scan at a time. It now runs from three places on this scope, and each pass assigns
+    // both maps wholesale from a store list it read when it started, so a slow startup scan landing
+    // after a re-trust would put every extension back to Untrusted until the next launch.
+    // Twin of LnPluginInstaller.loadMutex, which serializes the novel plugin loads for this reason.
+    private val loadMutex = Mutex()
+    // RK <--
+
     init {
         scope.launch(Dispatchers.IO) {
             initExtensions()
             ExtensionInstallReceiver(InstallationListener()).register(context)
         }
+
+        // RK --> re-trust on a store change rather than waiting to be asked. Trust is judged against
+        // the signing keys a scan reads as it starts, so a repo added afterwards (settings, a backup
+        // restore) left its extensions Untrusted until something called the manual re-check. The
+        // first emission is the list the startup scan already saw, hence the drop.
+        scope.launchIO {
+            getExtensionStores.subscribe()
+                .map { stores -> stores.mapTo(mutableSetOf()) { it.signingKey } }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { initExtensions() }
+        }
+        // RK <--
     }
 
     private var subLanguagesEnabledOnFirstRun = preferences.enabledLanguages.isSet()
@@ -127,7 +154,7 @@ class ExtensionManager(
     /**
      * Loads and registers the installed extensions.
      */
-    private fun initExtensions() {
+    private suspend fun initExtensions() = loadMutex.withLock {
         val extensions = ExtensionLoader.loadExtensions(context)
 
         installedExtensionMapFlow.value = extensions
@@ -146,10 +173,9 @@ class ExtensionManager(
     /**
      * Re-runs the installed scan and trust evaluation against the current repos.
      *
-     * Trust is otherwise only evaluated once, in [init], which fires before an async backup restore
-     * (or a manual repo add) can populate the repo list. Extensions installed at that point load
-     * Untrusted and never re-evaluate until the next launch. Call this once repos have changed so
-     * they re-trust without a restart.
+     * A store change re-scans on its own (see [init]), so this is the manual lever for the cases
+     * that flow cannot see: a scan that failed on a transient error, or an extension whose package
+     * changed without the receiver firing. Queues behind an in-flight scan rather than racing it.
      */
     fun reloadInstalledExtensions() {
         scope.launchIO { initExtensions() }

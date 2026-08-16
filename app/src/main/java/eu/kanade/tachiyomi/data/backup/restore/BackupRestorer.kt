@@ -24,7 +24,6 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.data.download.DownloadCache
-import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -63,7 +62,6 @@ class BackupRestorer(
     // RK -->
     private val novelRestorer: NovelRestorer = NovelRestorer(),
     private val extensionRestorer: ExtensionRestorer = ExtensionRestorer(),
-    private val extensionManager: ExtensionManager = Injekt.get(),
     // RK <--
 ) {
 
@@ -172,14 +170,6 @@ class BackupRestorer(
         // novel stream above, so it happens here, once both the prefs and the novel categories are in place.
         if (options.categories && options.appSettings) {
             novelRestorer.remapCategoryPreferences(summary.backupNovelCategories)
-        }
-
-        // RK: trust is evaluated once at startup, before this restore populated the repo list, so any
-        // extension installed at that point (e.g. carried over from an in-place Yōkai upgrade) loaded
-        // Untrusted. Now that the repos exist, re-scan installed extensions so they re-trust without
-        // an app restart.
-        if (options.extensionStores) {
-            extensionManager.reloadInstalledExtensions()
         }
     }
 

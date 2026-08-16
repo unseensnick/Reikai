@@ -130,5 +130,28 @@ reader.
   Hide-in-library and enabled-languages level up (both genuinely supportable). NSFW flagging is
   gated: the LNReader plugin format carries no nsfw field anywhere, so novel lewd filtering stays
   genre-tag-only.
+- **The two installed-source loaders stay separate, pinned by a named mechanism (2026-08-16).**
+  `ExtensionManager` (installed APKs, `PackageManager`, signature trust, dex class loading) and
+  `LnPluginInstaller` (URLs, network download, a repo vouching for each, JS eval in the QuickJS
+  host) share no stage of their mechanism, so a shared shell parameterized by two "config helpers"
+  would be a bag of lambdas doing the entire job. `ExtensionManager` is also an engine file on the
+  upstream sync path, which the ownership rule keeps minimally patched. What the two genuinely share
+  is three sentences: the load never blocks startup, a reload cannot be overwritten by an in-flight
+  load, and a failure is retried on a later trigger rather than needing a restart. The middle one is
+  pinned by each side holding its full scan behind a `Mutex` (`ExtensionManager.loadMutex`,
+  `LnPluginInstaller.loadMutex`), each naming the other. A conformance test is declined: pinning it
+  would mean inventing seams for a `Context` and `PackageManager` on one side and the network plus
+  the JS host on the other, to assert what `Mutex` already guarantees per side. Manga needed the
+  mutex only once upstream moved its initial scan off the main thread
+  (mihonapp/mihon#3788), which let a slow startup scan land after a re-trust and undo it.
+- **Re-trusting is driven by the store list rather than by callers (2026-08-16).** Trust is judged
+  against the signing keys a scan reads as it starts, so `ExtensionManager` collects
+  `GetExtensionStores.subscribe()`, maps it to that key set and re-scans whenever the set changes,
+  dropping the first emission (the list the startup scan already saw). Both explicit callers, the
+  repo-add screen and the backup restorer, are gone with it, so a repo arriving from any path,
+  including one nobody has wired yet, re-trusts on its own. The manual "Re-check extensions" lever
+  stays for what that flow cannot see: a scan that failed transiently, or a package change the
+  install receiver missed. Novels have no counterpart to build, because a plugin's trust is a repo
+  vouching for its URL, checked at load time rather than cached from a signature.
 - **The ROADMAP browse feature items ride after the collapse** (genre-tap-search, source-row
   polish, find-a-source search), on the shared parts, rather than landing inside this surface.
