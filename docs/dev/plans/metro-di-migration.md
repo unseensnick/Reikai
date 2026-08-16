@@ -1,0 +1,264 @@
+# Metro DI migration (Injekt to Metro)
+
+> **Status: planned, not started.** Research completed 2026-08-16 against upstream `b2015d1ef` and the
+> tree at `af4448149`. Every count below was measured, not estimated; the commands are given so a
+> cold session can re-derive them before trusting them.
+
+## Goal
+
+Take Mihon's move from Injekt to [Metro](https://github.com/zacsweers/metro) (mihonapp/mihon#3608,
+mihon `b2015d1ef`), across Reikai's own code as well as the Mihon files upstream's diff covers. No
+user-facing change. The payoff is staying on upstream's DI architecture so later syncs of any file
+that resolves a dependency apply cleanly, plus the removal of a whole class of R8 bug.
+
+## Why
+
+It is the first commit above the current synced base, and it is not a routine sync: 314 upstream
+files against 264 Injekt-importing files here, of which about 90 are Reikai-owned with no upstream
+diff to copy. Deferring it means every future sync of nearly any file fights a base that no longer
+matches, which is the same trap the ViewModel migration documented and paid for.
+
+The second reason is minification. Reikai's recurring "Internal error: TypeReference constructed
+without actual type information" crash exists because R8 strips the generic signature Injekt's
+`FullTypeReference` reflects on, which is why `app/proguard-rules.pro` keeps whole package trees.
+Metro resolves the graph in the compiler and ships only `-assumenosideeffects` rules of its own
+(`META-INF/proguard/metro-runtime.pro` inside `dev.zacsweers.metro:runtime-jvm:1.4.2`, inspected
+2026-08-16), so the hazard and its keeps go away with the last `Injekt.get<T>()` in those packages.
+
+## Status
+
+**Not started.** Nothing has been written. The research below is the whole artifact.
+
+Owner rulings, 2026-08-16:
+
+- **Port everything, in two commits.** Upstream-mirroring work lands first; the Reikai-owned trees
+  (`reikai/`, `exh/`) follow as a direct follow-up commit, not a later roadmap item.
+- **The R8 question was settled before starting** rather than left to a build (see Why).
+- **The novel reader stays on Voyager `ScreenModel`**, held for the tsundoku migration as before.
+  `metrox-viewmodel` only covers `androidx.lifecycle.ViewModel`, so `NovelReaderScreenModel` keeps
+  resolving through Injekt and its dependencies stay interop-registered until that migration deletes
+  the file. Its sequence position is therefore "never", not "last".
+
+## Approach
+
+### What upstream actually built
+
+A hybrid, not a replacement. Metro owns the object graph; Injekt survives as a runtime facade so
+installed extensions keep working.
+
+- **`:core:metro`**, a new three-file module: `GraphProvider<T>` (an interface the `Application`
+  implements), an `@Qualifier annotation class IsDebugBuild`, and
+  `fun <T> Context.metroGraph(): T = (applicationContext as GraphProvider<T>).graph`.
+- **`AppGraph`**, a `@DependencyGraph(scope = AppScope::class, bindingContainers = [AppBindings::class])`
+  interface that extends `ViewModelGraph`. It carries 14 `fun inject(x)` members for Android entry
+  points, about 40 read accessors for code that cannot be constructor-injected, and a
+  `@DependencyGraph.Factory fun create(@Provides context: Context, @Provides @IsDebugBuild isDebugBuild: Boolean)`.
+- **`AppBindings`**, an `@BindingContainer object` holding the five things that cannot be an
+  annotated class: `SqlDriver`, `Database`, `Json`, `XML`, `ProtoBuf`.
+- **`MetroInteropModule`**, a Metro-constructed `InjektModule` that re-registers nine Metro
+  singletons back into Injekt for the extension contract.
+- **`App`** implements `GraphProvider<AppGraph>`, builds the graph lazily, calls `graph.inject(this)`,
+  then `setupInjekt()`: `patchInjekt()`, `Injekt.addSingleton<Application>`, `addSingleton<Context>`,
+  `importModule(interop)`.
+- The three module files (`AppModule` 127 lines, `PreferenceModule` 79, `DomainModule` 194) and
+  `Migrations.kt` are deleted in the same commit.
+
+### The per-class pattern
+
+Almost everything is a two to five line edit, and the shape is uniform:
+
+| Kind | Change |
+|---|---|
+| Interactor | `@Inject` |
+| `*Preferences`, caches, managers | `@Inject` + `@SingleIn(AppScope::class)` |
+| Repository impl | those two plus `@ContributesBinding(AppScope::class)` |
+| ViewModel, no runtime args | `@Inject` + `@ViewModelKey` + `@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())` |
+| ViewModel with runtime args | `@AssistedInject`, args `@Assisted`, nested `@AssistedFactory @ManualViewModelAssistedFactoryKey @ContributesIntoMap` |
+| Migration | `@Inject` + `@ContributesIntoSet(AppScope::class)`, dependencies as constructor params |
+| Activity, worker, receiver | a graph field plus `@Inject lateinit var`s and `graph.inject(this)` |
+| Composable read | `remember { context.appGraph.x }`, which means adding an accessor to `AppGraph` |
+| Object / static | the companion function gains a `Context` parameter and reaches the graph through it |
+
+In every case the constructor defaults (`= Injekt.get()`) are deleted, which is what makes the diff
+large: 508 such defaults here.
+
+### ViewModels
+
+Hand-written factories go away. Screens call `metroViewModel<T>()` or
+`assistedMetroViewModel<T, F> { create(...) }`, and every Compose entry point must provide
+`LocalMetroViewModelFactory` from the graph (upstream does it inside `setComposeContent`).
+`ReaderViewModel` is the one model that keeps a `CreationExtras` path, through Metro's
+`ViewModelAssistedFactory` rather than a hand-written `viewModelFactory`.
+
+Two consequences worth stating: the rule that a bare-resolved model must never be `private` stops
+applying on the Metro path, because the factory looks the class up in a generated map rather than
+instantiating it reflectively; and upstream un-`private`d `TrackStatusSelectorScreen` for the
+opposite reason, its factory needing to be visible.
+
+### What stays on Injekt
+
+`source-api` is deliberately left out of the Metro plugin list because it is the contract installed
+extensions compile against. Upstream keeps 41 files on Injekt: the contract itself, the trackers
+(hand-constructed inside `TrackerManager`, so not graph nodes), the interop bridge, and a tail it
+had not converted. Seven upstream files carry Metro annotations and an Injekt call at once, so a
+partially migrated file is legal.
+
+**Reikai's contract surface is wider than upstream's**, and this is the one failure with no compile
+error: `DelegateSourcePreferences` is read from `source-api/.../online/HttpSource.kt:591`,
+`exh/source/EnhancedHttpSource.kt:203` and `exh/metadata/metadata/EHentaiSearchMetadata.kt:59`, and
+`source-api/.../online/MetadataSource.kt:24-26` exposes three interactors as interface `get()`
+accessors. Every one of those must be interop-registered or delegated sources throw on first use.
+
+## Inventory, measured 2026-08-16
+
+Re-derive with `grep -rl --include=*.kt "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
+
+**Injekt surface: 264 files.** app 257, source-api 5, source-local 1, data 1, presentation-widget 1.
+707 `Injekt.get` occurrences, 267 `injectLazy`, 508 constructor defaults.
+
+**Ownership split: about 174 upstream-tracked, about 90 Reikai-owned** (`reikai/` 71, `exh/` 16, plus
+one androidTest file and two `source-api/exh` files). The first number has an upstream diff per file;
+the second does not.
+
+**Registrations: 218 across three files, 97 of them Reikai-only.**
+
+| File | Lines | Registrations | Reikai-only |
+|---|---|---|---|
+| `eu/kanade/domain/DomainModule.kt` | 439 | 162 | 79 |
+| `eu/kanade/tachiyomi/di/AppModule.kt` | 189 | 33 | 10 |
+| `eu/kanade/tachiyomi/di/PreferenceModule.kt` | 122 | 23 | 8 |
+
+**By kind:** 38 `viewModelFactory {` blocks and 73 `CreationExtras.Key` declarations; 16 worker
+classes (14 using Injekt, 9 of them Reikai-only) plus 10 `setupTask` companions; 47 files holding
+both `@Composable` and an Injekt call, with 54 `remember { Injekt.get() }` sites; 21 `object` files
+plus 2 file-scope `by injectLazy()` delegates; 16 migrations and 31 `migrationContext.get<T>()`
+sites; zero Injekt in `app/src/test` and one file in `androidTest`.
+
+**Upstream's diff: 314 files, +2416 / -2010.** app 219, domain 55 (all two-line annotation adds),
+data 13, core/common 8, core/metro 5 new, presentation-widget 5, source-local 4, source-api 2, three
+build files. 68 files exceed 15 changed lines and all but about 6 are mechanical.
+
+**Baseline profiles: 896 lines in `baseline-prof.txt` and 842 in `startup-prof.txt` name Injekt or
+the three modules** (`app/src/main/baselineProfiles/`, not `app/src/main/`). They need regenerating
+on the GMD after the port, or they are dead rules.
+
+## Sequence
+
+Each phase is a commit that compiles and boots. The verification column says what actually proves it.
+
+| Phase | Work | Proves |
+|---|---|---|
+| 0. Spike | Plugin on the 7 modules, `:core:metro`, `AppBindings`, an `AppGraph` with one accessor and `inject(app)`, interop for that one type | `:app:compileDebugKotlin`, then a minified `:app:assemblePreview`. Settles whether Metro validates only the reachable closure |
+| 1. Leaves | Annotate `core/common`, `domain`, `data`, `source-local`. Upstream diff exists per file | Each module's own `compileDebugKotlin` before `app` is touched |
+| 2. Graph | Full accessor list, `App` bootstrap, the interop module widened to everything Reikai code still resolves from Injekt, the three module files deleted as their types become reachable | `:app:compileDebugKotlin` plus a cold start on device |
+| 3. Entry points | 16 workers, receivers, services, activities, both widget surfaces | Device: a library update, a novel update, a backup restore, a widget refresh |
+| 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
+| 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
+| 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |
+| 7. Cleanup | Drop the `reikai.**` / `exh.**` proguard keeps if no Injekt generic remains, regenerate both baseline profiles, rewrite the rules files | Minified `:app:assemblePreview`, then the profiles' own generation task |
+
+**Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
+Injekt registration replaced by an interop `addSingleton(metroInstance)` in the same commit, never
+deleted and never left duplicated, or the app runs with two singletons of that type and the symptom
+is lost state rather than a crash. During the upstream-mirroring commit the interop module is at its
+widest, because Reikai-owned code is still resolving those types from Injekt; it shrinks in the
+follow-up.
+
+**Direction is leaves-first.** Annotating a library module adds annotations only, so `app` keeps
+compiling against the same constructors. Graph-first forces the whole transitive closure of every
+accessor to be annotated at once.
+
+**Atomic units that cannot be split:** the Gradle plugin plus the runtime dependency plus the first
+annotation in a module; a module file's deletion plus every type it registered; the migration set
+(the `Set<Migration>` injection and every `@ContributesIntoSet`); and the `ViewModelGraph` supertype
+plus the `viewModelFactory` accessor plus every contributed ViewModel, which is a cliff rather than
+a step because that accessor pulls the entire ViewModel multibinding into the closure.
+
+## Traps
+
+- **The merge-manager cycle.** `DomainModule.kt:267` and `:271` hand `MangaMergeManager` and
+  `NovelMergeManager` a lambda that resolves `PropagateTrackerLinks` / `PropagateNovelTrackerLinks`,
+  which depend on the managers. Metro rejects the direct cycle at compile time, so the lambda becomes
+  `Lazy<T>` in the same commit the four types are annotated. Upstream has the same shape at
+  `AndroidSourceManager` and solves it with `private val downloadManager: Lazy<DownloadManager>`.
+- **`LnPluginHost` and `LnPluginLoader` take an `OkHttpClient`**, built at `AppModule.kt:148` from
+  `get<NetworkHelper>().client`. `@Inject` alone cannot resolve a bare `OkHttpClient`. Change both
+  constructors to take `NetworkHelper` rather than adding a global `OkHttpClient` binding that other
+  code could bind by accident.
+- **`AndroidSourceManager` builds sources with lambdas and matches delegated sources by name**, both
+  invisible to Metro. Annotating it is safe only while the types those runtime lookups need are still
+  interop-registered, and a miss compiles fine and throws on the first source-map build.
+- **`LibraryEngine` and `RecentsEngine`** take their provider lists through `CreationExtras` keys and
+  everything else through Injekt constructor defaults (`LibraryEngine.kt:56-63`,
+  `RecentsEngine.kt:49-56`). Metro cannot use default-argument injection, so these become
+  `@AssistedInject` with the providers assisted, and the factory plus every call site move together.
+  They compile fine unannotated, so they can also be deliberately left for last.
+- **The closure-capturing cover factory** at `reikai/presentation/details/EntryDetailsDialog.kt:102`
+  builds a star-projected `EntryCoverViewModel<*>` from a captured behaviour object. There is no
+  upstream analogue and no graph key for it; design it before touching it.
+- **`App.onCreate` ordering.** `LegacyYokaiDbImporter.prepareIfLegacyDb` at `App.kt:120` must run
+  after DI exists and before the database is first opened. A lazily built graph whose eager
+  singletons touch SQLDelight breaks the legacy recovery silently.
+- **The `:error_handler` process.** `CrashActivity` is the only component with `android:process`
+  (`AndroidManifest.xml:124`), so `App.onCreate` and therefore graph construction runs there too.
+- **Widget surfaces are system-instantiated.** `presentation-widget` currently leaks Injekt onto its
+  consumers with `api(libs.injekt)` (`presentation-widget/build.gradle.kts:25`); upstream swaps that
+  for `implementation(libs.metro.runtime)` and adds a `@ContributesTo` `PresentationWidgetGraph` so
+  the module can declare its own `inject()`. Reikai's `UnifiedUpdatesGlanceWidget` needs the same
+  treatment, with six constructor defaults rather than four.
+- **10 `setupTask` companions** are called from five migrations, from `PreferenceRestorer` and from
+  composable settings bodies. Two of them are the historical R8 crash sites, so they are exactly the
+  code that stops being fragile once it is graph-resolved.
+
+## Riding-along changes to decide, not inherit
+
+Upstream's commit is not purely a DI change. Each of these needs an explicit yes or no:
+
+1. `source-api/.../util/RxExtension.kt` deleted. Public extension-lib surface.
+2. `ConfigurableSource` switches `Injekt.get<Application>()` to `Injekt.get<Context>()`. Safe here:
+   `AppModule.kt:71-72` already registers both.
+3. WorkManager threaded explicitly (`BackupRestoreJob.isRunning/start/stop` and
+   `LibraryUpdateJob.startNow` take a `WorkManager`), which ripples into five call sites and is
+   inconsistent upstream, since `LibraryUpdateJob.stop` still takes a `Context`.
+4. `NetworkPreferences` swaps `verboseLoggingDefault: Boolean = false` for `@IsDebugBuild`.
+   Behaviour-neutral here: `PreferenceModule.kt:42-45` already passes `isDebugBuildType`.
+5. `AndroidPreferenceStore` loses its `SharedPreferences` default parameter.
+6. `ExtensionApi` and `DownloadNotifier` lose `internal`.
+7. `DownloadStore`, `DownloadNotifier` and `DownloadPendingDeleter` become app-scoped singletons
+   where they were per-`Downloader` instances, and `Download.fromChapterId` moves into
+   `DownloadManager`. This one is a real behaviour change, not a refactor.
+8. `BackupFileValidator` drops its `context` parameter; `BackupCreator` becomes `@AssistedInject`
+   with `isAutoBackup` moved to first position.
+9. `MangaCoverViewModel` is created from the screen's `mangaId` rather than
+   `successState.manga.id`, which changes which value wins after a migration.
+10. Worker injection point is inconsistent upstream: `DownloadJob` injects in `init`, the others on
+    the first line of `doWork()`. Copying the wrong one gives an uninitialized-property crash in
+    `getForegroundInfo`, which WorkManager may call before `doWork`.
+
+## Key files
+
+- Upstream: `mihon/app/di/{AppGraph,AppBindings,AppGraphUtils,MihonViewModelFactory}.kt`,
+  `mihon/app/di/injekt/MetroInteropModule.kt`, `core/metro/src/main/kotlin/mihon/core/metro/*.kt`,
+  and `eu/kanade/tachiyomi/App.kt`, all at `b2015d1ef`.
+- Here: `app/src/main/java/eu/kanade/domain/DomainModule.kt`,
+  `app/src/main/java/eu/kanade/tachiyomi/di/{AppModule,PreferenceModule}.kt`,
+  `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `app/proguard-rules.pro`,
+  `app/src/main/baselineProfiles/`, and the two engines named under Traps.
+
+## Decisions and tradeoffs
+
+- **Port everything rather than mirroring upstream only** (owner, 2026-08-16). Mirroring would have
+  been about a third of the work and would have left Reikai-owned trees on Injekt indefinitely; the
+  owner chose to end the split, with the Reikai half as its own follow-up commit so the
+  upstream-mirroring diff stays reviewable against upstream's.
+- **The R8 question was settled by inspecting the artifact, not by building.** Metro ships
+  `META-INF/proguard/metro-runtime.pro` containing only two `-assumenosideeffects` rules, so it needs
+  no keeps and adds no reflection. Our existing keeps stay only while Injekt calls remain in those
+  packages, which phase 7 is what clears.
+- **Migration order is not at risk.** `MigrationJobFactory.kt:16` sorts by `version`, so moving from
+  a hand-maintained list to a `Set<Migration>` multibinding cannot reorder anything.
+- **The novel reader is not migrated.** See Status.
+- **`i18n` needs no plugin.** It is the only multiplatform module and holds no Kotlin code.
+- Documentation debt this creates: `.claude/rules/architecture.md` lines describing Injekt as the DI
+  system, the `Injekt.get<Application>()` convention in `.claude/rules/screen-conventions.md`, and
+  the R8 keep discipline in both become false and are rewritten in phase 7.
