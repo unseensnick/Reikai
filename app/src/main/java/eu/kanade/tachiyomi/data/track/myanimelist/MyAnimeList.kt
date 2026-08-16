@@ -116,7 +116,7 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
 
     override suspend fun search(query: String): List<TrackSearch> {
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
-            return listOf(api.getMangaDetails(id))
+            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }
 
         if (query.startsWith(SEARCH_LIST_PREFIX)) {
@@ -133,7 +133,7 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
-            return listOf(api.getMangaDetails(id))
+            return api.getMangaDetails(id, novel = true)?.let { listOf(it) } ?: emptyList()
         }
 
         if (query.startsWith(SEARCH_LIST_PREFIX)) {

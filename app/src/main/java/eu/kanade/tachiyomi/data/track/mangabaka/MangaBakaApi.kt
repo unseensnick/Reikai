@@ -222,7 +222,7 @@ class MangaBakaApi(
         }
     }
 
-    suspend fun getMangaDetails(id: Int): TrackSearch? {
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
         return withIOContext {
             val url = "$API_BASE_URL/v1/series".toUri().buildUpon()
                 .appendPath(id.toString())
@@ -233,7 +233,9 @@ class MangaBakaApi(
                         .awaitSuccess()
                         .parseAs<MangaBakaItemResult>()
                         .data
-                        .let { parseSearchItem(it) }
+                        // RK: the series-type split the title search sends as a query parameter.
+                        .takeIf { it.type.equals("novel", ignoreCase = true) == novel }
+                        ?.let { parseSearchItem(it) }
                 } catch (e: HttpException) {
                     if (e.code == 404) {
                         return@with null

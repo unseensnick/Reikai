@@ -96,7 +96,7 @@ class MyAnimeListApi(
         }
     }
 
-    suspend fun getMangaDetails(id: Int): TrackSearch {
+    suspend fun getMangaDetails(id: Int, novel: Boolean = false): TrackSearch? {
         return withIOContext {
             val url = "$BASE_API_URL/manga".toUri().buildUpon()
                 .appendPath(id.toString())
@@ -106,7 +106,9 @@ class MyAnimeListApi(
                 authClient.newCall(GET(url.toString()))
                     .awaitSuccess()
                     .parseAs<MALManga>()
-                    .let { parseSearchItem(it) }
+                    // RK: the same media-type split the title search filters on.
+                    .takeIf { it.mediaType.contains("novel") == novel }
+                    ?.let { parseSearchItem(it) }
             }
         }
     }

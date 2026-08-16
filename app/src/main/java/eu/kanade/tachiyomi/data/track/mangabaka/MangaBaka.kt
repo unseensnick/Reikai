@@ -116,7 +116,7 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
         query.trackerSearchId(String::toIntOrNull)?.let { id ->
-            return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
+            return api.getMangaDetails(id, novel = true)?.let { listOf(it) } ?: emptyList()
         }
 
         return api.searchNovel(query)
