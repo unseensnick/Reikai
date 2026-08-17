@@ -38,10 +38,6 @@ class AppModule(val app: Application) : InjektModule {
         addSingleton(app)
         addSingleton<Context>(app)
 
-        addSingletonFactory { ChapterCache(app, get()) }
-        addSingletonFactory { CoverCache(app) }
-        addSingletonFactory { PagePreviewCache(app) } // RK: adult-source page previews
-
         // RK --> light-novel plugin host: runs lnreader plugins on the shared OkHttp client
         addSingletonFactory { LnPluginHost(app, get<NetworkHelper>().client, get()) }
         addSingletonFactory { NovelSourceManager() }
@@ -56,17 +52,12 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory<SourceManager> { AndroidSourceManager(app, get(), get()) }
         addSingletonFactory { ExtensionManager(app) }
 
-        addSingletonFactory { DownloadProvider(app) }
         addSingletonFactory { DownloadManager(app) }
         addSingletonFactory { DownloadCache(app) }
 
-        addSingletonFactory { TrackerManager() }
-        addSingletonFactory { DelayedTrackingStore(app) }
         // RK --> novel trackers
         addSingletonFactory { NovelDelayedTrackingStore(app) }
         // RK <--
-
-        addSingletonFactory { ImageSaver(app) }
 
         // Asynchronously init expensive components for a faster cold start
         ContextCompat.getMainExecutor(app).execute {

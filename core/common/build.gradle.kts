@@ -20,10 +20,12 @@ kotlin {
 }
 
 dependencies {
-    implementation(projects.core.metro)
+    // api, not implementation: IsDebugBuild and the Metro annotations sit on public signatures here
+    // (NetworkPreferences), so consumers need them on their own compile classpath.
+    api(projects.core.metro)
     implementation(projects.i18n)
 
-    implementation(libs.metro.runtime)
+    api(libs.metro.runtime)
 
     api(libs.logcat)
 

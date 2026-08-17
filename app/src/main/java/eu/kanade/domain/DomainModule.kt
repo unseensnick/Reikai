@@ -299,7 +299,6 @@ class DomainModule : InjektModule {
             )
         }
         // RK <--
-        addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }
         addFactory { GetPagePreviews(get(), get()) } // RK: adult-source page previews
         addFactory { ResetCategoryFlags(get()) }
@@ -307,9 +306,7 @@ class DomainModule : InjektModule {
         addFactory { SetSortModeForCategory(get(), get()) }
         addFactory { RenameCategory(get()) }
 
-        addSingletonFactory<MangaRepository> { MangaRepositoryImpl(get()) }
         // RK: manga custom-info overlay (non-destructive display-layer edits)
-        addSingletonFactory<CustomMangaInfoRepository> { CustomMangaInfoRepositoryImpl(get()) }
         addFactory { GetCustomMangaInfo(get()) }
         addFactory { SetCustomMangaInfo(get()) }
         addFactory { GetDuplicateLibraryManga(get()) }
@@ -319,7 +316,6 @@ class DomainModule : InjektModule {
         addFactory { GetMangaByUrlAndSourceId(get()) }
         addFactory { GetManga(get()) }
         // RK: adult/EXH gallery-metadata persistence + the MetadataSource DI contracts
-        addSingletonFactory<MangaMetadataRepository> { MangaMetadataRepositoryImpl(get()) }
         addFactory<MetadataSource.GetMangaId> { GetManga(get()) }
         addFactory<MetadataSource.GetFlatMetadataById> { GetFlatMetadataById(get()) }
         addFactory<MetadataSource.InsertFlatMetadata> { InsertFlatMetadata(get()) }
@@ -363,10 +359,8 @@ class DomainModule : InjektModule {
         addSingletonFactory { MigrationPickHandoff() }
         // RK <--
 
-        addSingletonFactory<ReleaseService> { ReleaseServiceImpl(get(), get()) }
         addFactory { GetApplicationRelease(get()) }
 
-        addSingletonFactory<TrackRepository> { TrackRepositoryImpl(get()) }
         addFactory { TrackChapter(get(), get(), get(), get()) }
         addFactory { AddTracks(get(), get(), get(), get()) }
         addFactory { RefreshTracks(get(), get(), get(), get()) }
@@ -382,7 +376,6 @@ class DomainModule : InjektModule {
         addFactory { InsertTrack(get()) }
         addFactory { SyncChapterProgressWithTrack(get(), get(), get()) }
 
-        addSingletonFactory<ChapterRepository> { ChapterRepositoryImpl(get()) }
         addFactory { GetChapter(get()) }
         addFactory { GetChaptersByMangaId(get()) }
         addFactory { GetBookmarkedChaptersByMangaId(get()) }
@@ -395,7 +388,6 @@ class DomainModule : InjektModule {
         addFactory { GetAvailableScanlators(get()) }
         addFactory { FilterChaptersForDownload(get(), get(), get()) }
 
-        addSingletonFactory<HistoryRepository> { HistoryRepositoryImpl(get()) }
         addFactory { GetHistory(get()) }
         addFactory { UpsertHistory(get()) }
         addFactory { RemoveHistory(get()) }
@@ -407,11 +399,9 @@ class DomainModule : InjektModule {
         addFactory { GetExtensionSources(get()) }
         addFactory { GetExtensionLanguages(get(), get()) }
 
-        addSingletonFactory<UpdatesRepository> { UpdatesRepositoryImpl(get()) }
         addFactory { GetUpdates(get()) }
 
         addSingletonFactory<SourceRepository> { SourceRepositoryImpl(get(), get(), get()) }
-        addSingletonFactory<StubSourceRepository> { StubSourceRepositoryImpl(get()) }
         addFactory { GetEnabledSources(get(), get()) }
         addFactory { GetLanguagesWithSources(get(), get()) }
         addFactory { GetRemoteManga(get()) }
@@ -423,8 +413,6 @@ class DomainModule : InjektModule {
         addFactory { ToggleSourcePin(get()) }
         addFactory { TrustExtension(get(), get()) }
 
-        addSingletonFactory { ExtensionStoreService(get(), get(), get()) }
-        addSingletonFactory<ExtensionStoreRepository> { ExtensionStoreRepositoryImpl(get(), get()) }
         addFactory { AddExtensionStore(get()) }
         addFactory { GetExtensionStoreCountAsFlow(get()) }
         addFactory { GetExtensionStores(get()) }

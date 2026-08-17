@@ -1,5 +1,6 @@
 package eu.kanade.domain.track.interactor
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -10,6 +11,7 @@ import kotlinx.coroutines.supervisorScope
 import reikai.domain.manga.GetTracksInGroup
 import tachiyomi.domain.track.interactor.InsertTrack
 
+@Inject
 class RefreshTracks(
     // RK: refresh every tracker bound anywhere in the merged group, not just this source's own rows
     private val getTracks: GetTracksInGroup,

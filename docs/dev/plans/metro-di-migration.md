@@ -57,7 +57,34 @@ had.
 `SqlDriver` and `AndroidStorageFolderProvider` get no interop entry: their only consumers were the
 registrations that moved into the graph alongside them.
 
-Phases 3 to 7 remain, in the order the Sequence table gives.
+**Phase 3 is three commits, not one** (owner, 2026-08-17). Entry points cannot convert until their
+dependencies are graph-constructible, and the dependency graph does not respect the ownership split:
+`LibraryUpdateJob` is upstream-tracked and injects four Reikai-owned types, and 8 of the 15 workers
+inject Reikai types directly. So 3a annotates and moves the upstream-tracked app classes, 3b does the
+Reikai-owned ones (re-scoped from a tidy-up to a prerequisite, and now including the two `exh`
+classes in `core/common`), and 3c converts the entry points.
+
+**3a has landed.** 28 upstream interactors annotated, 12 app singletons and 12 `data` repository
+implementations moved into the graph, and `scripts/di-interop-check.ps1` added with a `pre-commit`
+hook so a type can never again be graph-owned and Injekt-registered at once.
+
+**Four upstream classes wait for 3b**, because `ExhPreferences` is not annotated until then and
+`ExtensionManager` takes it: `ExtensionManager`, `AndroidSourceManager`, `DownloadManager`,
+`DownloadCache`. `SourceRepositoryImpl` waits with them, since it needs `SourceManager`.
+
+Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
+
+- **Phase 5 must inject the migration set as a `Provider`**, never eagerly. A `Set<Migration>` built
+  at `graph.inject(this)` constructs every migration, and one of them pulls `Database`, which would
+  open the database before `LegacyYokaiDbImporter` can move an incompatible one aside.
+- **Phase 7 cannot drop the `reikai.**` / `exh.**` proguard keeps.** The novel reader stays on Injekt
+  by design with reified generic lookups on `reikai.*` types, and `source-api` reads
+  `DelegateSourcePreferences`, an `exh.pref` type, from three places. Those keeps leave with the
+  tsundoku reader migration, not with this port. Phase 7 keeps the baseline profiles and the rules
+  files only.
+- Relatedly, **phase 6 does not shrink the interop module for the novel reader's subgraph**: keeping
+  `NovelReaderScreenModel` on Injekt means its 17 dependencies must be handed back, and only one is
+  today.
 
 Owner rulings, 2026-08-16:
 
@@ -183,7 +210,9 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 0. Spike (done) | Plugin on `:app` and the new `:core:metro`, `AppBindings` providing `Json` only, an `AppGraph` with `inject(app)` plus two accessors, interop for that one type | Done: compile, 1064 tests, minified `:app:assemblePreview`, cold start to a populated library |
 | 1. Leaves (done) | Annotate `core/common`, `domain`, `data`, `source-local`, plus the three upstream signature changes and the call sites they force in `app` and `exh` | Done: each module compiled alone, then 1064 `:app` and 75 `:domain` tests, a minified build and a manga browse list on device |
 | 2. Graph (done) | `AppBindings` for the four infrastructure providers, accessors and interop for the leaf types `AppModule` / `PreferenceModule` registered, `App` bootstrap. The three module files shrink; they cannot be deleted until phases 3 to 6 empty them | Done: 1064 + 75 tests, a minified build, and on device a cold start, the full library and a backup within 14 bytes of the pre-Metro one |
-| 3. Entry points | 16 workers, receivers, services, activities, both widget surfaces | Device: a library update, a novel update, a backup restore, a widget refresh |
+| 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
+| 3b. App classes, Reikai | The `reikai` / `exh` classes, the 5 tracker fetchers, and the two `exh` classes in `core/common`. Unblocks `ExtensionManager`, `AndroidSourceManager`, the download pair and `SourceRepositoryImpl` | Per-type: the Injekt registration goes as the annotation lands, checked by `scripts/di-interop-check.ps1` |
+| 3c. Entry points | 15 workers, receivers, services, activities, both widget surfaces; the three module files should be empty enough to delete | Device: a library update, a novel update, a backup restore, a widget refresh |
 | 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |

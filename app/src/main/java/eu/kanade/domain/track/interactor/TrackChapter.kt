@@ -1,6 +1,7 @@
 package eu.kanade.domain.track.interactor
 
 import android.content.Context
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
 import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
@@ -14,6 +15,7 @@ import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.interactor.InsertTrack
 
+@Inject
 class TrackChapter(
     // RK --> the reader keys on the chapter's own manga, which differs across a merged group, so the
     // group's tracks are read as one; the "is this tracker behind?" guard below would otherwise see a

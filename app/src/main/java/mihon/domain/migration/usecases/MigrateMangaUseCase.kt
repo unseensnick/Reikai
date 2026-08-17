@@ -1,5 +1,6 @@
 package mihon.domain.migration.usecases
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.source.service.SourcePreferences
@@ -29,6 +30,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
 
+@Inject
 class MigrateMangaUseCase(
     private val sourcePreferences: SourcePreferences,
     private val trackerManager: TrackerManager,

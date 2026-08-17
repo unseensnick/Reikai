@@ -115,11 +115,14 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         }
 
         patchInjekt()
-        graph.inject(this)
 
         TelemetryConfig.init(applicationContext)
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
+
+        // After the handler is installed, so a failure building the graph reaches CrashActivity
+        // rather than dying on the platform handler.
+        graph.inject(this)
 
         // TLS 1.3 support for Android < 10
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {

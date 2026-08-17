@@ -2,22 +2,46 @@ package mihon.app.di.injekt
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.Provider
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.domain.track.store.DelayedTrackingStore
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.cache.ChapterCache
+import eu.kanade.tachiyomi.data.cache.CoverCache
+import eu.kanade.tachiyomi.data.cache.PagePreviewCache
+import eu.kanade.tachiyomi.data.download.DownloadProvider
+import eu.kanade.tachiyomi.data.saver.ImageSaver
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
+import mihon.data.extension.service.ExtensionStoreService
+import mihon.domain.extension.repository.ExtensionStoreRepository
 import nl.adaptivity.xmlutil.serialization.XML
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.service.BackupPreferences
+import tachiyomi.domain.category.repository.CategoryRepository
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
+import tachiyomi.domain.manga.repository.MangaMetadataRepository
+import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.release.service.ReleaseService
+import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.storage.service.StoragePreferences
+import tachiyomi.domain.track.repository.TrackRepository
 import tachiyomi.domain.upcoming.service.UpcomingPreferences
+import tachiyomi.domain.updates.repository.UpdatesRepository
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.io.LocalSourceFileSystem
@@ -61,6 +85,33 @@ class MetroInteropModule(
     private val downloadPreferences: Provider<DownloadPreferences>,
     private val backupPreferences: Provider<BackupPreferences>,
     private val storagePreferences: Provider<StoragePreferences>,
+
+    private val chapterCache: Provider<ChapterCache>,
+    private val coverCache: Provider<CoverCache>,
+    private val pagePreviewCache: Provider<PagePreviewCache>,
+    private val downloadProvider: Provider<DownloadProvider>,
+    private val trackerManager: Provider<TrackerManager>,
+    private val delayedTrackingStore: Provider<DelayedTrackingStore>,
+    private val imageSaver: Provider<ImageSaver>,
+
+    private val basePreferences: Provider<BasePreferences>,
+    private val uiPreferences: Provider<UiPreferences>,
+    private val sourcePreferences: Provider<SourcePreferences>,
+    private val readerPreferences: Provider<ReaderPreferences>,
+    private val trackPreferences: Provider<TrackPreferences>,
+
+    private val categoryRepository: Provider<CategoryRepository>,
+    private val mangaRepository: Provider<MangaRepository>,
+    private val customMangaInfoRepository: Provider<CustomMangaInfoRepository>,
+    private val mangaMetadataRepository: Provider<MangaMetadataRepository>,
+    private val chapterRepository: Provider<ChapterRepository>,
+    private val historyRepository: Provider<HistoryRepository>,
+    private val trackRepository: Provider<TrackRepository>,
+    private val updatesRepository: Provider<UpdatesRepository>,
+    private val stubSourceRepository: Provider<StubSourceRepository>,
+    private val releaseService: Provider<ReleaseService>,
+    private val extensionStoreService: Provider<ExtensionStoreService>,
+    private val extensionStoreRepository: Provider<ExtensionStoreRepository>,
 ) : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
@@ -85,5 +136,32 @@ class MetroInteropModule(
         addSingletonFactory { downloadPreferences() }
         addSingletonFactory { backupPreferences() }
         addSingletonFactory { storagePreferences() }
+
+        addSingletonFactory { chapterCache() }
+        addSingletonFactory { coverCache() }
+        addSingletonFactory { pagePreviewCache() }
+        addSingletonFactory { downloadProvider() }
+        addSingletonFactory { trackerManager() }
+        addSingletonFactory { delayedTrackingStore() }
+        addSingletonFactory { imageSaver() }
+
+        addSingletonFactory { basePreferences() }
+        addSingletonFactory { uiPreferences() }
+        addSingletonFactory { sourcePreferences() }
+        addSingletonFactory { readerPreferences() }
+        addSingletonFactory { trackPreferences() }
+
+        addSingletonFactory { categoryRepository() }
+        addSingletonFactory { mangaRepository() }
+        addSingletonFactory { customMangaInfoRepository() }
+        addSingletonFactory { mangaMetadataRepository() }
+        addSingletonFactory { chapterRepository() }
+        addSingletonFactory { historyRepository() }
+        addSingletonFactory { trackRepository() }
+        addSingletonFactory { updatesRepository() }
+        addSingletonFactory { stubSourceRepository() }
+        addSingletonFactory { releaseService() }
+        addSingletonFactory { extensionStoreService() }
+        addSingletonFactory { extensionStoreRepository() }
     }
 }

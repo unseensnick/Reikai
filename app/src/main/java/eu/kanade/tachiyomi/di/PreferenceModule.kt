@@ -1,11 +1,6 @@
 package eu.kanade.tachiyomi.di
 
 import android.app.Application
-import eu.kanade.domain.base.BasePreferences
-import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.domain.track.service.TrackPreferences
-import eu.kanade.domain.ui.UiPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import reikai.domain.category.CategoryIdPreferences
@@ -22,9 +17,6 @@ import uy.kohesive.injekt.api.get
 class PreferenceModule(val app: Application) : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
-        addSingletonFactory {
-            SourcePreferences(get())
-        }
         // RK -->
         addSingletonFactory {
             ReikaiLibraryPreferences(get())
@@ -57,17 +49,5 @@ class PreferenceModule(val app: Application) : InjektModule {
             ExhPreferences(get())
         }
         // RK <--
-        addSingletonFactory {
-            ReaderPreferences(get())
-        }
-        addSingletonFactory {
-            TrackPreferences(get())
-        }
-        addSingletonFactory {
-            UiPreferences(get())
-        }
-        addSingletonFactory {
-            BasePreferences(app, get())
-        }
     }
 }
