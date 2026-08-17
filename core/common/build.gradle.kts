@@ -2,6 +2,7 @@ plugins {
     alias(mihonx.plugins.android.library)
     alias(mihonx.plugins.spotless)
 
+    alias(libs.plugins.metro)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -19,7 +20,10 @@ kotlin {
 }
 
 dependencies {
+    implementation(projects.core.metro)
     implementation(projects.i18n)
+
+    implementation(libs.metro.runtime)
 
     api(libs.logcat)
 

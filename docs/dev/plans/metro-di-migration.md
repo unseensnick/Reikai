@@ -1,6 +1,6 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phase 0 landed, phases 1 to 7 remain.** Research completed 2026-08-16 against upstream
+> **Status: phases 0 and 1 landed, phases 2 to 7 remain.** Research completed 2026-08-16 against upstream
 > `b2015d1ef`; re-verified and corrected 2026-08-17 before phase 0. Every count below was measured,
 > not estimated; the commands are given so a cold session can re-derive them before trusting them.
 
@@ -33,7 +33,16 @@ everything else still resolves the old way. Verified on the emulator with a mini
 the app boots to a populated library, and `Json` is resolved from Injekt during startup through the
 `DownloadManager` warm-up, so the handoff works under R8. 1064 tests, 0 failures.
 
-Phases 1 to 7 remain, in the order the Sequence table gives.
+**Phase 1 has landed.** All four leaf modules carry the plugin and their annotations: 60 classes in
+`domain`, 13 repository implementations in `data`, 5 in `core/common` and 3 in `source-local`.
+Nothing resolves through Metro yet.
+
+**Unreachable contributions are pruned, not validated** (measured 2026-08-17). Annotating
+`MangaRepositoryImpl` with `@ContributesBinding(AppScope::class)` while `AppGraph` had no `Database`
+binding compiled clean, with `AppGraph` re-merged in that same run. So a class can be annotated long
+before the graph can build it, which is what makes leaves-first safe.
+
+Phases 2 to 7 remain, in the order the Sequence table gives.
 
 Owner rulings, 2026-08-16:
 
@@ -157,7 +166,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | Phase | Work | Proves |
 |---|---|---|
 | 0. Spike (done) | Plugin on `:app` and the new `:core:metro`, `AppBindings` providing `Json` only, an `AppGraph` with `inject(app)` plus two accessors, interop for that one type | Done: compile, 1064 tests, minified `:app:assemblePreview`, cold start to a populated library |
-| 1. Leaves | Annotate `core/common`, `domain`, `data`, `source-local`. Upstream diff exists per file | Each module's own `compileDebugKotlin` before `app` is touched |
+| 1. Leaves (done) | Annotate `core/common`, `domain`, `data`, `source-local`, plus the three upstream signature changes and the call sites they force in `app` and `exh` | Done: each module compiled alone, then 1064 `:app` and 75 `:domain` tests, a minified build and a manga browse list on device |
 | 2. Graph | Full accessor list, `App` bootstrap, the interop module widened to everything Reikai code still resolves from Injekt, the three module files deleted as their types become reachable | `:app:compileDebugKotlin` plus a cold start on device |
 | 3. Entry points | 16 workers, receivers, services, activities, both widget surfaces | Device: a library update, a novel update, a backup restore, a widget refresh |
 | 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |

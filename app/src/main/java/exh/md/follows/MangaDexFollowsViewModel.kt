@@ -10,14 +10,18 @@ import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.repository.SourcePagingSource
+import uy.kohesive.injekt.injectLazy
 
 /**
  * Reuses the browse screen model but swaps the paging source for the MangaDex follow list. The
  * screen is only reachable for a MangaDex source (gated in browse), so the cast is safe.
  */
 class MangaDexFollowsViewModel(sourceId: Long) : BrowseSourceViewModel(sourceId, null) {
+
+    private val networkToLocalManga: NetworkToLocalManga by injectLazy()
 
     // Its own key and factory: a Kotlin companion is not inherited, so leaning on the parent's would
     // construct a plain BrowseSourceViewModel and silently drop both overrides below, with no
@@ -31,7 +35,7 @@ class MangaDexFollowsViewModel(sourceId: Long) : BrowseSourceViewModel(sourceId,
     }
 
     override fun createSourcePagingSource(query: String, filters: FilterList): SourcePagingSource {
-        return MangaDexFollowsPagingSource(source.getMainSource<MangaDex>()!!)
+        return MangaDexFollowsPagingSource(source.getMainSource<MangaDex>()!!, networkToLocalManga)
     }
 
     // Follows results carry their metadata inline (follow status); pass it straight through rather

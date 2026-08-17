@@ -1,6 +1,8 @@
 plugins {
     alias(mihonx.plugins.android.library)
     alias(mihonx.plugins.spotless)
+
+    alias(libs.plugins.metro)
 }
 
 android {
@@ -25,6 +27,7 @@ dependencies {
     implementation(libs.unifile)
     implementation(libs.bundles.serialization)
 
+    implementation(libs.metro.runtime)
     implementation(libs.injekt)
     implementation(libs.jsoup)
 }

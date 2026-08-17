@@ -2,6 +2,9 @@ package eu.kanade.tachiyomi.network
 
 import android.content.Context
 import com.dokar.quickjs.QuickJs
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import tachiyomi.core.common.util.lang.withIOContext
 
@@ -14,6 +17,8 @@ import tachiyomi.core.common.util.lang.withIOContext
  * extensions using extensions-lib see no difference.
  */
 @Suppress("UNUSED", "UNCHECKED_CAST")
+@Inject
+@SingleIn(AppScope::class)
 class JavaScriptEngine(context: Context) {
 
     /**

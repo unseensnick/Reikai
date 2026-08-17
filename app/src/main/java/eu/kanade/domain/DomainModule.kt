@@ -410,7 +410,7 @@ class DomainModule : InjektModule {
         addSingletonFactory<UpdatesRepository> { UpdatesRepositoryImpl(get()) }
         addFactory { GetUpdates(get()) }
 
-        addSingletonFactory<SourceRepository> { SourceRepositoryImpl(get(), get()) }
+        addSingletonFactory<SourceRepository> { SourceRepositoryImpl(get(), get(), get()) }
         addSingletonFactory<StubSourceRepository> { StubSourceRepositoryImpl(get()) }
         addFactory { GetEnabledSources(get(), get()) }
         addFactory { GetLanguagesWithSources(get(), get()) }

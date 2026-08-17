@@ -2,6 +2,10 @@ package tachiyomi.data.manga
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import exh.metadata.metadata.base.FlatMetadata
 import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
@@ -12,6 +16,9 @@ import tachiyomi.data.subscribeToList
 import tachiyomi.data.subscribeToOneOrNull
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class MangaMetadataRepositoryImpl(
     private val database: Database,
 ) : MangaMetadataRepository {

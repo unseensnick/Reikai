@@ -1,7 +1,9 @@
 package tachiyomi.domain.category.interactor
 
+import dev.zacsweers.metro.Inject
 import tachiyomi.domain.category.repository.CategoryRepository
 
+@Inject
 class ResetCategoryFlags(
     private val categoryRepository: CategoryRepository,
 ) {

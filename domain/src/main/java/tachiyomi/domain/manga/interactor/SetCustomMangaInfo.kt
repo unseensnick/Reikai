@@ -1,8 +1,10 @@
 package tachiyomi.domain.manga.interactor
 
+import dev.zacsweers.metro.Inject
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 
+@Inject
 class SetCustomMangaInfo(
     private val repository: CustomMangaInfoRepository,
 ) {
