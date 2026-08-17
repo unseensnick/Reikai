@@ -83,6 +83,21 @@ concrete tracker and those are properties of the `TrackerManager` singleton rath
 their own. Binding them separately would build second tracker instances carrying their own login
 state.
 
+**Workers inject in an `init` block, not at the top of `doWork`.** They were eager property
+initializers before, so `init` preserves the old semantics, and it removes the hazard that WorkManager
+can call `getForegroundInfo` before `doWork`: `NovelDownloadJob` reads an injected field there.
+Upstream's own `LibraryUpdateJob` has the shape this avoids.
+
+**Three install paths are still untested across the whole port** (2026-08-18): fresh install, upgrade
+from a shipped build, and the `:error_handler` crash process. Every device pass so far ran on one
+emulator with existing state. The upgrade path is what the `Provider`-not-instance interop rule
+protects, and that rule is reasoned rather than exercised.
+
+**The gates prove "nothing broke", not "nothing was missed."** Six update-error interactors were
+walked past in 3b and every gate still passed, because they were still Injekt-registered. That is why
+`scripts/di-interop-check.ps1` now fails on a registered class with no graph annotation, alongside its
+original no-double-registration check. Both halves are mutation-tested.
+
 Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
 
 - **Phase 5 must inject the migration set as a `Provider`**, never eagerly. A `Set<Migration>` built
@@ -223,7 +238,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 2. Graph (done) | `AppBindings` for the four infrastructure providers, accessors and interop for the leaf types `AppModule` / `PreferenceModule` registered, `App` bootstrap. The three module files shrink; they cannot be deleted until phases 3 to 6 empty them | Done: 1064 + 75 tests, a minified build, and on device a cold start, the full library and a backup within 14 bytes of the pre-Metro one |
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
-| 3c. Entry points | 15 workers, receivers, services, activities, both widget surfaces; the three module files should be empty enough to delete | Device: a library update, a novel update, a backup restore, a widget refresh |
+| 3c. Entry points (partial) | Done: 11 of 15 workers inject from the graph in an `init` block. Left: 4 inline sites, the 5 `setupTask` companions, activities and receivers, both widget surfaces, and deleting `AppModule` | Done so far: a manual library refresh ran the manga and novel update jobs to success |
 | 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |
