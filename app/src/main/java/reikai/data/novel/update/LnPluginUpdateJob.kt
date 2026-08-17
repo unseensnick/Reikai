@@ -15,13 +15,12 @@ import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 /**
@@ -38,8 +37,8 @@ class LnPluginUpdateJob(
 
     override suspend fun doWork(): Result {
         return try {
-            val updates = Injekt.get<LnPluginUpdateChecker>().check()
-            val prefs = Injekt.get<NovelPreferences>()
+            val updates = applicationContext.appGraph.lnPluginUpdateChecker.check()
+            val prefs = applicationContext.appGraph.novelPreferences
             prefs.pluginUpdatesCount().set(updates.size)
             prefs.lastLnPluginCheck().set(System.currentTimeMillis())
 

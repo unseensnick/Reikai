@@ -8,10 +8,9 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.util.system.workManager
+import mihon.app.di.appGraph
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 /**
@@ -27,7 +26,7 @@ class TrackerLibraryRefreshJob(
 
     override suspend fun doWork(): Result {
         return try {
-            Injekt.get<RefreshTrackerLibrary>().await()
+            applicationContext.appGraph.refreshTrackerLibrary.await()
             Result.success()
         } catch (e: Exception) {
             Result.retry()
@@ -39,7 +38,7 @@ class TrackerLibraryRefreshJob(
 
         /** (Re)schedule or cancel the periodic pull from the auto-refresh interval preference. */
         fun setupTask(context: Context, prefInterval: Int? = null) {
-            val interval = prefInterval ?: Injekt.get<ReikaiRecommendationPreferences>()
+            val interval = prefInterval ?: context.appGraph.reikaiRecommendationPreferences
                 .trackerLibraryAutoRefreshHours.get()
             if (interval > 0) {
                 val request = PeriodicWorkRequestBuilder<TrackerLibraryRefreshJob>(

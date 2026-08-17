@@ -44,7 +44,6 @@ import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.PagePreviewFetcher
 import eu.kanade.tachiyomi.data.coil.PagePreviewKeyer
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.di.AppModule
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
@@ -81,6 +80,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
 import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.security.Security
@@ -128,9 +128,19 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             Security.insertProviderAt(Conscrypt.newProvider(), 1)
         }
 
-        Injekt.importModule(AppModule(this))
+        Injekt.addSingleton<Application>(this)
+        Injekt.addSingleton<Context>(this)
         Injekt.importModule(DomainModule())
         Injekt.importModule(injektMetroInteropModule)
+
+        // Warm the expensive singletons off the critical path, as the old app module did. Posted, so
+        // it runs after onCreate returns and never races the legacy-database recovery below.
+        ContextCompat.getMainExecutor(this).execute {
+            graph.networkHelper
+            graph.sourceManager
+            graph.database
+            graph.downloadManager
+        }
 
         // RK --> recover a library left behind by an in-place update from the old Yōkai-based build.
         // The old DB shares tachiyomi.db's name but sits at a higher, incompatible schema version, so

@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.App
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.DownloadJob
+import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.network.JavaScriptEngine
@@ -17,19 +18,25 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import exh.eh.EHentaiUpdateWorker
 import exh.favorites.EhFavoritesBackupJob
 import exh.md.MangaDexSyncJob
+import exh.source.ExhPreferences
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
+import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.novel.download.NovelDownloadJob
+import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.domain.upcoming.service.UpcomingPreferences
@@ -79,6 +86,17 @@ interface AppGraph {
     val downloadPreferences: DownloadPreferences
     val backupPreferences: BackupPreferences
     val storagePreferences: StoragePreferences
+
+    // Read through Context.appGraph by companions and objects, which cannot be member-injected.
+    val exhPreferences: ExhPreferences
+    val novelPreferences: NovelPreferences
+    val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
+    val lnPluginUpdateChecker: LnPluginUpdateChecker
+    val refreshTrackerLibrary: RefreshTrackerLibrary
+
+    // Read by App's cold-start warm-up.
+    val sourceManager: SourceManager
+    val downloadManager: DownloadManager
 
     @DependencyGraph.Factory
     fun interface Factory {

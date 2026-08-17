@@ -42,6 +42,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
 import mihon.app.di.AppGraph
+import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
@@ -76,8 +77,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.SourceNotInstalledException
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -130,7 +129,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     override suspend fun doWork(): Result {
         if (tags.contains(WORK_NAME_AUTO)) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                val preferences = Injekt.get<LibraryPreferences>()
+                val preferences = context.appGraph.libraryPreferences
                 val restrictions = preferences.autoUpdateDeviceRestrictions.get()
                 if ((DEVICE_ONLY_ON_WIFI in restrictions) && !context.isConnectedToWifi()) {
                     return Result.retry()
@@ -470,7 +469,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             context: Context,
             prefInterval: Int? = null,
         ) {
-            val preferences = Injekt.get<LibraryPreferences>()
+            val preferences = context.appGraph.libraryPreferences
             val interval = prefInterval ?: preferences.autoUpdateInterval.get()
             if (interval > 0) {
                 val restrictions = preferences.autoUpdateDeviceRestrictions.get()

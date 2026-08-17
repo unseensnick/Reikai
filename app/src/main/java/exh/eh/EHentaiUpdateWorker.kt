@@ -33,6 +33,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.app.di.AppGraph
+import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
@@ -48,8 +49,6 @@ import tachiyomi.domain.manga.interactor.InsertFlatMetadata
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
@@ -288,7 +287,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         }
 
         fun setupTask(context: Context, prefInterval: Int? = null, prefRestrictions: Set<String>? = null) {
-            val exhPreferences = Injekt.get<ExhPreferences>()
+            val exhPreferences = context.appGraph.exhPreferences
             val interval = prefInterval ?: exhPreferences.exhAutoUpdateFrequency().get()
             if (interval > 0) {
                 val restrictions = prefRestrictions ?: exhPreferences.exhAutoUpdateRequirements().get()

@@ -30,6 +30,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
 import mihon.app.di.AppGraph
+import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
@@ -59,8 +60,6 @@ import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 /**
@@ -289,7 +288,7 @@ class NovelUpdateJob(
 
         /** (Re)schedule or cancel the periodic check from the stored interval (0 = off). Idempotent. */
         fun setupTask(context: Context, prefInterval: Int? = null) {
-            val preferences = Injekt.get<NovelPreferences>()
+            val preferences = context.appGraph.novelPreferences
             val interval = prefInterval ?: preferences.libraryUpdateInterval().get()
             if (interval > 0) {
                 val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
