@@ -69,6 +69,55 @@ foreach ($file in $moduleFiles) {
     }
 }
 
+# Second check: a class the Injekt modules still register must carry a Metro annotation, or it is a
+# type the port walked past. This is invisible at build and run time, because the Injekt registration
+# keeps it working, so nothing else surfaces it. It is how six classes were missed once already.
+$srcRoots = @(
+    'app/src/main/java'
+    'domain/src/main/java'
+    'data/src/main/java'
+    'core/common/src/main/kotlin'
+    'source-local/src/main/kotlin'
+) | ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { Test-Path -LiteralPath $_ }
+
+$declIndex = @{}
+foreach ($root in $srcRoots) {
+    Get-ChildItem -LiteralPath $root -Recurse -Filter *.kt -File | ForEach-Object {
+        $text = [System.IO.File]::ReadAllText($_.FullName)
+        $hasMetro = $text.Contains('dev.zacsweers.metro')
+        foreach ($m in [regex]::Matches($text, '(?m)^(?:internal )?class ([A-Za-z0-9_]+)')) {
+            $name = $m.Groups[1].Value
+            if (-not $declIndex.ContainsKey($name)) {
+                $declIndex[$name] = [pscustomobject]@{ Path = $_.FullName; HasMetro = $hasMetro }
+            }
+        }
+    }
+}
+
+$unannotated = @()
+foreach ($file in $moduleFiles) {
+    $rel = $file.Substring($RepoRoot.Length).TrimStart('\', '/')
+    $lineNo = 0
+    foreach ($line in Get-Content -LiteralPath $file) {
+        $lineNo++
+        if ($line -notmatch 'add(Singleton|Factory|SingletonFactory|LazySingleton)') { continue }
+        if ($line -notmatch 'add\w+(?:<[^>]+>)?\s*\{\s*([A-Z][A-Za-z0-9_]*)\s*\(') { continue }
+        $ctor = $Matches[1]
+        $decl = $declIndex[$ctor]
+        if ($decl -and -not $decl.HasMetro) {
+            $unannotated += "  $rel`:$lineNo registers $ctor, whose class carries no Metro annotation"
+        }
+    }
+}
+
+if ($unannotated.Count -gt 0) {
+    Write-Host "di-interop-check FAILED: a registered class was never annotated for the graph." -ForegroundColor Red
+    $unannotated | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+    Write-Host ""
+    Write-Host "Annotate it, or drop the registration if the type is genuinely retired."
+    exit 1
+}
+
 if ($violations.Count -gt 0) {
     Write-Host "di-interop-check FAILED: a type is registered with Injekt and handed back by Metro." -ForegroundColor Red
     $violations | ForEach-Object { Write-Host $_ -ForegroundColor Red }
@@ -77,5 +126,5 @@ if ($violations.Count -gt 0) {
     exit 1
 }
 
-Write-Host "di-interop-check: $($interopTypes.Count) graph-owned types, no Injekt duplicates."
+Write-Host "di-interop-check: $($interopTypes.Count) graph-owned types, no Injekt duplicates, every registered class annotated."
 exit 0

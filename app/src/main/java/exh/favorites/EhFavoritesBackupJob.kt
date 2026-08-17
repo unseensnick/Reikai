@@ -8,6 +8,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkerParameters
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
@@ -20,10 +21,11 @@ import exh.source.isEhBasedManga
 import exh.util.ThrottleManager
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.injectLazy
 
 /**
  * RK: one-time backfill that pushes every E-Hentai gallery in the library to the account's
@@ -32,10 +34,18 @@ import uy.kohesive.injekt.injectLazy
  */
 class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
-    private val exhPreferences: ExhPreferences by injectLazy()
-    private val sourceManager: SourceManager by injectLazy()
-    private val mangaRepository: MangaRepository by injectLazy()
 
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var exhPreferences: ExhPreferences
+
+    @Inject private lateinit var sourceManager: SourceManager
+
+    @Inject private lateinit var mangaRepository: MangaRepository
     private val notifier by lazy { EHentaiUpdateNotifier(context) }
 
     override suspend fun doWork(): Result {

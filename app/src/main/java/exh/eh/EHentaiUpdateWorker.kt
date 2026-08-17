@@ -14,6 +14,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkerParameters
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.copyFrom
@@ -31,6 +32,8 @@ import exh.source.ExhPreferences
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -47,24 +50,38 @@ import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
 
 class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
-    private val exhPreferences: ExhPreferences by injectLazy()
-    private val libraryPreferences: LibraryPreferences by injectLazy()
-    private val sourceManager: SourceManager by injectLazy()
-    private val updateHelper: EHentaiUpdateHelper by injectLazy()
-    private val updateManga: UpdateManga by injectLazy()
-    private val syncChaptersWithSource: SyncChaptersWithSource by injectLazy()
-    private val getChaptersByMangaId: GetChaptersByMangaId by injectLazy()
-    private val getFlatMetadataById: GetFlatMetadataById by injectLazy()
-    private val insertFlatMetadata: InsertFlatMetadata by injectLazy()
-    private val getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata by injectLazy()
 
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var exhPreferences: ExhPreferences
+
+    @Inject private lateinit var libraryPreferences: LibraryPreferences
+
+    @Inject private lateinit var sourceManager: SourceManager
+
+    @Inject private lateinit var updateHelper: EHentaiUpdateHelper
+
+    @Inject private lateinit var updateManga: UpdateManga
+
+    @Inject private lateinit var syncChaptersWithSource: SyncChaptersWithSource
+
+    @Inject private lateinit var getChaptersByMangaId: GetChaptersByMangaId
+
+    @Inject private lateinit var getFlatMetadataById: GetFlatMetadataById
+
+    @Inject private lateinit var insertFlatMetadata: InsertFlatMetadata
+
+    @Inject private lateinit var getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata
     private val updateNotifier by lazy { EHentaiUpdateNotifier(context) }
     private val libraryUpdateNotifier by lazy { LibraryUpdateNotifier(context) }
 

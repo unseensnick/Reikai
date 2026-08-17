@@ -18,6 +18,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.isRunning
@@ -28,6 +29,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
@@ -72,23 +75,39 @@ class NovelUpdateJob(
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
 
-    private val novelRepo: NovelRepository = Injekt.get()
-    private val chapterRepo: NovelChapterRepository = Injekt.get()
-    private val database: Database = Injekt.get()
-    private val downloadManager: NovelDownloadManager = Injekt.get()
-    private val sourceManager: NovelSourceManager = Injekt.get()
-    private val installer: LnPluginInstaller = Injekt.get()
-    private val getNovelCategories: GetNovelCategories = Injekt.get()
-    private val preferences: NovelPreferences = Injekt.get()
-    private val libraryPreferences: LibraryPreferences = Injekt.get()
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
-    private val upsertNovelUpdateError: UpsertNovelUpdateError = Injekt.get()
-    private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get()
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var novelRepo: NovelRepository
+
+    @Inject private lateinit var chapterRepo: NovelChapterRepository
+
+    @Inject private lateinit var database: Database
+
+    @Inject private lateinit var downloadManager: NovelDownloadManager
+
+    @Inject private lateinit var sourceManager: NovelSourceManager
+
+    @Inject private lateinit var installer: LnPluginInstaller
+
+    @Inject private lateinit var getNovelCategories: GetNovelCategories
+
+    @Inject private lateinit var preferences: NovelPreferences
+
+    @Inject private lateinit var libraryPreferences: LibraryPreferences
+
+    @Inject private lateinit var reikaiLibraryPreferences: ReikaiLibraryPreferences
+
+    @Inject private lateinit var upsertNovelUpdateError: UpsertNovelUpdateError
+
+    @Inject private lateinit var deleteNovelUpdateErrors: DeleteNovelUpdateErrors
     private val updateErrorLog = UpdateErrorLog(context)
 
     // Keeps a merged entry's deduplicated unread count in step with newly fetched chapters
-    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get()
-
+    @Inject private lateinit var reconcileChapterMatchKeys: ReconcileChapterMatchKeys
     private val notifier = NovelUpdateNotifier(context)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {

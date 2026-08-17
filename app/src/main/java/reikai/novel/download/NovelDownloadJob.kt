@@ -11,14 +11,15 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkerParameters
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 
 /**
  * Foreground worker that drains the novel download queue. Keeps the process alive (and shows a
@@ -31,7 +32,13 @@ import uy.kohesive.injekt.api.get
 class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    private val manager: NovelDownloadManager = Injekt.get()
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var manager: NovelDownloadManager
     private val notifier = NovelDownloadNotifier(context)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {

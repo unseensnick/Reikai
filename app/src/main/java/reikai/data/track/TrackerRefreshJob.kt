@@ -9,6 +9,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
@@ -27,6 +28,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.dedupeByMergeGroup
@@ -38,8 +41,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -58,14 +59,27 @@ class TrackerRefreshJob(
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
 
-    private val getLibraryManga: GetLibraryManga = Injekt.get()
-    private val novelRepository: NovelRepository = Injekt.get()
-    private val getTracksPerManga: GetTracksPerManga = Injekt.get()
-    private val getNovelTracks: GetNovelTracks = Injekt.get()
-    private val refreshTracks: RefreshTracks = Injekt.get()
-    private val refreshNovelTracks: RefreshNovelTracks = Injekt.get()
-    private val trackerManager: TrackerManager = Injekt.get()
-    private val mergeGroupRepository: MergeGroupRepository = Injekt.get()
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var getLibraryManga: GetLibraryManga
+
+    @Inject private lateinit var novelRepository: NovelRepository
+
+    @Inject private lateinit var getTracksPerManga: GetTracksPerManga
+
+    @Inject private lateinit var getNovelTracks: GetNovelTracks
+
+    @Inject private lateinit var refreshTracks: RefreshTracks
+
+    @Inject private lateinit var refreshNovelTracks: RefreshNovelTracks
+
+    @Inject private lateinit var trackerManager: TrackerManager
+
+    @Inject private lateinit var mergeGroupRepository: MergeGroupRepository
 
     // WorkManager's own cancel intent for this run, so the notification action needs no receiver.
     private val cancelIntent: PendingIntent by lazy { context.workManager.createCancelPendingIntent(id) }

@@ -8,8 +8,11 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.util.system.workManager
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import reikai.domain.novel.interactor.GetNovelTracks
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -24,15 +27,22 @@ import java.util.concurrent.TimeUnit
 class NovelDelayedTrackingUpdateJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
+    @Inject private lateinit var getNovelTracks: GetNovelTracks
+
+    @Inject private lateinit var trackNovelChapter: TrackNovelChapter
+
+    @Inject private lateinit var delayedTrackingStore: NovelDelayedTrackingStore
+
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
     override suspend fun doWork(): Result {
         if (runAttemptCount > 3) {
             return Result.failure()
         }
-
-        val getNovelTracks = Injekt.get<GetNovelTracks>()
-        val trackNovelChapter = Injekt.get<TrackNovelChapter>()
-        val delayedTrackingStore = Injekt.get<NovelDelayedTrackingStore>()
-
         withIOContext {
             delayedTrackingStore.getItems()
                 .mapNotNull {

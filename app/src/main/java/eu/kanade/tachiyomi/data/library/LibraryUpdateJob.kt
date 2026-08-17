@@ -18,6 +18,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.model.SManga
@@ -40,6 +41,8 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.updateerror.UpdateErrorEntry
@@ -87,25 +90,39 @@ import kotlin.time.Clock
 class LibraryUpdateJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    private val sourceManager: SourceManager = Injekt.get()
-    private val libraryPreferences: LibraryPreferences = Injekt.get()
-    private val downloadManager: DownloadManager = Injekt.get()
-    private val getLibraryManga: GetLibraryManga = Injekt.get()
-    private val getManga: GetManga = Injekt.get()
-    private val fetchInterval: FetchInterval = Injekt.get()
-    private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get()
-    private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get()
+    private val graph: AppGraph = context.metroGraph()
+
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var sourceManager: SourceManager
+
+    @Inject private lateinit var libraryPreferences: LibraryPreferences
+
+    @Inject private lateinit var downloadManager: DownloadManager
+
+    @Inject private lateinit var getLibraryManga: GetLibraryManga
+
+    @Inject private lateinit var getManga: GetManga
+
+    @Inject private lateinit var fetchInterval: FetchInterval
+
+    @Inject private lateinit var filterChaptersForDownload: FilterChaptersForDownload
+
+    @Inject private lateinit var updateMangaFromRemote: UpdateMangaFromRemote
 
     // RK: persistence of per-manga update failures (the Update errors screen), plus the dump file
     //     both content types share when that persistence is off
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
-    private val upsertLibraryUpdateError: UpsertLibraryUpdateError = Injekt.get()
-    private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get()
+    @Inject private lateinit var reikaiLibraryPreferences: ReikaiLibraryPreferences
+
+    @Inject private lateinit var upsertLibraryUpdateError: UpsertLibraryUpdateError
+
+    @Inject private lateinit var deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors
     private val updateErrorLog = UpdateErrorLog(context)
 
     // RK: keeps a merged entry's deduplicated unread count in step with newly fetched chapters
-    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get()
-
+    @Inject private lateinit var reconcileChapterMatchKeys: ReconcileChapterMatchKeys
     private val notifier = LibraryUpdateNotifier(context)
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()

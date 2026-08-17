@@ -4,16 +4,27 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
+import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
 import eu.kanade.tachiyomi.App
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.download.DownloadJob
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import exh.eh.EHentaiUpdateWorker
+import exh.favorites.EhFavoritesBackupJob
+import exh.md.MangaDexSyncJob
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import nl.adaptivity.xmlutil.serialization.XML
+import reikai.data.novel.update.NovelUpdateJob
+import reikai.data.track.TrackerRefreshJob
+import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
+import reikai.novel.download.NovelDownloadJob
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.service.BackupPreferences
@@ -32,6 +43,18 @@ import tachiyomi.source.local.io.LocalSourceFileSystem
 )
 interface AppGraph {
     fun inject(app: App)
+
+    fun inject(libraryUpdateJob: LibraryUpdateJob)
+    fun inject(metadataUpdateJob: MetadataUpdateJob)
+    fun inject(downloadJob: DownloadJob)
+    fun inject(novelDownloadJob: NovelDownloadJob)
+    fun inject(novelUpdateJob: NovelUpdateJob)
+    fun inject(trackerRefreshJob: TrackerRefreshJob)
+    fun inject(eHentaiUpdateWorker: EHentaiUpdateWorker)
+    fun inject(ehFavoritesBackupJob: EhFavoritesBackupJob)
+    fun inject(mangaDexSyncJob: MangaDexSyncJob)
+    fun inject(delayedTrackingUpdateJob: DelayedTrackingUpdateJob)
+    fun inject(novelDelayedTrackingUpdateJob: NovelDelayedTrackingUpdateJob)
 
     val context: Context
 

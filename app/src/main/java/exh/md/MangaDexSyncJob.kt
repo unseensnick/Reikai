@@ -12,6 +12,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
@@ -31,6 +32,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.source.ReikaiSourcePreferences
@@ -44,7 +47,6 @@ import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Two-way MangaDex sync worker: imports the account's follows into the library, or pushes library
@@ -54,16 +56,29 @@ import uy.kohesive.injekt.injectLazy
 class MangaDexSyncJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    private val getManga: GetManga by injectLazy()
-    private val networkToLocalManga: NetworkToLocalManga by injectLazy()
-    private val updateMangaFromRemote: UpdateMangaFromRemote by injectLazy()
-    private val updateManga: UpdateManga by injectLazy()
-    private val getLibraryManga: GetLibraryManga by injectLazy()
-    private val getTracks: GetTracks by injectLazy()
-    private val insertTrack: InsertTrack by injectLazy()
-    private val trackerManager: TrackerManager by injectLazy()
-    private val reikaiSourcePreferences: ReikaiSourcePreferences by injectLazy()
+    private val graph: AppGraph = context.metroGraph()
 
+    init {
+        graph.inject(this)
+    }
+
+    @Inject private lateinit var getManga: GetManga
+
+    @Inject private lateinit var networkToLocalManga: NetworkToLocalManga
+
+    @Inject private lateinit var updateMangaFromRemote: UpdateMangaFromRemote
+
+    @Inject private lateinit var updateManga: UpdateManga
+
+    @Inject private lateinit var getLibraryManga: GetLibraryManga
+
+    @Inject private lateinit var getTracks: GetTracks
+
+    @Inject private lateinit var insertTrack: InsertTrack
+
+    @Inject private lateinit var trackerManager: TrackerManager
+
+    @Inject private lateinit var reikaiSourcePreferences: ReikaiSourcePreferences
     enum class Target { SYNC_FOLLOWS, PUSH_FAVORITES }
 
     private val progressNotificationBuilder by lazy {
