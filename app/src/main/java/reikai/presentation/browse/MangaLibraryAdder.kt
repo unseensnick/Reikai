@@ -1,5 +1,6 @@
 package reikai.presentation.browse
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -37,6 +38,7 @@ import kotlin.time.Clock
  * ([SourceManager.getOrStub] on `manga.source`) so it works in global search, where results span
  * sources (Browse's single source equals each result's source, so behaviour there is unchanged).
  */
+@Inject
 class MangaLibraryAdder(
     private val sourceManager: SourceManager = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),

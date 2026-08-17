@@ -1,5 +1,9 @@
 package reikai.data.library.updateerror
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.updateerror.LibraryUpdateError
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
@@ -7,6 +11,9 @@ import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 import tachiyomi.data.subscribeToOne
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class LibraryUpdateErrorRepositoryImpl(
     private val database: Database,
 ) : LibraryUpdateErrorRepository {

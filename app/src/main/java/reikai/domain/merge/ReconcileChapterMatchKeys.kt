@@ -1,5 +1,6 @@
 package reikai.domain.merge
 
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import reikai.domain.novel.NovelChapterAggregation
 import tachiyomi.core.common.util.system.logcat
@@ -14,6 +15,7 @@ import tachiyomi.domain.source.service.SourceManager
  * doubles as the one-time backfill, so no separate backfill code exists. Cheap when there is nothing
  * to do (one indexed query per content type), so callers may run it freely.
  */
+@Inject
 class ReconcileChapterMatchKeys(
     private val repository: ChapterMatchKeyRepository,
     private val getManga: GetManga,

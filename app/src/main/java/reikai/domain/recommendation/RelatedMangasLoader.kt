@@ -1,5 +1,6 @@
 package reikai.domain.recommendation
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
@@ -30,6 +31,7 @@ import kotlin.time.Duration.Companion.seconds
  * for the same series listed under different titles. Agreement, the number of times a title key
  * appeared before dedup, is counted and fed to the ranker.
  */
+@Inject
 class RelatedMangasLoader(
     private val fetcher: RecommendationsFetcher = Injekt.get(),
     private val tasteCandidateFetcher: TasteCandidateFetcher = Injekt.get(),

@@ -1,5 +1,8 @@
 package reikai.novel.install
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -29,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap
  * [NovelSourceManager] from persistence once per process; [fetchRepo] parses a registry's
  * `plugins.min.json` index.
  */
+@Inject
+@SingleIn(AppScope::class)
 class LnPluginInstaller(
     private val networkHelper: NetworkHelper,
     private val loader: LnPluginLoader,

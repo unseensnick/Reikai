@@ -1,5 +1,6 @@
 package reikai.domain.recommendation.taste
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -30,6 +31,7 @@ import kotlin.time.Duration.Companion.seconds
  * recommendation list, so the tracker graph decides similarity rather than genre heuristics; tag
  * search queries the current source for the tracker genres the user scores positively.
  */
+@Inject
 class TasteCandidateFetcher(
     private val repository: TasteLibraryRepository = Injekt.get(),
     private val computeTasteProfile: ComputeTasteProfile = Injekt.get(),

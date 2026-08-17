@@ -2,11 +2,18 @@ package reikai.data.recommendation.taste
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackStatus
 import reikai.domain.recommendation.taste.TrackedEntry
 import tachiyomi.data.Database
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class TasteLibraryRepositoryImpl(
     private val database: Database,
 ) : TasteLibraryRepository {

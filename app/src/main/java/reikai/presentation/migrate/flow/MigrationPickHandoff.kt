@@ -1,5 +1,8 @@
 package reikai.presentation.migrate.flow
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import reikai.domain.entry.EntryId
 
@@ -11,6 +14,8 @@ import reikai.domain.entry.EntryId
  * lost while the asking screen is off-composition, a pick that arrives twice is still one pick, and
  * the reader checks the entry it belongs to, so a stale pick cannot land on the wrong screen.
  */
+@Inject
+@SingleIn(AppScope::class)
 class MigrationPickHandoff {
 
     private val pending = MutableStateFlow<Pick?>(null)

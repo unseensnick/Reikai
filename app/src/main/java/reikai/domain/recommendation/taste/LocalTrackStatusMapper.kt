@@ -1,5 +1,6 @@
 package reikai.domain.recommendation.taste
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import tachiyomi.domain.track.model.Track
 
@@ -12,6 +13,7 @@ import tachiyomi.domain.track.model.Track
  * external tracker's known status ids. Trackers without these semantics (Komga / Kavita / Suwayomi)
  * fall through to [TrackStatus.UNKNOWN] for those three.
  */
+@Inject
 class LocalTrackStatusMapper(
     private val trackerManager: TrackerManager,
 ) {

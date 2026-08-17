@@ -1,6 +1,10 @@
 package reikai.data.merge
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.ChapterMatchKeyRepository.ResolvedKey
 import reikai.domain.merge.ChapterMatchKeyRepository.ResolvedNovelKey
@@ -8,6 +12,9 @@ import reikai.domain.merge.ChapterMatchKeyRepository.StaleChapter
 import reikai.domain.merge.ChapterMatchKeyRepository.StaleNovelChapter
 import tachiyomi.data.Database
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class ChapterMatchKeyRepositoryImpl(
     private val database: Database,
 ) : ChapterMatchKeyRepository {

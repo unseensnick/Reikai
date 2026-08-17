@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import kotlin.time.Clock
@@ -9,6 +10,7 @@ import kotlin.time.Clock
  * [eu.kanade.domain.manga.interactor.UpdateManga]. Routes through the repo's coalesce-based partial
  * update so a write touches only the columns it sets, instead of a full-row read-modify-write.
  */
+@Inject
 class UpdateNovel(
     private val novelRepository: NovelRepository,
 ) {

@@ -1,6 +1,7 @@
 package reikai.domain.novel.track
 
 import android.content.Context
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -18,6 +19,7 @@ import tachiyomi.core.common.util.system.logcat
  * advances when a chapter from a sibling source is read, the reader keying on the chapter's own novel
  * id, which differs across the group.
  */
+@Inject
 class TrackNovelChapter(
     private val getNovelTracks: GetNovelTracks,
     private val trackerManager: TrackerManager,

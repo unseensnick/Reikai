@@ -1,6 +1,9 @@
 package reikai.domain.recommendation
 
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -26,6 +29,8 @@ enum class RelatedPlacement(val titleRes: StringResource) {
  * toggle but no library-pull toggle. Kitsu and Bangumi have no recommendations endpoint, so they
  * have a library-pull toggle but no recs toggle.
  */
+@Inject
+@SingleIn(AppScope::class)
 class ReikaiRecommendationPreferences(
     private val preferenceStore: PreferenceStore,
 ) {

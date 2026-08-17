@@ -1,5 +1,6 @@
 package reikai.domain.manga
 
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.track.GroupTrackReader
@@ -11,6 +12,7 @@ import tachiyomi.domain.track.model.Track
  * where Mihon's [GetTracks] reads a single manga. The novel twin is
  * [reikai.domain.novel.interactor.GetNovelTracks.awaitGroup]; both run the same shared reader.
  */
+@Inject
 class GetTracksInGroup(
     preferences: ReikaiLibraryPreferences,
     getTracks: GetTracks,

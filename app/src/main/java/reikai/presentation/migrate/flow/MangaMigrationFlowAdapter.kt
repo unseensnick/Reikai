@@ -1,5 +1,8 @@
 package reikai.presentation.migrate.flow
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
@@ -31,6 +34,8 @@ import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
 
 /** The manga half of the migration seam: Mihon's smart-search engines, sources and migrate use case. */
+@Inject
+@SingleIn(AppScope::class)
 class MangaMigrationFlowAdapter(
     private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,

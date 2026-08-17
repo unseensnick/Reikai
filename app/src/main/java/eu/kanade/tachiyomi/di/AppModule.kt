@@ -39,24 +39,9 @@ class AppModule(val app: Application) : InjektModule {
         addSingleton<Context>(app)
 
         // RK --> light-novel plugin host: runs lnreader plugins on the shared OkHttp client
-        addSingletonFactory { LnPluginHost(app, get<NetworkHelper>().client, get()) }
-        addSingletonFactory { NovelSourceManager() }
-        addSingletonFactory { LnPluginLoader(app, get<NetworkHelper>().client) }
-        addSingletonFactory { LnPluginInstaller(get(), get(), get(), get(), get()) }
-        addSingletonFactory { LnPluginUpdateChecker(get(), get()) }
-        addSingletonFactory { NovelDownloadProvider() }
-        addSingletonFactory { NovelDownloadCache() }
-        addSingletonFactory { NovelDownloadManager(app) }
         // RK <--
 
-        addSingletonFactory<SourceManager> { AndroidSourceManager(app, get(), get()) }
-        addSingletonFactory { ExtensionManager(app) }
-
-        addSingletonFactory { DownloadManager(app) }
-        addSingletonFactory { DownloadCache(app) }
-
         // RK --> novel trackers
-        addSingletonFactory { NovelDelayedTrackingStore(app) }
         // RK <--
 
         // Asynchronously init expensive components for a faster cold start

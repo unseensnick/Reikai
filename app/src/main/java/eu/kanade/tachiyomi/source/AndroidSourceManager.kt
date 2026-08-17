@@ -1,6 +1,10 @@
 package eu.kanade.tachiyomi.source
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -53,6 +57,9 @@ import java.util.concurrent.ConcurrentHashMap
 internal var nHentaiDelegatedSourceIds: List<Long> = emptyList()
 // RK <--
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class AndroidSourceManager(
     private val context: Context,
     private val extensionManager: ExtensionManager,

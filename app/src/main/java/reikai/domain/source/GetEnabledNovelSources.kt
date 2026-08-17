@@ -1,5 +1,6 @@
 package reikai.domain.source
 
+import dev.zacsweers.metro.Inject
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 
@@ -10,6 +11,7 @@ import reikai.novel.source.NovelSourceManager
  * filter; the Sources tab applies the same filter through its own screen model, and the filter
  * screen is where both are re-enabled.
  */
+@Inject
 class GetEnabledNovelSources(
     private val manager: NovelSourceManager,
     private val preferences: ReikaiSourcePreferences,

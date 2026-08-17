@@ -2,6 +2,9 @@ package reikai.domain.novel.track
 
 import android.content.Context
 import androidx.core.content.edit
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.track.store.DelayedTrackingStore.DelayedTrackingItem
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
@@ -11,6 +14,8 @@ import tachiyomi.core.common.util.system.logcat
  * queue is keyed by track id, and novel track ids and manga track ids share the same id space, so a
  * shared file would collide.
  */
+@Inject
+@SingleIn(AppScope::class)
 class NovelDelayedTrackingStore(context: Context) {
 
     private val preferences = context.getSharedPreferences("novel_tracking_queue", Context.MODE_PRIVATE)

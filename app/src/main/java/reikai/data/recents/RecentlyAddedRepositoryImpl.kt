@@ -1,5 +1,9 @@
 package reikai.data.recents
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import reikai.data.coil.NovelCover
 import reikai.domain.recents.RecentlyAddedManga
@@ -9,6 +13,9 @@ import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 import tachiyomi.domain.manga.model.MangaCover
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class RecentlyAddedRepositoryImpl(
     private val database: Database,
 ) : RecentlyAddedRepository {

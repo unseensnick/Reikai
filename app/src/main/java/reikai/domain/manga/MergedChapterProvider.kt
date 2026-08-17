@@ -1,5 +1,8 @@
 package reikai.domain.manga
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterMatchKeys
 import reikai.domain.merge.crossSourceReadIds
@@ -18,6 +21,8 @@ import uy.kohesive.injekt.api.get
  * list matches what the user tapped, and returns exactly the single-source list when not merged.
  * [aggregate] is the shared aggregate plus reading-order policy, also called by the details flow.
  */
+@Inject
+@SingleIn(AppScope::class)
 class MergedChapterProvider(
     private val getMangaWithChapters: GetMangaWithChapters = Injekt.get(),
     private val mergeManager: MangaMergeManager = Injekt.get(),

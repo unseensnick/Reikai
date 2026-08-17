@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.Tracker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.track.NovelTrackUpdater
@@ -16,6 +17,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  * for the four light-novel trackers). The start-date backfill is deferred (the date stays settable in
  * the sheet); only the last-chapter push is carried, which is the high-value parity behaviour.
  */
+@Inject
 class AddNovelTrack(
     private val insertNovelTrack: InsertNovelTrack,
     private val novelTrackUpdater: NovelTrackUpdater,

@@ -1,5 +1,6 @@
 package reikai.domain.novel.track
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -16,6 +17,7 @@ import reikai.domain.track.canonicalTracksPerTracker
  * is skipped. A member that is missing the group's furthest-read row, or behind it, is written; one that
  * already carries it is left alone.
  */
+@Inject
 class PropagateNovelTrackerLinks(
     private val preferences: ReikaiLibraryPreferences,
     private val mergeManager: NovelMergeManager,

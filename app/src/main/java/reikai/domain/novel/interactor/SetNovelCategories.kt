@@ -1,7 +1,9 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.novel.NovelRepository
 
+@Inject
 class SetNovelCategories(
     private val novelRepository: NovelRepository,
 ) {

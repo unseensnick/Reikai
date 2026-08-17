@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
@@ -31,6 +32,7 @@ import kotlin.time.Clock
  * favoriting, tracker links re-pointed to the target, and the merge group kept consistent (the target
  * takes the source's place on [replace], or joins it on copy). History is not carried, matching Mihon.
  */
+@Inject
 class MigrateNovelUseCase(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),

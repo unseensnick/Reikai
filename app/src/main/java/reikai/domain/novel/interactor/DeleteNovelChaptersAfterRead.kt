@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -13,6 +14,7 @@ import reikai.novel.download.NovelDownloadManager
  * details screen, the library selection, and finishing a chapter in the reader) calls this. Honors the
  * same don't-delete-bookmarked and excluded-category guards as the reader's keep-last-N buffer.
  */
+@Inject
 class DeleteNovelChaptersAfterRead(
     private val novelPreferences: NovelPreferences,
     private val getNovelCategories: GetNovelCategories,

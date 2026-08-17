@@ -1,5 +1,6 @@
 package reikai.domain.recommendation.taste
 
+import dev.zacsweers.metro.Inject
 import kotlin.math.abs
 
 /**
@@ -10,6 +11,7 @@ import kotlin.math.abs
  * still signals direction at neutral magnitude. The denominator takes the ABSOLUTE weight so a tag
  * with equal completed and dropped counts cannot divide by zero.
  */
+@Inject
 class ComputeTasteProfile {
 
     operator fun invoke(entries: List<TrackedEntry>): TasteProfile {

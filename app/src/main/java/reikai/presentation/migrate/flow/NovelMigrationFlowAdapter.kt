@@ -1,5 +1,8 @@
 package reikai.presentation.migrate.flow
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -40,6 +43,8 @@ data class NovelCandidateHandle(
 )
 
 /** The novel half of the migration seam: the plugin sources, novel repositories and migrate engine. */
+@Inject
+@SingleIn(AppScope::class)
 class NovelMigrationFlowAdapter(
     private val sourceManager: NovelSourceManager,
     private val getEnabledNovelSources: GetEnabledNovelSources,

@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import logcat.LogPriority
@@ -10,6 +11,7 @@ import reikai.domain.novel.model.NovelTrack
 import reikai.domain.track.GroupTrackReader
 import tachiyomi.core.common.util.system.logcat
 
+@Inject
 class GetNovelTracks(
     private val repository: NovelTrackRepository,
     private val mergeManager: NovelMergeManager,

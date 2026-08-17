@@ -1,5 +1,8 @@
 package reikai.novel.source
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -13,6 +16,8 @@ import kotlinx.coroutines.flow.update
  *
  * In-memory only: the installer registers sources here on app start.
  */
+@Inject
+@SingleIn(AppScope::class)
 class NovelSourceManager {
 
     private val sourcesFlow = MutableStateFlow<Map<String, NovelSource>>(emptyMap())

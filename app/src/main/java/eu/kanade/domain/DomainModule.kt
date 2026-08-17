@@ -203,13 +203,11 @@ class DomainModule : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
         // RK --> library update-errors (R11)
-        addSingletonFactory<LibraryUpdateErrorRepository> { LibraryUpdateErrorRepositoryImpl(get()) }
         addFactory { GetLibraryUpdateErrors(get()) }
         addFactory { UpsertLibraryUpdateError(get()) }
         addFactory { DeleteLibraryUpdateErrors(get()) }
         // RK <--
         // RK --> novel update-errors (Batch C)
-        addSingletonFactory<NovelUpdateErrorRepository> { NovelUpdateErrorRepositoryImpl(get()) }
         addFactory { GetNovelUpdateErrors(get()) }
         addFactory { UpsertNovelUpdateError(get()) }
         addFactory { DeleteNovelUpdateErrors(get()) }
@@ -218,14 +216,9 @@ class DomainModule : InjektModule {
         addFactory { MangaLibraryAdder() }
         // RK <--
         // RK --> merge-group persistence (storage only, no consumers yet)
-        addSingletonFactory<MergeGroupRepository> { MergeGroupRepositoryImpl(get()) }
-        addSingletonFactory<Transactions> { SqlDelightTransactions(get()) }
-        addSingletonFactory<ChapterMatchKeyRepository> { ChapterMatchKeyRepositoryImpl(get()) }
         addFactory { ReconcileChapterMatchKeys(get(), get(), get()) }
         // RK <--
         // RK --> light-novel vertical (domain/DB foundation)
-        addSingletonFactory<NovelRepository> { NovelRepositoryImpl(get()) }
-        addSingletonFactory<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
         addFactory { GetNovelCategories(get()) }
         addFactory { SetNovelCategories(get()) }
         addFactory { ResetNovelCategoryFlags(get()) }
@@ -237,22 +230,17 @@ class DomainModule : InjektModule {
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetEnabledNovelSources(get(), get()) }
         // RK: novel custom-info overlay (non-destructive display-layer edits)
-        addSingletonFactory<CustomNovelInfoRepository> { CustomNovelInfoRepositoryImpl(get()) }
         addFactory { GetCustomNovelInfo(get()) }
         addFactory { SetCustomNovelInfo(get()) }
         // RK <--
         // RK --> novel reading history
-        addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }
         addFactory { GetNovelHistory(get()) }
         addFactory { UpsertNovelHistory(get()) }
         addFactory { RemoveNovelHistory(get()) }
         addFactory { GetNextNovelChapter(get(), get(), get(), get()) }
         // RK <--
         // RK: the recents surface's newly-added lane, one repository serving both content types.
-        addSingletonFactory<RecentlyAddedRepository> { RecentlyAddedRepositoryImpl(get()) }
-        addSingletonFactory<RecentsUnreadRepository> { RecentsUnreadRepositoryImpl(get()) }
         // RK --> novel trackers
-        addSingletonFactory<NovelTrackRepository> { NovelTrackRepositoryImpl(get()) }
         addFactory { GetNovelTracks(get(), get(), get()) }
         addFactory { InsertNovelTrack(get()) }
         addFactory { DeleteNovelTrack(get(), get(), get()) }
@@ -264,40 +252,19 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> merge (manga + novel). Breaking a group up hands each member its own tracker copy; the
         // propagators are resolved lazily inside the lambda because they depend on the managers themselves.
-        addSingletonFactory { MangaMergeManager(get(), get()) { Injekt.get<PropagateTrackerLinks>().distribute(it) } }
-        addSingletonFactory { MergedChapterProvider(get(), get(), get(), get()) }
-        addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
-        addSingletonFactory {
-            NovelMergeManager(get(), get()) { Injekt.get<PropagateNovelTrackerLinks>().distribute(it) }
-        }
         // RK <--
         // RK --> novel source migration (Roadmap 7)
         addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)
-        addSingletonFactory { RelatedMangaCache() }
         addFactory { ComputeTasteProfile() }
         addFactory { RecommendationsFetcher() }
         addFactory { TasteCandidateFetcher() }
         addFactory { BuildRecommendationHideFilter() }
         addFactory { RelatedMangasLoader(get(), get(), get()) }
         // RK: taste profile (library pull -> cache -> profile -> ranker)
-        addSingletonFactory<TasteLibraryRepository> { TasteLibraryRepositoryImpl(get()) }
         addFactory { GetTasteProfile(get(), get()) }
         addFactory { LocalTrackStatusMapper(get()) }
-        addSingletonFactory {
-            val trackerManager = get<TrackerManager>()
-            RefreshTrackerLibrary(
-                fetchers = listOf(
-                    AnilistLibraryFetcher(trackerManager.aniList, get()),
-                    MyAnimeListLibraryFetcher(trackerManager.myAnimeList, get()),
-                    KitsuLibraryFetcher(trackerManager.kitsu, get()),
-                    ShikimoriLibraryFetcher(trackerManager.shikimori, get()),
-                    BangumiLibraryFetcher(trackerManager.bangumi, get()),
-                ),
-                repository = get(),
-            )
-        }
         // RK <--
         addFactory { GetCategories(get()) }
         addFactory { GetPagePreviews(get(), get()) } // RK: adult-source page previews
@@ -326,7 +293,6 @@ class DomainModule : InjektModule {
         addFactory { GetSearchTitles(get()) }
         addFactory { GetExhFavoriteMangaWithMetadata(get()) }
         // RK: E-Hentai disk-backed gallery-version reconciliation (favorited-gallery update checker).
-        addSingletonFactory { EHentaiUpdateHelper(get<Application>()) }
         addFactory { GetNextChapters(get(), get(), get()) }
         addFactory { GetUpcomingManga(get()) }
         addFactory { ResetViewerFlags(get()) }
@@ -346,17 +312,6 @@ class DomainModule : InjektModule {
             )
         }
         // RK --> the shared migration flow's per-type seams
-        addSingletonFactory {
-            MangaMigrationFlowAdapter(
-                get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            )
-        }
-        addSingletonFactory {
-            NovelMigrationFlowAdapter(
-                get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            )
-        }
-        addSingletonFactory { MigrationPickHandoff() }
         // RK <--
 
         addFactory { GetApplicationRelease(get()) }
@@ -401,7 +356,6 @@ class DomainModule : InjektModule {
 
         addFactory { GetUpdates(get()) }
 
-        addSingletonFactory<SourceRepository> { SourceRepositoryImpl(get(), get(), get()) }
         addFactory { GetEnabledSources(get(), get()) }
         addFactory { GetLanguagesWithSources(get(), get()) }
         addFactory { GetRemoteManga(get()) }

@@ -1,11 +1,18 @@
 package reikai.data.novel.updateerror
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.domain.novel.updateerror.NovelUpdateErrorRepository
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class NovelUpdateErrorRepositoryImpl(
     private val database: Database,
 ) : NovelUpdateErrorRepository {

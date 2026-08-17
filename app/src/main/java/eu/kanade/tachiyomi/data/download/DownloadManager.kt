@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
@@ -33,13 +36,15 @@ import uy.kohesive.injekt.api.get
  * and retrieved through dependency injection. You can use this class to queue new chapters or query
  * downloaded chapters.
  */
+@Inject
+@SingleIn(AppScope::class)
 class DownloadManager(
     private val context: Context,
-    private val provider: DownloadProvider = Injekt.get(),
-    private val cache: DownloadCache = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val downloadPreferences: DownloadPreferences = Injekt.get(),
+    private val provider: DownloadProvider,
+    private val cache: DownloadCache,
+    private val getCategories: GetCategories,
+    private val sourceManager: SourceManager,
+    private val downloadPreferences: DownloadPreferences,
 ) {
 
     /**

@@ -1,9 +1,11 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.model.NovelHistoryWithRelations
 
+@Inject
 class GetNovelHistory(
     private val repository: NovelHistoryRepository,
 ) {

@@ -1,5 +1,8 @@
 package reikai.novel.download
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.download.Downloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +31,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * [changes]: eventually consistent, like the manga cache. Files carrying the downloader's
  * [Downloader.TMP_DIR_SUFFIX] are skipped, so a half-written chapter is never counted.
  */
+@Inject
+@SingleIn(AppScope::class)
 class NovelDownloadCache {
 
     private val storageManager: StorageManager by injectLazy()

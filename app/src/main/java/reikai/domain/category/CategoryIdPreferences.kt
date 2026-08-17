@@ -1,5 +1,8 @@
 package reikai.domain.category
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
@@ -16,6 +19,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
  * Excluded on purpose: manga's `lastUsedCategory` is a library tab index (app-state, never backed up),
  * not a category id.
  */
+@Inject
+@SingleIn(AppScope::class)
 class CategoryIdPreferences(
     libraryPreferences: LibraryPreferences,
     downloadPreferences: DownloadPreferences,

@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
@@ -15,6 +16,7 @@ import reikai.domain.novel.track.toNovelTrack
  *
  * @return the failed updates.
  */
+@Inject
 class RefreshNovelTracks(
     private val getNovelTracks: GetNovelTracks,
     private val trackerManager: TrackerManager,

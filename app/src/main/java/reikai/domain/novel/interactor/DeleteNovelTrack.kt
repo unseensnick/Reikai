@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelMergeManager
@@ -7,6 +8,7 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.track.trackGroupIds
 import tachiyomi.core.common.util.system.logcat
 
+@Inject
 class DeleteNovelTrack(
     private val repository: NovelTrackRepository,
     private val mergeManager: NovelMergeManager,

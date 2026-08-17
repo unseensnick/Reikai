@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapterFlags
@@ -13,6 +14,7 @@ import reikai.domain.novel.model.setNovelFlag
  * Setting a sort / filter / display also flips the matching local-override bit so the novel uses its
  * own value instead of the global default.
  */
+@Inject
 class SetNovelChapterFlags(
     private val novelRepository: NovelRepository,
 ) {

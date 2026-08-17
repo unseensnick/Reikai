@@ -1,5 +1,6 @@
 package reikai.domain.recommendation
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -20,6 +21,7 @@ import kotlin.time.Duration.Companion.seconds
  * this manga there, use that track's remote id; otherwise resolve it with a single title search. Kitsu
  * and Bangumi have no recommendations endpoint and register no provider.
  */
+@Inject
 class RecommendationsFetcher(
     private val trackerManager: TrackerManager = Injekt.get(),
     private val preferences: ReikaiRecommendationPreferences = Injekt.get(),

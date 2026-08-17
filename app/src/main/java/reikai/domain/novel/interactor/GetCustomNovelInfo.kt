@@ -1,9 +1,11 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 
+@Inject
 class GetCustomNovelInfo(
     private val repository: CustomNovelInfoRepository,
 ) {

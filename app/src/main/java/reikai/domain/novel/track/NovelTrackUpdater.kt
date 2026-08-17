@@ -1,6 +1,7 @@
 package reikai.domain.novel.track
 
 import android.app.Application
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.util.system.toast
 import logcat.LogPriority
@@ -21,6 +22,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  * the same source [eu.kanade.tachiyomi.data.track.BaseTracker] uses, so a novel behaves identically to
  * a manga and inherits any upstream change instead of drifting from a hand-copy.
  */
+@Inject
 class NovelTrackUpdater(
     private val insertNovelTrack: InsertNovelTrack,
 ) : TrackWriter {

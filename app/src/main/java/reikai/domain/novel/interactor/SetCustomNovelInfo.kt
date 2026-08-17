@@ -1,8 +1,10 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 
+@Inject
 class SetCustomNovelInfo(
     private val repository: CustomNovelInfoRepository,
 ) {

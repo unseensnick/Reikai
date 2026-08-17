@@ -1,10 +1,12 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.NovelTrack
 import tachiyomi.core.common.util.system.logcat
 
+@Inject
 class InsertNovelTrack(
     private val repository: NovelTrackRepository,
 ) {

@@ -68,9 +68,20 @@ classes in `core/common`), and 3c converts the entry points.
 implementations moved into the graph, and `scripts/di-interop-check.ps1` added with a `pre-commit`
 hook so a type can never again be graph-owned and Injekt-registered at once.
 
-**Four upstream classes wait for 3b**, because `ExhPreferences` is not annotated until then and
-`ExtensionManager` takes it: `ExtensionManager`, `AndroidSourceManager`, `DownloadManager`,
-`DownloadCache`. `SourceRepositoryImpl` waits with them, since it needs `SourceManager`.
+**3b has landed.** The 80 Reikai classes are annotated, 45 more types moved into the graph, and the
+four upstream classes 3a had to defer came with them once `ExhPreferences` was annotated.
+`PreferenceModule` is gone: it registered nothing once its last entry moved.
+
+**A third cycle was found while scouting 3b**, which the plan had not recorded:
+`NovelMergeManager` to `PropagateNovelTrackerLinks` to `GetNovelTracks` and back. All three cycles
+run through the merge manager's `onBeforeDissolve` lambda, which is only ever invoked inside a
+suspend function, so `ReikaiBindings` supplies that lambda from a `Provider` of the propagator and
+cuts all three at one edge.
+
+`ReikaiBindings` also assembles the tracker-library fetcher list, because each fetcher wants a
+concrete tracker and those are properties of the `TrackerManager` singleton rather than bindings of
+their own. Binding them separately would build second tracker instances carrying their own login
+state.
 
 Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
 
@@ -211,7 +222,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 1. Leaves (done) | Annotate `core/common`, `domain`, `data`, `source-local`, plus the three upstream signature changes and the call sites they force in `app` and `exh` | Done: each module compiled alone, then 1064 `:app` and 75 `:domain` tests, a minified build and a manga browse list on device |
 | 2. Graph (done) | `AppBindings` for the four infrastructure providers, accessors and interop for the leaf types `AppModule` / `PreferenceModule` registered, `App` bootstrap. The three module files shrink; they cannot be deleted until phases 3 to 6 empty them | Done: 1064 + 75 tests, a minified build, and on device a cold start, the full library and a backup within 14 bytes of the pre-Metro one |
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
-| 3b. App classes, Reikai | The `reikai` / `exh` classes, the 5 tracker fetchers, and the two `exh` classes in `core/common`. Unblocks `ExtensionManager`, `AndroidSourceManager`, the download pair and `SourceRepositoryImpl` | Per-type: the Injekt registration goes as the annotation lands, checked by `scripts/di-interop-check.ps1` |
+| 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
 | 3c. Entry points | 15 workers, receivers, services, activities, both widget surfaces; the three module files should be empty enough to delete | Device: a library update, a novel update, a backup restore, a widget refresh |
 | 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |

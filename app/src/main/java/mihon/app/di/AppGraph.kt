@@ -28,7 +28,7 @@ import tachiyomi.source.local.io.LocalSourceFileSystem
 
 @DependencyGraph(
     scope = AppScope::class,
-    bindingContainers = [AppBindings::class],
+    bindingContainers = [AppBindings::class, ReikaiBindings::class],
 )
 interface AppGraph {
     fun inject(app: App)

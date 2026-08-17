@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.category.CategoryContentType
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -10,6 +11,7 @@ import tachiyomi.domain.category.repository.CategoryRepository
  * cleared (so the shared `sortForCategory` falls back to the default); the stored sort bits and non-sort
  * bits such as the hidden-category flag are preserved, matching the manga side.
  */
+@Inject
 class ResetNovelCategoryFlags(
     private val categoryRepository: CategoryRepository,
 ) {

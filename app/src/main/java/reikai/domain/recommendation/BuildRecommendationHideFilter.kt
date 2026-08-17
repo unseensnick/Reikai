@@ -1,5 +1,6 @@
 package reikai.domain.recommendation
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.flow.first
 import reikai.domain.recommendation.taste.LocalTrackStatusMapper
@@ -16,6 +17,7 @@ import uy.kohesive.injekt.api.get
  * own tracks and the cached tracker lists, so a title tracked-but-not-in-library (the common gap) is
  * suppressed too.
  */
+@Inject
 class BuildRecommendationHideFilter(
     private val getFavorites: GetFavorites = Injekt.get(),
     private val getTracksPerManga: GetTracksPerManga = Injekt.get(),

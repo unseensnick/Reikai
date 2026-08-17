@@ -1,5 +1,8 @@
 package reikai.domain.recommendation.taste
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -16,6 +19,8 @@ import tachiyomi.core.common.util.system.logcat
  * Registered as a singleton so the [mutex] and the staleness check coalesce concurrent triggers into
  * one pull. A user schedule and a cooldown-guarded manual [refreshNow] sit on top of [await].
  */
+@Inject
+@SingleIn(AppScope::class)
 class RefreshTrackerLibrary(
     private val fetchers: List<TrackerLibraryFetcher>,
     private val repository: TasteLibraryRepository,

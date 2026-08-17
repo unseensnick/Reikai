@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
@@ -18,6 +19,7 @@ data class NovelGroupChapters(
  * over its own source or across its merge group. Resuming from a recorded chapter is not here, because
  * that rule is shared with manga and lives on the recents surface.
  */
+@Inject
 class GetNextNovelChapter(
     private val chapterRepository: NovelChapterRepository,
     private val novelRepository: NovelRepository,

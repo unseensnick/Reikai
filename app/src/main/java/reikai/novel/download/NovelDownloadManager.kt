@@ -1,6 +1,9 @@
 package reikai.novel.download
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +42,8 @@ import kotlin.random.Random
  * foreground worker, so downloads survive backgrounding. Each chapter's source is resolved from its
  * `novelId`, so the entry points work from a cold background process.
  */
+@Inject
+@SingleIn(AppScope::class)
 class NovelDownloadManager(private val context: Context) {
 
     private val provider: NovelDownloadProvider by injectLazy()

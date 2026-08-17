@@ -1,5 +1,8 @@
 package reikai.domain.source
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ContentType
 import reikai.presentation.recents.RecentsMode
 import tachiyomi.core.common.preference.Preference
@@ -12,6 +15,8 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
  * [eu.kanade.domain.source.service.SourcePreferences] so Mihon's class stays untouched and
  * upstream-mergeable.
  */
+@Inject
+@SingleIn(AppScope::class)
 class ReikaiSourcePreferences(
     private val preferenceStore: PreferenceStore,
 ) {

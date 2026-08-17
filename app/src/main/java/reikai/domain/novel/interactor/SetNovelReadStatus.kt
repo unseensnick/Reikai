@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
@@ -14,6 +15,7 @@ import tachiyomi.core.common.util.system.logcat
  * novel mark-read site routes through this, so read and delete-after-read cannot drift. Tracker sync
  * stays a separate concern the screens call themselves, as the manga twin does.
  */
+@Inject
 class SetNovelReadStatus(
     private val chapterRepository: NovelChapterRepository,
     private val deleteAfterRead: DeleteNovelChaptersAfterRead,

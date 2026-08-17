@@ -1,6 +1,9 @@
 package reikai.novel.download
 
 import com.hippo.unifile.UniFile
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -24,6 +27,8 @@ import uy.kohesive.injekt.injectLazy
  * naming delegate to the manga provider rather than copying it, so the two cannot drift. One
  * self-contained HTML file per chapter, written to a temp name and renamed on success.
  */
+@Inject
+@SingleIn(AppScope::class)
 class NovelDownloadProvider {
 
     private val storageManager: StorageManager by injectLazy()

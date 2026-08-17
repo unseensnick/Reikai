@@ -1,5 +1,8 @@
 package reikai.novel.update
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -19,6 +22,8 @@ import java.util.concurrent.TimeUnit
  * the cache on its own schedule. Individual repo fetch failures do not fail the batch, so a typo'd or
  * temporarily-down registry cannot hide updates from the working ones.
  */
+@Inject
+@SingleIn(AppScope::class)
 class LnPluginUpdateChecker(
     private val installer: LnPluginInstaller,
     private val prefs: NovelPreferences,

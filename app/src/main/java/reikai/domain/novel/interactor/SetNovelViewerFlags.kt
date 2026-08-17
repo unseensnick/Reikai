@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
@@ -11,6 +12,7 @@ import reikai.domain.novel.model.setNovelFlag
  * (the reader is text-based, so there is no reading-mode). Reads the current flags and writes only
  * the [viewer_flags] column via a [NovelUpdate].
  */
+@Inject
 class SetNovelViewerFlags(
     private val novelRepository: NovelRepository,
 ) {

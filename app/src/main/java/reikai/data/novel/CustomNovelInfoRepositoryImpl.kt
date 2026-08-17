@@ -1,6 +1,10 @@
 package reikai.data.novel
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.repository.CustomNovelInfoRepository
@@ -8,6 +12,9 @@ import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 import tachiyomi.data.subscribeToOneOrNull
 
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
 class CustomNovelInfoRepositoryImpl(
     private val database: Database,
 ) : CustomNovelInfoRepository {

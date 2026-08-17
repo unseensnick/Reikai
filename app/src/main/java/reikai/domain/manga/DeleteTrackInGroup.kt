@@ -1,5 +1,6 @@
 package reikai.domain.manga
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.track.trackGroupIds
 import tachiyomi.domain.track.interactor.DeleteTrack
@@ -10,6 +11,7 @@ import tachiyomi.domain.track.interactor.DeleteTrack
  * tracker driving the library's tracker filter, sort and grouping through a sibling's copy. With sharing
  * turned off the reads are per-source again, so the removal is too.
  */
+@Inject
 class DeleteTrackInGroup(
     private val preferences: ReikaiLibraryPreferences,
     private val deleteTrack: DeleteTrack,

@@ -1,5 +1,8 @@
 package reikai.domain.novel
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.serialization.builtins.MapSerializer
@@ -15,6 +18,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
  * install / update layers need lands here; later stages (reader, library, merge) grow this
  * holder. Key strings are preserved from the Yōkai-era fork so an in-place upgrade keeps state.
  */
+@Inject
+@SingleIn(AppScope::class)
 class NovelPreferences(
     private val preferenceStore: PreferenceStore,
 ) {

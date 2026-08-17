@@ -1,5 +1,6 @@
 package reikai.presentation.novel.browse
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.db.Transactions
@@ -34,6 +35,7 @@ import uy.kohesive.injekt.api.get
  * (or null to dismiss) so each caller keeps ownership of its own dialog state. The source id is passed
  * per call because per-source browse has a fixed source while global search has one per result.
  */
+@Inject
 class NovelLibraryAdder(
     private val novelRepository: NovelRepository,
     private val manager: NovelSourceManager,

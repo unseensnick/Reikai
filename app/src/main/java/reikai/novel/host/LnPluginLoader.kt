@@ -1,10 +1,13 @@
 package reikai.novel.host
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
@@ -15,9 +18,11 @@ import java.security.MessageDigest
  * `context.cacheDir/lnplugins/<sha256(url)>.js`. Cache invalidation is manual: delete the file
  * or call [clearCache] to force a re-fetch.
  */
+@Inject
+@SingleIn(AppScope::class)
 class LnPluginLoader(
     private val context: Context,
-    private val client: OkHttpClient,
+    private val networkHelper: NetworkHelper,
 ) {
     suspend fun fetchSource(url: String, forceRefresh: Boolean = false): String = withContext(Dispatchers.IO) {
         val file = cacheFileFor(url)
@@ -40,7 +45,7 @@ class LnPluginLoader(
             .header("Cache-Control", "no-cache")
             .header("Pragma", "no-cache")
             .build()
-        client.newCall(req).execute().use { res ->
+        networkHelper.client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) {
                 throw LnPluginException("plugin download failed: HTTP ${res.code} from $url")
             }

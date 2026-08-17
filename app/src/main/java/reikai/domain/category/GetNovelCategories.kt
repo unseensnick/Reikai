@@ -1,5 +1,6 @@
 package reikai.domain.category
 
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -9,6 +10,7 @@ import tachiyomi.domain.category.repository.CategoryRepository
  * [CategoryRepository], the novel twin of Mihon's [tachiyomi.domain.category.interactor.GetCategories].
  * Returns the shared [Category] type so novel screens flow through the same category UI/views as manga.
  */
+@Inject
 class GetNovelCategories(
     private val categoryRepository: CategoryRepository,
 ) {

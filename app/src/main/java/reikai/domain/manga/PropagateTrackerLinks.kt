@@ -1,5 +1,8 @@
 package reikai.domain.manga
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.track.canonicalTracksPerTracker
 import tachiyomi.domain.manga.interactor.GetManga
@@ -15,6 +18,8 @@ import tachiyomi.domain.track.model.Track
  * would otherwise push the remote service backwards after the split. A tracker with conflicting remote
  * ids across the group is skipped rather than guessed at.
  */
+@Inject
+@SingleIn(AppScope::class)
 class PropagateTrackerLinks(
     private val preferences: ReikaiLibraryPreferences,
     private val mergeManager: MangaMergeManager,

@@ -1,5 +1,8 @@
 package reikai.domain.library
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.TriState
@@ -13,6 +16,8 @@ import tachiyomi.core.common.preference.getLongArray
  * Key strings are preserved verbatim from the Yōkai-era fork so an in-place upgrade keeps the
  * user's library display settings (preferences live in SharedPreferences, independent of the DB).
  */
+@Inject
+@SingleIn(AppScope::class)
 class ReikaiLibraryPreferences(
     private val preferenceStore: PreferenceStore,
 ) {

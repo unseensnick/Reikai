@@ -4,6 +4,10 @@ import android.content.Context
 import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.function
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +32,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
-import okhttp3.OkHttpClient
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
@@ -45,9 +48,11 @@ import kotlin.coroutines.CoroutineContext
  * replayed into the plugin's own engine on the first real call. Every call suspends, returning a typed
  * value or throwing [LnPluginException], with per-call timeouts.
  */
+@Inject
+@SingleIn(AppScope::class)
 class LnPluginHost(
     context: Context,
-    client: OkHttpClient,
+    networkHelper: NetworkHelper,
     preferenceStore: PreferenceStore,
 ) {
 
@@ -58,7 +63,7 @@ class LnPluginHost(
     // sources answer with a degraded page (e.g. Novel Bin serves 200x89 thumbnail covers to it).
     private val deviceUserAgent: String =
         runCatching { android.webkit.WebSettings.getDefaultUserAgent(appContext) }.getOrDefault("")
-    private val bridge = LnHostBridge(preferenceStore, client, deviceUserAgent)
+    private val bridge = LnHostBridge(preferenceStore, networkHelper.client, deviceUserAgent)
 
     /** What it takes to (re)load a plugin into an engine; retained per plugin so its own engine can
      *  replay the load after lazy creation or an idle close. */
