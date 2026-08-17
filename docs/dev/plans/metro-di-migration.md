@@ -1,8 +1,8 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: planned, not started.** Research completed 2026-08-16 against upstream `b2015d1ef` and the
-> tree at `af4448149`. Every count below was measured, not estimated; the commands are given so a
-> cold session can re-derive them before trusting them.
+> **Status: phase 0 landed, phases 1 to 7 remain.** Research completed 2026-08-16 against upstream
+> `b2015d1ef`; re-verified and corrected 2026-08-17 before phase 0. Every count below was measured,
+> not estimated; the commands are given so a cold session can re-derive them before trusting them.
 
 ## Goal
 
@@ -27,7 +27,13 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 
 ## Status
 
-**Not started.** Nothing has been written. The research below is the whole artifact.
+**Phase 0 has landed.** The Metro plugin is on `:app` and the new `:core:metro` module, `AppGraph`
+owns exactly one binding (`Json`), and `MetroInteropModule` hands that instance back to Injekt while
+everything else still resolves the old way. Verified on the emulator with a minified `preview` build:
+the app boots to a populated library, and `Json` is resolved from Injekt during startup through the
+`DownloadManager` warm-up, so the handoff works under R8. 1064 tests, 0 failures.
+
+Phases 1 to 7 remain, in the order the Sequence table gives.
 
 Owner rulings, 2026-08-16:
 
@@ -113,19 +119,21 @@ accessors. Every one of those must be interop-registered or delegated sources th
 
 Re-derive with `grep -rl --include=*.kt "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
 
-**Injekt surface: 264 files.** app 257, source-api 5, source-local 1, data 1, presentation-widget 1.
-707 `Injekt.get` occurrences, 267 `injectLazy`, 508 constructor defaults.
+**Injekt surface: 265 files.** app 258, source-api 5, source-local 1, data 1, presentation-widget 1.
+704 `Injekt.get` occurrences, 267 `by injectLazy()`, 506 constructor defaults. Pass
+`--exclude-dir=build` or a stale copy under `app/build/spotless-clean/` inflates every count by one.
 
-**Ownership split: about 174 upstream-tracked, about 90 Reikai-owned** (`reikai/` 71, `exh/` 16, plus
-one androidTest file and two `source-api/exh` files). The first number has an upstream diff per file;
+**Ownership split: 175 upstream-tracked, 89 Reikai-owned** (`reikai/` 71, `exh/` 16, two
+`source-api/exh` files, plus one androidTest file). The first number has an upstream diff per file;
 the second does not.
 
-**Registrations: 218 across three files, 97 of them Reikai-only.**
+**Registrations: 218 across three files, 82 of them Reikai-only.** Count registrations with import
+lines excluded, or each file reads two or three high.
 
 | File | Lines | Registrations | Reikai-only |
 |---|---|---|---|
-| `eu/kanade/domain/DomainModule.kt` | 439 | 162 | 79 |
-| `eu/kanade/tachiyomi/di/AppModule.kt` | 189 | 33 | 10 |
+| `eu/kanade/domain/DomainModule.kt` | 439 | 162 | 65 |
+| `eu/kanade/tachiyomi/di/AppModule.kt` | 189 | 33 | 9 |
 | `eu/kanade/tachiyomi/di/PreferenceModule.kt` | 122 | 23 | 8 |
 
 **By kind:** 38 `viewModelFactory {` blocks and 73 `CreationExtras.Key` declarations; 16 worker
@@ -148,7 +156,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 
 | Phase | Work | Proves |
 |---|---|---|
-| 0. Spike | Plugin on the 7 modules, `:core:metro`, `AppBindings`, an `AppGraph` with one accessor and `inject(app)`, interop for that one type | `:app:compileDebugKotlin`, then a minified `:app:assemblePreview`. Settles whether Metro validates only the reachable closure |
+| 0. Spike (done) | Plugin on `:app` and the new `:core:metro`, `AppBindings` providing `Json` only, an `AppGraph` with `inject(app)` plus two accessors, interop for that one type | Done: compile, 1064 tests, minified `:app:assemblePreview`, cold start to a populated library |
 | 1. Leaves | Annotate `core/common`, `domain`, `data`, `source-local`. Upstream diff exists per file | Each module's own `compileDebugKotlin` before `app` is touched |
 | 2. Graph | Full accessor list, `App` bootstrap, the interop module widened to everything Reikai code still resolves from Injekt, the three module files deleted as their types become reachable | `:app:compileDebugKotlin` plus a cold start on device |
 | 3. Entry points | 16 workers, receivers, services, activities, both widget surfaces | Device: a library update, a novel update, a backup restore, a widget refresh |
@@ -185,9 +193,13 @@ a step because that accessor pulls the entire ViewModel multibinding into the cl
   `get<NetworkHelper>().client`. `@Inject` alone cannot resolve a bare `OkHttpClient`. Change both
   constructors to take `NetworkHelper` rather than adding a global `OkHttpClient` binding that other
   code could bind by accident.
-- **`AndroidSourceManager` builds sources with lambdas and matches delegated sources by name**, both
-  invisible to Metro. Annotating it is safe only while the types those runtime lookups need are still
-  interop-registered, and a miss compiles fine and throws on the first source-map build.
+- **`AndroidSourceManager` builds sources inside an init flow collector and matches delegated sources
+  by `sourceName`**, both invisible to Metro. It also breaks its own cycle with
+  `private val downloadManager: DownloadManager by injectLazy()` (`AndroidSourceManager.kt:65`, and
+  `exhPreferences` at `:68`), a property delegate rather than a constructor parameter, so the port
+  needs `Provider`/`Lazy` injection there, not a parameter swap. Annotating it is safe only while the
+  types those runtime lookups need are still interop-registered, and a miss compiles fine and throws
+  on the first source-map build.
 - **`LibraryEngine` and `RecentsEngine`** take their provider lists through `CreationExtras` keys and
   everything else through Injekt constructor defaults (`LibraryEngine.kt:56-63`,
   `RecentsEngine.kt:49-56`). Metro cannot use default-argument injection, so these become
@@ -233,7 +245,13 @@ Upstream's commit is not purely a DI change. Each of these needs an explicit yes
    `successState.manga.id`, which changes which value wins after a migration.
 10. Worker injection point is inconsistent upstream: `DownloadJob` injects in `init`, the others on
     the first line of `doWork()`. Copying the wrong one gives an uninitialized-property crash in
-    `getForegroundInfo`, which WorkManager may call before `doWork`.
+    `getForegroundInfo`, which WorkManager may call before `doWork`. Upstream's own `LibraryUpdateJob`
+    has exactly that shape after the migration, so it is a pattern to fix rather than copy.
+11. `AppBindings.providesSqlDriver` drops the `lock` plus `WeakReference<SqlDriver>` guard that mihon
+    `f8e82b932` added to fix a "database is locked" crash, and that we still carry at
+    `AppModule.kt:64-88`. Metro's `@SingleIn(AppScope::class)` gives one instance per graph and there
+    is one graph per process, so it should subsume the case the guard covered, but this is a silent
+    behaviour change and needs saying out loud rather than inheriting.
 
 ## Key files
 

@@ -24,6 +24,8 @@ import coil3.request.allowRgb565
 import coil3.request.crossfade
 import coil3.util.DebugLogger
 import dev.mihon.injekt.patchInjekt
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.createGraphFactory
 import eu.kanade.domain.DomainModule
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.ui.UiPreferences
@@ -51,6 +53,7 @@ import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
+import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.MangaDexTrackCoverFetcher
@@ -61,6 +64,9 @@ import kotlinx.coroutines.flow.onEach
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
+import mihon.app.di.AppGraph
+import mihon.app.di.injekt.MetroInteropModule
+import mihon.core.metro.GraphProvider
 import mihon.core.migration.Migrator
 import mihon.core.migration.migrations.migrations
 import mihon.telemetry.TelemetryConfig
@@ -80,7 +86,13 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.security.Security
 
-class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
+class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
+
+    override val graph: AppGraph by lazy {
+        createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType)
+    }
+
+    @Inject private lateinit var injektMetroInteropModule: MetroInteropModule
 
     private val basePreferences: BasePreferences by injectLazy()
     private val privacyPreferences: PrivacyPreferences by injectLazy()
@@ -91,7 +103,17 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     @SuppressLint("LaunchActivityFromNotification")
     override fun onCreate() {
         super<Application>.onCreate()
+
+        // Must run before the graph is built, since injecting dependencies initializes WebView and the
+        // suffix can't be set once a provider exists in the process. Secondary processes die otherwise.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val process = getProcessName()
+            if (packageName != process) WebView.setDataDirectorySuffix(process)
+        }
+
         patchInjekt()
+        graph.inject(this)
+
         TelemetryConfig.init(applicationContext)
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
@@ -101,15 +123,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             Security.insertProviderAt(Conscrypt.newProvider(), 1)
         }
 
-        // Avoid potential crashes
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val process = getProcessName()
-            if (packageName != process) WebView.setDataDirectorySuffix(process)
-        }
-
         Injekt.importModule(PreferenceModule(this))
         Injekt.importModule(AppModule(this))
         Injekt.importModule(DomainModule())
+        Injekt.importModule(injektMetroInteropModule)
 
         // RK --> recover a library left behind by an in-place update from the old Yōkai-based build.
         // The old DB shares tachiyomi.db's name but sits at a higher, incompatible schema version, so
