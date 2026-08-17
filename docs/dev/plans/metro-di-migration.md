@@ -1,6 +1,6 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 and 1 landed, phases 2 to 7 remain.** Research completed 2026-08-16 against upstream
+> **Status: phases 0 to 2 landed, phases 3 to 7 remain.** Research completed 2026-08-16 against upstream
 > `b2015d1ef`; re-verified and corrected 2026-08-17 before phase 0. Every count below was measured,
 > not estimated; the commands are given so a cold session can re-derive them before trusting them.
 
@@ -42,7 +42,22 @@ Nothing resolves through Metro yet.
 binding compiled clean, with `AppGraph` re-merged in that same run. So a class can be annotated long
 before the graph can build it, which is what makes leaves-first safe.
 
-Phases 2 to 7 remain, in the order the Sequence table gives.
+**Phase 2 has landed.** The graph owns the four infrastructure providers (`SqlDriver`, `Database`,
+`XML`, `ProtoBuf`) plus the sixteen leaf types the two Injekt module files used to register, and
+hands every one of them back through the interop module. `AppModule` and `PreferenceModule` shrank
+rather than disappearing, because 31 of their registrations and 93 of `DomainModule`'s name classes
+declared under `app/` that later phases annotate.
+
+**Interop entries are Providers, not instances** (owner-visible design divergence from upstream).
+Upstream registers eager instances, which would construct `Database` at import time and defeat
+`LegacyYokaiDbImporter`, which must move an incompatible database aside before anything opens it.
+Registering `addSingletonFactory { provider() }` preserves exactly the laziness the Injekt factories
+had.
+
+`SqlDriver` and `AndroidStorageFolderProvider` get no interop entry: their only consumers were the
+registrations that moved into the graph alongside them.
+
+Phases 3 to 7 remain, in the order the Sequence table gives.
 
 Owner rulings, 2026-08-16:
 
@@ -167,7 +182,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 |---|---|---|
 | 0. Spike (done) | Plugin on `:app` and the new `:core:metro`, `AppBindings` providing `Json` only, an `AppGraph` with `inject(app)` plus two accessors, interop for that one type | Done: compile, 1064 tests, minified `:app:assemblePreview`, cold start to a populated library |
 | 1. Leaves (done) | Annotate `core/common`, `domain`, `data`, `source-local`, plus the three upstream signature changes and the call sites they force in `app` and `exh` | Done: each module compiled alone, then 1064 `:app` and 75 `:domain` tests, a minified build and a manga browse list on device |
-| 2. Graph | Full accessor list, `App` bootstrap, the interop module widened to everything Reikai code still resolves from Injekt, the three module files deleted as their types become reachable | `:app:compileDebugKotlin` plus a cold start on device |
+| 2. Graph (done) | `AppBindings` for the four infrastructure providers, accessors and interop for the leaf types `AppModule` / `PreferenceModule` registered, `App` bootstrap. The three module files shrink; they cannot be deleted until phases 3 to 6 empty them | Done: 1064 + 75 tests, a minified build, and on device a cold start, the full library and a backup within 14 bytes of the pre-Metro one |
 | 3. Entry points | 16 workers, receivers, services, activities, both widget surfaces | Device: a library update, a novel update, a backup restore, a widget refresh |
 | 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |

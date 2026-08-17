@@ -94,9 +94,12 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     @Inject private lateinit var injektMetroInteropModule: MetroInteropModule
 
+    @Inject private lateinit var privacyPreferences: PrivacyPreferences
+
+    @Inject private lateinit var networkPreferences: NetworkPreferences
+
+    // Still Injekt: BasePreferences is declared in the app module and has no Metro annotation yet.
     private val basePreferences: BasePreferences by injectLazy()
-    private val privacyPreferences: PrivacyPreferences by injectLazy()
-    private val networkPreferences: NetworkPreferences by injectLazy()
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
