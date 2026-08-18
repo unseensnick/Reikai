@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.manga
 
-import android.app.Application
 import android.content.Context
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -10,14 +9,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.palette.graphics.Palette
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.addOrRemove
 import eu.kanade.core.util.insertSeparators
@@ -154,90 +157,82 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
 import kotlin.math.floor
 
 // RK: max related candidates shown in the details carousel; the full pool is kept in the cache for
 // the "See all" browse grid.
 private const val CAROUSEL_CAP = 30
 
+@AssistedInject
 class MangaViewModel(
     private val context: Context,
-    private val mangaId: Long,
-    private val isFromSource: Boolean,
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    trackPreferences: TrackPreferences = Injekt.get(),
-    readerPreferences: ReaderPreferences = Injekt.get(),
-    private val trackerManager: TrackerManager = Injekt.get(),
-    private val trackChapter: TrackChapter = Injekt.get(),
-    private val refreshTracks: RefreshTracks = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get(),
-    private val downloadCache: DownloadCache = Injekt.get(),
-    private val getMangaAndChapters: GetMangaWithChapters = Injekt.get(),
-    private val getDuplicateLibraryManga: GetDuplicateLibraryManga = Injekt.get(),
-    private val getAvailableScanlators: GetAvailableScanlators = Injekt.get(),
-    private val getExcludedScanlators: GetExcludedScanlators = Injekt.get(),
-    private val setExcludedScanlators: SetExcludedScanlators = Injekt.get(),
-    private val setMangaChapterFlags: SetMangaChapterFlags = Injekt.get(),
-    private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags = Injekt.get(),
-    private val setReadStatus: SetReadStatus = Injekt.get(),
-    private val updateChapter: UpdateChapter = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
+    @Assisted private val mangaId: Long,
+    @Assisted private val isFromSource: Boolean,
+    private val libraryPreferences: LibraryPreferences,
+    trackPreferences: TrackPreferences,
+    readerPreferences: ReaderPreferences,
+    private val trackerManager: TrackerManager,
+    private val trackChapter: TrackChapter,
+    private val refreshTracks: RefreshTracks,
+    private val downloadManager: DownloadManager,
+    private val downloadCache: DownloadCache,
+    private val getMangaAndChapters: GetMangaWithChapters,
+    private val getDuplicateLibraryManga: GetDuplicateLibraryManga,
+    private val getAvailableScanlators: GetAvailableScanlators,
+    private val getExcludedScanlators: GetExcludedScanlators,
+    private val setExcludedScanlators: SetExcludedScanlators,
+    private val setMangaChapterFlags: SetMangaChapterFlags,
+    private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags,
+    private val setReadStatus: SetReadStatus,
+    private val updateChapter: UpdateChapter,
+    private val updateManga: UpdateManga,
+    private val getCategories: GetCategories,
     // RK: orders the change-category picker by the category sort-order pref, like the library.
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     // RK --> a tracker bound on one source of a merged series counts for the whole group, so every read
     // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
-    private val getTracksInGroup: GetTracksInGroup = Injekt.get(),
+    private val getTracksInGroup: GetTracksInGroup,
     // RK <--
-    private val addTracks: AddTracks = Injekt.get(),
-    private val setMangaCategories: SetMangaCategories = Injekt.get(),
-    private val mangaRepository: MangaRepository = Injekt.get(),
-    private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get(),
-    private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
+    private val addTracks: AddTracks,
+    private val setMangaCategories: SetMangaCategories,
+    private val mangaRepository: MangaRepository,
+    private val filterChaptersForDownload: FilterChaptersForDownload,
+    private val updateMangaFromRemote: UpdateMangaFromRemote,
     // RK -->
-    private val mergeManager: MangaMergeManager = Injekt.get(),
-    private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
-    private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
-    private val mangaPreferences: MangaPreferences = Injekt.get(),
-    private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
-    private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
-    private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
-    private val getTasteProfile: GetTasteProfile = Injekt.get(),
-    private val refreshTrackerLibrary: RefreshTrackerLibrary = Injekt.get(),
-    private val buildRecommendationHideFilter: BuildRecommendationHideFilter = Injekt.get(),
-    private val getFavorites: GetFavorites = Injekt.get(),
-    private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
-    private val uiPreferences: UiPreferences = Injekt.get(),
-    private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
-    private val getPagePreviews: GetPagePreviews = Injekt.get(),
+    private val mergeManager: MangaMergeManager,
+    private val mangaLibraryAdder: MangaLibraryAdder,
+    private val mergedChapterProvider: MergedChapterProvider,
+    private val mangaPreferences: MangaPreferences,
+    private val relatedMangasLoader: RelatedMangasLoader,
+    private val recommendationPreferences: ReikaiRecommendationPreferences,
+    private val relatedMangaCache: RelatedMangaCache,
+    private val getTasteProfile: GetTasteProfile,
+    private val refreshTrackerLibrary: RefreshTrackerLibrary,
+    private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
+    private val getFavorites: GetFavorites,
+    private val networkToLocalManga: NetworkToLocalManga,
+    private val uiPreferences: UiPreferences,
+    private val getFlatMetadataById: GetFlatMetadataById,
+    private val getPagePreviews: GetPagePreviews,
     // RK: manga custom-info overlay. getCustomMangaInfo drives the non-destructive display overlay;
     // setCustomMangaInfo persists edits from the shared edit-info dialog.
-    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
-    private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
+    private val getCustomMangaInfo: GetCustomMangaInfo,
+    private val setCustomMangaInfo: SetCustomMangaInfo,
+    private val sourceManager: SourceManager,
+    private val exhPreferences: ExhPreferences,
     // RK <--
-    val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : ViewModel() {
+
+    val snackbarHostState = SnackbarHostState()
 
     val state: StateFlow<State>
         field = MutableStateFlow<State>(State.Loading)
 
-    companion object {
-        val MANGA_ID_KEY = CreationExtras.Key<Long>()
-
-        val IS_FROM_SOURCE_KEY = CreationExtras.Key<Boolean>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                MangaViewModel(
-                    context = Injekt.get<Application>(),
-                    mangaId = get(MANGA_ID_KEY)!!,
-                    isFromSource = get(IS_FROM_SOURCE_KEY)!!,
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(mangaId: Long, isFromSource: Boolean): MangaViewModel
     }
 
     private val successState: State.Success?
@@ -470,7 +465,7 @@ class MangaViewModel(
             // Show what we have earlier
             // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
             val galleryMetadata = loadGalleryMetadata(mangaId)
-            val source = Injekt.get<SourceManager>().getOrStub(manga.source)
+            val source = sourceManager.getOrStub(manga.source)
             // RK: kick off the page-preview fetch for supporting sources before building state.
             val supportsPagePreview = source.getMainSource<PagePreviewSource>() != null
             if (supportsPagePreview) {
@@ -733,7 +728,6 @@ class MangaViewModel(
     }
 
     // RK -->
-    private val exhPreferences: ExhPreferences by injectLazy()
 
     private fun shouldConfirmEhRemoveFromAccount(manga: Manga): Boolean {
         return manga.isEhBasedManga() &&
@@ -752,7 +746,7 @@ class MangaViewModel(
     }
 
     private suspend fun removeFromEhAccount(manga: Manga) {
-        val source = Injekt.get<SourceManager>().get(manga.source) as? EHentai ?: return
+        val source = sourceManager.get(manga.source) as? EHentai ?: return
         runCatching {
             source.removeFavorites(listOf(EHentaiSearchMetadata.galleryId(manga.url)))
         }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to remove E-Hentai favorite remotely" } }
@@ -768,7 +762,7 @@ class MangaViewModel(
         ) {
             return
         }
-        val source = Injekt.get<SourceManager>().get(manga.source) as? EHentai ?: return
+        val source = sourceManager.get(manga.source) as? EHentai ?: return
         runCatching {
             source.addFavorite(
                 EHentaiSearchMetadata.galleryId(manga.url),
@@ -992,7 +986,7 @@ class MangaViewModel(
         sourceMangaId: Long,
         relatedIds: LongArray,
     ): Flow<MergedChapters> {
-        val sourceManager = Injekt.get<SourceManager>()
+        val sourceManager = sourceManager
         val perSibling = relatedIds.map { id ->
             getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
                 .map { (manga, chapters) -> Triple(id, manga, chapters) }
@@ -1054,7 +1048,7 @@ class MangaViewModel(
     private suspend fun raiseMetadata(flatMetadata: FlatMetadata?, targetMangaId: Long): RaisedSearchMetadata? {
         if (flatMetadata == null) return null
         val targetManga = getMangaAndChapters.awaitManga(targetMangaId)
-        val metadataSource = Injekt.get<SourceManager>().get(targetManga.source)
+        val metadataSource = sourceManager.get(targetManga.source)
             ?.getMainSource<MetadataSource<*, *>>() ?: return null
         return flatMetadata.raise(metadataSource.metaClass)
     }
@@ -1062,7 +1056,7 @@ class MangaViewModel(
     /** Resolve the source-switcher chips for the full group (empty when not merged). */
     private suspend fun buildMergeSources(ids: LongArray): List<EntryMergeSource> {
         if (ids.size <= 1) return emptyList()
-        val sourceManager = Injekt.get<SourceManager>()
+        val sourceManager = sourceManager
         return ids.map { id ->
             val sourceManga = getMangaAndChapters.awaitManga(id)
             EntryMergeSource(id, sourceManager.getOrStub(sourceManga.source).name)
@@ -1392,7 +1386,7 @@ class MangaViewModel(
                 successState?.let { state ->
                     // RK --> in a merged group, delete each chapter's download from its own source
                     if (state.mergedMangaById.isNotEmpty()) {
-                        val sourceManager = Injekt.get<SourceManager>()
+                        val sourceManager = sourceManager
                         chapters.groupBy { it.mangaId }.forEach { (mangaId, group) ->
                             val owner = state.mergedMangaById[mangaId] ?: state.manga
                             downloadManager.deleteChapters(group, owner, sourceManager.getOrStub(owner.source))

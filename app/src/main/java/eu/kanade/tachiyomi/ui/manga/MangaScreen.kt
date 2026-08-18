@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.manga.model.toSManga
@@ -91,13 +92,9 @@ class MangaScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val viewModel = viewModel<MangaViewModel>(
-            factory = MangaViewModel.Factory,
-            extras = CreationExtras {
-                set(MangaViewModel.MANGA_ID_KEY, mangaId)
-                set(MangaViewModel.IS_FROM_SOURCE_KEY, fromSource)
-            },
-        )
+        val viewModel = assistedMetroViewModel<MangaViewModel, MangaViewModel.Factory> {
+            create(mangaId = mangaId, isFromSource = fromSource)
+        }
 
         val state by viewModel.state.collectAsStateWithLifecycle()
 
