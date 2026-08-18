@@ -42,6 +42,7 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.update.LnPluginUpdateChecker
+import reikai.presentation.migrate.flow.MigrationAdapters
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
@@ -116,7 +117,9 @@ interface AppGraph : ViewModelGraph {
 
     // Read through Context.appGraph by companions and objects, which cannot be member-injected.
     // uiPreferences is also read from attachBaseContext, before any injected field exists.
+    // migrationAdapters is read from the migrate screens, which pick one by content type at runtime.
     val uiPreferences: UiPreferences
+    val migrationAdapters: MigrationAdapters
     val exhPreferences: ExhPreferences
     val novelPreferences: NovelPreferences
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences

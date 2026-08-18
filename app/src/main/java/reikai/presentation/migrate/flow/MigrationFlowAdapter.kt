@@ -1,13 +1,14 @@
 package reikai.presentation.migrate.flow
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.PickMember
 import tachiyomi.domain.source.model.Source
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /** [runCatching] that rethrows [CancellationException]: the flow's search/commit coroutines must die
  *  on cancellation instead of reporting a cancelled call as "no match" or a row failure. */
@@ -270,14 +271,26 @@ sealed interface MatchStrategy {
 }
 
 /**
- * The adapter for one content type.
+ * The one place the content type picks an adapter, holding both so a screen can ask for either.
  *
- * Exhaustive on purpose. [ContentType.ALL] is a live value on the library and browse chips, and an
- * `else` branch would quietly hand novel machinery a list of manga ids rather than failing where the
- * mistake was made. The flow always runs on exactly one content type.
+ * The choice is runtime data, so the interface itself is deliberately not a graph binding: binding it
+ * would have to pick a content type at build time, which is the one thing this flow cannot do.
  */
-fun migrationAdapterFor(contentType: ContentType): MigrationFlowAdapter = when (contentType) {
-    ContentType.MANGA -> Injekt.get<MangaMigrationFlowAdapter>()
-    ContentType.NOVELS -> Injekt.get<NovelMigrationFlowAdapter>()
-    ContentType.ALL -> error("The migration flow runs on one content type; ALL has no adapter")
+@Inject
+@SingleIn(AppScope::class)
+class MigrationAdapters(
+    private val manga: MangaMigrationFlowAdapter,
+    private val novel: NovelMigrationFlowAdapter,
+) {
+
+    /**
+     * Exhaustive on purpose. [ContentType.ALL] is a live value on the library and browse chips, and an
+     * `else` branch would quietly hand novel machinery a list of manga ids rather than failing where
+     * the mistake was made. The flow always runs on exactly one content type.
+     */
+    fun forType(contentType: ContentType): MigrationFlowAdapter = when (contentType) {
+        ContentType.MANGA -> manga
+        ContentType.NOVELS -> novel
+        ContentType.ALL -> error("The migration flow runs on one content type; ALL has no adapter")
+    }
 }

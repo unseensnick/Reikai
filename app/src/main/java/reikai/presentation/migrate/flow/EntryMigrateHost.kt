@@ -13,17 +13,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
@@ -49,11 +54,11 @@ fun Screen.EntryMigrateFor(
     // One model per content type; the pair is loaded per appearance rather than being a constructor
     // argument, so a cached model can neither serve a stale pair nor accumulate one per pair. The
     // `key` is load-bearing: without it both content types share one instance in this store.
-    val viewModel = viewModel<EntryMigrateHostViewModel>(
+    val viewModel = assistedMetroViewModel<EntryMigrateHostViewModel, EntryMigrateHostViewModel.Factory>(
         key = "migrateHost-$contentType",
-        factory = EntryMigrateHostViewModel.Factory,
-        extras = CreationExtras { set(EntryMigrateHostViewModel.CONTENT_TYPE_KEY, contentType) },
-    )
+    ) {
+        create(adapter = context.appGraph.migrationAdapters.forType(contentType))
+    }
     val request = remember(currentId, targetId) { EntryMigratePair(currentId, targetId) }
     LaunchedEffect(request) { viewModel.load(request) }
     val state by viewModel.state.collectAsState()
@@ -87,22 +92,20 @@ fun Screen.EntryMigrateFor(
 /** The two entries this host is currently loading, so a cached model cannot serve a stale pair. */
 internal data class EntryMigratePair(val currentId: Long, val targetId: Long)
 
+@AssistedInject
 internal class EntryMigrateHostViewModel(
-    contentType: ContentType,
+    @Assisted private val adapter: MigrationFlowAdapter,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrateHostViewModel.State>
         field = MutableStateFlow<EntryMigrateHostViewModel.State>(State())
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-
-        val Factory = viewModelFactory {
-            initializer { EntryMigrateHostViewModel(contentType = get(CONTENT_TYPE_KEY)!!) }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(adapter: MigrationFlowAdapter): EntryMigrateHostViewModel
     }
-
-    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     fun load(request: EntryMigratePair) {
         state.update { State(request = request) }

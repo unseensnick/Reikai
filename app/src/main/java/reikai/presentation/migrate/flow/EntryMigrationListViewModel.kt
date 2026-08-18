@@ -2,9 +2,13 @@ package reikai.presentation.migrate.flow
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -24,13 +28,10 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /** Sources probed at once while ranking one row's matches by chapter count. */
 private const val SOURCE_CONCURRENCY = 5
@@ -42,40 +43,35 @@ private const val SOURCE_CONCURRENCY = 5
  * lock, since a row skipped, committed or abandoned mid-await shows up as a state that check reads.
  * Per-row work runs on the row's own detached scope, so cancelling one row never reaches the loop.
  */
+@AssistedInject
 class EntryMigrationListViewModel(
-    private val entryIds: List<Long>,
-    // Injected rather than resolved in the initialiser, so the driver, the claim and the finish gate
-    // can be constructed in a plain JVM test. Resolving Injekt here made every one of them reachable
-    // only by reading the code, which is why each gate defect was found by an audit and never by a
-    // test. The factory below resolves them and passes them in.
-    private val adapter: MigrationFlowAdapter,
-    private val pickHandoff: MigrationPickHandoff,
+    @Assisted private val entryIds: List<Long>,
+    // Passed in rather than resolved here, so the driver, the claim and the finish gate can be
+    // constructed in a plain JVM test. Resolving DI here made every one of them reachable only by
+    // reading the code, which is why each gate defect was found by an audit and never by a test.
+    // The screen picks the adapter for its content type and passes it in.
+    @Assisted private val adapter: MigrationFlowAdapter,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
-    private val extraQuery: String? = null,
-    // Injected so a test can drive the driver and the commits on its own scheduler; production
-    // callers take the default, which is what launchIO would have used.
-    private val io: CoroutineDispatcher = Dispatchers.IO,
+    @Assisted private val extraQuery: String? = null,
+    // Assisted so a test can drive the driver and the commits on its own scheduler; the screen passes
+    // Dispatchers.IO, which is what launchIO would have used.
+    @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val pickHandoff: MigrationPickHandoff,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrationListViewModel.State>
         field = MutableStateFlow<EntryMigrationListViewModel.State>(State())
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-        val ENTRY_IDS_KEY = CreationExtras.Key<List<Long>>()
-        val EXTRA_QUERY_KEY = CreationExtras.Key<String?>()
-
-        // `io` is deliberately left at its default here; only a test supplies its own.
-        val Factory = viewModelFactory {
-            initializer {
-                EntryMigrationListViewModel(
-                    entryIds = get(ENTRY_IDS_KEY)!!,
-                    adapter = migrationAdapterFor(get(CONTENT_TYPE_KEY)!!),
-                    pickHandoff = Injekt.get(),
-                    extraQuery = get(EXTRA_QUERY_KEY),
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(
+            entryIds: List<Long>,
+            adapter: MigrationFlowAdapter,
+            extraQuery: String?,
+            io: CoroutineDispatcher,
+        ): EntryMigrationListViewModel
     }
 
     private val rows: List<MigratingEntryRow> get() = state.value.rows

@@ -34,16 +34,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
@@ -59,6 +64,7 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceIcon
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -73,7 +79,6 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.shouldExpandFAB
-import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
@@ -91,12 +96,10 @@ class EntryMigrationConfigScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<EntryMigrationConfigViewModel>(
-            factory = EntryMigrationConfigViewModel.Factory,
-            extras = CreationExtras {
-                set(EntryMigrationConfigViewModel.CONTENT_TYPE_KEY, contentType)
-            },
-        )
+        val context = LocalContext.current
+        val viewModel = assistedMetroViewModel<EntryMigrationConfigViewModel, EntryMigrationConfigViewModel.Factory> {
+            create(adapter = context.appGraph.migrationAdapters.forType(contentType), io = Dispatchers.IO)
+        }
         val state by viewModel.state.collectAsState()
         val listState = rememberLazyListState()
         var showTuning by rememberSaveable { mutableStateOf(false) }
@@ -369,26 +372,23 @@ private fun SourceRowIcon(icon: MigrationSourceIcon) {
     }
 }
 
+@AssistedInject
 class EntryMigrationConfigViewModel(
-    // Injected rather than resolved here, as the list model's are: the source seed and the order
-    // writes are otherwise reachable only by reading the code. The factory resolves and passes them,
-    // so a plain JVM test can still construct this directly with its own adapter and dispatcher.
-    private val adapter: MigrationFlowAdapter,
-    private val io: CoroutineDispatcher = Dispatchers.IO,
+    // Passed in rather than resolved here, as the list model's are: the source seed and the order
+    // writes are otherwise reachable only by reading the code. The screen picks both, so a plain JVM
+    // test can still construct this directly with its own adapter and dispatcher.
+    @Assisted private val adapter: MigrationFlowAdapter,
+    @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrationConfigViewModel.State>
         field = MutableStateFlow<EntryMigrationConfigViewModel.State>(State())
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-
-        // `io` is deliberately left at its default here; only a test supplies its own.
-        val Factory = viewModelFactory {
-            initializer {
-                EntryMigrationConfigViewModel(adapter = migrationAdapterFor(get(CONTENT_TYPE_KEY)!!))
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(adapter: MigrationFlowAdapter, io: CoroutineDispatcher): EntryMigrationConfigViewModel
     }
 
     val matchStrategy: MatchStrategy get() = adapter.matchStrategy

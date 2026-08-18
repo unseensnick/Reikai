@@ -20,17 +20,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
@@ -51,6 +56,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.system.logcat
@@ -63,8 +69,6 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.presentation.core.util.shouldExpandFAB
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -82,13 +86,14 @@ class EntryMigrationFavoritesScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<EntryMigrationFavoritesViewModel>(
-            factory = EntryMigrationFavoritesViewModel.Factory,
-            extras = CreationExtras {
-                set(EntryMigrationFavoritesViewModel.CONTENT_TYPE_KEY, contentType)
-                set(EntryMigrationFavoritesViewModel.SOURCE_KEY_KEY, sourceKey)
-            },
-        )
+        val context = LocalContext.current
+        val viewModel =
+            assistedMetroViewModel<EntryMigrationFavoritesViewModel, EntryMigrationFavoritesViewModel.Factory> {
+                create(
+                    adapter = context.appGraph.migrationAdapters.forType(contentType),
+                    sourceKey = sourceKey,
+                )
+            }
         val state by viewModel.state.collectAsStateWithLifecycle()
         val listState = rememberLazyListState()
 
@@ -209,28 +214,19 @@ private fun FavoriteRow(
     }
 }
 
+@AssistedInject
 class EntryMigrationFavoritesViewModel(
-    contentType: ContentType,
-    private val sourceKey: String,
+    @Assisted private val adapter: MigrationFlowAdapter,
+    /** A novel source id is a plugin string, so this is Reikai's String rather than upstream's Long. */
+    @Assisted private val sourceKey: String,
 ) : ViewModel() {
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-
-        /** A novel source id is a plugin string, so this key is Reikai's rather than upstream's Long. */
-        val SOURCE_KEY_KEY = CreationExtras.Key<String>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                EntryMigrationFavoritesViewModel(
-                    contentType = get(CONTENT_TYPE_KEY)!!,
-                    sourceKey = get(SOURCE_KEY_KEY)!!,
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(adapter: MigrationFlowAdapter, sourceKey: String): EntryMigrationFavoritesViewModel
     }
-
-    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     private val selected = MutableStateFlow<Set<EntryId>>(emptySet())
 

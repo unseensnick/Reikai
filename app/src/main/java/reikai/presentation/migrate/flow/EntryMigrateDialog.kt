@@ -17,18 +17,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -54,11 +60,12 @@ fun Screen.EntryMigrateDialog(
     // One model per content type: keying by pair would cache a model for every pair ever opened on
     // a long-lived screen, so the pair is loaded per appearance instead of being a constructor arg.
     // The `key` is load-bearing: without it both content types share one instance in this store.
-    val viewModel = viewModel<EntryMigrateDialogViewModel>(
+    val context = LocalContext.current
+    val viewModel = assistedMetroViewModel<EntryMigrateDialogViewModel, EntryMigrateDialogViewModel.Factory>(
         key = "migrateDialog-$contentType",
-        factory = EntryMigrateDialogViewModel.Factory,
-        extras = CreationExtras { set(EntryMigrateDialogViewModel.CONTENT_TYPE_KEY, contentType) },
-    )
+    ) {
+        create(adapter = context.appGraph.migrationAdapters.forType(contentType))
+    }
     val state by viewModel.state.collectAsState()
 
     val pairKey = "${entry.id}-${target.key}"
@@ -133,22 +140,20 @@ fun Screen.EntryMigrateDialog(
     )
 }
 
+@AssistedInject
 internal class EntryMigrateDialogViewModel(
-    contentType: ContentType,
+    @Assisted private val adapter: MigrationFlowAdapter,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrateDialogViewModel.State>
         field = MutableStateFlow<EntryMigrateDialogViewModel.State>(State())
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-
-        val Factory = viewModelFactory {
-            initializer { EntryMigrateDialogViewModel(contentType = get(CONTENT_TYPE_KEY)!!) }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(adapter: MigrationFlowAdapter): EntryMigrateDialogViewModel
     }
-
-    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     /** Load the pair being shown. Never loads over a live commit: a rotation re-fires this for the
      *  same pair, and a host swapping arguments mid-migrate must not wipe the running commit's

@@ -4,25 +4,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.MigrationSourcePickContent
 import reikai.presentation.migrate.PickMember
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.presentation.core.screens.LoadingScreen
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * The pre-step for migrating a merged entry: choose which of its grouped sources to migrate.
@@ -39,13 +43,14 @@ class EntryMigrationSourcePickScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<EntryMigrationSourcePickViewModel>(
-            factory = EntryMigrationSourcePickViewModel.Factory,
-            extras = CreationExtras {
-                set(EntryMigrationSourcePickViewModel.CONTENT_TYPE_KEY, contentType)
-                set(EntryMigrationSourcePickViewModel.ENTRY_IDS_KEY, entryIds)
-            },
-        )
+        val context = LocalContext.current
+        val viewModel =
+            assistedMetroViewModel<EntryMigrationSourcePickViewModel, EntryMigrationSourcePickViewModel.Factory> {
+                create(
+                    adapter = context.appGraph.migrationAdapters.forType(contentType),
+                    entryIds = entryIds,
+                )
+            }
         val state by viewModel.state.collectAsState()
 
         // Replaces rather than pushes, so back from the config screen returns to whatever opened the
@@ -71,29 +76,21 @@ class EntryMigrationSourcePickScreen(
     }
 }
 
+@AssistedInject
 class EntryMigrationSourcePickViewModel(
-    contentType: ContentType,
-    private val entryIds: List<Long>,
+    @Assisted private val adapter: MigrationFlowAdapter,
+    @Assisted private val entryIds: List<Long>,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrationSourcePickViewModel.State>
         field = MutableStateFlow<EntryMigrationSourcePickViewModel.State>(State())
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-        val ENTRY_IDS_KEY = CreationExtras.Key<List<Long>>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                EntryMigrationSourcePickViewModel(
-                    contentType = get(CONTENT_TYPE_KEY)!!,
-                    entryIds = get(ENTRY_IDS_KEY)!!,
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(adapter: MigrationFlowAdapter, entryIds: List<Long>): EntryMigrationSourcePickViewModel
     }
-
-    private val adapter: MigrationFlowAdapter = migrationAdapterFor(contentType)
 
     init {
         viewModelScope.launchIO {

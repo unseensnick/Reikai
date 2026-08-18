@@ -46,16 +46,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.Dispatchers
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
@@ -66,8 +67,6 @@ import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * The shared migration list: one row per entry being migrated, with the batch commit at the bottom.
@@ -83,14 +82,15 @@ class EntryMigrationListScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<EntryMigrationListViewModel>(
-            factory = EntryMigrationListViewModel.Factory,
-            extras = CreationExtras {
-                set(EntryMigrationListViewModel.CONTENT_TYPE_KEY, contentType)
-                set(EntryMigrationListViewModel.ENTRY_IDS_KEY, entryIds)
-                set(EntryMigrationListViewModel.EXTRA_QUERY_KEY, extraQuery)
-            },
-        )
+        val context = LocalContext.current
+        val viewModel = assistedMetroViewModel<EntryMigrationListViewModel, EntryMigrationListViewModel.Factory> {
+            create(
+                entryIds = entryIds,
+                adapter = context.appGraph.migrationAdapters.forType(contentType),
+                extraQuery = extraQuery,
+                io = Dispatchers.IO,
+            )
+        }
         val state by viewModel.state.collectAsState()
 
         if (state.finished) {
@@ -101,7 +101,6 @@ class EntryMigrationListScreen(
             val migratedCount = state.migratedCount
             val migratedMessage =
                 pluralStringResource(MR.plurals.migrationFlow_migratedCount, migratedCount, migratedCount)
-            val context = LocalContext.current
             LaunchedEffect(Unit) {
                 if (migratedCount > 0) context.toast(migratedMessage)
                 // Unwind the whole flow, not one step: the screen below is a stale flow step.

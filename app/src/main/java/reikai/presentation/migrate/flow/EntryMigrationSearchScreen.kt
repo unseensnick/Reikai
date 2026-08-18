@@ -22,12 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
@@ -39,6 +43,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import tachiyomi.i18n.MR
@@ -46,7 +51,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /** Sources searched at once. */
@@ -70,14 +74,14 @@ class EntryMigrationSearchScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val viewModel = viewModel<EntryMigrationSearchViewModel>(
-            factory = EntryMigrationSearchViewModel.Factory,
-            extras = CreationExtras {
-                set(EntryMigrationSearchViewModel.CONTENT_TYPE_KEY, contentType)
-                set(EntryMigrationSearchViewModel.ENTRY_ID_KEY, entryId)
-                set(EntryMigrationSearchViewModel.EXTRA_QUERY_KEY, extraQuery)
-            },
-        )
+        val viewModel = assistedMetroViewModel<EntryMigrationSearchViewModel, EntryMigrationSearchViewModel.Factory> {
+            create(
+                entryId = entryId,
+                adapter = context.appGraph.migrationAdapters.forType(contentType),
+                extraQuery = extraQuery,
+                io = Dispatchers.IO,
+            )
+        }
         val state by viewModel.state.collectAsState()
         var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
 
@@ -208,37 +212,32 @@ class EntryMigrationSearchScreen(
     }
 }
 
+@AssistedInject
 class EntryMigrationSearchViewModel(
-    private val entryId: Long,
-    // Injected rather than resolved here, the same reason the list model takes its own: the search
+    @Assisted private val entryId: Long,
+    // Passed in rather than resolved here, the same reason the list model takes its own: the search
     // this route runs is otherwise reachable only by reading the code, which is how the extra query
-    // came to be dropped on it without a test noticing. The factory below passes them in.
-    private val adapter: MigrationFlowAdapter,
-    private val pickHandoff: MigrationPickHandoff,
+    // came to be dropped on it without a test noticing. The screen passes them in.
+    @Assisted private val adapter: MigrationFlowAdapter,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
-    private val extraQuery: String? = null,
-    private val io: CoroutineDispatcher = Dispatchers.IO,
+    @Assisted private val extraQuery: String? = null,
+    @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val pickHandoff: MigrationPickHandoff,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrationSearchViewModel.State>
         field = MutableStateFlow<EntryMigrationSearchViewModel.State>(State())
 
-    companion object {
-        val CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-        val ENTRY_ID_KEY = CreationExtras.Key<Long>()
-        val EXTRA_QUERY_KEY = CreationExtras.Key<String?>()
-
-        // `io` is deliberately left at its default here; only a test supplies its own.
-        val Factory = viewModelFactory {
-            initializer {
-                EntryMigrationSearchViewModel(
-                    entryId = get(ENTRY_ID_KEY)!!,
-                    adapter = migrationAdapterFor(get(CONTENT_TYPE_KEY)!!),
-                    pickHandoff = Injekt.get(),
-                    extraQuery = get(EXTRA_QUERY_KEY),
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(
+            entryId: Long,
+            adapter: MigrationFlowAdapter,
+            extraQuery: String?,
+            io: CoroutineDispatcher,
+        ): EntryMigrationSearchViewModel
     }
 
     private val permits = Semaphore(SEARCH_CONCURRENCY)

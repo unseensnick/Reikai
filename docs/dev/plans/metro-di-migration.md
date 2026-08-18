@@ -259,7 +259,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
 | 3c. Entry points (done) | All 15 workers, the 5 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
-| 4. ViewModels and Compose (in progress) | Done: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain model, the assisted models for search, extension details, source browse, manga and novel details, notes, seven one-off screens, and the shared tracker sheet's eight. Left: 12 `viewModelFactory` blocks and 20 keys, being the migrate flow (7 and 13), the two engines (2 and 4), the EXH pair (2 and 3) and the cover-factory initializer, plus roughly 70 composable Injekt reads | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
+| 4. ViewModels and Compose (models done) | Every ViewModel now resolves from the graph: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling. Left in this phase: roughly 70 composable Injekt reads | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7. Cleanup | Drop the `reikai.**` / `exh.**` proguard keeps if no Injekt generic remains, regenerate both baseline profiles, rewrite the rules files | Minified `:app:assemblePreview`, then the profiles' own generation task |
@@ -301,10 +301,12 @@ contributed model cannot resolve without all three.
   port needs `Provider`/`Lazy` injection there, not a parameter swap. Annotating it is safe only while
   the types those runtime lookups need are still interop-registered, and a miss compiles fine and
   throws on the first source-map build.
-- **`LibraryEngine` and `RecentsEngine`** take their provider lists through `CreationExtras` keys and
-  everything else through Injekt constructor defaults. Metro cannot use default-argument injection, so
-  these become `@AssistedInject` with the providers assisted, and the factory plus every call site
-  move together. They compile fine unannotated, so they can also be deliberately left for last.
+- **A model a test constructs directly keeps every parameter it had.** The migrate flow and the two
+  engines were held to the end because their constructors carry test seams: the adapter a fake stands
+  in for, the dispatcher a test drives, the provider lists. A direct constructor call bypasses the
+  graph, so the seam survives conversion as long as the parameter does; what Metro cannot fill simply
+  becomes `@Assisted`. That is why the six affected test classes pass unmodified, and it is the check
+  to run on any future conversion: if a test builds it, the parameter list may not shrink.
 - **The closure-capturing cover factory** in `EntryDetailsDialog` builds a star-projected
   `EntryCoverViewModel<*>` from a captured behaviour object. There is no upstream analogue and no
   graph key for it; design it before touching it.
