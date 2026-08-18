@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
@@ -61,13 +62,9 @@ class NovelScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val viewModel = viewModel<NovelDetailsViewModel>(
-            factory = NovelDetailsViewModel.Factory,
-            extras = CreationExtras {
-                set(NovelDetailsViewModel.SOURCE_ID_KEY, sourceId)
-                set(NovelDetailsViewModel.NOVEL_URL_KEY, novelUrl)
-            },
-        )
+        val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
+            create(sourceId = sourceId, novelUrl = novelUrl)
+        }
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by viewModel.state.collectAsStateWithLifecycle()
         val adapter = remember(viewModel) { NovelEntryAdapter(viewModel) }

@@ -60,6 +60,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -115,13 +116,9 @@ class NovelBrowseScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<NovelBrowseViewModel>(
-            factory = NovelBrowseViewModel.Factory,
-            extras = CreationExtras {
-                set(NovelBrowseViewModel.SOURCE_ID_KEY, sourceId)
-                set(NovelBrowseViewModel.INITIAL_QUERY_KEY, initialQuery)
-            },
-        )
+        val viewModel = assistedMetroViewModel<NovelBrowseViewModel, NovelBrowseViewModel.Factory> {
+            create(sourceId = sourceId, initialQuery = initialQuery)
+        }
         val state by viewModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
         // RK: shared bulk-selection add-to-library

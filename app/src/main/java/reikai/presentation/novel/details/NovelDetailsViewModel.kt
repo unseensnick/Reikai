@@ -1,20 +1,24 @@
 package reikai.presentation.novel.details
 
-import android.app.Application
+import android.content.Context
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.palette.graphics.Palette
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
@@ -116,7 +120,6 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Light-novel details state holder, re-typed from Yōkai's `NovelDetailsViewModel` onto the Mihon
@@ -125,59 +128,50 @@ import uy.kohesive.injekt.injectLazy
  * sort/filter/display, multi-select read/bookmark, and the cover-tint seed. A merged series is
  * surfaced through the [NovelDetailsState.Loaded.displayNovel] seam.
  */
+@AssistedInject
 class NovelDetailsViewModel(
-    private val sourceId: String,
-    private val novelUrl: String,
+    /** A novel source id is a plugin string, so this is Reikai's shape rather than upstream's Long. */
+    @Assisted private val sourceId: String,
+    @Assisted private val novelUrl: String,
+    private val novelRepo: NovelRepository,
+    private val updateNovel: UpdateNovel,
+    private val setNovelChapterFlags: SetNovelChapterFlags,
+    private val chapterRepo: NovelChapterRepository,
+    private val database: Database,
+    private val downloadManager: NovelDownloadManager,
+    private val novelDownloadCache: NovelDownloadCache,
+    private val sourceManager: NovelSourceManager,
+    private val installer: LnPluginInstaller,
+    private val getNovelCategories: GetNovelCategories,
+    private val setNovelCategories: SetNovelCategories,
+    private val novelLibraryAdder: NovelLibraryAdder,
+    private val setNovelReadStatus: SetNovelReadStatus,
+    private val novelPreferences: NovelPreferences,
+    private val uiPreferences: UiPreferences,
+    private val mergeManager: NovelMergeManager,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val libraryPreferences: LibraryPreferences,
+    private val context: Context,
+    // RK: non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
+    private val getCustomNovelInfo: GetCustomNovelInfo,
+    private val setCustomNovelInfo: SetCustomNovelInfo,
+    // novel trackers
+    private val getNovelTracks: GetNovelTracks,
+    private val refreshNovelTracks: RefreshNovelTracks,
+    private val trackNovelChapter: TrackNovelChapter,
+    private val trackerManager: TrackerManager,
+    private val trackPreferences: TrackPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<NovelDetailsState>
         field = MutableStateFlow<NovelDetailsState>(NovelDetailsState.Loading)
 
-    companion object {
-        /** A novel source id is a plugin string, so these keys are Reikai's rather than upstream's Long. */
-        val SOURCE_ID_KEY = CreationExtras.Key<String>()
-        val NOVEL_URL_KEY = CreationExtras.Key<String>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                NovelDetailsViewModel(
-                    sourceId = get(SOURCE_ID_KEY)!!,
-                    novelUrl = get(NOVEL_URL_KEY)!!,
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(sourceId: String, novelUrl: String): NovelDetailsViewModel
     }
-
-    private val novelRepo: NovelRepository by injectLazy()
-    private val updateNovel: UpdateNovel by injectLazy()
-    private val setNovelChapterFlags: SetNovelChapterFlags by injectLazy()
-    private val chapterRepo: NovelChapterRepository by injectLazy()
-    private val database: Database by injectLazy()
-    private val downloadManager: NovelDownloadManager by injectLazy()
-    private val novelDownloadCache: NovelDownloadCache by injectLazy()
-    private val sourceManager: NovelSourceManager by injectLazy()
-    private val installer: LnPluginInstaller by injectLazy()
-    private val getNovelCategories: GetNovelCategories by injectLazy()
-    private val setNovelCategories: SetNovelCategories by injectLazy()
-    private val novelLibraryAdder: NovelLibraryAdder by injectLazy()
-    private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
-    private val novelPreferences: NovelPreferences by injectLazy()
-    private val uiPreferences: UiPreferences by injectLazy()
-    private val mergeManager: NovelMergeManager by injectLazy()
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
-    private val libraryPreferences: LibraryPreferences by injectLazy()
-    private val context: Application by injectLazy()
-
-    // RK: non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
-    private val getCustomNovelInfo: GetCustomNovelInfo by injectLazy()
-    private val setCustomNovelInfo: SetCustomNovelInfo by injectLazy()
-
-    // novel trackers
-    private val getNovelTracks: GetNovelTracks by injectLazy()
-    private val refreshNovelTracks: RefreshNovelTracks by injectLazy()
-    private val trackNovelChapter: TrackNovelChapter by injectLazy()
-    private val trackerManager: TrackerManager by injectLazy()
-    private val trackPreferences: TrackPreferences by injectLazy()
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
     val snackbarHostState = SnackbarHostState()

@@ -6,12 +6,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,8 +24,6 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import reikai.presentation.notes.EntryNotesScreen
 import tachiyomi.core.common.util.lang.launchNonCancellable
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Full-screen markdown notes editor for a novel, the twin of
@@ -39,13 +41,9 @@ class NovelNotesScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
-        val viewModel = viewModel<Model>(
-            factory = Model.Factory,
-            extras = CreationExtras {
-                set(Model.NOVEL_ID_KEY, novelId)
-                set(Model.INITIAL_NOTES_KEY, initialNotes)
-            },
-        )
+        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
+            create(novelId = novelId, initialNotes = initialNotes)
+        }
         val state by viewModel.state.collectAsState()
 
         EntryNotesScreen(
@@ -56,27 +54,22 @@ class NovelNotesScreen(
         )
     }
 
-    private class Model(
-        private val novelId: Long,
-        initialNotes: String,
-        private val novelRepository: NovelRepository = Injekt.get(),
+    // Not private: a graph-contributed factory has to be visible to the generated graph code.
+    @AssistedInject
+    class Model(
+        @Assisted private val novelId: Long,
+        @Assisted initialNotes: String,
+        private val novelRepository: NovelRepository,
     ) : ViewModel() {
 
         val state: StateFlow<State>
             field = MutableStateFlow<State>(State(initialNotes))
 
-        companion object {
-            val NOVEL_ID_KEY = CreationExtras.Key<Long>()
-            val INITIAL_NOTES_KEY = CreationExtras.Key<String>()
-
-            val Factory = viewModelFactory {
-                initializer {
-                    Model(
-                        novelId = get(NOVEL_ID_KEY)!!,
-                        initialNotes = get(INITIAL_NOTES_KEY)!!,
-                    )
-                }
-            }
+        @AssistedFactory
+        @ManualViewModelAssistedFactoryKey
+        @ContributesIntoMap(AppScope::class)
+        interface Factory : ManualViewModelAssistedFactory {
+            fun create(novelId: Long, initialNotes: String): Model
         }
 
         fun updateNotes(content: String) {

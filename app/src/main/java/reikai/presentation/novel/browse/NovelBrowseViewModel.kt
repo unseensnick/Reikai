@@ -4,9 +4,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.CancellationException
@@ -33,7 +37,6 @@ import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Per-source light-novel browse state holder. The source is pre-picked (the Browse Sources tab is the
@@ -42,23 +45,22 @@ import uy.kohesive.injekt.injectLazy
  * return a bare page list with no `hasNextPage`, so an empty page marks the end). The screen is a pure
  * renderer over [NovelBrowseState].
  */
+@AssistedInject
 class NovelBrowseViewModel(
-    private val sourceId: String,
-    private val initialQuery: String = "",
+    @Assisted private val sourceId: String,
+    @Assisted private val initialQuery: String,
+    private val installer: LnPluginInstaller,
+    private val manager: NovelSourceManager,
+    private val novelRepository: NovelRepository,
+    private val libraryAdder: NovelLibraryAdder,
+    // RK: where a migration-target pick is left for the screen that asked for it.
+    private val pickHandoff: MigrationPickHandoff,
+    private val reikaiSourcePreferences: ReikaiSourcePreferences,
+    private val sourcePreferences: SourcePreferences,
 ) : ViewModel() {
 
     val state: StateFlow<NovelBrowseState>
         field = MutableStateFlow<NovelBrowseState>(NovelBrowseState())
-
-    private val installer: LnPluginInstaller by injectLazy()
-    private val manager: NovelSourceManager by injectLazy()
-    private val novelRepository: NovelRepository by injectLazy()
-    private val libraryAdder: NovelLibraryAdder by injectLazy()
-
-    // RK: where a migration-target pick is left for the screen that asked for it.
-    private val pickHandoff: MigrationPickHandoff by injectLazy()
-    private val reikaiSourcePreferences: ReikaiSourcePreferences by injectLazy()
-    private val sourcePreferences: SourcePreferences by injectLazy()
 
     /** Compose-observable display mode (comfortable / compact / list), persisted via [ReikaiSourcePreferences]. */
     var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(viewModelScope)
@@ -363,20 +365,15 @@ class NovelBrowseViewModel(
 
     private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"
 
-    companion object {
-        // A novel source id is the plugin's String id, not the Long the manga side uses, so the keys
-        // are Reikai's own rather than the upstream browse model's.
-        val SOURCE_ID_KEY = CreationExtras.Key<String>()
-        val INITIAL_QUERY_KEY = CreationExtras.Key<String>()
+    // A novel source id is the plugin's String id, not the Long the manga side uses.
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(sourceId: String, initialQuery: String): NovelBrowseViewModel
+    }
 
-        val Factory = viewModelFactory {
-            initializer {
-                NovelBrowseViewModel(
-                    sourceId = get(SOURCE_ID_KEY)!!,
-                    initialQuery = get(INITIAL_QUERY_KEY).orEmpty(),
-                )
-            }
-        }
+    companion object {
 
         // lnreader plugins don't report hasNextPage, so a full page (this many items or more) is taken
         // as "more may follow"; a shorter page is confirmed by probing the next one. 20 is the common

@@ -50,6 +50,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -100,10 +101,9 @@ class NovelGlobalSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<NovelGlobalSearchViewModel>(
-            factory = NovelGlobalSearchViewModel.Factory,
-            extras = CreationExtras { set(NovelGlobalSearchViewModel.INITIAL_QUERY_KEY, initialQuery) },
-        )
+        val viewModel = assistedMetroViewModel<NovelGlobalSearchViewModel, NovelGlobalSearchViewModel.Factory> {
+            create(initialQuery = initialQuery)
+        }
         val state by viewModel.state.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
         // RK: shared bulk-selection add-to-library

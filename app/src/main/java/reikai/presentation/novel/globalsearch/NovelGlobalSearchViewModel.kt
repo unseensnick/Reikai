@@ -2,9 +2,13 @@ package reikai.presentation.novel.globalsearch
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -25,7 +29,6 @@ import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelCategoryTarget
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
-import uy.kohesive.injekt.injectLazy
 
 /** Max sources searched concurrently, matching the manga global search's throttle. */
 private const val SEARCH_CONCURRENCY = 5
@@ -35,26 +38,25 @@ private const val SEARCH_CONCURRENCY = 5
  * under a [Semaphore], updating each source's row independently as it completes so results fill in
  * progressively (mirrors Mihon's `SearchViewModel`).
  */
+@AssistedInject
 class NovelGlobalSearchViewModel(
-    initialQuery: String,
+    @Assisted initialQuery: String,
+    private val installer: LnPluginInstaller,
+    private val novelRepository: NovelRepository,
+    private val libraryAdder: NovelLibraryAdder,
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val getEnabledNovelSources: GetEnabledNovelSources,
 ) : ViewModel() {
 
     val state: StateFlow<NovelGlobalSearchState>
         field = MutableStateFlow<NovelGlobalSearchState>(NovelGlobalSearchState(query = initialQuery))
 
-    companion object {
-        val INITIAL_QUERY_KEY = CreationExtras.Key<String>()
-
-        val Factory = viewModelFactory {
-            initializer { NovelGlobalSearchViewModel(initialQuery = get(INITIAL_QUERY_KEY).orEmpty()) }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(initialQuery: String): NovelGlobalSearchViewModel
     }
-
-    private val installer: LnPluginInstaller by injectLazy()
-    private val novelRepository: NovelRepository by injectLazy()
-    private val libraryAdder: NovelLibraryAdder by injectLazy()
-    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
-    private val getEnabledNovelSources: GetEnabledNovelSources by injectLazy()
 
     private var searchJob: Job? = null
 
