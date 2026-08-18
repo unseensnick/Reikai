@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.BrowseSourceContent
@@ -90,13 +91,9 @@ data class BrowseSourceScreen(
             return
         }
 
-        val viewModel = viewModel<BrowseSourceViewModel>(
-            factory = BrowseSourceViewModel.Factory,
-            extras = CreationExtras {
-                set(BrowseSourceViewModel.SOURCE_ID_KEY, sourceId)
-                set(BrowseSourceViewModel.LISTING_QUERY_KEY, listingQuery)
-            },
-        )
+        val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
+            create(sourceId = sourceId, listingQuery = listingQuery)
+        }
         val state by viewModel.state.collectAsState()
 
         val navigator = LocalNavigator.currentOrThrow

@@ -1,8 +1,14 @@
 package exh.md.follows
 
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.domain.source.interactor.GetIncognitoState
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
@@ -10,28 +16,53 @@ import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import reikai.presentation.browse.MangaLibraryAdder
+import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetFlatMetadataById
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.repository.SourcePagingSource
-import uy.kohesive.injekt.injectLazy
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * Reuses the browse screen model but swaps the paging source for the MangaDex follow list. The
  * screen is only reachable for a MangaDex source (gated in browse), so the cast is safe.
  */
-class MangaDexFollowsViewModel(sourceId: Long) : BrowseSourceViewModel(sourceId, null) {
+@AssistedInject
+class MangaDexFollowsViewModel(
+    @Assisted sourceId: Long,
+    private val networkToLocalManga: NetworkToLocalManga,
+    // Forwarded to the parent: an assisted subclass supplies its supertype's dependencies itself.
+    sourceManager: SourceManager,
+    sourcePreferences: SourcePreferences,
+    libraryPreferences: LibraryPreferences,
+    getRemoteManga: GetRemoteManga,
+    getManga: GetManga,
+    getIncognitoState: GetIncognitoState,
+    mangaLibraryAdder: MangaLibraryAdder,
+    getFlatMetadataById: GetFlatMetadataById,
+) : BrowseSourceViewModel(
+    sourceId = sourceId,
+    listingQuery = null,
+    sourceManager = sourceManager,
+    sourcePreferences = sourcePreferences,
+    libraryPreferences = libraryPreferences,
+    getRemoteManga = getRemoteManga,
+    getManga = getManga,
+    getIncognitoState = getIncognitoState,
+    mangaLibraryAdder = mangaLibraryAdder,
+    getFlatMetadataById = getFlatMetadataById,
+) {
 
-    private val networkToLocalManga: NetworkToLocalManga by injectLazy()
-
-    // Its own key and factory: a Kotlin companion is not inherited, so leaning on the parent's would
-    // construct a plain BrowseSourceViewModel and silently drop both overrides below, with no
-    // compile error.
-    companion object {
-        val SOURCE_ID_KEY = CreationExtras.Key<Long>()
-
-        val Factory = viewModelFactory {
-            initializer { MangaDexFollowsViewModel(sourceId = get(SOURCE_ID_KEY)!!) }
-        }
+    // Its own factory: a Kotlin companion is not inherited, and the parent's would construct a plain
+    // BrowseSourceViewModel and silently drop both overrides below, with no compile error.
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(sourceId: Long): MangaDexFollowsViewModel
     }
 
     override fun createSourcePagingSource(query: String, filters: FilterList): SourcePagingSource {

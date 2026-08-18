@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.BrowseSourceContent
@@ -56,10 +57,9 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
 
         val navigator = LocalNavigator.currentOrThrow
         val haptic = LocalHapticFeedback.current
-        val viewModel = viewModel<MangaDexFollowsViewModel>(
-            factory = MangaDexFollowsViewModel.Factory,
-            extras = CreationExtras { set(MangaDexFollowsViewModel.SOURCE_ID_KEY, sourceId) },
-        )
+        val viewModel = assistedMetroViewModel<MangaDexFollowsViewModel, MangaDexFollowsViewModel.Factory> {
+            create(sourceId = sourceId)
+        }
         val state by viewModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
 
