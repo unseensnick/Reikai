@@ -1,6 +1,6 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 3c landed, phase 4 in progress, phases 5 to 7 remain.** Research completed 2026-08-16 against upstream
+> **Status: phases 0 to 3c landed, phase 4's ViewModels done and its composable reads left, phases 5 to 7 remain.** Research completed 2026-08-16 against upstream
 > `b2015d1ef`; re-verified and corrected 2026-08-17 before phase 0. Every count below was measured,
 > not estimated; the commands are given so a cold session can re-derive them before trusting them.
 
@@ -117,6 +117,13 @@ scope, which is the actual mechanism of the silent-double-instance bug it was wr
 per injection, so the two halves of the app drift apart with nothing failing. It now checks scope,
 discovers Injekt modules instead of reading a stale path list, matches multi-line registrations, and
 runs from CI as well as the hook, which fires on staged content rather than four hard-coded paths.
+
+**What the audit could not have caught, and what that costs.** Its six parallel passes verified
+scoping across all 88 interop types, every lost registration, every ViewModel conversion and every
+entry point, and found three defects. It also produced two false alarms worth remembering: three
+independent passes claimed `spotlessCheck` would fail on the port's orphaned imports (it does not,
+ktlint as configured here does not flag them), and one reported a count that a recount contradicted.
+Treat a subagent's claim about a gate as a hypothesis until the gate is run.
 
 Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
 
