@@ -3,6 +3,11 @@ package reikai.presentation.browse.source
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,8 +19,6 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -25,10 +28,13 @@ import kotlin.time.Duration.Companion.seconds
  * Mihon's manga sources filter). A disabled source or language is hidden from the Sources tab and
  * global search, so this screen is where they are re-enabled.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelSourcesFilterViewModel(
-    manager: NovelSourceManager = Injekt.get(),
-    private val installer: LnPluginInstaller = Injekt.get(),
-    private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    manager: NovelSourceManager,
+    private val installer: LnPluginInstaller,
+    private val sourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
 
     val state: StateFlow<State> = combine(

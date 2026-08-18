@@ -2,6 +2,11 @@ package reikai.presentation.browse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ContentType
@@ -9,8 +14,6 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.util.lang.launchIO
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Browse-level state shared by the Reikai Sources and Extensions tab wrappers: the sticky
@@ -18,11 +21,14 @@ import uy.kohesive.injekt.api.get
  * that feeds the Extensions tab badge. Kicks the cache-gated update check on Browse open so the
  * badge is fresh without the user opening the Novels chip.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class ReikaiBrowseViewModel(
-    private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val novelPreferences: NovelPreferences = Injekt.get(),
-    private val getIncognitoState: GetIncognitoState = Injekt.get(),
-    updateChecker: LnPluginUpdateChecker = Injekt.get(),
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val novelPreferences: NovelPreferences,
+    private val getIncognitoState: GetIncognitoState,
+    updateChecker: LnPluginUpdateChecker,
 ) : ViewModel() {
 
     val contentType: StateFlow<ContentType> = sourcePreferences.browseContentType.stateIn(viewModelScope)

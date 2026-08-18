@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.presentation.browse.MigrateSourceScreen
 import eu.kanade.presentation.browse.components.BaseSourceItem
@@ -66,9 +67,9 @@ import tachiyomi.presentation.core.util.plus
 fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val uriHandler = LocalUriHandler.current
     val navigator = LocalNavigator.currentOrThrow
-    val mangaModel = viewModel<MigrateSourceViewModel>()
+    val mangaModel = metroViewModel<MigrateSourceViewModel>()
     val mangaState by mangaModel.state.collectAsStateWithLifecycle()
-    val novelModel = viewModel<MigrateNovelSourcesViewModel>()
+    val novelModel = metroViewModel<MigrateNovelSourcesViewModel>()
     val novelState by novelModel.state.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
 

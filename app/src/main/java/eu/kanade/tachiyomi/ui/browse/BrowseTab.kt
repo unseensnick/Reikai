@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
@@ -59,10 +60,10 @@ data object BrowseTab : Tab {
         val context = LocalContext.current
 
         // Hoisted for extensions tab's search bar
-        val extensionsViewModel = viewModel<ExtensionsViewModel>()
+        val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
         val extensionsSearchQuery by extensionsViewModel.searchQuery.collectAsStateWithLifecycle()
         // RK: shared content-type filter + LN update badge across the Sources/Extensions tabs.
-        val browseViewModel = viewModel<ReikaiBrowseViewModel>()
+        val browseViewModel = metroViewModel<ReikaiBrowseViewModel>()
 
         val tabs = listOf(
             // RK: chip-switched manga + light-novel sources / extensions.

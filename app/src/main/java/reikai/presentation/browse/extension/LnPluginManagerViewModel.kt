@@ -3,6 +3,11 @@ package reikai.presentation.browse.extension
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -20,8 +25,6 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdate
 import reikai.novel.update.LnPluginVersion
 import tachiyomi.core.common.util.lang.launchIO
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Drives the light-novel plugin manager on the Browse → Extensions tab (Novels chip). Mirrors
@@ -30,10 +33,13 @@ import uy.kohesive.injekt.api.get
  * [LnPluginInstaller.fetchRepo] across the added repos for what's available, and a version diff for
  * what has updates. Single source of network truth so one fetch feeds both Available and Updates.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class LnPluginManagerViewModel(
-    manager: NovelSourceManager = Injekt.get(),
-    private val installer: LnPluginInstaller = Injekt.get(),
-    private val prefs: NovelPreferences = Injekt.get(),
+    manager: NovelSourceManager,
+    private val installer: LnPluginInstaller,
+    private val prefs: NovelPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<LnPluginManagerViewModel.State>

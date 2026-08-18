@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.ExtensionItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
@@ -51,7 +52,7 @@ fun Screen.reikaiExtensionsTab(
     val updatesCount by extensionsViewModel.updatesCount.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
     val lnCount by browseViewModel.lnUpdatesCount.collectAsState()
-    val lnModel = viewModel<LnPluginManagerViewModel>()
+    val lnModel = metroViewModel<LnPluginManagerViewModel>()
     val lnState by lnModel.state.collectAsState()
     val openRepos = { navigator.push(ExtensionStoresScreen()) }
 

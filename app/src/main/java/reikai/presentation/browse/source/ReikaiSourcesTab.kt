@@ -68,7 +68,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
     val navigator = LocalNavigator.currentOrThrow
     val sourcesModel = metroViewModel<SourcesViewModel>()
     val sourcesState by sourcesModel.state.collectAsStateWithLifecycle()
-    val novelModel = viewModel<NovelSourcesViewModel>()
+    val novelModel = metroViewModel<NovelSourcesViewModel>()
     val novelState by novelModel.state.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
 

@@ -3,6 +3,11 @@ package reikai.presentation.browse.migrate
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.Dispatchers
@@ -17,8 +22,6 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.getAndSet
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -28,11 +31,14 @@ import kotlin.time.Duration.Companion.seconds
  * stub parity): the live installed source, else the last-known [NovelPreferences.seenNovelSources]
  * cache, else the raw plugin id. Tapping a row opens the shared migration favorites picker for that source.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class MigrateNovelSourcesViewModel(
-    private val novelRepository: NovelRepository = Injekt.get(),
-    private val sourceManager: NovelSourceManager = Injekt.get(),
-    private val novelPreferences: NovelPreferences = Injekt.get(),
-    private val sourcePreferences: SourcePreferences = Injekt.get(),
+    private val novelRepository: NovelRepository,
+    private val sourceManager: NovelSourceManager,
+    private val novelPreferences: NovelPreferences,
+    private val sourcePreferences: SourcePreferences,
 ) : ViewModel() {
 
     val state: StateFlow<State> = combine(

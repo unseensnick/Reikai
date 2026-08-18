@@ -3,6 +3,11 @@ package reikai.presentation.browse.source
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,8 +24,6 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -29,11 +32,14 @@ import kotlin.time.Duration.Companion.seconds
  * grouping by language like Mihon's manga sources list. Tapping a source opens its browse screen
  * (wired in ReikaiSourcesTab).
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelSourcesViewModel(
-    manager: NovelSourceManager = Injekt.get(),
-    private val installer: LnPluginInstaller = Injekt.get(),
-    private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val novelPreferences: NovelPreferences = Injekt.get(),
+    manager: NovelSourceManager,
+    private val installer: LnPluginInstaller,
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val novelPreferences: NovelPreferences,
 ) : ViewModel() {
 
     private val dialog = MutableStateFlow<Dialog?>(null)
