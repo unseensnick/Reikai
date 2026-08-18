@@ -60,6 +60,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
@@ -124,7 +125,7 @@ class NovelBrowseScreen(
         val state by viewModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
         // RK: shared bulk-selection add-to-library
-        val bulkModel = viewModel<NovelBulkFavoriteViewModel>()
+        val bulkModel = metroViewModel<NovelBulkFavoriteViewModel>()
         val bulkState by bulkModel.state.collectAsState()
 
         BackHandler(enabled = bulkState.selectionMode) { bulkModel.backHandler() }

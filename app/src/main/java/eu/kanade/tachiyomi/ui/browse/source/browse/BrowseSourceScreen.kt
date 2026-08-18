@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.browse.MissingSourceScreen
@@ -126,7 +127,7 @@ data class BrowseSourceScreen(
         val snackbarHostState = remember { SnackbarHostState() }
 
         // RK: shared bulk-selection
-        val bulkFavoriteViewModel = viewModel<BulkFavoriteViewModel>()
+        val bulkFavoriteViewModel = metroViewModel<BulkFavoriteViewModel>()
         val bulkFavoriteState by bulkFavoriteViewModel.state.collectAsState()
         val mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems()
 

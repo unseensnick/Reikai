@@ -1,10 +1,14 @@
 package reikai.presentation.browse
 
+import androidx.lifecycle.ViewModel
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * The manga facade of [EntryBulkFavoriteViewModel], used by every manga browse surface. Reuses
@@ -13,9 +17,12 @@ import uy.kohesive.injekt.api.get
  * choice applies to the whole selection, with no per-entry tri-state and no per-duplicate prompt.
  * Migrate stays a single-entry action on the details screen.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class BulkFavoriteViewModel(
-    private val libraryAdder: MangaLibraryAdder = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val libraryAdder: MangaLibraryAdder,
+    private val libraryPreferences: LibraryPreferences,
 ) : EntryBulkFavoriteViewModel<Manga>() {
 
     override fun keyOf(item: Manga): Any = item.id
