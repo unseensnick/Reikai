@@ -2,6 +2,11 @@ package reikai.presentation.download
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.delay
@@ -15,7 +20,6 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.download.service.DownloadPreferences
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Backs the manga side of the unified download queue on the shared [EntryDownloadCardList]: aggregates
@@ -24,14 +28,16 @@ import uy.kohesive.injekt.injectLazy
  * own [eu.kanade.tachiyomi.ui.download.DownloadQueueViewModel] and its RecyclerView adapter/holders
  * are the parked per-chapter view, left inert.
  */
-class MangaDownloadQueueViewModel :
-    ViewModel() {
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+class MangaDownloadQueueViewModel(
+    private val downloadManager: DownloadManager,
+    private val downloadPreferences: DownloadPreferences,
+) : ViewModel() {
 
     val state: StateFlow<List<EntryDownloadCardUi>>
         field = MutableStateFlow<List<EntryDownloadCardUi>>(emptyList())
-
-    private val downloadManager: DownloadManager by injectLazy()
-    private val downloadPreferences: DownloadPreferences by injectLazy()
 
     val isDownloaderRunning: StateFlow<Boolean> = downloadManager.isDownloaderRunning
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)

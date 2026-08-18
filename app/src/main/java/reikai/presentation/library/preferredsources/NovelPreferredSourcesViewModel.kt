@@ -3,6 +3,11 @@ package reikai.presentation.library.preferredsources
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -13,8 +18,6 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Light-novel counterpart of [PreferredSourcesViewModel]. Ranks installed novel sources highest
@@ -23,10 +26,13 @@ import uy.kohesive.injekt.api.get
  * [PreferredSourcesContent] key are Strings directly. Sources are resolved from the plugin host, and
  * state rebuilds reactively from the registered sources and the stored ranking.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelPreferredSourcesViewModel(
-    private val sourceManager: NovelSourceManager = Injekt.get(),
-    private val installer: LnPluginInstaller = Injekt.get(),
-    private val preferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val sourceManager: NovelSourceManager,
+    private val installer: LnPluginInstaller,
+    private val preferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<NovelPreferredSourcesViewModel.State>

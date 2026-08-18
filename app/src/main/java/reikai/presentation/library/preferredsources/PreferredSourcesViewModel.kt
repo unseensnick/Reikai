@@ -3,6 +3,11 @@ package reikai.presentation.library.preferredsources
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.source.CatalogueSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,8 +17,6 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Manga "preferred sources" ranking, highest priority first, stored in
@@ -23,9 +26,12 @@ import uy.kohesive.injekt.api.get
  * the shared [PreferredSourcesContent] over a String key, so this model stringifies its Long ids at the
  * edge. State is rebuilt reactively from the installed sources and the stored ranking.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class PreferredSourcesViewModel(
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val preferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val sourceManager: SourceManager,
+    private val preferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<PreferredSourcesViewModel.State>

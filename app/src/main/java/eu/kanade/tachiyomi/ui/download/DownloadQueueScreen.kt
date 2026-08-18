@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
@@ -63,9 +64,9 @@ object DownloadQueueScreen : Screen() {
         // RK: both content types now render on the shared Compose card list. The manga side runs on
         // reikai's MangaDownloadQueueViewModel (aggregating by series), and Mihon's own
         // DownloadQueueViewModel + its RecyclerView adapter/holders are the parked per-chapter view.
-        val mangaModel = viewModel<MangaDownloadQueueViewModel>()
+        val mangaModel = metroViewModel<MangaDownloadQueueViewModel>()
         val mangaItems by mangaModel.state.collectAsState()
-        val novelModel = viewModel<NovelDownloadQueueViewModel>()
+        val novelModel = metroViewModel<NovelDownloadQueueViewModel>()
         val novelItems by novelModel.state.collectAsState()
         val contentType by novelModel.contentType.collectAsState()
         // Cards aggregate by series, so a queue-size count is the pending chapters across them.

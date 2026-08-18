@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
@@ -34,8 +35,8 @@ class PreferredSourcesScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val mangaModel = viewModel<PreferredSourcesViewModel>()
-        val novelModel = viewModel<NovelPreferredSourcesViewModel>()
+        val mangaModel = metroViewModel<PreferredSourcesViewModel>()
+        val novelModel = metroViewModel<NovelPreferredSourcesViewModel>()
         val mangaState by mangaModel.state.collectAsState()
         val novelState by novelModel.state.collectAsState()
 

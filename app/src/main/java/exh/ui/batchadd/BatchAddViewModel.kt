@@ -3,6 +3,11 @@ package exh.ui.batchadd
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import exh.GalleryAddEvent
 import exh.GalleryAdder
 import exh.source.ExhPreferences
@@ -20,11 +25,12 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class BatchAddViewModel(
-    private val exhPreferences: ExhPreferences = Injekt.get(),
+    private val exhPreferences: ExhPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<BatchAddState>

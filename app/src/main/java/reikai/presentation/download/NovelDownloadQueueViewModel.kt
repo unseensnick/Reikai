@@ -2,6 +2,11 @@ package reikai.presentation.download
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +22,6 @@ import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Backs the novel side of the unified download queue. Aggregates the live per-chapter
@@ -27,17 +31,19 @@ import uy.kohesive.injekt.injectLazy
  * manga side stays on Mihon's own [eu.kanade.tachiyomi.ui.download.DownloadQueueViewModel]; this is
  * additive.
  */
-class NovelDownloadQueueViewModel :
-    ViewModel() {
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+class NovelDownloadQueueViewModel(
+    private val downloadManager: NovelDownloadManager,
+    private val novelRepo: NovelRepository,
+    private val chapterRepo: NovelChapterRepository,
+    private val sourceManager: NovelSourceManager,
+    private val sourcePreferences: ReikaiSourcePreferences,
+) : ViewModel() {
 
     val state: StateFlow<List<EntryDownloadCardUi>>
         field = MutableStateFlow<List<EntryDownloadCardUi>>(emptyList())
-
-    private val downloadManager: NovelDownloadManager by injectLazy()
-    private val novelRepo: NovelRepository by injectLazy()
-    private val chapterRepo: NovelChapterRepository by injectLazy()
-    private val sourceManager: NovelSourceManager by injectLazy()
-    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
 
     val contentType: StateFlow<ContentType> = sourcePreferences.downloadContentType.changes()
         .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.downloadContentType.get())
