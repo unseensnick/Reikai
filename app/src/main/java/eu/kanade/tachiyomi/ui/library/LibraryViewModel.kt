@@ -1,11 +1,15 @@
 package eu.kanade.tachiyomi.ui.library
 
-import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.fastFilterNot
@@ -99,45 +103,46 @@ import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 import tachiyomi.domain.source.model.Source as DomainSource
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class LibraryViewModel(
-    private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    private val getLibraryManga: GetLibraryManga,
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
-    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
+    private val getCustomMangaInfo: GetCustomMangaInfo,
     // RK: resolve merged-away group members by id, so a bulk action reaches every source of a merge
     //     group and not just the collapsed primary
-    private val getManga: GetManga = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
+    private val getManga: GetManga,
+    private val getCategories: GetCategories,
     // RK: gallery tags + alt-titles for the library tag-search engine
-    private val getSearchTags: GetSearchTags = Injekt.get(),
-    private val getSearchTitles: GetSearchTitles = Injekt.get(),
-    private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
-    private val getNextChapters: GetNextChapters = Injekt.get(),
-    private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
-    private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId = Injekt.get(),
-    private val setReadStatus: SetReadStatus = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val setMangaCategories: SetMangaCategories = Injekt.get(),
-    private val preferences: BasePreferences = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get(),
-    private val downloadCache: DownloadCache = Injekt.get(),
-    private val trackerManager: TrackerManager = Injekt.get(),
+    private val getSearchTags: GetSearchTags,
+    private val getSearchTitles: GetSearchTitles,
+    private val getTracksPerManga: GetTracksPerManga,
+    private val getNextChapters: GetNextChapters,
+    private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId,
+    private val setReadStatus: SetReadStatus,
+    private val updateManga: UpdateManga,
+    private val setMangaCategories: SetMangaCategories,
+    private val preferences: BasePreferences,
+    private val libraryPreferences: LibraryPreferences,
+    private val coverCache: CoverCache,
+    private val sourceManager: SourceManager,
+    private val downloadManager: DownloadManager,
+    private val downloadCache: DownloadCache,
+    private val trackerManager: TrackerManager,
     // RK -->
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
-    private val mergeManager: MangaMergeManager = Injekt.get(),
-    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
-    private val chapterMatchKeyRepository: ChapterMatchKeyRepository = Injekt.get(),
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val mergeManager: MangaMergeManager,
+    private val mergeGroupRepository: MergeGroupRepository,
+    private val chapterMatchKeyRepository: ChapterMatchKeyRepository,
     // RK: backs the `chapter:` search term's id-set lookup.
-    private val chapterRepository: ChapterRepository = Injekt.get(),
-    private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
-    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get(),
+    private val chapterRepository: ChapterRepository,
+    private val mergedChapterProvider: MergedChapterProvider,
+    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys,
     // RK <--
 ) : ViewModel() {
 

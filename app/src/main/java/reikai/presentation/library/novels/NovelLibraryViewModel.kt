@@ -1,8 +1,12 @@
 package reikai.presentation.library.novels
 
-import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -76,7 +80,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -87,33 +90,33 @@ import kotlin.time.Duration.Companion.seconds
  * on; display settings are shared with manga, and tracker filter/sort/group reuse the shared tracker
  * machinery via [getNovelTracks].
  */
-class NovelLibraryViewModel :
-    ViewModel() {
-
-    private val context: Application by injectLazy()
-    private val novelRepository: NovelRepository by injectLazy()
-    private val updateNovel: UpdateNovel by injectLazy()
-    private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
-    private val novelChapterRepository: NovelChapterRepository by injectLazy()
-    private val novelDownloadManager: NovelDownloadManager by injectLazy()
-    private val novelDownloadCache: NovelDownloadCache by injectLazy()
-    private val getNovelCategories: GetNovelCategories by injectLazy()
-
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+class NovelLibraryViewModel(
+    private val novelRepository: NovelRepository,
+    private val updateNovel: UpdateNovel,
+    private val setNovelReadStatus: SetNovelReadStatus,
+    private val novelChapterRepository: NovelChapterRepository,
+    private val novelDownloadManager: NovelDownloadManager,
+    private val novelDownloadCache: NovelDownloadCache,
+    private val getNovelCategories: GetNovelCategories,
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
-    private val getCustomNovelInfo: GetCustomNovelInfo by injectLazy()
-    private val setNovelCategories: SetNovelCategories by injectLazy()
-    private val libraryPreferences: LibraryPreferences by injectLazy()
-    private val basePreferences: BasePreferences by injectLazy()
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
-    private val sourceManager: NovelSourceManager by injectLazy()
-    private val mergeManager: NovelMergeManager by injectLazy()
-    private val mergeGroupRepository: MergeGroupRepository by injectLazy()
-    private val chapterMatchKeyRepository: ChapterMatchKeyRepository by injectLazy()
-    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys by injectLazy()
-    private val installer: LnPluginInstaller by injectLazy()
-    private val trackerManager: TrackerManager by injectLazy()
-    private val getNovelTracks: GetNovelTracks by injectLazy()
-    private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
+    private val getCustomNovelInfo: GetCustomNovelInfo,
+    private val setNovelCategories: SetNovelCategories,
+    private val libraryPreferences: LibraryPreferences,
+    private val basePreferences: BasePreferences,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val sourceManager: NovelSourceManager,
+    private val mergeManager: NovelMergeManager,
+    private val mergeGroupRepository: MergeGroupRepository,
+    private val chapterMatchKeyRepository: ChapterMatchKeyRepository,
+    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys,
+    private val installer: LnPluginInstaller,
+    private val trackerManager: TrackerManager,
+    private val getNovelTracks: GetNovelTracks,
+    private val getNextNovelChapter: GetNextNovelChapter,
+) : ViewModel() {
 
     private val searchQuery = MutableStateFlow<String?>(null)
 

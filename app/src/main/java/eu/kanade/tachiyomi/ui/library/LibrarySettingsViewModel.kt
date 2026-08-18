@@ -2,6 +2,11 @@ package eu.kanade.tachiyomi.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.flow.SharingStarted
@@ -10,18 +15,19 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.category.interactor.SetDisplayMode
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class LibrarySettingsViewModel(
-    val preferences: BasePreferences = Injekt.get(),
-    val libraryPreferences: LibraryPreferences = Injekt.get(),
+    val preferences: BasePreferences,
+    val libraryPreferences: LibraryPreferences,
     // RK -->
-    val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     // RK <--
-    private val setDisplayMode: SetDisplayMode = Injekt.get(),
-    trackerManager: TrackerManager = Injekt.get(),
+    private val setDisplayMode: SetDisplayMode,
+    trackerManager: TrackerManager,
 ) : ViewModel() {
 
     val trackersFlow = trackerManager.loggedInTrackersFlow()
