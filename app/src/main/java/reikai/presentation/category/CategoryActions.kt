@@ -1,5 +1,6 @@
 package reikai.presentation.category
 
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -27,11 +28,12 @@ import uy.kohesive.injekt.api.get
  * themselves to the manga-visible rows, which overlap the novel-visible rows on universal categories, so
  * letting either library renumber alone is what made the two fight over a shared row's order.
  */
+@Inject
 class CategoryActions(
-    private val categoryRepository: CategoryRepository = Injekt.get(),
-    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val renameCategory: RenameCategory = Injekt.get(),
+    private val categoryRepository: CategoryRepository,
+    private val categoryIdPreferences: CategoryIdPreferences,
+    private val libraryPreferences: LibraryPreferences,
+    private val renameCategory: RenameCategory,
 ) {
 
     fun subscribe(): Flow<List<Category>> = categoryRepository.getUnfilteredAsFlow()

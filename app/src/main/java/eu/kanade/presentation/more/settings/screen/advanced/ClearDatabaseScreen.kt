@@ -35,6 +35,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
@@ -73,7 +79,7 @@ class ClearDatabaseScreen : Screen() {
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<ClearDatabaseViewModel>()
+        val viewModel = metroViewModel<ClearDatabaseViewModel>()
         val state by viewModel.state.collectAsState()
         val scope = rememberCoroutineScope()
 
@@ -296,17 +302,20 @@ class ClearDatabaseScreen : Screen() {
     // RK <--
 }
 
-class ClearDatabaseViewModel : ViewModel() {
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+class ClearDatabaseViewModel(
+    private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga,
+    private val database: Database,
+    // RK -->
+    private val novelRepository: NovelRepository,
+    private val novelSourceManager: NovelSourceManager,
+    // RK <--
+) : ViewModel() {
 
     val state: StateFlow<ClearDatabaseViewModel.State>
         field = MutableStateFlow<ClearDatabaseViewModel.State>(State.Loading)
-    private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga = Injekt.get()
-    private val database: Database = Injekt.get()
-
-    // RK -->
-    private val novelRepository: NovelRepository = Injekt.get()
-    private val novelSourceManager: NovelSourceManager = Injekt.get()
-    // RK <--
 
     init {
         viewModelScope.launchIO {

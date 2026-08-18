@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.CategoryScreen
 import eu.kanade.presentation.category.components.CategoryCreateDialog
 import eu.kanade.presentation.category.components.CategoryDeleteDialog
@@ -38,7 +39,7 @@ class CategoryScreen : Screen() {
 
     @Composable
     override fun Content() {
-        val viewModel = viewModel<CategoryViewModel>()
+        val viewModel = metroViewModel<CategoryViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
         CategoryManager(
             state = state,

@@ -4,6 +4,11 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,9 +35,12 @@ import kotlin.time.Duration.Companion.seconds
 
 // RK: one model over one list spanning both libraries. Rows carry their own content type, so there is no
 // longer a per-type model or write path; [CategoryActions] dispatches on the row where it has to.
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class CategoryViewModel(
-    private val actions: CategoryActions = CategoryActions(),
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val actions: CategoryActions,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
     // RK: a SharedFlow rather than a receiveAsFlow Channel, which can only be collected once.
