@@ -238,7 +238,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 2. Graph (done) | `AppBindings` for the four infrastructure providers, accessors and interop for the leaf types `AppModule` / `PreferenceModule` registered, `App` bootstrap. The three module files shrink; they cannot be deleted until phases 3 to 6 empty them | Done: 1064 + 75 tests, a minified build, and on device a cold start, the full library and a backup within 14 bytes of the pre-Metro one |
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
-| 3c. Entry points (partial) | Done: all 15 workers, the 5 `setupTask` companions (through `Context.appGraph`), and `AppModule` deleted, its two `addSingleton` calls and the warm-up moved into `App`. Left: activities, receivers and both widget surfaces | Done so far: a library refresh ran both update jobs to success, and a cold start with the warm-up running from `App` |
+| 3c. Entry points (partial) | Done: all 15 workers, the 5 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, and both widget surfaces plus their two refresh managers. Left: activities and receivers | Done so far: a library refresh ran both update jobs to success, a cold start with the warm-up running from `App`, and both widgets rendering on the home screen off a minified build |
 | 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |
@@ -292,11 +292,13 @@ a step because that accessor pulls the entire ViewModel multibinding into the cl
   singletons touch SQLDelight breaks the legacy recovery silently.
 - **The `:error_handler` process.** `CrashActivity` is the only component with `android:process`
   (`AndroidManifest.xml:124`), so `App.onCreate` and therefore graph construction runs there too.
-- **Widget surfaces are system-instantiated.** `presentation-widget` currently leaks Injekt onto its
-  consumers with `api(libs.injekt)` (`presentation-widget/build.gradle.kts:25`); upstream swaps that
-  for `implementation(libs.metro.runtime)` and adds a `@ContributesTo` `PresentationWidgetGraph` so
-  the module can declare its own `inject()`. Reikai's `UnifiedUpdatesGlanceWidget` needs the same
-  treatment, with six constructor defaults rather than four.
+- **Widget surfaces are system-instantiated**, and the two of them inject from different places.
+  `presentation-widget` took upstream's shape: the Metro plugin, `implementation(libs.metro.runtime)`
+  in place of the `api(libs.injekt)` it leaked onto consumers, a `@ContributesTo` `PresentationWidgetGraph`
+  the module declares its own `inject()` on, `@HasMemberInjections` on the base widget, and `context`
+  threaded through `prepareData` now that the constructor no longer holds one. `UnifiedUpdatesGlanceWidget`
+  is NOT a subclass of that base, so the module graph does not reach it: it injects through
+  `AppGraph.inject()` like the workers, and threads `context` through four private functions.
 - **10 `setupTask` companions** are called from five migrations, from `PreferenceRestorer` and from
   composable settings bodies. Two of them are the historical R8 crash sites, so they are exactly the
   code that stops being fragile once it is graph-resolved.

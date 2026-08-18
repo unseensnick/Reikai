@@ -31,6 +31,7 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.update.LnPluginUpdateChecker
+import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.service.BackupPreferences
@@ -62,6 +63,9 @@ interface AppGraph {
     fun inject(mangaDexSyncJob: MangaDexSyncJob)
     fun inject(delayedTrackingUpdateJob: DelayedTrackingUpdateJob)
     fun inject(novelDelayedTrackingUpdateJob: NovelDelayedTrackingUpdateJob)
+
+    // Mihon's own widgets inject through PresentationWidgetGraph, contributed from presentation-widget.
+    fun inject(unifiedUpdatesGlanceWidget: UnifiedUpdatesGlanceWidget)
 
     val context: Context
 

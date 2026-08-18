@@ -97,6 +97,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     @Inject private lateinit var networkPreferences: NetworkPreferences
 
+    @Inject private lateinit var widgetManager: WidgetManager
+
+    @Inject private lateinit var unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager
+
     // Still Injekt: BasePreferences is declared in the app module and has no Metro annotation yet.
     private val basePreferences: BasePreferences by injectLazy()
 
@@ -202,9 +206,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode.get())
 
         // Updates widget update
-        WidgetManager(Injekt.get(), Injekt.get()).apply { init(scope) }
+        widgetManager.init(scope)
         // RK: unified manga + novel updates widget (own driver: WidgetManager can't see novel flows)
-        UnifiedUpdatesWidgetManager(Injekt.get(), Injekt.get(), Injekt.get()).apply { init(scope) }
+        unifiedUpdatesWidgetManager.init(scope)
 
         if (!LogcatLogger.isInstalled) {
             val minLogPriority = when {

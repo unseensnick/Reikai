@@ -3,6 +3,7 @@ package reikai.presentation.widget
 import android.content.Context
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.LifecycleCoroutineScope
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
@@ -21,13 +22,15 @@ import tachiyomi.presentation.widget.BaseUpdatesGridGlanceWidget
  * and lives in presentation-widget (which can't see novel flows), so the unified widget gets its own
  * driver here, refreshing when manga updates, novel updates, or the app-lock toggle change.
  */
+@Inject
 class UnifiedUpdatesWidgetManager(
     private val getUpdates: GetUpdates,
     private val novelRepository: NovelRepository,
     private val securityPreferences: SecurityPreferences,
 ) {
 
-    fun Context.init(scope: LifecycleCoroutineScope) {
+    context(context: Context)
+    fun init(scope: LifecycleCoroutineScope) {
         val after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilliseconds()
         combine(
             getUpdates.subscribe(read = false, after = after),
@@ -43,9 +46,9 @@ class UnifiedUpdatesWidgetManager(
             .distinctUntilChanged()
             .onEach {
                 try {
-                    UnifiedUpdatesGlanceWidget().updateAll(this)
+                    UnifiedUpdatesGlanceWidget().updateAll(context)
                 } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to update unified updates widget" }
+                    this.logcat(LogPriority.ERROR, e) { "Failed to update unified updates widget" }
                 }
             }
             .flowOn(Dispatchers.Default)
