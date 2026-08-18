@@ -98,7 +98,9 @@ class NovelLibraryViewModel(
     private val updateNovel: UpdateNovel,
     private val setNovelReadStatus: SetNovelReadStatus,
     private val novelChapterRepository: NovelChapterRepository,
-    private val novelDownloadManager: NovelDownloadManager,
+    // Deferred on purpose: building the manager restores the persisted queue and resumes the drain,
+    // so taking it directly would start novel downloads merely because the library was opened.
+    private val novelDownloadManager: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
     private val getNovelCategories: GetNovelCategories,
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
@@ -535,14 +537,15 @@ class NovelLibraryViewModel(
             novelIds.forEach { id ->
                 val novel = novelRepository.getById(id) ?: return@forEach
                 val chapters = novelChapterRepository.getByNovelId(id)
+                val downloadManager = novelDownloadManager()
                 val downloadedIds = chapters
-                    .filter { novelDownloadManager.isChapterDownloaded(novel, it) }
+                    .filter { downloadManager.isChapterDownloaded(novel, it) }
                     .mapTo(HashSet()) { it.id }
-                val queuedIds = novelDownloadManager.queueState.value
+                val queuedIds = downloadManager.queueState.value
                     .filter { it.novelId == id }
                     .mapTo(HashSet()) { it.chapterId }
                 val targets = selectChaptersForDownloadAction(chapters, action, downloadedIds + queuedIds)
-                if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
+                if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
             }
         }
     }
@@ -576,13 +579,14 @@ class NovelLibraryViewModel(
                 }
                 if (deleteDownloads) {
                     val novel = novelRepository.getById(novelId)
+                    val downloadManager = novelDownloadManager()
                     val downloaded = if (novel == null) {
                         emptyList()
                     } else {
                         novelChapterRepository.getByNovelId(novelId)
-                            .filter { novelDownloadManager.isChapterDownloaded(novel, it) }
+                            .filter { downloadManager.isChapterDownloaded(novel, it) }
                     }
-                    if (downloaded.isNotEmpty()) novelDownloadManager.deleteChapters(downloaded)
+                    if (downloaded.isNotEmpty()) downloadManager.deleteChapters(downloaded)
                 }
             }
         }

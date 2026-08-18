@@ -310,7 +310,16 @@ contributed model cannot resolve without all three.
 
 ## Riding-along changes to decide, not inherit
 
-Upstream's commit is not purely a DI change. Each of these needs an explicit yes or no:
+Upstream's commit is not purely a DI change. Each of these needs an explicit yes or no.
+
+**Decided 2026-08-18 (owner).** Taken: 4, 5, 10 and 11, all of them already in the tree. Item 11 is
+the one to say out loud, as it asked: the driver's `lock` plus `WeakReference` guard is gone, and
+`@SingleIn(AppScope::class)` on `AppBindings.providesSqlDriver` carries the single-instance guarantee
+instead. Rejected as a pattern: 10, where Reikai injects in `init` for every worker rather than
+copying upstream's split. **Deferred until the DI port is finished:** 1, 2, 3, 6, 7 and 8. None is a
+DI change; each is an API or behaviour change that happens to ride along, and taking them mid-port
+would mix two kinds of risk in one commit. Revisit them as their own items after phase 7. Item 9
+belongs to the ViewModel phase and is tracked there.
 
 1. `source-api/.../util/RxExtension.kt` deleted. Public extension-lib surface.
 2. `ConfigurableSource` switches `Injekt.get<Application>()` to `Injekt.get<Context>()`. Safe here:
