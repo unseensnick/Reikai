@@ -18,7 +18,11 @@ import reikai.novel.download.NovelDownloadManager
 class DeleteNovelChaptersAfterRead(
     private val novelPreferences: NovelPreferences,
     private val getNovelCategories: GetNovelCategories,
-    private val downloadManager: NovelDownloadManager,
+    // Deferred on purpose: building the manager restores the persisted queue and resumes the drain, so
+    // taking it directly would resume downloads from every screen that can mark a chapter read. This is
+    // the choke point, since the library, details, updates and the notification receiver all reach the
+    // manager only through here. See docs/dev/plans/metro-di-migration.md.
+    private val downloadManager: () -> NovelDownloadManager,
     private val novelRepository: NovelRepository,
 ) {
 
@@ -31,9 +35,10 @@ class DeleteNovelChaptersAfterRead(
         }
         val novel = novelRepository.getById(novelId) ?: return
         val allowBookmarked = novelPreferences.removeBookmarkedChapters().get()
+        val manager = downloadManager()
         val toDelete = chapters.filter {
-            downloadManager.isChapterDownloaded(novel, it) && (allowBookmarked || !it.bookmark)
+            manager.isChapterDownloaded(novel, it) && (allowBookmarked || !it.bookmark)
         }
-        if (toDelete.isNotEmpty()) downloadManager.deleteChapters(toDelete)
+        if (toDelete.isNotEmpty()) manager.deleteChapters(toDelete)
     }
 }

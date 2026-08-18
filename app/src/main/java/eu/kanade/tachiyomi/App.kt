@@ -99,9 +99,12 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     @Inject private lateinit var networkPreferences: NetworkPreferences
 
-    @Inject private lateinit var widgetManager: WidgetManager
+    // Both are deferred so nothing in the inject closure below reaches the database: they pull the
+    // updates and novel repositories, which take Database, and the legacy-database recovery has to move
+    // an incompatible database aside before anything opens it. See docs/dev/plans/legacy-yokai-import.md.
+    @Inject private lateinit var widgetManager: () -> WidgetManager
 
-    @Inject private lateinit var unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager
+    @Inject private lateinit var unifiedUpdatesWidgetManager: () -> UnifiedUpdatesWidgetManager
 
     // Still Injekt: BasePreferences is declared in the app module and has no Metro annotation yet.
     private val basePreferences: BasePreferences by injectLazy()
@@ -229,9 +232,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             .launchIn(scope)
 
         // Updates widget update
-        widgetManager.init(scope)
+        widgetManager().init(scope)
         // RK: unified manga + novel updates widget (own driver: WidgetManager can't see novel flows)
-        unifiedUpdatesWidgetManager.init(scope)
+        unifiedUpdatesWidgetManager().init(scope)
 
         initializeMigrator()
 

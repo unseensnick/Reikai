@@ -58,7 +58,9 @@ class NotificationReceiver : BroadcastReceiver() {
 
     // RK: the novel downloader's own manager, so its notification actions clear the queue rather than
     // only stopping the worker, which left a cancelled queue to restart on the next app open.
-    @Inject private lateinit var novelDownloadManager: NovelDownloadManager
+    // Deferred: onReceive injects every field, and building this manager restores the persisted queue
+    // and resumes the drain, so any notification tap would resume novel downloads.
+    @Inject private lateinit var novelDownloadManager: () -> NovelDownloadManager
 
     // RK: the novel update notification's mark-read and download actions resolve chapters by id.
     @Inject private lateinit var novelChapterRepository: NovelChapterRepository
@@ -95,7 +97,7 @@ class NotificationReceiver : BroadcastReceiver() {
             // RK: cancel the novel chapter downloader. Clears the queue too: stopping only the worker
             // left the queue and its store intact, and the manager restarts a stored queue on the next
             // app open, so Cancel deferred the downloads rather than cancelling them.
-            ACTION_CANCEL_NOVEL_DOWNLOAD -> novelDownloadManager.cancelAllDownloads()
+            ACTION_CANCEL_NOVEL_DOWNLOAD -> novelDownloadManager().cancelAllDownloads()
             // RK: cancel the background novel library update
             ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> NovelUpdateJob.stop(context)
             // Open reader activity
@@ -163,7 +165,9 @@ class NotificationReceiver : BroadcastReceiver() {
 
     private fun downloadNovelChapters(chapterIds: LongArray) {
         launchIO {
-            novelDownloadManager.downloadChapters(chapterIds.toList().mapNotNull { novelChapterRepository.getById(it) })
+            novelDownloadManager().downloadChapters(
+                chapterIds.toList().mapNotNull { novelChapterRepository.getById(it) },
+            )
         }
     }
     // RK <--

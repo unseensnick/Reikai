@@ -223,7 +223,8 @@ class DomainModule : InjektModule {
         addFactory { SetNovelCategories(get()) }
         addFactory { ResetNovelCategoryFlags(get()) }
         addFactory { UpdateNovel(get()) }
-        addFactory { DeleteNovelChaptersAfterRead(get(), get(), get(), get()) }
+        // The manager is a lambda so it is built on use, not on construction: see the interactor.
+        addFactory { DeleteNovelChaptersAfterRead(get(), get(), { Injekt.get() }, get()) }
         addFactory { SetNovelReadStatus(get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
