@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.GlobalSearchScreen
@@ -46,13 +47,9 @@ class GlobalSearchScreen(
         val navigator = LocalNavigator.currentOrThrow
         val haptic = LocalHapticFeedback.current
 
-        val viewModel = viewModel<GlobalSearchViewModel>(
-            factory = GlobalSearchViewModel.Factory,
-            extras = CreationExtras {
-                set(GlobalSearchViewModel.INITIAL_QUERY_KEY, searchQuery)
-                set(GlobalSearchViewModel.INITIAL_EXTENSION_FILTER_KEY, extensionFilter)
-            },
-        )
+        val viewModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
+            create(initialQuery = searchQuery, initialExtensionFilter = extensionFilter)
+        }
         val state by viewModel.state.collectAsState()
 
         // RK: shared bulk-selection

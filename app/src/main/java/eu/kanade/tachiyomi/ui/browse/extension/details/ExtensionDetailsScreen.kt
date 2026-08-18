@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.ExtensionDetailsScreen
 import eu.kanade.presentation.util.Screen
 import tachiyomi.i18n.MR
@@ -20,12 +21,9 @@ data class ExtensionDetailsScreen(
 
     @Composable
     override fun Content() {
-        val viewModel = viewModel<ExtensionDetailsViewModel>(
-            factory = ExtensionDetailsViewModel.Factory,
-            extras = CreationExtras {
-                set(ExtensionDetailsViewModel.PKG_NAME_KEY, pkgName)
-            },
-        )
+        val viewModel = assistedMetroViewModel<ExtensionDetailsViewModel, ExtensionDetailsViewModel.Factory> {
+            create(pkgName = pkgName)
+        }
         val state by viewModel.state.collectAsStateWithLifecycle()
 
         val navigator = LocalNavigator.currentOrThrow
