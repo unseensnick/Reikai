@@ -52,6 +52,13 @@ class MangaTrackWriterTest {
 
     @Test
     fun `trackWriterFor picks the manga writer for manga`() {
-        trackWriterFor(isNovel = false) shouldBe MangaTrackWriter
+        trackWriterFor(isNovel = false, novelWriter = mockk()) shouldBe MangaTrackWriter
+    }
+
+    @Test
+    fun `trackWriterFor picks the caller's novel writer for novels`() {
+        val novelWriter = mockk<TrackWriter>()
+
+        trackWriterFor(isNovel = true, novelWriter = novelWriter) shouldBe novelWriter
     }
 }

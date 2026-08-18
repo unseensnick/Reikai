@@ -3,8 +3,6 @@ package reikai.domain.track
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.Tracker
 import reikai.domain.novel.track.NovelTrackUpdater
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * The tracker-write surface the unified track dialog ([reikai.presentation.track.EntryTrackInfoDialogHomeScreen])
@@ -48,6 +46,10 @@ object MangaTrackWriter : TrackWriter {
     }
 }
 
-/** The novel writer is the injected [NovelTrackUpdater]; the manga writer is the stateless [MangaTrackWriter]. */
-fun trackWriterFor(isNovel: Boolean): TrackWriter =
-    if (isNovel) Injekt.get<NovelTrackUpdater>() else MangaTrackWriter
+/**
+ * The one place the content type picks a writer. The novel writer arrives from the caller because it is a
+ * graph binding ([NovelTrackUpdater]) while the manga writer is a stateless object the graph cannot build,
+ * so a caller injects the former and passes it here rather than each deciding for itself.
+ */
+fun trackWriterFor(isNovel: Boolean, novelWriter: TrackWriter): TrackWriter =
+    if (isNovel) novelWriter else MangaTrackWriter

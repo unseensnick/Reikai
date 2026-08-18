@@ -89,11 +89,13 @@ So treat **VANISHED as unresolved, never as expected**: find whether upstream re
 (`git log --oneline --follow --diff-filter=R -- <new path>`) and repoint the row, or confirm it was genuinely
 deleted and drop the row with a note. Only a deliberate, recorded conclusion closes one.
 
-`TrackInfoDialog.kt` carries one deferred upstream change: mihon `98705910e` (`mihonapp/mihon#3609`), the
-deferred ViewModel migration's crash fix, which lands with that bundle rather than on its own. That commit is
-now BELOW the synced base, so the off-path check reports the row clean and no longer nags; the deferred-changes
-record in [upstream-sync.md](upstream-sync.md) is the only tracker of it until the migration is ported. On a
-sync, still confirm nothing new touched the file (`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`).
+`TrackInfoDialog.kt` had two deferred upstream changes, both now carried by the twin. Mihon `98705910e`
+(`mihonapp/mihon#3609`) dropped `private` from the eight nested models so the factory could reach them, and
+mihon `b2015d1ef` converted all eight to Metro assisted injection; the twin's own conversion lands both, since
+a graph-contributed factory cannot be private either. Reikai diverges in two places upstream has no reason to
+have: the writer is picked by content type through `trackWriterFor`, and the score model declares its tracker
+above its state rather than seeding the state from an `init` block. On a sync, still confirm nothing new
+touched the file (`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`).
 
 The history and updates rows are the surfaces' UI leaves, replaced when the shared row composables took over both feeds. `HistoryScreen.kt` and `UpdatesUiItem.kt` were partially collapsed for a while and are now listed too, each having reached the manifest the way `MangaInfoHeader` did: `HistoryUiModel` was retired outright, since only its `Item` case survived the takeover and the engine dates its own rows, so `HistoryViewModel` now emits stored rows; the last-updated line moved into `RecentsRows.kt`, which is the row emitter for every mode. The state provider's row names upstream's current filename, `HistoryviewModelStateProvider.kt`; Reikai deleted it as `HistoryScreenModelStateProvider.kt`, before the deferred ViewModel migration (mihon `c3b99aea0`) renamed it. Deleting `UpdatesScreen.kt` also dropped `UpdatesViewModel.State.getUiModel()`, which nothing else called.
 
