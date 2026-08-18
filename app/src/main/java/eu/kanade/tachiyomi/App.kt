@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.Application
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -9,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.os.Process
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -106,6 +108,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
+    /** False only in `:error_handler`, the process CrashActivity runs in. Unknown counts as main, so a
+     *  process the platform will not name still starts normally. */
+    private val isMainProcess: Boolean by lazy { currentProcessName()?.equals(packageName) ?: true }
+
     @SuppressLint("LaunchActivityFromNotification")
     override fun onCreate() {
         super<Application>.onCreate()
@@ -136,6 +142,25 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         Injekt.addSingleton<Context>(this)
         Injekt.importModule(DomainModule())
         Injekt.importModule(injektMetroInteropModule)
+
+        if (!LogcatLogger.isInstalled) {
+            val minLogPriority = when {
+                networkPreferences.verboseLogging.get() -> LogPriority.VERBOSE
+                BuildConfig.DEBUG -> LogPriority.DEBUG
+                else -> LogPriority.INFO
+            }
+            LogcatLogger.install()
+            LogcatLogger.loggers += AndroidLogcatLogger(minLogPriority)
+        }
+
+        setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode.get())
+
+        // RK --> everything below belongs to the main process. CrashActivity runs in :error_handler,
+        // so this method runs a second time there: a second legacy-database recovery would move an
+        // in-flight database aside, the migrator would stamp a version for migrations it never ran,
+        // and the warm-up, widget drivers and legacy restore would race their main-process twins.
+        if (!isMainProcess) return
+        // RK <--
 
         // Warm the expensive singletons off the critical path, as the old app module did. Posted, so
         // it runs after onCreate returns and never races the legacy-database recovery below.
@@ -203,22 +228,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             .onEach(TelemetryConfig::setCrashlyticsEnabled)
             .launchIn(scope)
 
-        setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode.get())
-
         // Updates widget update
         widgetManager.init(scope)
         // RK: unified manga + novel updates widget (own driver: WidgetManager can't see novel flows)
         unifiedUpdatesWidgetManager.init(scope)
-
-        if (!LogcatLogger.isInstalled) {
-            val minLogPriority = when {
-                networkPreferences.verboseLogging.get() -> LogPriority.VERBOSE
-                BuildConfig.DEBUG -> LogPriority.DEBUG
-                else -> LogPriority.INFO
-            }
-            LogcatLogger.install()
-            LogcatLogger.loggers += AndroidLogcatLogger(minLogPriority)
-        }
 
         initializeMigrator()
 
@@ -238,6 +251,14 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             )
         }
         // RK <--
+    }
+
+    private fun currentProcessName(): String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        getProcessName()
+    } else {
+        val pid = Process.myPid()
+        val activityManager = getSystemService(ACTIVITY_SERVICE) as? ActivityManager
+        activityManager?.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
     }
 
     private fun initializeMigrator() {
