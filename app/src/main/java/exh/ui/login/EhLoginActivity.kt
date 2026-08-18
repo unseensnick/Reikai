@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
+import dev.zacsweers.metro.Inject
 import eu.kanade.presentation.webview.EhLoginWebViewScreen
 import eu.kanade.presentation.webview.components.IgneousDialog
 import eu.kanade.tachiyomi.R
@@ -20,8 +21,8 @@ import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.source.ExhPreferences
+import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import java.net.HttpCookie
 import java.util.Locale
 
@@ -31,9 +32,11 @@ import java.util.Locale
  * ExHentai sources appear.
  */
 class EhLoginActivity : BaseActivity() {
-    private val exhPreferences: ExhPreferences by injectLazy()
+
+    @Inject private lateinit var exhPreferences: ExhPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        appGraph.inject(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(
                 OVERRIDE_TRANSITION_OPEN,

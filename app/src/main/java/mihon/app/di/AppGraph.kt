@@ -5,6 +5,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.App
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
@@ -12,13 +13,21 @@ import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
+import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.extension.util.ExtensionInstallActivity
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegateImpl
+import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import exh.eh.EHentaiUpdateWorker
 import exh.favorites.EhFavoritesBackupJob
 import exh.md.MangaDexSyncJob
 import exh.source.ExhPreferences
+import exh.ui.login.EhLoginActivity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
@@ -67,6 +76,16 @@ interface AppGraph {
     // Mihon's own widgets inject through PresentationWidgetGraph, contributed from presentation-widget.
     fun inject(unifiedUpdatesGlanceWidget: UnifiedUpdatesGlanceWidget)
 
+    fun inject(secureActivityDelegateImpl: SecureActivityDelegateImpl)
+
+    fun inject(mainActivity: MainActivity)
+    fun inject(readerActivity: ReaderActivity)
+    fun inject(webViewActivity: WebViewActivity)
+    fun inject(baseOAuthLoginActivity: BaseOAuthLoginActivity)
+    fun inject(extensionInstallActivity: ExtensionInstallActivity)
+    fun inject(ehLoginActivity: EhLoginActivity)
+    fun inject(notificationReceiver: NotificationReceiver)
+
     val context: Context
 
     val json: Json
@@ -92,6 +111,8 @@ interface AppGraph {
     val storagePreferences: StoragePreferences
 
     // Read through Context.appGraph by companions and objects, which cannot be member-injected.
+    // uiPreferences is also read from attachBaseContext, before any injected field exists.
+    val uiPreferences: UiPreferences
     val exhPreferences: ExhPreferences
     val novelPreferences: NovelPreferences
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences

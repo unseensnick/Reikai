@@ -33,17 +33,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import mihon.app.di.appGraph
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Imports a gallery link shared or opened from another app (ACTION_VIEW). Resolves the URL to a
@@ -56,6 +54,10 @@ class InterceptActivity : BaseActivity() {
     private val status: MutableStateFlow<InterceptResult> = MutableStateFlow(InterceptResult.Idle)
 
     private val galleryAdder = GalleryAdder()
+
+    // GalleryAdder still resolves its own dependencies from Injekt: it is also built from a
+    // top-level val and a ViewModel, neither of which can be member-injected yet.
+    private val sourceManager get() = appGraph.sourceManager
 
     init {
         registerSecureActivity(this)
@@ -127,7 +129,7 @@ class InterceptActivity : BaseActivity() {
         if (url != null) {
             lifecycleScope.launchIO {
                 // wait for sources to load
-                Injekt.get<SourceManager>().isInitialized.first { it }
+                sourceManager.isInitialized.first { it }
                 loadGallery(url)
             }
         }
