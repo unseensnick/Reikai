@@ -3,6 +3,11 @@ package reikai.presentation.updates
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +42,6 @@ import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.updates.service.UpdatesPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
@@ -50,16 +53,19 @@ import kotlin.time.Duration.Companion.seconds
  * novel repos + [NovelDownloadManager]. Novels rely on the manga tab's unread-count badge reset, so
  * there is nothing to reset here.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelUpdatesViewModel(
-    private val novelRepo: NovelRepository = Injekt.get(),
-    private val chapterRepo: NovelChapterRepository = Injekt.get(),
-    private val setNovelReadStatus: SetNovelReadStatus = Injekt.get(),
-    private val downloadManager: NovelDownloadManager = Injekt.get(),
-    private val novelDownloadCache: NovelDownloadCache = Injekt.get(),
-    private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val updatesPreferences: UpdatesPreferences = Injekt.get(),
+    private val novelRepo: NovelRepository,
+    private val chapterRepo: NovelChapterRepository,
+    private val setNovelReadStatus: SetNovelReadStatus,
+    private val downloadManager: NovelDownloadManager,
+    private val novelDownloadCache: NovelDownloadCache,
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val updatesPreferences: UpdatesPreferences,
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
-    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
+    private val getCustomNovelInfo: GetCustomNovelInfo,
 ) : ViewModel() {
 
     // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.

@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
@@ -42,7 +43,7 @@ data object UpdatesTab : Tab, ShowsUpdatesBadge {
         val engine = rememberUpdatesEngine()
         // RK: held only for the badge reset below. The engine resolves the same instance out of this
         //     tab's store, so this costs no second model.
-        val viewModel = viewModel<UpdatesViewModel>()
+        val viewModel = metroViewModel<UpdatesViewModel>()
 
         RecentsTabBody(
             engine = engine,

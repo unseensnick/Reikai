@@ -13,6 +13,7 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import kotlinx.coroutines.channels.Channel
@@ -55,8 +56,8 @@ data object HistoryTab : Tab {
         val engine = rememberHistoryEngine()
         // RK: both models stay resolved for their event channels, which report a failed write and a
         //     cleared history. The engine builds these same two out of this tab's store.
-        val viewModel = viewModel<HistoryViewModel>()
-        val novelViewModel = viewModel<NovelHistoryViewModel>()
+        val viewModel = metroViewModel<HistoryViewModel>()
+        val novelViewModel = metroViewModel<NovelHistoryViewModel>()
 
         RecentsTabBody(
             engine = engine,

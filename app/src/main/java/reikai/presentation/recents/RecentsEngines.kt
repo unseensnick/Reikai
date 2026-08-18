@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import reikai.domain.category.RecentsSurface
@@ -19,8 +20,8 @@ import reikai.presentation.updates.NovelUpdatesViewModel
 /** Updates: the updated lane alone, so neither history model is built. */
 @Composable
 fun rememberUpdatesEngine(): RecentsEngine {
-    val manga = viewModel<UpdatesViewModel>()
-    val novel = viewModel<NovelUpdatesViewModel>()
+    val manga = metroViewModel<UpdatesViewModel>()
+    val novel = metroViewModel<NovelUpdatesViewModel>()
     return recentsEngine(RecentsSurface.UPDATES, setOf(RecentsMode.UPDATES)) {
         listOf(MangaRecentsAdapter.forUpdates(manga), NovelRecentsAdapter.forUpdates(novel))
     }
@@ -29,8 +30,8 @@ fun rememberUpdatesEngine(): RecentsEngine {
 /** History: the read lane alone, so neither updates model is built. */
 @Composable
 fun rememberHistoryEngine(): RecentsEngine {
-    val manga = viewModel<HistoryViewModel>()
-    val novel = viewModel<NovelHistoryViewModel>()
+    val manga = metroViewModel<HistoryViewModel>()
+    val novel = metroViewModel<NovelHistoryViewModel>()
     return recentsEngine(RecentsSurface.HISTORY, setOf(RecentsMode.HISTORY)) {
         listOf(MangaRecentsAdapter.forHistory(manga), NovelRecentsAdapter.forHistory(novel))
     }
@@ -43,10 +44,10 @@ fun rememberHistoryEngine(): RecentsEngine {
  */
 @Composable
 fun rememberRecentsEngine(): RecentsEngine {
-    val mangaUpdates = viewModel<UpdatesViewModel>()
-    val novelUpdates = viewModel<NovelUpdatesViewModel>()
-    val mangaHistory = viewModel<HistoryViewModel>()
-    val novelHistory = viewModel<NovelHistoryViewModel>()
+    val mangaUpdates = metroViewModel<UpdatesViewModel>()
+    val novelUpdates = metroViewModel<NovelUpdatesViewModel>()
+    val mangaHistory = metroViewModel<HistoryViewModel>()
+    val novelHistory = metroViewModel<NovelHistoryViewModel>()
     return recentsEngine(RecentsSurface.RECENTS, RecentsMode.entries.toSet()) {
         listOf(
             MangaRecentsAdapter.forRecents(mangaUpdates, mangaHistory),

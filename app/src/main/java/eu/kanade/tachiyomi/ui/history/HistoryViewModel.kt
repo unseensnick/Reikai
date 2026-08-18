@@ -3,6 +3,11 @@ package eu.kanade.tachiyomi.ui.history
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -28,17 +33,18 @@ import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class HistoryViewModel(
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
-    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
-    private val getHistory: GetHistory = Injekt.get(),
-    private val removeHistory: RemoveHistory = Injekt.get(),
+    private val getCustomMangaInfo: GetCustomMangaInfo,
+    private val getHistory: GetHistory,
+    private val removeHistory: RemoveHistory,
     // RK: the History tab's category filter, one selection covering both content types.
-    private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    private val reikaiSourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)

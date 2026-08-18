@@ -3,6 +3,11 @@ package reikai.presentation.history
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -28,8 +33,6 @@ import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -39,12 +42,15 @@ import kotlin.time.Duration.Companion.seconds
  * most-recently-read chapter; the recents engine searches, interleaves and dates it, so what leaves
  * here is the raw list and nothing else.
  */
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelHistoryViewModel(
-    private val getNovelHistory: GetNovelHistory = Injekt.get(),
+    private val getNovelHistory: GetNovelHistory,
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
-    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
-    private val removeNovelHistory: RemoveNovelHistory = Injekt.get(),
-    private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    private val getCustomNovelInfo: GetCustomNovelInfo,
+    private val removeNovelHistory: RemoveNovelHistory,
+    private val sourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
