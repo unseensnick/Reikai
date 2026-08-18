@@ -1,8 +1,7 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
@@ -61,11 +60,6 @@ private fun recentsEngine(
     surface: RecentsSurface,
     modes: Set<RecentsMode>,
     providers: () -> List<RecentsProvider>,
-): RecentsEngine = viewModel(
-    factory = RecentsEngine.Factory,
-    extras = CreationExtras {
-        set(RecentsEngine.PROVIDERS_KEY, providers())
-        set(RecentsEngine.SURFACE_KEY, surface)
-        set(RecentsEngine.MODES_KEY, modes)
-    },
-)
+): RecentsEngine = assistedMetroViewModel<RecentsEngine, RecentsEngine.Factory> {
+    create(providers = providers(), surface = surface, modes = modes)
+}

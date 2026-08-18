@@ -20,10 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
@@ -44,13 +43,9 @@ class MetadataViewScreen(
 ) : Screen() {
     @Composable
     override fun Content() {
-        val viewModel = viewModel<MetadataViewViewModel>(
-            factory = MetadataViewViewModel.Factory,
-            extras = CreationExtras {
-                set(MetadataViewViewModel.MANGA_ID_KEY, mangaId)
-                set(MetadataViewViewModel.SOURCE_ID_KEY, sourceId)
-            },
-        )
+        val viewModel = assistedMetroViewModel<MetadataViewViewModel, MetadataViewViewModel.Factory> {
+            create(mangaId = mangaId, sourceId = sourceId)
+        }
         val navigator = LocalNavigator.currentOrThrow
 
         val state by viewModel.state.collectAsState()

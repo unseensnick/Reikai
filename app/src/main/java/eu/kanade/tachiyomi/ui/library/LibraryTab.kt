@@ -44,13 +44,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
@@ -152,15 +151,9 @@ data object LibraryTab : Tab {
         // must not be `remember`ed separately: the engine outlives the composition, so a tab switch would
         // hand the tab a second pair while the engine kept dispatching through the first. All three models
         // share this tab host's ViewModelStore, so the pair the factory captures is cleared alongside them.
-        val engine = viewModel<LibraryEngine>(
-            factory = LibraryEngine.Factory,
-            extras = CreationExtras {
-                set(
-                    LibraryEngine.PROVIDERS_KEY,
-                    listOf(MangaLibraryAdapter(viewModel), NovelLibraryAdapter(novelModel)),
-                )
-            },
-        )
+        val engine = assistedMetroViewModel<LibraryEngine, LibraryEngine.Factory> {
+            create(providers = listOf(MangaLibraryAdapter(viewModel), NovelLibraryAdapter(novelModel)))
+        }
         val libraryContentType by engine.contentType.collectAsState()
         val libraryDialog by engine.dialog.collectAsState()
         // RK: the library-wide display config, read from the engine rather than off the manga model, so

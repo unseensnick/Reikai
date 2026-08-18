@@ -3,10 +3,14 @@ package reikai.presentation.recents
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.core.screen.Screen
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
@@ -34,8 +38,6 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -46,42 +48,42 @@ import kotlin.time.Duration.Companion.seconds
  * [lanes] is the surface's, not the chip's: every provider's lanes always run, and the chip only
  * selects whose rows assemble. Record: content-layer-recents-surface.md.
  */
+@AssistedInject
 class RecentsEngine(
-    private val providers: List<RecentsProvider>,
-    val surface: RecentsSurface,
+    // Assisted: each provider wraps a ViewModel the screen has already resolved, so the list can only
+    // be built at the call site.
+    @Assisted private val providers: List<RecentsProvider>,
+    @Assisted val surface: RecentsSurface,
     /** Public so the screen can offer the choice; the engine still owns which one is on. */
-    val modes: Set<RecentsMode>,
-    private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val updatesPreferences: UpdatesPreferences = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    @Assisted val modes: Set<RecentsMode>,
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val updatesPreferences: UpdatesPreferences,
+    private val libraryPreferences: LibraryPreferences,
 ) : ViewModel() {
 
-    companion object {
-        val PROVIDERS_KEY = CreationExtras.Key<List<RecentsProvider>>()
-        val SURFACE_KEY = CreationExtras.Key<RecentsSurface>()
-        val MODES_KEY = CreationExtras.Key<Set<RecentsMode>>()
+    /**
+     * Only the first [androidx.lifecycle.viewmodel.compose.viewModel] call for a given store builds the
+     * engine; later calls return that instance and ignore this factory. That is what keeps exactly one
+     * adapter pair alive, so do not "fix" it into something that runs per composition.
+     */
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(
+            providers: List<RecentsProvider>,
+            surface: RecentsSurface,
+            modes: Set<RecentsMode>,
+        ): RecentsEngine
+    }
 
+    companion object {
         /**
          * Anything derived over a provider holds that provider's feed subscription open, so it stops
          * once nothing renders it. The window matches the history models the read lane runs through.
          * A value a verb reads synchronously stays eager instead: unsubscribed, `value` is the seed.
          */
         private val OVER_PROVIDERS = SharingStarted.WhileSubscribed(5.seconds)
-
-        /**
-         * Only the first [androidx.lifecycle.viewmodel.compose.viewModel] call for a given store builds
-         * the engine; later calls return that instance and ignore this factory. That is what keeps
-         * exactly one adapter pair alive, so do not "fix" it into something that runs per composition.
-         */
-        val Factory = viewModelFactory {
-            initializer {
-                RecentsEngine(
-                    providers = get(PROVIDERS_KEY)!!,
-                    surface = get(SURFACE_KEY)!!,
-                    modes = get(MODES_KEY)!!,
-                )
-            }
-        }
     }
 
     init {

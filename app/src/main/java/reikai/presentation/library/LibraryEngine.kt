@@ -3,9 +3,13 @@ package reikai.presentation.library
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.DownloadAction
@@ -40,8 +44,6 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.seconds
 
@@ -53,27 +55,29 @@ import kotlin.time.Duration.Companion.seconds
  * [providersFor] answers with every provider whose rows belong in a view, both under [ContentType.ALL];
  * [behaviorFor] still fails loudly there, since one behaviour cannot answer for two content types.
  */
+@AssistedInject
 class LibraryEngine(
-    private val providers: List<LibraryProvider>,
-    // Handed in rather than resolved lazily inside, so a test can drive the assembly. Selection is not
-    // pure maths any more: it is pruned to what the assembly kept, and a rule about the assembly can
-    // only be pinned by a test that can actually run one.
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val categoryRepository: CategoryRepository = Injekt.get(),
+    // Assisted: each provider wraps a ViewModel the screen has already resolved, so the list can only
+    // be built at the call site.
+    @Assisted private val providers: List<LibraryProvider>,
+    // Constructor parameters rather than lazy lookups, so a test can drive the assembly. Selection is
+    // not pure maths any more: it is pruned to what the assembly kept, and a rule about the assembly
+    // can only be pinned by a test that can actually run one.
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val libraryPreferences: LibraryPreferences,
+    private val categoryRepository: CategoryRepository,
 ) : ViewModel() {
 
-    companion object {
-        val PROVIDERS_KEY = CreationExtras.Key<List<LibraryProvider>>()
-
-        /**
-         * Only the first [viewModel] call for a given store builds the engine; later calls return that
-         * instance and ignore this factory. That is what keeps exactly one adapter pair alive, so do not
-         * "fix" the initializer into something that expects to run per composition.
-         */
-        val Factory = viewModelFactory {
-            initializer { LibraryEngine(providers = get(PROVIDERS_KEY)!!) }
-        }
+    /**
+     * Only the first [viewModel] call for a given store builds the engine; later calls return that
+     * instance and ignore this factory. That is what keeps exactly one adapter pair alive, so do not
+     * "fix" it into something that expects to run per composition.
+     */
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(providers: List<LibraryProvider>): LibraryEngine
     }
 
     // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
