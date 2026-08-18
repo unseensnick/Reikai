@@ -239,7 +239,7 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
 | 3c. Entry points (done) | All 15 workers, the 5 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
-| 4. ViewModels and Compose | Annotate the models, delete 38 factories and 73 extras keys, provide `LocalMetroViewModelFactory` at every host, convert 54 composable reads | `testDebugUnitTest` proves manual constructibility; the screens need a device pass |
+| 4. ViewModels and Compose (spike done) | Done: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local provided at both `setComposeContent` roots, one plain model (`SourcesViewModel`) and one assisted (`WebViewViewModel`). Left: the other 74 models, their 37 remaining factories and 72 keys, and roughly 70 composable Injekt reads | Done for the spike: the sources list and a source WebView with built headers, on a minified build. The rest needs a per-screen device pass |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7. Cleanup | Drop the `reikai.**` / `exh.**` proguard keeps if no Injekt generic remains, regenerate both baseline profiles, rewrite the rules files | Minified `:app:assemblePreview`, then the profiles' own generation task |
@@ -255,11 +255,16 @@ follow-up.
 compiling against the same constructors. Graph-first forces the whole transitive closure of every
 accessor to be annotated at once.
 
+**The ViewModel phase is incremental, not a cliff.** Only a model carrying `@ViewModelKey` or an
+assisted-factory key joins the multibinding, so every model still on its own `viewModelFactory`
+companion keeps working untouched. Convert screen by screen; the graph pieces (the `ViewModelGraph`
+supertype, the factory binding, the composition local) are what must land first and together.
+
 **Atomic units that cannot be split:** the Gradle plugin plus the runtime dependency plus the first
 annotation in a module; a module file's deletion plus every type it registered; the migration set
 (the `Set<Migration>` injection and every `@ContributesIntoSet`); and the `ViewModelGraph` supertype
-plus the `viewModelFactory` accessor plus every contributed ViewModel, which is a cliff rather than
-a step because that accessor pulls the entire ViewModel multibinding into the closure.
+plus the `viewModelFactory` accessor plus the composition local, which arrive together because a
+contributed model cannot resolve without all three.
 
 ## Traps
 

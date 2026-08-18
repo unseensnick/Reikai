@@ -4,6 +4,8 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
+import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
+import dev.zacsweers.metrox.viewmodel.ViewModelGraph
 import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.App
@@ -58,7 +60,9 @@ import tachiyomi.source.local.io.LocalSourceFileSystem
     scope = AppScope::class,
     bindingContainers = [AppBindings::class, ReikaiBindings::class],
 )
-interface AppGraph {
+interface AppGraph : ViewModelGraph {
+    val viewModelFactory: MetroViewModelFactory
+
     fun inject(app: App)
 
     fun inject(libraryUpdateJob: LibraryUpdateJob)

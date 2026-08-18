@@ -322,6 +322,8 @@ dependencies {
     // Dependency injection
     implementation(libs.injekt)
     implementation(libs.metro.runtime)
+    implementation(libs.metrox.viewmodel)
+    implementation(libs.metrox.viewmodel.compose)
 
     // RK: headless QuickJS (dokar3) for the LN plugin host (reikai.novel.host)
     implementation(libs.quickjs.kt)

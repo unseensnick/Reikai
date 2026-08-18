@@ -20,6 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.SourceItem
 import eu.kanade.presentation.browse.SourceOptionsDialog
 import eu.kanade.presentation.browse.SourceUiModel
@@ -65,7 +66,7 @@ import tachiyomi.source.local.isLocal
 @Composable
 fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val navigator = LocalNavigator.currentOrThrow
-    val sourcesModel = viewModel<SourcesViewModel>()
+    val sourcesModel = metroViewModel<SourcesViewModel>()
     val sourcesState by sourcesModel.state.collectAsStateWithLifecycle()
     val novelModel = viewModel<NovelSourcesViewModel>()
     val novelState by novelModel.state.collectAsStateWithLifecycle()
