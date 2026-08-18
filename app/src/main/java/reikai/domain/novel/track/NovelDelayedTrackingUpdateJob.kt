@@ -16,8 +16,6 @@ import mihon.core.metro.metroGraph
 import reikai.domain.novel.interactor.GetNovelTracks
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 /**

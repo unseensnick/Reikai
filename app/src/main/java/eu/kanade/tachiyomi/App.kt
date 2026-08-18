@@ -84,7 +84,6 @@ import tachiyomi.presentation.widget.WidgetManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
 import java.security.Security
 
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
@@ -106,8 +105,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     @Inject private lateinit var unifiedUpdatesWidgetManager: () -> UnifiedUpdatesWidgetManager
 
-    // Still Injekt: BasePreferences is declared in the app module and has no Metro annotation yet.
-    private val basePreferences: BasePreferences by injectLazy()
+    @Inject private lateinit var basePreferences: BasePreferences
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 

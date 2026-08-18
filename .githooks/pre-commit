@@ -103,16 +103,17 @@ if staged docs/dev/upstream-sync.md; then
   fi
 fi
 
-# ===== DI interop: a type is never both graph-owned and Injekt-registered =====
-# Registered in both places the app runs with two instances and loses state silently instead of
-# crashing, so nothing else surfaces it. See docs/dev/plans/metro-di-migration.md.
-di_files="app/src/main/java/mihon/app/di/injekt/MetroInteropModule.kt
-app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt
-app/src/main/java/eu/kanade/tachiyomi/di/PreferenceModule.kt
-app/src/main/java/eu/kanade/domain/DomainModule.kt"
+# ===== DI ownership: graph-owned, singleton, and never Injekt-registered as well =====
+# All three mistakes are silent at build and run time: two instances of a type lose state, and a
+# missed annotation keeps working on the Injekt registration. See docs/dev/plans/metro-di-migration.md.
+# The trigger is the staged content, not a path list: a path list goes stale as the port deletes files,
+# and the mistake usually lands on an ordinary annotated class rather than on a module file.
 di_touched=0
-for f in $di_files; do
-  if git diff --cached --name-only | grep -qx "$f"; then di_touched=1; fi
+for f in $(git diff --cached --name-only --diff-filter=d | grep '\.kt$'); do
+  if git show ":$f" 2>/dev/null | grep -qE 'dev\.zacsweers\.metro|InjektModule|addSingletonFactory|addFactory'; then
+    di_touched=1
+    break
+  fi
 done
 if [ "$di_touched" -eq 1 ] && [ -f scripts/di-interop-check.ps1 ]; then
   if command -v pwsh >/dev/null 2>&1; then

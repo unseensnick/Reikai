@@ -27,7 +27,6 @@ import mihon.domain.extension.model.ExtensionStore
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.util.lang.launchIO
-import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 

@@ -45,7 +45,6 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 @Inject

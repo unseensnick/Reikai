@@ -1,6 +1,6 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 2 landed, phases 3 to 7 remain.** Research completed 2026-08-16 against upstream
+> **Status: phases 0 to 3c landed, phase 4 in progress, phases 5 to 7 remain.** Research completed 2026-08-16 against upstream
 > `b2015d1ef`; re-verified and corrected 2026-08-17 before phase 0. Every count below was measured,
 > not estimated; the commands are given so a cold session can re-derive them before trusting them.
 
@@ -88,15 +88,35 @@ initializers before, so `init` preserves the old semantics, and it removes the h
 can call `getForegroundInfo` before `doWork`: `NovelDownloadJob` reads an injected field there.
 Upstream's own `LibraryUpdateJob` has the shape this avoids.
 
-**Three install paths are still untested across the whole port** (2026-08-18): fresh install, upgrade
-from a shipped build, and the `:error_handler` crash process. Every device pass so far ran on one
-emulator with existing state. The upgrade path is what the `Provider`-not-instance interop rule
-protects, and that rule is reasoned rather than exercised.
+**Two install paths are still untested across the whole port** (2026-08-18): fresh install and upgrade
+from a shipped build. Every device pass so far ran on one emulator with existing state. The upgrade
+path is what the `Provider`-not-instance interop rule protects, and that rule is reasoned rather than
+exercised. The `:error_handler` process was exercised by a forced crash when its gate landed.
 
 **The gates prove "nothing broke", not "nothing was missed."** Six update-error interactors were
 walked past in 3b and every gate still passed, because they were still Injekt-registered. That is why
 `scripts/di-interop-check.ps1` now fails on a registered class with no graph annotation, alongside its
-original no-double-registration check. Both halves are mutation-tested.
+original no-double-registration check. All three halves are mutation-tested.
+
+**Lazy to eager is the port's own bug class** (audit, 2026-08-18). The port removed 110 `by
+injectLazy()` delegates and 333 `Injekt.get()` constructor defaults; each one changes *when* the
+dependency is built, and a dependency whose `init` starts work then starts it wherever its owner is
+built. One case was caught on device by accident, and the fix for it (`d38d1d27f`) closed the direct
+edge while a transitive one stayed open: the novel library reached `NovelDownloadManager` through
+`SetNovelReadStatus` to `DeleteNovelChaptersAfterRead`, so opening the library still resumed
+downloads. **Before promoting any dependency to a constructor parameter, read its `init`, and check
+the promoted type's whole transitive closure rather than the one edge you are editing.** Member
+injection is the same hazard by another route: `NotificationReceiver` injects every field at the top
+of `onReceive`, so a field only one action needs is built for every notification tap.
+
+**The audit's other two findings.** `App.onCreate` had come to build `Database` before the legacy
+recovery ran, inert only because the SQLDelight driver opens its connection lazily; both widget
+managers are lambdas now so the ordering holds structurally. And the guard checked ownership but never
+scope, which is the actual mechanism of the silent-double-instance bug it was written for: Injekt's
+`addSingletonFactory` caches per type forever, while an unscoped Metro binding builds a new instance
+per injection, so the two halves of the app drift apart with nothing failing. It now checks scope,
+discovers Injekt modules instead of reading a stale path list, matches multi-line registrations, and
+runs from CI as well as the hook, which fires on staged content rather than four hard-coded paths.
 
 Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
 
@@ -268,35 +288,33 @@ contributed model cannot resolve without all three.
 
 ## Traps
 
-- **The merge-manager cycle.** `DomainModule.kt:267` and `:271` hand `MangaMergeManager` and
-  `NovelMergeManager` a lambda that resolves `PropagateTrackerLinks` / `PropagateNovelTrackerLinks`,
-  which depend on the managers. Metro rejects the direct cycle at compile time, so the lambda becomes
-  `Lazy<T>` in the same commit the four types are annotated. Upstream has the same shape at
-  `AndroidSourceManager` and solves it with `private val downloadManager: Lazy<DownloadManager>`.
-- **`LnPluginHost` and `LnPluginLoader` take an `OkHttpClient`**, built at `AppModule.kt:148` from
-  `get<NetworkHelper>().client`. `@Inject` alone cannot resolve a bare `OkHttpClient`. Change both
-  constructors to take `NetworkHelper` rather than adding a global `OkHttpClient` binding that other
-  code could bind by accident.
+- **The merge-manager cycle.** `MangaMergeManager` and `NovelMergeManager` take a lambda resolving
+  `PropagateTrackerLinks` / `PropagateNovelTrackerLinks`, which depend on the managers. Metro rejects
+  the direct cycle at compile time, so `ReikaiBindings` supplies that lambda from a `Provider`.
+  Upstream has the same shape at `AndroidSourceManager` and solves it with `Lazy<DownloadManager>`.
+- **`LnPluginHost` and `LnPluginLoader` took an `OkHttpClient`** built from `NetworkHelper.client`.
+  `@Inject` alone cannot resolve a bare `OkHttpClient`, so both constructors take `NetworkHelper`
+  rather than a global `OkHttpClient` binding that other code could bind by accident.
 - **`AndroidSourceManager` builds sources inside an init flow collector and matches delegated sources
-  by `sourceName`**, both invisible to Metro. It also breaks its own cycle with
-  `private val downloadManager: DownloadManager by injectLazy()` (`AndroidSourceManager.kt:65`, and
-  `exhPreferences` at `:68`), a property delegate rather than a constructor parameter, so the port
-  needs `Provider`/`Lazy` injection there, not a parameter swap. Annotating it is safe only while the
-  types those runtime lookups need are still interop-registered, and a miss compiles fine and throws
-  on the first source-map build.
+  by `sourceName`**, both invisible to Metro. It also breaks its own cycle with `downloadManager` and
+  `exhPreferences` as `by injectLazy()` property delegates rather than constructor parameters, so the
+  port needs `Provider`/`Lazy` injection there, not a parameter swap. Annotating it is safe only while
+  the types those runtime lookups need are still interop-registered, and a miss compiles fine and
+  throws on the first source-map build.
 - **`LibraryEngine` and `RecentsEngine`** take their provider lists through `CreationExtras` keys and
-  everything else through Injekt constructor defaults (`LibraryEngine.kt:56-63`,
-  `RecentsEngine.kt:49-56`). Metro cannot use default-argument injection, so these become
-  `@AssistedInject` with the providers assisted, and the factory plus every call site move together.
-  They compile fine unannotated, so they can also be deliberately left for last.
-- **The closure-capturing cover factory** at `reikai/presentation/details/EntryDetailsDialog.kt:102`
-  builds a star-projected `EntryCoverViewModel<*>` from a captured behaviour object. There is no
-  upstream analogue and no graph key for it; design it before touching it.
-- **`App.onCreate` ordering.** `LegacyYokaiDbImporter.prepareIfLegacyDb` at `App.kt:120` must run
-  after DI exists and before the database is first opened. A lazily built graph whose eager
-  singletons touch SQLDelight breaks the legacy recovery silently.
-- **The `:error_handler` process.** `CrashActivity` is the only component with `android:process`
-  (`AndroidManifest.xml:124`), so `App.onCreate` and therefore graph construction runs there too.
+  everything else through Injekt constructor defaults. Metro cannot use default-argument injection, so
+  these become `@AssistedInject` with the providers assisted, and the factory plus every call site
+  move together. They compile fine unannotated, so they can also be deliberately left for last.
+- **The closure-capturing cover factory** in `EntryDetailsDialog` builds a star-projected
+  `EntryCoverViewModel<*>` from a captured behaviour object. There is no upstream analogue and no
+  graph key for it; design it before touching it.
+- **`App.onCreate` ordering.** `LegacyYokaiDbImporter.prepareIfLegacyDb` must run after DI exists and
+  before the database is first opened, so nothing `graph.inject(this)` builds may reach `Database`.
+  Both widget managers did, through the updates and novel repositories, which is why `App` holds them
+  as lambdas. A lazily built graph whose eager singletons touch SQLDelight breaks the recovery
+  silently, and only the driver's own lazy connection pool kept it from firing.
+- **The `:error_handler` process.** `CrashActivity` is the only component with `android:process`, so
+  `App.onCreate` and therefore graph construction runs there too.
 - **Widget surfaces are system-instantiated**, and the two of them inject from different places.
   `presentation-widget` took upstream's shape: the Metro plugin, `implementation(libs.metro.runtime)`
   in place of the `api(libs.injekt)` it leaked onto consumers, a `@ContributesTo` `PresentationWidgetGraph`
@@ -304,7 +322,7 @@ contributed model cannot resolve without all three.
   threaded through `prepareData` now that the constructor no longer holds one. `UnifiedUpdatesGlanceWidget`
   is NOT a subclass of that base, so the module graph does not reach it: it injects through
   `AppGraph.inject()` like the workers, and threads `context` through four private functions.
-- **10 `setupTask` companions** are called from five migrations, from `PreferenceRestorer` and from
+- **8 `setupTask` companions** are called from five migrations, from `PreferenceRestorer` and from
   composable settings bodies. Two of them are the historical R8 crash sites, so they are exactly the
   code that stops being fragile once it is graph-resolved.
 
@@ -353,10 +371,12 @@ belongs to the ViewModel phase and is tracked there.
 - Upstream: `mihon/app/di/{AppGraph,AppBindings,AppGraphUtils,MihonViewModelFactory}.kt`,
   `mihon/app/di/injekt/MetroInteropModule.kt`, `core/metro/src/main/kotlin/mihon/core/metro/*.kt`,
   and `eu/kanade/tachiyomi/App.kt`, all at `b2015d1ef`.
-- Here: `app/src/main/java/eu/kanade/domain/DomainModule.kt`,
-  `app/src/main/java/eu/kanade/tachiyomi/di/{AppModule,PreferenceModule}.kt`,
-  `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `app/proguard-rules.pro`,
-  `app/src/main/baselineProfiles/`, and the two engines named under Traps.
+- Here: `app/src/main/java/mihon/app/di/` (the graph, both binding containers, the ViewModel factory
+  and the interop module), `app/src/main/java/eu/kanade/domain/DomainModule.kt` (the last Injekt
+  module), `app/src/main/java/eu/kanade/tachiyomi/App.kt`, `scripts/di-interop-check.ps1` with the
+  `pre-commit` hook and the `build_check` workflow step that run it, `app/proguard-rules.pro`,
+  `app/src/main/baselineProfiles/`, and the two engines named under Traps. `AppModule.kt` and
+  `PreferenceModule.kt` are deleted.
 
 ## Decisions and tradeoffs
 

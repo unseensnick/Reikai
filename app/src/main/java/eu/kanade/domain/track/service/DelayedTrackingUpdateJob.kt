@@ -18,8 +18,6 @@ import mihon.core.metro.metroGraph
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.interactor.GetTracks
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 class DelayedTrackingUpdateJob(private val context: Context, workerParams: WorkerParameters) :

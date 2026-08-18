@@ -1,15 +1,21 @@
 <#
 .SYNOPSIS
-    Fails when a type is owned by the Metro graph and still registered with Injekt.
+    Fails when a Metro-owned type is mis-owned: registered with Injekt as well, unscoped, or never
+    annotated for the graph at all.
 
 .DESCRIPTION
     During the Injekt-to-Metro port (docs/dev/plans/metro-di-migration.md) a type that moves into
     the graph has its Injekt registration deleted and is handed back through MetroInteropModule.
-    Registered in both places the app runs with two instances of it and loses state silently
-    instead of crashing, so nothing surfaces the mistake at build or run time.
+    Three ways that goes wrong, none of which surfaces at build or run time:
 
-    This compares the types MetroInteropModule hands back against the types the Injekt module
-    files still register, and fails on any overlap.
+      1. Registered in both places, so the app runs with two instances and loses state silently.
+      2. Handed back without @SingleIn(AppScope::class). Injekt's addSingletonFactory caches its
+         result forever, but an unscoped Metro binding builds a new instance per injection, so
+         Injekt callers and graph callers end up on different objects.
+      3. Still Injekt-registered and never annotated, so the port walked past it.
+
+    Injekt module files are discovered, not listed: a hard-coded list goes stale as the port deletes
+    files, and a check that silently scans nothing reports success.
 #>
 [CmdletBinding()]
 param(
@@ -18,25 +24,40 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$interopFile = Join-Path $RepoRoot 'app/src/main/java/mihon/app/di/injekt/MetroInteropModule.kt'
-$moduleFiles = @(
-    'app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt'
-    'app/src/main/java/eu/kanade/tachiyomi/di/PreferenceModule.kt'
-    'app/src/main/java/eu/kanade/domain/DomainModule.kt'
+$srcRoots = @(
+    'app/src/main/java'
+    'domain/src/main/java'
+    'data/src/main/java'
+    'core/common/src/main/kotlin'
+    'source-api/src/main/kotlin'
+    'source-local/src/main/kotlin'
+    'presentation-widget/src/main/java'
 ) | ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { Test-Path -LiteralPath $_ }
 
+if ($srcRoots.Count -eq 0) {
+    Write-Error "di-interop-check: no source roots found under '$RepoRoot'. The path list is stale."
+    exit 1
+}
+
+$sources = @(Get-ChildItem -LiteralPath $srcRoots -Recurse -Filter *.kt -File)
+if ($sources.Count -lt 100) {
+    Write-Error "di-interop-check: only $($sources.Count) Kotlin files found. The path list is stale."
+    exit 1
+}
+
+$interopFile = Join-Path $RepoRoot 'app/src/main/java/mihon/app/di/injekt/MetroInteropModule.kt'
 if (-not (Test-Path -LiteralPath $interopFile)) {
     Write-Host "di-interop-check: no interop module, nothing to check."
     exit 0
 }
 
 # Types the graph hands back: the constructor parameter types of MetroInteropModule.
-$interopTypes = [System.Collections.Generic.HashSet[string]]::new()
+$interopTypes = [System.Collections.Generic.List[string]]::new()
 foreach ($line in Get-Content -LiteralPath $interopFile) {
     if ($line -match '^\s*private val \w+:\s*Provider<([A-Za-z0-9_.]+)>') {
-        [void]$interopTypes.Add(($Matches[1] -split '\.')[-1])
+        $interopTypes.Add(($Matches[1] -split '\.')[-1])
     } elseif ($line -match '^\s*private val \w+:\s*([A-Za-z0-9_.]+),\s*$') {
-        [void]$interopTypes.Add(($Matches[1] -split '\.')[-1])
+        $interopTypes.Add(($Matches[1] -split '\.')[-1])
     }
 }
 
@@ -45,86 +66,119 @@ if ($interopTypes.Count -eq 0) {
     exit 1
 }
 
-# Types the Injekt modules still register, by explicit type argument or by constructor call.
-$violations = @()
-foreach ($file in $moduleFiles) {
-    $rel = $file.Substring($RepoRoot.Length).TrimStart('\', '/')
-    $lineNo = 0
-    foreach ($line in Get-Content -LiteralPath $file) {
-        $lineNo++
-        if ($line -notmatch 'add(Singleton|Factory|SingletonFactory|LazySingleton)') { continue }
+# Every Injekt module in the tree, found by what it is rather than by where it used to live.
+$moduleFiles = @($sources | Where-Object {
+        [System.IO.File]::ReadAllText($_.FullName) -match ':\s*InjektModule\b'
+    } | Where-Object { $_.FullName -ne $interopFile } | ForEach-Object { $_.FullName })
 
-        $registered = $null
-        if ($line -match 'add\w+<\s*([A-Za-z0-9_.]+)\s*>') {
-            $registered = ($Matches[1] -split '\.')[-1]
-        } elseif ($line -match 'add\w+\s*\{\s*([A-Za-z0-9_]+)\s*\(') {
-            $registered = $Matches[1]
-        } elseif ($line -match 'addSingleton\s*\(\s*(\w+)\s*\)') {
-            continue  # a captured instance (the Application), never graph-owned
-        }
-
-        if ($registered -and $interopTypes.Contains($registered)) {
-            $violations += "  $rel`:$lineNo registers $registered, which MetroInteropModule already hands back"
+# Index every declaration with its annotation block and its supertype list, so an interface handed
+# back by the interop module can be resolved to the implementation that carries the scope.
+$declPattern = '(?m)^((?:@[\w\.]+(?:\([^\r\n]*\))?[ \t]*\r?\n)*)' +
+'(?:public |internal |private |open |abstract |sealed |data |value |inner )*(?:class|object|interface) ' +
+'([A-Za-z0-9_]+)[^\r\n{]*'
+$decls = @{}
+foreach ($file in $sources) {
+    $text = [System.IO.File]::ReadAllText($file.FullName)
+    foreach ($m in [regex]::Matches($text, $declPattern)) {
+        $name = $m.Groups[2].Value
+        if ($decls.ContainsKey($name)) { continue }
+        $decls[$name] = [pscustomobject]@{
+            Path        = $file.FullName
+            Annotations = $m.Groups[1].Value
+            Header      = $m.Value
+            HasMetro    = $text.Contains('dev.zacsweers.metro')
         }
     }
 }
 
-# Second check: a class the Injekt modules still register must carry a Metro annotation, or it is a
-# type the port walked past. This is invisible at build and run time, because the Injekt registration
-# keeps it working, so nothing else surfaces it. It is how six classes were missed once already.
-$srcRoots = @(
-    'app/src/main/java'
-    'domain/src/main/java'
-    'data/src/main/java'
-    'core/common/src/main/kotlin'
-    'source-local/src/main/kotlin'
-) | ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { Test-Path -LiteralPath $_ }
-
-$declIndex = @{}
-foreach ($root in $srcRoots) {
-    Get-ChildItem -LiteralPath $root -Recurse -Filter *.kt -File | ForEach-Object {
+# Signatures are matched against whitespace-collapsed text, because a constructor or parameter list
+# split across lines is exactly what a line-oriented pattern misses.
+$flatScoped = @($sources | ForEach-Object {
         $text = [System.IO.File]::ReadAllText($_.FullName)
-        $hasMetro = $text.Contains('dev.zacsweers.metro')
-        foreach ($m in [regex]::Matches($text, '(?m)^(?:internal )?class ([A-Za-z0-9_]+)')) {
-            $name = $m.Groups[1].Value
-            if (-not $declIndex.ContainsKey($name)) {
-                $declIndex[$name] = [pscustomobject]@{ Path = $_.FullName; HasMetro = $hasMetro }
+        if ($text.Contains('@SingleIn(AppScope::class)')) { ($text -replace '\s+', ' ') }
+    })
+
+function Test-Scoped([string]$typeName) {
+    $decl = $decls[$typeName]
+    if ($decl -and $decl.Annotations -match '@SingleIn\(AppScope::class\)') { return $true }
+
+    # An implementation bound to this interface, or a @Provides function returning it, may carry the
+    # scope instead. The supertype match starts after the constructor's closing paren so a parameter
+    # of this type cannot be mistaken for a supertype.
+    $asSupertype = "@SingleIn\(AppScope::class\)[^{]{0,300}?\b(?:class|object) \w+ ?(?:\([^)]*\) ?)?: [^{]*?\b$typeName\b"
+    $asReturnType = "@SingleIn\(AppScope::class\)[^{]{0,200}?\bfun \w+ ?\([^)]*\) ?: $typeName\b"
+    foreach ($flat in $flatScoped) {
+        if (-not $flat.Contains($typeName)) { continue }
+        if ($flat -match $asSupertype -or $flat -match $asReturnType) { return $true }
+    }
+    return $false
+}
+
+$unscoped = @()
+foreach ($type in $interopTypes) {
+    if (-not (Test-Scoped $type)) {
+        $unscoped += "  $type is handed back to Injekt without @SingleIn(AppScope::class)"
+    }
+}
+
+$violations = @()
+$unannotated = @()
+foreach ($file in $moduleFiles) {
+    $rel = $file.Substring($RepoRoot.Length).TrimStart('\', '/')
+    $lines = Get-Content -LiteralPath $file
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -notmatch 'add(Singleton|Factory|SingletonFactory|LazySingleton)') { continue }
+
+        # The constructor can sit on the trigger line or on the next one, which is how a multi-line
+        # registration used to slip past both checks.
+        $probe = if ($i + 1 -lt $lines.Count) { "$line`n$($lines[$i + 1])" } else { $line }
+
+        $registered = $null
+        $ctor = $null
+        if ($line -match 'add\w+<\s*([A-Za-z0-9_.]+)\s*[>,]') {
+            $registered = ($Matches[1] -split '\.')[-1]
+        }
+        if ($probe -match 'add\w+(?:<[^>]*>)?\s*\{\s*(?:\r?\n\s*)?([A-Z][A-Za-z0-9_]*)\s*\(') {
+            $ctor = $Matches[1]
+            if (-not $registered) { $registered = $ctor }
+        }
+
+        if ($registered -and $interopTypes -contains $registered) {
+            $violations += "  $rel`:$($i + 1) registers $registered, which MetroInteropModule already hands back"
+        }
+        if ($ctor) {
+            $decl = $decls[$ctor]
+            if ($decl -and -not $decl.HasMetro) {
+                $unannotated += "  $rel`:$($i + 1) registers $ctor, whose class carries no Metro annotation"
             }
         }
     }
 }
 
-$unannotated = @()
-foreach ($file in $moduleFiles) {
-    $rel = $file.Substring($RepoRoot.Length).TrimStart('\', '/')
-    $lineNo = 0
-    foreach ($line in Get-Content -LiteralPath $file) {
-        $lineNo++
-        if ($line -notmatch 'add(Singleton|Factory|SingletonFactory|LazySingleton)') { continue }
-        if ($line -notmatch 'add\w+(?:<[^>]+>)?\s*\{\s*([A-Z][A-Za-z0-9_]*)\s*\(') { continue }
-        $ctor = $Matches[1]
-        $decl = $declIndex[$ctor]
-        if ($decl -and -not $decl.HasMetro) {
-            $unannotated += "  $rel`:$lineNo registers $ctor, whose class carries no Metro annotation"
+$failed = $false
+foreach ($group in @(
+        @{ Message = 'a registered class was never annotated for the graph.'; Items = $unannotated
+            Hint = 'Annotate it, or drop the registration if the type is genuinely retired.'
+        },
+        @{ Message = 'a type is registered with Injekt and handed back by Metro.'; Items = $violations
+            Hint = 'Delete the Injekt registration, or drop the type from MetroInteropModule. Never both.'
+        },
+        @{ Message = 'a type handed back to Injekt is not an application singleton.'; Items = $unscoped
+            Hint = 'Injekt caches its instance forever while an unscoped graph binding builds a new one per injection, so the two halves of the app drift apart. Add @SingleIn(AppScope::class).'
         }
+    )) {
+    if ($group.Items.Count -gt 0) {
+        $failed = $true
+        Write-Host "di-interop-check FAILED: $($group.Message)" -ForegroundColor Red
+        $group.Items | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+        Write-Host ""
+        Write-Host $group.Hint
+        Write-Host ""
     }
 }
+if ($failed) { exit 1 }
 
-if ($unannotated.Count -gt 0) {
-    Write-Host "di-interop-check FAILED: a registered class was never annotated for the graph." -ForegroundColor Red
-    $unannotated | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-    Write-Host ""
-    Write-Host "Annotate it, or drop the registration if the type is genuinely retired."
-    exit 1
-}
-
-if ($violations.Count -gt 0) {
-    Write-Host "di-interop-check FAILED: a type is registered with Injekt and handed back by Metro." -ForegroundColor Red
-    $violations | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-    Write-Host ""
-    Write-Host "Delete the Injekt registration, or drop the type from MetroInteropModule. Never both."
-    exit 1
-}
-
-Write-Host "di-interop-check: $($interopTypes.Count) graph-owned types, no Injekt duplicates, every registered class annotated."
+$moduleLabel = if ($moduleFiles.Count -eq 0) { 'no Injekt modules left' } else { "$($moduleFiles.Count) Injekt module(s)" }
+Write-Host "di-interop-check: $($interopTypes.Count) graph-owned types, all scoped, $moduleLabel, no duplicates."
 exit 0

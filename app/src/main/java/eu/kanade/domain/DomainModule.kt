@@ -1,6 +1,5 @@
 package eu.kanade.domain
 
-import android.app.Application
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
@@ -27,53 +26,23 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
 import eu.kanade.domain.track.interactor.TrackChapter
-import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.online.MetadataSource
-import exh.eh.EHentaiUpdateHelper
-import mihon.data.extension.repository.ExtensionStoreRepositoryImpl
-import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.extension.interactor.AddExtensionStore
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import mihon.domain.extension.interactor.GetExtensionStores
 import mihon.domain.extension.interactor.RemoveExtensionStore
 import mihon.domain.extension.interactor.UpdateExtensionStores
-import mihon.domain.extension.repository.ExtensionStoreRepository
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.upcoming.interactor.GetUpcomingManga
-import reikai.data.db.SqlDelightTransactions
-import reikai.data.library.updateerror.LibraryUpdateErrorRepositoryImpl
-import reikai.data.merge.ChapterMatchKeyRepositoryImpl
-import reikai.data.merge.MergeGroupRepositoryImpl
-import reikai.data.novel.CustomNovelInfoRepositoryImpl
-import reikai.data.novel.NovelChapterRepositoryImpl
-import reikai.data.novel.NovelHistoryRepositoryImpl
-import reikai.data.novel.NovelRepositoryImpl
-import reikai.data.novel.NovelTrackRepositoryImpl
-import reikai.data.novel.updateerror.NovelUpdateErrorRepositoryImpl
-import reikai.data.recents.RecentlyAddedRepositoryImpl
-import reikai.data.recents.RecentsUnreadRepositoryImpl
-import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.category.GetNovelCategories
-import reikai.domain.db.Transactions
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
-import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.manga.MergedChapterProvider
-import reikai.domain.manga.PropagateTrackerLinks
-import reikai.domain.merge.ChapterMatchKeyRepository
-import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
-import reikai.domain.novel.NovelChapterRepository
-import reikai.domain.novel.NovelHistoryRepository
-import reikai.domain.novel.NovelMergeManager
-import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelTrack
@@ -93,55 +62,28 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.interactor.UpsertNovelHistory
-import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.novel.track.NovelTrackUpdater
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
 import reikai.domain.novel.updateerror.GetNovelUpdateErrors
-import reikai.domain.novel.updateerror.NovelUpdateErrorRepository
 import reikai.domain.novel.updateerror.UpsertNovelUpdateError
-import reikai.domain.recents.RecentlyAddedRepository
-import reikai.domain.recents.RecentsUnreadRepository
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
-import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangasLoader
-import reikai.domain.recommendation.taste.AnilistLibraryFetcher
-import reikai.domain.recommendation.taste.BangumiLibraryFetcher
 import reikai.domain.recommendation.taste.ComputeTasteProfile
 import reikai.domain.recommendation.taste.GetTasteProfile
-import reikai.domain.recommendation.taste.KitsuLibraryFetcher
 import reikai.domain.recommendation.taste.LocalTrackStatusMapper
-import reikai.domain.recommendation.taste.MyAnimeListLibraryFetcher
-import reikai.domain.recommendation.taste.RefreshTrackerLibrary
-import reikai.domain.recommendation.taste.ShikimoriLibraryFetcher
 import reikai.domain.recommendation.taste.TasteCandidateFetcher
-import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.GetEnabledNovelSources
 import reikai.presentation.browse.MangaLibraryAdder
-import reikai.presentation.migrate.flow.MangaMigrationFlowAdapter
-import reikai.presentation.migrate.flow.MigrationPickHandoff
-import reikai.presentation.migrate.flow.NovelMigrationFlowAdapter
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import tachiyomi.data.category.CategoryRepositoryImpl
-import tachiyomi.data.chapter.ChapterRepositoryImpl
-import tachiyomi.data.history.HistoryRepositoryImpl
-import tachiyomi.data.manga.CustomMangaInfoRepositoryImpl
-import tachiyomi.data.manga.MangaMetadataRepositoryImpl
-import tachiyomi.data.manga.MangaRepositoryImpl
-import tachiyomi.data.release.ReleaseServiceImpl
-import tachiyomi.data.source.SourceRepositoryImpl
-import tachiyomi.data.source.StubSourceRepositoryImpl
-import tachiyomi.data.track.TrackRepositoryImpl
-import tachiyomi.data.updates.UpdatesRepositoryImpl
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.RenameCategory
 import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.category.interactor.SetDisplayMode
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
-import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
@@ -150,13 +92,11 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
-import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.interactor.UpsertHistory
-import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
@@ -176,27 +116,18 @@ import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
 import tachiyomi.domain.manga.interactor.UpdateMangaNotes
-import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
-import tachiyomi.domain.manga.repository.MangaMetadataRepository
-import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.release.interactor.GetApplicationRelease
-import tachiyomi.domain.release.service.ReleaseService
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.interactor.GetSourcesWithNonLibraryManga
-import tachiyomi.domain.source.repository.SourceRepository
-import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.track.interactor.DeleteTrack
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.interactor.InsertTrack
-import tachiyomi.domain.track.repository.TrackRepository
 import tachiyomi.domain.updates.interactor.GetUpdates
-import tachiyomi.domain.updates.repository.UpdatesRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addFactory
-import uy.kohesive.injekt.api.addSingletonFactory
 import uy.kohesive.injekt.api.get
 
 class DomainModule : InjektModule {
@@ -240,7 +171,6 @@ class DomainModule : InjektModule {
         addFactory { RemoveNovelHistory(get()) }
         addFactory { GetNextNovelChapter(get(), get(), get(), get()) }
         // RK <--
-        // RK: the recents surface's newly-added lane, one repository serving both content types.
         // RK --> novel trackers
         addFactory { GetNovelTracks(get(), get(), get()) }
         addFactory { InsertNovelTrack(get()) }
@@ -250,9 +180,6 @@ class DomainModule : InjektModule {
         addFactory { RefreshNovelTracks(get(), get(), get()) }
         addFactory { TrackNovelChapter(get(), get(), get(), get()) }
         addFactory { PropagateNovelTrackerLinks(get(), get(), get(), get(), get()) }
-        // RK <--
-        // RK --> merge (manga + novel). Breaking a group up hands each member its own tracker copy; the
-        // propagators are resolved lazily inside the lambda because they depend on the managers themselves.
         // RK <--
         // RK --> novel source migration (Roadmap 7)
         addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }
@@ -293,7 +220,6 @@ class DomainModule : InjektModule {
         addFactory { GetSearchTags(get()) }
         addFactory { GetSearchTitles(get()) }
         addFactory { GetExhFavoriteMangaWithMetadata(get()) }
-        // RK: E-Hentai disk-backed gallery-version reconciliation (favorited-gallery update checker).
         addFactory { GetNextChapters(get(), get(), get()) }
         addFactory { GetUpcomingManga(get()) }
         addFactory { ResetViewerFlags(get()) }
@@ -312,8 +238,6 @@ class DomainModule : InjektModule {
                 get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             )
         }
-        // RK --> the shared migration flow's per-type seams
-        // RK <--
 
         addFactory { GetApplicationRelease(get()) }
 

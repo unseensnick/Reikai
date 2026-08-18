@@ -29,7 +29,6 @@ import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 

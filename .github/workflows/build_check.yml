@@ -56,6 +56,11 @@ jobs:
       - name: Check formatting
         run: ./gradlew spotlessCheck
 
+      # DI ownership. Nothing else catches a type that is both graph-owned and Injekt-registered, or
+      # one handed back to Injekt unscoped: both compile and run, and lose state silently.
+      - name: Check DI ownership
+        run: pwsh -NoProfile -File scripts/di-interop-check.ps1
+
       # Mihon base has no product flavors; the variant is just `release` (debug-signed for now).
       - name: Build the app
         run: ./gradlew assembleRelease
