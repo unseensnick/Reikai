@@ -1,6 +1,5 @@
 package reikai.presentation.recommendation.browse
 
-import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -8,9 +7,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,8 +37,6 @@ import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * "See all" browse grid for the related-mangas carousel. Re-reads the full ranked pool from
@@ -45,35 +46,30 @@ import uy.kohesive.injekt.api.get
  * The pool is in-memory only, so after process death the cache is empty and the screen shows an
  * empty state (the user reopens the manga to repopulate it).
  */
+@AssistedInject
 class RelatedMangasBrowseViewModel(
-    private val mangaId: Long,
+    @Assisted private val mangaId: Long,
     // An Application, not the composition's Activity: a ViewModel outlives the Activity and would pin
     // it. Only used for two string lookups, and app locale is set app-wide, so the strings are the same.
     private val context: Context,
-    private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
-    private val getFavorites: GetFavorites = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val setMangaCategories: SetMangaCategories = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val buildRecommendationHideFilter: BuildRecommendationHideFilter = Injekt.get(),
+    private val relatedMangaCache: RelatedMangaCache,
+    private val getFavorites: GetFavorites,
+    private val getCategories: GetCategories,
+    private val setMangaCategories: SetMangaCategories,
+    private val updateManga: UpdateManga,
+    private val networkToLocalManga: NetworkToLocalManga,
+    private val libraryPreferences: LibraryPreferences,
+    private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
 ) : ViewModel() {
 
     val state: StateFlow<RelatedMangasBrowseViewModel.State>
         field = MutableStateFlow<RelatedMangasBrowseViewModel.State>(State())
 
-    companion object {
-        val MANGA_ID_KEY = CreationExtras.Key<Long>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                RelatedMangasBrowseViewModel(
-                    mangaId = get(MANGA_ID_KEY)!!,
-                    context = Injekt.get<Application>(),
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(mangaId: Long): RelatedMangasBrowseViewModel
     }
 
     val snackbarHostState = SnackbarHostState()

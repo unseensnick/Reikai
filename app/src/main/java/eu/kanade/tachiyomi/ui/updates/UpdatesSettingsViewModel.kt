@@ -2,9 +2,13 @@ package eu.kanade.tachiyomi.ui.updates
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,18 +23,17 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.updates.service.UpdatesPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@AssistedInject
 class UpdatesSettingsViewModel(
-    val updatesPreferences: UpdatesPreferences = Injekt.get(),
+    val updatesPreferences: UpdatesPreferences,
     // RK -->
     // Which surface's sheet this is backing. The filter sheet is shared by every recents surface, and
     // while the combined tab is off Updates and History are two tabs, so each edits its own selection.
-    private val surface: RecentsSurface = RecentsSurface.UPDATES,
-    val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val getNovelCategories: GetNovelCategories = Injekt.get(),
+    @Assisted private val surface: RecentsSurface,
+    val reikaiSourcePreferences: ReikaiSourcePreferences,
+    private val getCategories: GetCategories,
+    private val getNovelCategories: GetNovelCategories,
     // RK <--
 ) : ViewModel() {
 
@@ -74,12 +77,11 @@ class UpdatesSettingsViewModel(
         filterCategoriesExclude.set(exclude.map(Long::toString).toSet())
     }
 
-    companion object {
-        val SURFACE_KEY = CreationExtras.Key<RecentsSurface>()
-
-        val Factory = viewModelFactory {
-            initializer { UpdatesSettingsViewModel(surface = this[SURFACE_KEY]!!) }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(surface: RecentsSurface): UpdatesSettingsViewModel
     }
     // RK <--
 }

@@ -29,6 +29,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
@@ -57,12 +58,9 @@ class UpdateErrorsScreen(
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<UpdateErrorsViewModel>(
-            factory = UpdateErrorsViewModel.Factory,
-            extras = CreationExtras {
-                set(UpdateErrorsViewModel.INITIAL_CONTENT_TYPE_KEY, initialContentType)
-            },
-        )
+        val viewModel = assistedMetroViewModel<UpdateErrorsViewModel, UpdateErrorsViewModel.Factory> {
+            create(initialContentType = initialContentType)
+        }
         val state by viewModel.state.collectAsState()
 
         if (state is UpdateErrorsScreenState.Loading) {

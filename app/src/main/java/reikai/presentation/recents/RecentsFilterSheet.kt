@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
@@ -49,10 +50,9 @@ fun RecentsFilterSheet(
     onDismissRequest: () -> Unit,
     initialTab: Int = 0,
 ) {
-    val viewModel = viewModel<UpdatesSettingsViewModel>(
-        factory = UpdatesSettingsViewModel.Factory,
-        extras = CreationExtras { set(UpdatesSettingsViewModel.SURFACE_KEY, surface) },
-    )
+    val viewModel = assistedMetroViewModel<UpdatesSettingsViewModel, UpdatesSettingsViewModel.Factory> {
+        create(surface = surface)
+    }
     val tabTitles = listOf(
         stringResource(MR.strings.recents_filter_general),
         stringResource(MR.strings.chapters),

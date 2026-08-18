@@ -4,9 +4,13 @@ import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,35 +28,31 @@ import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * One screen for both verticals' update failures, switched by the All / Manga / Novels chip. Manga
  * and novel errors live in separate tables (each FK-bound to its own library), so they are combined
  * only here at the presentation layer.
  */
+@AssistedInject
 class UpdateErrorsViewModel(
-    private val initialContentType: ContentType = ContentType.ALL,
-    private val getLibraryUpdateErrors: GetLibraryUpdateErrors = Injekt.get(),
-    private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get(),
-    private val getNovelUpdateErrors: GetNovelUpdateErrors = Injekt.get(),
-    private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val novelSourceManager: NovelSourceManager = Injekt.get(),
+    @Assisted private val initialContentType: ContentType,
+    private val getLibraryUpdateErrors: GetLibraryUpdateErrors,
+    private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors,
+    private val getNovelUpdateErrors: GetNovelUpdateErrors,
+    private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors,
+    private val sourceManager: SourceManager,
+    private val novelSourceManager: NovelSourceManager,
 ) : ViewModel() {
 
     val state: StateFlow<UpdateErrorsScreenState>
         field = MutableStateFlow<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading)
 
-    companion object {
-        val INITIAL_CONTENT_TYPE_KEY = CreationExtras.Key<ContentType>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                UpdateErrorsViewModel(initialContentType = get(INITIAL_CONTENT_TYPE_KEY)!!)
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(initialContentType: ContentType): UpdateErrorsViewModel
     }
 
     init {

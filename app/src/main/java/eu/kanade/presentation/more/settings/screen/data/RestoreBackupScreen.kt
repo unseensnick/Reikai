@@ -1,6 +1,5 @@
 package eu.kanade.presentation.more.settings.screen.data
 
-import android.app.Application
 import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -22,12 +21,17 @@ import androidx.compose.ui.text.withStyle
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.presentation.util.Screen
@@ -46,8 +50,6 @@ import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 class RestoreBackupScreen(
     private val uri: String,
@@ -56,12 +58,9 @@ class RestoreBackupScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = viewModel<RestoreBackupViewModel>(
-            factory = RestoreBackupViewModel.Factory,
-            extras = CreationExtras {
-                set(RestoreBackupViewModel.URI_KEY, uri)
-            },
-        )
+        val viewModel = assistedMetroViewModel<RestoreBackupViewModel, RestoreBackupViewModel.Factory> {
+            create(uri = uri)
+        }
         val state by viewModel.state.collectAsState()
 
         Scaffold(
@@ -177,25 +176,20 @@ class RestoreBackupScreen(
     }
 }
 
+@AssistedInject
 class RestoreBackupViewModel(
     private val context: Context,
-    private val uri: String,
+    @Assisted private val uri: String,
 ) : ViewModel() {
 
     val state: StateFlow<RestoreBackupViewModel.State>
         field = MutableStateFlow<RestoreBackupViewModel.State>(State())
 
-    companion object {
-        val URI_KEY = CreationExtras.Key<String>()
-
-        val Factory = viewModelFactory {
-            initializer {
-                RestoreBackupViewModel(
-                    context = Injekt.get<Application>(),
-                    uri = get(URI_KEY)!!,
-                )
-            }
-        }
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(uri: String): RestoreBackupViewModel
     }
 
     init {

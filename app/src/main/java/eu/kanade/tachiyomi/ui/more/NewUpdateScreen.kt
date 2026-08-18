@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.more.NewUpdateScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.openInBrowser
@@ -23,13 +24,9 @@ class NewUpdateScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val viewModel = viewModel<NewUpdateScreenModel>(
-            factory = NewUpdateScreenModel.Factory,
-            extras = CreationExtras {
-                set(NewUpdateScreenModel.CHANGELOG_INFO_KEY, changelogInfo)
-                set(NewUpdateScreenModel.DOWNLOAD_LINK_KEY, downloadLink)
-            },
-        )
+        val viewModel = assistedMetroViewModel<NewUpdateScreenModel, NewUpdateScreenModel.Factory> {
+            create(changelogInfo = changelogInfo, downloadLink = downloadLink)
+        }
 
         val state by viewModel.state.collectAsState()
 

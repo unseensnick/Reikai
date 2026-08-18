@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
@@ -51,10 +52,9 @@ class RelatedMangasBrowseScreen(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val configuration = LocalConfiguration.current
-        val viewModel = viewModel<RelatedMangasBrowseViewModel>(
-            factory = RelatedMangasBrowseViewModel.Factory,
-            extras = CreationExtras { set(RelatedMangasBrowseViewModel.MANGA_ID_KEY, mangaId) },
-        )
+        val viewModel = assistedMetroViewModel<RelatedMangasBrowseViewModel, RelatedMangasBrowseViewModel.Factory> {
+            create(mangaId = mangaId)
+        }
         val state by viewModel.state.collectAsState()
 
         Scaffold(
