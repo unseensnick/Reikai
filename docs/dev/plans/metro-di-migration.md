@@ -1,8 +1,13 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 3c landed, phase 4's ViewModels done and its composable reads left, phases 5 to 7 remain.** Research completed 2026-08-16 against upstream
-> `b2015d1ef`; re-verified and corrected 2026-08-17 before phase 0. Every count below was measured,
-> not estimated; the commands are given so a cold session can re-derive them before trusting them.
+> **Status: phases 0 to 3c landed. Phase 4 is part done: its graph-resolved ViewModels and composable
+> batches 1 and 2 landed, batches 3 and 4 plus three ViewModels remain. Phases 5 to 7 have not
+> started.** Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17 before
+> phase 0; re-measured against current code 2026-08-19.
+>
+> **Counts age fast here.** Everything under Inventory is a 2026-08-16 snapshot kept as the record of
+> what the port started from, and most of it is now wrong. Current figures live in Status and in the
+> sequence table. Re-derive before trusting either; the commands are given.
 
 ## Goal
 
@@ -147,6 +152,12 @@ otherwise and has been corrected). Three models still take Injekt constructor de
 `ReaderViewModel` needs the assisted path described under ViewModels and is the reader's spine, so it
 is not mechanical work.
 
+Those three are the upstream-tracked ones. Reikai-owned models still on constructor defaults
+(`EntryCoverViewModel`, `MangaEntryCoverViewModel`, `NovelCoverViewModel`, both library adders,
+`MigrateNovelUseCase`) belong to phase 6, not here, so "three ViewModels left" is true only of the
+upstream half. Re-derive both sets with
+`grep -rln --include=*.kt --exclude-dir=build 'Injekt.get()' app/src/main/java | xargs grep -l ViewModel`.
+
 **That step also carries the reader engine files, which no composable batch covers** (found by the
 batch 2 sweep, 2026-08-19). Twelve reads sit in `ChapterLoader`, `DownloadPageLoader`,
 `HttpPageLoader`, `MergedChapterLoader`, `PagerConfig`, `PagerViewer`, `WebGpuConfig`,
@@ -199,7 +210,11 @@ Four batches, each gated and committed on its own:
    its `produceState` blocks, whose lambdas are suspend, not composable. `MigrationDeepPicker`'s
    file-level `by injectLazy()` property is gone, so the handoff now resolves from the app-scoped
    binding by construction rather than by coincidence.
-3. The non-composable holders: the three onboarding steps and `DisplayRefreshHost`.
+3. The non-composable holders: the three onboarding steps and `DisplayRefreshHost`, plus
+   `eu/kanade/core/util/SourceUtil.kt`. That last one is a genuine composable read
+   (`remember { Injekt.get<SourceManager>().isInitialized }` inside `ifSourcesLoaded()`) that both
+   earlier batches missed, because the scope was derived from files holding `@Composable` next to a
+   settings or details surface and this one is a bare util. Found by re-measuring 2026-08-19.
 4. The `@PreviewLightDark` preview in `AppThemePreferenceWidget`, in its own commit so it reverts
    cleanly (owner, 2026-08-19). Upstream left this one alone and never checked that its preview still
    renders, so it is the only piece here with no upstream precedent.
@@ -255,6 +270,11 @@ installed extensions keep working.
 - The three module files (`AppModule` 127 lines, `PreferenceModule` 79, `DomainModule` 194) and
   `Migrations.kt` are deleted in the same commit.
 
+**Those numbers describe upstream's commit, not this tree.** Here the port is staged, so as of
+2026-08-19 `AppModule` and `PreferenceModule` are deleted while `DomainModule` and
+`mihon/core/migration/migrations/Migrations.kt` are still live, and our `AppGraph` has grown past
+upstream's shape to 55 accessors and 21 `inject()` members.
+
 ### The per-class pattern
 
 Almost everything is a two to five line edit, and the shape is uniform:
@@ -301,9 +321,21 @@ error: `DelegateSourcePreferences` is read from `source-api/.../online/HttpSourc
 `source-api/.../online/MetadataSource.kt:24-26` exposes three interactors as interface `get()`
 accessors. Every one of those must be interop-registered or delegated sources throw on first use.
 
-## Inventory, measured 2026-08-16
+## Inventory, measured 2026-08-16 (historical: what the port started from)
 
-Re-derive with `grep -rl --include=*.kt "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
+**Every number in this section is the pre-port baseline and most are now wrong.** It is kept because
+the sizing decisions above were made against it, not as a description of the tree. For current
+figures, re-derive.
+
+Re-derive with `grep -rl --include=*.kt --exclude-dir=build "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
+
+Measured 2026-08-19 for comparison: **159 files repo-wide, 152 of them in `app`** (113 under
+`eu`/`mihon`, 32 `reikai/`, 7 `exh/`), down from 265. One `remember { Injekt.get() }` site remains,
+down from 54, and 8 files hold both `@Composable` and an Injekt call, down from 47; five of those
+eight are the intended end state (three `Injekt.get<Context>()` locators plus the preview widget) or
+already batched. `AppGraph` carries 55 accessors and 21 `inject()` members, and `MetroInteropModule`
+hands back 88 types. Phase 5 is untouched: 0 `@ContributesIntoSet` migrations against 31
+`migrationContext.get<T>()` sites.
 
 **Injekt surface: 265 files.** app 258, source-api 5, source-local 1, data 1, presentation-widget 1.
 704 `Injekt.get` occurrences, 267 `by injectLazy()`, 506 constructor defaults. Pass
@@ -347,10 +379,10 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 2. Graph (done) | `AppBindings` for the four infrastructure providers, accessors and interop for the leaf types `AppModule` / `PreferenceModule` registered, `App` bootstrap. The three module files shrink; they cannot be deleted until phases 3 to 6 empty them | Done: 1064 + 75 tests, a minified build, and on device a cold start, the full library and a backup within 14 bytes of the pre-Metro one |
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
-| 3c. Entry points (done) | All 15 workers, the 5 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
-| 4. ViewModels and Compose (models mostly done) | The graph-resolved models landed: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling. Left in this phase: the four composable-read batches specified in Status, then `ReaderViewModel`, `ReaderSettingsViewModel` and `DownloadQueueViewModel`, which still take Injekt constructor defaults | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
+| 3c. Entry points (done) | All 15 workers, the 8 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
+| 4. ViewModels and Compose (part done) | The graph-resolved models landed: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling. Composable batches 1 (`c3d1c4cd9`) and 2 (`9d85a35f6`) landed, taking the graph to 55 accessors. Left: batch 3 (the three onboarding steps, `DisplayRefreshHost`, `SourceUtil`), batch 4 (the preview widget), then `ReaderViewModel`, `ReaderSettingsViewModel` and `DownloadQueueViewModel` with the twelve reader engine reads behind them | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
-| 6. Reikai-owned | `reikai/` and `exh/`, the follow-up commit; the interop module shrinks as they land. Measured 2026-08-19 the remainder is 36 files under `reikai/` and 7 under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory, minus the four composables phase 4 now takes | Full device sweep: novels, EXH, recommendations, merge, migrate |
+| 6. Reikai-owned | `reikai/` and `exh/`, the follow-up commit; the interop module shrinks as they land. Measured 2026-08-19 after batch 2: **32** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7. Cleanup | Drop the `reikai.**` / `exh.**` proguard keeps if no Injekt generic remains, regenerate both baseline profiles, rewrite the rules files | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
 **Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
