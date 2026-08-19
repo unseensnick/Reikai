@@ -32,6 +32,26 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 
 ## Status
 
+### What is left, in order (the authoritative list)
+
+Read this before the sequence table. The table below is the landed record and the original phase
+shape; where the two disagree, this list wins. Phase 4 in particular no longer means one thing, so
+its remainder is named here as separate units.
+
+| Unit | Work | Proves |
+|---|---|---|
+| 4c | Batch 3 of the composable reads: the three onboarding steps, `DisplayRefreshHost`, and `SourceUtil`, all on `Injekt.get<Context>().appGraph.x` | The standard batch ladder, then onboarding and the reader opened on device |
+| 4d | Batch 4: the `Injekt.addSingleton` in `AppThemePreferenceWidget`'s `@PreviewLightDark` preview, its own commit so it reverts cleanly | The preview still renders in the IDE; no upstream precedent for this one |
+| 4e | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel`, plus the twelve reader engine reads behind them | A full reader drive on a minified build: paged, webtoon and WebGPU viewers, chapter transitions, save and share |
+| 5 | The migrations | Upgrade from an older `versionCode` and watch the migration log |
+| 6 | The Reikai-owned tail, including the cover models and library adders | Full device sweep: novels, EXH, recommendations, merge, migrate |
+| 7 | Cleanup | Minified `:app:assemblePreview`, then the profiles' own generation task |
+
+**Two install paths remain untested across the whole port**, independent of these units: fresh install,
+and upgrade from a shipped build. Every device pass so far ran on existing state.
+
+### Landed
+
 **Phase 0 has landed.** The Metro plugin is on `:app` and the new `:core:metro` module, `AppGraph`
 owns exactly one binding (`Json`), and `MetroInteropModule` hands that instance back to Injekt while
 everything else still resolves the old way. Verified on the emulator with a minified `preview` build:
@@ -141,8 +161,9 @@ Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
   tsundoku reader migration, not with this port. Phase 7 keeps the baseline profiles and the rules
   files only.
 - Relatedly, **phase 6 does not shrink the interop module for the novel reader's subgraph**: keeping
-  `NovelReaderScreenModel` on Injekt means its 17 dependencies must be handed back, and only one is
-  today.
+  `NovelReaderScreenModel` on Injekt means its 17 dependencies must be handed back. Re-measured
+  2026-08-19: **11 of the 17 are already interop-registered**, up from the one this line originally
+  recorded, so phase 6's floor for the interop module is those 17 rather than the six not yet added.
 
 **Phase 4's ViewModel half is not finished** (measured 2026-08-19; the sequence table below said
 otherwise and has been corrected). Three models still take Injekt constructor defaults:
@@ -238,8 +259,11 @@ them.
 
 Owner rulings, 2026-08-16:
 
-- **Port everything, in two commits.** Upstream-mirroring work lands first; the Reikai-owned trees
-  (`reikai/`, `exh/`) follow as a direct follow-up commit, not a later roadmap item.
+- **Port everything, Reikai-owned trees included**, rather than mirroring upstream and leaving them on
+  Injekt. The "in two commits" half of this ruling did not survive contact: phase 3 split into three,
+  phase 4 into batches, and batch 2 took four Reikai composables by a later ruling. What holds is the
+  intent, that the upstream-mirroring work lands before the Reikai tail so each diff stays reviewable
+  against upstream's.
 - **The R8 question was settled before starting** rather than left to a build (see Why).
 - **The novel reader stays on Voyager `ScreenModel`**, held for the tsundoku migration as before.
   `metrox-viewmodel` only covers `androidx.lifecycle.ViewModel`, so `NovelReaderScreenModel` keeps
@@ -300,7 +324,9 @@ Hand-written factories go away. Screens call `metroViewModel<T>()` or
 `assistedMetroViewModel<T, F> { create(...) }`, and every Compose entry point must provide
 `LocalMetroViewModelFactory` from the graph (upstream does it inside `setComposeContent`).
 `ReaderViewModel` is the one model that keeps a `CreationExtras` path, through Metro's
-`ViewModelAssistedFactory` rather than a hand-written `viewModelFactory`.
+`ViewModelAssistedFactory` rather than a hand-written `viewModelFactory`. That is upstream's end state,
+not ours: here `ReaderViewModel` is still unconverted and carries 22 Injekt constructor defaults, and
+it is unit 4e above. Every `CreationExtras.Key` in this tree is already gone.
 
 Two consequences worth stating: the rule that a bare-resolved model must never be `private` stops
 applying on the Metro path, because the factory looks the class up in a generated map rather than
@@ -372,6 +398,10 @@ on the GMD after the port, or they are dead rules.
 
 Each phase is a commit that compiles and boots. The verification column says what actually proves it.
 
+**This table is the landed record.** Phases 0 to 3c are history and accurate. Phase 4 grew sub-units
+as it ran and phases 5 to 7 have not started, so for what is left read "What is left, in order" at the
+top of Status instead; it is the list that gets maintained.
+
 | Phase | Work | Proves |
 |---|---|---|
 | 0. Spike (done) | Plugin on `:app` and the new `:core:metro`, `AppBindings` providing `Json` only, an `AppGraph` with `inject(app)` plus two accessors, interop for that one type | Done: compile, 1064 tests, minified `:app:assemblePreview`, cold start to a populated library |
@@ -380,10 +410,13 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
 | 3c. Entry points (done) | All 15 workers, the 8 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
-| 4. ViewModels and Compose (part done) | The graph-resolved models landed: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling. Composable batches 1 (`c3d1c4cd9`) and 2 (`9d85a35f6`) landed, taking the graph to 55 accessors. Left: batch 3 (the three onboarding steps, `DisplayRefreshHost`, `SourceUtil`), batch 4 (the preview widget), then `ReaderViewModel`, `ReaderSettingsViewModel` and `DownloadQueueViewModel` with the twelve reader engine reads behind them | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
-| 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
-| 6. Reikai-owned | `reikai/` and `exh/`, the follow-up commit; the interop module shrinks as they land. Measured 2026-08-19 after batch 2: **32** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
-| 7. Cleanup | Drop the `reikai.**` / `exh.**` proguard keeps if no Injekt generic remains, regenerate both baseline profiles, rewrite the rules files | Minified `:app:assemblePreview`, then the profiles' own generation task |
+| 4a. ViewModels (done) | metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling | Done: the screens each batch touched, driven on device |
+| 4b. Composable reads, batches 1 and 2 (done) | The settings screens (`c3d1c4cd9`), then the remaining composables including four Reikai-owned ones (`9d85a35f6`). Graph at 55 accessors | Done: both batches on a minified build, batch 2 on the emulator and the Fold |
+| 4c and 4d. Composable reads, batches 3 and 4 | See "What is left, in order" | As listed there |
+| 4e. The reader models | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel` and the twelve reader engine reads | A full reader drive on a minified build |
+| 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params. Untouched as of 2026-08-19: 0 and 31 respectively | Device: upgrade from an older `versionCode` and watch the migration log |
+| 6. Reikai-owned | `reikai/` and `exh/`; the interop module shrinks as they land, but its floor is the novel reader's 17 types. Measured 2026-08-19 after batch 2: **32** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
+| 7. Cleanup | Regenerate both baseline profiles and rewrite the rules files. The `reikai.**` / `exh.**` proguard keeps stay: they leave with the tsundoku reader migration, not with this port | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
 **Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
 Injekt registration replaced by an interop `addSingleton(metroInstance)` in the same commit, never
@@ -452,6 +485,11 @@ contributed model cannot resolve without all three.
 ## Riding-along changes to decide, not inherit
 
 Upstream's commit is not purely a DI change. Each of these needs an explicit yes or no.
+
+**The file citations below are pre-port.** Items 2, 4 and 11 point at `AppModule.kt` and
+`PreferenceModule.kt`, both deleted in 3c, so those line references are historical evidence for the
+decision rather than places to look. The registrations they describe now live in `AppBindings` or
+were dropped with the modules.
 
 **Decided 2026-08-18 (owner).** Taken: 4, 5, 10 and 11, all of them already in the tree. Item 11 is
 the one to say out loud, as it asked: the driver's `lock` plus `WeakReference` guard is gone, and
