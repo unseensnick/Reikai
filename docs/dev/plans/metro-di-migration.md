@@ -40,7 +40,6 @@ its remainder is named here as separate units.
 
 | Unit | Work | Proves |
 |---|---|---|
-| 4c | Batch 3 of the composable reads: the three onboarding steps, `DisplayRefreshHost`, and `SourceUtil`, all on `Injekt.get<Context>().appGraph.x` | The standard batch ladder, then onboarding and the reader opened on device |
 | 4d | Batch 4: the `Injekt.addSingleton` in `AppThemePreferenceWidget`'s `@PreviewLightDark` preview, its own commit so it reverts cleanly | The preview still renders in the IDE; no upstream precedent for this one |
 | 4e | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel`, plus the twelve reader engine reads behind them | A full reader drive on a minified build: paged, webtoon and WebGPU viewers, chapter transitions, save and share |
 | 5 | The migrations | Upgrade from an older `versionCode` and watch the migration log |
@@ -231,11 +230,14 @@ Four batches, each gated and committed on its own:
    its `produceState` blocks, whose lambdas are suspend, not composable. `MigrationDeepPicker`'s
    file-level `by injectLazy()` property is gone, so the handoff now resolves from the app-scoped
    binding by construction rather than by coincidence.
-3. The non-composable holders: the three onboarding steps and `DisplayRefreshHost`, plus
-   `eu/kanade/core/util/SourceUtil.kt`. That last one is a genuine composable read
-   (`remember { Injekt.get<SourceManager>().isInitialized }` inside `ifSourcesLoaded()`) that both
-   earlier batches missed, because the scope was derived from files holding `@Composable` next to a
-   settings or details surface and this one is a bare util. Found by re-measuring 2026-08-19.
+3. **Landed** (`9ad07b8f4`). The non-composable holders: the three onboarding steps and
+   `DisplayRefreshHost`, plus `eu/kanade/core/util/SourceUtil.kt`. That last one is a genuine
+   composable read (`remember { Injekt.get<SourceManager>().isInitialized }` inside
+   `ifSourcesLoaded()`) that both earlier batches missed, because the scope was derived from files
+   holding `@Composable` next to a settings or details surface and this one is a bare util. Found by
+   re-measuring 2026-08-19. The three onboarding steps took upstream's shape rather than the locator
+   form the batch was scoped around: upstream deletes the property and reads inside `Content()`, so
+   only `DisplayRefreshHost`, which has no composition, keeps `Injekt.get<Context>()`.
 4. The `@PreviewLightDark` preview in `AppThemePreferenceWidget`, in its own commit so it reverts
    cleanly (owner, 2026-08-19). Upstream left this one alone and never checked that its preview still
    renders, so it is the only piece here with no upstream precedent.
@@ -253,9 +255,9 @@ builds a path string and reads one string resource without touching the filesyst
 eager read stays as it is: `DisplayRefreshHost` calls `flashIntervalPref.get()` in a property
 initializer, a synchronous preferences read at `ReaderActivity` construction that predates the port.
 
-Separately, 13 files carry a lone orphan `uy.kohesive.injekt` import with no remaining use. They
-predate this step, Spotless does not remove them, and they are swept per batch as the batch touches
-them.
+The 13 files carrying a lone orphan `uy.kohesive.injekt` import were swept in `d721de727`. The
+per-batch rule they were under could not discharge them, because batches 3 and 4 touch none of the
+13, so they went in one commit of their own to keep the batch diff readable against upstream's.
 
 Owner rulings, 2026-08-16:
 
@@ -355,11 +357,12 @@ figures, re-derive.
 
 Re-derive with `grep -rl --include=*.kt --exclude-dir=build "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
 
-Measured 2026-08-19 for comparison: **159 files repo-wide, 152 of them in `app`** (113 under
-`eu`/`mihon`, 32 `reikai/`, 7 `exh/`), down from 265. One `remember { Injekt.get() }` site remains,
-down from 54, and 8 files hold both `@Composable` and an Injekt call, down from 47; five of those
-eight are the intended end state (three `Injekt.get<Context>()` locators plus the preview widget) or
-already batched. `AppGraph` carries 55 accessors and 21 `inject()` members, and `MetroInteropModule`
+Measured 2026-08-20, after batch 3: **142 files repo-wide, 136 of them in `app`** (99 under
+`eu`/`mihon`, 30 `reikai/`, 7 `exh/`), down from 265. **No `remember { Injekt.get() }` site remains**,
+down from 54, and 5 files hold both `@Composable` and an Injekt call, down from 47. Those five are
+the end state: four `Injekt.get<Context>()` locators (`AboutScreen`, `WorkerInfoScreen`,
+`SettingsEhScreen`, `DisplayRefreshHost`) plus the preview widget batch 4 takes. So the Compose path
+is done bar that widget. `AppGraph` carries 55 accessors and 21 `inject()` members, and `MetroInteropModule`
 hands back 88 types. Phase 5 is untouched: 0 `@ContributesIntoSet` migrations against 31
 `migrationContext.get<T>()` sites.
 
@@ -412,7 +415,8 @@ top of Status instead; it is the list that gets maintained.
 | 3c. Entry points (done) | All 15 workers, the 8 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
 | 4a. ViewModels (done) | metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling | Done: the screens each batch touched, driven on device |
 | 4b. Composable reads, batches 1 and 2 (done) | The settings screens (`c3d1c4cd9`), then the remaining composables including four Reikai-owned ones (`9d85a35f6`). Graph at 55 accessors | Done: both batches on a minified build, batch 2 on the emulator and the Fold |
-| 4c and 4d. Composable reads, batches 3 and 4 | See "What is left, in order" | As listed there |
+| 4c. Composable reads, batch 3 (done) | The onboarding steps, `DisplayRefreshHost` and `SourceUtil` (`9ad07b8f4`), plus the orphan-import sweep (`d721de727`) | Done: onboarding walked, browse and the reader driven on a minified telemetry build |
+| 4d. Composable reads, batch 4 | See "What is left, in order" | As listed there |
 | 4e. The reader models | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel` and the twelve reader engine reads | A full reader drive on a minified build |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params. Untouched as of 2026-08-19: 0 and 31 respectively | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` and `exh/`; the interop module shrinks as they land, but its floor is the novel reader's 17 types. Measured 2026-08-19 after batch 2: **32** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
