@@ -98,7 +98,7 @@ Dedicated LN trackers are shippable via WebView session-scraping (no official AP
 
 ### Build & CI
 
-- **Exercise the two work loops, then decide whether a third is worth it** `[S]` - `/sync-loop` has had one read-only rehearsal and `/audit-loop` none, so neither has produced a real PR yet. A phase loop (one plan-doc phase per run, same worktree and PR model, inverted risk gate since touching DI would be the job) was sketched for the DI port and deliberately not built until the first two have earned it.
+- **Exercise the three work loops for real** `[S]` - `/sync-loop` has had one read-only rehearsal, `/audit-loop` and `/plan-loop` none, so none has produced a real PR yet and every stop condition past the first is still theory. mihon `f75f2598a` is the worked-out first sync unit; the DI plan's next step is the first `/plan-loop` candidate.
 - **Try the Gradle configuration cache** `[M]` - `org.gradle.configuration-cache` is off everywhere and Gradle suggests it on every local build, making it the largest remaining build-time win. Repo-wide rather than a CI flag, so it turns on whether AGP, moko-resources and `build-logic` all cooperate, and it wants measuring against the current preview run time of 13 to 15 minutes.
 
 ## Parked / not building

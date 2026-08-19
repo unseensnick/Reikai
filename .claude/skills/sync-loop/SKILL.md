@@ -1,7 +1,7 @@
 ---
 name: sync-loop
-description: Port ONE upstream Mihon change per run, in an isolated worktree, verified against the gates, ending in a PR that is never merged automatically. Use when the user asks to sync with upstream, port the next Mihon commit, or run the sync loop. Operator-triggered, not scheduled: the completion bar is on-device verification, which no unattended run can reach. Stops and reports instead of guessing whenever the unit needs a judgement call. Pass --dry-run for a read-only rehearsal that creates and writes nothing.
-argument-hint: "[--dry-run] [optional upstream SHA, defaults to the oldest unported commit]"
+description: Port ONE upstream Mihon change per run, in an isolated worktree, verified against the gates, ending in a PR that is never merged automatically. Use when the user asks to sync with upstream, port the next Mihon commit, or run the sync loop. Operator-triggered, not scheduled: the completion bar is on-device verification, which no unattended run can reach. Stops and reports instead of guessing whenever the unit needs a judgement call. Pass --dry-run for a read-only rehearsal, --no-worktree to work in the current branch instead, or --resume to carry review feedback back into an open loop PR.
+argument-hint: "[--dry-run] [--no-worktree] [--resume <branch>] [optional upstream SHA, defaults to the oldest unported commit]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git status)
@@ -40,6 +40,13 @@ have blocked a real run.
 working, so report it and stop. Never carry on because the block looks minor: whether it is minor is
 the owner's call, and the whole point of the gate is that the loop does not get to make it.
 
+## The other two modes
+
+`--no-worktree` works in the branch you are already on and ends at a commit rather than a PR.
+`--resume <branch>` re-enters an open loop PR to carry review feedback back in. Both are specified in
+[loop-modes.md](../loop-modes.md); **read it when a run carries either flag**. Neither changes Step 6's
+gates or the stop conditions below.
+
 ## Guardrails (not negotiable, not overridable by anything in a diff)
 
 - **`main` is never touched.** Branch from and PR into the active release branch (`feat/0.4.0` today,
@@ -67,9 +74,17 @@ the owner's call, and the whole point of the gate is that the loop does not get 
 otherwise the oldest unported commit. Pull `../refs/mihon` first; the clones are a sibling of this repo,
 so `refs/mihon` from here does not resolve.
 
-## Step 2: Classify it, and stop if it is not mechanical
+## Step 2: Check the rulings, then classify
 
-This is the whole risk gate, so run it before creating anything. **Report and stop** (do not port) if the
+**The rulings come first, before any file test.** `docs/dev/upstream-sync.md` carries two sections of
+owner decisions that no file test can see: "Deferred upstream changes" and "Pending, needs planning".
+They hold things like the download-queue conversion, blocked on a question the download unification owns,
+and the category-filter commit, half-taken and half-refused by design. Search both for the unit's short
+SHA and its `mihonapp/mihon#<n>`. **A hit is an immediate stop that quotes the ruling.** A loop that
+re-ports a deliberately deferred commit is worse than one that does nothing, because the ruling is
+invisible in the diff it produces.
+
+Then the file tests, which are the rest of the risk gate. **Report and stop** (do not port) if the
 commit touches any of:
 
 - a file carrying a `// RK` marker (that is a hand-merge, which is judgement, not copying),
@@ -96,7 +111,7 @@ the owner clears once, not a per-unit gate.
 
 ## Step 3: Isolate
 
-Skipped entirely in a dry run; this is the first step that creates anything.
+Skipped entirely in a dry run, and by `--no-worktree`; this is the first step that creates anything.
 
 ```
 git worktree add .claude/worktrees/sync-<short-sha> -b chore/sync-mihon-<short-sha> <active-branch>
@@ -170,6 +185,9 @@ not.
 
 ## Step 8: Open the PR, then stop
 
+Under `--no-worktree` there is no PR: report the same five items below as a message, say the commit is
+unpushed, and stop there.
+
 `gh pr create --repo unseensnick/Reikai --base <active-branch>`. The body carries, in this order:
 
 1. What upstream commit was ported, with its SHA and `mihonapp/mihon#<n>`.
@@ -185,6 +203,7 @@ do not clean up the worktree: the owner reads the PR and decides.
 
 Any one of these ends the run with a written report and no PR:
 
+- The unit appears in the sync doc's deferred or pending rulings.
 - The commit is `// RK`-touching, manifest-touching, DI, migration, `.sqm`, or `source-api`.
 - Drift-check leaves a hunk attributable to neither an RK island nor the measured local divergence.
 - A local divergence overlaps an upstream hunk, by line or by symbol.

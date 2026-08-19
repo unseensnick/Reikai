@@ -1,7 +1,7 @@
 ---
 name: audit-loop
-description: Audit ONE named surface per run, adversarially verify every finding before touching code, fix what survives at every site it exists, pin it with a mutation-checked test, and end in a PR that is never merged automatically. Use when the user asks to audit a surface, hunt bugs, or run the audit loop. Takes a scope like "recents engine" or "novel download queue". Operator-triggered, one surface per run; a vague scope is refused. Pass --dry-run to audit and verify without touching anything.
-argument-hint: "<surface> [--dry-run] (e.g. 'recents engine', 'migrate flow config screen --dry-run')"
+description: Audit ONE named surface per run, adversarially verify every finding before touching code, fix what survives at every site it exists, pin it with a mutation-checked test, and end in a PR that is never merged automatically. Use when the user asks to audit a surface, hunt bugs, or run the audit loop. Takes a scope like "recents engine" or "novel download queue". Operator-triggered, one surface per run; a vague scope is refused. Pass --dry-run to audit and verify without touching anything, --no-worktree to work in the current branch, or --resume to carry review feedback back into an open loop PR.
+argument-hint: "<surface> [--dry-run] [--no-worktree] [--resume <branch>]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git status)
@@ -39,6 +39,13 @@ and the sibling sites each sweep would have covered; and which stop conditions t
 **A dry run that ends in a stop condition succeeded**, including "more than about five confirmed
 findings". Report and stop rather than deciding the block is minor.
 
+## The other two modes
+
+`--no-worktree` works in the branch you are already on and ends at a commit rather than a PR.
+`--resume <branch>` re-enters an open loop PR to carry review feedback back in. Both are specified in
+[loop-modes.md](../loop-modes.md); **read it when a run carries either flag**. Neither changes the gates
+or the stop conditions.
+
 ## Guardrails (identical to sync-loop, and for the same reasons)
 
 - **`main` is never touched.** Branch from and PR into the active release branch (read it from
@@ -63,6 +70,19 @@ Then read, before looking at any code:
   a decline still standing is not.
 - [content-layer.md](../../rules/content-layer.md)'s seam-depth table for this surface. It decides what
   to look for, which is the single most useful input this loop gets.
+
+**Then audit the plan doc's citations before trusting a word of it.** A plan is a hypothesis, exactly
+like a memory or a handoff, and it goes stale the same way: every file, symbol and behaviour claim it
+makes about this surface either still holds in current code or it does not. Check them. Start cheap: a
+citation audit is minutes of greps, and most of the time it passes and the run continues. `/scout` is
+the escalation when it does not, not the opening move.
+
+What a stale claim means depends on which way it is stale. A plan describing behaviour the code no
+longer has is either the bug you are looking for or a doc that was never updated, and telling those
+apart is the audit's job, not something to assume. **A plan whose named files or symbols no longer
+exist is a stop**: escalate by offering a `/scout` of the surface, report what is stale, and let the
+owner decide. Never silently re-derive the plan and carry on, because a plan the loop rewrote for
+itself is not a plan anyone approved.
 
 ## Step 1: Know which bug class you are hunting
 
@@ -104,7 +124,7 @@ than the owner can review them.
 
 ## Step 5: Isolate
 
-Skipped entirely in a dry run; this is the first step that creates anything.
+Skipped entirely in a dry run, and by `--no-worktree`; this is the first step that creates anything.
 
 ```
 git worktree add .claude/worktrees/audit-<surface-slug> -b fix/<surface-slug> <active-branch>
@@ -153,6 +173,9 @@ that, and it is checked by reading, not by a gate.
 CHANGELOG entry under `[Unreleased]` if a user can observe the fix (extending a shipped feature to a
 surface it missed is a **Fix**, not a Change). Commits follow the standard; one logical fix per commit.
 
+Under `--no-worktree` there is no PR: report the same seven items below as a message, say the commits are
+unpushed, and stop there.
+
 `gh pr create --repo unseensnick/Reikai --base <active-branch>`, body carrying:
 
 1. **The surface audited**, and what was walked.
@@ -168,6 +191,7 @@ Then stop. No merge, no next surface, no worktree cleanup.
 ## Stop conditions
 
 - The scope is vague.
+- The surface's plan doc names files or symbols that no longer exist.
 - More than about five confirmed findings.
 - A finding lands in DI, a migration, a `.sqm`, or `source-api`.
 - A fix would need an existing test edited.
