@@ -36,7 +36,8 @@ fun TachiyomiTheme(
     amoled: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
-    val uiPreferences = LocalContext.current.appGraph.uiPreferences
+    val context = LocalContext.current
+    val uiPreferences = remember { context.appGraph.uiPreferences }
     BaseTachiyomiTheme(
         appTheme = appTheme ?: uiPreferences.appTheme.get(),
         isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),
