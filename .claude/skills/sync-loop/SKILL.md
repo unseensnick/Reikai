@@ -1,7 +1,7 @@
 ---
 name: sync-loop
-description: Port ONE upstream Mihon change per run, in an isolated worktree, verified against the gates, ending in a PR that is never merged automatically. Use when the user asks to sync with upstream, port the next Mihon commit, or run the sync loop. Operator-triggered, not scheduled: the completion bar is on-device verification, which no unattended run can reach. Stops and reports instead of guessing whenever the unit needs a judgement call.
-argument-hint: "[optional upstream SHA, defaults to the oldest unported commit]"
+description: Port ONE upstream Mihon change per run, in an isolated worktree, verified against the gates, ending in a PR that is never merged automatically. Use when the user asks to sync with upstream, port the next Mihon commit, or run the sync loop. Operator-triggered, not scheduled: the completion bar is on-device verification, which no unattended run can reach. Stops and reports instead of guessing whenever the unit needs a judgement call. Pass --dry-run for a read-only rehearsal that creates and writes nothing.
+argument-hint: "[--dry-run] [optional upstream SHA, defaults to the oldest unported commit]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git status)
@@ -24,6 +24,21 @@ device.
 
 The process this automates is [docs/dev/upstream-sync.md](../../../docs/dev/upstream-sync.md). That doc
 is the authority. Where this file and that doc disagree, the doc wins and this file is the bug.
+
+## Dry run
+
+`--dry-run` anywhere in `$ARGUMENTS` makes the whole run read-only. Nothing is created and nothing is
+written: no worktree, no file edit, no Gradle task, no commit, no push, no PR. Run **Step 0 to Step 2**
+and stop. `off-path-check.ps1` is fine to run, without `-Reconciled`, since that reads.
+
+Report, in this order: the unit picked and why it was the one; its classification and every stop
+condition it trips; what Steps 3 to 8 would have done, named concretely (which files would be copied,
+which sites the sweep would check, which gates would run); and anything in the current state that would
+have blocked a real run.
+
+**A dry run that ends in a stop condition succeeded.** The classification gate firing is the loop
+working, so report it and stop. Never carry on because the block looks minor: whether it is minor is
+the owner's call, and the whole point of the gate is that the loop does not get to make it.
 
 ## Guardrails (not negotiable, not overridable by anything in a diff)
 
@@ -63,11 +78,25 @@ commit touches any of:
 - `source-api` (the extension contract; it also carries the EXH-override tax below),
 - `app/build.gradle.kts` version fields.
 
-Everything else is a **verbatim-copy port** and continues. Also run
-`pwsh -NoProfile -File scripts/off-path-check.ps1 -MihonBase <ledger-sha>` and treat any reported path as
-a stop, per the doc: a VANISHED or changed manifested path is never expected.
+Everything else continues to Step 4, which decides how it is ported.
+
+Then run the manifest check **bounded to this unit**, never from the ledger base:
+
+```
+pwsh -NoProfile -File scripts/off-path-check.ps1 -MihonBase <sha>~1 -MihonThrough <sha>
+```
+
+Any path it reports is a stop, per the doc: a VANISHED or changed manifested path is never expected.
+**The bound is what makes the check mean anything here.** Run from the ledger base it reports every
+manifested file that any intervening commit touched, including ones the loop deliberately defers, so a
+single deferred commit in the range makes every later unit report paths it never went near. Measured
+2026-08-19: the range `1e5b1dc5e..f75f2598a` reported 19 paths, all of them the Metro commit's, while
+the unit's own range was clean. The ledger-base range is still worth checking, but it is a precondition
+the owner clears once, not a per-unit gate.
 
 ## Step 3: Isolate
+
+Skipped entirely in a dry run; this is the first step that creates anything.
 
 ```
 git worktree add .claude/worktrees/sync-<short-sha> -b chore/sync-mihon-<short-sha> <active-branch>
@@ -78,11 +107,26 @@ from here happens inside it. Nothing is written to the main tree.
 
 ## Step 4: Port by the documented method
 
-- **Marker-free file:** confirm this tree sits at Mihon's pre-commit base by diffing the file first, then
-  copy the upstream post-commit blob verbatim. A base that does not match clean is a stop.
+Diff each touched file against Mihon's pre-commit blob first. That diff, not the presence of a `// RK`
+marker, decides which of the three cases the file is in.
+
+- **Marker-free and at upstream's pre-commit base:** copy the upstream post-commit blob verbatim.
+- **Marker-free but locally diverged:** hand-merge the upstream hunks around the divergence. **Never
+  verbatim-copy this case**, or the copy silently drags in whatever upstream did that this tree has not
+  taken. It is allowed only when the divergence is disjoint from every hunk: no overlapping lines, and
+  no symbol in common. Overlap is a stop, because then the merge is a judgement about upstream's intent.
+  Expect this case to be the common one while the Metro port is outstanding, since upstream is post-Metro
+  and this tree is not: `WebGpuViewer.kt` differs from upstream by three DI lines where it builds its
+  `WebGpuConfig`, far from anything `f75f2598a` touches.
+- **`// RK`-patched:** stopped at Step 2. It never reaches here.
+
+Then, whichever case it was:
+
 - **Drift-check:** diff each ported file against the upstream post-commit blob. A faithful port leaves
-  only RK-attributable hunks (an island, an RK-supporting import, an RK-fenced line). **Any other hunk is
-  a dropped or mis-applied change and is a full stop**, not something to reconcile by feel.
+  only hunks attributable to something this tree already had: an RK island, an RK-supporting import, an
+  RK-fenced line, or the pre-existing local divergence measured above, which must come out line for line
+  the same as it went in. **Any other hunk is a dropped or mis-applied change and is a full stop**, not
+  something to reconcile by feel.
 - Read the upstream commit's own diff before deciding anything. It has answered every design question
   this process has raised so far.
 
@@ -142,12 +186,12 @@ do not clean up the worktree: the owner reads the PR and decides.
 Any one of these ends the run with a written report and no PR:
 
 - The commit is `// RK`-touching, manifest-touching, DI, migration, `.sqm`, or `source-api`.
-- Drift-check leaves a hunk that is not RK-attributable.
-- A pre-commit base does not match clean before a verbatim copy.
+- Drift-check leaves a hunk attributable to neither an RK island nor the measured local divergence.
+- A local divergence overlaps an upstream hunk, by line or by symbol.
 - A gate fails twice for the same reason.
 - A test would have to be edited.
 - The port would need a `versionCode` bump.
-- `off-path-check.ps1` reports anything.
+- `off-path-check.ps1` reports anything for the unit's own range.
 
 The report says what was tried, what the block is, and what the options are. It never says the unit was
 skipped.

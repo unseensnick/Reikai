@@ -1,7 +1,7 @@
 ---
 name: audit-loop
-description: Audit ONE named surface per run, adversarially verify every finding before touching code, fix what survives at every site it exists, pin it with a mutation-checked test, and end in a PR that is never merged automatically. Use when the user asks to audit a surface, hunt bugs, or run the audit loop. Takes a scope like "recents engine" or "novel download queue". Operator-triggered, one surface per run; a vague scope is refused.
-argument-hint: "<surface> (e.g. 'recents engine', 'migrate flow config screen')"
+description: Audit ONE named surface per run, adversarially verify every finding before touching code, fix what survives at every site it exists, pin it with a mutation-checked test, and end in a PR that is never merged automatically. Use when the user asks to audit a surface, hunt bugs, or run the audit loop. Takes a scope like "recents engine" or "novel download queue". Operator-triggered, one surface per run; a vague scope is refused. Pass --dry-run to audit and verify without touching anything.
+argument-hint: "<surface> [--dry-run] (e.g. 'recents engine', 'migrate flow config screen --dry-run')"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git status)
@@ -24,6 +24,20 @@ one is expensive, so **nothing gets touched until the finding has been attacked 
 [port-audit](../port-audit/SKILL.md) is the interactive sibling of this skill and its triage rules still
 apply. The two differences: this one runs in a worktree and ends in a PR, and it verifies findings before
 fixing rather than asking the owner to triage them.
+
+## Dry run
+
+`--dry-run` anywhere in `$ARGUMENTS` makes the whole run read-only. Nothing is created and nothing is
+written: no worktree, no file edit, no Gradle task, no commit, no push, no PR. The scope argument is
+whatever remains once the flag is stripped. Run **Step 0 to Step 4** and stop.
+
+The audit and the adversarial verification are the read-only half of this loop, so a dry run still does
+the expensive and useful part. Report: the surface and which bug class it fails by; confirmed findings
+with `file:line`; dropped findings with why they did not survive; the fixes that would have been made
+and the sibling sites each sweep would have covered; and which stop conditions the run trips.
+
+**A dry run that ends in a stop condition succeeded**, including "more than about five confirmed
+findings". Report and stop rather than deciding the block is minor.
 
 ## Guardrails (identical to sync-loop, and for the same reasons)
 
@@ -89,6 +103,8 @@ than the owner can review them.
 - Everything else is fixable in this run.
 
 ## Step 5: Isolate
+
+Skipped entirely in a dry run; this is the first step that creates anything.
 
 ```
 git worktree add .claude/worktrees/audit-<surface-slug> -b fix/<surface-slug> <active-branch>
