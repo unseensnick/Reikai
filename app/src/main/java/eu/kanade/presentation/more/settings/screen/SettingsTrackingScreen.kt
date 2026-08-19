@@ -44,11 +44,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.track.model.AutoTrackState
-import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
-import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
 import eu.kanade.tachiyomi.data.track.bangumi.BangumiApi
 import eu.kanade.tachiyomi.data.track.hikka.HikkaApi
@@ -59,15 +57,12 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
-import reikai.domain.library.ReikaiLibraryPreferences
+import mihon.app.di.appGraph
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -89,10 +84,10 @@ object SettingsTrackingScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
-        val trackPreferences = remember { Injekt.get<TrackPreferences>() }
-        val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() } // RK
-        val trackerManager = remember { Injekt.get<TrackerManager>() }
-        val sourceManager = remember { Injekt.get<SourceManager>() }
+        val trackPreferences = remember { context.appGraph.trackPreferences }
+        val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
+        val trackerManager = remember { context.appGraph.trackerManager }
+        val sourceManager = remember { context.appGraph.sourceManager }
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {

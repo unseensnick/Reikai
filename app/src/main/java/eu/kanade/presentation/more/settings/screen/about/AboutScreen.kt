@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -244,7 +245,8 @@ object AboutScreen : Screen() {
                 .toLocalDateTime(TimeZone.currentSystemDefault())
                 .toDateTimestampString(
                     UiPreferences.dateFormat(
-                        Injekt.get<UiPreferences>().dateFormat.get(),
+                        // Not a composable, so Injekt survives here only as a Context locator.
+                        Injekt.get<Context>().appGraph.uiPreferences.dateFormat.get(),
                     ),
                 )
         } catch (_: Exception) {

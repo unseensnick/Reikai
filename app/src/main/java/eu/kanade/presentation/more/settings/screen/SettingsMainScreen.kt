@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -48,13 +49,11 @@ import eu.kanade.presentation.util.Screen
 import exh.assets.EhAssets
 import exh.assets.ehassets.EhLogo
 import exh.md.MangaDexLogo
-import exh.source.ExhPreferences
+import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import cafe.adriel.voyager.core.screen.Screen as VoyagerScreen
 
 object SettingsMainScreen : Screen() {
@@ -82,6 +81,7 @@ object SettingsMainScreen : Screen() {
 
     @Composable
     fun Content(twoPane: Boolean) {
+        val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
         val backPress = LocalBackPress.currentOrThrow
         val containerColor = if (twoPane) getPalerSurface() else MaterialTheme.colorScheme.surface
@@ -114,7 +114,7 @@ object SettingsMainScreen : Screen() {
                 //     isEnabled() is a plain pref read, so observe the gate here as state; without this
                 //     snapshot dependency the list stays stale until the screen is recreated (the bug:
                 //     toggling adult sources in Advanced didn't reveal the E-Hentai category live).
-                val adultEnabled by remember { Injekt.get<ExhPreferences>().isHentaiEnabled() }.collectAsState()
+                val adultEnabled by remember { context.appGraph.exhPreferences.isHentaiEnabled() }.collectAsState()
                 val items = remember(adultEnabled) {
                     items.filter { it.screen !is SearchableSettings || it.screen.isEnabled() }
                 }

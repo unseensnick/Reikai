@@ -9,17 +9,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
-import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
-import reikai.domain.novel.NovelPreferences
+import mihon.app.di.appGraph
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 object SettingsBrowseScreen : SearchableSettings {
 
@@ -32,10 +28,10 @@ object SettingsBrowseScreen : SearchableSettings {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
-        val sourcePreferences = remember { Injekt.get<SourcePreferences>() }
-        val getExtensionStoreCountAsFlow = remember { Injekt.get<GetExtensionStoreCountAsFlow>() }
+        val sourcePreferences = remember { context.appGraph.sourcePreferences }
+        val getExtensionStoreCountAsFlow = remember { context.appGraph.getExtensionStoreCountAsFlow }
         // RK: the Repos screen is unified (manga + light novel), so count both.
-        val novelPreferences = remember { Injekt.get<NovelPreferences>() }
+        val novelPreferences = remember { context.appGraph.novelPreferences }
 
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
         val novelRepoUrls by novelPreferences.addedRepoUrls().changes()

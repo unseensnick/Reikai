@@ -7,17 +7,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.MangaDexSyncJob
 import exh.md.utils.MdUtil
-import reikai.domain.source.ReikaiSourcePreferences
+import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * MangaDex enhanced-source hub: language target, follow-status filter, and the two-way library sync
@@ -38,9 +35,9 @@ object SettingsMangaDexScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val sourcePreferences: SourcePreferences = remember { Injekt.get() }
-        val reikaiSourcePreferences: ReikaiSourcePreferences = remember { Injekt.get() }
-        val trackerManager: TrackerManager = remember { Injekt.get() }
+        val sourcePreferences = remember { context.appGraph.sourcePreferences }
+        val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
+        val trackerManager = remember { context.appGraph.trackerManager }
 
         val languageEntries = buildMap {
             put("0", stringResource(MR.strings.md_first_enabled_source))

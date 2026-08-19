@@ -23,13 +23,11 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import mihon.app.di.appGraph
 import reikai.domain.category.seedRecentsSurfaceFromUpdates
-import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
 
 object SettingsAppearanceScreen : SearchableSettings {
@@ -40,7 +38,8 @@ object SettingsAppearanceScreen : SearchableSettings {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val uiPreferences = remember { Injekt.get<UiPreferences>() }
+        val context = LocalContext.current
+        val uiPreferences = remember { context.appGraph.uiPreferences }
 
         return listOf(
             getThemeGroup(uiPreferences = uiPreferences),
@@ -134,7 +133,7 @@ object SettingsAppearanceScreen : SearchableSettings {
         val previewsRowCount by uiPreferences.previewsRowCount.collectAsState()
 
         // RK: the combined Recents tab's seed reads and writes this surface's own keys.
-        val sourcePreferences = remember { Injekt.get<ReikaiSourcePreferences>() }
+        val sourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),

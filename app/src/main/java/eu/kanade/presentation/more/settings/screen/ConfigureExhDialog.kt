@@ -12,24 +12,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import eu.kanade.tachiyomi.util.system.toast
-import exh.source.ExhPreferences
 import exh.uconfig.EHConfigurator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import mihon.app.di.appGraph
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
-    val exhPreferences = remember {
-        Injekt.get<ExhPreferences>()
-    }
+    val context = LocalContext.current
+    val exhPreferences = remember { context.appGraph.exhPreferences }
     var warnDialogOpen by remember { mutableStateOf(false) }
     var configureDialogOpen by remember { mutableStateOf(false) }
     var configureFailedDialogOpen by remember { mutableStateOf<Exception?>(null) }
@@ -72,7 +69,6 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
         )
     }
     if (configureDialogOpen) {
-        val context = LocalContext.current
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO + NonCancellable) {
                 try {

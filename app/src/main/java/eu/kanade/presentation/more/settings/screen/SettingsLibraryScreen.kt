@@ -21,15 +21,12 @@ import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import reikai.data.novel.update.NovelUpdateJob
-import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
@@ -45,8 +42,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 object SettingsLibraryScreen : SearchableSettings {
 
@@ -56,13 +51,14 @@ object SettingsLibraryScreen : SearchableSettings {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val getCategories = remember { Injekt.get<GetCategories>() }
-        val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
-        val novelPreferences = remember { Injekt.get<NovelPreferences>() }
+        val context = LocalContext.current
+        val getCategories = remember { context.appGraph.getCategories }
+        val libraryPreferences = remember { context.appGraph.libraryPreferences }
+        val novelPreferences = remember { context.appGraph.novelPreferences }
         // RK: master merging switch, hosted in the Sources group below
-        val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() }
+        val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences }
         // RK: novel categories for the novel update-categories filter
-        val getNovelCategories = remember { Injekt.get<GetNovelCategories>() }
+        val getNovelCategories = remember { context.appGraph.getNovelCategories }
         val allCategories by getCategories.subscribe().collectAsState(initial = emptyList())
         val novelCategories by getNovelCategories.subscribe().collectAsState(initial = emptyList())
 
@@ -234,6 +230,7 @@ object SettingsLibraryScreen : SearchableSettings {
         novelPreferences: NovelPreferences,
         novelCategories: List<Category>,
     ): Preference.PreferenceGroup {
+        val context = LocalContext.current
         val scope = rememberCoroutineScope()
         // RK: the edit-categories screen lists every category, so this count is the union of the two
         // library reads rather than the manga-visible ones alone. They overlap on categories shown in
@@ -286,9 +283,9 @@ object SettingsLibraryScreen : SearchableSettings {
                     onValueChanged = {
                         if (!it) {
                             scope.launch {
-                                Injekt.get<ResetCategoryFlags>().await()
+                                context.appGraph.resetCategoryFlags.await()
                                 // RK: reset novel category sorts too, so novels honor the toggle like manga
-                                Injekt.get<ResetNovelCategoryFlags>().await()
+                                context.appGraph.resetNovelCategoryFlags.await()
                             }
                         }
                         true

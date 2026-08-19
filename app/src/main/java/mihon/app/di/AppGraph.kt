@@ -6,16 +6,25 @@ import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.ViewModelGraph
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.extension.interactor.TrustExtension
+import eu.kanade.domain.source.interactor.ToggleIncognito
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.App
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.cache.ChapterCache
+import eu.kanade.tachiyomi.data.cache.PagePreviewCache
+import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallActivity
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -23,6 +32,7 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegateImpl
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import exh.eh.EHentaiUpdateWorker
@@ -33,13 +43,20 @@ import exh.ui.login.EhLoginActivity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
+import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
+import reikai.domain.category.GetNovelCategories
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.presentation.migrate.flow.MigrationAdapters
@@ -47,8 +64,14 @@ import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.service.BackupPreferences
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
+import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.interactor.GetFlatMetadataById
+import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.storage.service.StoragePreferences
@@ -115,7 +138,8 @@ interface AppGraph : ViewModelGraph {
     val backupPreferences: BackupPreferences
     val storagePreferences: StoragePreferences
 
-    // Read through Context.appGraph by companions and objects, which cannot be member-injected.
+    // Read through Context.appGraph by companions, objects and composable bodies, none of which can
+    // be member-injected.
     // uiPreferences is also read from attachBaseContext, before any injected field exists.
     // migrationAdapters is read from the migrate screens, which pick one by content type at runtime.
     val uiPreferences: UiPreferences
@@ -125,6 +149,34 @@ interface AppGraph : ViewModelGraph {
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker
     val refreshTrackerLibrary: RefreshTrackerLibrary
+
+    val basePreferences: BasePreferences
+    val readerPreferences: ReaderPreferences
+    val sourcePreferences: SourcePreferences
+    val trackPreferences: TrackPreferences
+    val reikaiLibraryPreferences: ReikaiLibraryPreferences
+    val reikaiSourcePreferences: ReikaiSourcePreferences
+
+    val trackerManager: TrackerManager
+    val chapterCache: ChapterCache
+    val pagePreviewCache: PagePreviewCache
+    val downloadCache: DownloadCache
+    val mangaMergeManager: MangaMergeManager
+    val novelMergeManager: NovelMergeManager
+
+    // Interactors are unscoped, so every read builds a fresh instance where Injekt's
+    // addSingletonFactory cached one. Safe only because none of them holds state.
+    val getCategories: GetCategories
+    val getNovelCategories: GetNovelCategories
+    val getFavorites: GetFavorites
+    val getFlatMetadataById: GetFlatMetadataById
+    val getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata
+    val getExtensionStoreCountAsFlow: GetExtensionStoreCountAsFlow
+    val toggleIncognito: ToggleIncognito
+    val trustExtension: TrustExtension
+    val resetViewerFlags: ResetViewerFlags
+    val resetCategoryFlags: ResetCategoryFlags
+    val resetNovelCategoryFlags: ResetNovelCategoryFlags
 
     // Read by App's cold-start warm-up.
     val sourceManager: SourceManager

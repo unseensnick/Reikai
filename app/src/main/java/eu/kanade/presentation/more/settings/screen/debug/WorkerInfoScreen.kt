@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -165,7 +166,8 @@ class WorkerInfoScreen : Screen() {
                             .toLocalDateTime(TimeZone.currentSystemDefault())
                             .toDateTimestampString(
                                 UiPreferences.dateFormat(
-                                    Injekt.get<UiPreferences>().dateFormat.get(),
+                                    // Not a composable: Injekt stays here only as a Context locator.
+                                    Injekt.get<Context>().appGraph.uiPreferences.dateFormat.get(),
                                 ),
                             )
                         appendLine("Next scheduled run: $timestamp")
