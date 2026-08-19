@@ -40,7 +40,6 @@ its remainder is named here as separate units.
 
 | Unit | Work | Proves |
 |---|---|---|
-| 4d | Batch 4: the `Injekt.addSingleton` in `AppThemePreferenceWidget`'s `@PreviewLightDark` preview, its own commit so it reverts cleanly | The preview still renders in the IDE; no upstream precedent for this one |
 | 4e | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel`, plus the twelve reader engine reads behind them | A full reader drive on a minified build: paged, webtoon and WebGPU viewers, chapter transitions, save and share |
 | 5 | The migrations | Upgrade from an older `versionCode` and watch the migration log |
 | 6 | The Reikai-owned tail, including the cover models and library adders | Full device sweep: novels, EXH, recommendations, merge, migrate |
@@ -238,9 +237,16 @@ Four batches, each gated and committed on its own:
    re-measuring 2026-08-19. The three onboarding steps took upstream's shape rather than the locator
    form the batch was scoped around: upstream deletes the property and reads inside `Content()`, so
    only `DisplayRefreshHost`, which has no composition, keeps `Injekt.get<Context>()`.
-4. The `@PreviewLightDark` preview in `AppThemePreferenceWidget`, in its own commit so it reverts
-   cleanly (owner, 2026-08-19). Upstream left this one alone and never checked that its preview still
-   renders, so it is the only piece here with no upstream precedent.
+4. **Landed** (`cbea79b08`). The `@PreviewLightDark` preview in `AppThemePreferenceWidget`, which
+   turned out to be a repair rather than a conversion. Batch 2 moved `TachiyomiTheme` onto the graph,
+   and `appGraph` casts the application context to `GraphProvider`, which a preview has no
+   `Application` to satisfy. So the preview had been dead since batch 2, and the `Injekt.addSingleton`
+   it carried had been feeding nothing for just as long. Both the preview and the per-swatch call
+   inside `AppThemesList` now use `TachiyomiPreviewTheme`, the graph-free entry point the other 21
+   previews already use; production behaviour is identical because both sites pass the theme and the
+   amoled flag, so the graph's values were discarded anyway. **Upstream is broken the same way at
+   their HEAD** and has touched neither file since their migration; the owner ruled against reporting
+   it. Nothing in the repo or in CI renders previews, so no gate can catch this class of break.
 
 **`MigrationDeepPicker` is an identity hazard, not a timing one.** `MigrationPickHandoff` is
 `@SingleIn(AppScope::class)` and reaches that file today through the interop module's provider.
@@ -357,12 +363,11 @@ figures, re-derive.
 
 Re-derive with `grep -rl --include=*.kt --exclude-dir=build "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
 
-Measured 2026-08-20, after batch 3: **142 files repo-wide, 136 of them in `app`** (99 under
-`eu`/`mihon`, 30 `reikai/`, 7 `exh/`), down from 265. **No `remember { Injekt.get() }` site remains**,
-down from 54, and 5 files hold both `@Composable` and an Injekt call, down from 47. Those five are
-the end state: four `Injekt.get<Context>()` locators (`AboutScreen`, `WorkerInfoScreen`,
-`SettingsEhScreen`, `DisplayRefreshHost`) plus the preview widget batch 4 takes. So the Compose path
-is done bar that widget. `AppGraph` carries 55 accessors and 21 `inject()` members, and `MetroInteropModule`
+Measured 2026-08-20, after batch 4: **141 files repo-wide, 135 of them in `app`**, down from 265.
+**No `remember { Injekt.get() }` site remains**, down from 54, and 4 files hold both `@Composable`
+and an Injekt call, down from 47. Those four are the end state, all of them `Injekt.get<Context>()`
+locators: `AboutScreen`, `WorkerInfoScreen`, `SettingsEhScreen` and `DisplayRefreshHost`. **The
+Compose path is finished**, and what is left is engine code. `AppGraph` carries 55 accessors and 21 `inject()` members, and `MetroInteropModule`
 hands back 88 types. Phase 5 is untouched: 0 `@ContributesIntoSet` migrations against 31
 `migrationContext.get<T>()` sites.
 
@@ -416,7 +421,7 @@ top of Status instead; it is the list that gets maintained.
 | 4a. ViewModels (done) | metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling | Done: the screens each batch touched, driven on device |
 | 4b. Composable reads, batches 1 and 2 (done) | The settings screens (`c3d1c4cd9`), then the remaining composables including four Reikai-owned ones (`9d85a35f6`). Graph at 55 accessors | Done: both batches on a minified build, batch 2 on the emulator and the Fold |
 | 4c. Composable reads, batch 3 (done) | The onboarding steps, `DisplayRefreshHost` and `SourceUtil` (`9ad07b8f4`), plus the orphan-import sweep (`d721de727`) | Done: onboarding walked, browse and the reader driven on a minified telemetry build |
-| 4d. Composable reads, batch 4 | See "What is left, in order" | As listed there |
+| 4d. Composable reads, batch 4 (done) | The app-theme preview repaired onto `TachiyomiPreviewTheme` (`cbea79b08`), plus upstream's remembered read restored in `TachiyomiTheme` (`0af6be7da`) | Gates only. Nothing renders previews, so the render itself is the owner's IDE check |
 | 4e. The reader models | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel` and the twelve reader engine reads | A full reader drive on a minified build |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params. Untouched as of 2026-08-19: 0 and 31 respectively | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` and `exh/`; the interop module shrinks as they land, but its floor is the novel reader's 17 types. Measured 2026-08-19 after batch 2: **32** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
