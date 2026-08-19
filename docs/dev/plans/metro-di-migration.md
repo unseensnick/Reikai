@@ -147,6 +147,15 @@ otherwise and has been corrected). Three models still take Injekt constructor de
 `ReaderViewModel` needs the assisted path described under ViewModels and is the reader's spine, so it
 is not mechanical work.
 
+**That step also carries the reader engine files, which no composable batch covers** (found by the
+batch 2 sweep, 2026-08-19). Twelve reads sit in `ChapterLoader`, `DownloadPageLoader`,
+`HttpPageLoader`, `MergedChapterLoader`, `PagerConfig`, `PagerViewer`, `WebGpuConfig`,
+`WebtoonConfig`, `WebtoonViewer` and `ReadingMode`. They belong here rather than in a batch of their
+own because upstream's answer splits along `ReaderViewModel`: the viewers and `ReadingMode` read
+`activity.appGraph`, while the loaders lose their Injekt reads entirely by taking the dependencies
+as constructor parameters from the converted model. Converting them before the model would mean
+inventing a seam upstream does not have.
+
 ### The composable reads, specified 2026-08-19
 
 Upstream's `b2015d1ef` fully converted its settings screens. Only two Injekt calls survive under
@@ -179,11 +188,17 @@ Four batches, each gated and committed on its own:
    lambdas, so converting one half would have forked the rule. The settings tree now matches
    upstream's end state, where the only surviving Injekt calls are `Injekt.get<Context>()` locators
    in the three non-composable readers plus the preview widget that batch 4 takes.
-2. The remaining composables, including four Reikai-owned ones that phase 6 would otherwise have
-   taken (owner, 2026-08-19): `DateText`, `ChapterSettingsDialog`, `ChapterListDialog`,
-   `ReadingModePage`, `TachiyomiTheme`, `SourcePreferencesScreen`, `HomeScreen`, `OnboardingScreen`,
-   `ReaderProgressIndicator`, `ReaderTransitionView`, `EntryCoverDialog`, `EntryDescription`,
-   `SettingsRecommendationsScreen` and `MigrationDeepPicker`.
+2. **Landed.** The remaining composables, including four Reikai-owned ones that phase 6 would
+   otherwise have taken (owner, 2026-08-19): `DateText`, `ChapterSettingsDialog`,
+   `ChapterListDialog`, `ReadingModePage`, `TachiyomiTheme`, `SourcePreferencesScreen`,
+   `HomeScreen`, `OnboardingScreen`, `ReaderProgressIndicator`, `ReaderTransitionView`,
+   `EntryCoverDialog`, `EntryDescription`, `SettingsRecommendationsScreen` and
+   `MigrationDeepPicker`. 15 files, 2 new accessors. Three shapes beyond the usual: the two
+   `AbstractComposeView` subclasses read the view's own `context` rather than `LocalContext`;
+   `SourcePreferencesFragment` uses `requireContext()`; and `HomeScreen` hoists the context out of
+   its `produceState` blocks, whose lambdas are suspend, not composable. `MigrationDeepPicker`'s
+   file-level `by injectLazy()` property is gone, so the handoff now resolves from the app-scoped
+   binding by construction rather than by coincidence.
 3. The non-composable holders: the three onboarding steps and `DisplayRefreshHost`.
 4. The `@PreviewLightDark` preview in `AppThemePreferenceWidget`, in its own commit so it reverts
    cleanly (owner, 2026-08-19). Upstream left this one alone and never checked that its preview still

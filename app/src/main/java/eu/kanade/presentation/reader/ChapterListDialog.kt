@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaChapterListItem
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
 import eu.kanade.tachiyomi.util.lang.toLocalDate
@@ -24,11 +23,10 @@ import eu.kanade.tachiyomi.util.lang.toRelativeString
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import mihon.app.di.appGraph
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Reikai (R-feature): in-reader "view all chapters" sheet. Ported from Komikku, decoupled from its
@@ -50,7 +48,7 @@ fun ChapterListDialog(
 ) {
     val context = LocalContext.current
     val listState = rememberLazyListState(chapters.indexOfFirst { it.isCurrent }.coerceAtLeast(0))
-    val downloadManager: DownloadManager = remember { Injekt.get() }
+    val downloadManager = remember { context.appGraph.downloadManager }
     val downloadQueueState by downloadManager.queueState.collectAsState()
     // Optimistic per-chapter overrides so a swipe updates the row live (the snapshot list isn't observed
     // here): download because deleteChapters runs async and the cache isn't watched, read/bookmark because

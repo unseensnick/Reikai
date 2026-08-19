@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -29,6 +30,7 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import mihon.app.di.appGraph
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
 import reikai.presentation.novel.browse.NovelBrowseScreen
@@ -38,11 +40,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalSource
-import uy.kohesive.injekt.injectLazy
-
-// File-level rather than a Screen field: Voyager serializes Screen instances, and a composable-body
-// Injekt.get is against the screen conventions for net-new code.
-private val pickHandoff: MigrationPickHandoff by injectLazy()
 
 /**
  * Push a full browse of one source to choose a migration target from, when the inline strips are not
@@ -85,6 +82,8 @@ class MigrationDeepPickerScreen(
         }
         val navigator = LocalNavigator.currentOrThrow
         val uriHandler = LocalUriHandler.current
+        // The graph's app-scoped binding, so the pick lands in the same handoff the models read.
+        val pickHandoff = LocalContext.current.appGraph.migrationPickHandoff
         val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
             create(sourceId = sourceId, listingQuery = query)
         }

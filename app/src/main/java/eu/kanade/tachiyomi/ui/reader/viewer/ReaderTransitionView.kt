@@ -13,12 +13,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
-import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.reader.ChapterTransition
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import mihon.app.di.appGraph
 
 class ReaderTransitionView @JvmOverloads constructor(
     context: Context,
@@ -49,7 +47,7 @@ class ReaderTransitionView @JvmOverloads constructor(
     override fun Content() {
         data?.let {
             // RK: tint the transition view from the cover color when enabled (Y11)
-            val themeCoverBased = Injekt.get<UiPreferences>().themeCoverBased.get()
+            val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
             TachiyomiTheme(seedColor = seedColor?.let { c -> Color(c) }.takeIf { themeCoverBased }) {
                 CompositionLocalProvider(
                     LocalTextStyle provides MaterialTheme.typography.bodySmall,

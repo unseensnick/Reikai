@@ -26,6 +26,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,8 +35,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
-import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
@@ -50,20 +49,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import reikai.presentation.recents.RecentsMode
 import reikai.presentation.recents.RecentsTab
 import reikai.presentation.recents.ShowsUpdatesBadge
 import soup.compose.material.motion.animation.materialFadeThroughIn
 import soup.compose.material.motion.animation.materialFadeThroughOut
-import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.NavigationBar
 import tachiyomi.presentation.core.components.material.NavigationRail
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import eu.kanade.presentation.util.Tab as NavTab
 
 object HomeScreen : Screen() {
@@ -111,9 +108,10 @@ object HomeScreen : Screen() {
 
     @Composable
     override fun Content() {
+        val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
         // RK: read here rather than per bar, so both bars and the fixup below agree within a frame.
-        val combinedRecents by remember { Injekt.get<UiPreferences>().combinedRecentsTab }.collectAsState()
+        val combinedRecents by remember { context.appGraph.uiPreferences.combinedRecentsTab }.collectAsState()
         val tabs = tabs(combinedRecents)
         TabNavigator(
             tab = LibraryTab,
@@ -275,6 +273,8 @@ object HomeScreen : Screen() {
 
     @Composable
     private fun NavigationIconItem(tab: eu.kanade.presentation.util.Tab) {
+        // produceState's block is a suspend lambda, not a composable, so the graph is read here.
+        val context = LocalContext.current
         BadgedBox(
             badge = {
                 when {
@@ -282,7 +282,7 @@ object HomeScreen : Screen() {
                     // feed can now be drawn by the combined tab instead.
                     tab is ShowsUpdatesBadge -> {
                         val count by produceState(initialValue = 0) {
-                            val pref = Injekt.get<LibraryPreferences>()
+                            val pref = context.appGraph.libraryPreferences
                             combine(
                                 pref.newShowUpdatesCount.changes(),
                                 pref.newUpdatesCount.changes(),
@@ -305,7 +305,7 @@ object HomeScreen : Screen() {
                     }
                     BrowseTab::class.isInstance(tab) -> {
                         val count by produceState(initialValue = 0) {
-                            Injekt.get<SourcePreferences>().extensionUpdatesCount.changes()
+                            context.appGraph.sourcePreferences.extensionUpdatesCount.changes()
                                 .collectLatest { value = it }
                         }
                         if (count > 0) {

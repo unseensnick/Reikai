@@ -56,10 +56,12 @@ import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.presentation.migrate.flow.MigrationAdapters
+import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
@@ -163,6 +165,8 @@ interface AppGraph : ViewModelGraph {
     val downloadCache: DownloadCache
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
+    val migrationPickHandoff: MigrationPickHandoff
+    val tasteLibraryRepository: TasteLibraryRepository
 
     // Interactors are unscoped, so every read builds a fresh instance where Injekt's
     // addSingletonFactory cached one. Safe only because none of them holds state.

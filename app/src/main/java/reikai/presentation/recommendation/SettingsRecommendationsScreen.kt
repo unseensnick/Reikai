@@ -16,16 +16,14 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedPlacement
-import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
@@ -41,8 +39,9 @@ object SettingsRecommendationsScreen : SearchableSettings {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val prefs = remember { Injekt.get<ReikaiRecommendationPreferences>() }
-        val trackerManager = remember { Injekt.get<TrackerManager>() }
+        val context = LocalContext.current
+        val prefs = remember { context.appGraph.reikaiRecommendationPreferences }
+        val trackerManager = remember { context.appGraph.trackerManager }
         // Taste injection is tracker-derived, so the master "Tracker recommendations" toggle gates the
         // whole section: hidden (and skipped at load time) when the master is off, so "off" reads as a
         // source-only carousel with no dangling controls.
@@ -132,8 +131,8 @@ object SettingsRecommendationsScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val refreshTrackerLibrary = remember { Injekt.get<RefreshTrackerLibrary>() }
-        val repository = remember { Injekt.get<TasteLibraryRepository>() }
+        val refreshTrackerLibrary = remember { context.appGraph.refreshTrackerLibrary }
+        val repository = remember { context.appGraph.tasteLibraryRepository }
         // Bump to recompute the last-refresh summary after a manual pull lands.
         var refreshTick by remember { mutableIntStateOf(0) }
         val neverLabel = stringResource(MR.strings.pref_last_refresh_never)
