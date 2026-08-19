@@ -16,7 +16,6 @@ import tachiyomi.domain.category.interactor.RenameCategory
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
-import uy.kohesive.injekt.api.get
 
 /**
  * Category management for the shared edit-categories screen, which is one list spanning both libraries.

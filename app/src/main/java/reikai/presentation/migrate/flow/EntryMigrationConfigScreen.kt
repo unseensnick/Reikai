@@ -79,7 +79,6 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.shouldExpandFAB
-import uy.kohesive.injekt.api.get
 
 /**
  * Choose which sources a migration searches, and in what order. Shared by both content types over

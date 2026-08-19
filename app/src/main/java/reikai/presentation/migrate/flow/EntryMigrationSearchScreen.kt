@@ -51,7 +51,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import uy.kohesive.injekt.api.get
 
 /** Sources searched at once. */
 private const val SEARCH_CONCURRENCY = 5
