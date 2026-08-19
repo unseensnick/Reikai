@@ -9,7 +9,7 @@ alwaysApply: true
 - **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.
 - **YAGNI**: Only add what the current task requires. No speculative APIs, optional parameters, or abstractions for hypothetical callers.
 - **KISS**: Prefer the simplest correct solution. Complexity must be justified by concrete requirements, not elegance or anticipated scale.
-- **Minimal blast radius**: A bug fix changes only what's broken. A feature adds only what's specified, with one standing exception: a user-visible change specified for one content type is specified for both, per the write-once rule in [content-layer.md](content-layer.md). Leave working surrounding code untouched.
+- **Minimal blast radius, measured against the defect and not the diff**: a bug fix changes only what's broken, and it changes it everywhere it is broken, not only at the site that reproduced. Grep for sibling sites before calling a fix done, and name any you deliberately left. A feature adds only what's specified, with one standing exception: a user-visible change specified for one content type is specified for both, per the write-once rule in [content-layer.md](content-layer.md). Leave working surrounding code untouched.
 - **No standalone refactor sprints**: Refactor incrementally alongside the feature or fix that motivated it. Never propose a separate "cleanup pass" unless the user asks. **Standing exemption:** the content-layer program (the manga/novel collapse) is an owner-approved refactor initiative, so work under it needs no motivating feature. Nothing else is exempt.
 
 ## Anti-defaults

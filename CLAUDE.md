@@ -16,6 +16,8 @@ Android manga + light-novel reader. Personal fork built on [Mihon](https://githu
 
 **Plan before acting.** Once you have enough context, think through what needs to change and why: which files are affected, what the failure modes are, whether the approach is sound. Use `EnterPlanMode` for non-trivial tasks to draft and get approval before touching code.
 
+**Define done before starting, and name the check that would catch you being wrong.** Turn the task into a goal with its verification attached: "add validation" becomes "write the test for the invalid input, watch it fail, then make it pass"; "fix the bug" becomes "reproduce it in a test first". For multi-step work, write the steps with their checks inline (`1. <step> -> verify: <check>`), so a step nothing can check is visible before it is built rather than after. Passing gates prove nothing broke, never that nothing was missed: a fix also owes a sweep for the same defect at its sibling sites, each one marked fixed or deliberately left with the reason. Scope stays what was asked; depth is every site the defect actually exists at.
+
 **Stop and replan when blocked.** If you hit an unexpected problem mid-task (a failing constraint, a broken assumption, an error you don't fully understand), stop all changes immediately and surface the blocker. Do not circumvent it (deleting a test, silencing a lint error, skipping a hook, or forcing past a tool denial). Replan from scratch with the new information.
 
 **Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool). This keeps the main context window clean.

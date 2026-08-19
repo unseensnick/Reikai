@@ -43,12 +43,17 @@ contains_icmd() { printf '%s' "$COMMAND" | grep -qiE "$1"; }
 # own cwd is always the project dir and cannot see a `Set-Location` or `git -C` elsewhere: the
 # branch probe below would otherwise read THIS repo's branch and gate a push to a different one.
 UNPROTECTED_REPOS="${CLAUDE_UNPROTECTED_REPOS:-reikai-claude-memories}"
+# The session's cwd, which is where the command actually runs. The hook's own cwd is always the
+# project dir, so it can see neither a loop worktree nor a session working in a sibling repo.
+SESSION_CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 targets_unprotected_repo() {
   local repo
   # `|| [ -n "$repo" ]` because the last entry has no trailing newline and read would drop it.
   while IFS= read -r repo || [ -n "$repo" ]; do
     [ -z "$repo" ] && continue
     printf '%s' "$COMMAND" | grep -qiF -- "$repo" && return 0
+    # Also when the session is already sitting in that repo, so a bare `git push` there still passes.
+    [ -n "$SESSION_CWD" ] && printf '%s' "$SESSION_CWD" | grep -qiF -- "$repo" && return 0
   done < <(printf '%s' "$UNPROTECTED_REPOS" | tr ',' '\n')
   return 1
 }
@@ -65,7 +70,9 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push' && ! targets_unpro
   fi
   # Bare `git push` while on protected branch
   if contains_cmd 'git[[:space:]]+push[[:space:]]*($|[;&|])'; then
-    CURRENT=$(git branch --show-current 2>/dev/null || true)
+    # Probe the session's cwd, not the hook's, so a push from a loop worktree is judged against the
+    # worktree's own branch instead of the main tree's.
+    CURRENT=$(git -C "${SESSION_CWD:-.}" branch --show-current 2>/dev/null || git branch --show-current 2>/dev/null || true)
     if [ -n "$CURRENT" ] && printf '%s' ",$PROTECTED_BRANCHES," | grep -q ",$CURRENT,"; then
       emit_deny "Blocked: you are on '$CURRENT' (a protected branch). Switch to a feature branch."
     fi
@@ -79,6 +86,17 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
      && ! contains_cmd '\-\-force-with-lease'; then
     emit_deny "Blocked: force push is not allowed. Use --force-with-lease if you must overwrite remote."
   fi
+fi
+
+# ── Merging is never the agent's call ───────────────────────────────────
+# Both loops (.claude/skills/sync-loop, audit-loop) open a PR and stop; the owner merges. Rulesets
+# cannot cover this one: to GitHub a PR merge is legitimate, so this matcher is the only guard, and it
+# is why merging stays a named stop condition in both skills rather than resting on the remote.
+if contains_cmd '(^|[;&|()]+[[:space:]]*)gh[[:space:]]+pr[[:space:]]+merge'; then
+  emit_deny "Blocked: merging a PR is the owner's call. Open the PR and stop."
+fi
+if contains_cmd 'gh[[:space:]]+api[^;&|]*pulls/[0-9]+/merge'; then
+  emit_deny "Blocked: merging a PR through the API is the owner's call. Open the PR and stop."
 fi
 
 # ── Destructive filesystem operations ───────────────────────────────────
@@ -126,9 +144,12 @@ fi
 
 # Disk / partition. Note: only REDIRECTIONS to /dev/ are destructive. `2>/dev/null` is not.
 # Pattern matches: `>[ ]*/dev/<something>` but NOT `2>/dev/null` or `&>/dev/null` style for fd-null.
-# Strategy: match `>` optionally with whitespace, followed by /dev/<name>, EXCLUDING /dev/null and /dev/stderr/stdout.
-if printf '%s' "$COMMAND" | grep -qE '(^|[^0-9&])>[[:space:]]*/dev/[a-zA-Z][a-zA-Z0-9]*' \
-   && ! printf '%s' "$COMMAND" | grep -qE '>[[:space:]]*/dev/(null|stdout|stderr|tty|zero|random|urandom)([[:space:]]|$)' ; then
+# Strategy: delete the harmless redirects first, then match `>` optionally with whitespace followed by
+# /dev/<name> on what is left. Deleting them beats excluding them on the whole command, which failed
+# twice over: `>/dev/null;` was read as unsafe because the exclusion demanded whitespace or end of line
+# after it, and one safe redirect anywhere cleared a dangerous one later in the same command.
+CMD_SANS_SAFE=$(printf '%s' "$COMMAND" | sed -E 's#>[[:space:]]*/dev/(null|stdout|stderr|tty|zero|random|urandom)##g')
+if printf '%s' "$CMD_SANS_SAFE" | grep -qE '(^|[^0-9&])>[[:space:]]*/dev/[a-zA-Z][a-zA-Z0-9]*' ; then
   emit_deny "Blocked: redirection into a raw device file can destroy data."
 fi
 if contains_cmd '(^|[;&|[:space:]])(mkfs|mkfs\.[a-z0-9]+)([[:space:]]|$)' \
