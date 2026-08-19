@@ -190,15 +190,23 @@ class NovelEntryAdapter(
         model.showCoverDialog()
     }
     override fun createCoverViewModel(): EntryCoverViewModel<*> {
-        // Anchor-scoped like manga: the dialog also EDITS the custom cover, and a custom cover set
-        // from a source-chip view must land on the entry the library renders, not the sibling.
-        val loaded = model.state.value as? NovelDetailsState.Loaded
+        // Follows the source chip like manga, so the cover matches the page. Editing is gated by
+        // isCoverAnchored instead, since a custom cover must land on the entry the library renders.
+        val loaded = loadedState()
+        val shown = loaded?.displayNovel ?: loaded?.novel
         return NovelCoverViewModel(
-            novelUrl = loaded?.novel?.url.orEmpty(),
-            novelSource = loaded?.novel?.source.orEmpty(),
+            novelUrl = shown?.url.orEmpty(),
+            novelSource = shown?.source.orEmpty(),
             site = loaded?.sourceUrl,
         )
     }
+
+    override fun coverKey(): String = loadedState()?.let { (it.displayNovel ?: it.novel).id.toString() }.orEmpty()
+
+    override fun isCoverAnchored(): Boolean =
+        loadedState()?.let { it.selectedSourceNovelId == null || it.selectedSourceNovelId == it.novel.id } != false
+
+    private fun loadedState(): NovelDetailsState.Loaded? = model.state.value as? NovelDetailsState.Loaded
     override fun showEditInfoDialog() {
         model.showEditNovelInfoDialog()
     }

@@ -140,6 +140,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library**
 
+- **On a merged series, tapping the cover shows the selected source's cover, and changing the cover is done on the All chip.** Your library shows the group's cover, so an edit made under one source would have looked like it did nothing.
 - **Settings -> Library -> Preferred sources no longer opens with a large empty gap above the list.** A short ranking was being centred on the screen, which read as a broken page; it now starts under the tabs.
 - **Backing out of the category picker no longer adds a novel anyway.** Nothing is written until you confirm, matching how manga has always behaved.
 - **A series that fails to be added no longer ends up filed under a category it never joined.** If the add cannot complete, nothing is written at all now, on both manga and novels.

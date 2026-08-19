@@ -236,7 +236,15 @@ class MangaEntryAdapter(
         model.showCoverDialog()
     }
     override fun createCoverViewModel(): EntryCoverViewModel<*> =
-        MangaEntryCoverViewModel(successState()?.manga?.id ?: 0L)
+        MangaEntryCoverViewModel(shownCover()?.id ?: 0L)
+
+    override fun coverKey(): String = (shownCover()?.id ?: 0L).toString()
+
+    override fun isCoverAnchored(): Boolean =
+        successState()?.let { it.mergeDisplayManga == null || it.mergeDisplayManga?.id == it.manga.id } != false
+
+    /** The entry whose cover the page is showing: the selected chip's, falling back to the group's. */
+    private fun shownCover(): Manga? = successState()?.let { it.mergeDisplayManga ?: it.manga }
     override fun showEditInfoDialog() {
         model.showEditMangaInfoDialog()
     }

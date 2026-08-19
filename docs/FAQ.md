@@ -95,6 +95,19 @@ sorts and still groups with its other sources. This is deliberate: it keeps a re
 silently reshuffling your library or splitting a merged series. The edit is stored separately
 and never overwrites the source, so Reset restores the original cleanly.
 
+## On a merged series, why can't I change the cover while a source chip is selected?
+
+Tapping the cover shows the cover of whichever source you have selected, so it matches the
+page you are looking at. Edit cover and Delete custom cover are only offered on the group
+itself, which is the All chip.
+
+The reason is that your library shows the group's cover, not each source's. If you could set
+a custom cover while viewing one source, it would land on that source's copy and your library
+would carry on showing the old one, which looks like the change failed. Restricting the edit
+to the group means the cover you are looking at is always the cover a change would replace.
+
+To change it, switch to All and tap the cover there.
+
 ## I turned on Auto webtoon mode but a manhwa still opens paged. Why?
 
 The reader briefly says "Reading webtoon style" whenever it picks the mode for you, so

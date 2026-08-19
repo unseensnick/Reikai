@@ -94,14 +94,17 @@ fun Screen.EntryDetailsDialogHost(
         EntryDetailsDialog.Cover -> {
             // The behavior returns the per-type subclass through the star-projected base. Voyager only
             // used that type as a store key, but AndroidX's default factory would try to instantiate it
-            // reflectively, so the construction moves into an explicit initializer. The initializer runs
-            // once per host screen and freezes the anchor it captures, which is correct: both adapters
-            // anchor on the group entry (`manga` / `novel`), never on the source chip's `mergeDisplay*`
-            // sibling, so a chip switch is not supposed to move it. No key is needed.
+            // reflectively, so the construction moves into an explicit initializer. An initializer
+            // freezes the entry it captures, and both adapters build for the source chip's entry, so
+            // the model is keyed by that entry: without the key the store would hand back the model
+            // built for whichever chip opened the dialog first.
             val coverFactory = remember(behavior) {
                 viewModelFactory { initializer { behavior.createCoverViewModel() } }
             }
-            val coverViewModel = viewModel<EntryCoverViewModel<*>>(factory = coverFactory)
+            val coverViewModel = viewModel<EntryCoverViewModel<*>>(
+                key = behavior.coverKey(),
+                factory = coverFactory,
+            )
             val cover by coverViewModel.coverModel.collectAsStateWithLifecycle()
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -113,11 +116,18 @@ fun Screen.EntryDetailsDialogHost(
                     snackbarHostState = coverViewModel.snackbarHostState,
                     onShareClick = { coverViewModel.shareCover(context) },
                     onSaveClick = { coverViewModel.saveCover(context) },
-                    onEditClick = {
-                        when (it) {
-                            EditCoverAction.EDIT -> getContent.launch("image/*")
-                            EditCoverAction.DELETE -> coverViewModel.deleteCustomCover(context)
+                    // Null hides Edit and Delete, which is what a chip's sibling gets: a custom cover
+                    // has to land on the entry the library renders, so it is only offered where the
+                    // group's own cover is the one on screen.
+                    onEditClick = if (behavior.isCoverAnchored()) {
+                        { action: EditCoverAction ->
+                            when (action) {
+                                EditCoverAction.EDIT -> getContent.launch("image/*")
+                                EditCoverAction.DELETE -> coverViewModel.deleteCustomCover(context)
+                            }
                         }
+                    } else {
+                        null
                     },
                     onDismissRequest = onDismissRequest,
                 )

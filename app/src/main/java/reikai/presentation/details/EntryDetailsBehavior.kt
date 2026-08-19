@@ -57,8 +57,21 @@ interface EntryDetailsBehavior {
     // Cover and custom-info edit.
     fun showCoverDialog()
 
-    /** The per-type full-cover ViewModel, resolved by the shared dialog host. */
+    /**
+     * The per-type full-cover ViewModel, resolved by the shared dialog host. Built for the entry the
+     * source chip is showing, so the cover matches the page you opened it from.
+     */
     fun createCoverViewModel(): EntryCoverViewModel<*>
+
+    /** Identity of the entry [createCoverViewModel] builds for, so a chip switch gets its own model. */
+    fun coverKey(): String
+
+    /**
+     * True when the shown cover is the group's own, which is the only one that may be edited: a
+     * custom cover has to land on the entry the library renders, not on a chip's sibling. The host
+     * hides Edit and Delete when this is false, so what you see is always what a write would replace.
+     */
+    fun isCoverAnchored(): Boolean
     fun showEditInfoDialog()
     fun saveInfo(edited: EntryEditInfoUi)
     fun resetInfo()
