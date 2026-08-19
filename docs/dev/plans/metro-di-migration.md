@@ -139,6 +139,70 @@ Phases 4 to 7 remain, with two corrections found by the 2026-08-17 audit:
   `NovelReaderScreenModel` on Injekt means its 17 dependencies must be handed back, and only one is
   today.
 
+**Phase 4's ViewModel half is not finished** (measured 2026-08-19; the sequence table below said
+otherwise and has been corrected). Three models still take Injekt constructor defaults:
+`ReaderViewModel` with 22 of them, resolved reflectively by `viewModels<ReaderViewModel>()` in
+`ReaderActivity`; `ReaderSettingsViewModel`; and `DownloadQueueViewModel`, which already carries the
+`// RK: inert` marker. They convert as their own step after the composable batches below, because
+`ReaderViewModel` needs the assisted path described under ViewModels and is the reader's spine, so it
+is not mechanical work.
+
+### The composable reads, specified 2026-08-19
+
+Upstream's `b2015d1ef` fully converted its settings screens. Only two Injekt calls survive under
+`more/settings/` there: a `Context` locator in `AboutScreen`, and an `Injekt.addSingleton` inside a
+`@PreviewLightDark` preview in `AppThemePreferenceWidget`. Partial conversion is not upstream's model.
+
+Three target shapes, taken verbatim from that commit:
+
+- Inside a `@Composable`: `val context = LocalContext.current`, then `remember { context.appGraph.x }`.
+  Hoist `val graph = remember { context.appGraph }` when a body has four or more reads, as
+  `SettingsAdvancedScreen` does upstream.
+- Inside a lambda or callback: read inline off `context`, unremembered, as in
+  `context.appGraph.downloadCache.invalidateCache()`.
+- A class or object property initializer: keep Injekt purely as a `Context` locator,
+  `Injekt.get<Context>().appGraph.x`. Upstream's own `DisplayRefreshHost` has exactly this shape.
+
+36 distinct types are read across the scope. 13 already have accessors and **25 are net-new**, every
+one a one-liner, because all 25 are already graph-constructible: 22 carry `@Inject` (with
+`@SingleIn(AppScope::class)` where they are singletons), both merge managers come from
+`ReikaiBindings`, and `TasteLibraryRepository` is bound by its implementation through
+`@ContributesBinding`. They belong in the accessor block under the "Read through Context.appGraph"
+comment. `Application` is not on the graph at all, only `Context`, but nothing in this scope needs it.
+
+Four batches, each gated and committed on its own:
+
+1. The ten `getPreferences()` bodies and their lambda reads, plus `ConfigureExhDialog`,
+   `AboutScreen.getFormattedBuildTime`, `DebugInfoScreen` and `WorkerInfoScreen`. Manga and novel
+   pairs move together: `SettingsLibraryScreen` reads `GetCategories` beside `GetNovelCategories` and
+   resets both category flag sets in adjacent lambdas, so converting one half would fork the rule.
+2. The remaining composables, including four Reikai-owned ones that phase 6 would otherwise have
+   taken (owner, 2026-08-19): `DateText`, `ChapterSettingsDialog`, `ChapterListDialog`,
+   `ReadingModePage`, `TachiyomiTheme`, `SourcePreferencesScreen`, `HomeScreen`, `OnboardingScreen`,
+   `ReaderProgressIndicator`, `ReaderTransitionView`, `EntryCoverDialog`, `EntryDescription`,
+   `SettingsRecommendationsScreen` and `MigrationDeepPicker`.
+3. The non-composable holders: the three onboarding steps and `DisplayRefreshHost`.
+4. The `@PreviewLightDark` preview in `AppThemePreferenceWidget`, in its own commit so it reverts
+   cleanly (owner, 2026-08-19). Upstream left this one alone and never checked that its preview still
+   renders, so it is the only piece here with no upstream precedent.
+
+**`MigrationDeepPicker` is an identity hazard, not a timing one.** `MigrationPickHandoff` is
+`@SingleIn(AppScope::class)` and reaches that file today through the interop module's provider.
+Resolving it any other way splits the offer/take slot, and the symptom is a manual deep pick silently
+going nowhere rather than a crash.
+
+**Timing is clear everywhere else in this scope.** The four types promoted out of property
+initializers are thin `PreferenceStore` wrappers with no `init` block, no eager `.get()` and no
+coroutine, and `AndroidPreferenceStore.keyFlow` is a cold `callbackFlow` that registers its listener
+only on collection. `StoragePreferences` evaluates `folderProvider.path()` as a default value, which
+builds a path string and reads one string resource without touching the filesystem. One pre-existing
+eager read stays as it is: `DisplayRefreshHost` calls `flashIntervalPref.get()` in a property
+initializer, a synchronous preferences read at `ReaderActivity` construction that predates the port.
+
+Separately, 13 files carry a lone orphan `uy.kohesive.injekt` import with no remaining use. They
+predate this step, Spotless does not remove them, and they are swept per batch as the batch touches
+them.
+
 Owner rulings, 2026-08-16:
 
 - **Port everything, in two commits.** Upstream-mirroring work lands first; the Reikai-owned trees
@@ -266,9 +330,9 @@ Each phase is a commit that compiles and boots. The verification column says wha
 | 3a. App classes, upstream (done) | Annotate and move the `eu.kanade` / `mihon` classes the module files register, plus the `data` repository implementations | Done: 1064 + 75 tests, minified build, cold start, library, details, tracking sheet |
 | 3b. App classes, Reikai (done) | The `reikai` / `exh` classes, the fetcher list and both merge managers via `ReikaiBindings`, and the two `exh` classes in `core/common` | Done: 1064 + 75 tests, minified build, cold start, library, and a novel source browsed end to end through the QuickJS plugin host |
 | 3c. Entry points (done) | All 15 workers, the 5 `setupTask` companions (through `Context.appGraph`), `AppModule` deleted with its two `addSingleton` calls and the warm-up moved into `App`, both widget surfaces plus their two refresh managers, and the activities, delegates and `NotificationReceiver` | Done: both update jobs to success, a cold start with the warm-up in `App`, both widgets rendering, and on a minified build the library, reader, WebView, a real tracker login, a download-queue notification action and the legacy extension installer |
-| 4. ViewModels and Compose (models done) | Every ViewModel now resolves from the graph: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling. Left in this phase: roughly 70 composable Injekt reads | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
+| 4. ViewModels and Compose (models mostly done) | The graph-resolved models landed: metrox wired, `AppGraph : ViewModelGraph` with `ReikaiViewModelFactory`, the local at both `setComposeContent` roots, every plain and assisted model including the tracker sheet's eight, the migrate flow's seven, both engines and the EXH pair. Zero `CreationExtras.Key` remain and the one surviving `viewModelFactory` is the cover-factory initializer, which stays by ruling. Left in this phase: the four composable-read batches specified in Status, then `ReaderViewModel`, `ReaderSettingsViewModel` and `DownloadQueueViewModel`, which still take Injekt constructor defaults | Each batch: interop check, compile, spotless, both test suites, a minified build, then the screens it touches driven on device |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params | Device: upgrade from an older `versionCode` and watch the migration log |
-| 6. Reikai-owned | `reikai/` 71 files and `exh/` 16, the follow-up commit; the interop module shrinks as they land | Full device sweep: novels, EXH, recommendations, merge, migrate |
+| 6. Reikai-owned | `reikai/` and `exh/`, the follow-up commit; the interop module shrinks as they land. Measured 2026-08-19 the remainder is 36 files under `reikai/` and 7 under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory, minus the four composables phase 4 now takes | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7. Cleanup | Drop the `reikai.**` / `exh.**` proguard keeps if no Injekt generic remains, regenerate both baseline profiles, rewrite the rules files | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
 **Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
