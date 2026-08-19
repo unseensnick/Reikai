@@ -23,6 +23,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,10 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -170,37 +173,56 @@ fun EntryCoverDialog(
             },
         ) { contentPadding ->
             if (useNewRenderer) {
-                val state = ImageViewerState()
+                // RK --> the viewer is laid out inside the bars rather than over them, and the page
+                // is fitted to that box whenever it changes, so a fold or a rotation re-fits instead
+                // of keeping a scale measured for the old window. The library has no fit of its own,
+                // so the scale is ours to set, the way the reader's viewer sets its fit modes.
+                val state = remember { ImageViewerState() }
+                var page by remember { mutableStateOf<ImagePage?>(null) }
+                var boxSize by remember { mutableStateOf(IntSize.Zero) }
 
                 state.dpi = view.resources.displayMetrics.densityDpi / 100f
 
-                ImageRequest.Builder(view.context)
-                    .data(cover)
-                    .size(Size.ORIGINAL)
-                    .memoryCachePolicy(CachePolicy.DISABLED)
-                    .newDecoder(true)
-                    .target { result ->
-                        val res = (result as ImageDecoder.DecodeResultImage).res
-                        val page = runBlocking(WebGpuRenderer.dispatcher) {
-                            ImagePage(res.image, res.width, res.height)
-                        }.apply {
-                            image?.backgroundColor = 0
+                LaunchedEffect(cover) {
+                    ImageRequest.Builder(view.context)
+                        .data(cover)
+                        .size(Size.ORIGINAL)
+                        .memoryCachePolicy(CachePolicy.DISABLED)
+                        .newDecoder(true)
+                        .target { result ->
+                            val res = (result as ImageDecoder.DecodeResultImage).res
+                            page = runBlocking(WebGpuRenderer.dispatcher) {
+                                ImagePage(res.image, res.width, res.height)
+                            }.apply { image?.backgroundColor = 0 }
                         }
-                        state.apply {
-                            fetchPage = { index ->
-                                if (index == 0) {
-                                    page
-                                } else {
-                                    null
-                                }
-                            }
-                            invalidate()
-                        }
-                    }
-                    .build()
-                    .let(view.context.imageLoader::enqueue)
+                        .build()
+                        .let(view.context.imageLoader::enqueue)
+                }
 
-                ImageViewer(state = state)
+                LaunchedEffect(page, boxSize) {
+                    val loaded = page ?: return@LaunchedEffect
+                    if (boxSize.width > 0 && boxSize.height > 0 &&
+                        loaded.trimWidth > 0 && loaded.trimHeight > 0
+                    ) {
+                        val fit = minOf(
+                            boxSize.width.toFloat() / loaded.trimWidth,
+                            boxSize.height.toFloat() / loaded.trimHeight,
+                        )
+                        loaded.homeScaleOverride = fit
+                        loaded.minScale = minOf(loaded.minScale, fit)
+                    }
+                    state.fetchPage = { index -> loaded.takeIf { index == 0 } }
+                    state.invalidate()
+                }
+
+                ImageViewer(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(contentPadding)
+                        .onSizeChanged { boxSize = it },
+                    state = state,
+                )
+                // RK <--
                 return@Scaffold
             }
 
