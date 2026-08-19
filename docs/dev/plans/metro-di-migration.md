@@ -181,14 +181,14 @@ comment. `Application` is not on the graph at all, only `Context`, but nothing i
 
 Four batches, each gated and committed on its own:
 
-1. **Landed.** The twelve settings screens and their lambda reads, plus `ConfigureExhDialog`,
+1. **Landed** (`c3d1c4cd9`). The twelve settings screens and their lambda reads, plus `ConfigureExhDialog`,
    `AboutScreen.getFormattedBuildTime`, `DebugInfoScreen` and `WorkerInfoScreen`. 17 files, 23 new
    accessors, 46 reads converted. Manga and novel pairs moved together: `SettingsLibraryScreen` reads
    `GetCategories` beside `GetNovelCategories` and resets both category flag sets in adjacent
    lambdas, so converting one half would have forked the rule. The settings tree now matches
    upstream's end state, where the only surviving Injekt calls are `Injekt.get<Context>()` locators
    in the three non-composable readers plus the preview widget that batch 4 takes.
-2. **Landed.** The remaining composables, including four Reikai-owned ones that phase 6 would
+2. **Landed** (`9d85a35f6`). The remaining composables, including four Reikai-owned ones that phase 6 would
    otherwise have taken (owner, 2026-08-19): `DateText`, `ChapterSettingsDialog`,
    `ChapterListDialog`, `ReadingModePage`, `TachiyomiTheme`, `SourcePreferencesScreen`,
    `HomeScreen`, `OnboardingScreen`, `ReaderProgressIndicator`, `ReaderTransitionView`,
