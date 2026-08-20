@@ -23,6 +23,7 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -135,6 +136,8 @@ class NovelDetailsViewModel(
     @Assisted private val novelUrl: String,
     private val novelRepo: NovelRepository,
     private val updateNovel: UpdateNovel,
+    // RK: "Reset all" clears the cached custom cover too, not just the custom-info row.
+    private val coverCache: CoverCache,
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
     private val database: Database,
@@ -943,6 +946,10 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
+            // RK: a cover set from the picker is a cached file, not a row field, so clearing the row
+            // alone leaves it in place and winning (NovelCoverKeyer).
+            coverCache.deleteCustomCover(EntryId.Novel(n.id))
+            updateNovel.awaitUpdateCoverLastModified(n.id)
             dismissDialog()
         }
     }

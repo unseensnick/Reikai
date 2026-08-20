@@ -42,6 +42,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.formattedMessage
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -88,6 +89,7 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
@@ -186,6 +188,8 @@ class MangaViewModel(
     private val setReadStatus: SetReadStatus,
     private val updateChapter: UpdateChapter,
     private val updateManga: UpdateManga,
+    // RK: "Reset all" clears the cached custom cover too, not just the custom-info row.
+    private val coverCache: CoverCache,
     private val getCategories: GetCategories,
     // RK: orders the change-category picker by the category sort-order pref, like the library.
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
@@ -1694,6 +1698,10 @@ class MangaViewModel(
     fun resetMangaInfo(manga: Manga) {
         viewModelScope.launchNonCancellable {
             setCustomMangaInfo.set(CustomMangaInfo(mangaId = manga.id))
+            // RK: a cover set from the picker or the reader is a cached file, not a row field, so
+            // clearing the row alone leaves it in place and winning (MangaCoverKeyer).
+            coverCache.deleteCustomCover(EntryId.Manga(manga.id))
+            updateManga.awaitUpdateCoverLastModified(manga.id)
         }
         dismissDialog()
     }
