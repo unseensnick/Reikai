@@ -16,6 +16,8 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.App
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
+import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.PagePreviewCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -91,6 +93,8 @@ interface AppGraph : ViewModelGraph {
 
     fun inject(app: App)
 
+    fun inject(backupCreateJob: BackupCreateJob)
+    fun inject(backupRestoreJob: BackupRestoreJob)
     fun inject(libraryUpdateJob: LibraryUpdateJob)
     fun inject(metadataUpdateJob: MetadataUpdateJob)
     fun inject(downloadJob: DownloadJob)

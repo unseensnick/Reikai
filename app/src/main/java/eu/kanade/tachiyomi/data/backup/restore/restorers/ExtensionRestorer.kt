@@ -5,6 +5,7 @@
 // per-apk prompts. Extensions with no available match (repo missing) are returned for the restore log.
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
@@ -18,11 +19,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
 class ExtensionRestorer(
-    private val extensionManager: ExtensionManager = Injekt.get(),
+    private val extensionManager: ExtensionManager,
 ) {
 
     /** Reinstall the backed-up extensions; returns the names of those that couldn't be matched. */

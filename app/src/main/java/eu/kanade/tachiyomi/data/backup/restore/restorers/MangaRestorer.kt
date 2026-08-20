@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
@@ -35,27 +36,26 @@ import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.track.model.Track
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.Date
 import kotlin.math.max
 import kotlin.time.Clock
 
+@Inject
 class MangaRestorer(
-    private val database: Database = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val getMangaByUrlAndSourceId: GetMangaByUrlAndSourceId = Injekt.get(),
-    private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val getTracks: GetTracks = Injekt.get(),
-    private val insertTrack: InsertTrack = Injekt.get(),
-    fetchInterval: FetchInterval = Injekt.get(),
+    private val database: Database,
+    private val getCategories: GetCategories,
+    private val getMangaByUrlAndSourceId: GetMangaByUrlAndSourceId,
+    private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val updateManga: UpdateManga,
+    private val getTracks: GetTracks,
+    private val insertTrack: InsertTrack,
+    fetchInterval: FetchInterval,
     // RK: target of the restored manga merge groups (see restoreMerges).
-    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get(), Injekt.get()),
+    private val restoreMergeGroups: RestoreMergeGroups,
     // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
-    private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
+    private val mangaMetadataRepository: MangaMetadataRepository,
     // RK: applies the restored manga custom-info overlay (re-keyed by url+source).
-    private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
+    private val setCustomMangaInfo: SetCustomMangaInfo,
 ) {
 
     private val timeZone = TimeZone.currentSystemDefault()

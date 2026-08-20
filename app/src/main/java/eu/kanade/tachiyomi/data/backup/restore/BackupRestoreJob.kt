@@ -11,6 +11,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -19,6 +20,8 @@ import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
+import mihon.app.di.AppGraph
+import mihon.core.metro.metroGraph
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -26,9 +29,15 @@ import tachiyomi.i18n.MR
 class BackupRestoreJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    private val notifier = BackupNotifier(context)
+    private val graph: AppGraph = context.metroGraph()
+
+    @Inject private lateinit var backupRestorerFactory: BackupRestorer.Factory
+
+    @Inject private lateinit var notifier: BackupNotifier
 
     override suspend fun doWork(): Result {
+        graph.inject(this)
+
         val uri = inputData.getString(LOCATION_URI_KEY)?.toUri()
         val options = inputData.getBooleanArray(OPTIONS_KEY)?.let { RestoreOptions.fromBooleanArray(it) }
 
@@ -41,7 +50,7 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
         setForegroundSafely()
 
         return try {
-            BackupRestorer(context, notifier, isSync).restore(uri, options)
+            backupRestorerFactory.create(notifier = notifier, isSync = isSync).restore(uri, options)
             Result.success()
         } catch (e: Exception) {
             if (e is CancellationException) {

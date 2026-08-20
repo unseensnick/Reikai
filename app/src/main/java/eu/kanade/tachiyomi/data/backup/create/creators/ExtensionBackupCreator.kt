@@ -2,13 +2,13 @@
 // manga extensions so a restore can reinstall them. Reads the ExtensionManager's live installed list.
 package eu.kanade.tachiyomi.data.backup.create.creators
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.extension.ExtensionManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
 class ExtensionBackupCreator(
-    private val extensionManager: ExtensionManager = Injekt.get(),
+    private val extensionManager: ExtensionManager,
 ) {
 
     operator fun invoke(): List<BackupExtension> {

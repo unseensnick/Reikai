@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup
 
 import android.content.Context
 import android.net.Uri
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
@@ -9,17 +10,16 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
 class BackupFileValidator(
+    // RK: kept, unlike upstream: the streaming reader needs it where upstream decodes the whole file.
     private val context: Context,
-
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val trackerManager: TrackerManager = Injekt.get(),
+    private val sourceManager: SourceManager,
+    private val trackerManager: TrackerManager,
     // RK: novels validate against their own source registry + the shared tracker manager.
-    private val novelSourceManager: NovelSourceManager = Injekt.get(),
-    private val parser: ProtoBuf = Injekt.get(),
+    private val novelSourceManager: NovelSourceManager,
+    private val parser: ProtoBuf,
 ) {
 
     /**

@@ -179,6 +179,7 @@ class RestoreBackupScreen(
 @AssistedInject
 class RestoreBackupViewModel(
     private val context: Context,
+    private val backupFileValidator: BackupFileValidator,
     @Assisted private val uri: String,
 ) : ViewModel() {
 
@@ -217,7 +218,7 @@ class RestoreBackupViewModel(
 
     private suspend fun validate(uri: Uri) {
         val results = try {
-            BackupFileValidator(context).validate(uri)
+            backupFileValidator.validate(uri)
         } catch (e: Exception) {
             setError(
                 error = InvalidRestore(uri, e.message.toString()),

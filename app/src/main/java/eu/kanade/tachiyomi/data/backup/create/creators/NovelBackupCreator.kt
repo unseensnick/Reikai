@@ -5,6 +5,7 @@
 package eu.kanade.tachiyomi.data.backup.create.creators
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
@@ -29,17 +30,16 @@ import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import tachiyomi.data.Database
 import tachiyomi.domain.category.repository.CategoryRepository
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
 class NovelBackupCreator(
-    private val novelRepository: NovelRepository = Injekt.get(),
-    private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
-    private val categoryRepository: CategoryRepository = Injekt.get(),
-    private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
-    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
-    private val customNovelInfoRepository: CustomNovelInfoRepository = Injekt.get(),
-    private val database: Database = Injekt.get(),
+    private val novelRepository: NovelRepository,
+    private val novelChapterRepository: NovelChapterRepository,
+    private val categoryRepository: CategoryRepository,
+    private val novelTrackRepository: NovelTrackRepository,
+    private val mergeGroupRepository: MergeGroupRepository,
+    private val customNovelInfoRepository: CustomNovelInfoRepository,
+    private val database: Database,
 ) {
 
     // Emit one BackupNovel at a time so the caller streams each straight to the backup, instead of

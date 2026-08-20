@@ -4,6 +4,7 @@
 // the merge_group tables from the backup's {url, source} refs once every novel has its fresh id.
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
@@ -25,19 +26,18 @@ import reikai.domain.novel.model.Novel
 import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.math.max
 
+@Inject
 class NovelRestorer(
-    private val novelRepository: NovelRepository = Injekt.get(),
-    private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
-    private val categoryRepository: CategoryRepository = Injekt.get(),
-    private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
-    private val restoreMergeGroups: RestoreMergeGroups = RestoreMergeGroups(Injekt.get(), Injekt.get()),
-    private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
-    private val database: Database = Injekt.get(),
-    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
+    private val novelRepository: NovelRepository,
+    private val novelChapterRepository: NovelChapterRepository,
+    private val categoryRepository: CategoryRepository,
+    private val novelTrackRepository: NovelTrackRepository,
+    private val restoreMergeGroups: RestoreMergeGroups,
+    private val setCustomNovelInfo: SetCustomNovelInfo,
+    private val database: Database,
+    private val categoryIdPreferences: CategoryIdPreferences,
 ) {
 
     /** Create any novel categories the backup has that the device doesn't, matched by name. */

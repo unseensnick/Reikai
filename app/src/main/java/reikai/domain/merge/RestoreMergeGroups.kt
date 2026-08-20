@@ -1,5 +1,6 @@
 package reikai.domain.merge
 
+import dev.zacsweers.metro.Inject
 import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
 
@@ -11,6 +12,7 @@ import reikai.domain.library.ContentType
  * group while two or more remain. Order and the ranking flag come from the surviving local group,
  * since the backup format carries neither. Rules and history: docs/dev/plans/merge-system-rebuild.md.
  */
+@Inject
 class RestoreMergeGroups(
     private val repository: MergeGroupRepository,
     private val transactions: Transactions,

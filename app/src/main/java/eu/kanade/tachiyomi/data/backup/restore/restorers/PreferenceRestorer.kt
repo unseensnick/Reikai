@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import android.content.Context
 import android.util.Log
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -26,14 +27,13 @@ import tachiyomi.core.common.preference.plusAssign
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
 class PreferenceRestorer(
     private val context: Context,
-    private val getCategories: GetCategories = Injekt.get(),
-    private val preferenceStore: PreferenceStore = Injekt.get(),
-    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
+    private val getCategories: GetCategories,
+    private val preferenceStore: PreferenceStore,
+    private val categoryIdPreferences: CategoryIdPreferences,
 ) {
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
