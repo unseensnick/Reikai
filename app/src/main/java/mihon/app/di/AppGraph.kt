@@ -10,6 +10,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.extension.interactor.TrustExtension
 import eu.kanade.domain.source.interactor.ToggleIncognito
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
@@ -80,6 +81,7 @@ import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.storage.service.StoragePreferences
+import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.upcoming.service.UpcomingPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.source.local.image.LocalCoverManager
@@ -161,6 +163,8 @@ interface AppGraph : ViewModelGraph {
     val readerPreferences: ReaderPreferences
     val sourcePreferences: SourcePreferences
     val trackPreferences: TrackPreferences
+    val addTracks: AddTracks
+    val insertTrack: InsertTrack
     val reikaiLibraryPreferences: ReikaiLibraryPreferences
     val reikaiSourcePreferences: ReikaiSourcePreferences
 
