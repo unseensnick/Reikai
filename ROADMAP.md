@@ -99,7 +99,6 @@ Dedicated LN trackers are shippable via WebView session-scraping (no official AP
 ### Build & CI
 
 - **Exercise the three work loops for real** `[S]` - the worktree and PR path is untested on all three, `/sync-loop` has only had a read-only rehearsal and `/audit-loop` none, so their later stop conditions are still theory. mihon `f75f2598a` is the worked-out first sync unit.
-- **Catch a broken Compose preview** `[S]` - nothing in the repo or in CI renders previews, so a change that makes one stop rendering is invisible until someone opens the file in Android Studio. That already happened once: a DI change broke the app-theme preview and every gate passed. Either render them (an AGP `screenshotTest` or Paparazzi pass over the ~33 previews) or accept the gap deliberately rather than by omission.
 - **Try the Gradle configuration cache** `[M]` - `org.gradle.configuration-cache` is off everywhere and Gradle suggests it on every local build, making it the largest remaining build-time win. Repo-wide rather than a CI flag, so it turns on whether AGP, moko-resources and `build-logic` all cooperate, and it wants measuring against the current preview run time of 13 to 15 minutes.
 
 ## Parked / not building
