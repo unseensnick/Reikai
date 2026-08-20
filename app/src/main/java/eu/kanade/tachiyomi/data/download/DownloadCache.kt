@@ -113,7 +113,13 @@ class DownloadCache(
                             ProtoBuf.decodeFromByteArray<RootDirectory>(it.readBytes())
                         }
                         rootDownloadsDir = diskCache
-                        lastRenew = System.currentTimeMillis()
+                        // RK --> take the persisted scan time rather than treating a restore as a
+                        // fresh scan. Upstream sets this to now, which restarts the renew window on
+                        // every launch, so an app opened more often than renewInterval never
+                        // re-scans and never notices folders deleted outside it. An index written
+                        // before this field existed decodes as 0, which renews once on first launch.
+                        lastRenew = diskCache.lastRenew
+                        // RK <--
                     }
                 } catch (e: Throwable) {
                     logcat(LogPriority.ERROR, e) { "Failed to initialize from disk cache" }
@@ -413,6 +419,10 @@ class DownloadCache(
                     logcat(LogPriority.ERROR, exception) { "DownloadCache: failed to create cache" }
                 }
                 lastRenew = System.currentTimeMillis()
+                // RK: stamp the tree that was just scanned, never at write time. The restore below
+                // runs in its own coroutine, so a write racing it would persist the 0 this field
+                // still holds and make the next launch re-scan for nothing.
+                rootDownloadsDir.lastRenew = lastRenew
                 notifyChanges()
             }
         }
@@ -461,6 +471,9 @@ private class RootDirectory(
     @Serializable(with = UniFileAsStringSerializer::class)
     val dir: UniFile?,
     var sourceDirs: Map<Long, SourceDirectory> = mapOf(),
+    // RK: when this index was last checked against the filesystem. Last field on purpose, so an
+    // index written before it existed still decodes and simply reports 0.
+    var lastRenew: Long = 0L,
 )
 
 /**
