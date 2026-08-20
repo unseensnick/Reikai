@@ -46,7 +46,6 @@ import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.PagePreviewFetcher
 import eu.kanade.tachiyomi.data.coil.PagePreviewKeyer
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
 import eu.kanade.tachiyomi.util.system.DeviceUtil
@@ -82,7 +81,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.addSingleton
-import uy.kohesive.injekt.api.get
 import java.security.Security
 
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
@@ -96,6 +94,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     @Inject private lateinit var privacyPreferences: PrivacyPreferences
 
     @Inject private lateinit var networkPreferences: NetworkPreferences
+
+    @Inject private lateinit var uiPreferences: UiPreferences
 
     // Both are deferred so nothing in the inject closure below reaches the database: they pull the
     // updates and novel repositories, which take Database, and the legacy-database recovery has to move
@@ -153,7 +153,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             LogcatLogger.loggers += AndroidLogcatLogger(minLogPriority)
         }
 
-        setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode.get())
+        setAppCompatDelegateThemeMode(uiPreferences.themeMode.get())
 
         // RK --> everything below belongs to the main process. CrashActivity runs in :error_handler,
         // so this method runs a second time there: a second legacy-database recovery would move an
@@ -280,7 +280,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     override fun newImageLoader(context: Context): ImageLoader {
         return ImageLoader.Builder(this).apply {
-            val callFactoryLazy = lazy { Injekt.get<NetworkHelper>().client }
+            val callFactoryLazy = lazy { graph.networkHelper.client }
             // RK: read here rather than as injected App fields, upstream's shape: newImageLoader runs
             // lazily, while a field would build SourceManager at graph.inject, before the legacy
             // database recovery below has moved an incompatible database aside.

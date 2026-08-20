@@ -1,309 +1,60 @@
 package eu.kanade.domain
 
-import dev.zacsweers.metro.Provider
-import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
-import eu.kanade.domain.chapter.interactor.SetReadStatus
-import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
-import eu.kanade.domain.download.interactor.DeleteDownload
-import eu.kanade.domain.extension.interactor.GetExtensionLanguages
-import eu.kanade.domain.extension.interactor.GetExtensionSources
-import eu.kanade.domain.extension.interactor.GetExtensionsByType
-import eu.kanade.domain.extension.interactor.TrustExtension
-import eu.kanade.domain.manga.interactor.GetExcludedScanlators
-import eu.kanade.domain.manga.interactor.GetPagePreviews
-import eu.kanade.domain.manga.interactor.SetExcludedScanlators
-import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
-import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.domain.source.interactor.GetIncognitoState
-import eu.kanade.domain.source.interactor.GetLanguagesWithSources
-import eu.kanade.domain.source.interactor.GetSourcesWithFavoriteCount
-import eu.kanade.domain.source.interactor.SetMigrateSorting
-import eu.kanade.domain.source.interactor.ToggleIncognito
-import eu.kanade.domain.source.interactor.ToggleLanguage
-import eu.kanade.domain.source.interactor.ToggleSource
-import eu.kanade.domain.source.interactor.ToggleSourcePin
-import eu.kanade.domain.track.interactor.AddTracks
-import eu.kanade.domain.track.interactor.RefreshTracks
-import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
-import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.tachiyomi.source.online.MetadataSource
-import mihon.domain.chapter.interactor.FilterChaptersForDownload
-import mihon.domain.extension.interactor.AddExtensionStore
-import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
-import mihon.domain.extension.interactor.GetExtensionStores
-import mihon.domain.extension.interactor.RemoveExtensionStore
-import mihon.domain.extension.interactor.UpdateExtensionStores
-import mihon.domain.migration.usecases.MigrateMangaUseCase
-import mihon.domain.source.interactor.UpdateMangaFromRemote
-import mihon.domain.upcoming.interactor.GetUpcomingManga
 import reikai.domain.category.GetNovelCategories
-import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
-import reikai.domain.library.updateerror.GetLibraryUpdateErrors
-import reikai.domain.library.updateerror.UpsertLibraryUpdateError
-import reikai.domain.manga.DeleteTrackInGroup
-import reikai.domain.manga.GetTracksInGroup
-import reikai.domain.merge.ReconcileChapterMatchKeys
-import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
-import reikai.domain.novel.interactor.DeleteNovelTrack
-import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.GetNextNovelChapter
-import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.InsertNovelTrack
-import reikai.domain.novel.interactor.MigrateNovelUseCase
-import reikai.domain.novel.interactor.RefreshNovelTracks
-import reikai.domain.novel.interactor.RemoveNovelHistory
-import reikai.domain.novel.interactor.ResetNovelCategoryFlags
-import reikai.domain.novel.interactor.SetCustomNovelInfo
-import reikai.domain.novel.interactor.SetNovelCategories
-import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
-import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.interactor.UpsertNovelHistory
-import reikai.domain.novel.track.NovelTrackUpdater
-import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
-import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
-import reikai.domain.novel.updateerror.GetNovelUpdateErrors
-import reikai.domain.novel.updateerror.UpsertNovelUpdateError
-import reikai.domain.recommendation.BuildRecommendationHideFilter
-import reikai.domain.recommendation.RecommendationsFetcher
-import reikai.domain.recommendation.RelatedMangasLoader
-import reikai.domain.recommendation.taste.ComputeTasteProfile
-import reikai.domain.recommendation.taste.GetTasteProfile
-import reikai.domain.recommendation.taste.LocalTrackStatusMapper
-import reikai.domain.recommendation.taste.TasteCandidateFetcher
-import reikai.domain.source.GetEnabledNovelSources
-import reikai.presentation.browse.MangaLibraryAdder
-import reikai.presentation.novel.browse.NovelLibraryAdder
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.RenameCategory
-import tachiyomi.domain.category.interactor.ResetCategoryFlags
-import tachiyomi.domain.category.interactor.SetDisplayMode
-import tachiyomi.domain.category.interactor.SetMangaCategories
-import tachiyomi.domain.category.interactor.SetSortModeForCategory
-import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
-import tachiyomi.domain.chapter.interactor.GetChapter
-import tachiyomi.domain.chapter.interactor.GetChapterByUrl
-import tachiyomi.domain.chapter.interactor.GetChapterByUrlAndMangaId
-import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
-import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
-import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
-import tachiyomi.domain.chapter.interactor.UpdateChapter
-import tachiyomi.domain.history.interactor.GetHistory
-import tachiyomi.domain.history.interactor.GetNextChapters
-import tachiyomi.domain.history.interactor.GetTotalReadDuration
-import tachiyomi.domain.history.interactor.RemoveHistory
-import tachiyomi.domain.history.interactor.UpsertHistory
-import tachiyomi.domain.manga.interactor.FetchInterval
-import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
-import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
-import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
-import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
-import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
-import tachiyomi.domain.manga.interactor.GetMangaWithChapters
-import tachiyomi.domain.manga.interactor.GetSearchMetadata
-import tachiyomi.domain.manga.interactor.GetSearchTags
-import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
-import tachiyomi.domain.manga.interactor.NetworkToLocalManga
-import tachiyomi.domain.manga.interactor.ResetViewerFlags
-import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
-import tachiyomi.domain.manga.interactor.UpdateMangaNotes
-import tachiyomi.domain.release.interactor.GetApplicationRelease
-import tachiyomi.domain.source.interactor.GetRemoteManga
-import tachiyomi.domain.source.interactor.GetSourcesWithNonLibraryManga
-import tachiyomi.domain.track.interactor.DeleteTrack
-import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.GetTracksPerManga
-import tachiyomi.domain.track.interactor.InsertTrack
-import tachiyomi.domain.updates.interactor.GetUpdates
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addFactory
 import uy.kohesive.injekt.api.get
 
+/**
+ * The last Injekt module, and only for what cannot reach the Metro graph. Everything else the app
+ * builds now comes from `AppGraph`; what is left here has a consumer that resolves by hand:
+ *
+ * - the novel reader ([reikai.presentation.novel.reader.NovelReaderScreenModel]), which stays on
+ *   Injekt by design until the tsundoku reader migration deletes it;
+ * - `source-api`'s three [MetadataSource] contracts, which installed extensions compile against, so
+ *   they are permanent rather than pending.
+ *
+ * Three more are here only because one of those takes them, which is not visible at any call site.
+ * `DomainModuleTest` resolves all twelve for real, so removing one that is still needed fails there
+ * instead of at runtime. Add nothing new: a net-new type belongs in the graph.
+ */
 class DomainModule : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
-        // RK --> library update-errors (R11)
-        addFactory { GetLibraryUpdateErrors(get()) }
-        addFactory { UpsertLibraryUpdateError(get()) }
-        addFactory { DeleteLibraryUpdateErrors(get()) }
-        // RK <--
-        // RK --> novel update-errors (Batch C)
-        addFactory { GetNovelUpdateErrors(get()) }
-        addFactory { UpsertNovelUpdateError(get()) }
-        addFactory { DeleteNovelUpdateErrors(get()) }
-        // RK <--
-        // RK --> shared long-press add-to-library (Browse + global search)
-        addFactory {
-            MangaLibraryAdder(
-                get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            )
-        }
-        // RK <--
-        // RK --> merge-group persistence (storage only, no consumers yet)
-        addFactory { ReconcileChapterMatchKeys(get(), get(), get()) }
-        // RK <--
-        // RK --> light-novel vertical (domain/DB foundation)
+        // Read by NovelReaderScreenModel through injectLazy.
         addFactory { GetNovelCategories(get()) }
-        addFactory { SetNovelCategories(get()) }
-        addFactory { ResetNovelCategoryFlags(get()) }
-        addFactory { UpdateNovel(get()) }
-        // The manager is a lambda so it is built on use, not on construction: see the interactor.
-        addFactory { DeleteNovelChaptersAfterRead(get(), get(), { Injekt.get() }, get()) }
-        addFactory { SetNovelReadStatus(get(), get()) }
-        addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
-        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        addFactory { GetEnabledNovelSources(get(), get()) }
-        // RK: novel custom-info overlay (non-destructive display-layer edits)
-        addFactory { GetCustomNovelInfo(get()) }
-        addFactory { SetCustomNovelInfo(get()) }
-        // RK <--
-        // RK --> novel reading history
-        addFactory { GetNovelHistory(get()) }
         addFactory { UpsertNovelHistory(get()) }
-        addFactory { RemoveNovelHistory(get()) }
-        addFactory { GetNextNovelChapter(get(), get(), get(), get()) }
-        // RK <--
-        // RK --> novel trackers
+        addFactory { SetNovelReadStatus(get(), get()) }
+        addFactory { TrackNovelChapter(get(), get(), get(), get()) }
+        addFactory { GetIncognitoState(get(), get(), get()) }
+
+        // Reached only through the six above. The download manager stays a lambda: building it
+        // restores the persisted queue and can start the worker, which marking a chapter read
+        // must not do.
+        addFactory { DeleteNovelChaptersAfterRead(get(), get(), { Injekt.get() }, get()) }
         addFactory { GetNovelTracks(get(), get(), get()) }
         addFactory { InsertNovelTrack(get()) }
-        addFactory { DeleteNovelTrack(get(), get(), get()) }
-        addFactory { NovelTrackUpdater(get(), get()) }
-        addFactory { AddNovelTrack(get(), get(), get()) }
-        addFactory { RefreshNovelTracks(get(), get(), get()) }
-        addFactory { TrackNovelChapter(get(), get(), get(), get()) }
-        addFactory { PropagateNovelTrackerLinks(get(), get(), get(), get(), get()) }
-        // RK <--
-        // RK --> novel source migration (Roadmap 7)
-        addFactory {
-            MigrateNovelUseCase(
-                get(), get(), get(), get(), Provider { Injekt.get() }, get(), get(), get(), get(),
-                get(), get(), get(), get(),
-            )
-        }
-        // RK <--
-        // RK --> recommendations (engine core)
-        addFactory { ComputeTasteProfile() }
-        addFactory { RecommendationsFetcher(get(), get(), get()) }
-        addFactory { TasteCandidateFetcher(get(), get(), get(), get(), get()) }
-        addFactory { BuildRecommendationHideFilter(get(), get(), get(), get(), get(), get()) }
-        addFactory { RelatedMangasLoader(get(), get(), get(), get(), get()) }
-        // RK: taste profile (library pull -> cache -> profile -> ranker)
-        addFactory { GetTasteProfile(get(), get()) }
-        addFactory { LocalTrackStatusMapper(get()) }
-        // RK <--
-        addFactory { GetCategories(get()) }
-        addFactory { GetPagePreviews(get(), get()) } // RK: adult-source page previews
-        addFactory { ResetCategoryFlags(get()) }
-        addFactory { SetDisplayMode(get()) }
-        addFactory { SetSortModeForCategory(get(), get()) }
-        addFactory { RenameCategory(get()) }
 
-        // RK: manga custom-info overlay (non-destructive display-layer edits)
-        addFactory { GetCustomMangaInfo(get()) }
-        addFactory { SetCustomMangaInfo(get()) }
-        addFactory { GetDuplicateLibraryManga(get()) }
-        addFactory { GetFavorites(get()) }
-        addFactory { GetLibraryManga(get()) }
-        addFactory { GetMangaWithChapters(get(), get()) }
-        addFactory { GetMangaByUrlAndSourceId(get()) }
-        addFactory { GetManga(get()) }
-        // RK: adult/EXH gallery-metadata persistence + the MetadataSource DI contracts
+        // RK: the adult/EXH gallery-metadata contracts, resolved inside source-api so an installed
+        // extension can reach them. The unqualified interactors are graph-owned; only these three
+        // qualified bindings are Injekt's.
         addFactory<MetadataSource.GetMangaId> { GetManga(get()) }
         addFactory<MetadataSource.GetFlatMetadataById> { GetFlatMetadataById(get()) }
         addFactory<MetadataSource.InsertFlatMetadata> { InsertFlatMetadata(get()) }
-        addFactory { GetFlatMetadataById(get()) }
-        addFactory { InsertFlatMetadata(get()) }
-        addFactory { GetSearchMetadata(get()) }
-        addFactory { GetSearchTags(get()) }
-        addFactory { GetSearchTitles(get()) }
-        addFactory { GetExhFavoriteMangaWithMetadata(get()) }
-        addFactory { GetNextChapters(get(), get(), get()) }
-        addFactory { GetUpcomingManga(get()) }
-        addFactory { ResetViewerFlags(get()) }
-        addFactory { SetMangaChapterFlags(get()) }
-        addFactory { FetchInterval(get()) }
-        addFactory { SetMangaDefaultChapterFlags(get(), get(), get()) }
-        addFactory { SetMangaViewerFlags(get()) }
-        addFactory { NetworkToLocalManga(get()) }
-        addFactory { UpdateManga(get(), get()) }
-        addFactory { UpdateMangaNotes(get()) }
-        addFactory { SetMangaCategories(get()) }
-        addFactory { GetExcludedScanlators(get()) }
-        addFactory { SetExcludedScanlators(get()) }
-        addFactory { GetApplicationRelease(get()) }
-
-        addFactory { TrackChapter(get(), get(), get(), get()) }
-        addFactory { RefreshTracks(get(), get(), get(), get()) }
-        addFactory { DeleteTrack(get()) }
-        // RK --> unbind across a merged group, matching the group-aware reads
-        addFactory { DeleteTrackInGroup(get(), get(), get()) }
-        // RK <--
-        addFactory { GetTracksPerManga(get()) }
-        addFactory { GetTracks(get()) }
-        // RK --> tracks bound anywhere in a merged group, one per tracker
-        addFactory { GetTracksInGroup(get(), get(), get()) }
-        // RK <--
-        addFactory { InsertTrack(get()) }
-        addFactory { SyncChapterProgressWithTrack(get(), get(), get()) }
-
-        addFactory { GetChapter(get()) }
-        addFactory { GetChaptersByMangaId(get()) }
-        addFactory { GetBookmarkedChaptersByMangaId(get()) }
-        addFactory { GetChapterByUrlAndMangaId(get()) }
-        addFactory { GetChapterByUrl(get()) }
-        addFactory { UpdateChapter(get()) }
-        addFactory { SetReadStatus(get(), get(), get(), get()) }
-        addFactory { ShouldUpdateDbChapter() }
-        addFactory { SyncChaptersWithSource(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        addFactory { GetAvailableScanlators(get()) }
-        addFactory { FilterChaptersForDownload(get(), get(), get()) }
-
-        addFactory { GetHistory(get()) }
-        addFactory { UpsertHistory(get()) }
-        addFactory { RemoveHistory(get()) }
-        addFactory { GetTotalReadDuration(get()) }
-
-        addFactory { DeleteDownload(get(), get()) }
-
-        addFactory { GetExtensionsByType(get(), get()) }
-        addFactory { GetExtensionSources(get()) }
-        addFactory { GetExtensionLanguages(get(), get()) }
-
-        addFactory { GetUpdates(get()) }
-
-        addFactory { GetEnabledSources(get(), get()) }
-        addFactory { GetLanguagesWithSources(get(), get()) }
-        addFactory { GetRemoteManga(get()) }
-        addFactory { GetSourcesWithFavoriteCount(get(), get()) }
-        addFactory { GetSourcesWithNonLibraryManga(get()) }
-        addFactory { SetMigrateSorting(get()) }
-        addFactory { ToggleLanguage(get()) }
-        addFactory { ToggleSource(get()) }
-        addFactory { ToggleSourcePin(get()) }
-        addFactory { TrustExtension(get(), get()) }
-
-        addFactory { AddExtensionStore(get()) }
-        addFactory { GetExtensionStoreCountAsFlow(get()) }
-        addFactory { GetExtensionStores(get()) }
-        addFactory { RemoveExtensionStore(get()) }
-        addFactory { UpdateExtensionStores(get()) }
-
-        addFactory { ToggleIncognito(get()) }
-        addFactory { GetIncognitoState(get(), get(), get()) }
-
-        addFactory { UpdateMangaFromRemote(get(), get(), get(), get(), get(), get(), get()) }
     }
 }
