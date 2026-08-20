@@ -18,8 +18,6 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.TrackerRecommendations
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -33,10 +31,11 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Inject
 class TasteCandidateFetcher(
-    private val repository: TasteLibraryRepository = Injekt.get(),
-    private val computeTasteProfile: ComputeTasteProfile = Injekt.get(),
-    private val preferences: ReikaiRecommendationPreferences = Injekt.get(),
-    private val trackerManager: TrackerManager = Injekt.get(),
+    private val repository: TasteLibraryRepository,
+    private val computeTasteProfile: ComputeTasteProfile,
+    private val preferences: ReikaiRecommendationPreferences,
+    private val trackerManager: TrackerManager,
+    private val providers: RecommendationProviders,
 ) {
 
     suspend fun fetch(
@@ -63,7 +62,7 @@ class TasteCandidateFetcher(
             }
             if (crossRecEnabled && entries.isNotEmpty()) {
                 mediaContexts.forEach { (trackerId, context) ->
-                    val provider = RecommendationProviders.forTracker(trackerId, trackerManager) ?: return@forEach
+                    val provider = providers.forTracker(trackerId) ?: return@forEach
                     val recsIds = context.recommendations.mapNotNullTo(HashSet()) { it.remoteId }
                     val seeds = selectCrossRecSeeds(entries, recsIds, trackerId, MAX_FAVORITES)
                     launch { runCrossRecommendation(provider, seeds, exceptionHandler, pushResults) }

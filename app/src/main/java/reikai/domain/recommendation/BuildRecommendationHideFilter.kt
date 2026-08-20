@@ -8,8 +8,6 @@ import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackStatus
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.track.interactor.GetTracksPerManga
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Assembles a [RecommendationHideFilter] from the user's library tracks and the taste-library cache,
@@ -19,12 +17,12 @@ import uy.kohesive.injekt.api.get
  */
 @Inject
 class BuildRecommendationHideFilter(
-    private val getFavorites: GetFavorites = Injekt.get(),
-    private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
-    private val repository: TasteLibraryRepository = Injekt.get(),
-    private val preferences: ReikaiRecommendationPreferences = Injekt.get(),
-    private val localTrackStatusMapper: LocalTrackStatusMapper = Injekt.get(),
-    private val trackerManager: TrackerManager = Injekt.get(),
+    private val getFavorites: GetFavorites,
+    private val getTracksPerManga: GetTracksPerManga,
+    private val repository: TasteLibraryRepository,
+    private val preferences: ReikaiRecommendationPreferences,
+    private val localTrackStatusMapper: LocalTrackStatusMapper,
+    private val trackerManager: TrackerManager,
 ) {
 
     suspend fun await(): RecommendationHideFilter {

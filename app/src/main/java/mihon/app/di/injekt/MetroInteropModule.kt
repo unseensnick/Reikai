@@ -51,6 +51,7 @@ import reikai.domain.novel.track.NovelDelayedTrackingStore
 import reikai.domain.novel.updateerror.NovelUpdateErrorRepository
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
+import reikai.domain.recommendation.RecommendationProviders
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
@@ -203,6 +204,7 @@ class MetroInteropModule(
     private val mergedChapterProvider: Provider<MergedChapterProvider>,
     private val relatedMangaCache: Provider<RelatedMangaCache>,
     private val refreshTrackerLibrary: Provider<RefreshTrackerLibrary>,
+    private val recommendationProviders: Provider<RecommendationProviders>,
     private val eHentaiUpdateHelper: Provider<EHentaiUpdateHelper>,
     private val mangaMigrationFlowAdapter: Provider<MangaMigrationFlowAdapter>,
     private val novelMigrationFlowAdapter: Provider<NovelMigrationFlowAdapter>,
@@ -304,6 +306,7 @@ class MetroInteropModule(
         addSingletonFactory { mergedChapterProvider() }
         addSingletonFactory { relatedMangaCache() }
         addSingletonFactory { refreshTrackerLibrary() }
+        addSingletonFactory { recommendationProviders() }
         addSingletonFactory { eHentaiUpdateHelper() }
         addSingletonFactory { mangaMigrationFlowAdapter() }
         addSingletonFactory { novelMigrationFlowAdapter() }

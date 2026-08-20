@@ -1,6 +1,6 @@
 package reikai.domain.novel.track
 
-import android.app.Application
+import android.content.Context
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.util.system.toast
@@ -11,8 +11,6 @@ import reikai.domain.track.TrackWriter
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
 /**
@@ -25,6 +23,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 @Inject
 class NovelTrackUpdater(
     private val insertNovelTrack: InsertNovelTrack,
+    private val context: Context,
 ) : TrackWriter {
 
     override suspend fun setRemoteStatus(tracker: Tracker, track: DbTrack, status: Long) {
@@ -65,7 +64,7 @@ class NovelTrackUpdater(
             }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to update remote novel track id=${tracker.id}" }
-            withUIContext { Injekt.get<Application>().toast(e.message) }
+            withUIContext { context.toast(e.message) }
         }
     }
 }

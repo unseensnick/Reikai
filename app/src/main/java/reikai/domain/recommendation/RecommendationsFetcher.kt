@@ -10,8 +10,6 @@ import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -23,8 +21,9 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Inject
 class RecommendationsFetcher(
-    private val trackerManager: TrackerManager = Injekt.get(),
-    private val preferences: ReikaiRecommendationPreferences = Injekt.get(),
+    private val trackerManager: TrackerManager,
+    private val preferences: ReikaiRecommendationPreferences,
+    private val providers: RecommendationProviders,
 ) {
 
     suspend fun fetch(
@@ -44,7 +43,7 @@ class RecommendationsFetcher(
             // Skip trackers already handled by the loader's shared media-context fetch (where M is
             // tracked), so recs(M) isn't queried twice.
             if (trackerId in skipTrackerIds) return
-            val provider = RecommendationProviders.forTracker(trackerId, trackerManager) ?: return
+            val provider = providers.forTracker(trackerId) ?: return
             runOne(provider, remoteId(trackerId), title, exceptionHandler, pushResults)
         }
 

@@ -1,12 +1,11 @@
 package reikai.domain.manga
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import reikai.domain.merge.ChapterMatchKeys
 import reikai.util.isLewd
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * RK: is a manga adult content, for hiding its title + cover from notifications and the lock screen.
@@ -16,9 +15,10 @@ import uy.kohesive.injekt.api.get
  * The gallery signal asks [ChapterMatchKeys.isGallerySource] rather than testing for a metadata
  * source, which the enhanced MangaDex also is: keying on that hid every MangaDex title.
  */
+@Inject
 class AdultContentChecker(
-    private val extensionManager: ExtensionManager = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val extensionManager: ExtensionManager,
+    private val sourceManager: SourceManager,
 ) {
     fun isAdult(manga: Manga): Boolean =
         ChapterMatchKeys.isGallerySource(manga.source, sourceManager) ||

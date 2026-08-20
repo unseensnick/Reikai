@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import mihon.app.di.appGraph
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
@@ -66,7 +67,8 @@ class NovelScreen(
         }
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by viewModel.state.collectAsStateWithLifecycle()
-        val adapter = remember(viewModel) { NovelEntryAdapter(viewModel) }
+        val coverViewModelFactory = remember { context.appGraph.novelCoverViewModelFactory }
+        val adapter = remember(viewModel) { NovelEntryAdapter(viewModel, coverViewModelFactory) }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         when (val s = state) {

@@ -35,6 +35,7 @@ import tachiyomi.domain.track.model.Track
  */
 class MangaEntryAdapter(
     private val model: MangaViewModel,
+    private val coverViewModelFactory: MangaEntryCoverViewModel.Factory,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
@@ -236,7 +237,7 @@ class MangaEntryAdapter(
         model.showCoverDialog()
     }
     override fun createCoverViewModel(): EntryCoverViewModel<*> =
-        MangaEntryCoverViewModel(shownCover()?.id ?: 0L)
+        coverViewModelFactory.create(shownCover()?.id ?: 0L)
 
     override fun coverKey(): String = (shownCover()?.id ?: 0L).toString()
 

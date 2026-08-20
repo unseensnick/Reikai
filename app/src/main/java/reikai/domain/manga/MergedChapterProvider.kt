@@ -24,10 +24,10 @@ import uy.kohesive.injekt.api.get
 @Inject
 @SingleIn(AppScope::class)
 class MergedChapterProvider(
-    private val getMangaWithChapters: GetMangaWithChapters = Injekt.get(),
-    private val mergeManager: MangaMergeManager = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val getMangaWithChapters: GetMangaWithChapters,
+    private val mergeManager: MangaMergeManager,
+    private val sourceManager: SourceManager,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
 
     /** The resolved group: every member manga keyed by id, the unified reading-ordered chapters, and

@@ -175,7 +175,7 @@ class DomainModule : InjektModule {
         addFactory { GetNovelTracks(get(), get(), get()) }
         addFactory { InsertNovelTrack(get()) }
         addFactory { DeleteNovelTrack(get(), get(), get()) }
-        addFactory { NovelTrackUpdater(get()) }
+        addFactory { NovelTrackUpdater(get(), get()) }
         addFactory { AddNovelTrack(get(), get(), get()) }
         addFactory { RefreshNovelTracks(get(), get(), get()) }
         addFactory { TrackNovelChapter(get(), get(), get(), get()) }
@@ -186,10 +186,10 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> recommendations (engine core)
         addFactory { ComputeTasteProfile() }
-        addFactory { RecommendationsFetcher() }
-        addFactory { TasteCandidateFetcher() }
-        addFactory { BuildRecommendationHideFilter() }
-        addFactory { RelatedMangasLoader(get(), get(), get()) }
+        addFactory { RecommendationsFetcher(get(), get(), get()) }
+        addFactory { TasteCandidateFetcher(get(), get(), get(), get(), get()) }
+        addFactory { BuildRecommendationHideFilter(get(), get(), get(), get(), get(), get()) }
+        addFactory { RelatedMangasLoader(get(), get(), get(), get(), get()) }
         // RK: taste profile (library pull -> cache -> profile -> ranker)
         addFactory { GetTasteProfile(get(), get()) }
         addFactory { LocalTrackStatusMapper(get()) }

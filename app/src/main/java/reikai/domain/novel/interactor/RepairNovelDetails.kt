@@ -1,5 +1,7 @@
 package reikai.domain.novel.interactor
 
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.Provider
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.novel.NovelChapterRepository
@@ -9,8 +11,6 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Finds library novels showing another novel's details and re-fetches them from their own source.
@@ -19,12 +19,15 @@ import uy.kohesive.injekt.api.get
  * The host no longer does that, but rows written before the fix stay wrong until something refreshes
  * them, and the only visible symptom is a cover the user happens to recognise.
  */
+@Inject
 class RepairNovelDetails(
-    private val novelRepository: NovelRepository = Injekt.get(),
-    private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
-    private val sourceManager: NovelSourceManager = Injekt.get(),
-    private val downloadManager: NovelDownloadManager = Injekt.get(),
-    private val database: Database = Injekt.get(),
+    private val novelRepository: NovelRepository,
+    private val novelChapterRepository: NovelChapterRepository,
+    private val sourceManager: NovelSourceManager,
+    // A Provider, not the manager: constructing it restores the persisted queue and can start the
+    // download worker, and a repair run must not do that just by existing.
+    private val downloadManager: Provider<NovelDownloadManager>,
+    private val database: Database,
 ) {
 
     data class Result(val suspects: Int, val repaired: Int)
@@ -44,7 +47,7 @@ class RepairNovelDetails(
                     novelChapterRepository,
                     novelRepository,
                     database,
-                    novelDownloadManager = downloadManager,
+                    novelDownloadManager = downloadManager(),
                 )
             }
                 .onSuccess { repaired++ }

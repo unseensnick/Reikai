@@ -49,6 +49,7 @@ import exh.source.getMainSource
 import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -128,7 +129,8 @@ class MangaScreen(
         }
 
         // RK: the shared details body renders through the manga adapter over the live model.
-        val adapter = remember(viewModel) { MangaEntryAdapter(viewModel) }
+        val coverViewModelFactory = remember { context.appGraph.mangaCoverViewModelFactory }
+        val adapter = remember(viewModel) { MangaEntryAdapter(viewModel, coverViewModelFactory) }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         // RK: tint the details screen from the cover color (Y11)

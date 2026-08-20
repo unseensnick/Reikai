@@ -60,6 +60,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.interactor.RepairNovelDetails
 import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -68,8 +69,10 @@ import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.update.LnPluginUpdateChecker
+import reikai.presentation.details.MangaEntryCoverViewModel
 import reikai.presentation.migrate.flow.MigrationAdapters
 import reikai.presentation.migrate.flow.MigrationPickHandoff
+import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
@@ -180,6 +183,11 @@ interface AppGraph : ViewModelGraph {
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
     val migrationPickHandoff: MigrationPickHandoff
+
+    // The two details adapters build their cover model for whichever entry the source chip is showing,
+    // so the id arrives at call time and the factory is what the graph can hand over.
+    val mangaCoverViewModelFactory: MangaEntryCoverViewModel.Factory
+    val novelCoverViewModelFactory: NovelCoverViewModel.Factory
     val tasteLibraryRepository: TasteLibraryRepository
 
     // Interactors are unscoped, so every read builds a fresh instance where Injekt's
@@ -195,6 +203,7 @@ interface AppGraph : ViewModelGraph {
     val resetViewerFlags: ResetViewerFlags
     val resetCategoryFlags: ResetCategoryFlags
     val resetNovelCategoryFlags: ResetNovelCategoryFlags
+    val repairNovelDetails: RepairNovelDetails
 
     // RK: an accessor rather than upstream's injected App field. A field would build every migration
     // at graph.inject, and one of them takes Database, before the legacy-database recovery can move

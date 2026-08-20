@@ -1,5 +1,8 @@
 package reikai.presentation.details
 
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -12,8 +15,6 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.source.local.image.LocalCoverManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.InputStream
 
 /**
@@ -21,15 +22,21 @@ import java.io.InputStream
  * covers write through the standard `Manga.editCover` (local source or favorite only). Replaces Mihon's
  * `MangaEntryCoverViewModel`, whose save / share machinery now lives in the shared base.
  */
+@AssistedInject
 class MangaEntryCoverViewModel(
-    private val mangaId: Long,
-    private val getManga: GetManga = Injekt.get(),
-    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val coverManager: LocalCoverManager = Injekt.get(),
-    imageSaver: ImageSaver = Injekt.get(),
+    @Assisted private val mangaId: Long,
+    private val getManga: GetManga,
+    private val getCustomMangaInfo: GetCustomMangaInfo,
+    private val coverCache: CoverCache,
+    private val updateManga: UpdateManga,
+    private val coverManager: LocalCoverManager,
+    imageSaver: ImageSaver,
 ) : EntryCoverViewModel<Manga>(imageSaver) {
+
+    @AssistedFactory
+    fun interface Factory {
+        fun create(mangaId: Long): MangaEntryCoverViewModel
+    }
 
     // Overlaid with the edit-info cover URL: the header renders it, so the full-screen viewer and
     // Save/Share must show the same image. A custom cover FILE still wins inside the fetcher.

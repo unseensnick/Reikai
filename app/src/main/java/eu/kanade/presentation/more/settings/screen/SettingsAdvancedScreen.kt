@@ -84,7 +84,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         // RK: pref-based merge maintenance
         val mergeManager = remember { graph.mangaMergeManager }
         val novelMergeManager = remember { graph.novelMergeManager }
-        val repairNovelDetails = remember { RepairNovelDetails() }
+        val repairNovelDetails = remember { graph.repairNovelDetails }
         // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
         val exhPreferences = remember { graph.exhPreferences }
 

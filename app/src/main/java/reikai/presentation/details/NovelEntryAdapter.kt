@@ -28,6 +28,7 @@ import tachiyomi.domain.track.model.Track
  */
 class NovelEntryAdapter(
     private val model: NovelDetailsViewModel,
+    private val coverViewModelFactory: NovelCoverViewModel.Factory,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
@@ -194,7 +195,7 @@ class NovelEntryAdapter(
         // isCoverAnchored instead, since a custom cover must land on the entry the library renders.
         val loaded = loadedState()
         val shown = loaded?.displayNovel ?: loaded?.novel
-        return NovelCoverViewModel(
+        return coverViewModelFactory.create(
             novelUrl = shown?.url.orEmpty(),
             novelSource = shown?.source.orEmpty(),
             site = loaded?.sourceUrl,

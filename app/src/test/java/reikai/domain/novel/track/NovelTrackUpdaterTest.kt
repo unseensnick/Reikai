@@ -31,7 +31,9 @@ class NovelTrackUpdaterTest {
     private val repository = mockk<NovelTrackRepository> {
         coEvery { insert(any()) } answers { inserted += firstArg<NovelTrack>() }
     }
-    private val updater = NovelTrackUpdater(InsertNovelTrack(repository))
+
+    // Only reached to toast a remote failure, which none of these cases takes.
+    private val updater = NovelTrackUpdater(InsertNovelTrack(repository), mockk(relaxed = true))
 
     private fun dbTrack(lastRead: Double = 0.0, total: Long = 0, status: Long = 0): DbTrack =
         TrackImpl().also {

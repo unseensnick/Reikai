@@ -30,8 +30,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.InputStream
 import kotlin.time.Duration.Companion.seconds
 
@@ -42,7 +40,7 @@ import kotlin.time.Duration.Companion.seconds
  * the two custom-cover writes (each keyed in its own id space, manga positive and novel negated).
  */
 abstract class EntryCoverViewModel<T : Any>(
-    private val imageSaver: ImageSaver = Injekt.get(),
+    private val imageSaver: ImageSaver,
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : ViewModel() {
 

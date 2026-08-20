@@ -1,5 +1,8 @@
 package reikai.presentation.novel.details
 
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import kotlinx.coroutines.flow.Flow
@@ -12,8 +15,6 @@ import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.details.EntryCoverViewModel
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.InputStream
 
 /**
@@ -21,16 +22,22 @@ import java.io.InputStream
  * by-id novel flow) and keys the custom cover by the negated novel id (so it can't collide with a same-id
  * manga). The save / share machinery lives in the shared base.
  */
+@AssistedInject
 class NovelCoverViewModel(
-    private val novelUrl: String,
-    private val novelSource: String,
-    private val site: String?,
-    private val novelRepo: NovelRepository = Injekt.get(),
-    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
-    private val updateNovel: UpdateNovel = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    imageSaver: ImageSaver = Injekt.get(),
+    @Assisted private val novelUrl: String,
+    @Assisted private val novelSource: String,
+    @Assisted private val site: String?,
+    private val novelRepo: NovelRepository,
+    private val getCustomNovelInfo: GetCustomNovelInfo,
+    private val updateNovel: UpdateNovel,
+    private val coverCache: CoverCache,
+    imageSaver: ImageSaver,
 ) : EntryCoverViewModel<Novel>(imageSaver) {
+
+    @AssistedFactory
+    fun interface Factory {
+        fun create(novelUrl: String, novelSource: String, site: String?): NovelCoverViewModel
+    }
 
     // Overlaid with the edit-info cover URL, matching the manga twin: the header renders it, so
     // the viewer and Save/Share must show the same image. A custom cover file still wins.

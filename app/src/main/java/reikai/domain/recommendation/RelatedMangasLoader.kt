@@ -18,8 +18,6 @@ import reikai.domain.recommendation.taste.TasteCandidateFetcher
 import reikai.domain.recommendation.taste.TasteProfile
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -33,10 +31,11 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Inject
 class RelatedMangasLoader(
-    private val fetcher: RecommendationsFetcher = Injekt.get(),
-    private val tasteCandidateFetcher: TasteCandidateFetcher = Injekt.get(),
-    private val trackerManager: TrackerManager = Injekt.get(),
-    private val preferences: ReikaiRecommendationPreferences = Injekt.get(),
+    private val fetcher: RecommendationsFetcher,
+    private val tasteCandidateFetcher: TasteCandidateFetcher,
+    private val trackerManager: TrackerManager,
+    private val preferences: ReikaiRecommendationPreferences,
+    private val providers: RecommendationProviders,
 ) {
 
     suspend fun load(
@@ -78,7 +77,7 @@ class RelatedMangasLoader(
             // once: the recs feed the carousel AND seed the taste-driven injection, so recs(M) isn't
             // queried twice.
             val handledTrackerIds = tracks
-                .filter { RecommendationProviders.forTracker(it.trackerId, trackerManager) != null }
+                .filter { providers.forTracker(it.trackerId) != null }
                 .map { it.trackerId }
                 .toSet()
             launch {
@@ -120,7 +119,7 @@ class RelatedMangasLoader(
         coroutineScope {
             tracks
                 .mapNotNull { track ->
-                    RecommendationProviders.forTracker(track.trackerId, trackerManager)?.let {
+                    providers.forTracker(track.trackerId)?.let {
                         track to
                             it
                     }
