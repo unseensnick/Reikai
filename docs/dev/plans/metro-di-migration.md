@@ -46,7 +46,9 @@ of what remains.
 
 | Unit | Work | Proves |
 |---|---|---|
-| 7 | Cleanup, plus shrinking `DomainModule` to the novel reader's six | Minified `:app:assemblePreview`, then the profiles' own generation task |
+| 7 | Shrink `DomainModule` to the twelve that still have a consumer, close the `Application`-to-`Context` divergences, rewrite the Injekt-era docs, advance the sync ledger | A resolution test over the surviving registrations, then a minified `:app:assemblePreview` and a device pass on the novel reader and an adult-source gallery |
+
+**The baseline profiles are not part of this, and neither is `proguard-rules.pro`** (established 2026-08-20). Our `baseline-prof.txt` is byte-identical to upstream's at mihon `b3e190c62`, the one commit that ever touched it here; upstream has since regenerated twice (`91e967128`, `4296d056b`), which is the whole of the difference. So there is nothing local to regenerate: picking up those two is ordinary sync work, recorded as pending in `docs/dev/upstream-sync.md`. Upstream also still ships 229 `injekt` lines and two `MigrationsKt` lines at HEAD, having never regenerated after its own Metro commit, so those entries are not debt this port created. For proguard, upstream on Metro keeps `eu.kanade.**`, `tachiyomi.**`, `mihon.**` and `uy.kohesive.injekt.**` itself; only `reikai.**` and `exh.**` are Reikai's, and both are already ruled to stay.
 
 **Fresh install is now exercised** (2026-08-20): the preview install was wiped, walked through
 onboarding and restored from its own backup. **Upgrade from a shipped build is still untested.**
@@ -114,11 +116,20 @@ is an enum whose dependency hangs off its companion, and its only callers are `E
 `AndroidSourceManager` constructs by hand: it belongs to the source-construction family that
 `source-api` keeps Injekt for, not to this phase.
 
-**`DomainModule` now has exactly six live Injekt consumers**, all of them the novel reader's
-(`UpsertNovelHistory`, `SetNovelViewerFlags`, `GetNovelCategories`, `SetNovelReadStatus`,
-`TrackNovelChapter`, `GetIncognitoState`). The other ~124 registrations have no Injekt consumer left.
-Shrinking it is phase 7's, and it needs care rather than inspection: the registrations resolve each
-other through `get()`, so deleting one that another still needs fails at runtime, not at compile.
+**`DomainModule` has nine live Injekt consumers and a twelve-member closure** (corrected 2026-08-20;
+this section first said six). Six are the novel reader's (`UpsertNovelHistory`,
+`SetNovelViewerFlags`, `GetNovelCategories`, `SetNovelReadStatus`, `TrackNovelChapter`,
+`GetIncognitoState`). The other three are the qualified `MetadataSource` contracts that `source-api`
+resolves, which is the half the first count missed. Three more survive transitively:
+`SetNovelReadStatus` takes `DeleteNovelChaptersAfterRead`, which takes `GetNovelCategories`, and
+`TrackNovelChapter` takes `GetNovelTracks` and `InsertNovelTrack`. Every other hop leaves into the
+interop module, so 113 of the 125 registrations are deletable.
+
+**The shrink cannot be verified by grepping.** 64 `Injekt.get()` / `injectLazy()` sites take their
+type from the declaration rather than the call, so a regex gate reads them as nothing at all: the
+same blind spot that hid fifty files in phase 4 and passed `MangaLibraryAdder` in phase 6. The
+verification has to resolve rather than match, which a JVM test can do over a fresh
+`InjektScope(DefaultRegistrar())`.
 
 Verified on a minified emulator build, per surface: the library on both chips, Recents on both chips,
 manga and novel details with their cover dialogs, the related-mangas carousel (whose log shows a real
@@ -550,7 +561,7 @@ the top of Status instead; it is the list that gets maintained.
 | 4f. The files no phase owned (done) | The backup subsystem (`fb6ba9ce0`), upstream's WorkManager parameter refactor (`110e3c6e7`), the downloader, notifiers and cover fetchers (`918377dfa`), the trackers (`1fe397998`), and the extension, update and cover-util tail (`9e56c41cd`) | Done: backup and restore across a full wipe, a chapter downloaded to a finished `.cbz`, and AniList plus Kitsu binds on the Fold |
 | 5. Migrations (done) | All 16 migrations to `@Inject` + `@ContributesIntoSet`, all 31 context reads to constructor params, `Migrations.kt` deleted and `MigrationContext` reduced to upstream's two-field holder | Done: on a fresh install the six `ALWAYS` migrations run; rewound to `last_version_code` 6 all sixteen run in version order with no failures; the minified build builds all sixteen and cold-starts to a populated library |
 | 6. Reikai-owned (done) | 79 constructor defaults and 127 lazy delegates across `reikai/` and `exh/`, in four commits; the adapters and cover models onto assisted factories, deliberate deferral onto `Provider`. Three ruled holdouts remain, down from the 71 and 16 of the 2026-08-16 inventory | Done on a minified build: both library chips, both Recents chips, manga and novel details with their cover dialogs, the recommendation carousel making a real request, the settings list and its two locator screens, and a bulk novel download drained and read back as downloaded |
-| 7. Cleanup | Regenerate both baseline profiles and rewrite the rules files. The `reikai.**` / `exh.**` proguard keeps stay: they leave with the tsundoku reader migration, not with this port | Minified `:app:assemblePreview`, then the profiles' own generation task |
+| 7. Cleanup | Shrink `DomainModule`, close the three `Application`-to-`Context` divergences, rewrite the Injekt-era docs, advance the ledger. Neither the baseline profiles nor `proguard-rules.pro` change; see the note under "What is left" for why. The `reikai.**` / `exh.**` keeps leave with the tsundoku reader migration, not with this port | A resolution test over the survivors, a minified `:app:assemblePreview`, then the novel reader and an adult-source gallery on device |
 
 **Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
 Injekt registration replaced by an interop `addSingleton(metroInstance)` in the same commit, never

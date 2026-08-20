@@ -6,7 +6,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 - **Drop the `voyager-screenModel` dependency** `[S]` - Reikai's novel reader is the one model still on the old base, so the dependency stays in the catalog and the bundle. Deliberately not migrated on its own: the tsundoku reader migration deletes that model, so this closes out when it lands. [Plan](docs/dev/plans/viewmodel-migration.md).
 - **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters. Remaining: the download unification below, then the reader migration. Global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
-- **Port Mihon's move from Injekt to Metro DI** `[L]` - three units left: the version-gated data migrations, the Reikai-owned tail, then cleanup. Upgrade from a shipped build is the one install path still unexercised. [Plan](docs/dev/plans/metro-di-migration.md).
+- **Port Mihon's move from Injekt to Metro DI** `[L]` - one unit left: shrink the last Injekt module to the twelve registrations the novel reader and the extension contract still resolve, close three `Application`-to-`Context` divergences, and rewrite the Injekt-era docs. Upgrade from a shipped build is the one install path still unexercised. [Plan](docs/dev/plans/metro-di-migration.md).
 
 ## Next
 
@@ -98,6 +98,7 @@ Dedicated LN trackers are shippable via WebView session-scraping (no official AP
 
 ### Build & CI
 
+- **Fix the update check for a version with more segments than the release tag** `[S]` - `GetApplicationRelease.isNewVersion` indexes the release tag's segments by the installed version's positions, so a longer installed version reads past the end. Harmless while Reikai ships three segments, and it is why a Yokai-era build is never offered an update. [Plan](docs/dev/plans/legacy-yokai-import.md).
 - **Exercise the three work loops for real** `[S]` - the worktree and PR path is untested on all three, `/sync-loop` has only had a read-only rehearsal and `/audit-loop` none, so their later stop conditions are still theory. mihon `f75f2598a` is the worked-out first sync unit.
 - **Try the Gradle configuration cache** `[M]` - `org.gradle.configuration-cache` is off everywhere and Gradle suggests it on every local build, making it the largest remaining build-time win. Repo-wide rather than a CI flag, so it turns on whether AGP, moko-resources and `build-logic` all cooperate, and it wants measuring against the current preview run time of 13 to 15 minutes.
 
