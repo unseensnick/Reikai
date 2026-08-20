@@ -44,8 +44,33 @@ its remainder is named here as separate units.
 | 6 | The Reikai-owned tail, including the cover models and library adders | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7 | Cleanup | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
-**Two install paths remain untested across the whole port**, independent of these units: fresh install,
-and upgrade from a shipped build. Every device pass so far ran on existing state.
+**Fresh install is now exercised** (2026-08-20): the preview install was wiped, walked through
+onboarding and restored from its own backup. **Upgrade from a shipped build is still untested.**
+
+### The files this port had skipped, done 2026-08-20
+
+An audit of `b2015d1ef` file by file found about fifty upstream-converted files under `app/` that no
+phase owned, so "phase 4 complete" was true only of the units the plan named. They landed as four
+seams: backup (`fb6ba9ce0`), the downloader, notifiers and cover fetchers (`918377dfa`), the trackers
+(`1fe397998`), and the extension, update and cover-util tail (`9e56c41cd`). Upstream's WorkManager
+parameter refactor went in beside them (`110e3c6e7`).
+
+**What let them slip is a sentence in this document.** "What stays on Injekt" below says upstream
+keeps 41 files on Injekt including "the trackers ... and a tail it had not converted". That counts
+files still *containing* an Injekt call after the commit, which is not the same as files upstream
+left alone: `BaseTracker` is in that 41 and upstream rewrote it anyway. Read as "upstream left
+these", the line licenses skipping exactly the set that was skipped. **The count to use is per-file
+against upstream's post-commit state, never the total.**
+
+**No gate could see them.** `di-interop-check.ps1` fails on a type that is Injekt-registered and
+unannotated. These construct themselves through `= Injekt.get()` defaults and are registered nowhere,
+so the check is silent and so is the compiler. That is the same shape as the six update-error
+interactors 3b walked past, one level further out.
+
+Verified on a minified emulator build: a backup created, then the install wiped, onboarded, and
+restored from that backup, coming back to 220 entries (169 manga with all three categories, 51
+novels); and a chapter downloaded to a finished `.cbz` with the progress notification clearing and
+the row showing as downloaded. **Trackers are not verified**, they need the Fold.
 
 ### Landed
 
