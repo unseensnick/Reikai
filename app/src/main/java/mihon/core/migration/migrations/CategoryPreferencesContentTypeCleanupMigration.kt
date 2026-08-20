@@ -1,5 +1,8 @@
 package mihon.core.migration.migrations
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -24,15 +27,18 @@ import tachiyomi.domain.category.repository.CategoryRepository
  * ids. Single-value default prefs reset to their -1 sentinel when invalid. The universal row 0 is valid for
  * both, so an "uncategorized" selection survives on either side.
  */
-class CategoryPreferencesContentTypeCleanupMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class CategoryPreferencesContentTypeCleanupMigration(
+    private val categoryRepository: CategoryRepository,
+    private val categoryIdPreferences: CategoryIdPreferences,
+    private val preferenceStore: PreferenceStore,
+) : Migration {
     // RK: fires once when the shipped versionCode crosses 188 (the version this cleanup ships in).
     override val version: Float = 188f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to scrub
-        val categoryRepository = migrationContext.get<CategoryRepository>() ?: return@withIOContext false
-        val categoryIdPreferences = migrationContext.get<CategoryIdPreferences>() ?: return@withIOContext false
-        val preferenceStore = migrationContext.get<PreferenceStore>() ?: return@withIOContext false
 
         runCatching {
             val mangaIds = categoryRepository.getAll(CategoryContentType.MANGA).mapTo(HashSet()) { it.id.toString() }

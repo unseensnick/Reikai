@@ -1,5 +1,8 @@
 package mihon.core.migration.migrations
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
@@ -17,14 +20,17 @@ import tachiyomi.domain.library.service.LibraryPreferences
  *
  * Gated at 183f (versionCode 183) so it fires for everyone upgrading from <=182.
  */
-class SetupCategorySortOverrideMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class SetupCategorySortOverrideMigration(
+    private val libraryPreferences: LibraryPreferences,
+    private val categoryRepository: CategoryRepository,
+) : Migration {
     override val version: Float = 183f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext false
-        val libraryPreferences = migrationContext.get<LibraryPreferences>() ?: return@withIOContext false
         if (!libraryPreferences.categorizedDisplaySettings.get()) return@withIOContext true
-        val categoryRepository = migrationContext.get<CategoryRepository>() ?: return@withIOContext false
 
         val global = libraryPreferences.sortingMode.get()
         categoryRepository.getAll()

@@ -1,5 +1,8 @@
 package mihon.core.migration.migrations
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
 import mihon.core.migration.Migration
@@ -20,14 +23,17 @@ import tachiyomi.core.common.util.system.logcat
  * Copy then delete, best-effort per novel: a failure leaves the old file in place rather than losing a
  * cover the user set by hand, and re-running the migration picks it up.
  */
-class MigrateNovelCustomCoverKeysMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class MigrateNovelCustomCoverKeysMigration(
+    private val novelRepository: NovelRepository,
+    private val coverCache: CoverCache,
+) : Migration {
     // RK: fires once when the shipped versionCode crosses 186 (the version this re-key ships in).
     override val version: Float = 186f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: no covers yet
-        val novelRepository = migrationContext.get<NovelRepository>() ?: return@withIOContext false
-        val coverCache = migrationContext.get<CoverCache>() ?: return@withIOContext false
 
         val novels = runCatching { novelRepository.getAll() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Novel cover re-key could not read the novels" } }

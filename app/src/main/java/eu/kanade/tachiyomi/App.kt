@@ -69,7 +69,6 @@ import mihon.app.di.AppGraph
 import mihon.app.di.injekt.MetroInteropModule
 import mihon.core.metro.GraphProvider
 import mihon.core.migration.Migrator
-import mihon.core.migration.migrations.migrations
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import reikai.data.coil.NovelCoverFetcher
@@ -78,7 +77,6 @@ import reikai.data.legacy.LegacyYokaiDbImporter
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
-import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
@@ -264,13 +262,15 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     }
 
     private fun initializeMigrator() {
-        val preferenceStore = Injekt.get<PreferenceStore>()
-        val preference = preferenceStore.getInt(Preference.appStateKey("last_version_code"), 0)
-        logcat { "Migration from ${preference.get()} to ${BuildConfig.VERSION_CODE}" }
+        val migrations = graph.migrations
+        val preference = graph.preferenceStore.getInt(Preference.appStateKey("last_version_code"), 0)
+        logcat {
+            "Migration from ${preference.get()} to ${BuildConfig.VERSION_CODE} with ${migrations.size} migration(s)"
+        }
         Migrator.initialize(
             old = preference.get(),
             new = BuildConfig.VERSION_CODE,
-            migrations = migrations,
+            migrations = migrations.toList(),
             onMigrationComplete = {
                 logcat { "Updating last version to ${BuildConfig.VERSION_CODE}" }
                 preference.set(BuildConfig.VERSION_CODE)

@@ -1,6 +1,9 @@
 package mihon.core.migration.migrations
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -21,14 +24,17 @@ import tachiyomi.data.Database
  * on swapped bits) using the pinned [novelCategoryFlagsToMangaLayout], and shifts the novel category-id
  * preferences by the same offset the .sqm applied to the ids.
  */
-class MigrateNovelCategoriesToSharedTableMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class MigrateNovelCategoriesToSharedTableMigration(
+    private val database: Database,
+    private val novelPreferences: NovelPreferences,
+) : Migration {
     // RK: fires once when the shipped versionCode crosses 187 (the version this unification ships in).
     override val version: Float = 187f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate
-        val database = migrationContext.get<Database>() ?: return@withIOContext false
-        val novelPreferences = migrationContext.get<NovelPreferences>() ?: return@withIOContext false
 
         runCatching {
             // 1. Translate the moved novel categories' sort flags from the novel layout to the manga one.

@@ -50,6 +50,7 @@ import exh.ui.login.EhLoginActivity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
+import mihon.core.migration.Migration
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.update.NovelUpdateJob
@@ -194,6 +195,11 @@ interface AppGraph : ViewModelGraph {
     val resetViewerFlags: ResetViewerFlags
     val resetCategoryFlags: ResetCategoryFlags
     val resetNovelCategoryFlags: ResetNovelCategoryFlags
+
+    // RK: an accessor rather than upstream's injected App field. A field would build every migration
+    // at graph.inject, and one of them takes Database, before the legacy-database recovery can move
+    // an incompatible database aside. Read where it is used instead, after that recovery has run.
+    val migrations: Set<Migration>
 
     // Read by App's cold-start warm-up.
     val sourceManager: SourceManager

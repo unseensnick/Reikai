@@ -1,5 +1,8 @@
 package mihon.core.migration.migrations
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -22,7 +25,14 @@ import tachiyomi.domain.manga.interactor.GetFavorites
  * resolution cutover, and old backups still carry them. Best-effort per content type, so a failure on
  * one side does not block startup or the other side.
  */
-class MigrateMergePrefsToGroupsMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class MigrateMergePrefsToGroupsMigration(
+    private val prefs: ReikaiLibraryPreferences,
+    private val repo: MergeGroupRepository,
+    private val getFavorites: GetFavorites,
+    private val novelRepo: NovelRepository,
+) : Migration {
     // RK: fires once when the shipped versionCode crosses 189. Must stay above every shipped release's
     // versionCode (0.3.1 is 184): a migration runs only for old < version <= new, so a gate at or below
     // an installed build's code never fires there, and that install keeps no groups at all.
@@ -30,10 +40,6 @@ class MigrateMergePrefsToGroupsMigration : Migration {
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to migrate
-        val prefs = migrationContext.get<ReikaiLibraryPreferences>() ?: return@withIOContext false
-        val repo = migrationContext.get<MergeGroupRepository>() ?: return@withIOContext false
-        val getFavorites = migrationContext.get<GetFavorites>() ?: return@withIOContext false
-        val novelRepo = migrationContext.get<NovelRepository>() ?: return@withIOContext false
 
         runCatching {
             val groups = MergeGroupReconstruction.reconstruct(

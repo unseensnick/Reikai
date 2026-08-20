@@ -1,9 +1,9 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 4 have landed in full. Phases 5 to 7 have not started.** With the reader
-> converted, no screen resolves through Injekt any more and what is left is migrations, the
-> Reikai-owned tail and cleanup. Research completed 2026-08-16 against upstream `b2015d1ef`;
-> re-verified 2026-08-17 before phase 0; re-measured against current code 2026-08-20.
+> **Status: phases 0 to 5 have landed in full. Phases 6 and 7 have not started.** With the reader and
+> the migrations converted, no screen and no migration resolves through Injekt any more and what is
+> left is the Reikai-owned tail and cleanup. Research completed 2026-08-16 against upstream
+> `b2015d1ef`; re-verified 2026-08-17 before phase 0; re-measured against current code 2026-08-20.
 >
 > **Counts age fast here.** Everything under Inventory is a 2026-08-16 snapshot kept as the record of
 > what the port started from, and most of it is now wrong. Current figures live in Status and in the
@@ -41,12 +41,11 @@ reachable, and those leave with the tsundoku reader migration rather than with t
 ### What is left, in order (the authoritative list)
 
 Read this before the sequence table. The table below is the landed record and the original phase
-shape; where the two disagree, this list wins. Phases 0 to 4 are finished, so this list is the whole
+shape; where the two disagree, this list wins. Phases 0 to 5 are finished, so this list is the whole
 of what remains.
 
 | Unit | Work | Proves |
 |---|---|---|
-| 5 | The migrations | Upgrade from an older `versionCode` and watch the migration log |
 | 6 | The Reikai-owned tail, including the cover models and library adders | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7 | Cleanup | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
@@ -80,6 +79,33 @@ the row showing as downloaded. Trackers were verified on the Fold against live a
 bind on a manga and a Kitsu bind on a novel, both returning authenticated search results and writing
 the link. The novel sheet offers seven trackers to the manga sheet's nine, which is `supportsNovels`
 doing its job.
+
+### The migrations, done 2026-08-20
+
+Upstream converted this package inside `b2015d1ef` itself, so the six Mihon-owned migrations were
+taken verbatim and the ten Reikai-owned ones follow the same shape: `@Inject` plus
+`@ContributesIntoSet(AppScope::class)`, dependencies as constructor parameters, and `MigrationContext`
+reduced to the `dryrun` / `previousVersion` holder it is upstream. The `?: return false` bail each
+read carried is gone: a missing binding is now a compile error, which matters because
+`MigrationJobFactory` discards the boolean anyway. Five migrations took `Application` purely to hand
+it to a `setupTask`; every one of those already accepted `Context`, which is what the graph binds.
+
+**The one divergence from upstream is where the set is read.** Upstream member-injects
+`Set<Migration>` as an `App` field, which here would build every migration at `graph.inject(this)`,
+and `MigrateNovelCategoriesToSharedTableMigration` takes `Database` directly, so the database object
+would exist before `LegacyYokaiDbImporter` can move an incompatible one aside. `AppGraph` carries a
+`migrations` accessor instead and `initializeMigrator()` reads it, after the recovery has run. Same
+reason the two widget managers are lambdas. That function's last Injekt read went with it: the
+preference store now comes off the graph too.
+
+**Set order is not load-bearing.** `MigrationJobFactory` sorts by version before folding, and the six
+migrations sharing `Migration.ALWAYS` are independent (five schedule distinct unique WorkManager jobs,
+one sets an installation id), so the multibinding's own iteration order cannot change what happens.
+
+Verified three ways, because the compiler cannot see an empty or short set: the generated graph
+constructs sixteen migration classes; a cleared install logs `with 16 migration(s)` and runs the six
+`ALWAYS` ones; rewound to `last_version_code` 6 all sixteen run in version order with no failure
+logged; and the minified build builds all sixteen and cold-starts to a populated library.
 
 ### Landed
 
@@ -181,11 +207,8 @@ independent passes claimed `spotlessCheck` would fail on the port's orphaned imp
 ktlint as configured here does not flag them), and one reported a count that a recount contradicted.
 Treat a subagent's claim about a gate as a hypothesis until the gate is run.
 
-Phases 5 to 7 remain, with two corrections found by the 2026-08-17 audit:
+Phases 6 and 7 remain, with two corrections found by the 2026-08-17 audit:
 
-- **Phase 5 must inject the migration set as a `Provider`**, never eagerly. A `Set<Migration>` built
-  at `graph.inject(this)` constructs every migration, and one of them pulls `Database`, which would
-  open the database before `LegacyYokaiDbImporter` can move an incompatible one aside.
 - **Phase 7 cannot drop the `reikai.**` / `exh.**` proguard keeps.** The novel reader stays on Injekt
   by design with reified generic lookups on `reikai.*` types, and `source-api` reads
   `DelegateSourcePreferences`, an `exh.pref` type, from three places. Those keeps leave with the
@@ -343,9 +366,10 @@ installed extensions keep working.
   `Migrations.kt` are deleted in the same commit.
 
 **Those numbers describe upstream's commit, not this tree.** Here the port is staged, so as of
-2026-08-19 `AppModule` and `PreferenceModule` are deleted while `DomainModule` and
-`mihon/core/migration/migrations/Migrations.kt` are still live, and our `AppGraph` has grown past
-upstream's shape to 61 accessors and 23 `inject()` members.
+2026-08-20 `AppModule`, `PreferenceModule` and `Migrations.kt` are deleted while `DomainModule` is
+still live, and our `AppGraph` has grown past upstream's shape to 62 accessors and 23 `inject()`
+members. Our `App` also reads the migration set off the graph rather than injecting it as a field,
+for the ordering reason recorded in Status.
 
 ### The per-class pattern
 
@@ -419,9 +443,9 @@ there permanently. Down from 265. `data` and `presentation-widget` are clean.
 **No `remember { Injekt.get() }` site remains**, down from 54, and 4 files hold both `@Composable`
 and an Injekt call, down from 47. Those four are the end state, all of them `Injekt.get<Context>()`
 locators: `AboutScreen`, `WorkerInfoScreen`, `SettingsEhScreen` and `DisplayRefreshHost`. **The
-Compose path is finished**, and what is left is engine code. `AppGraph` carries 61 accessors and 23 `inject()` members, and `MetroInteropModule`
-hands back 88 types. Phase 5 is untouched: 0 `@ContributesIntoSet` migrations against 31
-`migrationContext.get<T>()` sites.
+Compose path is finished**, and what is left is engine code. `AppGraph` carries 62 accessors and 23 `inject()` members, and `MetroInteropModule`
+hands back 88 types. Phase 5 has since landed: 16 `@ContributesIntoSet` migrations against 0
+remaining `migrationContext.get<T>()` sites.
 
 **Injekt surface: 265 files.** app 258, source-api 5, source-local 1, data 1, presentation-widget 1.
 704 `Injekt.get` occurrences, 267 `by injectLazy()`, 506 constructor defaults. Pass
@@ -459,8 +483,8 @@ on the GMD after the port, or they are dead rules.
 Each phase is a commit that compiles and boots. The verification column says what actually proves it.
 
 **This table is the landed record.** Phases 0 to 3c are history and accurate. Phase 4 grew sub-units
-as it ran and phases 5 to 7 have not started, so for what is left read "What is left, in order" at the
-top of Status instead; it is the list that gets maintained.
+as it ran and phases 6 and 7 have not started, so for what is left read "What is left, in order" at
+the top of Status instead; it is the list that gets maintained.
 
 | Phase | Work | Proves |
 |---|---|---|
@@ -476,7 +500,7 @@ top of Status instead; it is the list that gets maintained.
 | 4d. Composable reads, batch 4 (done) | The app-theme preview repaired onto `TachiyomiPreviewTheme` (`cbea79b08`), plus upstream's remembered read restored in `TachiyomiTheme` (`0af6be7da`) | Done: the owner confirmed the preview renders in both light and dark, each swatch in its own theme, and the production swatch row was driven on the emulator including the amoled toggle |
 | 4e. The reader models and engine (done) | `ReaderViewModel` and the loaders behind it (`aeecf08f3`), then the viewers onto `activity.appGraph` (`c95ab27e6`) | Done on a minified emulator build: reader opens, a downloaded chapter renders, the saved page is restored, set-as-cover rewrites the cover and re-themes the page, and Save writes the file. **WebGPU is unexercised**, the emulator has no GPU, so it needs the Fold |
 | 4f. The files no phase owned (done) | The backup subsystem (`fb6ba9ce0`), upstream's WorkManager parameter refactor (`110e3c6e7`), the downloader, notifiers and cover fetchers (`918377dfa`), the trackers (`1fe397998`), and the extension, update and cover-util tail (`9e56c41cd`) | Done: backup and restore across a full wipe, a chapter downloaded to a finished `.cbz`, and AniList plus Kitsu binds on the Fold |
-| 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params. Untouched as of 2026-08-20: 0 and 31 respectively | Device: upgrade from an older `versionCode` and watch the migration log |
+| 5. Migrations (done) | All 16 migrations to `@Inject` + `@ContributesIntoSet`, all 31 context reads to constructor params, `Migrations.kt` deleted and `MigrationContext` reduced to upstream's two-field holder | Done: on a fresh install the six `ALWAYS` migrations run; rewound to `last_version_code` 6 all sixteen run in version order with no failures; the minified build builds all sixteen and cold-starts to a populated library |
 | 6. Reikai-owned | `reikai/` and `exh/`; the interop module shrinks as they land, but its floor is the novel reader's 17 types. Measured 2026-08-20: **29** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7. Cleanup | Regenerate both baseline profiles and rewrite the rules files. The `reikai.**` / `exh.**` proguard keeps stay: they leave with the tsundoku reader migration, not with this port | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
@@ -498,7 +522,7 @@ supertype, the factory binding, the composition local) are what must land first 
 
 **Atomic units that cannot be split:** the Gradle plugin plus the runtime dependency plus the first
 annotation in a module; a module file's deletion plus every type it registered; the migration set
-(the `Set<Migration>` injection and every `@ContributesIntoSet`); and the `ViewModelGraph` supertype
+(the `Set<Migration>` accessor and every `@ContributesIntoSet`); and the `ViewModelGraph` supertype
 plus the `viewModelFactory` accessor plus the composition local, which arrive together because a
 contributed model cannot resolve without all three.
 
@@ -617,7 +641,9 @@ taken: `DownloadNotifier` is `@Inject` but not app-scoped, and `BackupFileValida
   no keeps and adds no reflection. Our existing keeps stay only while Injekt calls remain in those
   packages, which phase 7 is what clears.
 - **Migration order is not at risk.** `MigrationJobFactory` sorts by `version`, so moving from
-  a hand-maintained list to a `Set<Migration>` multibinding cannot reorder anything.
+  a hand-maintained list to a `Set<Migration>` multibinding cannot reorder anything. Confirmed when
+  phase 5 landed: the six migrations that share `Migration.ALWAYS` are independent, so the sort's
+  behaviour among equal versions carries no meaning either.
 - **The novel reader is not migrated.** See Status.
 - **`i18n` needs no plugin.** It is the only multiplatform module and holds no Kotlin code.
 - Documentation debt this creates: `.claude/rules/architecture.md` lines describing Injekt as the DI

@@ -1,5 +1,8 @@
 package mihon.core.migration.migrations
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -20,7 +23,11 @@ import tachiyomi.core.common.util.system.logcat
  * sources total instead of the deduplicated one. Best-effort, so a failure does not block startup;
  * the same reconciliation runs after the next library update and will fill in what was missed.
  */
-class BackfillChapterMatchKeysMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class BackfillChapterMatchKeysMigration(
+    private val reconcile: ReconcileChapterMatchKeys,
+) : Migration {
     // RK: fires once when the shipped versionCode crosses 190. Migrations run in version order, and
     // this one must stay above MigrateMergePrefsToGroupsMigration: the stale-chapter query joins
     // merge_group_manga, so running before the groups exist finds nothing and backfills nothing.
@@ -28,7 +35,6 @@ class BackfillChapterMatchKeysMigration : Migration {
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: no chapters yet
-        val reconcile = migrationContext.get<ReconcileChapterMatchKeys>() ?: return@withIOContext false
 
         runCatching { reconcile.await() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Failed to backfill chapter match keys" } }

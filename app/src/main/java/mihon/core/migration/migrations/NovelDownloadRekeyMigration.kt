@@ -1,5 +1,8 @@
 package mihon.core.migration.migrations
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoSet
+import dev.zacsweers.metro.Inject
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -19,16 +22,19 @@ import tachiyomi.domain.storage.service.StorageManager
  * and re-download as duplicates. Best-effort per file: a chapter/novel row that can't be resolved is
  * left in place (no data loss), and a failed move leaves the old file for the user to re-download.
  */
-class NovelDownloadRekeyMigration : Migration {
+@Inject
+@ContributesIntoSet(AppScope::class)
+class NovelDownloadRekeyMigration(
+    private val storageManager: StorageManager,
+    private val novelRepo: NovelRepository,
+    private val chapterRepo: NovelChapterRepository,
+    private val provider: NovelDownloadProvider,
+) : Migration {
     // RK: fires once when the shipped versionCode crosses 182 (the version this re-key ships in).
     override val version: Float = 182f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: nothing to move
-        val storageManager = migrationContext.get<StorageManager>() ?: return@withIOContext false
-        val novelRepo = migrationContext.get<NovelRepository>() ?: return@withIOContext false
-        val chapterRepo = migrationContext.get<NovelChapterRepository>() ?: return@withIOContext false
-        val provider = migrationContext.get<NovelDownloadProvider>() ?: return@withIOContext false
 
         val root = storageManager.getNovelDownloadsDirectory() ?: return@withIOContext true
 
