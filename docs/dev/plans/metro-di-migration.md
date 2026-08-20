@@ -1,9 +1,9 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 3c landed. Phase 4 is part done: its graph-resolved ViewModels and composable
-> batches 1 and 2 landed, batches 3 and 4 plus three ViewModels remain. Phases 5 to 7 have not
-> started.** Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17 before
-> phase 0; re-measured against current code 2026-08-19.
+> **Status: phases 0 to 4 have landed in full. Phases 5 to 7 have not started.** With the reader
+> converted, no screen resolves through Injekt any more and what is left is migrations, the
+> Reikai-owned tail and cleanup. Research completed 2026-08-16 against upstream `b2015d1ef`;
+> re-verified 2026-08-17 before phase 0; re-measured against current code 2026-08-20.
 >
 > **Counts age fast here.** Everything under Inventory is a 2026-08-16 snapshot kept as the record of
 > what the port started from, and most of it is now wrong. Current figures live in Status and in the
@@ -40,7 +40,6 @@ its remainder is named here as separate units.
 
 | Unit | Work | Proves |
 |---|---|---|
-| 4e | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel`, plus the twelve reader engine reads behind them | A full reader drive on a minified build: paged, webtoon and WebGPU viewers, chapter transitions, save and share |
 | 5 | The migrations | Upgrade from an older `versionCode` and watch the migration log |
 | 6 | The Reikai-owned tail, including the cover models and library adders | Full device sweep: novels, EXH, recommendations, merge, migrate |
 | 7 | Cleanup | Minified `:app:assemblePreview`, then the profiles' own generation task |
@@ -265,6 +264,33 @@ The 13 files carrying a lone orphan `uy.kohesive.injekt` import were swept in `d
 per-batch rule they were under could not discharge them, because batches 3 and 4 touch none of the
 13, so they went in one commit of their own to keep the batch diff readable against upstream's.
 
+### The reader models and engine, done 2026-08-20
+
+`ReaderViewModel` is the port's first model on metrox's **assisted-with-`CreationExtras`** shape, the
+third of `MetroViewModelFactory`'s three maps and the only one that can supply a `SavedStateHandle`.
+It is `@AssistedInject` with a nested `@AssistedFactory @ViewModelAssistedFactoryKey` interface whose
+`create(extras)` calls `extras.createSavedStateHandle()`, and `ReaderActivity` passes
+`graph.viewModelFactory` to `viewModels`. The reader is an Activity, not a Compose screen, so the
+plain and manual shapes the rest of the tree uses do not reach it. Five dependencies came in with the
+conversion (`LocalCoverManager`, `UpdateManga`, `CoverCache`, `ChapterCache`, `DownloadCache`) purely
+to absorb the model's five interior Injekt reads, and `filterDownloaded` gained a `downloadCache`
+parameter for the same reason.
+
+The viewers take upstream's escape hatch instead: `PagerViewer`, `WebtoonViewer`, `WebGpuViewer` and
+`ReadingMode` are plain objects the graph cannot build, so they read `activity.appGraph` lazily and
+hand what they read to the config they construct.
+
+Two scope rulings, both 2026-08-20:
+
+- **`DownloadQueueViewModel` is not part of this port.** It is dead (`// RK: inert`, zero call sites),
+  the download-queue plan keeps it verbatim so upstream syncs stay clean, and the off-path manifest
+  has it waiting on Road B to retire it. The `DownloadQueueViewModel` conversion the roadmap names is
+  mihonapp/mihon#3727, the collect-while-subscribed change, which is different work on the same file.
+- **`DownloadPageLoader` keeps its Injekt read**, as upstream does. The argument for converting it was
+  dropping the R8 keeps, and that payoff is not reachable anyway: `source-api` and `source-local` hold
+  Injekt permanently under `eu.kanade.**`, `exh.**` and `tachiyomi.**`, because they are the contract
+  installed extensions compile against. Only the `mihon.**` and `reikai.**` keeps can ever go.
+
 Owner rulings, 2026-08-16:
 
 - **Port everything, Reikai-owned trees included**, rather than mirroring upstream and leaving them on
@@ -363,7 +389,7 @@ figures, re-derive.
 
 Re-derive with `grep -rl --include=*.kt --exclude-dir=build "uy.kohesive.injekt" app domain data core core-metadata source-api source-local presentation-core presentation-widget telemetry`.
 
-Measured 2026-08-20, after batch 4: **141 files repo-wide, 135 of them in `app`**, down from 265.
+Measured 2026-08-20, after 4e: **129 files repo-wide, 123 of them in `app`**, down from 265.
 **No `remember { Injekt.get() }` site remains**, down from 54, and 4 files hold both `@Composable`
 and an Injekt call, down from 47. Those four are the end state, all of them `Injekt.get<Context>()`
 locators: `AboutScreen`, `WorkerInfoScreen`, `SettingsEhScreen` and `DisplayRefreshHost`. **The
@@ -422,6 +448,7 @@ top of Status instead; it is the list that gets maintained.
 | 4b. Composable reads, batches 1 and 2 (done) | The settings screens (`c3d1c4cd9`), then the remaining composables including four Reikai-owned ones (`9d85a35f6`). Graph at 55 accessors | Done: both batches on a minified build, batch 2 on the emulator and the Fold |
 | 4c. Composable reads, batch 3 (done) | The onboarding steps, `DisplayRefreshHost` and `SourceUtil` (`9ad07b8f4`), plus the orphan-import sweep (`d721de727`) | Done: onboarding walked, browse and the reader driven on a minified telemetry build |
 | 4d. Composable reads, batch 4 (done) | The app-theme preview repaired onto `TachiyomiPreviewTheme` (`cbea79b08`), plus upstream's remembered read restored in `TachiyomiTheme` (`0af6be7da`) | Done: the owner confirmed the preview renders in both light and dark, each swatch in its own theme, and the production swatch row was driven on the emulator including the amoled toggle |
+| 4e. The reader models and engine (done) | `ReaderViewModel` and the loaders behind it (`aeecf08f3`), then the viewers onto `activity.appGraph` (`c95ab27e6`) | Done on a minified emulator build: reader opens, a downloaded chapter renders, the saved page is restored, set-as-cover rewrites the cover and re-themes the page, and Save writes the file. **WebGPU is unexercised**, the emulator has no GPU, so it needs the Fold |
 | 4e. The reader models | `ReaderViewModel`, `ReaderSettingsViewModel`, `DownloadQueueViewModel` and the twelve reader engine reads | A full reader drive on a minified build |
 | 5. Migrations | 16 migrations to `@ContributesIntoSet`, 31 context reads to constructor params. Untouched as of 2026-08-19: 0 and 31 respectively | Device: upgrade from an older `versionCode` and watch the migration log |
 | 6. Reikai-owned | `reikai/` and `exh/`; the interop module shrinks as they land, but its floor is the novel reader's 17 types. Measured 2026-08-19 after batch 2: **32** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
