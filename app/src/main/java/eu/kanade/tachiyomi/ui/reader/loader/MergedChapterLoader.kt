@@ -1,13 +1,13 @@
 package eu.kanade.tachiyomi.ui.reader.loader
 
 import android.content.Context
+import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * RK: merge-aware loader. Holds one Mihon [ChapterLoader] per merged source, keyed by the chapter's
@@ -21,8 +21,10 @@ class MergedChapterLoader(
     private val context: Context,
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
+    private val chapterCache: ChapterCache,
+    private val readerPreferences: ReaderPreferences,
     private val mangaById: Map<Long, Manga>,
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val sourceManager: SourceManager,
 ) {
 
     private val loaders = HashMap<Long, ChapterLoader>()
@@ -33,6 +35,14 @@ class MergedChapterLoader(
 
     private fun loaderFor(mangaId: Long): ChapterLoader = loaders.getOrPut(mangaId) {
         val manga = mangaById.getValue(mangaId)
-        ChapterLoader(context, downloadManager, downloadProvider, manga, sourceManager.getOrStub(manga.source))
+        ChapterLoader(
+            context,
+            downloadManager,
+            downloadProvider,
+            chapterCache,
+            readerPreferences,
+            manga,
+            sourceManager.getOrStub(manga.source),
+        )
     }
 }

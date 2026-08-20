@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.loader
 
 import android.content.Context
+import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
@@ -17,7 +18,6 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.io.Format
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Loader used to retrieve the [PageLoader] for a given chapter.
@@ -26,12 +26,12 @@ class ChapterLoader(
     private val context: Context,
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
+    private val chapterCache: ChapterCache,
+    // RK: resume position even on already-read chapters when enabled (Y-feature)
+    private val readerPreferences: ReaderPreferences,
     private val manga: Manga,
     private val source: Source,
 ) {
-
-    // RK: resume position even on already-read chapters when enabled (Y-feature)
-    private val readerPreferences: ReaderPreferences by injectLazy()
 
     /**
      * Assigns the chapter's page loader and loads the its pages. Returns immediately if the chapter
@@ -106,7 +106,7 @@ class ChapterLoader(
                     is Format.Epub -> EpubPageLoader(format.file.epubReader(context))
                 }
             }
-            source is HttpSource -> HttpPageLoader(chapter, source)
+            source is HttpSource -> HttpPageLoader(chapter, source, chapterCache, readerPreferences)
             source is StubSource -> error(context.stringResource(MR.strings.source_not_installed, source.toString()))
             else -> error(context.stringResource(MR.strings.loader_not_implemented_error))
         }
