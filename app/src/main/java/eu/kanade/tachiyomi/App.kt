@@ -56,6 +56,7 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.workManager
 import exh.md.MangaDexTrackCoverFetcher
 import exh.md.MangaDexTrackCoverKeyer
 import kotlinx.coroutines.Dispatchers
@@ -240,7 +241,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         legacyImportFile?.let { file ->
             toast(MR.strings.legacy_import_notice, Toast.LENGTH_LONG)
             BackupRestoreJob.start(
-                context = this,
+                workManager = this.workManager,
                 uri = Uri.fromFile(file),
                 options = RestoreOptions(
                     libraryEntries = true,

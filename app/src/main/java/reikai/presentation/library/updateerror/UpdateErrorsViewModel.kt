@@ -12,6 +12,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -141,8 +142,8 @@ class UpdateErrorsViewModel(
 
     fun retry(context: Context) {
         val type = (state.value as? UpdateErrorsScreenState.Success)?.contentType ?: ContentType.ALL
-        if (type != ContentType.NOVELS) LibraryUpdateJob.startNow(context)
-        if (type != ContentType.MANGA) NovelUpdateJob.startNow(context)
+        if (type != ContentType.NOVELS) LibraryUpdateJob.startNow(context.workManager)
+        if (type != ContentType.MANGA) NovelUpdateJob.startNow(context.workManager)
     }
 }
 

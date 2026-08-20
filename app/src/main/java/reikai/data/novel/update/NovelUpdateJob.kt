@@ -15,6 +15,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -339,8 +340,8 @@ class NovelUpdateJob(
         /** Run a check immediately (for manual triggers / testing); reuses a running drain via KEEP.
          *  A non-null [category] scopes the run to that category (the novel twin of manga's
          *  per-category manual update); null updates the whole library per the include/exclude prefs. */
-        fun startNow(context: Context, category: Category? = null): Boolean {
-            val wm = context.workManager
+        fun startNow(workManager: WorkManager, category: Category? = null): Boolean {
+            val wm = workManager
             if (wm.isRunning(TAG)) {
                 // Already running either as a scheduled or manual job.
                 return false

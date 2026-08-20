@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.library.LibraryViewModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -166,7 +167,7 @@ class MangaLibraryAdapter(
         model.search(query)
     }
 
-    override fun refresh(category: Category?) = LibraryUpdateJob.startNow(context, category)
+    override fun refresh(category: Category?) = LibraryUpdateJob.startNow(context.workManager, category)
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

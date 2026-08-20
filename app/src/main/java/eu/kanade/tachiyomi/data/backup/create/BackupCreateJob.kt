@@ -47,7 +47,7 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
 
         val isAutoBackup = inputData.getBoolean(IS_AUTO_BACKUP_KEY, true)
 
-        if (isAutoBackup && BackupRestoreJob.isRunning(context)) return Result.retry()
+        if (isAutoBackup && BackupRestoreJob.isRunning(context.workManager)) return Result.retry()
 
         val uri = inputData.getString(LOCATION_URI_KEY)?.toUri()
             ?: getAutomaticBackupLocation()

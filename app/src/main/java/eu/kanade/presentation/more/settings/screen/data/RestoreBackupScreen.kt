@@ -39,6 +39,7 @@ import eu.kanade.tachiyomi.data.backup.BackupFileValidator
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.util.system.DeviceUtil
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -210,7 +211,7 @@ class RestoreBackupViewModel(
 
     fun startRestore() {
         BackupRestoreJob.start(
-            context = context,
+            workManager = context.workManager,
             uri = uri.toUri(),
             options = state.value.options,
         )

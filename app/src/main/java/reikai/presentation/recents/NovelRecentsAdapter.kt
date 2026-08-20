@@ -4,6 +4,7 @@ import android.app.Application
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -271,7 +272,7 @@ class NovelRecentsAdapter private constructor(
     override suspend fun clearHistory(): Boolean = historyModel?.removeAllHistory() == true
 
     // Straight to the job, the twin of the manga side and for the same two reasons.
-    override fun refresh(): Boolean = NovelUpdateJob.startNow(application)
+    override fun refresh(): Boolean = NovelUpdateJob.startNow(application.workManager)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? {
         val novelId = (entry as? EntryId.Novel)?.rawId ?: return null

@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -306,7 +307,7 @@ class MangaRecentsAdapter private constructor(
 
     // Straight to the job rather than through the updates model, which only wraps this same call in a
     // snackbar event the shell now owns. It also lets a surface with no updated lane still refresh.
-    override fun refresh(): Boolean = LibraryUpdateJob.startNow(application)
+    override fun refresh(): Boolean = LibraryUpdateJob.startNow(application.workManager)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? =
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }

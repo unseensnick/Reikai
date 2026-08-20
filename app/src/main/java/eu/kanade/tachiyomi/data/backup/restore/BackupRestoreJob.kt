@@ -9,6 +9,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
@@ -79,12 +80,12 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
     }
 
     companion object {
-        fun isRunning(context: Context): Boolean {
-            return context.workManager.isRunning(TAG)
+        fun isRunning(workManager: WorkManager): Boolean {
+            return workManager.isRunning(TAG)
         }
 
         fun start(
-            context: Context,
+            workManager: WorkManager,
             uri: Uri,
             options: RestoreOptions,
             sync: Boolean = false,
@@ -98,11 +99,11 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
                 .addTag(TAG)
                 .setInputData(inputData)
                 .build()
-            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
+            workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
         }
 
-        fun stop(context: Context) {
-            context.workManager.cancelUniqueWork(TAG)
+        fun stop(workManager: WorkManager) {
+            workManager.cancelUniqueWork(TAG)
         }
     }
 }

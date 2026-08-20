@@ -15,6 +15,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -518,10 +519,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         }
 
         fun startNow(
-            context: Context,
+            workManager: WorkManager,
             category: Category? = null,
         ): Boolean {
-            val wm = context.workManager
+            val wm = workManager
             if (wm.isRunning(TAG)) {
                 // Already running either as a scheduled or manual job
                 return false

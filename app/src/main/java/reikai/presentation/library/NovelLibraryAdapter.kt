@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -150,7 +151,7 @@ class NovelLibraryAdapter(
         model.search(query)
     }
 
-    override fun refresh(category: Category?) = NovelUpdateJob.startNow(context, category)
+    override fun refresh(category: Category?) = NovelUpdateJob.startNow(context.workManager, category)
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

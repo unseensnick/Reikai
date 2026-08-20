@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.util.system.getParcelableExtraCompat
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import reikai.data.novel.update.NovelUpdateJob
@@ -229,7 +230,7 @@ class NotificationReceiver : BroadcastReceiver() {
      * @param context context of application
      */
     private fun cancelRestore(context: Context) {
-        BackupRestoreJob.stop(context)
+        BackupRestoreJob.stop(context.workManager)
     }
 
     /**

@@ -8,6 +8,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
@@ -176,8 +177,8 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
 
         private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60
 
-        fun startNow(context: Context): Boolean {
-            val wm = context.workManager
+        fun startNow(workManager: WorkManager): Boolean {
+            val wm = workManager
             if (wm.isRunning(TAG)) {
                 // Already running either as a scheduled or manual job
                 return false
