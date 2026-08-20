@@ -1,9 +1,9 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 5 have landed in full. Phases 6 and 7 have not started.** With the reader and
-> the migrations converted, no screen and no migration resolves through Injekt any more and what is
-> left is the Reikai-owned tail and cleanup. Research completed 2026-08-16 against upstream
-> `b2015d1ef`; re-verified 2026-08-17 before phase 0; re-measured against current code 2026-08-20.
+> **Status: phases 0 to 6 have landed in full. Phase 7 has not started.** Three files under
+> `reikai/` and `exh/` still import Injekt and all three are ruled holdouts; everything else is on
+> the graph. Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
+> before phase 0; re-measured against current code 2026-08-20.
 >
 > **Counts age fast here.** Everything under Inventory is a 2026-08-16 snapshot kept as the record of
 > what the port started from, and most of it is now wrong. Current figures live in Status and in the
@@ -41,13 +41,12 @@ reachable, and those leave with the tsundoku reader migration rather than with t
 ### What is left, in order (the authoritative list)
 
 Read this before the sequence table. The table below is the landed record and the original phase
-shape; where the two disagree, this list wins. Phases 0 to 5 are finished, so this list is the whole
+shape; where the two disagree, this list wins. Phases 0 to 6 are finished, so this list is the whole
 of what remains.
 
 | Unit | Work | Proves |
 |---|---|---|
-| 6 | The Reikai-owned tail, including the cover models and library adders | Full device sweep: novels, EXH, recommendations, merge, migrate |
-| 7 | Cleanup | Minified `:app:assemblePreview`, then the profiles' own generation task |
+| 7 | Cleanup, plus shrinking `DomainModule` to the novel reader's six | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
 **Fresh install is now exercised** (2026-08-20): the preview install was wiped, walked through
 onboarding and restored from its own backup. **Upgrade from a shipped build is still untested.**
@@ -79,6 +78,54 @@ the row showing as downloaded. Trackers were verified on the Fold against live a
 bind on a manga and a Kitsu bind on a novel, both returning authenticated search results and writing
 the link. The novel sheet offers seven trackers to the manga sheet's nine, which is `supportsNovels`
 doing its job.
+
+### The Reikai-owned tail, done 2026-08-20
+
+Four commits: the recommendation and cover layer (`d35bbf29c`), the adders, the migrate use case and
+the four adapters (`5c13ba1af`), the adult-source tail and the recommendation providers
+(`816e4b1c6`), and the novel download engine (`30adf47d2`). 79 constructor defaults and 127 lazy
+delegates went; three files under `reikai/` and `exh/` still import Injekt and all three are ruled.
+
+**The import count was the wrong metric, and the gate is blind in a new way.** Of the 80 files that
+still imported Injekt when this phase started, 46 were upstream-shaped: 22 tracker files each carry
+one `json: Json by injectLazy()` that upstream carries too, and ten more are `Injekt.get<Context>()`
+locators upstream also keeps. The real work was 79 `= Injekt.get()` constructor defaults across 19
+files, every one of which `di-interop-check.ps1` passes: `MangaLibraryAdder` carried `@Inject` and
+thirteen Injekt-defaulting parameters at once, and the check reads "the class mentions Metro" as
+converted. Measure the defaults and the delegates, never the imports.
+
+**What arrives assisted, and why.** The four library and recents adapters, both cover models and the
+two entry migration models take their live model or entry id at the call site, so they are
+`@AssistedInject` with an `@AssistedFactory` the graph hands over. The recents factories keep the
+three named per-surface entry points as default interface methods, so the invariant the old private
+constructor guarded (a caller cannot build an adapter whose models and declared surface disagree)
+survives; only `create` is newly reachable, which Metro gives no way to hide.
+
+**Deferral is a `Provider` now, not a lazy delegate.** Where construction timing was load-bearing it
+is expressed in the type: `NovelDownloadManager` in `MigrateNovelUseCase`, `RepairNovelDetails` and
+`NovelRecentsAdapter`; `AdultContentChecker` in `LibraryUpdateNotifier`; `GalleryAdder` in
+`BatchAddViewModel`. The manager is the one that matters: constructing it restores the persisted
+download queue and can start the download worker.
+
+**Three ruled holdouts.** `NovelReaderScreenModel` stays by design until the tsundoku migration.
+`Novel.hasCustomCover` keeps its `CoverCache = Injekt.get()` default because upstream's
+`Manga.hasCustomCover` twin is byte-identical, so converting one would fork the pair. `DebugToggles`
+is an enum whose dependency hangs off its companion, and its only callers are `EHentai`, which
+`AndroidSourceManager` constructs by hand: it belongs to the source-construction family that
+`source-api` keeps Injekt for, not to this phase.
+
+**`DomainModule` now has exactly six live Injekt consumers**, all of them the novel reader's
+(`UpsertNovelHistory`, `SetNovelViewerFlags`, `GetNovelCategories`, `SetNovelReadStatus`,
+`TrackNovelChapter`, `GetIncognitoState`). The other ~124 registrations have no Injekt consumer left.
+Shrinking it is phase 7's, and it needs care rather than inspection: the registrations resolve each
+other through `get()`, so deleting one that another still needs fails at runtime, not at compile.
+
+Verified on a minified emulator build, per surface: the library on both chips, Recents on both chips,
+manga and novel details with their cover dialogs, the related-mangas carousel (whose log shows a real
+request going out through the shared rate-limited client), the settings list including the two
+`isEnabled()` locators, the MangaDex and Advanced settings screens, and a bulk novel download that
+queued 579 chapters, drained past 71 of them, and left chapters 104 down the list reading as
+downloaded through the converted cache.
 
 ### The migrations, done 2026-08-20
 
@@ -187,7 +234,10 @@ built. One case was caught on device by accident, and the fix for it (`d38d1d27f
 edge while a transitive one stayed open: the novel library reached `NovelDownloadManager` through
 `SetNovelReadStatus` to `DeleteNovelChaptersAfterRead`, so opening the library still resumed
 downloads. **Before promoting any dependency to a constructor parameter, read its `init`, and check
-the promoted type's whole transitive closure rather than the one edge you are editing.** Member
+the promoted type's whole transitive closure rather than the one edge you are editing.** Phase 6's
+answer to this is to keep the deferral but say it in the type, as a `Provider<T>` parameter rather
+than a lazy delegate: same timing, and the reason sits next to the dependency instead of in a comment
+a later edit can drop. Member
 injection is the same hazard by another route: `NotificationReceiver` injects every field at the top
 of `onReceive`, so a field only one action needs is built for every notification tap.
 
@@ -207,22 +257,19 @@ independent passes claimed `spotlessCheck` would fail on the port's orphaned imp
 ktlint as configured here does not flag them), and one reported a count that a recount contradicted.
 Treat a subagent's claim about a gate as a hypothesis until the gate is run.
 
-Phases 6 and 7 remain, with two corrections found by the 2026-08-17 audit:
+Phase 7 remains, with one correction found by the 2026-08-17 audit:
 
 - **Phase 7 cannot drop the `reikai.**` / `exh.**` proguard keeps.** The novel reader stays on Injekt
   by design with reified generic lookups on `reikai.*` types, and `source-api` reads
   `DelegateSourcePreferences`, an `exh.pref` type, from three places. Those keeps leave with the
   tsundoku reader migration, not with this port. Phase 7 keeps the baseline profiles and the rules
   files only.
-- Relatedly, **phase 6 does not shrink the interop module for the novel reader's subgraph**: keeping
-  `NovelReaderScreenModel` on Injekt means its 17 dependencies must be handed back. Re-measured
-  2026-08-19: **11 of the 17 are already interop-registered**, up from the one this line originally
-  recorded, so phase 6's floor for the interop module is those 17 rather than the six not yet added.
 
-**The Reikai-owned models still on constructor defaults belong to phase 6**: `EntryCoverViewModel`,
-`MangaEntryCoverViewModel`, `NovelCoverViewModel`, both library adders and `MigrateNovelUseCase`.
-Re-derive the set with
-`grep -rln --include=*.kt --exclude-dir=build 'Injekt.get()' app/src/main/java | xargs grep -l ViewModel`.
+**The interop module's floor is the novel reader's subgraph**, which phase 6 did not shrink and could
+not: keeping `NovelReaderScreenModel` on Injekt means everything it resolves must be handed back. It
+resolves **18** types, not the 17 this line recorded before (`Application` is the one it omitted, and
+`App` rather than the interop module supplies that). Eleven are interop parameters; the other six are
+the `DomainModule` registrations named above.
 
 ### The composable reads, specified 2026-08-19
 
@@ -367,9 +414,9 @@ installed extensions keep working.
 
 **Those numbers describe upstream's commit, not this tree.** Here the port is staged, so as of
 2026-08-20 `AppModule`, `PreferenceModule` and `Migrations.kt` are deleted while `DomainModule` is
-still live, and our `AppGraph` has grown past upstream's shape to 62 accessors and 23 `inject()`
-members. Our `App` also reads the migration set off the graph rather than injecting it as a field,
-for the ordering reason recorded in Status.
+still live (for six registrations the novel reader still resolves), and our `AppGraph` has grown past
+upstream's shape to 71 accessors and 23 `inject()` members. Our `App` also reads the migration set
+off the graph rather than injecting it as a field, for the ordering reason recorded in Status.
 
 ### The per-class pattern
 
@@ -443,9 +490,10 @@ there permanently. Down from 265. `data` and `presentation-widget` are clean.
 **No `remember { Injekt.get() }` site remains**, down from 54, and 4 files hold both `@Composable`
 and an Injekt call, down from 47. Those four are the end state, all of them `Injekt.get<Context>()`
 locators: `AboutScreen`, `WorkerInfoScreen`, `SettingsEhScreen` and `DisplayRefreshHost`. **The
-Compose path is finished**, and what is left is engine code. `AppGraph` carries 62 accessors and 23 `inject()` members, and `MetroInteropModule`
-hands back 88 types. Phase 5 has since landed: 16 `@ContributesIntoSet` migrations against 0
-remaining `migrationContext.get<T>()` sites.
+Compose path is finished**, and what is left is engine code. Phases 5 and 6 have since landed:
+`AppGraph` carries **71** accessors and 23 `inject()` members, `MetroInteropModule` hands back 89
+types, and the Injekt surface under `app/src/main/java` is down to three ruled holdouts plus the
+upstream-shaped tracker and locator files.
 
 **Injekt surface: 265 files.** app 258, source-api 5, source-local 1, data 1, presentation-widget 1.
 704 `Injekt.get` occurrences, 267 `by injectLazy()`, 506 constructor defaults. Pass
@@ -483,7 +531,7 @@ on the GMD after the port, or they are dead rules.
 Each phase is a commit that compiles and boots. The verification column says what actually proves it.
 
 **This table is the landed record.** Phases 0 to 3c are history and accurate. Phase 4 grew sub-units
-as it ran and phases 6 and 7 have not started, so for what is left read "What is left, in order" at
+as it ran and phase 7 has not started, so for what is left read "What is left, in order" at
 the top of Status instead; it is the list that gets maintained.
 
 | Phase | Work | Proves |
@@ -501,7 +549,7 @@ the top of Status instead; it is the list that gets maintained.
 | 4e. The reader models and engine (done) | `ReaderViewModel` and the loaders behind it (`aeecf08f3`), then the viewers onto `activity.appGraph` (`c95ab27e6`) | Done on a minified emulator build: reader opens, a downloaded chapter renders, the saved page is restored, set-as-cover rewrites the cover and re-themes the page, and Save writes the file. **WebGPU is unexercised**, the emulator has no GPU, so it needs the Fold |
 | 4f. The files no phase owned (done) | The backup subsystem (`fb6ba9ce0`), upstream's WorkManager parameter refactor (`110e3c6e7`), the downloader, notifiers and cover fetchers (`918377dfa`), the trackers (`1fe397998`), and the extension, update and cover-util tail (`9e56c41cd`) | Done: backup and restore across a full wipe, a chapter downloaded to a finished `.cbz`, and AniList plus Kitsu binds on the Fold |
 | 5. Migrations (done) | All 16 migrations to `@Inject` + `@ContributesIntoSet`, all 31 context reads to constructor params, `Migrations.kt` deleted and `MigrationContext` reduced to upstream's two-field holder | Done: on a fresh install the six `ALWAYS` migrations run; rewound to `last_version_code` 6 all sixteen run in version order with no failures; the minified build builds all sixteen and cold-starts to a populated library |
-| 6. Reikai-owned | `reikai/` and `exh/`; the interop module shrinks as they land, but its floor is the novel reader's 17 types. Measured 2026-08-20: **29** files under `reikai/` and **7** under `exh/`, down from the 71 and 16 of the 2026-08-16 inventory. Includes the Reikai-owned cover models and library adders named in Status | Full device sweep: novels, EXH, recommendations, merge, migrate |
+| 6. Reikai-owned (done) | 79 constructor defaults and 127 lazy delegates across `reikai/` and `exh/`, in four commits; the adapters and cover models onto assisted factories, deliberate deferral onto `Provider`. Three ruled holdouts remain, down from the 71 and 16 of the 2026-08-16 inventory | Done on a minified build: both library chips, both Recents chips, manga and novel details with their cover dialogs, the recommendation carousel making a real request, the settings list and its two locator screens, and a bulk novel download drained and read back as downloaded |
 | 7. Cleanup | Regenerate both baseline profiles and rewrite the rules files. The `reikai.**` / `exh.**` proguard keeps stay: they leave with the tsundoku reader migration, not with this port | Minified `:app:assemblePreview`, then the profiles' own generation task |
 
 **Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
