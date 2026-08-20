@@ -70,7 +70,10 @@ interactors 3b walked past, one level further out.
 Verified on a minified emulator build: a backup created, then the install wiped, onboarded, and
 restored from that backup, coming back to 220 entries (169 manga with all three categories, 51
 novels); and a chapter downloaded to a finished `.cbz` with the progress notification clearing and
-the row showing as downloaded. **Trackers are not verified**, they need the Fold.
+the row showing as downloaded. Trackers were verified on the Fold against live accounts: an AniList
+bind on a manga and a Kitsu bind on a novel, both returning authenticated search results and writing
+the link. The novel sheet offers seven trackers to the manga sheet's nine, which is `supportsNovels`
+doing its job.
 
 ### Landed
 
