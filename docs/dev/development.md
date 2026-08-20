@@ -18,7 +18,7 @@ The rebase has shipped: `main` is the Mihon-based main. The forward backlog live
 
 The working rules under `.claude/rules/` are the single source of truth; this doc points to them rather than duplicating:
 
-- [architecture.md](../../.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, `PreferenceStore`, coroutines, domain models, modules, `// RK` patch markers.
+- [architecture.md](../../.claude/rules/architecture.md) — Compose + Voyager, Metro DI, `PreferenceStore`, coroutines, domain models, modules, `// RK` patch markers.
 - [screen-conventions.md](../../.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon.
 - [workflow.md](../../.claude/rules/workflow.md) — CHANGELOG, commits/PRs, release-cut, upstream + feature porting.
 - [code-quality.md](../../.claude/rules/code-quality.md), [testing.md](../../.claude/rules/testing.md), [database.md](../../.claude/rules/database.md), [security.md](../../.claude/rules/security.md).
@@ -52,7 +52,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 
 ## Key technologies
 
-Compose + Voyager (no Conductor), Injekt DI, SQLDelight, OkHttp, Coil 3, kotlinx.serialization, Kermit logging (+ optional Firebase Crashlytics), JUnit / MockK / Kotest.
+Compose + Voyager (no Conductor), Metro DI, SQLDelight, OkHttp, Coil 3, kotlinx.serialization, Kermit logging (+ optional Firebase Crashlytics), JUnit / MockK / Kotest.
 
 ## Reference clones
 

@@ -23,21 +23,29 @@ Reikai's ported screens (library, manga details, the light-novel surfaces) follo
 
 ## Dependency injection
 
-DI is **Injekt** (`uy.kohesive.injekt`). Modules live at `app/src/main/java/eu/kanade/tachiyomi/di/` (`AppModule`, `PreferenceModule`) and `app/src/main/java/eu/kanade/domain/DomainModule.kt`. Register new repositories and interactors there with `addSingletonFactory { ... }`; resolve with `Injekt.get<T>()` (constructor defaults) or `by injectLazy()` at class level. Do not introduce Koin: the Yōkai base used Koin, Mihon does not, and adding it would widen the patch surface against upstream.
+DI is **Metro** (`dev.zacsweers.metro`), resolved by the compiler rather than at runtime. The graph is `app/src/main/java/mihon/app/di/AppGraph.kt`, with its providers in `AppBindings` (upstream's) and `ReikaiBindings` (ours) beside it. A class joins the graph by carrying `@Inject` on itself and taking its dependencies as constructor parameters; add `@SingleIn(AppScope::class)` when it must be an application singleton, and `@ContributesBinding(AppScope::class)` on an implementation bound to an interface. Do not introduce Koin.
 
-No `Injekt.get<>()` / `injectLazy()` inside a `@Composable` body.
+Three shapes for the cases a plain parameter cannot cover:
+
+- **A value that only exists at the call site** (a `mangaId`, the live model a screen already resolved) is `@Assisted`, with an `@AssistedFactory` the graph hands over. `MangaEntryCoverViewModel` and the four library and recents adapters are the worked examples.
+- **A dependency whose construction must stay deferred** is a `Provider<T>` parameter, never a lazy delegate: same timing, and the reason sits in the type. `NovelDownloadManager` is the one that matters, because building it restores the persisted download queue and can start the worker.
+- **Code that cannot take a constructor parameter at all** (an object, a top-level function, a companion) reads `context.appGraph.x`. Where there is no `Context` either, `Injekt.get<Context>()` survives purely as a locator, which is the shape upstream kept for the same case.
+
+**Injekt is not gone, and the two survivors are permanent or ruled.** `source-api` and `source-local` keep it because they are the contract installed extensions compile against, and `eu/kanade/domain/DomainModule.kt` keeps twelve registrations for those contracts plus the novel reader, which stays on Injekt until the tsundoku migration. `MetroInteropModule` hands graph-owned singletons back to Injekt so extensions can still resolve them. Do not add to any of that: net-new code goes in the graph. `DomainModuleTest` resolves the twelve for real, so removing one that is still needed fails there rather than at runtime.
+
+No DI resolution of any kind inside a `@Composable` body: read it in the ViewModel, or `remember { context.appGraph.x }` at the top of the composable.
 
 ## Minification (R8) and net-new packages
 
-Release-type builds (`release` / `preview` / `foss`) are minified (`isMinifyEnabled = Config.enableCodeShrink`); the `debugY2k` dev build is NOT, so R8-only bugs are invisible in the normal dev loop. The recurring one: R8 strips the generic `Signature` that Injekt's `FullTypeReference` reflects on, so an `Injekt.get<T>()` / `injectLazy<T>()` in a package that is not in the proguard keep list crashes the minified build with `IllegalArgumentException: Internal error: TypeReference constructed without actual type information`.
+Release-type builds (`release` / `preview` / `foss`) are minified (`isMinifyEnabled = Config.enableCodeShrink`); the `debugY2k` dev build is NOT, so R8-only bugs are invisible in the normal dev loop. **Metro resolves the graph at compile time and reflects on nothing, so graph-owned code carries no minification hazard of its own.** The hazard that remains belongs to the surviving Injekt calls: R8 strips the generic `Signature` that Injekt's `FullTypeReference` reflects on, so an `Injekt.get<T>()` / `injectLazy<T>()` in a package outside the keep list crashes the minified build with `IllegalArgumentException: Internal error: TypeReference constructed without actual type information`.
 
-`app/proguard-rules.pro` keeps the upstream packages (`eu.kanade.**` / `tachiyomi.**` / `mihon.**`) plus every net-new top-level package: `reikai.**` and `exh.**`. **When you add a new top-level package that uses Injekt generics, add its own `-keep,allowoptimization class <pkg>.**` line.** Past crashes: `NovelUpdateJob.setupTask` -> `Injekt.get<NovelPreferences>()` (startup); `EHentaiUpdateWorker.setupTask` -> `Injekt.get<ExhPreferences>()` (toggling the E-Hentai gallery-update schedule).
+`app/proguard-rules.pro` keeps `eu.kanade.**` / `tachiyomi.**` / `mihon.**`, which are upstream's own and stay whatever Reikai does, plus `reikai.**` and `exh.**`, which are ours. **Those last two stay until the tsundoku reader migration**, because the novel reader still resolves `reikai.*` types through Injekt and `source-api` reads an `exh.pref` type. A net-new top-level package needs its own keep line only if something in it resolves through Injekt, which for new code should be nothing. Past crashes, both from before the Metro port: `NovelUpdateJob.setupTask` -> `Injekt.get<NovelPreferences>()` (startup); `EHentaiUpdateWorker.setupTask` -> `Injekt.get<ExhPreferences>()` (toggling the E-Hentai gallery-update schedule).
 
 Verify such code on a minified build before trusting it: `:app:assemblePreview` / `:app:installPreview` (the `preview` variant is `initWith(release)`, so minified and debug-signed; its package is `eu.kanade.tachiyomi.debug`), then exercise the path. A preview/release build is not debuggable, so drive it via UI, not `run-as`.
 
 ## Preferences
 
-Preferences go through `PreferenceStore` (`core/common/.../preference/PreferenceStore.kt`, backed by `AndroidPreferenceStore`) and the typed `*Preferences` classes (e.g. library / reader / source preference holders) injected via Injekt. There is no `PreferencesHelper` on Mihon. Never use raw `SharedPreferences`. Read preferences in the ViewModel and expose them as state, not inside a `@Composable`.
+Preferences go through `PreferenceStore` (`core/common/.../preference/PreferenceStore.kt`, backed by `AndroidPreferenceStore`) and the typed `*Preferences` classes (e.g. library / reader / source preference holders), taken as constructor parameters off the graph. There is no `PreferencesHelper` on Mihon. Never use raw `SharedPreferences`. Read preferences in the ViewModel and expose them as state, not inside a `@Composable`.
 
 ## Coroutines
 

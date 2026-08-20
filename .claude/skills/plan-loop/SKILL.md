@@ -160,8 +160,8 @@ A gate failing twice for the same reason is a stop, not a third attempt. **A tes
 is a stop even when every gate is green**, so check `git diff --name-only` against the test paths before
 believing a green run.
 
-Add a minified `:app:assemblePreview` when the step adds a net-new top-level package or new Injekt
-generics, since R8-only breakage is invisible in the debug build.
+Add a minified `:app:assemblePreview` when the step touches the DI graph, the reader, or anything
+resolving through the surviving Injekt calls, since R8-only breakage is invisible in the debug build.
 
 ## Step 7: Write the evidence back into the plan
 

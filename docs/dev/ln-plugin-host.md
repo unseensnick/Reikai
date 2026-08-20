@@ -199,14 +199,18 @@ Novel tables parallel the manga tables: `novels.sq`, `novel_chapters.sq`, `novel
 view must ship its own `.sqm` migration (an existing install does not pick up a new
 `CREATE TABLE`/`CREATE VIEW` otherwise).
 
-### DI registration (Injekt `addSingletonFactory`, never Koin)
+### DI registration (Metro, never Koin)
 
-- `eu/kanade/tachiyomi/di/AppModule.kt`, inside the `// RK -->` / `// RK <--` island: `LnPluginHost`,
-  `NovelSourceManager`, `LnPluginLoader`, `LnPluginInstaller`, `LnPluginUpdateChecker`,
-  `NovelDownloadProvider`, `NovelDownloadManager`. `LnPluginHost` is an app-scoped singleton (the
-  headless engine has no Activity dependency), constructed `LnPluginHost(app, NetworkHelper.client, get())`.
-- `eu/kanade/domain/DomainModule.kt`: `NovelRepository`, `NovelChapterRepository`,
-  `NovelTrackRepository` and the novel interactors.
+Every type here is graph-owned: the class carries `@Inject` and takes its dependencies as constructor
+parameters, with `@SingleIn(AppScope::class)` where it must be an application singleton. That covers
+`LnPluginHost`, `NovelSourceManager`, `LnPluginLoader`, `LnPluginInstaller`, `LnPluginUpdateChecker`,
+`NovelDownloadProvider`, `NovelDownloadManager`, the three novel repositories and the novel
+interactors. `LnPluginHost` is app-scoped because the headless engine has no Activity dependency, and
+it takes `NetworkHelper` rather than a bare `OkHttpClient`, which the graph could not tell apart from
+any other client.
+
+The Injekt-era `AppModule` is gone. `DomainModule` survives with twelve registrations, and the novel
+ones among them are there for the reader alone; nothing new belongs in it.
 
 ## Build and run
 

@@ -8,7 +8,7 @@ tools:
   - Bash
 ---
 
-You review Kotlin changes in Reikai, an Android app on the Mihon base (Compose + Voyager, Injekt DI, SQLDelight, immutable domain models). Catch real issues, not style nitpicks.
+You review Kotlin changes in Reikai, an Android app on the Mihon base (Compose + Voyager, Metro DI, SQLDelight, immutable domain models). Catch real issues, not style nitpicks.
 
 ## Operating principles
 
@@ -43,7 +43,7 @@ Run `git diff --name-only` for changed files. Read each, grep for related patter
 
 Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth flagging in a diff:
 
-- `Injekt.get<>()` / `injectLazy()` or a `PreferenceStore` / `*Preferences` read inside a `@Composable` body.
+- Any DI resolution, or a `PreferenceStore` / `*Preferences` read, inside a `@Composable` body. A hoisted `remember { context.appGraph }` at the top is the sanctioned shape.
 - Business logic, repository calls, or load-state branching inline in a composable instead of the ScreenModel / `LaunchedEffect`.
 - `LaunchedEffect` / `remember` with wrong or missing keys, so the effect never re-runs (or re-runs every recomposition).
 - A Voyager `Screen` constructor taking a lambda or other non-serializable argument (crashes on state save).
@@ -53,7 +53,8 @@ Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth
 
 - An edit to a Mihon-owned file not fenced with `// RK -->` / `// RK <--` markers; net-new code that should live in its own `reikai.*` file instead of inline.
 - A deleted Mihon file without a row (with an existing Replacement) in `docs/dev/off-path-manifest.md`, or a new file appearing at a manifested path (that resurrects a surface a `reikai.*` twin already replaced).
-- A new top-level package using Injekt generics (`Injekt.get<T>()`) without a matching `-keep` line in `app/proguard-rules.pro` (crashes only in minified builds).
+- A net-new `Injekt.get<T>()` / `injectLazy()` in Reikai-owned code. DI is Metro; Injekt survives only for `source-api` and the novel reader, and adding to it also re-opens the R8 `FullTypeReference` hazard that crashes minified builds.
+- A dependency whose construction does real work (the novel download manager above all) promoted from a `Provider<T>` to a plain parameter, which moves that work to whenever its owner is built.
 - An edited existing SQLDelight migration (never allowed; schema changes are a new `.sqm`), or a new migration gated on an already-shipped `versionCode`.
 - A `@JavascriptInterface` method in a net-new class R8 could strip.
 

@@ -48,7 +48,7 @@ Run `git diff --name-only`. Read each changed file plus its callers. Determine p
 ## Memory and leaks
 
 - `GlobalScope` or scopes that outlive their owner; listeners, callbacks, or receivers registered without cleanup.
-- A ViewModel or singleton holding an `Activity` / view `Context` (use `Injekt.get<Application>()`).
+- A ViewModel or singleton holding an `Activity` / view `Context` (take the graph's application `Context` as a constructor parameter).
 - WebView instances (novel reader, FlareSolverr) not destroyed with their host.
 - Cover/bitmap loading bypassing Coil's sizing (decoding full-resolution images for grid cells).
 - Unbounded caches: a `Map` that only ever grows.

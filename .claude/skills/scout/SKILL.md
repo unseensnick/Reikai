@@ -74,7 +74,7 @@ Decide which of these areas the task touches. Skip the ones that don't apply, br
 |---|---|---|
 | Current Reikai code | Always | Target files, callers, callees, related ViewModel, tests. |
 | Reference source | Ports, parity checks | Upstream port: the matching Mihon file(s) + history (`git -C refs/mihon log -- <path>`). If the Mihon file has no local counterpart, check `docs/dev/off-path-manifest.md`: a deleted-and-manifested file's change lands in its Reikai twin instead. Reikai-feature port: the Yōkai-era source on `design/library-compose`. API differences from current code. |
-| Framework bridges | Theme, Compose, Voyager, Injekt | The relevant layer (e.g., Voyager screen lifecycle, `PreferenceStore`, Injekt DI). Specifically: what's mapped, what isn't, what falls through. |
+| Framework bridges | Theme, Compose, Voyager, DI | The relevant layer (e.g., Voyager screen lifecycle, `PreferenceStore`, the Metro graph). Specifically: what's mapped, what isn't, what falls through. |
 | Existing helpers (DRY) | New widget / utility tempting | Search for the project's existing equivalent before letting the plan invent one. |
 | Test coverage | Behavior changes, refactors | What's tested, what isn't, which test class to extend. |
 
