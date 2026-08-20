@@ -1,6 +1,7 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.Provider
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
@@ -20,8 +21,6 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
 
 /**
@@ -34,21 +33,25 @@ import kotlin.time.Clock
  */
 @Inject
 class MigrateNovelUseCase(
-    private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
-    private val getNovelCategories: GetNovelCategories = Injekt.get(),
-    private val setNovelCategories: SetNovelCategories = Injekt.get(),
-    private val novelMergeManager: NovelMergeManager = Injekt.get(),
-    private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
-    private val updateNovel: UpdateNovel = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    private val getNovelTracks: GetNovelTracks = Injekt.get(),
-    private val insertNovelTrack: InsertNovelTrack = Injekt.get(),
-    private val sourceManager: NovelSourceManager = Injekt.get(),
-    private val novelRepository: NovelRepository = Injekt.get(),
-    private val database: Database = Injekt.get(),
+    private val novelChapterRepository: NovelChapterRepository,
+    private val getNovelCategories: GetNovelCategories,
+    private val setNovelCategories: SetNovelCategories,
+    private val novelMergeManager: NovelMergeManager,
+    // A Provider: constructing the manager restores the persisted download queue and can start the
+    // download worker, which building a migration must not do.
+    private val novelDownloadManagerProvider: Provider<NovelDownloadManager>,
+    private val updateNovel: UpdateNovel,
+    private val coverCache: CoverCache,
+    private val getNovelTracks: GetNovelTracks,
+    private val insertNovelTrack: InsertNovelTrack,
+    private val sourceManager: NovelSourceManager,
+    private val novelRepository: NovelRepository,
+    private val database: Database,
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
-    private val transactions: Transactions = Injekt.get(),
+    private val transactions: Transactions,
 ) {
+
+    private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
 
     suspend operator fun invoke(
         current: Novel,

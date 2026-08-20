@@ -1,7 +1,10 @@
 package reikai.presentation.recents
 
-import android.app.Application
+import android.content.Context
 import cafe.adriel.voyager.core.screen.Screen
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -39,7 +42,6 @@ import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Adapts Mihon's two live models to the neutral [RecentsProvider]. Both stay live and upstream-tracked
@@ -49,44 +51,51 @@ import uy.kohesive.injekt.injectLazy
  * building the updates model and running its query. Nothing reaches an absent one: the engine asks
  * only for the lanes it renders, and [chapterActions] is null without the updates model.
  */
-class MangaRecentsAdapter private constructor(
-    private val updatesModel: UpdatesViewModel?,
-    private val historyModel: HistoryViewModel?,
-    private val surface: RecentsSurface,
+@AssistedInject
+class MangaRecentsAdapter(
+    // Assisted: the models belong to the surface that is composing, so only the call site has them.
+    @Assisted private val updatesModel: UpdatesViewModel?,
+    @Assisted private val historyModel: HistoryViewModel?,
+    @Assisted private val surface: RecentsSurface,
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val recentlyAdded: RecentlyAddedRepository,
+    private val recentsUnread: RecentsUnreadRepository,
+    private val getNextChapters: GetNextChapters,
+    private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val downloadManager: DownloadManager,
+    // Read from the preference rather than off the model, whose copy is a Compose State the engine
+    // cannot collect.
+    private val libraryPreferences: LibraryPreferences,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val mergeManager: MangaMergeManager,
+    private val mergedChapterProvider: MergedChapterProvider,
+    private val getManga: GetManga,
+    private val mangaLibraryAdder: MangaLibraryAdder,
+    private val application: Context,
 ) : RecentsProvider {
 
     /**
      * One entry point per surface, so the models a surface holds and the surface it says it is cannot
-     * disagree, and neither can a caller ask for an adapter with no models at all.
+     * disagree, and neither can a caller ask for an adapter with no models at all. [create] is only
+     * public because Metro's assisted factories cannot hide it; call the three named ones.
      */
-    companion object {
+    @AssistedFactory
+    interface Factory {
+        fun create(
+            updatesModel: UpdatesViewModel?,
+            historyModel: HistoryViewModel?,
+            surface: RecentsSurface,
+        ): MangaRecentsAdapter
+
         fun forUpdates(updatesModel: UpdatesViewModel) =
-            MangaRecentsAdapter(updatesModel, historyModel = null, surface = RecentsSurface.UPDATES)
+            create(updatesModel, historyModel = null, surface = RecentsSurface.UPDATES)
 
         fun forHistory(historyModel: HistoryViewModel) =
-            MangaRecentsAdapter(updatesModel = null, historyModel = historyModel, surface = RecentsSurface.HISTORY)
+            create(updatesModel = null, historyModel = historyModel, surface = RecentsSurface.HISTORY)
 
         fun forRecents(updatesModel: UpdatesViewModel, historyModel: HistoryViewModel) =
-            MangaRecentsAdapter(updatesModel, historyModel, surface = RecentsSurface.RECENTS)
+            create(updatesModel, historyModel, surface = RecentsSurface.RECENTS)
     }
-
-    // Lazy, so constructing the adapter in a composable never touches the DI container.
-    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
-    private val recentlyAdded: RecentlyAddedRepository by injectLazy()
-    private val recentsUnread: RecentsUnreadRepository by injectLazy()
-    private val getNextChapters: GetNextChapters by injectLazy()
-    private val getChaptersByMangaId: GetChaptersByMangaId by injectLazy()
-    private val downloadManager: DownloadManager by injectLazy()
-
-    // Read from the preference rather than off the model, whose copy is a Compose State the engine
-    // cannot collect.
-    private val libraryPreferences: LibraryPreferences by injectLazy()
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
-    private val mergeManager: MangaMergeManager by injectLazy()
-    private val mergedChapterProvider: MergedChapterProvider by injectLazy()
-    private val getManga: GetManga by injectLazy()
-    private val mangaLibraryAdder: MangaLibraryAdder by injectLazy()
-    private val application: Application by injectLazy()
 
     override val contentType = ContentType.MANGA
 

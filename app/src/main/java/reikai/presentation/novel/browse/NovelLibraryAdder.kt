@@ -26,8 +26,6 @@ import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.model.Category
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Shared long-press "add to library" flow for any novel browse surface (per-source browse and
@@ -45,7 +43,7 @@ class NovelLibraryAdder(
     private val novelPreferences: NovelPreferences,
     private val mergeManager: NovelMergeManager,
     private val transactions: Transactions,
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */

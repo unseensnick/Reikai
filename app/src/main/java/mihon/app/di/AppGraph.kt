@@ -70,9 +70,13 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadJob
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.presentation.details.MangaEntryCoverViewModel
+import reikai.presentation.library.MangaLibraryAdapter
+import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.migrate.flow.MigrationAdapters
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.novel.details.NovelCoverViewModel
+import reikai.presentation.recents.MangaRecentsAdapter
+import reikai.presentation.recents.NovelRecentsAdapter
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.data.Database
@@ -188,6 +192,13 @@ interface AppGraph : ViewModelGraph {
     // so the id arrives at call time and the factory is what the graph can hand over.
     val mangaCoverViewModelFactory: MangaEntryCoverViewModel.Factory
     val novelCoverViewModelFactory: NovelCoverViewModel.Factory
+
+    // The library engine owns exactly one adapter pair, built from the tab's own three models, so the
+    // models arrive at call time here too.
+    val mangaLibraryAdapterFactory: MangaLibraryAdapter.Factory
+    val novelLibraryAdapterFactory: NovelLibraryAdapter.Factory
+    val mangaRecentsAdapterFactory: MangaRecentsAdapter.Factory
+    val novelRecentsAdapterFactory: NovelRecentsAdapter.Factory
     val tasteLibraryRepository: TasteLibraryRepository
 
     // Interactors are unscoped, so every read builds a fresh instance where Injekt's

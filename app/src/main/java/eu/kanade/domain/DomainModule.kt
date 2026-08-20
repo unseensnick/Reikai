@@ -1,5 +1,6 @@
 package eu.kanade.domain
 
+import dev.zacsweers.metro.Provider
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
@@ -144,7 +145,11 @@ class DomainModule : InjektModule {
         addFactory { DeleteNovelUpdateErrors(get()) }
         // RK <--
         // RK --> shared long-press add-to-library (Browse + global search)
-        addFactory { MangaLibraryAdder() }
+        addFactory {
+            MangaLibraryAdder(
+                get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            )
+        }
         // RK <--
         // RK --> merge-group persistence (storage only, no consumers yet)
         addFactory { ReconcileChapterMatchKeys(get(), get(), get()) }
@@ -159,7 +164,7 @@ class DomainModule : InjektModule {
         addFactory { SetNovelReadStatus(get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
-        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get(), get()) }
+        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetEnabledNovelSources(get(), get()) }
         // RK: novel custom-info overlay (non-destructive display-layer edits)
         addFactory { GetCustomNovelInfo(get()) }
@@ -182,7 +187,12 @@ class DomainModule : InjektModule {
         addFactory { PropagateNovelTrackerLinks(get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> novel source migration (Roadmap 7)
-        addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }
+        addFactory {
+            MigrateNovelUseCase(
+                get(), get(), get(), get(), Provider { Injekt.get() }, get(), get(), get(), get(),
+                get(), get(), get(), get(),
+            )
+        }
         // RK <--
         // RK --> recommendations (engine core)
         addFactory { ComputeTasteProfile() }

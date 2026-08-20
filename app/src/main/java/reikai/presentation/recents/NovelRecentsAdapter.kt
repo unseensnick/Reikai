@@ -1,7 +1,11 @@
 package reikai.presentation.recents
 
-import android.app.Application
+import android.content.Context
 import cafe.adriel.voyager.core.screen.Screen
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.Provider
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.util.system.workManager
@@ -42,7 +46,6 @@ import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
-import uy.kohesive.injekt.injectLazy
 import kotlin.time.Clock
 
 /**
@@ -50,37 +53,48 @@ import kotlin.time.Clock
  * this adapter at the cutover, where the manga pair stays live behind theirs; until then both sides
  * are wrapped the same way so the seam is symmetric.
  */
-class NovelRecentsAdapter private constructor(
-    private val updatesModel: NovelUpdatesViewModel?,
-    private val historyModel: NovelHistoryViewModel?,
-    private val surface: RecentsSurface,
+@AssistedInject
+class NovelRecentsAdapter(
+    // Assisted: the models belong to the surface that is composing, so only the call site has them.
+    @Assisted private val updatesModel: NovelUpdatesViewModel?,
+    @Assisted private val historyModel: NovelHistoryViewModel?,
+    @Assisted private val surface: RecentsSurface,
+    private val sourcePreferences: ReikaiSourcePreferences,
+    private val recentlyAdded: RecentlyAddedRepository,
+    private val recentsUnread: RecentsUnreadRepository,
+    private val getNextNovelChapter: GetNextNovelChapter,
+    private val chapterRepository: NovelChapterRepository,
+    private val novelPreferences: NovelPreferences,
+    private val novelRepository: NovelRepository,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val mergeManager: NovelMergeManager,
+    private val novelLibraryAdder: NovelLibraryAdder,
+    // Providers, so building the adapter still does not build the download manager: constructing it
+    // restores the persisted queue and can start the download worker. Both are only read when a row
+    // renders its download badge, which is where the previous lazy delegates built them too.
+    private val novelDownloadManagerProvider: Provider<NovelDownloadManager>,
+    private val novelDownloadCacheProvider: Provider<NovelDownloadCache>,
+    private val application: Context,
 ) : RecentsProvider {
 
     /** One entry point per surface, the twin of [MangaRecentsAdapter]'s. */
-    companion object {
+    @AssistedFactory
+    interface Factory {
+        fun create(
+            updatesModel: NovelUpdatesViewModel?,
+            historyModel: NovelHistoryViewModel?,
+            surface: RecentsSurface,
+        ): NovelRecentsAdapter
+
         fun forUpdates(updatesModel: NovelUpdatesViewModel) =
-            NovelRecentsAdapter(updatesModel, historyModel = null, surface = RecentsSurface.UPDATES)
+            create(updatesModel, historyModel = null, surface = RecentsSurface.UPDATES)
 
         fun forHistory(historyModel: NovelHistoryViewModel) =
-            NovelRecentsAdapter(updatesModel = null, historyModel = historyModel, surface = RecentsSurface.HISTORY)
+            create(updatesModel = null, historyModel = historyModel, surface = RecentsSurface.HISTORY)
 
         fun forRecents(updatesModel: NovelUpdatesViewModel, historyModel: NovelHistoryViewModel) =
-            NovelRecentsAdapter(updatesModel, historyModel, surface = RecentsSurface.RECENTS)
+            create(updatesModel, historyModel, surface = RecentsSurface.RECENTS)
     }
-
-    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
-    private val recentlyAdded: RecentlyAddedRepository by injectLazy()
-    private val recentsUnread: RecentsUnreadRepository by injectLazy()
-    private val getNextNovelChapter: GetNextNovelChapter by injectLazy()
-    private val chapterRepository: NovelChapterRepository by injectLazy()
-    private val novelPreferences: NovelPreferences by injectLazy()
-    private val novelRepository: NovelRepository by injectLazy()
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
-    private val mergeManager: NovelMergeManager by injectLazy()
-    private val novelLibraryAdder: NovelLibraryAdder by injectLazy()
-    private val novelDownloadManager: NovelDownloadManager by injectLazy()
-    private val novelDownloadCache: NovelDownloadCache by injectLazy()
-    private val application: Application by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -317,10 +331,10 @@ class NovelRecentsAdapter private constructor(
         chapterUrl: String,
     ) = RecentsDownloadUi(
         state = {
-            val queued = novelDownloadManager.queueState.value.find { it.chapterId == chapterId }
+            val queued = novelDownloadManagerProvider().queueState.value.find { it.chapterId == chapterId }
             when {
                 queued != null -> queued.state.toDownloadState()
-                novelDownloadCache.isChapterDownloaded(
+                novelDownloadCacheProvider().isChapterDownloaded(
                     source,
                     storedTitle,
                     chapterName,

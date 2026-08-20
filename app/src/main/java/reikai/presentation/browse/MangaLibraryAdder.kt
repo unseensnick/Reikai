@@ -26,8 +26,6 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
 
 /**
@@ -40,20 +38,20 @@ import kotlin.time.Clock
  */
 @Inject
 class MangaLibraryAdder(
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val getDuplicateLibraryManga: GetDuplicateLibraryManga = Injekt.get(),
-    private val getManga: GetManga = Injekt.get(),
-    private val setMangaCategories: SetMangaCategories = Injekt.get(),
-    private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val addTracks: AddTracks = Injekt.get(),
+    private val sourceManager: SourceManager,
+    private val coverCache: CoverCache,
+    private val libraryPreferences: LibraryPreferences,
+    private val getCategories: GetCategories,
+    private val getDuplicateLibraryManga: GetDuplicateLibraryManga,
+    private val getManga: GetManga,
+    private val setMangaCategories: SetMangaCategories,
+    private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags,
+    private val updateManga: UpdateManga,
+    private val addTracks: AddTracks,
     // RK: add-time grouping (the suggestion gate + the merge into the duplicate's group).
-    private val mergeManager: MangaMergeManager = Injekt.get(),
-    private val transactions: Transactions = Injekt.get(),
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val mergeManager: MangaMergeManager,
+    private val transactions: Transactions,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
 
     /** RK: whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */

@@ -71,6 +71,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -151,8 +152,14 @@ data object LibraryTab : Tab {
         // must not be `remember`ed separately: the engine outlives the composition, so a tab switch would
         // hand the tab a second pair while the engine kept dispatching through the first. All three models
         // share this tab host's ViewModelStore, so the pair the factory captures is cleared alongside them.
+        val graph = remember { context.appGraph }
         val engine = assistedMetroViewModel<LibraryEngine, LibraryEngine.Factory> {
-            create(providers = listOf(MangaLibraryAdapter(viewModel), NovelLibraryAdapter(novelModel)))
+            create(
+                providers = listOf(
+                    graph.mangaLibraryAdapterFactory.create(viewModel),
+                    graph.novelLibraryAdapterFactory.create(novelModel),
+                ),
+            )
         }
         val libraryContentType by engine.contentType.collectAsState()
         val libraryDialog by engine.dialog.collectAsState()

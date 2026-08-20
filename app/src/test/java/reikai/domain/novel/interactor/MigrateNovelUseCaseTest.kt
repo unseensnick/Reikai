@@ -67,7 +67,7 @@ class MigrateNovelUseCaseTest {
         getNovelCategories = mockk(relaxed = true),
         setNovelCategories = mockk(relaxed = true),
         novelMergeManager = novelMergeManager,
-        novelDownloadManager = novelDownloadManager,
+        novelDownloadManagerProvider = { novelDownloadManager },
         updateNovel = updateNovel,
         coverCache = coverCache,
         getNovelTracks = getNovelTracks,

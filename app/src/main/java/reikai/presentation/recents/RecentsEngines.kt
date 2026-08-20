@@ -1,10 +1,12 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
+import mihon.app.di.appGraph
 import reikai.domain.category.RecentsSurface
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.updates.NovelUpdatesViewModel
@@ -21,8 +23,12 @@ import reikai.presentation.updates.NovelUpdatesViewModel
 fun rememberUpdatesEngine(): RecentsEngine {
     val manga = metroViewModel<UpdatesViewModel>()
     val novel = metroViewModel<NovelUpdatesViewModel>()
+    val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.UPDATES, setOf(RecentsMode.UPDATES)) {
-        listOf(MangaRecentsAdapter.forUpdates(manga), NovelRecentsAdapter.forUpdates(novel))
+        listOf(
+            graph.mangaRecentsAdapterFactory.forUpdates(manga),
+            graph.novelRecentsAdapterFactory.forUpdates(novel),
+        )
     }
 }
 
@@ -31,8 +37,12 @@ fun rememberUpdatesEngine(): RecentsEngine {
 fun rememberHistoryEngine(): RecentsEngine {
     val manga = metroViewModel<HistoryViewModel>()
     val novel = metroViewModel<NovelHistoryViewModel>()
+    val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.HISTORY, setOf(RecentsMode.HISTORY)) {
-        listOf(MangaRecentsAdapter.forHistory(manga), NovelRecentsAdapter.forHistory(novel))
+        listOf(
+            graph.mangaRecentsAdapterFactory.forHistory(manga),
+            graph.novelRecentsAdapterFactory.forHistory(novel),
+        )
     }
 }
 
@@ -47,10 +57,11 @@ fun rememberRecentsEngine(): RecentsEngine {
     val novelUpdates = metroViewModel<NovelUpdatesViewModel>()
     val mangaHistory = metroViewModel<HistoryViewModel>()
     val novelHistory = metroViewModel<NovelHistoryViewModel>()
+    val graph = LocalContext.current.appGraph
     return recentsEngine(RecentsSurface.RECENTS, RecentsMode.entries.toSet()) {
         listOf(
-            MangaRecentsAdapter.forRecents(mangaUpdates, mangaHistory),
-            NovelRecentsAdapter.forRecents(novelUpdates, novelHistory),
+            graph.mangaRecentsAdapterFactory.forRecents(mangaUpdates, mangaHistory),
+            graph.novelRecentsAdapterFactory.forRecents(novelUpdates, novelHistory),
         )
     }
 }

@@ -1,7 +1,10 @@
 package reikai.presentation.library
 
-import android.app.Application
+import android.content.Context
 import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -30,7 +33,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -39,19 +41,24 @@ import kotlin.time.Duration.Companion.seconds
  * shapes here (a neutral [EntryId] set narrows to the novel model's raw ids; the manga side's split default
  * / dynamic collapse toggles both route to the novel model's single one), never in the model.
  */
+@AssistedInject
 class NovelLibraryAdapter(
-    private val model: NovelLibraryViewModel,
+    // Assisted: the model belongs to the tab that is composing, so only the call site has it.
+    @Assisted private val model: NovelLibraryViewModel,
+    private val getNovelCategories: GetNovelCategories,
+    private val context: Context,
+    private val libraryPreferences: LibraryPreferences,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val setSortModeForCategory: SetSortModeForCategory,
+    private val categoryRepository: CategoryRepository,
+    private val trackerManager: TrackerManager,
+    private val novelSourceManager: NovelSourceManager,
 ) : LibraryProvider {
 
-    // Lazy, so constructing the adapter in a composable never touches the DI container.
-    private val getNovelCategories: GetNovelCategories by injectLazy()
-    private val context: Application by injectLazy()
-    private val libraryPreferences: LibraryPreferences by injectLazy()
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
-    private val setSortModeForCategory: SetSortModeForCategory by injectLazy()
-    private val categoryRepository: CategoryRepository by injectLazy()
-    private val trackerManager: TrackerManager by injectLazy()
-    private val novelSourceManager: NovelSourceManager by injectLazy()
+    @AssistedFactory
+    fun interface Factory {
+        fun create(model: NovelLibraryViewModel): NovelLibraryAdapter
+    }
 
     override val contentType = ContentType.NOVELS
 
