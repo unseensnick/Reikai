@@ -11,7 +11,6 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.viewpager.widget.ViewPager
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
@@ -21,9 +20,9 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.asMangaCover
-import uy.kohesive.injekt.injectLazy
 import kotlin.math.min
 
 /**
@@ -32,7 +31,9 @@ import kotlin.math.min
 @Suppress("LeakingThis")
 abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
 
-    val downloadManager: DownloadManager by injectLazy()
+    val graph by lazy { activity.appGraph }
+    val downloadManager by lazy { graph.downloadManager }
+    val readerPreferences by lazy { graph.readerPreferences }
 
     // RK: cover seed color for per-page theming (Y11); leaf views gate on the pref themselves
     val seedColor: Int? get() = activity.viewModel.manga?.asMangaCover()?.vibrantCoverColor
@@ -48,7 +49,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     /**
      * Configuration used by the pager, like allow taps, scale mode on images, page transitions...
      */
-    val config = PagerConfig(this, scope)
+    val config = PagerConfig(this, scope, readerPreferences)
 
     /**
      * Adapter of the pager.
