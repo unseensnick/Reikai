@@ -16,7 +16,6 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Resolves on-disk locations for downloaded novel chapter text, mirroring the manga [DownloadProvider]:
@@ -29,11 +28,11 @@ import uy.kohesive.injekt.injectLazy
  */
 @Inject
 @SingleIn(AppScope::class)
-class NovelDownloadProvider {
-
-    private val storageManager: StorageManager by injectLazy()
-    private val downloadProvider: DownloadProvider by injectLazy()
-    private val libraryPreferences: LibraryPreferences by injectLazy()
+class NovelDownloadProvider(
+    private val storageManager: StorageManager,
+    private val downloadProvider: DownloadProvider,
+    private val libraryPreferences: LibraryPreferences,
+) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

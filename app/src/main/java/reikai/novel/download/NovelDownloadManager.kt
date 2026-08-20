@@ -29,7 +29,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
@@ -44,19 +43,20 @@ import kotlin.random.Random
  */
 @Inject
 @SingleIn(AppScope::class)
-class NovelDownloadManager(private val context: Context) {
+class NovelDownloadManager(
+    private val context: Context,
+    private val provider: NovelDownloadProvider,
+    private val cache: NovelDownloadCache,
+    private val chapterRepo: NovelChapterRepository,
+    private val novelRepo: NovelRepository,
+    private val sourceManager: NovelSourceManager,
+    private val installer: LnPluginInstaller,
+    private val networkHelper: NetworkHelper,
+    private val downloadPreferences: DownloadPreferences,
+    private val sourcePreferences: ReikaiSourcePreferences,
+) {
 
-    private val provider: NovelDownloadProvider by injectLazy()
-    private val cache: NovelDownloadCache by injectLazy()
-    private val chapterRepo: NovelChapterRepository by injectLazy()
-    private val novelRepo: NovelRepository by injectLazy()
-    private val sourceManager: NovelSourceManager by injectLazy()
-    private val installer: LnPluginInstaller by injectLazy()
-    private val networkHelper: NetworkHelper by injectLazy()
-    private val downloadPreferences: DownloadPreferences by injectLazy()
-    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
-
-    private val store = NovelDownloadStore(context)
+    private val store = NovelDownloadStore(context, chapterRepo)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _queueState = MutableStateFlow<List<NovelDownload>>(emptyList())
@@ -82,8 +82,8 @@ class NovelDownloadManager(private val context: Context) {
         // Load the persisted queue into memory on launch, off the main thread (restore() reads the DB),
         // so the queue screen shows it even while paused. Previously only the drain restored it, but a
         // paused restart no longer starts the drain, which otherwise left the queue invisible and
-        // unresumable. Reading the paused pref here (not synchronously in init) also avoids a DI-order
-        // crash if the manager is constructed before ReikaiSourcePreferences is registered.
+        // unresumable. Constructing this manager therefore reads the database and can start the
+        // download worker, which is why its consumers take a Provider rather than the manager itself.
         scope.launch {
             val restored = store.restore()
             if (restored.isNotEmpty() && _queueState.value.isEmpty()) {

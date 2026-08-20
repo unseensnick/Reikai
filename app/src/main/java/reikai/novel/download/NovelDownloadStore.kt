@@ -7,18 +7,18 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import reikai.domain.novel.NovelChapterRepository
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Persists the active novel-download queue across process restarts (mirrors the manga
  * [eu.kanade.tachiyomi.data.download.DownloadStore]). Only `{novelId, chapterId, order}` is stored;
  * the chapter url is re-read from the DB on [restore] so an interrupted batch resumes.
  */
-class NovelDownloadStore(context: Context) {
+class NovelDownloadStore(
+    context: Context,
+    private val chapterRepo: NovelChapterRepository,
+) {
 
     private val preferences = context.getSharedPreferences("active_novel_downloads", Context.MODE_PRIVATE)
-
-    private val chapterRepo: NovelChapterRepository by injectLazy()
 
     private val json = Json { ignoreUnknownKeys = true }
 

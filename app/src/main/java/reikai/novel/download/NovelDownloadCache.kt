@@ -19,7 +19,6 @@ import kotlinx.coroutines.sync.withLock
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.storage.service.StorageManager
-import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -33,10 +32,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 @Inject
 @SingleIn(AppScope::class)
-class NovelDownloadCache {
-
-    private val storageManager: StorageManager by injectLazy()
-    private val provider: NovelDownloadProvider by injectLazy()
+class NovelDownloadCache(
+    private val storageManager: StorageManager,
+    private val provider: NovelDownloadProvider,
+) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
