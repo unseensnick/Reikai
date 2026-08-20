@@ -1,8 +1,12 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: phases 0 to 6 have landed in full. Phase 7 has not started.** Three files under
-> `reikai/` and `exh/` still import Injekt and all three are ruled holdouts; everything else is on
-> the graph. Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
+> **Status: all eight phases have landed and the ledger has advanced past `b2015d1ef`
+> (`f674e77bf`), but the port is not finished.** A tail stays behind, gated on the tsundoku reader
+> migration rather than open in its own right: the novel reader is still on Injekt, six of
+> `DomainModule`'s twelve registrations exist only for it, `MetroInteropModule` still hands its
+> subgraph back, and the `reikai.**` / `exh.**` proguard keeps cannot drop until it goes. Only
+> `source-api` and `source-local` are permanent. Nothing here is actionable on its own: it closes when
+> the reader does. Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
 > before phase 0; re-measured against current code 2026-08-20.
 >
 > **Counts age fast here.** Everything under Inventory is a 2026-08-16 snapshot kept as the record of
@@ -40,13 +44,26 @@ reachable, and those leave with the tsundoku reader migration rather than with t
 
 ### What is left, in order (the authoritative list)
 
-Read this before the sequence table. The table below is the landed record and the original phase
-shape; where the two disagree, this list wins. Phases 0 to 6 are finished, so this list is the whole
-of what remains.
+**No phase remains, but a gated tail does.** Phase 7 landed on 2026-08-20: `DomainModule` shrank from
+125 registrations to the twelve that still have a consumer, behind a resolution test that builds all
+twelve for real (`DomainModuleTest`, mutation-verified); three files that asked for `Application`
+where upstream asks for `Context` were corrected, leaving the novel reader as the only thing keeping
+that registration alive; `App` moved its last two reads onto an injected field and the graph; the
+rules and docs that still described Injekt as the DI system were rewritten; and the ledger advanced.
 
-| Unit | Work | Proves |
-|---|---|---|
-| 7 | Shrink `DomainModule` to the twelve that still have a consumer, close the `Application`-to-`Context` divergences, rewrite the Injekt-era docs, advance the sync ledger | A resolution test over the surviving registrations, then a minified `:app:assemblePreview` and a device pass on the novel reader and an adult-source gallery |
+**What the tsundoku reader migration still has to close**, none of it worth doing before then:
+
+| Left | Why it waits |
+|---|---|
+| `NovelReaderScreenModel` on Injekt, 18 types | It is deleted by that migration; converting it first is work with a shorter life than the work |
+| Six of `DomainModule`'s twelve, plus the `Application` registration | Their only consumer is that model |
+| The reader's subgraph in `MetroInteropModule` | Same: it exists to hand those types back |
+| The `reikai.**` / `exh.**` proguard keeps | The reader resolves `reikai.*` generics through Injekt, and `source-api` reads an `exh.pref` type |
+| The `voyager-screenModel` dependency | Already its own roadmap line, gated the same way |
+
+`source-api` and `source-local` are the permanent half and close never: they are the contract
+installed extensions compile against. The table below is the landed record and the original phase
+shape; where the two disagree, this note wins.
 
 **The baseline profiles are not part of this, and neither is `proguard-rules.pro`** (established 2026-08-20). Our `baseline-prof.txt` is byte-identical to upstream's at mihon `b3e190c62`, the one commit that ever touched it here; upstream has since regenerated twice (`91e967128`, `4296d056b`), which is the whole of the difference. So there is nothing local to regenerate: picking up those two is ordinary sync work, recorded as pending in `docs/dev/upstream-sync.md`. Upstream also still ships 229 `injekt` lines and two `MigrationsKt` lines at HEAD, having never regenerated after its own Metro commit, so those entries are not debt this port created. For proguard, upstream on Metro keeps `eu.kanade.**`, `tachiyomi.**`, `mihon.**` and `uy.kohesive.injekt.**` itself; only `reikai.**` and `exh.**` are Reikai's, and both are already ruled to stay.
 
@@ -561,7 +578,7 @@ the top of Status instead; it is the list that gets maintained.
 | 4f. The files no phase owned (done) | The backup subsystem (`fb6ba9ce0`), upstream's WorkManager parameter refactor (`110e3c6e7`), the downloader, notifiers and cover fetchers (`918377dfa`), the trackers (`1fe397998`), and the extension, update and cover-util tail (`9e56c41cd`) | Done: backup and restore across a full wipe, a chapter downloaded to a finished `.cbz`, and AniList plus Kitsu binds on the Fold |
 | 5. Migrations (done) | All 16 migrations to `@Inject` + `@ContributesIntoSet`, all 31 context reads to constructor params, `Migrations.kt` deleted and `MigrationContext` reduced to upstream's two-field holder | Done: on a fresh install the six `ALWAYS` migrations run; rewound to `last_version_code` 6 all sixteen run in version order with no failures; the minified build builds all sixteen and cold-starts to a populated library |
 | 6. Reikai-owned (done) | 79 constructor defaults and 127 lazy delegates across `reikai/` and `exh/`, in four commits; the adapters and cover models onto assisted factories, deliberate deferral onto `Provider`. Three ruled holdouts remain, down from the 71 and 16 of the 2026-08-16 inventory | Done on a minified build: both library chips, both Recents chips, manga and novel details with their cover dialogs, the recommendation carousel making a real request, the settings list and its two locator screens, and a bulk novel download drained and read back as downloaded |
-| 7. Cleanup | Shrink `DomainModule`, close the three `Application`-to-`Context` divergences, rewrite the Injekt-era docs, advance the ledger. Neither the baseline profiles nor `proguard-rules.pro` change; see the note under "What is left" for why. The `reikai.**` / `exh.**` keeps leave with the tsundoku reader migration, not with this port | A resolution test over the survivors, a minified `:app:assemblePreview`, then the novel reader and an adult-source gallery on device |
+| 7. Cleanup (done) | `DomainModule` from 125 registrations to twelve behind `DomainModuleTest`, the three `Application`-to-`Context` corrections, `App`'s last two reads, the rules and docs rewrite, and the ledger row (`f674e77bf`). Neither the baseline profiles nor `proguard-rules.pro` changed; see the note under "What is left" for why | Done: the resolution test mutation-verified, 1082 app and 75 domain tests at 0 failures, and a minified `:app:assemblePreview` |
 
 **Ordering rule that makes the two-commit split safe:** a type that moves to Metro must have its
 Injekt registration replaced by an interop `addSingleton(metroInstance)` in the same commit, never

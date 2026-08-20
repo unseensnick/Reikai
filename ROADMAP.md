@@ -5,8 +5,8 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 ## Now
 
 - **Drop the `voyager-screenModel` dependency** `[S]` - Reikai's novel reader is the one model still on the old base, so the dependency stays in the catalog and the bundle. Deliberately not migrated on its own: the tsundoku reader migration deletes that model, so this closes out when it lands. [Plan](docs/dev/plans/viewmodel-migration.md).
+- **Take the novel reader off Injekt, and the DI port's tail with it** `[S]` - all eight Metro phases have landed, but the reader still resolves eighteen types through Injekt, which keeps six `DomainModule` registrations, its subgraph in the interop module, and the `reikai.**` / `exh.**` proguard keeps alive. Gated the same way as the line above, and for the same reason: the tsundoku reader migration deletes that model, so converting it first is work with a shorter life than the work. [Plan](docs/dev/plans/metro-di-migration.md).
 - **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters. Remaining: the download unification below, then the reader migration. Global search stays excluded. [Plan](docs/dev/plans/content-layer-architecture.md).
-- **Port Mihon's move from Injekt to Metro DI** `[L]` - one unit left: shrink the last Injekt module to the twelve registrations the novel reader and the extension contract still resolve, close three `Application`-to-`Context` divergences, and rewrite the Injekt-era docs. Upgrade from a shipped build is the one install path still unexercised. [Plan](docs/dev/plans/metro-di-migration.md).
 
 ## Next
 
