@@ -73,7 +73,7 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
             withContext(Dispatchers.IO + NonCancellable) {
                 try {
                     delay(0.2.seconds)
-                    EHConfigurator(context).configureAll()
+                    context.appGraph.ehConfigurator.configureAll()
                     launchUI {
                         context.toast(MR.strings.eh_settings_successfully_uploaded)
                     }

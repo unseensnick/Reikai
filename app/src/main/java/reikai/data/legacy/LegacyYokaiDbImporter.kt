@@ -16,13 +16,11 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
-import kotlinx.serialization.protobuf.ProtoBuf
+import mihon.app.di.appGraph
 import okio.buffer
 import okio.gzip
 import okio.sink
 import reikai.domain.library.ReikaiLibraryPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.File
 
 /**
@@ -64,7 +62,7 @@ object LegacyYokaiDbImporter {
 
         Log.i(TAG, "Legacy Yokai database detected; recovering library before reset")
 
-        val libraryPreferences = Injekt.get<ReikaiLibraryPreferences>()
+        val libraryPreferences = context.appGraph.reikaiLibraryPreferences
         var backupFile: File? = null
         try {
             val backup = db.buildBackup()
@@ -386,7 +384,7 @@ object LegacyYokaiDbImporter {
     }
 
     private fun writeBackup(context: Context, backup: Backup): File {
-        val parser = Injekt.get<ProtoBuf>()
+        val parser = context.appGraph.protoBuf
         val bytes = parser.encodeToByteArray(Backup.serializer(), backup)
         val file = File(context.cacheDir, IMPORT_BACKUP_NAME)
         file.sink().gzip().buffer().use { it.write(bytes) }

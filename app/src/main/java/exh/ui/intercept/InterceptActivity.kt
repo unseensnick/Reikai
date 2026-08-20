@@ -53,10 +53,8 @@ class InterceptActivity : BaseActivity() {
 
     private val status: MutableStateFlow<InterceptResult> = MutableStateFlow(InterceptResult.Idle)
 
-    private val galleryAdder = GalleryAdder()
+    private val galleryAdder by lazy { appGraph.galleryAdder }
 
-    // GalleryAdder still resolves its own dependencies from Injekt: it is also built from a
-    // top-level val and a ViewModel, neither of which can be member-injected yet.
     private val sourceManager get() = appGraph.sourceManager
 
     init {

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import exh.GalleryAddEvent
@@ -31,11 +32,14 @@ import tachiyomi.i18n.MR
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class BatchAddViewModel(
     private val exhPreferences: ExhPreferences,
+    // A Provider, so the adder (and the source manager behind it) is still only built when a batch
+    // actually runs, as the `by lazy` did before.
+    private val galleryAdderProvider: Provider<GalleryAdder>,
 ) : ViewModel() {
 
     val state: StateFlow<BatchAddState>
         field = MutableStateFlow<BatchAddState>(BatchAddState())
-    private val galleryAdder by lazy { GalleryAdder() }
+    private val galleryAdder by lazy { galleryAdderProvider() }
 
     fun addGalleries(context: Context) {
         val galleries = state.value.galleries

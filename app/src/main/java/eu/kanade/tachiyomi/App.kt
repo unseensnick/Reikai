@@ -297,12 +297,18 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager))
                 // RK: light-novel cover pipeline (carries the source site as Referer; shares the
                 // network client, so it inherits Cloudflare + FlareSolverr)
-                add(NovelCoverFetcher.Factory(callFactoryLazy))
+                add(NovelCoverFetcher.Factory(callFactoryLazy, coverCache))
                 // RK: adult-source gallery page-preview thumbnails
                 add(PagePreviewFetcher.Factory(callFactoryLazy))
                 // RK: MDList tracker-search covers, fetched via the MangaDex source client so the
                 // cover CDN doesn't 400 the app's browser User-Agent
-                add(MangaDexTrackCoverFetcher.Factory(callFactoryLazy))
+                add(
+                    MangaDexTrackCoverFetcher.Factory(
+                        callFactoryLazy,
+                        graph.sourcePreferences,
+                        sourceManager,
+                    ),
+                )
                 // Keyer
                 add(MangaCoverKeyer(coverCache))
                 add(MangaKeyer())

@@ -2,6 +2,7 @@ package exh
 
 import android.content.Context
 import androidx.core.net.toUri
+import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -18,8 +19,6 @@ import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Resolves a gallery URL into a local manga (and its chapters) by routing it to the matching
@@ -29,13 +28,14 @@ import uy.kohesive.injekt.api.get
  * getChapterList collapse into Mihon's [UpdateMangaFromRemote], which persists the title and cover
  * (a bare copyFrom drops the title) and syncs chapters in one call.
  */
+@Inject
 class GalleryAdder(
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
-    private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
-    private val getChapter: GetChapter = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    sourcePreferences: SourcePreferences = Injekt.get(),
+    private val updateManga: UpdateManga,
+    private val updateMangaFromRemote: UpdateMangaFromRemote,
+    private val networkToLocalManga: NetworkToLocalManga,
+    private val getChapter: GetChapter,
+    private val sourceManager: SourceManager,
+    sourcePreferences: SourcePreferences,
 ) {
 
     private val enabledLangs: Set<String> = sourcePreferences.enabledLanguages.get()

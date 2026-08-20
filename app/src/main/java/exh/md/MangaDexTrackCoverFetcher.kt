@@ -8,12 +8,14 @@ import coil3.fetch.Fetcher
 import coil3.fetch.SourceFetchResult
 import coil3.key.Keyer
 import coil3.request.Options
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.md.utils.MdUtil
 import okhttp3.Call
 import okhttp3.Request
 import okio.FileSystem
+import tachiyomi.domain.source.service.SourceManager
 import java.io.IOException
 
 /**
@@ -57,12 +59,14 @@ class MangaDexTrackCoverFetcher(
 
     class Factory(
         private val callFactoryLazy: Lazy<Call.Factory>,
+        private val sourcePreferences: SourcePreferences,
+        private val sourceManager: SourceManager,
     ) : Fetcher.Factory<MangaDexTrackCover> {
 
         override fun create(data: MangaDexTrackCover, options: Options, imageLoader: ImageLoader): Fetcher =
             MangaDexTrackCoverFetcher(
                 url = data.url,
-                sourceLazy = lazy { MdUtil.getEnabledMangaDex() },
+                sourceLazy = lazy { MdUtil.getEnabledMangaDex(sourcePreferences, sourceManager) },
                 callFactoryLazy = callFactoryLazy,
             )
     }

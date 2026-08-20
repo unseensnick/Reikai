@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -22,6 +23,7 @@ import reikai.domain.recommendation.dto.MUSeriesResponse
 class MangaUpdatesRecommendations(
     private val client: OkHttpClient,
     override val trackerId: Long,
+    override val json: Json,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "MangaUpdates"

@@ -42,10 +42,12 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.CrashLogUtil
+import exh.GalleryAdder
 import exh.eh.EHentaiUpdateWorker
 import exh.favorites.EhFavoritesBackupJob
 import exh.md.MangaDexSyncJob
 import exh.source.ExhPreferences
+import exh.uconfig.EHConfigurator
 import exh.ui.login.EhLoginActivity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -165,6 +167,11 @@ interface AppGraph : ViewModelGraph {
     val uiPreferences: UiPreferences
     val migrationAdapters: MigrationAdapters
     val exhPreferences: ExhPreferences
+    val ehConfigurator: EHConfigurator
+
+    // Unscoped on purpose: the adder snapshots the enabled-language and disabled-source preferences
+    // at construction, so every read has to build a fresh one.
+    val galleryAdder: GalleryAdder
     val novelPreferences: NovelPreferences
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker

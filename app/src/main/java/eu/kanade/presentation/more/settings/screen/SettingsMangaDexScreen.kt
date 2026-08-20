@@ -15,6 +15,8 @@ import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 /**
  * MangaDex enhanced-source hub: language target, follow-status filter, and the two-way library sync
@@ -28,8 +30,9 @@ object SettingsMangaDexScreen : SearchableSettings {
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_mangadex
 
-    // Top-level category, hidden until a MangaDex language source is enabled.
-    override fun isEnabled(): Boolean = MdUtil.getEnabledMangaDex() != null
+    // Top-level category, hidden until a MangaDex language source is enabled. Not a composable, so
+    // Injekt survives here purely as a Context locator, the same shape as SettingsEhScreen.
+    override fun isEnabled(): Boolean = MdUtil.getEnabledMangaDex(Injekt.get<Context>()) != null
 
     @Composable
     override fun getPreferences(): List<Preference> {
@@ -41,7 +44,7 @@ object SettingsMangaDexScreen : SearchableSettings {
 
         val languageEntries = buildMap {
             put("0", stringResource(MR.strings.md_first_enabled_source))
-            MdUtil.getEnabledMangaDexs(sourcePreferences).forEach { source ->
+            MdUtil.getEnabledMangaDexs(sourcePreferences, context.appGraph.sourceManager).forEach { source ->
                 put(source.id.toString(), source.toString())
             }
         }

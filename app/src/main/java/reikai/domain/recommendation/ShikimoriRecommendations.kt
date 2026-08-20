@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
+import kotlinx.serialization.json.Json
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -21,6 +22,7 @@ import reikai.domain.recommendation.dto.SMRecsManga
 class ShikimoriRecommendations(
     private val client: OkHttpClient,
     override val trackerId: Long,
+    override val json: Json,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "Shikimori"

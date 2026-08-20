@@ -2,7 +2,6 @@ package reikai.domain.recommendation
 
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.injectLazy
 
 /**
  * Base contract for a tracker-backed recommendation provider: given a manga the user is viewing,
@@ -15,9 +14,9 @@ import uy.kohesive.injekt.injectLazy
  */
 abstract class TrackerRecommendations {
 
-    /** Shared JSON for response parsing. `parseAs` is a context function, so call sites wrap it in
-     *  `with(json) { ... }` (mirrors the tracker `*Api` classes). */
-    protected val json: Json by injectLazy()
+    /** Shared JSON for response parsing, handed down by [RecommendationProviders]. `parseAs` is a
+     *  context function, so call sites wrap it in `with(json) { ... }`. */
+    protected abstract val json: Json
 
     abstract val trackerName: String
 

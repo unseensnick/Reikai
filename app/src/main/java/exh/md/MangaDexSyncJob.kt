@@ -210,7 +210,8 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
 
     // Import the account's follows whose status is selected, adding each to the library as a favorite.
     private suspend fun syncFollows(): SyncResult {
-        val mangaDex = MdUtil.getEnabledMangaDex() ?: return SyncResult(0)
+        val mangaDex = MdUtil.getEnabledMangaDex(graph.sourcePreferences, graph.sourceManager)
+            ?: return SyncResult(0)
         val statuses = reikaiSourcePreferences.mangadexSyncToLibraryIndexes.get()
             .mapNotNull { it.toIntOrNull() }
             .toSet()

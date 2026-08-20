@@ -18,13 +18,13 @@ class MangaDexLoginActivity : BaseOAuthLoginActivity() {
         if (code != null) {
             lifecycleScope.launchIO {
                 sourceManager.isInitialized.first { it }
-                MdUtil.getEnabledMangaDex(sourceManager = sourceManager)?.login(code)
+                MdUtil.getEnabledMangaDex(appGraph.sourcePreferences, sourceManager)?.login(code)
                 returnToSettings()
             }
         } else {
             lifecycleScope.launchIO {
                 sourceManager.isInitialized.first { it }
-                MdUtil.getEnabledMangaDex(sourceManager = sourceManager)?.logout()
+                MdUtil.getEnabledMangaDex(appGraph.sourcePreferences, sourceManager)?.logout()
                 returnToSettings()
             }
         }

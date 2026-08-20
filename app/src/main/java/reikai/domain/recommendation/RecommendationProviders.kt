@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -22,6 +23,7 @@ import kotlin.time.Duration.Companion.seconds
 class RecommendationProviders(
     private val networkHelper: NetworkHelper,
     private val trackerManager: TrackerManager,
+    private val json: Json,
 ) {
 
     /**
@@ -45,10 +47,10 @@ class RecommendationProviders(
     /** The recs provider for a tracker id, or null if that tracker has no recommendations endpoint
      *  (Kitsu, Bangumi). */
     fun forTracker(trackerId: Long): TrackerRecommendations? = when (trackerId) {
-        trackerManager.aniList.id -> AnilistRecommendations(client, trackerId)
-        trackerManager.myAnimeList.id -> MyAnimeListRecommendations(client, trackerId)
-        trackerManager.mangaUpdates.id -> MangaUpdatesRecommendations(client, trackerId)
-        trackerManager.shikimori.id -> ShikimoriRecommendations(client, trackerId)
+        trackerManager.aniList.id -> AnilistRecommendations(client, trackerId, json)
+        trackerManager.myAnimeList.id -> MyAnimeListRecommendations(client, trackerId, json)
+        trackerManager.mangaUpdates.id -> MangaUpdatesRecommendations(client, trackerId, json)
+        trackerManager.shikimori.id -> ShikimoriRecommendations(client, trackerId, json)
         else -> null
     }
 }

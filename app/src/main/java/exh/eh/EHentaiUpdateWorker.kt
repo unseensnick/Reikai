@@ -81,7 +81,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var insertFlatMetadata: InsertFlatMetadata
 
     @Inject private lateinit var getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata
-    private val updateNotifier by lazy { EHentaiUpdateNotifier(context) }
+
+    @Inject private lateinit var updateNotifier: EHentaiUpdateNotifier
 
     @Inject private lateinit var libraryUpdateNotifier: LibraryUpdateNotifier
 

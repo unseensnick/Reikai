@@ -1,5 +1,6 @@
 package exh.md.utils
 
+import android.content.Context
 import android.util.Base64
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import mihon.app.di.appGraph
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
@@ -26,8 +28,6 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.parser.Parser
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -207,15 +207,19 @@ class MdUtil {
         // Picks the MangaDex enhanced source that drives login and the MDList tracker. Uses the
         // first enabled one; a preferred-language picker lives in the settings hub.
         fun getEnabledMangaDex(
-            sourcePreferences: SourcePreferences = Injekt.get(),
-            sourceManager: SourceManager = Injekt.get(),
+            sourcePreferences: SourcePreferences,
+            sourceManager: SourceManager,
         ): MangaDex? {
             return getEnabledMangaDexs(sourcePreferences, sourceManager).firstOrNull()
         }
 
+        /** The graph-reading overload, for the callers that hold only a [Context]. */
+        fun getEnabledMangaDex(context: Context): MangaDex? =
+            getEnabledMangaDex(context.appGraph.sourcePreferences, context.appGraph.sourceManager)
+
         fun getEnabledMangaDexs(
             preferences: SourcePreferences,
-            sourceManager: SourceManager = Injekt.get(),
+            sourceManager: SourceManager,
         ): List<MangaDex> {
             val languages = preferences.enabledLanguages.get()
             val disabledSourceIds = preferences.disabledSources.get()

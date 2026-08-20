@@ -3,6 +3,7 @@ package reikai.domain.recommendation
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -24,6 +25,7 @@ import reikai.domain.recommendation.dto.ALRecsTitle
 class AnilistRecommendations(
     private val client: OkHttpClient,
     override val trackerId: Long,
+    override val json: Json,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "AniList"

@@ -24,7 +24,6 @@ import reikai.domain.entry.EntryId
 import reikai.novel.network.applyNovelDefaults
 import reikai.novel.network.deviceWebViewUserAgent
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.injectLazy
 import java.io.File
 import java.io.IOException
 
@@ -205,9 +204,8 @@ class NovelCoverFetcher(
 
     class Factory(
         private val callFactoryLazy: Lazy<Call.Factory>,
+        private val coverCache: CoverCache,
     ) : Fetcher.Factory<NovelCover> {
-
-        private val coverCache: CoverCache by injectLazy()
 
         override fun create(data: NovelCover, options: Options, imageLoader: ImageLoader): Fetcher =
             NovelCoverFetcher(

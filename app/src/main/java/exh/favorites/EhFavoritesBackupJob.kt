@@ -46,7 +46,8 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
     @Inject private lateinit var sourceManager: SourceManager
 
     @Inject private lateinit var mangaRepository: MangaRepository
-    private val notifier by lazy { EHentaiUpdateNotifier(context) }
+
+    @Inject private lateinit var notifier: EHentaiUpdateNotifier
 
     override suspend fun doWork(): Result {
         if (!exhPreferences.enableExhentai().get()) return Result.success()

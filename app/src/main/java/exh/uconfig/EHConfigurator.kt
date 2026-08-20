@@ -1,6 +1,7 @@
 package exh.uconfig
 
 import android.content.Context
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.util.asJsoup
@@ -13,13 +14,15 @@ import okhttp3.Request
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import java.util.Locale
 
-class EHConfigurator(val context: Context) {
-    private val exhPreferences: ExhPreferences by injectLazy()
-    private val sourceManager: SourceManager by injectLazy()
-
+@Inject
+class EHConfigurator(
+    val context: Context,
+    private val exhPreferences: ExhPreferences,
+    private val sourceManager: SourceManager,
+    private val configBuilder: EhUConfigBuilder,
+) {
     private val configuratorClient = OkHttpClient.Builder().build()
 
     private fun EHentai.requestWithCreds(sp: Int = 1) =
@@ -117,7 +120,7 @@ class EHConfigurator(val context: Context) {
         )
 
         // Build new profile
-        val form = EhUConfigBuilder().build(hathPerks)
+        val form = configBuilder.build(hathPerks)
 
         // Send new profile to server
         configuratorClient.newCall(

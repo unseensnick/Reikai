@@ -1,6 +1,6 @@
 package reikai.presentation.library
 
-import android.app.Application
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -44,7 +44,6 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -66,6 +65,9 @@ class LibraryEngine(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,
+    // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
+    private val context: Context,
+    private val trackerManager: TrackerManager,
 ) : ViewModel() {
 
     /**
@@ -79,10 +81,6 @@ class LibraryEngine(
     interface Factory : ManualViewModelAssistedFactory {
         fun create(providers: List<LibraryProvider>): LibraryEngine
     }
-
-    // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
-    private val context: Application by injectLazy()
-    private val trackerManager: TrackerManager by injectLazy()
 
     // The flows below are `by lazy` so constructing the engine touches no coroutine scope: only the
     // view ever reads a preference-backed flow, and a selection test that never renders should not
