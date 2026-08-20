@@ -53,7 +53,8 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
     @Inject private lateinit var getLibraryManga: GetLibraryManga
 
     @Inject private lateinit var updateMangaFromRemote: UpdateMangaFromRemote
-    private val notifier = LibraryUpdateNotifier(context)
+
+    @Inject private lateinit var notifier: LibraryUpdateNotifier
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
 
@@ -81,7 +82,6 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notifier = LibraryUpdateNotifier(context)
         return ForegroundInfo(
             Notifications.ID_LIBRARY_PROGRESS,
             notifier.progressNotificationBuilder.build(),

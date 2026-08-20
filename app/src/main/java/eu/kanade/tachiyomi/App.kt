@@ -281,6 +281,11 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     override fun newImageLoader(context: Context): ImageLoader {
         return ImageLoader.Builder(this).apply {
             val callFactoryLazy = lazy { Injekt.get<NetworkHelper>().client }
+            // RK: read here rather than as injected App fields, upstream's shape: newImageLoader runs
+            // lazily, while a field would build SourceManager at graph.inject, before the legacy
+            // database recovery below has moved an incompatible database aside.
+            val coverCache = graph.coverCache
+            val sourceManager = graph.sourceManager
             components {
                 // NetworkFetcher.Factory
                 add(OkHttpNetworkFetcherFactory(callFactoryLazy::value))
@@ -288,8 +293,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 add(ImageDecoder.Factory())
                 // Fetcher.Factory
                 add(BufferedSourceFetcher.Factory())
-                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy))
-                add(MangaCoverFetcher.MangaFactory(callFactoryLazy))
+                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy, coverCache, sourceManager))
+                add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager))
                 // RK: light-novel cover pipeline (carries the source site as Referer; shares the
                 // network client, so it inherits Cloudflare + FlareSolverr)
                 add(NovelCoverFetcher.Factory(callFactoryLazy))
@@ -299,7 +304,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 // cover CDN doesn't 400 the app's browser User-Agent
                 add(MangaDexTrackCoverFetcher.Factory(callFactoryLazy))
                 // Keyer
-                add(MangaCoverKeyer())
+                add(MangaCoverKeyer(coverCache))
                 add(MangaKeyer())
                 add(NovelCoverKeyer()) // RK
                 add(PagePreviewKeyer()) // RK

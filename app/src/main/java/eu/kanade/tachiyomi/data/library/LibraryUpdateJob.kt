@@ -123,7 +123,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
     // RK: keeps a merged entry's deduplicated unread count in step with newly fetched chapters
     @Inject private lateinit var reconcileChapterMatchKeys: ReconcileChapterMatchKeys
-    private val notifier = LibraryUpdateNotifier(context)
+
+    @Inject private lateinit var notifier: LibraryUpdateNotifier
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
 
@@ -169,7 +170,6 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notifier = LibraryUpdateNotifier(context)
         return ForegroundInfo(
             Notifications.ID_LIBRARY_PROGRESS,
             notifier.progressNotificationBuilder.build(),
