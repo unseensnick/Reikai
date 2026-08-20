@@ -29,6 +29,8 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallActivity
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -39,6 +41,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import eu.kanade.tachiyomi.util.CrashLogUtil
 import exh.eh.EHentaiUpdateWorker
 import exh.favorites.EhFavoritesBackupJob
 import exh.md.MangaDexSyncJob
@@ -194,6 +197,9 @@ interface AppGraph : ViewModelGraph {
 
     // Read by App's cold-start warm-up.
     val sourceManager: SourceManager
+    val extensionManager: ExtensionManager
+    val crashLogUtil: CrashLogUtil
+    val updateChecker: AppUpdateChecker
     val downloadManager: DownloadManager
 
     @DependencyGraph.Factory

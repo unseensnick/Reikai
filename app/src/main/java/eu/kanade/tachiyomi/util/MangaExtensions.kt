@@ -8,12 +8,10 @@ import eu.kanade.tachiyomi.source.model.SManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.InputStream
 import kotlin.time.Clock
 
-fun Manga.removeCovers(coverCache: CoverCache = Injekt.get()): Manga {
+fun Manga.removeCovers(coverCache: CoverCache): Manga {
     if (isLocal()) return this
     return if (coverCache.deleteFromCache(this, true) > 0) {
         copy(coverLastModified = Clock.System.now().toEpochMilliseconds())
@@ -25,8 +23,8 @@ fun Manga.removeCovers(coverCache: CoverCache = Injekt.get()): Manga {
 suspend fun Manga.editCover(
     coverManager: LocalCoverManager,
     stream: InputStream,
-    updateManga: UpdateManga = Injekt.get(),
-    coverCache: CoverCache = Injekt.get(),
+    updateManga: UpdateManga,
+    coverCache: CoverCache,
 ) {
     if (isLocal()) {
         coverManager.update(toSManga(), stream)

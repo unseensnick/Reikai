@@ -29,10 +29,8 @@ import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
-import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
 import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
-import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.isPreviewBuildType
@@ -68,6 +66,7 @@ object AboutScreen : Screen() {
     override fun Content() {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
+        val crashLogUtil = remember { context.appGraph.crashLogUtil }
         val uriHandler = LocalUriHandler.current
         val handleBack = LocalBackPress.current
         val navigator = LocalNavigator.currentOrThrow
@@ -96,7 +95,7 @@ object AboutScreen : Screen() {
                         title = stringResource(MR.strings.version),
                         subtitle = getVersionName(withBuildDate = true),
                         onPreferenceClick = {
-                            val deviceInfo = CrashLogUtil(context).getDebugInfo()
+                            val deviceInfo = crashLogUtil.getDebugInfo()
                             context.copyToClipboard("Debug information", deviceInfo)
                         },
                     )
@@ -184,7 +183,7 @@ object AboutScreen : Screen() {
         onAvailableUpdate: (GetApplicationRelease.Result.NewUpdate) -> Unit,
         onFinish: () -> Unit,
     ) {
-        val updateChecker = AppUpdateChecker()
+        val updateChecker = context.appGraph.updateChecker
         withUIContext {
             try {
                 when (val result = withIOContext { updateChecker.checkForUpdate(forceCheck = true) }) {

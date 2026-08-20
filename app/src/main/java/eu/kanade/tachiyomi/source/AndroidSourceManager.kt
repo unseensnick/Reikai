@@ -44,9 +44,6 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.LocalSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.ConcurrentHashMap
 
 // RK -->
@@ -64,15 +61,14 @@ class AndroidSourceManager(
     private val context: Context,
     private val extensionManager: ExtensionManager,
     private val sourceRepository: StubSourceRepository,
+    private val localSource: LocalSource,
+    private val downloadManager: Lazy<DownloadManager>,
+    // RK: gates the built-in E-Hentai / ExHentai sources.
+    private val exhPreferences: ExhPreferences,
 ) : SourceManager {
 
     private val _isInitialized = MutableStateFlow(false)
     override val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
-
-    private val downloadManager: DownloadManager by injectLazy()
-
-    // RK: gates the built-in E-Hentai / ExHentai sources.
-    private val exhPreferences: ExhPreferences by injectLazy()
 
     private val scope = CoroutineScope(Job() + Dispatchers.IO)
 
@@ -105,11 +101,7 @@ class AndroidSourceManager(
                 .collectLatest { (extensions, enableExhentai, isHentaiEnabled) ->
                     val mutableMap = ConcurrentHashMap<Long, Source>(
                         mapOf(
-                            LocalSource.ID to LocalSource(
-                                context,
-                                Injekt.get(),
-                                Injekt.get(),
-                            ),
+                            LocalSource.ID to localSource,
                         ),
                     ).apply {
                         // RK: register the built-in E-Hentai sources (one per language) when the
@@ -189,7 +181,7 @@ class AndroidSourceManager(
             if (dbSource == source) return@launch
             sourceRepository.upsertStubSource(source.id, source.lang, source.name)
             if (dbSource != null) {
-                downloadManager.renameSource(dbSource, source)
+                downloadManager.value.renameSource(dbSource, source)
             }
         }
     }

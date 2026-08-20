@@ -126,6 +126,8 @@ class MainActivity :
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
 
+    @Inject private lateinit var extensionApi: ExtensionApi
+
     @Inject private lateinit var preferences: BasePreferences
 
     @Inject private lateinit var downloadCache: DownloadCache
@@ -338,7 +340,7 @@ class MainActivity :
         LaunchedEffect(Unit) {
             if (updaterEnabled) {
                 try {
-                    val result = AppUpdateChecker().checkForUpdate()
+                    val result = graph.updateChecker.checkForUpdate()
                     if (result is GetApplicationRelease.Result.NewUpdate) {
                         val updateScreen = NewUpdateScreen(
                             versionName = result.release.version,
@@ -357,7 +359,7 @@ class MainActivity :
         // Extensions updates
         LaunchedEffect(Unit) {
             try {
-                ExtensionApi().checkForUpdates(context)
+                extensionApi.checkForUpdates(context)
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
             }

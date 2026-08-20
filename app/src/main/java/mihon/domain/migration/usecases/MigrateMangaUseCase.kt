@@ -26,8 +26,6 @@ import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
 
 @Inject
@@ -46,12 +44,12 @@ class MigrateMangaUseCase(
     private val coverCache: CoverCache,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     // RK: defaulted so DomainModule's positional factory stays unchanged; keeps migration merge-aware.
-    private val mangaMergeManager: MangaMergeManager = Injekt.get(),
+    private val mangaMergeManager: MangaMergeManager,
     // RK: the repository, not UpdateChapter, because that interactor logs and swallows; the carry
     // has to be able to fail the row. Same reason the novel engine checks its own carry.
-    private val chapterRepository: ChapterRepository = Injekt.get(),
+    private val chapterRepository: ChapterRepository,
     // RK: so the favorite swap and the merge-group rewrite can share one transaction; see below.
-    private val transactions: Transactions = Injekt.get(),
+    private val transactions: Transactions,
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
