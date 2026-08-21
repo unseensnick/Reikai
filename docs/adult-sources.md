@@ -1,97 +1,72 @@
-# Adult sources (E-Hentai / ExHentai)
+# Adult sources
 
 _Dev records: [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md), [md-enhanced-source.md](dev/plans/md-enhanced-source.md). Doc map: [README.md](README.md)._
 
-Built-in support for E-Hentai and ExHentai, plus richer handling of other adult sources you install. It is **off by default** and lives behind a single toggle, so nothing here appears unless you turn it on.
+Reikai has built-in support for E-Hentai and ExHentai, with richer handling than a normal extension
+gives you: galleries carry their real tags into your library, uploader and page count show on the
+details screen, and your favorites can sync with the account.
 
-This subsystem is ported from [Komikku](https://github.com/komikku-app/komikku) (the Tachiyomi-SY lineage), re-typed onto Reikai's current Mihon base. Reikai ships a deliberately lighter slice of it for now; see [What's not here yet](#whats-not-here-yet).
+**It is off by default and nothing appears until you turn it on.** If you never open the switch, the
+app behaves as though none of this exists.
 
 ## Turning it on
 
-*Settings → Advanced → **Enable adult sources**.*
+Go to <nav to="advanced"> and turn on **Enable adult sources (E-Hentai)**.
 
-With it on:
+E-Hentai then appears in <nav to="main_browse">, and you can search and read from it straight away
+without an account.
 
-- **E-Hentai** is added to Browse as a built-in source (no extension to install), in every language E-Hentai offers.
-- **nHentai** and **Pururin** are added to Browse as built-in sources too (no extension to install); nHentai talks to the site's current API directly.
-- A dedicated **E-Hentai** settings category appears (see below).
-- Adult sources you install as extensions (HentaiFox, AsmHentai, Koharu / SchaleNetwork, 8Muses, LANraragi) get the extra tag handling described under [Tags in your library](#tags-in-your-library).
+## Adding ExHentai
 
-Turning it back off hides all of the above again.
+ExHentai needs a real account with ExHentai access; a fresh account will not have it.
 
-## Browsing E-Hentai / ExHentai
+Go to <nav to="e-hentai"> and turn on **Enable ExHentai**. That opens a login page. Sign in there
+and the ExHentai source joins E-Hentai in <nav to="main_browse">.
 
-Open E-Hentai from Browse and search it like any source, with the **full gallery filters**. The search box offers **tag autocomplete**: start typing a namespace and tag (for example `artist:` or `female:`) and it suggests matches from the E-Hentai tag catalogue.
+If the login page loads but ExHentai still shows nothing afterwards, the account does not have
+access yet. That is set on the site, not in the app.
 
-ExHentai (the members-only side) needs a logged-in account. Sign in once under the E-Hentai settings screen (below); after that, browsing and reading use your account.
+## Settings worth knowing
 
-## E-Hentai account settings
+These all live under <nav to="e-hentai">, which only appears once adult sources are on.
 
-*Settings → Advanced → **E-Hentai**.*
+**Image quality** picks what the site serves you. Auto follows your account default. Higher settings
+cost more of your download allowance.
 
-- **Log in to ExHentai** through an in-app WebView, which unlocks ExHentai browsing.
-- **Image quality**, **original images**, and **Hentai@Home** options, applied to how pages load.
-- **Japanese titles** when a gallery has one.
-- **Tag filtering / watching thresholds**, mirroring your E-Hentai account's tag preferences.
-- **Language filtering** and **front-page categories** for what the source shows.
-- An **Incognito** toggle and a **statistics** dialog for the gallery update checker.
+**Language Filtering** hides galleries in languages you do not read, so browsing stops being mostly
+noise. Set it once and it applies everywhere you browse the source.
 
-Your account-side choices (quality, H@H, tag thresholds) are synced up to your E-Hentai profile automatically, so the app and the site agree.
+**Front Page Categories** decides which categories the front page shows you at all.
+
+**Favorites backup** copies your account's favorites into a chosen slot, so a favorites list you
+built over years is not one bad click away from gone. There is a "back up now" action, and an option
+to keep doing it automatically.
+
+**Gallery update checker** re-checks saved galleries for new pages, because galleries get revised in
+place rather than gaining chapters the way a series does. It can be limited to Wi-Fi and to while
+charging, and it keeps statistics so you can see whether it is actually finding anything.
 
 ## Tags in your library
 
-When you save an adult-source gallery, its **namespaced tags** (artist, group, parody, character, female, male, and so on) are recorded into your library. This works for E-Hentai and nHentai, and for the HentaiFox, AsmHentai, and Koharu (SchaleNetwork) extensions once installed.
+Galleries saved to your library keep their source tags, and [library search](library-search.md) can
+search them. So `artist:` or a content tag finds things in your own library the same way it would on
+the site, without opening a browser.
 
-Those tags feed two things:
+This is the main reason to use the built-in source rather than a generic extension: an extension
+gives you the images, this gives you the metadata too.
 
-- **Library search by tag.** Type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its saved tags and alternate titles. Supports namespace aliases, `*`/`?` wildcards, `-` exclusion, `$` exact match, and quoted phrases; plain title search is unchanged.
-- **Gallery info** (below), which lists them.
+## What this is not
 
-Tags also ride along in app backups, so restoring a backup brings them straight back without re-opening each gallery.
+**It is not a general adult-content unlock.** Other adult sources are ordinary extensions: install
+them from a repository in <nav to="extensions"> and they work like any other source, with or without
+this switch. This page is only about the built-in E-Hentai and ExHentai support.
 
-## Gallery info
+**It does not change what other sources show you.** Nothing here filters, hides or reveals content
+anywhere else in the app.
 
-On an adult-source gallery's details screen, the overflow (`⋮`) menu has a **Gallery info** action. It opens a read-only panel of every captured field: tags, uploader, rating, size, page count, language, and dates. Long-press any row to copy it.
+## If something is missing
 
-## Keeping galleries updated
-
-E-Hentai galleries get re-released as newer versions rather than gaining chapters, so they are handled by a dedicated background checker instead of the normal library update sweep (which skips them to avoid hammering the site).
-
-*Settings → Advanced → E-Hentai → **Gallery update checker**.*
-
-The checker re-examines your **favorited** E-Hentai galleries on a schedule and pulls in a newer version when one exists, merging the new version's pages while keeping your read progress and bookmarks. You can set how often it runs and any Wi-Fi / charging limits.
-
-## Favorites backup
-
-*Settings → Advanced → E-Hentai → **Favorites backup**.*
-
-A one-way **backup** of your library's E-Hentai galleries to your account's favorites, so your in-app library can stay disposable while the account keeps a record.
-
-- With it on, favoriting an E-Hentai gallery in the app also adds it to your account's favorites (into a slot you choose).
-- **Back up all favorites now** pushes everything already in your library in one go (throttled to stay within E-Hentai's limits).
-- Removing a gallery from your library **leaves it on the account** unless you tick **Also remove from E-Hentai favorites** in the removal confirmation.
-
-This is intentionally one-directional: your library is the source of truth, and the account is a mirror it writes to. It never pulls galleries from the account back into your library.
-
-## What's not here yet
-
-Reikai currently ships a lighter slice of Komikku's adult-source subsystem. The notable gaps, any of which may be widened toward Komikku parity in a later release:
-
-- **Two-way favorites sync.** Today's favorites feature is a one-way backup (library → account). Full sync (pull the account's favorites into the library, mirror removals both ways, reconcile conflicts) is not built.
-
-## Shorthands
-
-For source bug reports, keep the issue title generalized and use these shorthands in the body. **Type** is what Reikai owns: **Built-in** = shipped by Reikai, no extension to install; **Enhanced** = a third-party extension you install that Reikai wraps to enrich, so report Reikai's wrapper behaviour, not the extension itself. **Content** flags the adult subsystem (behind the Enable-adult-sources toggle) versus a mainstream source.
-
-| Shorthand | Source | Type | Content |
-| --------- | ------ | ---- | ------- |
-| EH  | E-Hentai | Built-in | Adult |
-| ExH | ExHentai | Built-in | Adult |
-| NH  | nHentai | Built-in + Enhanced | Adult |
-| Pu  | Pururin | Built-in | Adult |
-| HF  | HentaiFox | Enhanced | Adult |
-| Asm | AsmHentai | Enhanced | Adult |
-| SN  | SchaleNetwork (Koharu) | Enhanced | Adult |
-| 8M  | 8Muses | Enhanced | Adult |
-| LRR | LANraragi | Enhanced | Adult |
-| MD  | MangaDex | Enhanced | Mainstream |
+Reikai ships a deliberately smaller slice of this than the fork it came from. Some of the more
+obscure E-Hentai features are not here, and a few will never be. If something you relied on is
+absent, say so in an issue rather than assuming it is a bug: most of the gaps are deliberate and easy
+to revisit, but only if someone asks.
