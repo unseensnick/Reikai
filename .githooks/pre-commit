@@ -132,13 +132,15 @@ fi
 # "Roadmap:" refs (the bare document name ROADMAP.md stays allowed). A colon-led algorithm step
 # ("Step 1:") is allowed; a plan-style "Step 3" is not. The step match is case-insensitive and
 # word-bounded: a lower-case "step 2" reached main once because only a capitalised one was caught,
-# and \b keeps it off words like "footstep". Deliberately spared: R8 (the code shrinker; R uses
+# and \b keeps it off words like "footstep". Two shapes that are never a plan reference are spared
+# too, both from Kotlin ranges quoted in a comment: "2..20 step 6" and a fractional "step 0.5".
+# Deliberately spared: R8 (the code shrinker; R uses
 # [0-79] so 8 is skipped) and M3 (Material 3; M is not matched).
 codenames=$(git diff --cached -U0 --diff-filter=ACM -- '*.kt' '*.kts' '*.sq' '*.sqm' \
   | grep -E '^\+' | grep -vE '^\+\+\+' \
   | grep -E '(//|/\*|^\+[[:space:]]*\*|^\+[[:space:]]*--)' \
   | grep -E '(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9]|[Rr]oadmap[[:space:]]*(#?[0-9]|:))' \
-  | grep -vE '\b[Ss]tep[[:space:]]*[0-9]:' || true)
+  | grep -vE '(\b[Ss]tep[[:space:]]*[0-9]:|[0-9]\.\.[0-9]+[[:space:]]+step[[:space:]]|[Ss]tep[[:space:]]*[0-9]+\.[0-9])' || true)
 if [ -n "$codenames" ]; then
   echo "code comments: drop plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, Roadmap N, plan Step N),"
   echo "state the durable fact instead:"
