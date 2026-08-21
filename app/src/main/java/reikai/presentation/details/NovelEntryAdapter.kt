@@ -190,20 +190,22 @@ class NovelEntryAdapter(
     override fun showCoverDialog() {
         model.showCoverDialog()
     }
-    override fun createCoverViewModel(): EntryCoverViewModel<*> {
-        // Follows the source chip like manga, so the cover matches the page. Editing is gated by
-        // isCoverAnchored instead, since a custom cover must land on the entry the library renders.
-        val loaded = loadedState()
-        val shown = loaded?.displayNovel ?: loaded?.novel
-        return coverViewModelFactory.create(
-            novelUrl = shown?.url.orEmpty(),
-            novelSource = shown?.source.orEmpty(),
-            site = loaded?.sourceUrl,
-        )
+    override fun createCoverViewModel(): EntryCoverViewModel<*> = coverArgs().let { (url, source, site) ->
+        coverViewModelFactory.create(novelUrl = url, novelSource = source, site = site)
     }
 
-    override fun coverKey(): String = loadedState()?.let { (it.displayNovel ?: it.novel).id.toString() }.orEmpty()
+    // The key has to cover everything the model captures, not just the entry: `site` is the cover
+    // request's referer and resolves after the source registry warms, so keying on the id alone let a
+    // dialog opened before that cache a model with no referer for the life of the screen.
+    override fun coverKey(): String = coverArgs().let { (url, source, site) -> "$url|$source|$site" }
 
+    /** Follows the source chip like manga, so the cover matches the page. Editing is gated by
+     *  isCoverAnchored instead, since a custom cover must land on the entry the library renders. */
+    private fun coverArgs(): Triple<String, String, String?> {
+        val loaded = loadedState()
+        val shown = loaded?.displayNovel ?: loaded?.novel
+        return Triple(shown?.url.orEmpty(), shown?.source.orEmpty(), loaded?.sourceUrl)
+    }
     override fun isCoverAnchored(): Boolean =
         loadedState()?.let { it.selectedSourceNovelId == null || it.selectedSourceNovelId == it.novel.id } != false
 
