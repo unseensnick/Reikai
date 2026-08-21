@@ -2,19 +2,20 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "additionalDirectories": [
-      "E:\\code\\yokai-y2k\\refs\\komikku",
-      "E:\\code\\yokai-y2k\\refs\\yokai",
-      "E:\\code\\yokai-y2k\\refs\\mihon",
-      "E:\\code\\yokai-y2k\\refs\\tachiyomi-extension",
-      "E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions",
-      "E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions-source",
-      "E:\\code\\yokai-y2k\\refs\\blueth-yokai",
-      "E:\\code\\yokai-y2k\\refs\\Yōkai-Y2K-New-Icons",
-      "E:\\code\\yokai-y2k\\refs\\lnreader-main",
-      "E:\\code\\yokai-y2k\\refs\\lnreader-2.0.3-Pre-release",
-      "E:\\code\\yokai-y2k\\refs\\lnreader-plugins",
-      "E:\\code\\yokai-y2k\\refs\\tsundoku",
-      "E:\\code\\yokai-y2k\\refs\\IReader"
+      "E:\\Code\\yokai-y2k\\refs\\komikku",
+      "E:\\Code\\yokai-y2k\\refs\\yokai",
+      "E:\\Code\\yokai-y2k\\refs\\mihon",
+      "E:\\Code\\yokai-y2k\\refs\\mihon-preview",
+      "E:\\Code\\yokai-y2k\\refs\\tachiyomi-extension",
+      "E:\\Code\\yokai-y2k\\refs\\keiyoushi-extensions",
+      "E:\\Code\\yokai-y2k\\refs\\keiyoushi-extensions-source",
+      "E:\\Code\\yokai-y2k\\refs\\blueth-yokai",
+      "E:\\Code\\yokai-y2k\\refs\\Yōkai-Y2K-New-Icons",
+      "E:\\Code\\yokai-y2k\\refs\\lnreader-main",
+      "E:\\Code\\yokai-y2k\\refs\\lnreader-2.0.3-Pre-release",
+      "E:\\Code\\yokai-y2k\\refs\\lnreader-plugins",
+      "E:\\Code\\yokai-y2k\\refs\\tsundoku",
+      "E:\\Code\\yokai-y2k\\refs\\IReader"
     ],
     "allow": [
       "Bash(./gradlew :domain:test)",
@@ -42,11 +43,11 @@
       "Bash(gh issue *)",
       "Bash(gh run *)",
       "Read(E:\\Code\\yokai-y2k\\app\\**)",
-      "Read(E:\\code\\yokai-y2k\\refs\\**)",
+      "Read(E:\\Code\\yokai-y2k\\refs\\**)",
       "Grep(E:\\Code\\yokai-y2k\\app\\**)",
-      "Grep(E:\\code\\yokai-y2k\\refs\\**)",
+      "Grep(E:\\Code\\yokai-y2k\\refs\\**)",
       "Glob(E:\\Code\\yokai-y2k\\app\\**)",
-      "Glob(E:\\code\\yokai-y2k\\refs\\**)"
+      "Glob(E:\\Code\\yokai-y2k\\refs\\**)"
     ],
     "deny": [
       "Read(**/.env)",
