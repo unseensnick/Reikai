@@ -37,10 +37,6 @@ class ImageDecoder(private val resources: ImageSource, private val options: Opti
     }
 
     override suspend fun decode(): DecodeResult {
-        // RK: upstream reads sourceOrNull(), which is null when the source is file-backed, as a
-        // disk-cached cover is. The check below then threw and coil swallowed it, so the cover
-        // dialog rendered nothing on the high-quality renderer. source() materializes the file.
-        // Upstream bug, introduced by mihonapp/mihon#3786.
         val decoder = resources.source().use {
             try {
                 ImageDecoder.new(it.inputStream())
