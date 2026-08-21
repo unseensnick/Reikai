@@ -71,6 +71,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Reikai can now send crash reports so bugs get found and fixed faster, and both they and anonymous usage data are opt-out under Settings -> Security and privacy.** Onboarding offers the same choice on a fresh install.
 - **Every release now also has a `-foss` APK with no crash reporting or analytics in it at all.** It installs as a separate app, so it can sit alongside your normal one.
 - **A new Tokyo Night app theme, selectable under Settings -> Appearance.**
+- **Settings -> About now links Reikai's website and privacy policy.** Both open reikai.app, which is where the documentation lives.
 
 ### Changes
 
@@ -142,6 +143,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Preview builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
 - **Updating the app now happens on the update screen itself, with the download progress on the button (synced from Mihon, mihonapp/mihon#3669 and mihonapp/mihon#3707).** Tap once more when it finishes to install.
 - **Reikai now checks for app and extension updates every time you open it from cold (synced from Mihon, mihonapp/mihon#3658).** It used to wait days between checks, so a fresh build could sit unoffered.
+- **Every help link in the app now opens Reikai's own documentation at reikai.app.** They pointed at Mihon's site, which does not cover what Reikai adds.
 
 ### Fixes
 

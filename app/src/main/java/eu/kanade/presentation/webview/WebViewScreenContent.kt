@@ -53,6 +53,7 @@ import eu.kanade.tachiyomi.util.system.getHtml
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.setUserAgent
 import kotlinx.coroutines.launch
+import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -298,7 +299,8 @@ fun WebViewScreenContent(
                                     .clip(MaterialTheme.shapes.small)
                                     .clickable {
                                         uriHandler.openUri(
-                                            "https://mihon.app/docs/guides/troubleshooting/#cloudflare",
+                                            // RK: Reikai's docs
+                                            "${Constants.URL_DOCS}/guides/troubleshooting/#cloudflare",
                                         )
                                     },
                             )

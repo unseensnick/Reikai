@@ -164,7 +164,7 @@ title/author/cover changes only what is shown; auto-merge, dynamic grouping, A-Z
 search all keep using the RAW source values (applied at the last display-map step, keyed by real id, after
 collapse/sort; the manga library overlays the per-category display read, the novel library overlays only the
 rendered representative). This matches manga's original auto-merge-on-raw-title choice and prevents a rename
-silently reshuffling or unmerging the library. Documented in [FAQ.md](../../FAQ.md) to pre-empt bug reports.
+silently reshuffling or unmerging the library. Documented in [about.md](../../about.md) to pre-empt bug reports.
 
 Backup: each override table gets its own section (`backupCustomMangaInfo` 713, `backupCustomNovelInfo` 714),
 re-keyed by url+source on restore.

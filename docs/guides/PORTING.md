@@ -91,9 +91,9 @@ guide that already covered the topic, and their files are gone:
 - `tracker-sync.md` into `guides/tracking.md`, as two sections on merged entries and the
   library-wide refresh.
 
-Three answers moved out of `FAQ.md` into the FAQ page that owns their topic: a failing download into
+Three answers moved out of what is now `about.md` into the FAQ page that owns their topic: a failing download into
 `faq/downloads.md`, edited titles versus sorting into `faq/library.md`, auto webtoon mode into
-`faq/reader.md`. What is left of `FAQ.md` is about the project rather than the app, so it stays whole
+`faq/reader.md`. What is left of it is about the project rather than the app, which is why it is `about.md`, so it stays whole
 and leads the Frequently Asked Questions group.
 
 The rest of Reikai's docs are guides in their own right with no Mihon counterpart, so they keep their

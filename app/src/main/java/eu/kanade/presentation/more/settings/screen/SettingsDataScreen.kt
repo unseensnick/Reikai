@@ -60,6 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -76,7 +77,7 @@ import tachiyomi.presentation.core.util.collectAsState
 object SettingsDataScreen : SearchableSettings {
 
     val restorePreferenceKeyString = MR.strings.label_backup
-    const val HELP_URL = "https://mihon.app/docs/faq/storage"
+    const val HELP_URL = "${Constants.URL_DOCS}/faq/storage" // RK: Reikai's docs
 
     @ReadOnlyComposable
     @Composable

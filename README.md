@@ -28,7 +28,7 @@ Two things set it apart from the lineage: **manga and light novels share one lib
 
 It is built first for my own daily use, so development is sporadic and the feature set follows my taste rather than a broad roadmap. It rides Mihon's actively maintained base for the core reader and layers these features on top.
 
-**New here? Start with the [FAQ](docs/FAQ.md)**: what Reikai is, how updates work, where to download safely, and how sources behave.
+**New here? Start at [reikai.app](https://reikai.app)**: what Reikai is, how updates work, where to download safely, and how sources behave.
 
 ## Features
 
@@ -36,14 +36,14 @@ It is built first for my own daily use, so development is sporadic and the featu
 
 ### Reikai's own features
 
-- `Multi-source grouping` (manga + novels): fold same-title entries from different sources into one card, with a per-source switcher. ([docs](docs/multi-source.md))
-- `Manual merge / unmerge`: group entries by hand when titles differ, or split a group apart. ([docs](docs/multi-source.md))
-- `Merge-aware reading`: read a merged series through every source, one unified chapter list. ([docs](docs/multi-source.md#reading-a-group))
-- `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](docs/guides/tracking.md))
-- `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](docs/guides/categories.md))
+- `Multi-source grouping` (manga + novels): fold same-title entries from different sources into one card, with a per-source switcher. ([docs](https://reikai.app/docs/multi-source))
+- `Manual merge / unmerge`: group entries by hand when titles differ, or split a group apart. ([docs](https://reikai.app/docs/multi-source))
+- `Merge-aware reading`: read a merged series through every source, one unified chapter list. ([docs](https://reikai.app/docs/multi-source#reading-a-group))
+- `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](https://reikai.app/docs/guides/tracking))
+- `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](https://reikai.app/docs/guides/categories))
 - `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka.
-- `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](docs/related-mangas.md#your-taste-profile))
-- `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](docs/flaresolverr.md))
+- `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](https://reikai.app/docs/related-mangas#your-taste-profile))
+- `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](https://reikai.app/docs/flaresolverr))
 - `Library update errors`: an opt-in list of entries that failed their last update.
 
 <details>
@@ -62,11 +62,11 @@ Carried over from [Yōkai](https://github.com/null2264/yokai) (Reikai's previous
 
 Ported from [Komikku](https://github.com/komikku-app/komikku) (a Mihon fork), re-typed onto Mihon and extended:
 
-- `Related-mangas carousel`: similar titles below the description, with Reikai's taste layer above them. ([docs](docs/related-mangas.md))
-- `Adult content sources`: built-in sources, browse, tag search, metadata, account settings and backup. Off by default. ([docs](docs/adult-sources.md))
+- `Related-mangas carousel`: similar titles below the description, with Reikai's taste layer above them. ([docs](https://reikai.app/docs/related-mangas))
+- `Adult content sources`: built-in sources, browse, tag search, metadata, account settings and backup. Off by default. ([docs](https://reikai.app/docs/adult-sources))
 - `Enhanced source support`: sign in to one of the most-used manga sources for source-native details, follows browse, two-way library sync, and its built-in `MDList` tracker.
 - `Edit info` (manga + novels): edit an entry's title, author, cover, description, tags and status, with `Fill from tracker` to autofill them. Reikai unifies it across both types and keeps the source's own values intact.
-- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by tags and source name. Off by default. ([FAQ](docs/FAQ.md))
+- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by tags and source name. Off by default. ([FAQ](https://reikai.app/docs/faq/reader#i-turned-on-auto-webtoon-mode-but-a-manhwa-still-opens-paged-why))
 
 </details>
 
@@ -94,7 +94,7 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 
 This is a personal fork: pull requests are welcome, but a PR may take a while and might not be merged if it doesn't fit the fork's direction. For anything beyond a small fix, raise it first.
 
-**New here? Start with the [FAQ](docs/FAQ.md).** Still stuck? Ask in [Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
+**New here? Start at [reikai.app](https://reikai.app).** Still stuck? Ask in [Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
 
 <details><summary><strong>Bugs</strong></summary>
 

@@ -24,6 +24,7 @@ import mihon.core.archive.archiveReader
 import mihon.core.archive.epubReader
 import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
+import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.storage.nameWithoutExtension
@@ -378,7 +379,7 @@ class LocalSource(
 
     companion object {
         const val ID = 0L
-        const val HELP_URL = "https://mihon.app/docs/guides/local-source/"
+        const val HELP_URL = "${Constants.URL_DOCS}/guides/local-source/" // RK: Reikai's docs
 
         private val LATEST_THRESHOLD = 7.days.inWholeMilliseconds
     }

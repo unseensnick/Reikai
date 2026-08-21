@@ -1,8 +1,16 @@
 package tachiyomi.core.common
 
 object Constants {
-    const val URL_HELP = "https://mihon.app/docs/guides/troubleshooting/"
-    const val URL_HELP_UPCOMING = "https://mihon.app/docs/faq/updates/upcoming"
+    // RK -->
+    // Every user-facing doc link in the app builds from this, so the host is written once. Help URLs
+    // ship inside released APKs and outlive them, so a stale one cannot be recalled.
+    const val URL_SITE = "https://reikai.app"
+    const val URL_DOCS = "$URL_SITE/docs"
+
+    const val URL_HELP = "$URL_DOCS/guides/troubleshooting/"
+    const val URL_HELP_UPCOMING = "$URL_DOCS/faq/updates/upcoming"
+
+    // RK <--
     const val URL_DONATE_PATREON = "https://patreon.com/mihon/membership"
     const val URL_DONATE_OPENCOLLECTIVE = "https://opencollective.com/mihon/contribute"
     const val URL_DISCORD = "https://discord.gg/mihon"

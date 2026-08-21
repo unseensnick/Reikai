@@ -1,6 +1,6 @@
 # Documentation website
 
-Developer-facing record of the Reikai docs site: why it exists, how it is wired to this repo, and what is deliberately not done yet. Scaffolded 2026-08-21; lives in its own public repo, [unseensnick/Reikai-website](https://github.com/unseensnick/Reikai-website), not yet deployed.
+Developer-facing record of the Reikai docs site: why it exists, how it is wired to this repo, and what is deliberately not done yet. Scaffolded 2026-08-21; lives in its own public repo, [unseensnick/Reikai-website](https://github.com/unseensnick/Reikai-website), and is live at [reikai.app](https://reikai.app).
 
 ## Goal
 
@@ -10,15 +10,15 @@ One place a user can learn Reikai, instead of reading Mihon's site for the core 
 
 The scatter is real but smaller than it first looks, and the shape of it decided the design. **The fork sites document nothing fork-specific.** Komikku's and Tsundoku's sites are the same VitePress template as mihon.app with the same copy; Komikku's getting-started guide covers "Adding sources" and "Adding series to your library" and never mentions merging, enhanced sources or adult sources. Tsundoku's FAQ path 404s. So the features Reikai borrowed from them are documented in exactly one place in the world: this repo.
 
-What is genuinely scattered is three things. Mihon's core docs, which are real and deep. LNReader's plugin documentation. And Reikai's own nine user docs, the only coverage of multi-source grouping, manual merge, category sort order, the novel side and the adult subsystem.
+What is genuinely scattered is three things. Mihon's core docs, which are real and deep. LNReader's plugin documentation. And Reikai's own user docs, the only coverage of multi-source grouping, manual merge, category sort order, the novel side and the adult subsystem.
 
-That points at a **content** gap rather than a hosting one: Reikai's docs assume a reader who already knows the lineage. The two `mihon.app` links in onboarding and the storage setting exist for exactly that reason.
+That points at a **content** gap rather than a hosting one: Reikai's docs assume a reader who already knows the lineage. The help links the app ships pointed at Mihon's site for exactly that reason, until this site could carry them.
 
 ## Approach
 
 VitePress, because Mihon's site is VitePress and markdown-first, so the existing docs are already the input format. Started clean rather than forking their repo, with `refs/mihon-website` as the reference clone beside the other refs.
 
-**The docs live in this repo, not the site repo.** `scripts/sync-docs.mjs` reads `docs/*.md` at build time and rewrites two things that only make sense in-repo: the italic dev-records footer each page opens with (dropped, it is contributor material) and repo-relative links (rewritten to absolute GitHub URLs). A copy checked into the site repo would drift the first time a behaviour change updated a doc, which is not hypothetical: `docs/FAQ.md` went stale within hours of the auto-webtoon fix on the day the site was scaffolded.
+**The docs live in this repo, not the site repo.** `scripts/sync-docs.mjs` reads `docs/*.md` at build time and rewrites two things that only make sense in-repo: the italic dev-records footer each page opens with (dropped, it is contributor material) and repo-relative links (rewritten to absolute GitHub URLs). A copy checked into the site repo would drift the first time a behaviour change updated a doc, which is not hypothetical: `docs/about.md` went stale within hours of the auto-webtoon fix on the day the site was scaffolded.
 
 **Changelogs are generated markdown, not a component.** `scripts/sync-changelogs.mjs` writes `src/changelogs/index.md` from the GitHub releases API. VitePress builds the page outline, heading anchors and the local search index from markdown at build time, so a Vue component's headings would reach none of the three.
 
@@ -46,7 +46,7 @@ In this repo:
 
 **The illustrations are settled.** All 28 assets were ruled on and now live beside their pages in this repo: 21 reader demos reused because Reikai's reader is upstream's unchanged, five app-UI crops re-shot as six because Mihon's were stale against their own app, one Android 7.1 clip dropped against `minSdk` 26, one Android system clip reused. The three double-tap animations went from animated WebP to VP9 WebM, 3.9 MB to 858 KB.
 
-**The re-cut is done.** `categories.md`, `backup-restore.md` and `tracker-sync.md` were folded into the guide that already covered each topic and deleted; three answers moved out of `FAQ.md` into the FAQ page that owns them. `docs/guides/PORTING.md` carries both records.
+**The re-cut is done.** `categories.md`, `backup-restore.md` and `tracker-sync.md` were folded into the guide that already covered each topic and deleted; three answers moved out of what is now `about.md` into the FAQ page that owns them. `docs/guides/PORTING.md` carries both records.
 
 **Reikai's own seven pages were audited against the code and rewritten in Mihon's voice**: frontmatter, `<nav>` chips for in-app paths, `::: tip How to` step blocks, `Badge` defaults, `::: tabs` for variants. What the audit turned up is below.
 
@@ -56,7 +56,7 @@ In this repo:
 
 **Two site pages beyond the docs**: [Related apps](../../../Reikai-website/src/related/index.md), eight projects in the lineage described on their own terms, and a privacy policy written from what the build does rather than a template.
 
-**Not deployed.** The repo is public and `main` is pushed, but there is no Pages build, no domain and no in-app link. The repo itself is MPL-2.0, matching Mihon's website, since enough of the site derives from it.
+**Live at [reikai.app](https://reikai.app), over HTTPS.** GitHub Pages serves it from the public site repo, which is MPL-2.0 to match Mihon's website since enough of the site derives from it, deployed by `.github/workflows/deploy.yml` on push. Every help link in the app now points here, built from one `Constants.URL_DOCS`.
 
 ## What the audit of Reikai's own docs found
 
@@ -83,9 +83,10 @@ flag, or a default flips, the policy is wrong until someone edits it. Check it w
 
 - **Docs stay in the app repo** (owner, 2026-08-21). The alternative is a copy in the site repo, and the drift argument above is not theoretical.
 - **So do their illustrations.** A screenshot is invalidated by the same UI change that invalidates the sentence next to it, so it belongs in the repo where that change lands, referenced by an absolute `/docs/...` path and copied into the site's `public/` at sync time. The app repo already carries 29 MB of README assets, so 6 MB of doc captures is not a new kind of cost.
-- **Buy the domain before shipping an in-app link to it** (owner, 2026-08-21). Pages hosting is free either way and supports custom domains, so the money buys only the name. It matters because in-app help URLs ship inside released APKs and live forever: a `github.io` path dies if the repo or account is ever renamed, a domain is a DNS change. Starting on Pages and adding the domain later is safe, since GitHub redirects the old URL.
+- **Buy the domain before shipping an in-app link to it** (owner, 2026-08-21, done the same day). Pages hosting is free either way and supports custom domains, so the money buys only the name. It matters because in-app help URLs ship inside released APKs and live forever: a `github.io` path dies if the repo or account is ever renamed, a domain is a DNS change. `reikai.app` is now the address, so an in-app link is safe to ship.
+- **`CNAME` lives in `src/public/`, not in the repo's Pages settings.** An Actions deploy replaces the site wholesale on every run, so a domain held only in the settings is dropped by the next deploy. It is pinned to LF in `.gitattributes`, since a Windows checkout would otherwise put a carriage return in the hostname.
 - **The re-cut happened after the guides were wired in, not before** (done 2026-08-21). Each overlapping pair was merged into the ported guide rather than the other way round, because the guide already covered the common ground and Reikai's page only carried what it adds.
-- **Publishing still trades against the public-facing naming rule.** A docs site can stay plain and source-name-free, but it is indexed. `docs/adult-sources.md` names the sources 8 times and cannot avoid it, since the in-app toggle is labelled with one. Whether it publishes is unresolved, and the decision point is the Pages deploy rather than the repo: the repo going public changes nothing, because the app repo has always carried these docs and the rule exempts detailed feature docs. What it does bind is the site repo's own description and topics, which are a marketing surface like any other.
+- **`adult-sources.md` publishes** (owner, 2026-08-21). It was the one page weighed against the public-facing naming rule, since the site is indexed and the page names the sources 8 times, which it cannot avoid: the in-app toggle is labelled with one. The rewrite settled it, taking the page user-first and the name count down from 28. The rule's exemption for detailed feature docs covers the rest. What still binds is the site repo's own description and topics, which are a marketing surface like any other.
 - **No doc-sync ledger for the fork sites.** There is nothing on them to track.
 
 ## Gotchas

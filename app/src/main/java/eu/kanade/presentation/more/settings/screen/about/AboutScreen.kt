@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,6 +42,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -156,7 +158,15 @@ object AboutScreen : Screen() {
                     )
                 }
 
-                // RK: Reikai has no website, socials, Discord, or privacy page; keep only the source repo.
+                // RK -->
+                item {
+                    TextPreferenceWidget(
+                        title = stringResource(MR.strings.privacy_policy),
+                        onPreferenceClick = { uriHandler.openUri("${Constants.URL_SITE}/privacy/") },
+                    )
+                }
+
+                // RK: Reikai has no socials or Discord; the site and the source repo are the whole list.
                 item {
                     Row(
                         modifier = Modifier
@@ -165,12 +175,18 @@ object AboutScreen : Screen() {
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         LinkIcon(
+                            label = stringResource(MR.strings.website),
+                            icon = Icons.Outlined.Public,
+                            url = Constants.URL_SITE,
+                        )
+                        LinkIcon(
                             label = "GitHub",
                             icon = CustomIcons.Github,
                             url = "https://github.com/unseensnick/Reikai",
                         )
                     }
                 }
+                // RK <--
             }
         }
     }
