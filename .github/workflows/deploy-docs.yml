@@ -33,14 +33,18 @@ jobs:
     name: Ask the site to rebuild
     runs-on: ubuntu-latest
     steps:
-      # A fine-grained PAT with Actions: write on Reikai-website. GITHUB_TOKEN cannot do this: it is
-      # scoped to this repository, and repository_dispatch targets another one.
+      # The same fine-grained PAT nightly.yml publishes preview builds with, widened to reach
+      # Reikai-website too. GITHUB_TOKEN cannot do this: it is scoped to this repository, and the
+      # dispatch targets another one.
+      #
+      # If that token is ever narrowed back to the preview repo, this job starts failing with a 404
+      # rather than a 403, because GitHub hides repositories a token cannot see.
       - name: Trigger the site deploy
         env:
-          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "::error::SITE_DISPATCH_TOKEN is not set, so the site was not rebuilt."
+            echo "::error::PREVIEW_REPO_TOKEN is not set, so the site was not rebuilt."
             echo "Add it under Settings -> Secrets and variables -> Actions, or run the site's"
             echo "Deploy site workflow by hand."
             exit 1
