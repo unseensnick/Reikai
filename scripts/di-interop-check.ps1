@@ -35,6 +35,11 @@ $srcRoots = @(
     'source-api/src/main/kotlin'
     'source-local/src/main/kotlin'
     'presentation-widget/src/main/java'
+    'presentation-core/src/main/java'
+    'core-metadata/src/main/java'
+    'core/metro/src/main/kotlin'
+    'core/archive/src/main/kotlin'
+    'telemetry/src/main'
 ) | ForEach-Object { Join-Path $RepoRoot $_ }
 
 # Every root has to exist. Dropping a missing one and carrying on is how a rename turns this into a
@@ -203,29 +208,38 @@ function Get-ConstructorParamTypes([string]$typeName) {
     $params = $text.Substring($open + 1, $end - $open - 1)
     $found = @()
     foreach ($m in [regex]::Matches($params, ':\s*(?:Provider<|Lazy<|\(\)\s*->\s*)?([A-Za-z0-9_.]+)')) {
-        $found += ($m.Groups[1].Value -split '\.')[-1]
+        $name = ($m.Groups[1].Value -split '\.')[-1]
+        # Type names are capitalised; anything else came out of a comment inside the parameter list.
+        if ($name -cmatch '^[A-Z]') { $found += $name }
     }
     return $found
 }
 
+# One hop, not the whole tree: a module builds these classes itself and resolves their constructor
+# parameters through Injekt, but each of those parameters arrives already built, so its own
+# dependencies come from Metro and are none of Injekt's business.
 $closure = [System.Collections.Generic.HashSet[string]]::new()
-$frontier = @($registeredCtors)
-while ($frontier.Count -gt 0) {
-    $next = @()
-    foreach ($type in $frontier) {
-        if (-not $closure.Add($type)) { continue }
-        $next += Get-ConstructorParamTypes $type
+$moduleResolved = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($type in $registeredCtors) {
+    [void]$closure.Add($type)
+    foreach ($param in Get-ConstructorParamTypes $type) {
+        [void]$closure.Add($param)
+        # The class itself is constructed by the module, never resolved, so only its parameters have
+        # to come from somewhere.
+        [void]$moduleResolved.Add($param)
     }
-    $frontier = $next
 }
 
 # The other direction, and the one that crashes: something resolves a type through Injekt that
-# nothing registers any more. There is no compile error behind this, only a throw on the first code
-# path that reaches the read.
+# nothing registers any more. A module's own `get()` calls are untyped, so the closure above is the
+# only way those reads are visible at all.
 $knownRegistered = [System.Collections.Generic.HashSet[string]]::new()
 foreach ($name in $interopTypes) { [void]$knownRegistered.Add($name) }
 foreach ($name in $registeredTypes) { [void]$knownRegistered.Add($name) }
-$unregistered = @($readTypes | Where-Object { -not $knownRegistered.Contains($_) } | Sort-Object)
+$mustResolve = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($name in $readTypes) { [void]$mustResolve.Add($name) }
+foreach ($name in $moduleResolved) { [void]$mustResolve.Add($name) }
+$unregistered = @($mustResolve | Where-Object { -not $knownRegistered.Contains($_) } | Sort-Object)
 $unread = @($interopTypes | Where-Object { -not $readTypes.Contains($_) -and -not $closure.Contains($_) } | Sort-Object -Unique)
 
 $failed = $false
