@@ -37,8 +37,11 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 **The keeps mostly do not go, and this was overstated until 2026-08-20.** `source-api` and
 `source-local` hold Injekt permanently, because they are the contract installed extensions compile
 against, and they live under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. Three of the five keeps in
-`app/proguard-rules.pro` therefore stay whatever this port does. Only `mihon.**` and `reikai.**` are
-reachable, and those leave with the tsundoku reader migration rather than with this work.
+`app/proguard-rules.pro` therefore stay whatever this port does. **`mihon.**` stays too** (corrected
+2026-08-21): `MetroInteropModule` lives in `mihon.app.di.injekt`, and every reified
+`addSingletonFactory` there compiles to its own `FullTypeReference` subclass in that package, so the
+keep lasts exactly as long as the interop module, which is as long as `source-api`'s Injekt. Only
+`reikai.**` leaves, with the tsundoku reader migration.
 
 ## Status
 
@@ -69,6 +72,48 @@ shape; where the two disagree, this note wins.
 
 **Fresh install is now exercised** (2026-08-20): the preview install was wiped, walked through
 onboarding and restored from its own backup. **Upgrade from a shipped build is still untested.**
+
+### The audit, done 2026-08-21
+
+Seven read-only passes over the finished port: scope drift, lazy-to-eager timing, missed conversions
+per file against `b2015d1ef`, runtime-resolution completeness, graph hygiene, startup ordering, and
+R8 plus the gates themselves. **The classes that fail silently came back clean.** All 89 pre-port
+Injekt singletons are app-scoped today and no pre-port `addFactory` type became a singleton; every
+surviving Injekt read resolves; nothing built between `graph.inject` and `prepareIfLegacyDb` reaches
+`Database`.
+
+**`() -> T` is a real deferred binding**, settled by disassembling rather than by reasoning.
+`App$MetroMembersInjector` holds a `Provider<WidgetManager>` and, at `injectMembers`, casts it to
+`Function0` and passes it through with no `invoke()`, while the four preference fields beside it do
+invoke. So the lambda fields hold the provider itself and the legacy-database ordering guard is
+structural rather than incidental.
+
+What the audit found, and what this change did about it:
+
+- **`core/common` exported Metro with `api`**, so `@Inject` in `source-api` or `presentation-core`
+  compiled to nothing at all. Back to upstream's `implementation`, verified by watching a probe
+  annotation in `source-api` fail to compile.
+- **Three files the port never reached** resolved graph-owned singletons through Injekt:
+  `PagePreviewCache`, `PagePreviewFetcher.Factory` and `MangaCoverMetadata`. The last became an
+  injected class rather than an object, threaded through `MangaCoverFetcher`'s two factories.
+- **`NovelDownloadManager` arrived plain at five UI entry points** while six other callers deferred
+  it. Only `NovelDetailsViewModel` was a port regression; the rest were eager before too, through
+  `= Injekt.get()` defaults, which Kotlin evaluates at construction. All five take a `Provider` now,
+  and `NovelUpdatesViewModel` needed a `flow { emitAll(...) }` besides, because its property
+  initializer touched the manager whatever the parameter type said.
+- **Six dead `AppGraph` accessors** deleted, and the comment claiming those interactors were
+  `addSingletonFactory` before the port corrected: every one of them was `addFactory`.
+- **`MetroInteropModule` trimmed from 89 entries to 45**: upstream's nine, what `source-api` and the
+  novel reader resolve by hand, and their closure. The keep rule now sits in the file's KDoc.
+- **`di-interop-check.ps1` gained the check that matters**, a read nothing registers, which is the
+  direction that crashes; plus the reverse listing, discovery of direct `Injekt.add*` calls outside
+  any module, and a hard failure on a missing source root. The forward check is mutation-verified.
+
+Two findings were left alone deliberately. The `:error_handler` process still builds the graph and
+four preference holders twice, which is upstream's shape and costs nothing that opens a file. And a
+legacy-Yokai upgrade still runs its version-gated migrations against the empty database the importer
+just forced, before the restore job lands, then stamps them complete; that is older than this port
+and is tracked with the Yokai-era migration work.
 
 ### The files this port had skipped, done 2026-08-20
 
