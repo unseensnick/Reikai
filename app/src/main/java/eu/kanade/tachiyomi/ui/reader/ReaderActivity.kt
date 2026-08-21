@@ -623,8 +623,11 @@ class ReaderActivity : BaseActivity() {
 
         // RK --> auto-webtoon overrode the default, so say why. Deliberately not gated on
         // showReadingMode: muting the routine "here's your mode" readout shouldn't also mute the
-        // one notice that explains an override the user didn't ask for.
-        if (viewModel.autoWebtoonMode() != null) {
+        // one notice that explains an override the user didn't ask for. Only when it actually
+        // changed something: for a reader whose default is already webtoon it overrides nothing,
+        // and announcing one would be a lie on every long-strip series they open.
+        val autoWebtoonMode = viewModel.autoWebtoonMode()
+        if (autoWebtoonMode != null && autoWebtoonMode != readerPreferences.defaultReadingMode.get()) {
             readingModeToast?.cancel()
             readingModeToast = toast(MR.strings.auto_webtoon_snack)
         } else if (readerPreferences.showReadingMode.get()) {

@@ -50,6 +50,16 @@ fun defaultReaderType(type: MangaType): Int? {
     }
 }
 
+/**
+ * The mode a merged group implies: any member calling itself long strip decides it. Grouped sources
+ * describe one series differently and often only one carries the manhwa / webtoon tag, which is
+ * rarely the source the reader opens from, so asking only the opened entry misses most of them.
+ * [sourceNameOf] resolves each member's own source, since the tag can be absent while the name says
+ * it. Lives here rather than in the reader so the rule can be tested without a ViewModel harness.
+ */
+fun defaultReaderType(entries: List<Manga>, sourceNameOf: (Manga) -> String?): Int? =
+    entries.firstNotNullOfOrNull { defaultReaderType(it.mangaType(sourceNameOf(it))) }
+
 private fun isMangaTag(tag: String): Boolean {
     return tag.contains("manga", true) ||
         tag.contains("манга", true)

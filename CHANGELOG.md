@@ -129,6 +129,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Reader**
 
+- **Manhwa, manhua and webtoons now open in webtoon mode on their own, without switching anything on first.** Turn it off under Settings -> Reader if you would rather every series used your default reading mode.
 - **Some image options under Settings -> Advanced are gone, now that manga pages decode through one modern decoder (synced from Mihon, mihonapp/mihon#3786).** The hardware bitmap threshold, legacy long strip decoding and custom display profile settings configured the legacy decoder, which went with it.
 
 **Tracking**
@@ -242,6 +243,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Reader & chapters**
 
+- **A merged series now opens in webtoon mode when any of its sources calls it a manhwa, manhua or webtoon.** Before, only the source the chapter came from was consulted, and that is usually not the one carrying the tag.
 - **Chapters you have read no longer disappear from the reader's chapter list.**
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**
 - **Swiping back from the reader now reaches the chapter you were on.**

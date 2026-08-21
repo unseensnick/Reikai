@@ -422,11 +422,12 @@ class ReaderViewModel(
                 // RK: resolve the Edit info overrides before the state update below builds the
                 // viewer, since auto-webtoon classifies off them.
                 customInfo = getCustomMangaInfo.subscribe(mangaId).first()
-                mutableState.update { it.copy(manga = manga) }
                 if (chapterId == -1L) chapterId = initialChapterId
 
                 // RK --> resolve the merge group up front so the chapter list spans every grouped
-                // source and the loader can route each chapter to its own source.
+                // source and the loader can route each chapter to its own source. Resolved BEFORE
+                // the state update below, because that update is what makes ReaderActivity build
+                // the viewer, and auto-webtoon has to see every merged member to classify.
                 val group = mergedChapterProvider.load(manga)
                 mergedGroup = group
                 loader = MergedChapterLoader(
@@ -439,6 +440,8 @@ class ReaderViewModel(
                     sourceManager,
                 )
                 // RK <--
+
+                mutableState.update { it.copy(manga = manga) }
 
                 // RK: from the full list, so the reader pages within one instance space (prev/next
                 //     are resolved there too) rather than mixing it with the skip-filtered set.
@@ -871,7 +874,7 @@ class ReaderViewModel(
     }
 
     // RK -->
-    private var autoWebtoonMemo: Pair<Long, Int?>? = null
+    private var autoWebtoonMemo: Pair<Set<Long>, Int?>? = null
 
     /**
      * The user's Edit info overrides, snapshotted in [init]. Editing needs the details screen, so
@@ -881,22 +884,24 @@ class ReaderViewModel(
 
     /**
      * The mode auto-webtoon picks for this series, or null when it does not apply: the preference
-     * is off, the user picked a mode for this series, or it is not long strip.
+     * is off, the user picked a mode for this series, or no merged source calls it long strip.
      *
      * The toast reads this too, so both it and the viewer resolve from one predicate and cannot
-     * disagree. Memoized because [getMangaReadingMode] runs on every app-bar recomposition, while
-     * a series' genre and source cannot change mid-session.
+     * disagree. Memoized on the member ids, because [getMangaReadingMode] runs on every app-bar
+     * recomposition while a group's genres and sources cannot change mid-session.
      */
     fun autoWebtoonMode(): Int? {
         if (!readerPreferences.autoWebtoonMode.get()) return null
         val manga = manga ?: return null
         if (ReadingMode.fromPreference(manga.readingMode.toInt()) != ReadingMode.DEFAULT) return null
-        autoWebtoonMemo?.takeIf { it.first == manga.id }?.let { return it.second }
+        val members = mergedGroup?.mangaById?.values?.takeIf { it.isNotEmpty() } ?: listOf(manga)
+        val memberIds = members.mapTo(mutableSetOf()) { it.id }
+        autoWebtoonMemo?.takeIf { it.first == memberIds }?.let { return it.second }
         // Edited genres win over the source's, so a source that never tags its series type can be
-        // fixed by hand in Edit info instead of being undetectable.
-        val entry = manga.withCustomInfo(customInfo)
-        return defaultReaderType(entry.mangaType(sourceManager.get(manga.source)?.name))
-            .also { autoWebtoonMemo = manga.id to it }
+        // fixed by hand in Edit info. They belong to the opened entry, not to its siblings.
+        val entries = members.map { if (it.id == manga.id) it.withCustomInfo(customInfo) else it }
+        return defaultReaderType(entries) { sourceManager.get(it.source)?.name }
+            .also { autoWebtoonMemo = memberIds to it }
     }
     // RK <--
 

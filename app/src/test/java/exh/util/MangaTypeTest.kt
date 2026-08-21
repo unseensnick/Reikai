@@ -84,4 +84,41 @@ class MangaTypeTest {
     fun `tag matching ignores case`() {
         defaultReaderType(manga("MANHWA").mangaType(null)) shouldBe webtoon
     }
+
+    private fun group(vararg members: Manga) = members.toList()
+
+    private val noSource: (Manga) -> String? = { null }
+
+    @Test
+    fun `one merged member tagging long strip decides the group`() {
+        defaultReaderType(group(manga("Action"), manga("Webtoons"), manga("Action")), noSource) shouldBe webtoon
+    }
+
+    @Test
+    fun `a group nobody tags keeps the global default`() {
+        defaultReaderType(group(manga("Action"), manga("Romance")), noSource) shouldBe null
+    }
+
+    @Test
+    fun `an unmerged entry is just a group of one`() {
+        defaultReaderType(group(manga("Manhua")), noSource) shouldBe webtoon
+    }
+
+    @Test
+    fun `a manga tag only suppresses its own member, not the group`() {
+        defaultReaderType(group(manga("Manga"), manga("Long Strip")), noSource) shouldBe webtoon
+    }
+
+    @Test
+    fun `a member's own source name votes even when its tags are bare`() {
+        val sources = mapOf(2L to "Toonily")
+        defaultReaderType(
+            group(manga("Action"), manga("Action").copy(id = 2L)),
+        ) { sources[it.id] } shouldBe webtoon
+    }
+
+    @Test
+    fun `an empty group keeps the global default`() {
+        defaultReaderType(emptyList(), noSource) shouldBe null
+    }
 }

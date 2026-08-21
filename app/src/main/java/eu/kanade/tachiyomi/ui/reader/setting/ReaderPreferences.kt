@@ -111,7 +111,7 @@ class ReaderPreferences(
 
     // Komikku's key verbatim, so the toggle survives a backup restored in either direction. Our
     // default differs (off, where Komikku ships on); an absent key just lets each app use its own.
-    val autoWebtoonMode: Preference<Boolean> = preferenceStore.getBoolean("eh_use_auto_webtoon", false)
+    val autoWebtoonMode: Preference<Boolean> = preferenceStore.getBoolean("eh_use_auto_webtoon", true)
 
     val readerBottomButtons: Preference<Set<String>> =
         preferenceStore.getStringSet("reader_bottom_buttons", ReaderBottomButton.BUTTONS_DEFAULTS)
