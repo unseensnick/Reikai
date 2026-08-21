@@ -125,6 +125,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Tracking**
 
 - **MangaUpdates results now show each entry's rating and creators while you pick one to bind (synced from Mihon, mihonapp/mihon#3795).** Covers manga and novels alike.
+- **Kitsu scores now use whichever rating scale your Kitsu account is set to, smileys, stars or the 10 point decimal (synced from Mihon, mihonapp/mihon#3818).** Existing scores are converted on upgrade, for manga and novels alike.
 
 **Reader**
 
