@@ -41,7 +41,6 @@ import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
 import eu.kanade.tachiyomi.data.coil.ImageDecoder
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
-import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.PagePreviewFetcher
 import eu.kanade.tachiyomi.data.coil.PagePreviewKeyer
@@ -183,7 +182,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         setupNotificationChannels()
 
         // RK: restore persisted cover colors for cover-based theming (Y11)
-        MangaCoverMetadata.load()
+        graph.mangaCoverMetadata.load()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
 
@@ -286,6 +285,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             // database recovery below has moved an incompatible database aside.
             val coverCache = graph.coverCache
             val sourceManager = graph.sourceManager
+            val mangaCoverMetadata = graph.mangaCoverMetadata
             components {
                 // NetworkFetcher.Factory
                 add(OkHttpNetworkFetcherFactory(callFactoryLazy::value))
@@ -293,13 +293,13 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 add(ImageDecoder.Factory())
                 // Fetcher.Factory
                 add(BufferedSourceFetcher.Factory())
-                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy, coverCache, sourceManager))
-                add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager))
+                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
+                add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager, mangaCoverMetadata))
                 // RK: light-novel cover pipeline (carries the source site as Referer; shares the
                 // network client, so it inherits Cloudflare + FlareSolverr)
                 add(NovelCoverFetcher.Factory(callFactoryLazy, coverCache))
                 // RK: adult-source gallery page-preview thumbnails
-                add(PagePreviewFetcher.Factory(callFactoryLazy))
+                add(PagePreviewFetcher.Factory(callFactoryLazy, graph.pagePreviewCache, sourceManager))
                 // RK: MDList tracker-search covers, fetched via the MangaDex source client so the
                 // cover CDN doesn't 400 the app's browser User-Agent
                 add(

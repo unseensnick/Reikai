@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.cache.PagePreviewCache
+import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -190,6 +191,7 @@ interface AppGraph : ViewModelGraph {
     val chapterCache: ChapterCache
     val coverCache: CoverCache
     val pagePreviewCache: PagePreviewCache
+    val mangaCoverMetadata: MangaCoverMetadata
     val downloadCache: DownloadCache
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager

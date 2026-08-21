@@ -136,6 +136,8 @@ class MainActivity :
 
     @Inject private lateinit var getIncognitoState: GetIncognitoState
 
+    @Inject private lateinit var mangaCoverMetadata: MangaCoverMetadata
+
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
 
@@ -315,7 +317,7 @@ class MainActivity :
     // RK: persist cover-based theming colors (Y11)
     override fun onPause() {
         super.onPause()
-        MangaCoverMetadata.savePrefs()
+        mangaCoverMetadata.savePrefs()
     }
 
     @Composable

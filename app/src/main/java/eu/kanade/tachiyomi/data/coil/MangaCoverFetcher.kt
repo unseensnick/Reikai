@@ -57,6 +57,7 @@ class MangaCoverFetcher(
     private val sourceLazy: Lazy<HttpSource?>,
     private val callFactoryLazy: Lazy<Call.Factory>,
     private val imageLoader: ImageLoader,
+    private val mangaCoverMetadata: MangaCoverMetadata,
 ) : Fetcher {
 
     private val diskCacheKey: String
@@ -84,7 +85,7 @@ class MangaCoverFetcher(
 
     private fun fileLoader(file: File): FetchResult {
         // RK --> extract the cover's vibrant color for reader/details theming (Y11)
-        mangaCover?.let { MangaCoverMetadata.setVibrantColorAsync(it, ogFile = file) }
+        mangaCover?.let { mangaCoverMetadata.setVibrantColorAsync(it, ogFile = file) }
         // RK <--
         return SourceFetchResult(
             source = ImageSource(
@@ -135,7 +136,7 @@ class MangaCoverFetcher(
                 // non-favorited manga's cover tints on first open (Komikku parity, Y11)
                 val snap = snapshot
                 mangaCover?.let {
-                    MangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
+                    mangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
                 }
                 // RK <--
                 return SourceFetchResult(
@@ -161,7 +162,7 @@ class MangaCoverFetcher(
                     // RK --> Komikku parity: warm the theming color on the network path too (Y11)
                     val snap = snapshot
                     mangaCover?.let {
-                        MangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
+                        mangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
                     }
                     // RK <--
                     return SourceFetchResult(
@@ -174,7 +175,7 @@ class MangaCoverFetcher(
                 // RK --> Komikku parity: warm the theming color when serving straight from the
                 // response body; peekBody so the returned stream isn't consumed (Y11)
                 mangaCover?.let {
-                    MangaCoverMetadata.setVibrantColorAsync(
+                    mangaCoverMetadata.setVibrantColorAsync(
                         it,
                         bufferedSource = response.peekBody(Long.MAX_VALUE).source(),
                     )
@@ -328,6 +329,7 @@ class MangaCoverFetcher(
         private val callFactoryLazy: Lazy<Call.Factory>,
         private val coverCache: CoverCache,
         private val sourceManager: SourceManager,
+        private val mangaCoverMetadata: MangaCoverMetadata,
     ) : Fetcher.Factory<Manga> {
 
         override fun create(data: Manga, options: Options, imageLoader: ImageLoader): Fetcher {
@@ -342,6 +344,7 @@ class MangaCoverFetcher(
                 sourceLazy = lazy { sourceManager.get(data.source) as? HttpSource },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,
+                mangaCoverMetadata = mangaCoverMetadata,
             )
         }
     }
@@ -350,6 +353,7 @@ class MangaCoverFetcher(
         private val callFactoryLazy: Lazy<Call.Factory>,
         private val coverCache: CoverCache,
         private val sourceManager: SourceManager,
+        private val mangaCoverMetadata: MangaCoverMetadata,
     ) : Fetcher.Factory<MangaCover> {
 
         override fun create(data: MangaCover, options: Options, imageLoader: ImageLoader): Fetcher {
@@ -364,6 +368,7 @@ class MangaCoverFetcher(
                 sourceLazy = lazy { sourceManager.get(data.sourceId) as? HttpSource },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,
+                mangaCoverMetadata = mangaCoverMetadata,
             )
         }
     }

@@ -17,7 +17,6 @@ import okio.buffer
 import okio.sink
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
-import uy.kohesive.injekt.injectLazy
 import java.io.File
 import java.io.IOException
 
@@ -31,7 +30,10 @@ import java.io.IOException
  */
 @Inject
 @SingleIn(AppScope::class)
-class PagePreviewCache(private val context: Context) {
+class PagePreviewCache(
+    private val context: Context,
+    private val json: Json,
+) {
 
     companion object {
         /** Name of cache directory. */
@@ -47,8 +49,6 @@ class PagePreviewCache(private val context: Context) {
         /** The number of values per cache entry. Must be positive. */
         const val PARAMETER_VALUE_COUNT = 1
     }
-
-    private val json: Json by injectLazy()
 
     /** Cache class used for cache management. */
     private var diskCache = setupDiskCache(75)

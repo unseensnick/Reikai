@@ -2,12 +2,14 @@ package eu.kanade.tachiyomi.data.coil
 
 import android.graphics.BitmapFactory
 import androidx.palette.graphics.Palette
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import okio.BufferedSource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.model.MangaCover
-import uy.kohesive.injekt.injectLazy
 import java.io.File
 
 /**
@@ -16,9 +18,12 @@ import java.io.File
  * manga-details theme when the cover-based theme preference is on. The [getBestColor] heuristic is
  * ported from Komikku (Jays2Kings).
  */
-object MangaCoverMetadata {
-    private val uiPreferences: UiPreferences by injectLazy()
-    private val coverCache: CoverCache by injectLazy()
+@Inject
+@SingleIn(AppScope::class)
+class MangaCoverMetadata(
+    private val uiPreferences: UiPreferences,
+    private val coverCache: CoverCache,
+) {
 
     /** Restore the persisted cover colors at app startup. */
     fun load() {
@@ -63,9 +68,9 @@ object MangaCoverMetadata {
 
         Palette.from(bitmap).generate().getBestColor()?.let { mangaCover.vibrantCoverColor = it }
     }
-
-    private const val SUB_SAMPLE = 4
 }
+
+private const val SUB_SAMPLE = 4
 
 /**
  * Picks the most representative color from a cover's [Palette], favoring colorful swatches while

@@ -25,7 +25,6 @@ import okio.Path.Companion.toOkioPath
 import okio.Source
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.injectLazy
 import java.io.File
 import java.io.IOException
 
@@ -250,10 +249,9 @@ class PagePreviewFetcher(
 
     class Factory(
         private val callFactoryLazy: Lazy<Call.Factory>,
+        private val pagePreviewCache: PagePreviewCache,
+        private val sourceManager: SourceManager,
     ) : Fetcher.Factory<PagePreview> {
-
-        private val pagePreviewCache: PagePreviewCache by injectLazy()
-        private val sourceManager: SourceManager by injectLazy()
 
         override fun create(data: PagePreview, options: Options, imageLoader: ImageLoader): Fetcher {
             return PagePreviewFetcher(
