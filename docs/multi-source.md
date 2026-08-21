@@ -1,94 +1,121 @@
-# Multi-source manga grouping
+---
+title: Multi-source grouping
+titleTemplate: Guides
+description: Fold the same series from several sources into one library entry that reads as one.
+---
+
+# Multi-source grouping
 
 _Dev records: [merge-system-rebuild.md](dev/plans/merge-system-rebuild.md), [merge-aware-manga-reader.md](dev/plans/merge-aware-manga-reader.md), [merge-component-consolidation.md](dev/plans/merge-component-consolidation.md), [merged-read-state.md](dev/plans/merged-read-state.md). Doc map: [README.md](README.md)._
 
-Many manga are available from multiple sources. Reikai folds same-title entries from different sources into a single library card so the library reflects unique manga rather than duplicates, and lets you switch between which source you're reading from on a per-manga basis.
+The same series is often available from several sources.
+**Reikai** can fold those into a single library entry that reads as one series, so your library shows what you read rather than how many copies of it you have.
 
-Light novels support the same cross-source merge, so a novel available from several sources groups the same way.
+Grouping works the same way for manga and for light novels.
 
-Each section below leads with the in-app path or trigger so you know exactly where the feature lives.
+::: info Grouping only happens when you ask for it
+Nothing is grouped behind your back.
+An entry joins a group when you accept the prompt shown as you add it, or when you merge entries yourself.
+:::
 
-## Grouping across sources
+## Grouping series
 
-*Master toggle: **Group series across sources**, in the library display menu (the filter/funnel icon, Display tab) and under Settings → Library.*
+Turn grouping on with **Group series across sources**, in <nav to="library"> under **Sources**, or in the library display sheet.
 
-When grouping is on, two or more library entries in the same group are rendered as a single card. Grouping is explicit: an entry only joins a group when you say so, either through the add-time "Add to existing group" prompt (below) or a manual merge. There is no silent same-title force; turning the master toggle off expands every group back to its per-source entries, and turning it on collapses them again.
+With it on, every group renders as one card.
+Turning it off expands each group back into its per-source entries and keeps the groups, so turning it on again collapses them exactly as they were.
 
-**The add-time prompt.** When you add a series (or novel) from browse, global search, history, or MangaDex Follows that matches one already in your library, an "Add to existing group" action appears on the duplicate dialog. You pick the group to join from the duplicate cards shown; the new copy is favorited and merged into the selected match's group. This add-time suggestion is itself toggleable (see Settings, below), and it never groups anything you didn't confirm.
+Grouping is per-category, so a series filed in two categories still shows once in each.
 
-A merged card shows the grouped sources' icons in its corner (up to three, with a "+N" overflow if there are more). If source icons are turned off or unavailable, the card falls back to a numeric count instead.
+### Joining a group as you add a series
 
-Grouping is per-category, so the same manga across two categories still shows once per category.
+When you add a series that matches one already in your library, the duplicate dialog offers **Add to existing group**.
+Pick the entry it belongs with, and the new copy is added to your library and joined to that group.
 
-## Source-switcher chips
+::: tip Where the prompt appears
+Adding from Browse, global search, History, or MangaDex Follows.
+:::
 
-*Manga details screen, in the header below the cover.*
+That prompt is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Sources**, once for **Manga** and once for **Novels**.
+With it off, adding a matching series never offers to group it.
 
-Open any manga that's part of a multi-source group and you'll see a horizontal chip row, one chip per source. The currently-displayed source is highlighted. Tap any other chip to switch to that source's version of the manga while keeping the merged-group context: chapters, progress, and library state all stay tied to the group.
+### Reading a merged card
 
-Long-press a chip to split that source out of the group. A confirmation titled "Split" appears, reading "Split <source> out of this merged group?" Confirming returns that source to a standalone library card; the rest of the group stays merged.
+A merged card carries the icons of its grouped sources in the corner, up to three, then a `+N` for the rest.
+Turn those off with **Show source icons on merged covers** in the library display sheet, and the card falls back to a plain count.
 
-The chip row refreshes automatically whenever you return to the manga details screen from another screen (for example, after adding a new same-title source via Global Search), so there's no need to back out to Library and come back.
+## Switching source
 
-## Reading a merged group
+Open a grouped series and a row of source chips sits in the header, under the cover, with the one you are reading highlighted.
 
-*Reader: open any chapter of a merged entry.*
+Tap another chip to read that source's version.
+Chapters, progress and library state stay with the group, so switching source does not restart anything.
 
-A merged entry reads as one continuous series. The in-reader chapter list shows every source's chapters in a single list, each labeled with the source it came from, and the previous / next controls span the whole group: reaching the end of one source's chapters flows straight into the next source's without leaving the reader.
+The row refreshes on its own whenever you come back to the details screen, so a source you just added through global search appears without backing out to the library first.
 
-Each chapter's downloads, read state, and tracker updates still follow its own source underneath, so the group reads like one series while staying correct per source.
+## Reading a group
 
-This applies to both merged manga and merged novels.
+A merged series reads as one.
+The chapter list in the reader holds every source's chapters together, each labelled with where it came from, and the previous and next controls run across the whole group: the end of one source's chapters flows into the next without leaving the reader.
 
-## Manual merge & unmerge
+Underneath, each chapter still downloads, marks read and updates trackers through its own source, so the group reads as one series while staying correct per source.
 
-The auto-grouping is title-based; sometimes you want to merge entries that don't have identical titles (different romanizations, e.g. "Kaijuu 8-gou" vs. "Kaiju No. 8") or split a group apart.
+## Merging entries yourself
 
-### Merge
+The add-time prompt matches on title, so two romanizations of one series ("Kaijuu 8-gou" and "Kaiju No. 8") never meet.
+Merge those by hand.
 
-*Library → long-press an entry to enter multi-select → tap any other entries you want to include → tap **Merge** in the bottom action bar.*
+::: tip How to merge
+1. Long-press an entry in <nav to="main_library"> to start selecting.
+1. Tap the other entries you want with it.
+1. Tap **Merge** in the bottom bar.
+:::
 
-The **Merge** button appears in the bottom action bar once two or more entries are selected. The selected entries become one library card and share the same chapter list, progress, and library state going forward.
+The selected entries become one card and share a chapter list, progress and library state from then on.
 
-### Unmerge
+## Splitting a group up
 
-Two paths, both ending at the same confirmation:
+Splitting a source out returns it to a standalone library entry and leaves the rest of the group merged.
+Every route shows an undo snackbar, so a mistaken tap is recoverable.
 
-- **From the source chips**: *Manga details → long-press a source chip → confirm "Split".* Quickest if you only want to detach one source from the chip row you're already looking at.
-- **From the Manage sources dialog**: *Manga details → overflow menu (⋮) → Manage sources → choose a source → "Split".* Easier than chip long-press on smaller screens.
+::::tabs
+== From the chip row
+Long-press the source's chip on the details screen and confirm **Split**.
 
-Either way, the source you split goes back to being a standalone library entry; the rest of the group stays merged. The split shows an Undo snackbar, so an accidental tap can be reverted within the grace period.
+Quickest when you are already looking at the chip row.
+== From Manage sources
+On the details screen, open <nav to="overflow"> and tap **Manage sources**, then pick the source and tap **Split**.
 
-Merge grouping is included in app backups, so it survives a backup-and-restore.
+Easier than a long-press on a small screen.
+== Every group at once
+**Clear all merges** in <nav to="advanced">, once for manga and once for novels, splits every group you have back into separate entries.
+::::
 
-## Manage sources dialog
+Groups are saved in your backups, so they survive a backup and restore.
 
-*Manga details → overflow menu (⋮) → Manage sources.*
+## Manage sources
 
-This shared dialog (the same one for manga and novels) shows every source currently grouped with the open entry and offers:
+On the details screen, open <nav to="overflow"> and tap **Manage sources** to see every source grouped with the entry you have open.
 
-- **Drag to reorder**: each source row has a drag handle. Reordering sets which source leads the group, a per-group override of the global **Preferred sources** ranking. The top row is the group's lead and carries a **primary** badge; reordering applies live and re-aggregates the chapter list.
-- **Reset order**: clears the per-group override so the group falls back to the global Preferred sources ranking.
-- **Split**: detaches a source from the group (same effect as long-pressing its chip), leaving it as a standalone library entry.
-- **Remove from library**: unfavorites a source outright, deleting its downloaded chapters and covers. Useful when you want to drop an unwanted source duplicate entirely rather than just splitting it off.
-- **Remove all from library**: unfavorites every source in the merged group at once. This is the only way to remove a whole group in one action.
-- **Long-press multi-select**: long-pressing a source row enters selection mode for batch Split or Remove across several sources at once.
+- **Drag to reorder.** The top row leads the group's combined chapter list and carries a **Primary** badge. Reordering applies immediately, and overrides the global **Preferred sources** ranking for this group only.
+- **Reset order** drops that override, so the group falls back to the global ranking again.
+- **Split** detaches a source, the same as long-pressing its chip.
+- **Remove from library** unfavorites a source outright, which deletes its downloaded chapters and covers.
+- **Remove all from library** unfavorites every source in the group, which is the only way to remove a whole group from the details screen.
 
-Split and remove actions show an Undo snackbar, so an accidental tap can be reverted within the grace period.
+Long-press a row to select several sources and split or remove them together.
 
-## Removing merged entries from the library
+The global ranking those first two items refer to is **Preferred sources**, in <nav to="library"> under **Sources**.
+It decides which source leads a merged chapter list when a group has no order of its own.
 
-The favorite (heart) button on the manga details screen adds or removes only the one entry you're viewing. It does not offer a group-wide removal.
+## Removing a grouped series
 
-A library multi-select delete (long-press to multi-select, then delete) removes the entries you selected. When the selection includes a merged cover, the Remove dialog offers an **All N grouped sources** checkbox that widens the delete to every source in the group at once (manga and novels).
+The heart on the details screen only ever adds or removes the one source you are viewing.
 
-You can also remove an entire merged group from the details screen with **Remove all from library** in the Manage sources dialog (above).
+To remove more, select the entry in your library and delete it.
+When the selection includes a merged card, the Remove dialog gains an **All grouped sources (N)** checkbox.
 
-## Settings
-
-Two settings govern grouping, both under **Settings → Library**:
-
-- **Group series across sources**: the master toggle (also in the library display menu). Off expands every group to its per-source entries; on collapses them.
-- **Suggest grouping for same-title series**: gates the add-time "Add to existing group" prompt. When off, adding a same-title series never suggests joining an existing group.
-
-The manual merge and split actions themselves are driven through the chip and multi-select interactions described above.
+::: warning That checkbox starts ticked
+Removing a merged card removes every source behind it unless you untick it first.
+The alternative was worse: removing only the leading source leaves the others in your library but collapsed out of sight, so the entry looks half-deleted.
+:::

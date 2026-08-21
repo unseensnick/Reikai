@@ -60,7 +60,7 @@ A category that spans both libraries is a single category, not a copy in each, s
 
 ## Category sort order
 
-*Library → open the display settings sheet (the sliders icon) → **Display** tab → **Category sort order**, under Categories.*
+Open the display settings sheet in <nav to="main_library"> (the sliders icon), go to the **Display** tab, and set **Category sort order** under **Categories**.
 
 By default, categories appear in the order you arranged them, which you set by dragging them in the category manager. This setting lets you override that with a static sort:
 

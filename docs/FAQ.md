@@ -1,7 +1,17 @@
-# Reikai FAQ
+---
+title: Reikai
+titleTemplate: Frequently Asked Questions
+description: What Reikai is, where to get it, and how it differs from Mihon.
+---
 
-New here? These are the questions that come up most. For anything not covered, ask in
-[Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
+# Reikai
+
+The questions that come up most about the app itself.
+For how the reading experience works, the rest of this section and the [guides](/docs/guides/getting-started) cover it.
+
+::: tip Not answered here?
+Ask in [Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
+:::
 
 ## What is Reikai, and why was it rebuilt on Mihon?
 
@@ -19,13 +29,13 @@ and settings.
 Mostly Mihon, so nothing looks out of place, with the Yōkai touches I liked carried
 over: the single-list library view with the floating category hopper, dynamic grouping
 (by source, language, tag, and so on), and the cover-color accent on the details
-screen. To get the single-list look: Library, tap the filter/funnel icon, open the
-Display tab, and turn on "Show all categories in one list." Suggestions are welcome,
+screen. To get the single-list look, open the filter icon in <nav to="main_library">, go to the
+**Display** tab and turn on **Show all categories in one list**. Suggestions are welcome,
 but additions will still follow Mihon's design.
 
 ## How do I get updates? Is it on an app store?
 
-No app store. Reikai has a built-in updater: More, About, Check for updates. It checks
+No app store. Reikai has a built-in updater, in <nav to="about"> under **Check for updates**. It checks
 GitHub Releases, downloads the newest version, and installs it from the notification
 (or wherever your downloads land).
 
@@ -40,7 +50,7 @@ this repository's Releases, do not install it.
 ## Will updating keep my library and data? Should I back up?
 
 Yes, updates install in place and keep your library and settings. Back up first anyway
-(Settings, Data and storage, Create backup); good habit before any update.
+(<nav to="data-and-storage"> then **Create backup**); good habit before any update.
 
 ## Are extensions and sources supported?
 
@@ -79,7 +89,7 @@ To change it, switch to All and tap the cover there.
 ## Where do I report a bug, request a feature, or ask a question?
 
 - **Bug:** the [bug report form](https://github.com/unseensnick/Reikai/issues/new?template=2_report_issue.yml)
-  under Issues. Include your Reikai version (More, About, Version), Android version, and
+  under Issues. Include your Reikai version, from <nav to="about">, plus your Android version and
   device.
 - **Feature idea:** the [Ideas discussion](https://github.com/unseensnick/Reikai/discussions/categories/ideas),
   so it can be talked through first.

@@ -65,7 +65,7 @@ They are dropped only when the entry is deleted from the database, by **Clear da
 
 ## Refreshing every tracker at once
 
-*<nav to="main_library"> → the three-dot menu → **Refresh tracker data**.*
+Open the three-dot menu in <nav to="main_library"> and tap **Refresh tracker data**.
 
 Scores, statuses and remote progress are normally pulled when you open an entry, so an entry you have not opened lately can hold stale values, and the library can sort and filter on exactly those values. This pulls fresh data for every tracked entry in one pass, manga and light novels together, whichever library you are looking at.
 

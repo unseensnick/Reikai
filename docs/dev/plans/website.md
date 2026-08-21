@@ -48,7 +48,20 @@ In this repo:
 
 **The re-cut is done.** `categories.md`, `backup-restore.md` and `tracker-sync.md` were folded into the guide that already covered each topic and deleted; three answers moved out of `FAQ.md` into the FAQ page that owns them. `docs/guides/PORTING.md` carries both records.
 
-**Not done, in the order it matters.** The ported text has been debranded and spot-corrected, never audited against how Reikai behaves, and two statements turned out flatly wrong rather than merely stale. Nothing is published yet: no GitHub repo, no remote, no domain, no deploy.
+**Reikai's own seven pages were audited against the code and rewritten in Mihon's voice**: frontmatter, `<nav>` chips for in-app paths, `::: tip How to` step blocks, `Badge` defaults, `::: tabs` for variants. What the audit turned up is below.
+
+**Not done, in the order it matters.** The 23 ported pages have been debranded and spot-corrected, never audited against how Reikai behaves, and two statements turned out flatly wrong rather than merely stale. Nothing is published yet: no GitHub repo, no remote, no domain, no deploy.
+
+## What the audit of Reikai's own docs found
+
+Every label was checked against `strings.xml` and every setting against the screen that renders it.
+The docs were mostly right about behaviour and wrong about names, which is the failure mode to expect: behaviour is why you write the page, a label changes in a commit that never touches it.
+
+- **`related-mangas.md` was the stale one.** Nine setting names had moved on ("Candidate injection" is **Suggestions from your tracking**, "Tag search on current source" is **Matching your taste**, "Cross-recommendation from favorites" is **Because you're reading…**, and so on). Two sliders documented as five-step named scales are percentages. Three settings were missing entirely, including the master **Show related manga** and **Related manga placement**, which decides whether the row is on the page at all. A quoted toast no longer matches the string, and the browse grid's **Invert selection** does not exist: the toolbar is passed no such action.
+- **The grouped-remove checkbox is pre-ticked.** `multi-source.md` described **All grouped sources (N)** as an opt-in that widens a deletion. It starts checked, so removing a merged card removes every source behind it unless you untick it, which is the opposite default to what the page implied.
+- **The same-title suggestion is two settings now**, one per content type, and its label is "Suggest grouping same-titled series".
+- **`library-search.md` checked out clean.** Every field and alias matches `LibrarySearchAst.kt`, including which three are reachable only by name.
+- **A path rendered half-styled.** Writing a `<nav>` chip and then continuing the path by hand gave a coloured chip chain followed by plain-text arrows. The chips gained a `Recommendations` entry, the separator became a styled span, and the docs stopped hand-writing path arrows.
 
 ## Decisions & tradeoffs
 
