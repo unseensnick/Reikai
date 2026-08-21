@@ -16,6 +16,9 @@
 
     Injekt module files are discovered, not listed: a hard-coded list goes stale as the port deletes
     files, and a check that silently scans nothing reports success.
+    Registrations made directly on Injekt, outside any module, are scanned on the same terms. The
+    run ends by naming the handed-back types nothing reads any more: a hint, not a failure, since a
+    type reached through another module's untyped get() is invisible from here.
 #>
 [CmdletBinding()]
 param(
@@ -32,10 +35,13 @@ $srcRoots = @(
     'source-api/src/main/kotlin'
     'source-local/src/main/kotlin'
     'presentation-widget/src/main/java'
-) | ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { Test-Path -LiteralPath $_ }
+) | ForEach-Object { Join-Path $RepoRoot $_ }
 
-if ($srcRoots.Count -eq 0) {
-    Write-Error "di-interop-check: no source roots found under '$RepoRoot'. The path list is stale."
+# Every root has to exist. Dropping a missing one and carrying on is how a rename turns this into a
+# check that scans less than it claims and still reports success.
+$missingRoots = @($srcRoots | Where-Object { -not (Test-Path -LiteralPath $_) })
+if ($missingRoots.Count -gt 0) {
+    Write-Error "di-interop-check: source root(s) missing, the path list is stale:`n  $($missingRoots -join "`n  ")"
     exit 1
 }
 
@@ -68,7 +74,7 @@ if ($interopTypes.Count -eq 0) {
 
 # Every Injekt module in the tree, found by what it is rather than by where it used to live.
 $moduleFiles = @($sources | Where-Object {
-        [System.IO.File]::ReadAllText($_.FullName) -match ':\s*InjektModule\b'
+        [System.IO.File]::ReadAllText($_.FullName) -match '(?::\s*InjektModule\b|Injekt\.add\w+)'
     } | Where-Object { $_.FullName -ne $interopFile } | ForEach-Object { $_.FullName })
 
 # Index every declaration with its annotation block and its supertype list, so an interface handed
@@ -122,6 +128,8 @@ foreach ($type in $interopTypes) {
 }
 
 $violations = @()
+$registeredCtors = @()
+$registeredTypes = @()
 $unannotated = @()
 foreach ($file in $moduleFiles) {
     $rel = $file.Substring($RepoRoot.Length).TrimStart('\', '/')
@@ -144,10 +152,12 @@ foreach ($file in $moduleFiles) {
             if (-not $registered) { $registered = $ctor }
         }
 
+        if ($registered) { $registeredTypes += $registered }
         if ($registered -and $interopTypes -contains $registered) {
             $violations += "  $rel`:$($i + 1) registers $registered, which MetroInteropModule already hands back"
         }
         if ($ctor) {
+            $registeredCtors += $ctor
             $decl = $decls[$ctor]
             if ($decl -and -not $decl.HasMetro) {
                 $unannotated += "  $rel`:$($i + 1) registers $ctor, whose class carries no Metro annotation"
@@ -156,8 +166,73 @@ foreach ($file in $moduleFiles) {
     }
 }
 
+# Does anything still resolve these through Injekt? A registration nobody reads is not a failure,
+# because a type reached only through another module's untyped get() is invisible here, but it is
+# the list to look at before adding more.
+$readTypes = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($file in $sources) {
+    if ($file.FullName -eq $interopFile) { continue }
+    $text = [System.IO.File]::ReadAllText($file.FullName)
+    if (-not $text.Contains('uy.kohesive.injekt')) { continue }
+    foreach ($m in [regex]::Matches($text, '(?:Injekt\.get|Injekt\.getInstance|injectLazy)<\s*([A-Za-z0-9_.]+)')) {
+        [void]$readTypes.Add(($m.Groups[1].Value -split '\.')[-1])
+    }
+    # The sites whose type sits on the declaration rather than the call, which a <T> pattern misses.
+    foreach ($m in [regex]::Matches($text, ':\s*([A-Za-z0-9_.]+)(?:<[^>\r\n]*>)?\s*(?:get\(\)\s*)?(?:by injectLazy\(\)|=\s*Injekt\.get\(\))')) {
+        [void]$readTypes.Add(($m.Groups[1].Value -split '\.')[-1])
+    }
+}
+
+# A class a live module builds resolves its own constructor parameters through Injekt too, so walk
+# that closure before calling anything unread.
+function Get-ConstructorParamTypes([string]$typeName) {
+    $decl = $decls[$typeName]
+    if (-not $decl) { return @() }
+    $text = [System.IO.File]::ReadAllText($decl.Path)
+    $idx = [regex]::Match($text, "(?m)^(?:[\w ]*)\b(?:class|object) $([regex]::Escape($typeName))\b")
+    if (-not $idx.Success) { return @() }
+    $open = $text.IndexOf('(', $idx.Index)
+    if ($open -lt 0) { return @() }
+    $depth = 0
+    $end = -1
+    for ($i = $open; $i -lt $text.Length; $i++) {
+        if ($text[$i] -eq '(') { $depth++ }
+        elseif ($text[$i] -eq ')') { $depth--; if ($depth -eq 0) { $end = $i; break } }
+    }
+    if ($end -lt 0) { return @() }
+    $params = $text.Substring($open + 1, $end - $open - 1)
+    $found = @()
+    foreach ($m in [regex]::Matches($params, ':\s*(?:Provider<|Lazy<|\(\)\s*->\s*)?([A-Za-z0-9_.]+)')) {
+        $found += ($m.Groups[1].Value -split '\.')[-1]
+    }
+    return $found
+}
+
+$closure = [System.Collections.Generic.HashSet[string]]::new()
+$frontier = @($registeredCtors)
+while ($frontier.Count -gt 0) {
+    $next = @()
+    foreach ($type in $frontier) {
+        if (-not $closure.Add($type)) { continue }
+        $next += Get-ConstructorParamTypes $type
+    }
+    $frontier = $next
+}
+
+# The other direction, and the one that crashes: something resolves a type through Injekt that
+# nothing registers any more. There is no compile error behind this, only a throw on the first code
+# path that reaches the read.
+$knownRegistered = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($name in $interopTypes) { [void]$knownRegistered.Add($name) }
+foreach ($name in $registeredTypes) { [void]$knownRegistered.Add($name) }
+$unregistered = @($readTypes | Where-Object { -not $knownRegistered.Contains($_) } | Sort-Object)
+$unread = @($interopTypes | Where-Object { -not $readTypes.Contains($_) -and -not $closure.Contains($_) } | Sort-Object -Unique)
+
 $failed = $false
 foreach ($group in @(
+        @{ Message = 'a type is resolved through Injekt but registered nowhere.'; Items = @($unregistered | ForEach-Object { "  $_" })
+            Hint = 'Register it, or convert its reader onto the graph. Nothing fails at build time.'
+        },
         @{ Message = 'a registered class was never annotated for the graph.'; Items = $unannotated
             Hint = 'Annotate it, or drop the registration if the type is genuinely retired.'
         },
@@ -181,4 +256,11 @@ if ($failed) { exit 1 }
 
 $moduleLabel = if ($moduleFiles.Count -eq 0) { 'no Injekt modules left' } else { "$($moduleFiles.Count) Injekt module(s)" }
 Write-Host "di-interop-check: $($interopTypes.Count) graph-owned types, all scoped, $moduleLabel, no duplicates."
+
+if ($unread.Count -gt 0) {
+    Write-Host "di-interop-check: $($unread.Count) handed-back type(s) with no Injekt reader in the tree."
+    Write-Host "  $($unread -join ', ')"
+    Write-Host "  Not a failure: a type reached through another module's untyped get() cannot be seen"
+    Write-Host "  from here. Check before adding more, and drop the ones nothing needs."
+}
 exit 0
