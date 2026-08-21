@@ -130,7 +130,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Reader**
 
 - **The reader's quick reading-mode menu now highlights the mode you are actually reading in.** A series following your default used to show an empty grid, and opening the menu for a look no longer pins that mode to the series.
-- **Manhwa, manhua and webtoons now open in webtoon mode on their own, without switching anything on first.** Turn it off under Settings -> Reader if you would rather every series used your default reading mode.
+- **Manhwa, manhua and webtoons now open in webtoon mode on their own, and can be switched off under Settings -> Reader.** It reads each source's own genre tags, so a series none of your sources tags keeps using your default reading mode.
 - **Some image options under Settings -> Advanced are gone, now that manga pages decode through one modern decoder (synced from Mihon, mihonapp/mihon#3786).** The hardware bitmap threshold, legacy long strip decoding and custom display profile settings configured the legacy decoder, which went with it.
 
 **Tracking**
