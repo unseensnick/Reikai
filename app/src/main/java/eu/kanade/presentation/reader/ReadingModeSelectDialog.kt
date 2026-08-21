@@ -36,15 +36,23 @@ fun ReadingModeSelectDialog(
 ) {
     val manga by viewModel.mangaFlow.collectAsState()
     val readingMode = remember(manga) { ReadingMode.fromPreference(manga?.readingMode?.toInt()) }
+    // RK: what the reader actually resolved, which for a series on Default is the global default or
+    // auto webtoon's pick. Default is not one of the tiles, so seeding from [readingMode] alone left
+    // the grid with nothing highlighted and no way to tell what you were reading in.
+    val resolvedReadingMode = remember(manga) {
+        ReadingMode.fromPreference(viewModel.resolvedReadingMode())
+    }
 
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         DialogContent(
             readingMode = readingMode,
+            resolvedReadingMode = resolvedReadingMode,
             onChangeReadingMode = {
                 viewModel.onChangeReadingMode(it)
                 onChange(it.stringRes)
                 onDismissRequest()
             },
+            onDismissRequest = onDismissRequest,
         )
     }
 }
@@ -52,13 +60,17 @@ fun ReadingModeSelectDialog(
 @Composable
 private fun DialogContent(
     readingMode: ReadingMode,
+    resolvedReadingMode: ReadingMode,
     onChangeReadingMode: (ReadingMode) -> Unit,
+    onDismissRequest: () -> Unit,
 ) {
-    var selected by remember { mutableStateOf(readingMode) }
+    var selected by remember { mutableStateOf(resolvedReadingMode) }
 
     ModeSelectionDialog(
         onUseDefault = { onChangeReadingMode(ReadingMode.DEFAULT) }.takeIf { readingMode != ReadingMode.DEFAULT },
-        onApply = { onChangeReadingMode(selected) },
+        // RK: applying an inherited mode nobody touched would pin it to this series, turning a look
+        // into a choice. Only a real change writes; otherwise Apply just closes.
+        onApply = { if (selected != readingMode) onChangeReadingMode(selected) else onDismissRequest() },
     ) {
         SettingsIconGrid(MR.strings.pref_category_reading_mode) {
             items(ReadingModesWithoutDefault) { mode ->
@@ -84,12 +96,16 @@ private fun DialogContentPreview() {
             Column {
                 DialogContent(
                     readingMode = ReadingMode.DEFAULT,
+                    resolvedReadingMode = ReadingMode.RIGHT_TO_LEFT,
                     onChangeReadingMode = {},
+                    onDismissRequest = {},
                 )
 
                 DialogContent(
                     readingMode = ReadingMode.LEFT_TO_RIGHT,
+                    resolvedReadingMode = ReadingMode.LEFT_TO_RIGHT,
                     onChangeReadingMode = {},
+                    onDismissRequest = {},
                 )
             }
         }

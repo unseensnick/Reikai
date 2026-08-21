@@ -14,6 +14,11 @@ class ReaderSettingsViewModel(
     val onChangeReadingMode: (ReadingMode) -> Unit,
     val onChangeOrientation: (ReaderOrientation) -> Unit,
     val preferences: ReaderPreferences,
+    // RK: the mode the reader actually resolved, so the quick menu can show what is on screen
+    // rather than nothing. Supplied as a lambda over ReaderViewModel's own predicate, which already
+    // folds in the global default and auto webtoon; deriving it from the viewer would not work,
+    // since one viewer class serves both Webtoon and Continuous vertical.
+    val resolvedReadingMode: () -> Int = { ReadingMode.DEFAULT.flagValue },
 ) : ViewModel() {
 
     val viewerFlow = readerState

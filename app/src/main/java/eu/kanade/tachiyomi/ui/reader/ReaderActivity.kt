@@ -280,6 +280,8 @@ class ReaderActivity : BaseActivity() {
                 onChangeReadingMode = viewModel::setMangaReadingMode,
                 onChangeOrientation = viewModel::setMangaOrientationType,
                 preferences = readerPreferences,
+                // RK: resolved, so the quick menu highlights the mode actually in use
+                resolvedReadingMode = viewModel::getMangaReadingMode,
             )
         }
 
