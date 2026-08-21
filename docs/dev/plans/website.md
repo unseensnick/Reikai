@@ -34,18 +34,22 @@ In `../Reikai-website`:
 
 In this repo:
 
-- `docs/guides/`, `docs/faq/`: 23 debranded Mihon guides, staged and unpublished. `docs/guides/PORTING.md` is the record.
+- `docs/guides/`, `docs/faq/`: 23 debranded Mihon guides, staged and unpublished, with their illustrations beside them. `docs/guides/PORTING.md` is the record.
+- `docs/img/`: the file-tree icons those guides share, plus Reikai's own 64px icon.
 - `docs/built-in-sources.md`: the shorthand table, moved out of the adult sources page; linked by the issue template and the FAQ.
 
 ## Status
 
 **Scaffolded and running locally, nothing published.** No GitHub repo, no remote, no domain, no deploy. Home, download, changelogs and all ten user docs build and serve.
 
-**Not done, in the order it matters.** The ported guides are not wired into the site: `sync-docs.mjs` walks only the top level, deliberately, while those pages still carry Mihon's screenshots. **74 image and video references, 61 files and 7.5 MB in Mihon's `public/`, are screenshots of Mihon's app**, so each is a reuse, re-shoot or drop decision and this is the largest remaining piece. The `file`, `file jpg`, `file cbz` and `file-extension` span classes those docs use come from Mihon's stylesheet and need porting or rewriting. The existing nine docs would benefit from a re-cut (see Decisions).
+**The illustrations are settled.** All 28 assets were ruled on and now live beside their pages in this repo: 21 reader demos reused because Reikai's reader is upstream's unchanged, five app-UI crops re-shot as six because Mihon's were stale against their own app, one Android 7.1 clip dropped against `minSdk` 26, one Android system clip reused. The three double-tap animations went from animated WebP to VP9 WebM, 3.9 MB to 858 KB. `docs/guides/PORTING.md` carries the per-asset record.
+
+**Not done, in the order it matters.** The ported guides are still not wired into the site: `sync-docs.mjs` walks only the top level and copies only `.md`, so it has to recurse and carry the assets into `src/public/docs/`. Eight `/forks/` links point at pages Reikai's site does not have, and the build fails on dead links. The `file`, `file jpg`, `file cbz` and `file-extension` span classes those docs use come from Mihon's stylesheet and need porting or rewriting. The existing nine docs would benefit from a re-cut (see Decisions).
 
 ## Decisions & tradeoffs
 
 - **Docs stay in the app repo** (owner, 2026-08-21). The alternative is a copy in the site repo, and the drift argument above is not theoretical.
+- **So do their illustrations.** A screenshot is invalidated by the same UI change that invalidates the sentence next to it, so it belongs in the repo where that change lands, referenced by an absolute `/docs/...` path and copied into the site's `public/` at sync time. The app repo already carries 29 MB of README assets, so 6 MB of doc captures is not a new kind of cost.
 - **Buy the domain before shipping an in-app link to it** (owner, 2026-08-21). Pages hosting is free either way and supports custom domains, so the money buys only the name. It matters because in-app help URLs ship inside released APKs and live forever: a `github.io` path dies if the repo or account is ever renamed, a domain is a DNS change. Starting on Pages and adding the domain later is safe, since GitHub redirects the old URL.
 - **Re-cut the existing docs after merging the ported guides, not before.** They overlap directly: `categories.md` against `guides/categories.md`, `backup-restore.md` against `guides/backups.md`, `tracker-sync.md` against `guides/tracking.md`, and one `FAQ.md` against six FAQ files. Re-cutting first means doing the work twice.
 - **Publishing still trades against the public-facing naming rule.** A docs site can stay plain and source-name-free, but it is indexed. `docs/adult-sources.md` names the sources 8 times and cannot avoid it, since the in-app toggle is labelled with one. Whether it publishes is unresolved.

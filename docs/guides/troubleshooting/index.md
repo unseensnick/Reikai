@@ -89,23 +89,23 @@ Wait for the source to lower its protection or switch to different sources.
 ## General
 
 ### Obtaining crash/error logs
-For crash investigations, navigate to <nav to="advanced"> and tap **Dump crash logs**.
+For crash investigations, navigate to <nav to="advanced"> and tap **Share crash logs**.
 
 <img
   class="only-light"
-  src="/docs/guides/troubleshooting/dump-crash-logs.dark.webp"
-  alt="Dump crashlogs"
-  width="512"
-  height="386"
+  src="/docs/guides/troubleshooting/share-crash-logs.light.webp"
+  alt="Share crash logs"
+  width="672"
+  height="360"
   loading="lazy"
   decoding="async"
 />
 <img
   class="only-dark"
-  src="/docs/guides/troubleshooting/dump-crash-logs.dark.webp"
-  alt="Dump crashlogs"
-  width="512"
-  height="386"
+  src="/docs/guides/troubleshooting/share-crash-logs.dark.webp"
+  alt="Share crash logs"
+  width="672"
+  height="360"
   loading="lazy"
   decoding="async"
 />

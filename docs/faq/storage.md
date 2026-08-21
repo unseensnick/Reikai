@@ -20,50 +20,50 @@ The following illustrates the folder structure:
 :::info Example
 <div class="tree">
   <ul>
-    <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+    <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
     <span class="folder root">[your selected storage location]</span>
     <li>
-      <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+      <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
       <span class="folder main">autobackup</span>
       <ul>
         <li>
-          <img src="/img/mihon-64px.png" alt="File" class="tree-icon icon-mihon">
-          <span class="file jpg">app.mihon_yyyy-mm-dd_hh-mm<span class="file-extension">.tachibk</span></span>
+          <img src="/docs/img/reikai-64px.png" alt="File" class="tree-icon icon-reikai">
+          <span class="file jpg">eu.kanade.tachiyomi.y2k_yyyy-mm-dd_hh-mm<span class="file-extension">.tachibk</span></span>
         </li>
         <li>
-          <img src="/img/mihon-64px.png" alt="File" class="tree-icon icon-mihon">
+          <img src="/docs/img/reikai-64px.png" alt="File" class="tree-icon icon-reikai">
           <span>...</span>
         </li>
       </ul>
     </li>
     <li>
-      <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+      <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
       <span class="folder main">downloads</span>
       <ul>
         <li>
-          <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+          <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
           <span class="folder dynamic">Source name (LANG)</span>
             <ul>
               <li>
-                <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+                <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
                 <span class="folder dynamic">Series title</span>
                 <ul>
                   <li>
-                    <img src="/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
+                    <img src="/docs/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
                     <span class="file cbz">Chapter01<span class="file-extension">.cbz</span></span>
                   </li>
                   <li>
-                    <img src="/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
+                    <img src="/docs/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
                     <span class="file cbz">...</span>
                   </li>
                 </ul>
               </li>
               <li>
-                <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+                <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
                 <span class="folder dynamic">Other series title</span>
                 <ul>
                   <li>
-                    <img src="/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
+                    <img src="/docs/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
                     <span class="file cbz">Chapter01<span class="file-extension">.cbz</span></span>
                   </li>
                 </ul>
@@ -73,29 +73,29 @@ The following illustrates the folder structure:
       </ul>
     </li>
     <li>
-      <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+      <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
       <span class="folder main">local</span>
       <ul>
         <li>
-          <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+          <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
           <span class="folder dynamic">Series title</span>
           <ul>
             <li>
-              <img src="/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
+              <img src="/docs/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
               <span class="file cbz">Chapter01<span class="file-extension">.cbz</span></span>
             </li>
             <li>
-              <img src="/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
+              <img src="/docs/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
               <span class="file cbz">...</span>
             </li>
           </ul>
         </li>
         <li>
-          <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+          <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
           <span class="folder dynamic">Other series title</span>
           <ul>
             <li>
-              <img src="/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
+              <img src="/docs/img/zip.svg" alt="Compressed File" class="tree-icon icon-cbz">
               <span class="file cbz">Chapter01<span class="file-extension">.cbz</span></span>
             </li>
           </ul>

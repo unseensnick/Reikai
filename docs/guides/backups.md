@@ -16,18 +16,18 @@ You can transfer and restore backup files between devices and [endorsed forks](/
 <img
   class="only-light"
   src="/docs/guides/backups/backup.light.webp"
-  alt="Backup and Restore"
-  width="414"
-  height="194"
+  alt="Backup and restore"
+  width="672"
+  height="190"
   loading="lazy"
   decoding="async"
 />
 <img
   class="only-dark"
   src="/docs/guides/backups/backup.dark.webp"
-  alt="Backup and Restore"
-  width="414"
-  height="194"
+  alt="Backup and restore"
+  width="672"
+  height="190"
   loading="lazy"
   decoding="async"
 />
@@ -93,18 +93,18 @@ It is highly recommended to enable automatic backups to ensure you can recover i
 <img
   class="only-light"
   src="/docs/guides/backups/automatic_backups.light.webp"
-  alt="Automatic Backups"
-  width="414"
-  height="402"
+  alt="Automatic backups"
+  width="672"
+  height="530"
   loading="lazy"
   decoding="async"
 />
 <img
   class="only-dark"
   src="/docs/guides/backups/automatic_backups.dark.webp"
-  alt="Automatic Backups"
-  width="414"
-  height="402"
+  alt="Automatic backups"
+  width="672"
+  height="530"
   loading="lazy"
   decoding="async"
 />
