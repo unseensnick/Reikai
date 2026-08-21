@@ -52,6 +52,10 @@ In this repo:
 
 **Every ported page has now been read against the app**, in three passes: labels against `strings.xml`, the migrate flow walked on a device, then each page opened against the screen it describes. `docs/guides/PORTING.md` carries what each pass found.
 
+**The site has a face now.** A hero built from the app's own showcase stills, an icon and a link on every feature card, an icon per project on Related apps, and a channel badge on each download card. To rebuild the hero: run `make-frames.sh` in `.github/readme-images/showcase/` to put `p1a_manga_lib` and `p1b_novel_lib` in the device frame, composite the two with the novel one behind at 90% and overlapping by 22%, and export a transparent WebP at 900px wide. Transparent rather than a light/dark pair, so one file serves both themes. The download page shows the latest release notes capped at twelve changes, since 0.3.0 alone runs to 99 and an uncapped list pushes the downloads off the screen.
+
+**Two site pages beyond the docs**: [Related apps](../../../Reikai-website/src/related/index.md), eight projects in the lineage described on their own terms, and a privacy policy written from what the build does rather than a template.
+
 **Not deployed.** The repo is public and `main` is pushed, but there is no Pages build, no domain and no in-app link. The repo itself is MPL-2.0, matching Mihon's website, since enough of the site derives from it.
 
 ## What the audit of Reikai's own docs found
@@ -64,6 +68,16 @@ The docs were mostly right about behaviour and wrong about names, which is the f
 - **The same-title suggestion is two settings now**, one per content type, and its label is "Suggest grouping same-titled series".
 - **`library-search.md` checked out clean.** Every field and alias matches `LibrarySearchAst.kt`, including which three are reachable only by name.
 - **A path rendered half-styled.** Writing a `<nav>` chip and then continuing the path by hand gave a coloured chip chain followed by plain-text arrows. The chips gained a `Recommendations` entry, the separator became a styled span, and the docs stopped hand-writing path arrows.
+
+## The privacy policy is a claim about the build
+
+Written from `release.yml` and `nightly.yml`, both of which pass `-Pinclude-telemetry`, and from
+`PrivacyPreferences`, where `crashlytics` and `analytics` both default to `true`. So official builds
+do ship Firebase Crashlytics and Analytics, on by default, with both switches shown during onboarding
+and in Security and privacy. The page says that plainly rather than implying the app collects nothing.
+
+**That makes it a page the build can invalidate.** If the release workflow ever stops passing the
+flag, or a default flips, the policy is wrong until someone edits it. Check it when either changes.
 
 ## Decisions & tradeoffs
 
