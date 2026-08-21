@@ -883,13 +883,6 @@
     <string name="action_webview_close_tab">关闭标签</string>
     <string name="action_filter_excluded_scanlators">筛选排除翻译组</string>
     <string name="download_bookmarked">已添加书签</string>
-    <string name="label_support_us">支持我们</string>
-    <string name="supportUsScreen.perks">赞助者可访问专属频道，更多福利即将推出。</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon（首选）</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">目前 Mihon 已获得 %d+ 位赞助者的支持。我们衷心感谢大家。让我们携手把 Mihon 办得更出色。</string>
-    <string name="supportUsScreen.contactForDetailsMessage">如需替代方案或有任何相关问题，请加入我们的 Discord 服务器。</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
     <string name="extensionStores">插件商店</string>
     <string name="action.addExtensionStore">添加插件商店</string>
     <string name="extensionStoresScreen.emptyLabel">尚未添加插件商店</string>

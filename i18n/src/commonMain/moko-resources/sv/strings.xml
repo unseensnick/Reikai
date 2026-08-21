@@ -818,10 +818,6 @@
     <string name="storage_failed_to_create_download_directory">Misslyckades med att skapa nedladdningskatalog</string>
     <string name="migrationListScreen.migrateDialog.cancelLabel">Avbryt</string>
     <string name="migrationListScreen.progressDialog.cancelLabel">Avbryt</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (föredragen)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="label_support_us">Stöd oss</string>
     <string name="action_display_unread_badge">Olästa kapitel</string>
     <string name="action_notes">Anteckningar</string>
     <string name="action_edit_notes">Redigera anteckningar</string>
@@ -886,9 +882,6 @@
     <string name="migrationListScreen.migrateDialog.copyLabel">Kopiera</string>
     <string name="migrationListScreen.migrateDialog.migrateLabel">Migrera</string>
     <string name="migrationListScreen.matchWithoutChapterToast">Inga kapitel fanns, den här artikeln kan inte användas för migrering</string>
-    <string name="supportUsScreen.perks">Stödjare på Patreon får tillgång till exklusiva kanaler, med fler förmåner i framtiden.</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon stöds för närvarande av %d+ personer på Patreon. Vi vill tacka var och en av er. Låt oss göra Mihon ännu bättre tillsammans.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">För alternativa alternativ eller andra relaterade frågor, gå med i vår Discord-server.</string>
     <string name="label_auto">Automatisk</string>
     <string name="extensionStores">Tilläggsdepåer</string>
     <string name="action.addExtensionStore">Lägg till tilläggsdepå</string>

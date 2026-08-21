@@ -875,13 +875,6 @@
     <string name="action_webview_close_tab">關閉頁籤</string>
     <string name="action_filter_excluded_scanlators">篩選排除掃譯者</string>
     <string name="download_bookmarked">已新增書籤</string>
-    <string name="label_support_us">支持我們</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="supportUsScreen.perks">贊助者可使用專屬頻道，未來也會提供更多福利。</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon（建議優先使用）</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon 目前由 %d 位以上的贊助者支持。感謝每一位的支持，讓我們一起讓 Mihon 變得更好。</string>
-    <string name="supportUsScreen.contactForDetailsMessage">如需其他贊助方式或有相關問題，請加入我們的 Discord 伺服器。</string>
     <string name="extensionStores">擴充套件商店</string>
     <string name="action.addExtensionStore">新增擴充套件商店</string>
     <string name="extensionStoresScreen.emptyLabel">你尚未新增任何擴充套件商店</string>

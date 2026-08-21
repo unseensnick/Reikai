@@ -760,5 +760,4 @@
     <string name="pref_mark_duplicate_read_chapter_read">סימון פרקים כפולים כ\'נקרא\'</string>
     <string name="clear_database_text">פעולה זו תסיר פריטים ממסד הנתונים</string>
     <string name="unlock_app_title">פתיחת %s</string>
-    <string name="label_support_us">תמיכה בפרויקט</string>
 </resources>

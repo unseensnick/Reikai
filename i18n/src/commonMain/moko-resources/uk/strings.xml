@@ -823,7 +823,6 @@
     <string name="library_list">Список бібліотеки</string>
     <string name="possible_duplicates_summary">У вашій бібліотеці є записи зі схожою назвою.\n\nВиберіть запис для перенесення або просто додайте.</string>
     <string name="clear_db_exclude_read">Зберегти записи з прочитаними розділами</string>
-    <string name="label_support_us">Підтримати нас</string>
     <string name="action_webview_close_tab">Закрити вкладку</string>
     <string name="theme_catppuccin">Catppuccin</string>
     <string name="pref_display_images_description">Рендерити зображення в описах манґи</string>

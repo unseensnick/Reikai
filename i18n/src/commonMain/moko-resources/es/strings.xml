@@ -877,13 +877,6 @@
     <string name="action_webview_close_tab">Cerrar pestaña</string>
     <string name="action_filter_excluded_scanlators">Ocultar equipos de traducción excluidos</string>
     <string name="download_bookmarked">Favoritos</string>
-    <string name="label_support_us">Apóyanos</string>
-    <string name="supportUsScreen.perks">Las personas que contribuyan obtendrán acceso a canales exclusivos, y en el futuro tendréis muchas más ventajas.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (preferido)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon cuenta ahora mismo con el apoyo de %d+ personas. Os damos las gracias de corazón por hacer que Mihon mejore día a día.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Únete a nuestro servidor de Discord si tienes dudas u otras formas de pago.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
     <string name="extensionStores">Listados de extensiones</string>
     <string name="action.addExtensionStore">Añadir listado de extensiones</string>
     <string name="extensionStoresScreen.emptyLabel">Todavía no has configurado ningún listado de extensiones</string>

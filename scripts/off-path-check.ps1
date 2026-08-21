@@ -66,14 +66,21 @@ foreach ($group in $entries | Group-Object Upstream) {
     if (-not $base) { Write-Host "skip ${upstream}: no base SHA passed"; continue }
 
     foreach ($e in $group.Group) {
+        # An empty Replacement is a declined feature: Reikai deleted the file and replaced it with
+        # nothing, so an upstream change is a prompt to re-confirm the decision, not to port anything.
+        $action = if ([string]::IsNullOrWhiteSpace($e.Replacement)) {
+            "declined feature, confirm the decision still holds"
+        } else {
+            "reconcile into $($e.Replacement)"
+        }
         git -C $clone cat-file -e "${through}:$($e.Path)" 2>$null
         if ($LASTEXITCODE -ne 0) {
-            $changed += "  VANISHED $($e.Path)`n           -> reconcile into $($e.Replacement)"
+            $changed += "  VANISHED $($e.Path)`n           -> $action"
             continue
         }
         $diff = git -C $clone diff --name-only "$base..$through" -- $e.Path
         if ($diff) {
-            $changed += "  CHANGED  $($e.Path)`n           -> reconcile into $($e.Replacement)"
+            $changed += "  CHANGED  $($e.Path)`n           -> $action"
         }
     }
 }

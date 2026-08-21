@@ -882,7 +882,6 @@
     <string name="pref_download_concurrent_pages">Téléchargements simultanés de pages</string>
     <string name="pref_download_concurrent_pages_summary">Pages téléchargées simultanément par source</string>
     <string name="action_filter_excluded_scanlators">Filtrer les scantrads exclus</string>
-    <string name="label_support_us">Nous Soutenir</string>
     <string name="extensionStores">Magasin d\'extensions</string>
     <string name="action.addExtensionStore">Ajouter un magasin d\'extension</string>
     <string name="extensionStoresScreen.emptyLabel">Vous n\'avez pas encore ajouté de magasin d\'extension</string>
@@ -895,10 +894,4 @@
     <string name="extensionStoresScreen.deleteStore.body">Souhaitez-vous retirer le magasin d\'extension \"%1$s\" (%2$s) ?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Placer le menu de navigation à gauche</string>
     <string name="download_bookmarked">Mis en favoris</string>
-    <string name="supportUsScreen.perks">Les donnateurs ont accès à des canaux exclusifs, avec plus d\'avantages à venir.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (de préférence)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon est actuellement soutenu par %d+ donnateurs. Nous souhaitons remercier chacun d\'entre vous. Rendons Mihon encore meilleur tous ensemble.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Pour d\'autres options ou pour poser une question, rejoignez notre serveur Discord.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
 </resources>

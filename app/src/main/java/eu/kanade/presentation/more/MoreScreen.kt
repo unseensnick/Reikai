@@ -44,7 +44,6 @@ fun MoreScreen(
     onClickBatchAdd: () -> Unit,
     // RK <--
     onClickSettings: () -> Unit,
-    onClickSupport: () -> Unit,
     onClickAbout: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -148,7 +147,8 @@ fun MoreScreen(
                     onPreferenceClick = onClickSettings,
                 )
             }
-            // RK: Reikai does not run Mihon's donation/support campaign, so no "Support us" entry.
+            // RK: no "Support us" entry. Reikai runs no donation campaign, and Mihon's screen and
+            // strings were deleted rather than left dead; see the off-path manifest.
             item {
                 TextPreferenceWidget(
                     title = stringResource(MR.strings.pref_category_about),

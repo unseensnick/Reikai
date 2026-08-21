@@ -883,7 +883,6 @@
     <string name="migrationConfigScreen.prioritizeByChaptersSubtitle">Je-li povoleno, vybere shodu, která je nejdále. V opačném případě vybere první shodu podle priority zdroje.</string>
     <string name="pref_display_images_description">Zobrazovat obrázky v popisu mangy</string>
     <string name="clear_database_history_warning">Přečtené kapitoly a postup u položek mimo knihovnu bude ztracen</string>
-    <string name="label_support_us">Podpořte nás</string>
     <string name="extensionStores">Obchody s doplňky</string>
     <string name="action.addExtensionStore">Přidat obchod s doplňky</string>
     <string name="extensionStoresScreen.emptyLabel">Ještě jste nepřidali obchod s doplňky</string>
@@ -895,12 +894,6 @@
     <string name="extensionStoresScreen.deleteStore.title">Odstranit obchod doplňků</string>
     <string name="extensionStoresScreen.deleteStore.body">Chcete odstranit obchod s doplňky „%1$s“ (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Umístěte svislý navigační panel na levou stranu</string>
-    <string name="supportUsScreen.perks">Patronům se otevírá přístup k exkluzivním kanálům a další výhody budou následovat.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (upřednostňováno)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Projekt Mihon v současné době podporuje %d+ sponzorů. Chceme poděkovat každému z vás. Pojďme společně projekt Mihon ještě vylepšit.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Pokud hledáte další možnosti nebo máte jakékoli související dotazy, připojte se k našemu serveru na Discord.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
     <string name="considering">S ohledem na</string>
     <string name="pref_vertical_navigator">Použijte svislý navigační panel kapitol v</string>
     <string name="pref_vertical_navigator_height">Vertikální výška navigátoru</string>

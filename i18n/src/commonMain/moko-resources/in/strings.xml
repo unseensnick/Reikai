@@ -882,7 +882,6 @@
     <string name="pref_download_concurrent_pages_summary">Halaman yang diunduh secara bersamaan per sumber</string>
     <string name="action_webview_close_tab">Tutup tab</string>
     <string name="action_filter_excluded_scanlators">Filter yang mengecualikan pemindai</string>
-    <string name="label_support_us">Dukung Kami</string>
     <string name="extensionStores">Tempat ekstensi</string>
     <string name="action.addExtensionStore">Tambah ekstensi</string>
     <string name="extensionStoresScreen.emptyLabel">Anda belum menambahkan ekstensi</string>
@@ -895,10 +894,4 @@
     <string name="extensionStoresScreen.addStoreInput.inputLabel">Menyimpan indeks URL</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Tempatkan navigator vertikal di sisi kiri</string>
     <string name="download_bookmarked">Ditandai</string>
-    <string name="supportUsScreen.perks">Patrons mendapatkan akses ke saluran eksklusif, dengan lebih banyak keuntungan yang akan datang.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (preferred)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon saat ini didukung oleh %d + patrons. Kami ingin berterima kasih kepada kalian semua. Mari buat Mihon menjadi lebih baik bersama-sama.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Untuk opsi lain atau pertanyaan terkait apa pun, silakan bergabung dengan server Discord kami.</string>
 </resources>

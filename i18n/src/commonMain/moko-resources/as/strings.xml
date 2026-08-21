@@ -803,7 +803,6 @@
     <string name="clear_db_exclude_read">পঢ়া অধ্যায় থকা প্ৰৱিষ্টি ৰাখক</string>
     <string name="author">লেখক</string>
     <string name="artist">শিল্পী</string>
-    <string name="label_support_us">আমাক সমৰ্থন কৰক</string>
     <string name="action_display_unread_badge">অপঠিত অধ্যায়</string>
     <string name="action_notes">টোকা</string>
     <string name="action_edit_notes">টোকা সম্পাদনা কৰক</string>
@@ -876,10 +875,4 @@
     <string name="migrationListScreen.migrateDialog.cancelLabel">বাতিল কৰক</string>
     <string name="migrationListScreen.progressDialog.cancelLabel">বাতিল কৰক</string>
     <string name="migrationListScreen.matchWithoutChapterToast">কোনো অধ্যায় পোৱা নগ\'ল, এই প্ৰৱিষ্টি স্থানান্তৰৰ বাবে ব্যৱহাৰ কৰিব নোৱাৰি</string>
-    <string name="supportUsScreen.perks">পেট্ৰনসকলে এক্সক্লুছিভ চেনেলবোৰলৈ প্ৰৱেশ পায়, অধিক সুবিধা আহি আছে।</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (পছন্দৰ)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon বৰ্তমান %d+ পেট্ৰনৰ দ্বাৰা সমৰ্থিত। আমি আপোনালোক প্ৰত্যেকজনক ধন্যবাদ জনাইছো। মিলি Mihon ক আৰু উন্নত কৰোঁ আহক।</string>
-    <string name="supportUsScreen.contactForDetailsMessage">বিকল্প বা যিকোনো সম্পৰ্কীয় প্ৰশ্নৰ বাবে, আমাৰ Discord চাৰ্ভাৰত যোগদান কৰক।</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
 </resources>

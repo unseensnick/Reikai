@@ -220,7 +220,6 @@
     <string name="migrationListScreenTitle">സ്ഥലാന്തരീകരണം</string>
     <string name="migrationConfigScreen.continueButtonText">തുടരുക</string>
     <string name="migrationConfigScreen.availableHeader">ലഭ്യം</string>
-    <string name="label_support_us">ഞങ്ങളെ സഹായിക്കു</string>
     <string name="label_auto">യാന്ത്രികമായ</string>
     <string name="action_display_unread_badge">വായിച്ചിട്ടിലാത്ത അദ്ധ്യായം</string>
     <string name="action_move_to_bottom_all_for_series">പരമ്പര അടിത്തട്ടിലേക്ക് നീക്കുക</string>

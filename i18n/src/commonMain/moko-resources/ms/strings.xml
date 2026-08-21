@@ -876,7 +876,6 @@
     <string name="pref_download_concurrent_pages_summary">Halaman dimuat turun serentak per sumber</string>
     <string name="action_webview_close_tab">Tab Tutup</string>
     <string name="crash_screen_description">%s mengalami ralat tidak dijangka. Kami mencadangkan anda untuk kongsi log kerosakan melalui saluran bantuan kami dalam Discord.</string>
-    <string name="label_support_us">Bantu Kami</string>
     <string name="downloading_with_progress">Memuat turun... (%d%%)</string>
     <string name="extensionStores">Gudang sambungan</string>
     <string name="action.addExtensionStore">Tambah gudang sambungan</string>
@@ -896,10 +895,4 @@
     <string name="considering">Dalam fikiran</string>
     <string name="action_filter_excluded_scanlators">Tapis scanlator dikecualikan</string>
     <string name="pref_filter_upcoming_categories_details">Tajuk dalam kategori yang dikecualikan tidak akan ditunjuk, walaupun ia juga terdapat dalam kategori yang disertakan.</string>
-    <string name="supportUsScreen.perks">Patron mendapat akses ke saluran eksklusif, dengan lebih faedah akan datang.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (diutamakan)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon sedang disokong oleh %d+ penaung. Kami mahu berterima kasih kepada setiap anda semua. Marilah kita membuat Mihon lebih bagus bersama-sama.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Untuk pilihan alternatif ataupun soalan berkaitan, sertai pelayan Discord kami.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
 </resources>

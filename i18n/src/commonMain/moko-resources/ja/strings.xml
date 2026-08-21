@@ -844,7 +844,6 @@
     <string name="migrationConfigScreen.continueButtonText">移行</string>
     <string name="migrationConfigScreen.removeDownloadsTitle">移行後に既存のダウンロード済みデータを削除する</string>
     <string name="crash_screen_description">%s で予期せぬエラーが発生しました。クラッシュログを Discord のサポートチャンネルで共有することをお勧めします。</string>
-    <string name="label_support_us">支援する</string>
     <string name="extensionStores">拡張機能ストア</string>
     <string name="action.addExtensionStore">拡張機能ストアを追加</string>
     <string name="extensionStoresScreen.emptyLabel">拡張機能ストアをまだ追加していません</string>
@@ -879,12 +878,6 @@
     <string name="migrationListScreen.migrateDialog.migrateLabel">移行</string>
     <string name="migrationListScreen.migrateDialog.cancelLabel">キャンセル</string>
     <string name="migrationListScreen.progressDialog.cancelLabel">キャンセル</string>
-    <string name="supportUsScreen.perks">支援者は限定チャンネルにアクセスできるほか、今後さらに多くの特典が追加される予定です。</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon（推奨）</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon は現在、%d 人以上の支援者の方々にご支援いただいています。皆様一人ひとりに心より感謝申し上げます。共に Mihon をさらに素晴らしいものにしていきましょう。</string>
-    <string name="supportUsScreen.contactForDetailsMessage">代替案や関連するご質問については、Discord サーバーにご参加ください。</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
     <string name="pref_vertical_navigator">垂直な章ナビゲーターを使用</string>
     <string name="pref_vertical_navigator_height">垂直ナビゲーターの高さ</string>
     <string name="pref_webtoon_vertical_navigator_on_left">垂直ナビゲーターを左側に配置</string>

@@ -883,13 +883,6 @@
     <string name="action_webview_close_tab">Tab schließen</string>
     <string name="action_filter_excluded_scanlators">Ausgeschlossene Scanlationgruppen herausfiltern</string>
     <string name="download_bookmarked">Mit Lesezeichen versehen</string>
-    <string name="label_support_us">Unterstütze Uns</string>
-    <string name="supportUsScreen.perks">Unterstützende erhalten Zugang zu exklusiven Kanälen. Weitere Vorteile folgen.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (bevorzugt)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon wird aktuell von %d+ Personen unterstützt. Wir bedanken uns bei euch allen. Lasst uns Mihon gemeinsam noch besser machen.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Trete unserem Discord-Server für alternative Optionen oder bei weiteren Fragen bei.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
     <string name="extensionStores">Erweiterungsdepots</string>
     <string name="action.addExtensionStore">Erweiterungsdepot hinzufügen</string>
     <string name="extensionStoresScreen.emptyLabel">Du hast noch kein Erweiterungsdepot hinzugefügt</string>

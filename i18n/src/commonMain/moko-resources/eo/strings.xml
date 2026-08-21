@@ -875,7 +875,6 @@
     <string name="pref_download_concurrent_pages_summary">Paĝoj elŝutitaj sammomente por fonto</string>
     <string name="action_filter_excluded_scanlators">Filtri ekskluzivitajn skantradukistojn</string>
     <string name="download_bookmarked">Legosignita</string>
-    <string name="label_support_us">Subtenu nin</string>
     <string name="extensionStores">Etendaĵejoj</string>
     <string name="action.addExtensionStore">Aldoni etendaĵejon</string>
     <string name="extensionStoresScreen.emptyLabel">Vi ankoraŭ aldonis neniun etendaĵejon</string>
@@ -887,12 +886,6 @@
     <string name="extensionStoresScreen.deleteStore.title">Forigi etendaĵejon</string>
     <string name="extensionStoresScreen.deleteStore.body">Ĉu vi volas forigi la etendaĵejon \"%1$s\" (%2$s)?</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Loki vertikalan navigilon ĉe la maldekstra flanko</string>
-    <string name="supportUsScreen.perks">Donacantoj ricevas aliron al ekskluzivaj kanaloj, kaj pli da avantaĝoj poste.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (preferata)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Mihon estas nun finance subtenata de %d+ patronoj. Ni volas danki ĉiun el vi. Ni plibonigu Mihon eĉ pli kune.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Por alternativaj opcioj aŭ iaj ajn rilataj demandoj, aniĝu al nia Discord-servilo.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
     <string name="pref_filter_upcoming_categories_details">Titoloj en ekskluzivitaj kategorioj ne estos montrotaj, eĉ se ili estas ankaŭ en inkluzivitaj kategorioj.</string>
     <string name="considering">Konsiderataj</string>
     <string name="pref_vertical_navigator_height">Alto de vertikala navigilo</string>

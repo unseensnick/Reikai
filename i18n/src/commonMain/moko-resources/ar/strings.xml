@@ -875,13 +875,6 @@
     <string name="pref_download_concurrent_sources">تنزيل مصادر متعددة في وقت واحد</string>
     <string name="pref_download_concurrent_pages">تنزيل صفحات متعددة في وقت واحد</string>
     <string name="pref_download_concurrent_pages_summary">عدد الصفحات التي يتم تنزيلها في وقت واحد لكل مصدر</string>
-    <string name="label_support_us">إدعمنا</string>
     <string name="download_bookmarked">المحفوظة</string>
     <string name="action_filter_excluded_scanlators">تصفية مواسح الترجمة المستبعدة</string>
-    <string name="supportUsScreen.perks">يحصل الداعمون على إمكانية الوصول إلى قنوات حصرية، مع المزيد من الامتيازات القادمة.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">داعم على باتريون (مستحسنة)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">منصة « OpenCollective»</string>
-    <string name="supportUsScreen.currentlySupportedBy">ميهون مدعوم حاليًا بواسطة %d+ داعم. نشكركم جميعًا لدعمكم . معًا لجعل ميهون مكانًا أفضل.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">للحصول على خيارات بديلة أو أي أسئلة ذات صلة، انضم إلى خادم ديسكورد الخاص بنا.</string>
-    <string name="supportUsScreen.contactPlatform">ديسكورد</string>
 </resources>

@@ -33,10 +33,17 @@ Install the hooks on a fresh clone with the command in [upstream-sync.md](upstre
 
 ## Manifest
 
+**A row with an empty Replacement is a declined feature, not an oversight.** Most rows name the twin
+that renders the surface instead. A few name nothing, because Reikai deleted the file rather than
+replacing it: the feature is one this fork does not run at all. On a sync the action for those is to
+confirm the decision still holds, not to reconcile the change into anything. The `pre-commit`
+replacement check skips an empty cell for exactly this case.
+
 The path is relative to the repo root and matches the `refs/` clone layout. `Upstream` selects which clone the check diffs (`mihon`, or `tsundoku` once the reader migrates). Every row whose first column starts with a lower-case module directory is machine-read by the sync script; keep the three-column shape.
 
 | Upstream path | Upstream | Replacement |
 |---|---|---|
+| app/src/main/java/mihon/feature/support/SupportUsScreen.kt | mihon |  |
 | app/src/main/java/eu/kanade/presentation/manga/MangaScreen.kt | mihon | reikai/presentation/details/EntryDetailsContent.kt |
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaToolbar.kt | mihon | reikai/presentation/details/EntryToolbar.kt |
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaCoverDialog.kt | mihon | reikai/presentation/components/EntryCoverDialog.kt |
@@ -100,3 +107,5 @@ touched the file (`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`).
 The history and updates rows are the surfaces' UI leaves, replaced when the shared row composables took over both feeds. `HistoryScreen.kt` and `UpdatesUiItem.kt` were partially collapsed for a while and are now listed too, each having reached the manifest the way `MangaInfoHeader` did: `HistoryUiModel` was retired outright, since only its `Item` case survived the takeover and the engine dates its own rows, so `HistoryViewModel` now emits stored rows; the last-updated line moved into `RecentsRows.kt`, which is the row emitter for every mode. The state provider's row names upstream's current filename, `HistoryviewModelStateProvider.kt`; Reikai deleted it as `HistoryScreenModelStateProvider.kt`, before the deferred ViewModel migration (mihon `c3b99aea0`) renamed it. Deleting `UpdatesScreen.kt` also dropped `UpdatesViewModel.State.getUiModel()`, which nothing else called.
 
 The three category interactors each scoped themselves to the manga-visible rows. Once a category can span both libraries those rows overlap the novel-visible ones, so a create, reorder or delete that only sees one library writes an order or a preference scrub that is wrong for the other. `CategoryActions` does all three over the whole table instead.
+
+`SupportUsScreen` is the manifest's first declined-feature row, so it has no replacement. It asked users to fund Mihon through Patreon or OpenCollective and told them Mihon is "backed by %d+ patrons"; Reikai runs no donation campaign, and its `More` screen never offered the entry that reached the screen, so nothing in this fork could open it. Soliciting money on another project's behalf is not something to keep sitting in the binary, and the code rules say dead code is deleted rather than marked. Its seven strings went with it, as did `donationCampaign`'s six, which were already unreachable. If Reikai ever wants its own support screen, port it fresh from upstream and rewrite it for Reikai rather than reviving this.

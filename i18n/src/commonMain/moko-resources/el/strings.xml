@@ -883,7 +883,6 @@
     <string name="pref_download_concurrent_pages_summary">Σελίδες που λήφθηκαν ταυτόχρονα ανά πηγή</string>
     <string name="download_bookmarked">Προστέθηκε στους σελιδοδείκτες</string>
     <string name="action_filter_excluded_scanlators">Φιλτράρισμα εξαιρούμενων scanlator</string>
-    <string name="label_support_us">Υποστηρίξτε μας</string>
     <string name="extensionStores">Καταστήματα επεκτάσεων</string>
     <string name="action.addExtensionStore">Προσθήκη καταστήματος επεκτάσεων</string>
     <string name="extensionStoresScreen.emptyLabel">Δεν έχετε προσθέσει ακόμη κατάστημα επεκτάσεων</string>
@@ -895,10 +894,4 @@
     <string name="extensionStoresScreen.deleteStore.title">Κατάργηση καταστήματος επεκτάσεων</string>
     <string name="extensionStoresScreen.deleteStore.body">Θέλετε να καταργήσετε το κατάστημα επεκτάσεων \"%1$s\" (%2$s);</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Τοποθέτηση του κάθετου πλοηγού στην αριστερή πλευρά</string>
-    <string name="supportUsScreen.perks">Οι Patrons έχουν πρόσβαση σε αποκλειστικά κανάλια, ενώ θα ακολουθήσουν και άλλα προνόμια.</string>
-    <string name="supportUsScreen.donationPlatform.patreon">Patreon (προτιμάται)</string>
-    <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
-    <string name="supportUsScreen.currentlySupportedBy">Το Mihon υποστηρίζεται αυτήν τη στιγμή από %d+ χρήστες. Θέλουμε να ευχαριστήσουμε τον καθένα από εσάς ξεχωριστά. Ας κάνουμε το Mihon ακόμα καλύτερο μαζί.</string>
-    <string name="supportUsScreen.contactForDetailsMessage">Για εναλλακτικές επιλογές ή οποιεσδήποτε σχετικές ερωτήσεις, εγγραφείτε στον Discord server.</string>
-    <string name="supportUsScreen.contactPlatform">Discord</string>
 </resources>
