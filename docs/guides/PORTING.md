@@ -140,9 +140,38 @@ Fixed:
   the library, not a button on either. The merge-group step was missing altogether. That is the
   argument for walking the flow rather than reading the code that builds it.
 
+## The behaviour pass: what it found
+
+Labels tell you what a control is called. This pass asked whether the page describes what the app
+actually does, by opening the screens. It caught a different class of error, and a worse one.
+
+- **The incognito answer was inverted.** `faq/library.md` told you to *disable* **Incognito mode** to
+  pause reading history. Its own summary in the app reads "Pauses reading history", so following the
+  page did the opposite of what the reader asked for.
+- **Two pages at once is supported.** `faq/reader.md` said "not currently"; **Dual page view**
+  (Never / Always / When wide) sits in the reader's own settings sheet for both paged modes.
+- **There are four extension installers, not three.** `faq/settings.md` was missing **Private**,
+  which installs extensions inside the app rather than as separate packages.
+- **Single-source parallel downloads exist.** `faq/downloads.md` said the app never does it. There
+  are two settings for it: **Concurrent source downloads** and **Concurrent page downloads**.
+- **The download queue holds both content types**, with All / Manga / Novels chips, Sort and Cancel
+  all in the overflow, and a pause that only affects what is shown. The page described the old list.
+- **The reader settings page was structurally wrong.** Upstream moved tap zones, crop borders and
+  the wide-page settings out of the shared Reading group into **Paged**, Reikai added five rows to
+  **Reading · Manga**, and there are two novel groups the page had never heard of (**Reading ·
+  Novels**, **Accessibility · Novels**). Navigation grew content-typed volume keys and the vertical
+  chapter navigator. Rewritten against a full sweep of the screen.
+- **`novel_downloads` was undocumented.** Novel chapters go to their own folder beside `downloads`,
+  as `.html` per chapter. Neither the storage tree nor the filesystem answer mentioned it.
+- **"Disallow non-English filenames" is "Disallow non-ASCII filenames".** A label, but it sat inside
+  three paragraphs of otherwise-correct instructions, so it read as authoritative.
+
 ## What still has to happen
 
-**The behaviour pass.** Labels are checked and the migrate flow is walked; nothing else is. See below.
+The pages not yet opened against the app: `guides/local-source/*`, `guides/troubleshooting/*`,
+`faq/browse/*` and `guides/shizuku.md`. All four are about setup and failure modes rather than
+Reikai's own features, so they are the least likely to have diverged, which is exactly why they were
+left last rather than skipped.
 
 ## Where Reikai already differs
 

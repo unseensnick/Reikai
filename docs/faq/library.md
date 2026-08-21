@@ -60,7 +60,7 @@ Dealing with series translated by multiple groups that result in duplicate chapt
 Bookmark or mark as read the undesired chapters, then open the **Filter** menu, ensure you're on the **Filter** tab, then double-tap **Bookmarked** or single-tap **Unread**.
 
 This hides bookmarked or read chapters, enabling you to skip them as you read.
-Ensure [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters) is enabled at <nav to="reader"> under the section **Reading**.
+Ensure [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters) is enabled at <nav to="reader"> under **Reading · Manga**.
 
 Alternatively, migrate to a source without duplicates.
 Refer to the [migration guide](/docs/guides/source-migration) for detailed instructions.
@@ -75,7 +75,7 @@ If certain series chapters are marked as unread without your interaction, it cou
 **Reikai** detects these changes and interprets the chapters as new.
 
 ## How do I pause reading history?
-Disable **Incognito Mode** through <nav to="incognito-mode">.
+Turn **Incognito mode** on, through <nav to="incognito-mode">. While it is on, nothing you read is recorded; turning it off starts recording again.
 
 ## How do I only read downloaded chapters?
 Enable **Downloaded only** via <nav to="downloaded-only">.

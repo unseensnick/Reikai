@@ -12,7 +12,13 @@ Besides network-related problems, **Reikai** may occasionally fail to recognize 
 To address this, simply exit and re-enter the reader, often resolving the issue.
 
 ## Can I see two pages at once?
-Not currently. Creating an effective dual-page reader that accommodates scanlator page inconsistencies and other complexities poses challenges. This feature may be added in the future.
+Yes, in the paged reading modes. Open a chapter, tap the middle of the screen, press the gear icon, and set **Dual page view**:
+
+* **Never** keeps one page at a time.
+* **Always** pairs pages up, which suits a tablet or an unfolded foldable.
+* **When wide** only pairs them when the screen is wider than it is tall, so turning the device sideways is what switches it on.
+
+The option only appears in **Paged (left to right)** and **Paged (right to left)**, since the long strip modes have no pages to pair.
 
 ## What do all the settings do?
 For detailed instructions, please consult the guides section on the website [here on reader settings](/docs/guides/reader-settings).
