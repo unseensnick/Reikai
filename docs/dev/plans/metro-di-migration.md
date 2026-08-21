@@ -4,7 +4,7 @@
 > (`f674e77bf`), but the port is not finished.** A tail stays behind, gated on the tsundoku reader
 > migration rather than open in its own right: the novel reader is still on Injekt, six of
 > `DomainModule`'s twelve registrations exist only for it, `MetroInteropModule` still hands its
-> subgraph back, and the `reikai.**` / `exh.**` proguard keeps cannot drop until it goes. Only
+> subgraph back. The proguard keeps are NOT part of this tail: none of the five goes (see below). Only
 > `source-api` and `source-local` are permanent. Nothing here is actionable on its own: it closes when
 > the reader does. Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
 > before phase 0; re-measured against current code 2026-08-20.
@@ -34,14 +34,14 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 (`META-INF/proguard/metro-runtime.pro` inside `dev.zacsweers.metro:runtime-jvm:1.4.2`, inspected
 2026-08-16), so the hazard goes away with the last `Injekt.get<T>()` in those packages.
 
-**The keeps mostly do not go, and this was overstated until 2026-08-20.** `source-api` and
-`source-local` hold Injekt permanently, because they are the contract installed extensions compile
-against, and they live under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. Three of the five keeps in
-`app/proguard-rules.pro` therefore stay whatever this port does. **`mihon.**` stays too** (corrected
-2026-08-21): `MetroInteropModule` lives in `mihon.app.di.injekt`, and every reified
-`addSingletonFactory` there compiles to its own `FullTypeReference` subclass in that package, so the
-keep lasts exactly as long as the interop module, which is as long as `source-api`'s Injekt. Only
-`reikai.**` leaves, with the tsundoku reader migration.
+**None of the five keeps goes, and this was overstated twice.** `source-api` and `source-local` hold
+Injekt permanently, because they are the contract installed extensions compile against, and they live
+under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. **`mihon.**` stays too** (corrected 2026-08-21):
+`MetroInteropModule` lives in `mihon.app.di.injekt`, and every reified `addSingletonFactory` there
+compiles to its own `FullTypeReference` subclass in that package. **`reikai.**` stays as well**
+(corrected 2026-08-21): `Novel.hasCustomCover`'s `CoverCache = Injekt.get()` default is a reified call
+in `reikai.domain.novel.model`, and that default is ruled to stay for twin parity with the manga side,
+so it outlives the reader. So the keep list is not part of this port's tail at all.
 
 ## Status
 
@@ -61,7 +61,6 @@ rules and docs that still described Injekt as the DI system were rewritten; and 
 | `NovelReaderScreenModel` on Injekt, 18 types | It is deleted by that migration; converting it first is work with a shorter life than the work |
 | Six of `DomainModule`'s twelve, plus the `Application` registration | Their only consumer is that model |
 | The reader's subgraph in `MetroInteropModule` | Same: it exists to hand those types back |
-| The `reikai.**` / `exh.**` proguard keeps | The reader resolves `reikai.*` generics through Injekt, and `source-api` reads an `exh.pref` type |
 | The `voyager-screenModel` dependency | Already its own roadmap line, gated the same way |
 
 `source-api` and `source-local` are the permanent half and close never: they are the contract
@@ -330,13 +329,14 @@ independent passes claimed `spotlessCheck` would fail on the port's orphaned imp
 ktlint as configured here does not flag them), and one reported a count that a recount contradicted.
 Treat a subagent's claim about a gate as a hypothesis until the gate is run.
 
-Phase 7 remains, with one correction found by the 2026-08-17 audit:
+Phase 7 remains, with one correction found by the 2026-08-17 audit and amended since:
 
-- **Phase 7 cannot drop the `reikai.**` / `exh.**` proguard keeps.** The novel reader stays on Injekt
-  by design with reified generic lookups on `reikai.*` types, and `source-api` reads
-  `DelegateSourcePreferences`, an `exh.pref` type, from three places. Those keeps leave with the
-  tsundoku reader migration, not with this port. Phase 7 keeps the baseline profiles and the rules
-  files only.
+- **Phase 7 cannot drop the `reikai.**` / `exh.**` proguard keeps, and neither can the reader
+  migration** (corrected 2026-08-21). `exh.**` is permanent because `source-api` reads
+  `DelegateSourcePreferences` from three places and `exh/debug/DebugToggles.kt` reads a fourth.
+  `reikai.**` is permanent because `Novel.hasCustomCover` keeps a reified `Injekt.get()` default that
+  is itself ruled to stay, for twin parity with the manga side. Phase 7 keeps the baseline profiles
+  and the rules files only.
 
 **The interop module's floor is the novel reader's subgraph**, which phase 6 did not shrink and could
 not: keeping `NovelReaderScreenModel` on Injekt means everything it resolves must be handed back. It
