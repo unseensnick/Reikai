@@ -304,7 +304,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).
 - Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
-- Translated strings refreshed across 53 locales (synced from Mihon, mihonapp/mihon#3563 and mihonapp/mihon#3677).
+- Translated strings refreshed across 56 locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677 and mihonapp/mihon#3701).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
 - The library, details, add-to-library and source-grouping surfaces now run on one shared implementation across manga and novels, covering list assembly, filtering, sorting, selection, the dialogs and the merge wiring, so a change to any of them reaches both instead of being written twice.
