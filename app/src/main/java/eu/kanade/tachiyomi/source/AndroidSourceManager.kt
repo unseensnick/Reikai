@@ -51,6 +51,9 @@ import java.util.concurrent.ConcurrentHashMap
 // source map is (re)built. nHentai is delegated, so its id varies by extension version; the library
 // updater reads this to skip nHentai galleries the same way LIBRARY_UPDATE_EXCLUDED_SOURCES skips
 // the built-in E-Hentai / ExHentai / Pururin sources.
+// Volatile: written on the source-map rebuild's IO collector, read by the library-update worker on
+// its own thread, with no other happens-before between them.
+@Volatile
 internal var nHentaiDelegatedSourceIds: List<Long> = emptyList()
 // RK <--
 

@@ -39,6 +39,8 @@ class WebViewActivity : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // RK: injected before super.onCreate, where upstream injects after, so every field is set
+        //     before anything the base class starts can read one.
         appGraph.inject(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(

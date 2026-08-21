@@ -1,7 +1,6 @@
 package reikai.domain.recommendation.taste
 
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SManga
@@ -34,7 +33,6 @@ class TasteCandidateFetcher(
     private val repository: TasteLibraryRepository,
     private val computeTasteProfile: ComputeTasteProfile,
     private val preferences: ReikaiRecommendationPreferences,
-    private val trackerManager: TrackerManager,
     private val providers: RecommendationProviders,
 ) {
 

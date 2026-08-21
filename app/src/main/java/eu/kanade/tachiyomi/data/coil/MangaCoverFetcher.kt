@@ -57,7 +57,7 @@ class MangaCoverFetcher(
     private val sourceLazy: Lazy<HttpSource?>,
     private val callFactoryLazy: Lazy<Call.Factory>,
     private val imageLoader: ImageLoader,
-    private val mangaCoverMetadata: MangaCoverMetadata,
+    private val mangaCoverMetadata: MangaCoverMetadata, // RK: cover-colour extraction (Y11)
 ) : Fetcher {
 
     private val diskCacheKey: String
@@ -329,7 +329,7 @@ class MangaCoverFetcher(
         private val callFactoryLazy: Lazy<Call.Factory>,
         private val coverCache: CoverCache,
         private val sourceManager: SourceManager,
-        private val mangaCoverMetadata: MangaCoverMetadata,
+        private val mangaCoverMetadata: MangaCoverMetadata, // RK
     ) : Fetcher.Factory<Manga> {
 
         override fun create(data: Manga, options: Options, imageLoader: ImageLoader): Fetcher {
@@ -344,7 +344,7 @@ class MangaCoverFetcher(
                 sourceLazy = lazy { sourceManager.get(data.source) as? HttpSource },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,
-                mangaCoverMetadata = mangaCoverMetadata,
+                mangaCoverMetadata = mangaCoverMetadata, // RK
             )
         }
     }
@@ -353,7 +353,7 @@ class MangaCoverFetcher(
         private val callFactoryLazy: Lazy<Call.Factory>,
         private val coverCache: CoverCache,
         private val sourceManager: SourceManager,
-        private val mangaCoverMetadata: MangaCoverMetadata,
+        private val mangaCoverMetadata: MangaCoverMetadata, // RK
     ) : Fetcher.Factory<MangaCover> {
 
         override fun create(data: MangaCover, options: Options, imageLoader: ImageLoader): Fetcher {
@@ -368,7 +368,7 @@ class MangaCoverFetcher(
                 sourceLazy = lazy { sourceManager.get(data.sourceId) as? HttpSource },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,
-                mangaCoverMetadata = mangaCoverMetadata,
+                mangaCoverMetadata = mangaCoverMetadata, // RK
             )
         }
     }

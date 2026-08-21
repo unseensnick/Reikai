@@ -136,6 +136,7 @@ class MainActivity :
 
     @Inject private lateinit var getIncognitoState: GetIncognitoState
 
+    // RK: cover-based theming (Y11); persisted on pause below
     @Inject private lateinit var mangaCoverMetadata: MangaCoverMetadata
 
     // To be checked by splash screen. If true then splash screen will be removed.
