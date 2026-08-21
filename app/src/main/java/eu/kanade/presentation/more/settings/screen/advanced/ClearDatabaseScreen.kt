@@ -317,7 +317,9 @@ class ClearDatabaseViewModel(
 
     init {
         viewModelScope.launchIO {
-            // RK --> fold the novel-side source counts into the same Ready state
+            // RK --> fold the novel-side source counts into the same Ready state. Load the registry
+            //     first: it is empty until something asks, and a cold open lands here with no names.
+            novelSourceManager.ensureLoaded()
             combine(
                 getSourcesWithNonLibraryManga.subscribe(),
                 novelRepository.getSourcesWithNonLibraryNovelAsFlow(),

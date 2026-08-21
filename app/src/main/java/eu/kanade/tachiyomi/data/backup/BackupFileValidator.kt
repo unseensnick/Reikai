@@ -32,6 +32,10 @@ class BackupFileValidator(
      * @return List of missing sources or missing trackers.
      */
     suspend fun validate(uri: Uri): Results {
+        // RK: the novel registry is empty until something loads the plugins, and a cold open straight to
+        //     restore is one, so without this every installed novel source reports as missing.
+        novelSourceManager.ensureLoaded()
+
         val backupSources = mutableListOf<BackupSource>()
         val mangaTrackerIds = mutableSetOf<Int>()
         val novelSources = mutableSetOf<String>()

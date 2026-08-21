@@ -61,6 +61,9 @@ class UpdateErrorsViewModel(
             // Drop errors for entries no longer in the library before showing the list.
             runCatching { deleteLibraryUpdateErrors.nonFavorites() }
             runCatching { deleteNovelUpdateErrors.nonFavorites() }
+            // The novel registry is empty until something loads the plugins, and a row would fall back
+            // to its raw source id rather than the source name.
+            novelSourceManager.ensureLoaded()
             combine(
                 getLibraryUpdateErrors.subscribeAll(),
                 getNovelUpdateErrors.subscribeAll(),
