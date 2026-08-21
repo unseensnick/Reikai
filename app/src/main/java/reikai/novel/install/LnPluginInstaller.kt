@@ -42,10 +42,16 @@ class LnPluginInstaller(
     private val host: LnPluginHost,
 ) {
 
-    // Serializes the bulk load so two ensureLoaded calls don't double-load. NOT held by install/
-    // uninstall: those only touch the concurrent [loadedUrls] set, so a tap-to-install never blocks
-    // behind an in-progress (possibly slow, e.g. a down repo) ensureLoaded.
+    // Serializes the bulk load so two ensureLoaded calls don't double-load. Deliberately NOT held by
+    // install/uninstall, so a tap-to-install never blocks behind an in-progress (possibly slow, e.g. a
+    // down repo) ensureLoaded; those serialize their own writes on registryMutex instead.
     private val loadMutex = Mutex()
+
+    // Guards every read-modify-write of the three persisted registries (installed urls, installed
+    // metadata, seen sources). Update-all fans installs out in parallel, so without this two of them
+    // read the same map, and the slower write drops the other plugin's record. Never held across
+    // network work: a repo fetch happens outside it and the map is re-read inside.
+    private val registryMutex = Mutex()
 
     // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
     // URLs NOT in here, so a plugin whose download failed once (network blip, Cloudflare, cold cache
@@ -84,14 +90,21 @@ class LnPluginInstaller(
                 return false
             }
         }
-        val installed = prefs.installedPluginUrls().get()
-        val validated = installed.filterTo(HashSet()) { it in trusted }
-        if (validated.size != installed.size) {
-            prefs.installedPluginUrls().set(validated)
-            prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get().filterKeys { it in validated })
-            logcat(LogPriority.WARN) {
-                "plugin revalidation: dropped ${installed.size - validated.size} url(s) not vouched by any added repo"
+        val dropped = registryMutex.withLock {
+            val installed = prefs.installedPluginUrls().get()
+            val validated = installed.filterTo(HashSet()) { it in trusted }
+            if (validated.size == installed.size) {
+                0
+            } else {
+                prefs.installedPluginUrls().set(validated)
+                prefs.installedPluginMetadata().set(
+                    prefs.installedPluginMetadata().get().filterKeys { it in validated },
+                )
+                installed.size - validated.size
             }
+        }
+        if (dropped > 0) {
+            logcat(LogPriority.WARN) { "plugin revalidation: dropped $dropped url(s) not vouched by any added repo" }
         }
         prefs.pluginsNeedRevalidation().set(false)
         return true
@@ -111,11 +124,14 @@ class LnPluginInstaller(
         // A plugin's identity is [info.id], not its URL. Drop any prior install of the same plugin (the
         // same plugin from a different/old repo, or a URL carried in by a restore) so installing
         // REPLACES it instead of leaving a duplicate URL that reloads on the next launch.
-        val currentMetadata = prefs.installedPluginMetadata().get()
-        val staleUrls = currentMetadata.filterValues { it.pluginId == info.id }.keys - canonical
-        val record = metadata?.copy(pluginId = info.id) ?: LnInstalledPluginMetadata(pluginId = info.id)
-        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - staleUrls + canonical)
-        prefs.installedPluginMetadata().set(currentMetadata - staleUrls + (canonical to record))
+        val staleUrls = registryMutex.withLock {
+            val currentMetadata = prefs.installedPluginMetadata().get()
+            val stale = currentMetadata.filterValues { it.pluginId == info.id }.keys - canonical
+            val record = metadata?.copy(pluginId = info.id) ?: LnInstalledPluginMetadata(pluginId = info.id)
+            prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - stale + canonical)
+            prefs.installedPluginMetadata().set(currentMetadata - stale + (canonical to record))
+            stale
+        }
         loadedUrls.removeAll(staleUrls)
         loadedUrls.add(canonical)
 
@@ -182,13 +198,15 @@ class LnPluginInstaller(
      * refreshes a renamed source) and never pruned by [uninstall], which is what makes the stub row
      * survive removal.
      */
-    private fun rememberSeenSources(sources: List<LnPluginSource>) {
+    private suspend fun rememberSeenSources(sources: List<LnPluginSource>) {
         if (sources.isEmpty()) return
-        val current = prefs.seenNovelSources().get()
-        val updated = current + sources.associate {
-            it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
+        registryMutex.withLock {
+            val current = prefs.seenNovelSources().get()
+            val updated = current + sources.associate {
+                it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
+            }
+            if (updated != current) prefs.seenNovelSources().set(updated)
         }
-        if (updated != current) prefs.seenNovelSources().set(updated)
     }
 
     /**
@@ -227,10 +245,15 @@ class LnPluginInstaller(
                 lang = match.lang,
             )
         }
-        if (updated != current) {
-            prefs.installedPluginMetadata().set(updated.toMap())
+        if (updated == current) return current
+        // Re-read under the lock rather than writing the snapshot taken before the repo fetch above:
+        // an install can land during it, and only the backfilled keys belong to this pass.
+        return registryMutex.withLock {
+            val latest = prefs.installedPluginMetadata().get()
+            val merged = latest + needs.mapNotNull { url -> updated[url]?.let { url to it } }
+            if (merged != latest) prefs.installedPluginMetadata().set(merged)
+            merged
         }
-        return updated
     }
 
     /**
@@ -244,11 +267,14 @@ class LnPluginInstaller(
         // Resolve the URL(s) to drop from the plugin id against FRESH metadata, not a caller-cached
         // snapshot: [installFromUrl] registers the source before persisting its metadata, so a UI map
         // built off manager.sources lags a same-session install and would strand the plugin.
-        val metadata = prefs.installedPluginMetadata().get()
-        val urlsToRemove = metadata.filterValues { it.pluginId == pluginId }.keys +
-            (pluginJsUrl?.let { setOf(canonicalizePluginUrl(it)) } ?: emptySet())
-        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - urlsToRemove)
-        prefs.installedPluginMetadata().set(metadata - urlsToRemove)
+        val urlsToRemove = registryMutex.withLock {
+            val metadata = prefs.installedPluginMetadata().get()
+            val remove = metadata.filterValues { it.pluginId == pluginId }.keys +
+                (pluginJsUrl?.let { setOf(canonicalizePluginUrl(it)) } ?: emptySet())
+            prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - remove)
+            prefs.installedPluginMetadata().set(metadata - remove)
+            remove
+        }
         loadedUrls.removeAll(urlsToRemove)
         manager.unregister(pluginId)
         logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (${urlsToRemove.size} url(s))" }
