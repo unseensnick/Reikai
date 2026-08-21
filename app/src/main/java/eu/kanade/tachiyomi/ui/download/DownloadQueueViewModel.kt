@@ -21,8 +21,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.milliseconds
 
 // RK: inert. The download queue was unified onto the shared Compose card list
@@ -32,7 +30,7 @@ import kotlin.time.Duration.Companion.milliseconds
 // Left in place, not deleted: they are the revive path for the parked per-chapter queue control
 // (expandable cards) in ROADMAP.md, and keep upstream download-queue syncs clean.
 class DownloadQueueViewModel(
-    private val downloadManager: DownloadManager = Injekt.get(),
+    private val downloadManager: DownloadManager,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(emptyList<DownloadHeaderItem>())

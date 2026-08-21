@@ -6,7 +6,6 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
@@ -77,7 +76,6 @@ class MetroInteropModule(
     private val mangaMetadataRepository: Provider<MangaMetadataRepository>,
 
     private val extensionManager: Provider<ExtensionManager>,
-    private val downloadManager: Provider<DownloadManager>,
 
     private val delegateSourcePreferences: Provider<DelegateSourcePreferences>,
     private val exhPreferences: Provider<ExhPreferences>,
@@ -122,7 +120,6 @@ class MetroInteropModule(
         addSingletonFactory { mangaMetadataRepository() }
 
         addSingletonFactory { extensionManager() }
-        addSingletonFactory { downloadManager() }
 
         addSingletonFactory { delegateSourcePreferences() }
         addSingletonFactory { exhPreferences() }

@@ -253,10 +253,54 @@ $unread = @(
         Sort-Object -Unique
 )
 
+# The two ViewModel maps and the migration set are multibindings, so a member that forgets its key or
+# its contribution compiles and then fails at the screen, or silently never runs on upgrade. Both are
+# name-level checks, which is all the compiler leaves to do.
+$keyedModels = [System.Collections.Generic.HashSet[string]]::new()
+$keyedFactories = [System.Collections.Generic.HashSet[string]]::new()
+$resolvedModels = [System.Collections.Generic.HashSet[string]]::new()
+$resolvedFactories = [System.Collections.Generic.HashSet[string]]::new()
+$unContributedMigrations = @()
+foreach ($file in $sources) {
+    $text = [System.IO.File]::ReadAllText($file.FullName)
+    if ($text.Contains('@ViewModelKey')) {
+        foreach ($m in [regex]::Matches($text, '(?m)^\s*(?:\w+ )*class ([A-Za-z0-9_]+)')) {
+            [void]$keyedModels.Add($m.Groups[1].Value)
+        }
+    }
+    if ($text.Contains('@ManualViewModelAssistedFactoryKey')) {
+        foreach ($m in [regex]::Matches($text, '(?m)^\s*(?:\w+ )*interface ([A-Za-z0-9_]+)')) {
+            [void]$keyedFactories.Add($m.Groups[1].Value)
+        }
+    }
+    foreach ($m in [regex]::Matches($text, 'assistedMetroViewModel<\s*([A-Za-z0-9_.]+)\s*,\s*([A-Za-z0-9_.]+)')) {
+        [void]$resolvedFactories.Add(($m.Groups[2].Value -split '\.')[-1])
+    }
+    foreach ($m in [regex]::Matches($text, '(?<!assisted)metroViewModel<\s*([A-Za-z0-9_.]+)')) {
+        [void]$resolvedModels.Add(($m.Groups[1].Value -split '\.')[-1])
+    }
+    # Whitespace-collapsed: a migration's supertype sits past a multi-line constructor, so a
+    # line-oriented match never sees it and the rule would pass on everything.
+    if (($text -replace '\s+', ' ') -match 'class [A-Za-z0-9_]+[^{]*: Migration\b' -and
+        -not $text.Contains('@ContributesIntoSet')) {
+        $unContributedMigrations += "  $($file.Name) implements Migration without @ContributesIntoSet"
+    }
+}
+$unkeyed = @(
+    @($resolvedModels | Where-Object { -not $keyedModels.Contains($_) } | ForEach-Object { "  $_ is resolved by metroViewModel but carries no @ViewModelKey" }) +
+    @($resolvedFactories | Where-Object { -not $keyedFactories.Contains($_) } | ForEach-Object { "  $_ is resolved by assistedMetroViewModel but carries no @ManualViewModelAssistedFactoryKey" })
+)
+
 $failed = $false
 foreach ($group in @(
         @{ Message = 'a type is resolved through Injekt but registered nowhere.'; Items = @($unregistered | ForEach-Object { "  $_" })
             Hint = 'Register it, or convert its reader onto the graph. Nothing fails at build time.'
+        },
+        @{ Message = 'a ViewModel or assisted factory is resolved but never joined the map.'; Items = $unkeyed
+            Hint = 'Add @ViewModelKey or @ManualViewModelAssistedFactoryKey plus @ContributesIntoMap, or the screen throws on open in every build type.'
+        },
+        @{ Message = 'a Migration is not contributed to the set that runs it.'; Items = $unContributedMigrations
+            Hint = 'Add @ContributesIntoSet(AppScope::class), or it compiles and silently never runs on upgrade.'
         },
         @{ Message = 'a registered class was never annotated for the graph.'; Items = $unannotated
             Hint = 'Annotate it, or drop the registration if the type is genuinely retired.'
