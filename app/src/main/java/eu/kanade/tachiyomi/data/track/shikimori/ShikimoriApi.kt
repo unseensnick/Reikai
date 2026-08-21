@@ -5,7 +5,7 @@ import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.data.track.shikimori.dto.SMAddMangaResponse
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMLibraryIdResponse
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMMetadata
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMSearchResult
@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRatesResponse
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserResult
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.POST
+import eu.kanade.tachiyomi.network.PUT
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
@@ -59,7 +60,7 @@ class ShikimoriApi(
                         body = payload.toString().toRequestBody(jsonMime),
                     ),
                 ).awaitSuccess()
-                    .parseAs<SMAddMangaResponse>()
+                    .parseAs<SMLibraryIdResponse>()
                     .let {
                         // save id of the entry for possible future delete request
                         track.library_id = it.id
@@ -69,7 +70,32 @@ class ShikimoriApi(
         }
     }
 
-    suspend fun updateLibManga(track: Track, userId: String): Track = addLibManga(track, userId)
+    suspend fun updateLibManga(track: Track): Track {
+        return withIOContext {
+            val payload = buildJsonObject {
+                putJsonObject("user_rate") {
+                    put("chapters", track.last_chapter_read.toInt())
+                    put("score", track.score.toInt())
+                    put("status", track.toShikimoriStatus())
+                }
+            }
+
+            with(json) {
+                authClient.newCall(
+                    PUT(
+                        "$API_URL/v2/user_rates/${track.library_id}",
+                        body = payload.toString().toRequestBody(jsonMime),
+                    ),
+                )
+                    .awaitSuccess()
+                    .parseAs<SMLibraryIdResponse>()
+                    .let {
+                        track.library_id = it.id
+                    }
+                track
+            }
+        }
+    }
 
     suspend fun deleteLibManga(track: DomainTrack) {
         withIOContext {
@@ -229,13 +255,15 @@ class ShikimoriApi(
                     .data.mangas
                     .firstOrNull()
 
-                // RK: return null when the title is not in the user's list (userRate == null) so bind()
-                // adds it with a default status and refresh() reports it missing. Upstream
-                // (mihonapp/mihon#3499) gated this on isRefresh only, so binding a not-in-list title hit
-                // bind()'s "found" branch with status 0 and crashed in toShikimoriStatus ("Unknown status: 0").
-                if (listResult?.userRate == null) return@with null
-
-                listResult.toTrack(trackId)
+                // Shikimori has no user list query that allows query by ID, so we go via the "mangas" query & include
+                // userRate data which will be null if the title is not in the user's list.
+                // If it was removed on Shikimori and is still linked in the app, notify user via returning null here
+                // which throws an exception at the Shikimori.refresh call
+                if (listResult?.userRate == null) {
+                    null
+                } else {
+                    listResult.toTrack(trackId)
+                }
             }
         }
     }
