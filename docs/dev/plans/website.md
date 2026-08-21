@@ -26,7 +26,8 @@ VitePress, because Mihon's site is VitePress and markdown-first, so the existing
 
 In `../Reikai-website`:
 
-- `scripts/sync-docs.mjs`: pulls the user docs out of this repo. `REIKAI_APP_REPO` overrides the location; `REIKAI_DOCS_REF` sets the ref that rewritten links point at.
+- `scripts/env.mjs`: resolves configuration so `npm run dev` needs nothing exported. A real environment variable beats `.env`, which beats a derived default; the docs ref derives from the app repo's current branch.
+- `scripts/sync-docs.mjs`: pulls the user docs out of this repo. `REIKAI_DOCS_REF` is **inert today**, because every link it would rewrite lives in the dev-records footer the sync strips; it starts mattering the first time a doc links a repo file inline.
 - `scripts/sync-changelogs.mjs`: generates the changelogs page. Filters to three-segment versions, so the Yokai-era `1.9.7.5.x` releases stay out.
 - `src/.vitepress/shortcodes.ts`: the `<nav to="...">` shortcode. Mechanism and icons from Mihon (MPL-2.0), map is Reikai's own.
 - `src/.vitepress/theme/DownloadCards.vue` and `release.data.ts`: the download page, reading both release buckets.
