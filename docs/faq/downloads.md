@@ -72,3 +72,22 @@ Here is an example:
 
 The inability for a device to handle Unicode characters in filenames is a bug.
 Please consider contacting your device or operating system vendor to report this, or consider using a standards-compliant device in future, if possible.
+
+## A download keeps failing. Is that a bug in Reikai?
+
+Usually not. Reikai's download code is Mihon's, so whether a chapter can actually be
+fetched is almost always on the source or extension side, not the app. Common cases:
+
+- **Blank in the reader too / a Cloudflare error:** the source's own server is
+  unreachable. Nothing to do but wait for it to come back, or route it through a
+  [Cloudflare bypass proxy](/docs/flaresolverr) if that is the block.
+- **Won't download until you open a chapter first:** some sources only build their page
+  list once you have opened the reader (a session or decrypt step). The downloader asks
+  for the list cold and gets nothing until you have viewed a chapter once.
+- **Renders in the reader but saves zero pages:** the page shows, but the extension's
+  parser returns no pages, so there is nothing to save.
+
+Quick test: try the same source and chapter in Mihon. If it fails there too, it is not
+specific to Reikai (more likely the source blocking you, or something on your network:
+ISP, DNS, a VPN or firewall). If it works in Mihon but not Reikai, that one is on me,
+so open an issue with the exact source, chapter, and steps.

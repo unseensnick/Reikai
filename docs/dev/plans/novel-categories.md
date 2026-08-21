@@ -78,6 +78,6 @@ Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels t
 
 ## See also
 
-- [docs/categories.md](../../categories.md): user-facing reference for how categories behave across the app.
+- [docs/guides/categories.md](../../guides/categories.md): user-facing reference for how categories behave across the app.
 - [library-tabbed-shell.md](library-tabbed-shell.md): the shared tabbed / single-list library shell the Novels tab plugs into.
 - [novel-update-job.md](novel-update-job.md): the novel library-update background job (sibling to the plugin-update job above).

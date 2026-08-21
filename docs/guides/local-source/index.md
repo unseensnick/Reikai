@@ -155,7 +155,3 @@ All images inside the archive regardless of folder structure will become pages f
   </ul>
 </div>
 :::
-
-<style scoped>
-  @import "../../../.vitepress/theme/styles/tree.styl"
-</style>

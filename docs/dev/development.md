@@ -8,7 +8,7 @@
 - Mihon upstream: `https://github.com/mihonapp/mihon`
 - Package ID: `eu.kanade.tachiyomi`, release suffix `.y2k` (debug `.debugY2k`). Legacy, kept so existing installs upgrade in place. Mihon's own applicationId is `app.mihon`; the `eu.kanade.tachiyomi` namespace is shared by both, so source classes resolve either way.
 - App name string: `Reikai` (`i18n/src/commonMain/moko-resources/base/strings.xml`).
-- Backups are **not** interchangeable with the old Yōkai-based builds: Mihon's database schema differs, so a Mihon-based install cannot open a Yōkai-Reikai database.
+- The **database** is not interchangeable with the old Yōkai-based builds: the schema differs, so a Mihon-based install cannot open a Yōkai-Reikai `tachiyomi.db`, which is why `LegacyYokaiDbImporter` exists. **Backup files are** interchangeable: the proto is shared and each side's extra field numbers are disjoint, so a Yōkai `.tachibk` restores here and vice versa.
 
 ## Rebase status
 

@@ -28,7 +28,7 @@ A "Tracking" action in the novel's overflow menu opens a sheet that looks and wo
 
 **Group-aware tracking (merged novels).** A merged novel is several source-specific rows grouped under one library entry. Tracking is centralized at the group level: a track bound on one source advances and displays when you read or view any sibling source. This is cleaner than manga's approach of copying the track onto every member at bind time. Because Reikai owns the novel reading path (`TrackNovelChapter`), it can keep a single track row while merged with no duplicates and no per-member gating: the group is resolved through `NovelMergeManager.relatedNovelIdsFor`, and reads/subscriptions go through `GetNovelTracks.awaitGroup` / `subscribeGroup` (deduped by tracker).
 
-Survival across an unmerge is handled lazily by `PropagateNovelTrackerLinks` (the novel twin of manga's tracker-link mirroring). At the moment a group is split (library unmerge, or the details Manage-sources split, gated by the `syncTrackerLinksGrouped` preference) it copies the group's trackers onto each favorited member, so every source keeps the tracker after the split. For the broader cross-source tracker-propagation behavior this shares with manga, see [tracker-sync.md](../../tracker-sync.md).
+Survival across an unmerge is handled lazily by `PropagateNovelTrackerLinks` (the novel twin of manga's tracker-link mirroring). At the moment a group is split (library unmerge, or the details Manage-sources split, gated by the `syncTrackerLinksGrouped` preference) it copies the group's trackers onto each favorited member, so every source keeps the tracker after the split. For the broader cross-source tracker-propagation behavior this shares with manga, see [guides/tracking.md](../../guides/tracking.md).
 
 This describes current behavior.
 
@@ -84,4 +84,4 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 
 - [merge-system-rebuild.md](merge-system-rebuild.md): the merge grouping that makes tracking group-aware.
 - [novel-details.md](novel-details.md): the details screen that hosts the Tracking sheet.
-- [tracker-sync.md](../../tracker-sync.md): user-facing reference for tracker propagation across grouped sources.
+- [guides/tracking.md](../../guides/tracking.md): user-facing reference for tracker propagation across grouped sources.

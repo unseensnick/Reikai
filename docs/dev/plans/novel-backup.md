@@ -2,7 +2,7 @@
 
 The novel twin of Mihon's backup/restore: favorited light novels (with chapters, read state, history, categories, tracker links, and cross-source merges) ride the same backup file as manga, alongside a record of which sources you had installed so a restore can bring them back.
 
-For the user-facing architecture of backups (file format, what is and isn't included, sync), see [docs/backup-restore.md](../../backup-restore.md). For the features this backs up, see the [merge system rebuild](merge-system-rebuild.md) and [novel tracking](novel-tracking.md) plans.
+For the user-facing architecture of backups (file format, what is and isn't included, sync), see [docs/guides/backups.md](../../guides/backups.md). For the features this backs up, see the [merge system rebuild](merge-system-rebuild.md) and [novel tracking](novel-tracking.md) plans.
 
 ## Goal
 

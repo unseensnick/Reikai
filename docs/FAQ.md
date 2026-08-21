@@ -42,25 +42,6 @@ this repository's Releases, do not install it.
 Yes, updates install in place and keep your library and settings. Back up first anyway
 (Settings, Data and storage, Create backup); good habit before any update.
 
-## A download keeps failing. Is that a bug in Reikai?
-
-Usually not. Reikai's download code is Mihon's, so whether a chapter can actually be
-fetched is almost always on the source or extension side, not the app. Common cases:
-
-- **Blank in the reader too / a Cloudflare error:** the source's own server is
-  unreachable. Nothing to do but wait for it to come back, or route it through a
-  [Cloudflare bypass proxy](flaresolverr.md) if that is the block.
-- **Won't download until you open a chapter first:** some sources only build their page
-  list once you have opened the reader (a session or decrypt step). The downloader asks
-  for the list cold and gets nothing until you have viewed a chapter once.
-- **Renders in the reader but saves zero pages:** the page shows, but the extension's
-  parser returns no pages, so there is nothing to save.
-
-Quick test: try the same source and chapter in Mihon. If it fails there too, it is not
-specific to Reikai (more likely the source blocking you, or something on your network:
-ISP, DNS, a VPN or firewall). If it works in Mihon but not Reikai, that one is on me,
-so open an issue with the exact source, chapter, and steps.
-
 ## Are extensions and sources supported?
 
 Reikai doesn't maintain or fix third-party extensions; problems with a specific
@@ -82,19 +63,6 @@ so any novel source that exists as an LNReader plugin you can add today, add its
 in the novel source settings. Supporting the compiled-APK side is a much bigger piece
 of work: on the backlog, but no timeline.
 
-## I edited an entry's title (or author). Why does sorting ignore the new name?
-
-That is intentional. When you use Edit info to change a title, author, cover, or other
-details, the change affects how the entry looks (its details page and the library, updates,
-and history lists) and library search, which finds it by the name you gave it. Sorting,
-category grouping, and same-title source grouping keep using the entry's original source
-info.
-
-So a renamed entry is findable under your name for it, but stays where its original title
-sorts and still groups with its other sources. This is deliberate: it keeps a rename from
-silently reshuffling your library or splitting a merged series. The edit is stored separately
-and never overwrites the source, so Reset restores the original cleanly.
-
 ## On a merged series, why can't I change the cover while a source chip is selected?
 
 Tapping the cover shows the cover of whichever source you have selected, so it matches the
@@ -107,30 +75,6 @@ would carry on showing the old one, which looks like the change failed. Restrict
 to the group means the cover you are looking at is always the cover a change would replace.
 
 To change it, switch to All and tap the cover there.
-
-## I turned on Auto webtoon mode but a manhwa still opens paged. Why?
-
-The reader briefly says "Reading webtoon style" whenever it picks the mode for you, so
-if you never see that, it never detected anything. Two things cause that:
-
-- **The source never said what it is.** Auto webtoon mode goes by what the source tells
-  Reikai, not by the pictures. It looks for a "Manhwa", "Manhua", "Webtoon" or "Long
-  strip" genre tag, or a source name that gives it away. Open the series' details and
-  look at its genres: no such tag means there was nothing to go on. Most sites tag it,
-  some skip it, and a few have pages customized enough that the tag never reaches the
-  app.
-- **You already picked a mode for that series.** Your own choice always wins. The
-  reading-mode button in the reader's bottom bar reads "Default" if you never picked
-  one; anything else means your pick is in charge, and "Use default" hands it back.
-
-Either way, you have two fixes:
-
-- **Add the tag yourself.** If the series is in your library, open the details overflow
-  menu, Edit info, and add any one of those tags. Reikai reads your edited tags, so it
-  picks up webtoon mode the next time you open the series. The edit never touches the
-  source, so Reset undoes it cleanly.
-- **Or skip tags entirely** and set the mode once with the reading-mode button. It
-  sticks, and it beats everything above.
 
 ## Where do I report a bug, request a feature, or ask a question?
 

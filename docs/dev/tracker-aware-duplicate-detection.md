@@ -2,7 +2,7 @@
 
 When you add a manga to the library, Reikai checks whether you already have the same series saved under a different source or a different title, and surfaces it as a duplicate so you can merge or migrate instead of ending up with two cards. The check uses both the title and the tracker identity, so a series saved under one romanization is recognized when you add it under another.
 
-This is the add-time duplicate check. For how same-series-different-source entries are folded into one library card at display time, see [multi-source.md](../multi-source.md); for tracker links themselves, see [tracker-sync.md](../tracker-sync.md).
+This is the add-time duplicate check. For how same-series-different-source entries are folded into one library card at display time, see [multi-source.md](../multi-source.md); for tracker links themselves, see [guides/tracking.md](../guides/tracking.md).
 
 ## How it works
 

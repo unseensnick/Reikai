@@ -28,7 +28,7 @@ Two artifacts hold the forward plan. Keep them separate: the roadmap is the ters
 
 ## `docs/dev/plans/` (tracked, implementation & decision records)
 
-A **substantial** feature or initiative gets one markdown here: a developer-facing record of what was built and why. Distinct from the architecture references already in `docs/` and `docs/dev/` (`multi-source.md`, `related-mangas.md`, `tracker-sync.md`, `ln-plugin-host.md`, etc.): cross-link those, do not duplicate them. One doc per feature; fold superseded iterations of the same feature into its single doc.
+A **substantial** feature or initiative gets one markdown here: a developer-facing record of what was built and why. Distinct from the architecture references already in `docs/` and `docs/dev/` (`multi-source.md`, `related-mangas.md`, `guides/tracking.md`, `ln-plugin-host.md`, etc.): cross-link those, do not duplicate them. One doc per feature; fold superseded iterations of the same feature into its single doc.
 
 **Template** (every plan doc follows it):
 

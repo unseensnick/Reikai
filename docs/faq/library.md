@@ -79,3 +79,16 @@ Enable **Download only** via <nav to="downloaded-only">.
 
 ## Why can't I disable the Downloaded filter?
 Disable **Download only** via <nav to="downloaded-only">.
+
+## I edited an entry's title (or author). Why does sorting ignore the new name?
+
+That is intentional. When you use Edit info to change a title, author, cover, or other
+details, the change affects how the entry looks (its details page and the library, updates,
+and history lists) and library search, which finds it by the name you gave it. Sorting,
+category grouping, and same-title source grouping keep using the entry's original source
+info.
+
+So a renamed entry is findable under your name for it, but stays where its original title
+sorts and still groups with its other sources. This is deliberate: it keeps a rename from
+silently reshuffling your library or splitting a merged series. The edit is stored separately
+and never overwrites the source, so Reset restores the original cleanly.

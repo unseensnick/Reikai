@@ -28,7 +28,8 @@ While it's ideal for users seeking the latest **Reikai** experience, it's essent
 :::
 
 ## Can I read light novels?
-**Reikai** can't read light novels; it's an image parser, not a text parser.
+Yes. Light novels sit beside manga in the same library, with their own sources, reader and trackers.
+See the [FAQ](/docs/FAQ) for how novel sources are added, which differs from manga extensions.
 
 ## Can I stream anime?
 **Reikai** isn't designed for anime streaming.
@@ -36,5 +37,6 @@ While it's ideal for users seeking the latest **Reikai** experience, it's essent
 Projects using the **Reikai** name for anime streaming aren't affiliated with the main project.
 
 ## What's a fork?
-Forks are alternate **Reikai** versions with distinct features.
-Get more details [here on forks](/forks/).
+A fork is a copy of an app's source code that someone develops in their own direction, adding
+features the original does not have. **Reikai** is a fork of [Mihon](https://mihon.app), which is
+itself the continuation of Tachiyomi. Mihon keeps a [list of the forks it endorses](https://mihon.app/forks/).

@@ -39,8 +39,8 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Multi-source grouping` (manga + novels): fold same-title entries from different sources into one card, with a per-source switcher. ([docs](docs/multi-source.md))
 - `Manual merge / unmerge`: group entries by hand when titles differ, or split a group apart. ([docs](docs/multi-source.md))
 - `Merge-aware reading`: read a merged series through every source, one unified chapter list. ([docs](docs/multi-source.md#reading-a-merged-group))
-- `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](docs/tracker-sync.md))
-- `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](docs/categories.md))
+- `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](docs/guides/tracking.md))
+- `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](docs/guides/categories.md))
 - `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka.
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](docs/related-mangas.md#taste-profile))
 - `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](docs/flaresolverr.md))
