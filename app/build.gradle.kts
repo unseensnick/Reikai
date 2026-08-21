@@ -123,7 +123,7 @@ android {
 
             matchingFallbacks.addAll(commonMatchingFallbacks)
         }
-        create("preview") {
+        create("nightly") {
             initWith(release)
 
             applicationIdSuffix = ".debug"
@@ -148,9 +148,9 @@ android {
     }
 
     sourceSets {
-        // RK: preview has its own launcher icon in src/preview/res (the nightly variant); benchmark
-        // (unpublished) still borrows the debug icon. Adding src/debug/res to preview too would
-        // duplicate every ic_launcher* resource and fail mergePreviewResources.
+        // RK: nightly has its own launcher icon in src/nightly/res; benchmark (unpublished) still
+        // borrows the debug icon. Adding src/debug/res to nightly too would duplicate every
+        // ic_launcher* resource and fail mergeNightlyResources.
         getByName("benchmark").res.directories.add("src/debug/res")
     }
 

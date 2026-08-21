@@ -5,7 +5,7 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  # PR-only. Every change reaches main through a PR (gated here), and preview.yml rebuilds and tests
+  # PR-only. Every change reaches main through a PR (gated here), and nightly.yml rebuilds and tests
   # every app-affecting push to main, so a second build/test on the merge itself would be redundant.
   pull_request:
     paths:

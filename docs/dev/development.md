@@ -27,7 +27,7 @@ The working rules under `.claude/rules/` are the single source of truth; this do
 
 - Android Studio (`Build → Make/Rebuild`). JDK 21 (Temurin 21.0.11; matches `.github/.java-version`). Formatting via Spotless (`./gradlew spotlessApply`).
 - `minSdk 26`, `targetSdk 36`, `compileSdk 37`.
-- No product flavors. Build types: `debug` (`.debugY2k`), `release` (`.y2k`), `foss`, `preview`, `benchmark`. Release builds use AGP-native signing with the real key when CI secrets or a local `keystore.properties` are present, else they fall back to debug-signed (see the `// RK` signing block in `app/build.gradle.kts`). The `preview` build type doubles as the nightly channel.
+- No product flavors. Build types: `debug` (`.debugY2k`), `release` (`.y2k`), `foss`, `nightly`, `benchmark`. Release builds use AGP-native signing with the real key when CI secrets or a local `keystore.properties` are present, else they fall back to debug-signed (see the `// RK` signing block in `app/build.gradle.kts`). The `nightly` build type is the pre-release channel; it installs as `eu.kanade.tachiyomi.debug`.
 - Domain tests: `./gradlew :domain:test`.
 - CLI Gradle is intermittent on the dev machine (loopback flake); build/test on-device in Android Studio when it fails.
 

@@ -10,7 +10,7 @@ regenerate the `res/` resources below.
 | `monochrome-project.svg` | Editable Inkscape project for the monochrome mark | (working file) export `monochrome.svg` from this |
 | `drawing.svg` | Master source drawing of the Reikai "R-flame" icon (full colour artwork) | The README logo and the launcher icon art (the flat renders below + `ic_launcher_foreground.xml`) are produced from this |
 | `Reikai-release-flat.png`, `Reikai-preview-flat.png`, `Reikai-debug-flat.png` | Flat renders of the launcher icon, one per build channel | The foreground layer of each channel's launcher icon: `main` (stable) as [`ic_launcher_foreground.xml`](../../app/src/main/res/drawable/ic_launcher_foreground.xml), `preview` and `debug` as generated `mipmap-*/ic_launcher_foreground.webp`, wired by that source set's `mipmap-anydpi-v26/ic_launcher*.xml` |
-| `Reikai-nightly-flat.png` | The purple render the preview channel used before it went teal | (kept for reference; backs nothing shipped) |
+| `Reikai-nightly-flat.png` | The purple render the pre-release channel used before it went teal | (kept for reference; backs nothing shipped). **Confusing name since the 2026-08-21 rename**: the channel is now called `nightly`, but the render it actually ships is `Reikai-preview-flat.png` above. The file names were left alone rather than swapped, which would have made this table lie about history. |
 
 Each channel also sets its own `ic_launcher_background` colour, which must match the render's
 deepest tone: `#280055` (stable), `#053A48` (preview), `#242424` (debug). The channels differ by

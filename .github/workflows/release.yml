@@ -2,7 +2,7 @@ name: Build & publish release
 
 # Stable channel. Signs with the repo keystore secrets (AGP-native, see app/build.gradle.kts),
 # publishes to this repo as a DRAFT for review; the in-app updater sees it once you publish.
-# Preview/nightly builds are handled separately by preview.yml.
+# Nightly builds are handled separately by nightly.yml.
 
 on:
   push:
@@ -119,7 +119,7 @@ jobs:
           set -e
           version="${VERSION_TAG#v}"
           # Stable notes come ONLY from the matching [version] section (cut by renaming [Unreleased] to
-          # [version]). No [Unreleased] fallback, or preview-only changes would leak into a stable release.
+          # [version]). No [Unreleased] fallback, or nightly-only changes would leak into a stable release.
           if ! changelog="$(parse-changelog CHANGELOG.md "$version" 2>/dev/null)"; then
             echo "::error::CHANGELOG.md has no [$version] section. Rename [Unreleased] to [$version] (and add a fresh empty [Unreleased]) before cutting v$version."
             exit 1
