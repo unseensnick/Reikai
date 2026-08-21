@@ -89,7 +89,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Merged series**
 
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
-- **The reader now opens either one source's chapters or the whole merged group, depending on where you tapped.** Updates, source chips and new-chapter notifications open one source; your library, the series page and history open the group.
+- **On a merged series, your library, its page and History open the whole group, while Updates, source chips and new-chapter notifications open just that one source.** The reader follows whichever you came from.
 - **Reading a chapter now marks it read on the series' other sources too, by default; switch it off under Settings -> Reader.**
 - **Removing a merged series from your library now ticks "All grouped sources" by default.** Untick it to remove only the source shown on the cover.
 - **Settings -> Advanced now has one "Clear all merges" action per content type instead of two.** The two did the same thing.
@@ -124,7 +124,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Reader**
 
-- **Manga pages now decode through one modern image decoder (synced from Mihon, mihonapp/mihon#3786).** The legacy decoder went with it, along with the hardware bitmap threshold, legacy long strip decoding and custom display profile settings under Settings -> Advanced.
+- **Some image options under Settings -> Advanced are gone, now that manga pages decode through one modern decoder (synced from Mihon, mihonapp/mihon#3786).** The hardware bitmap threshold, legacy long strip decoding and custom display profile settings configured the legacy decoder, which went with it.
 
 **Tracking**
 
@@ -163,7 +163,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It waits for a short pause first, like the manga library.
 - **Selecting novels in the library is no longer slow.** It used to get worse the more novels you had.
 - **Library actions now act on the category you have scrolled to in the single-list view.** Select all, Invert selection, Update category, Open random entry and the hopper's long-press sort all acted on the first category instead.
-- **Renaming an entry now makes it findable by the name you gave it.** Library search reads the title, author, artist, description and genre you set in Edit info, instead of only the source's.
+- **Library search now reads the title, author, artist, description and genre you set in Edit info, not just the source's.** So an entry you renamed is findable by the name you gave it.
 - **The Edit categories picker on a details page now respects your category sort order.**
 - **The novel library-update and download category filters now include the Default (uncategorized) group.** You can include or exclude novels that are not in any category, matching the manga filters.
 - **Excluding a term from library search now applies to adult-source entries too.** A query like `-genre:horror` used to leave them in the results regardless.
@@ -198,7 +198,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Updates & History**
 
 - **Tapping the History tab again now resumes something from the library you are actually looking at.** With the Novels chip on it could pick up a manga instead, and the other way round.
-- **Selecting a recently read row in the combined Recents tab now lets you act on it.** Bookmark, mark read or unread and download work there; before, the only button offered did nothing at all.
+- **Selecting a row in the combined Recents tab now offers bookmark, mark read or unread, and download.** The one button it used to offer did nothing at all.
 - **With Updates' "Group by series" on, its rows now restack as soon as you merge or unmerge sources.** They used to wait until the screen was rebuilt.
 - **Moving a series to another category now updates the Updates feed straight away.** The feed kept filtering by wherever the series was when you opened the screen, until you left and came back.
 - **Tapping History again now always resumes the most recent thing you read.** A search you had typed in could send it to a different entry.
@@ -298,22 +298,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Translated strings refreshed across 53 locales (synced from Mihon, mihonapp/mihon#3563 and mihonapp/mihon#3677).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
-- The manga and novel add-to-library flows in browse and global search now share one bulk-selection engine, one default-category decision and one remove dialog, so the two can't drift apart.
+- The library, details, add-to-library and source-grouping surfaces now run on one shared implementation across manga and novels, covering list assembly, filtering, sorting, selection, the dialogs and the merge wiring, so a change to any of them reaches both instead of being written twice.
 - A library section is now a distinct type rather than a category with a negative id, so a grouped view can no longer reach a category-scoped action that has nothing to act on.
-- The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
-- The manga and novel libraries now share one implementation of filtering, searching, sorting, grouping, list assembly, selection and every library dialog, and identify an entry by its content type rather than by the sign of its id, so a library change reaches both content types instead of being written twice.
 - Manga and novel categories now live in one shared table with a content-type column, read and written through one repository, so the parallel novel category stack is gone.
 - Custom novel covers are now stored under a name that carries the content type, moved once on upgrade, so a novel can never collide with a manga that shares its row number.
-- The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring), so a grouping change reaches both content types.
-- Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594).
+- Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, in its own field rather than through a shared base class, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594 and mihonapp/mihon#3763).
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Every list screen now stops querying a few seconds after you leave it, instead of running as long as the app does: the library, Recents, the source and extension lists, and the category, migration, cover and upcoming screens (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3762).
-- Dependency updates: appcompat, paging, webkit and the baseline-profile plugin (synced from Mihon).
-- Every screen now holds its state in its own field rather than through a shared base class, matching Mihon so future upstream screen changes apply cleanly (synced from Mihon, mihonapp/mihon#3763).
+- Dependency updates: appcompat, paging, webkit, okhttp, kim, the image decoder, the subsampling image view and the baseline-profile plugin (synced from Mihon).
 - Installed extensions are now read off the main thread, so they no longer hold up a cold start (synced from Mihon, mihonapp/mihon#3788).
 - Extension trust is re-checked from the repo list itself rather than by the two screens that happened to change it, so adding or removing a repo anywhere re-checks straight away, and a re-check can no longer be undone by the startup scan finishing after it.
-- Dependency updates: okhttp, kim, the image decoder and the subsampling image view (synced from Mihon).
 - The app now wires its components together at build time instead of looking them up while running, closing a class of crash that only showed up in release builds (synced from Mihon, mihonapp/mihon#3608). The light-novel reader keeps the old wiring until it is rebuilt.
 
 ## [0.3.1]
