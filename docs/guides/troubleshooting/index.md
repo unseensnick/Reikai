@@ -44,14 +44,12 @@ Typical default implementation depends on the Android version as follows:
 ::: tabs
 == Android 10 and above
 [Android System WebView](https://play.google.com/store/apps/details?id=com.google.android.webview)
-== Android 7 - 9
+== Android 8 - 9
 [Google Chrome](https://play.google.com/store/apps/details?id=com.android.chrome)
-== Android 6 and below
-[Android System WebView](https://play.google.com/store/apps/details?id=com.google.android.webview)
 :::
 
-::: tip **Android 7** and above
-Newer Android users can check/change WebView in [Developer Options](https://developer.android.com/studio/debug/dev-options).
+::: tip
+You can check or change which implementation is in use from [Developer Options](https://developer.android.com/studio/debug/dev-options).
 :::
 
 ::: warning Caution with Non-Standard WebView

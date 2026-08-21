@@ -53,7 +53,7 @@ One backup covers both libraries: everything below applies to manga and light no
 
 #### Settings data
 - **App settings**
-- **Extension repos**
+- **Extension stores**
 - **Source settings**
 - **Include sensitive settings** - Tracker login tokens (not included by default)
 

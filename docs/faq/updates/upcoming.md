@@ -7,6 +7,11 @@ description: Frequently Asked Questions about Upcoming Updates
 # Upcoming
 Frequently Asked Questions about Upcoming Updates
 
+::: info Manga only
+The calendar is built from predicted release dates, which novel sources do not publish, so light
+novels never appear on it.
+:::
+
 ## What is this Calendar?
 The Upcoming Updates page does *not* consult with external trackers, publishers, or otherwise claim that a chapter update will be released on a particular day.
 

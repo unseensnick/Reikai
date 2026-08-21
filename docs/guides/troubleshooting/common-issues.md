@@ -81,7 +81,7 @@ Try these solutions:
 
 * Check expired certificate, use SSL checker.
 * Set correct device date and time.
-* In <nav to="advanced">, try **Clear cache** and **Clear cookies**.
+* In <nav to="advanced">, try **Clear cookies** and **Clear WebView data**.
 * Change network (Wi-Fi, mobile data, VPN).
 * Reboot device.
 

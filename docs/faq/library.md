@@ -24,6 +24,9 @@ If an entry has infrequent updates or no updates:
 * Move the entry into a separate category, and exclude the category from your Global Updates.
 :::
 
+Light novels are skipped on the first three criteria too, but never the fourth: novel sources
+publish no release schedule, so there is nothing to predict from.
+
 For more information, check out the [Smart Updates](/docs/faq/updates/smart) and [Upcoming Calendar](/docs/faq/updates/upcoming) pages.
 
 ## Why am I being warned about bulk updates and downloads?
@@ -45,7 +48,7 @@ Some Android skins (e.g., **MIUI**) aggressively save battery & limit performanc
 
 ## How can I see the number of downloaded chapters?
 Badges can be enabled by navigating to <nav to="main_library">, then going to **Filter** and clicking the **Display** tab.
-Then, at the bottom, select **Download badges**.
+Then, under **Badges**, select **Downloaded chapters**.
 
 ## Can I sync between multiple devices?
 **Reikai** can't sync between devices.
@@ -75,10 +78,10 @@ If certain series chapters are marked as unread without your interaction, it cou
 Disable **Incognito Mode** through <nav to="incognito-mode">.
 
 ## How do I only read downloaded chapters?
-Enable **Download only** via <nav to="downloaded-only">.
+Enable **Downloaded only** via <nav to="downloaded-only">.
 
 ## Why can't I disable the Downloaded filter?
-Disable **Download only** via <nav to="downloaded-only">.
+Disable **Downloaded only** via <nav to="downloaded-only">.
 
 ## I edited an entry's title (or author). Why does sorting ignore the new name?
 

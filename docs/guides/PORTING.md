@@ -101,20 +101,57 @@ files and sit in the Guides group: multi-source grouping, library search, relate
 sources, and FlareSolverr under Troubleshooting. `built-in-sources.md` is reference and sits under
 Browse.
 
+## The content pass: what it found
+
+Every bolded label in these 23 files was extracted and checked against `strings.xml`, and the
+settings behind them against the screens that render them. Method note for whoever repeats this:
+harvesting labels and diffing them against the string table finds the rot fast, because these pages
+were right about behaviour and wrong about names. A label changes in a commit that never touches the
+doc that quotes it.
+
+Fixed:
+
+- **Extension repos are Extension stores.** Upstream renamed the screen (`extensionStores`), and the
+  index URL is now a `repo.json` rather than the `index.min.json` the guide told people to paste.
+  Both `getting-started.md` and `backups.md` sent readers looking for a menu item that is not there.
+- **"Viewer for this series" does not exist.** The per-series override is **Reading mode**.
+- **"Download badges" is "Downloaded chapters"**, under **Badges** in the Display tab.
+- **"Download only" is "Downloaded only".**
+- **"Clear cache" is not in Advanced.** The two clears there are **Clear cookies** and **Clear
+  WebView data**.
+- **Light novels were missing from `getting-started.md` entirely**, which is the page a new user
+  reads first. Novel repos live in their own section of the same Extension stores screen, and the
+  plugins install from the Extensions tab beside manga extensions.
+- **Smart updates reach novels, the prediction does not.** `NovelUpdateJob` applies the same three
+  skip rules (unstarted, completed, unread) and cannot apply the fourth, because novel sources
+  publish no release schedule. That also keeps novels off the Upcoming calendar entirely. Three
+  pages presented all four conditions as universal.
+- **The pre-Android-8 leftovers**, now that `minSdk` is 26: the WebView table's "Android 6 and
+  below" row is gone and its "Android 7 - 9" row is "Android 8 - 9".
+- **`source-migration.md` described a flow the app no longer has.** Its Reikai tab said "a global
+  search of all sources, tap a thumbnail to pick", which has not been true since the migrate rebuild.
+  Rewritten from a device walk: the three entry points, the merge-group pick step, the config screen
+  and its search options, the list screen with its per-row actions, and the confirm. **The five other
+  fork tabs stay** (owner, 2026-08-21): they are useful to a reader arriving from one of those apps,
+  and being irrelevant to Reikai is not a reason to delete them.
+
+  Two of the entry points were wrong in the first draft, written from the route table rather than the
+  screen: **Migrate** is in the overflow on the details screen and in the selection bar's overflow in
+  the library, not a button on either. The merge-group step was missing altogether. That is the
+  argument for walking the flow rather than reading the code that builds it.
+
 ## What still has to happen
 
-1. **The content pass.** See below. This is the real remaining work.
-2. **Two pre-Android-8 sections.** `troubleshooting/index.md` has a WebView table with an "Android 6
-   and below" row, and `common-issues.md` addresses "Android 9 and below". Reikai's `minSdk` is 26.
+**The behaviour pass.** Labels are checked and the migrate flow is walked; nothing else is. See below.
 
 ## Where Reikai already differs
 
 Do not assume a file is accurate just because it reads plausibly. Two statements were not merely
 stale but flatly wrong about Reikai, and both were found by reading rather than by any check:
 `faq/general.md` said Reikai cannot read light novels, and `guides/backups.md` said Yōkai backups do
-not restore. Assume there are more.
+not restore.
 
-Known divergences to check while editing: Reikai's library has two view modes, categories carry a
-sort override and span both content types, the reader picks webtoon mode automatically, merged
-entries fold several sources into one card, and novels exist at all. Nothing in these files knows
-about any of that.
+Known divergences still to check page by page: Reikai's library has two view modes, categories carry
+a sort override and span both content types, the reader picks webtoon mode automatically, and merged
+entries fold several sources into one card. A label check cannot catch any of those, because each one
+is a page that is silent where it should say something.

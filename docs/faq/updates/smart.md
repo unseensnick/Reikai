@@ -15,3 +15,9 @@ Reikai intelligently works to reduce the number of series in a global update to 
 
 You can see how often the app predicts a new chapter for a series **by looking at the hourglass**.
 After that many days, the app will allow that series to check for updates.
+
+::: info Light novels get the first three conditions, not the fourth
+Novel sources publish no release schedule, so there is nothing to predict from and nothing to
+count down. A novel is skipped for progress, status and unread chapters exactly as a manga is,
+then checked every time.
+:::

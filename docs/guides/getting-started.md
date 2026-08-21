@@ -4,10 +4,6 @@ titleTemplate: Guides
 description: Essential information to help you get set up with Reikai.
 ---
 
-<script setup lang="ts">
-import { data as release } from "@theme/data/release.data"
-</script>
-
 # Getting started
 
 Essential information to help you get set up with Reikai.
@@ -31,16 +27,20 @@ Read content stored locally on your device.
 See the [Local source guide](/docs/guides/local-source/) for instructions.
 == External repositories
 External repositories add additional sources to **Reikai**:
-* You can add external repositories by going to <nav to="browse"> and tapping **Extension repos**.
-* From there, you can input third-party repository links ending with `index.min.json`.
+* Add one by going to <nav to="browse"> and tapping **Extension stores**.
+* Paste the store's index URL, which normally ends in `repo.json`.
+
+Light novel repos are added on the same screen, in their own section further down. **Reikai** reads
+[LNReader](https://github.com/LNReader/lnreader)-style plugins rather than manga extensions, so novel
+sources come from their own repos, and the store list shows both counts.
 
 ::: danger Caution
 Reikai will not provide resources for any unofficial repositories. Beware that any third-party repositories or extensions will have full access to the app and may contain malware.
 :::
 
-Once you've added a repository, go to <nav to="extensions"> and refresh the extensions list.
+Once you've added a repository, go to <nav to="extensions"> and refresh the list.
 
-You can now tap the download button next to extensions to install them.
+You can now tap the download button next to an extension, or a light novel plugin, to install it.
 
 > You may need to [enable third-party installations](/docs/faq/browse/extensions#enabling-third-party-installations).
 

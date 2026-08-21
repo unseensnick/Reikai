@@ -36,7 +36,7 @@ Long strip but with a little space between pages.
 :::
 
 ::: tip
-You can change viewer for different series by going to the series, opening a chapter, tapping the middle of the screen, pressing the gear icon, and selecting a different viewer in **Viewer for this series**.
+You can set a different mode for one series: open a chapter, tap the middle of the screen, press the gear icon, and pick from **Reading mode**.
 :::
 
 ### Double tap animation speed <Badge type="info" text="Normal" />

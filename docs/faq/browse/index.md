@@ -13,4 +13,4 @@ Frequently Asked Questions about Browse.
 Enable the source's language at <nav to="sources">, tap on **Filter**, then turn on the language of the desired source.
 
 ### If it's an NSFW extension
-Navigate to <nav to="browse"> and check the **Show in sources and extensions list** option.
+Navigate to <nav to="browse"> and check the **Show in sources and extensions lists** option.
