@@ -33,7 +33,6 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallActivity
-import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegateImpl
@@ -55,7 +54,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import mihon.core.migration.Migration
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
-import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.category.GetNovelCategories
@@ -96,10 +94,6 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.domain.track.interactor.InsertTrack
-import tachiyomi.domain.upcoming.service.UpcomingPreferences
-import tachiyomi.domain.updates.service.UpdatesPreferences
-import tachiyomi.source.local.image.LocalCoverManager
-import tachiyomi.source.local.io.LocalSourceFileSystem
 
 @DependencyGraph(
     scope = AppScope::class,
@@ -140,23 +134,17 @@ interface AppGraph : ViewModelGraph {
     val context: Context
 
     val json: Json
-    val xml: XML
     val protoBuf: ProtoBuf
     val database: Database
 
     val preferenceStore: PreferenceStore
     val networkHelper: NetworkHelper
-    val javaScriptEngine: JavaScriptEngine
     val storageManager: StorageManager
-    val localSourceFileSystem: LocalSourceFileSystem
-    val localCoverManager: LocalCoverManager
 
     val networkPreferences: NetworkPreferences
     val securityPreferences: SecurityPreferences
     val privacyPreferences: PrivacyPreferences
     val libraryPreferences: LibraryPreferences
-    val upcomingPreferences: UpcomingPreferences
-    val updatesPreferences: UpdatesPreferences
     val downloadPreferences: DownloadPreferences
     val backupPreferences: BackupPreferences
     val storagePreferences: StoragePreferences
@@ -210,8 +198,8 @@ interface AppGraph : ViewModelGraph {
     val novelRecentsAdapterFactory: NovelRecentsAdapter.Factory
     val tasteLibraryRepository: TasteLibraryRepository
 
-    // Interactors are unscoped, so every read builds a fresh instance where Injekt's
-    // addSingletonFactory cached one. Safe only because none of them holds state.
+    // Interactors are unscoped, so every read builds a fresh instance. That matches the pre-port
+    // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.
     val getCategories: GetCategories
     val getNovelCategories: GetNovelCategories
     val getFavorites: GetFavorites

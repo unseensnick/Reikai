@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
@@ -17,7 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -60,13 +63,17 @@ class NovelUpdatesViewModel(
     private val novelRepo: NovelRepository,
     private val chapterRepo: NovelChapterRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
-    private val downloadManager: NovelDownloadManager,
+    private val downloadManagerProvider: Provider<NovelDownloadManager>,
     private val novelDownloadCache: NovelDownloadCache,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val updatesPreferences: UpdatesPreferences,
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo,
 ) : ViewModel() {
+
+    // Building the manager restores the persisted queue and can start the download worker, which
+    // opening this tab must not do. Resolved on first use instead.
+    private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
 
     // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
     // Everything the database can answer rides this flow, so a change re-runs the query.
@@ -100,7 +107,8 @@ class NovelUpdatesViewModel(
      */
     private val updateItems: StateFlow<List<NovelUpdatesItem>?> = combine(
         feedFlow(),
-        downloadManager.queueState,
+        // Wrapped so the manager is built on first collection, not when this property initializes.
+        flow { emitAll(downloadManagerProvider().queueState) },
         // Downloaded stays a Kotlin filter: download state is on disk, not in the database.
         updatesPreferences.filterDownloaded.changes(),
         getCustomNovelInfo.subscribeAll(),

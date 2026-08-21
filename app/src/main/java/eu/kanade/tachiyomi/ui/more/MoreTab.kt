@@ -18,6 +18,7 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
@@ -96,7 +97,7 @@ class MoreViewModel(
     preferences: BasePreferences,
     // RK -->
     exhPreferences: ExhPreferences,
-    novelDownloadManager: NovelDownloadManager,
+    novelDownloadManager: Provider<NovelDownloadManager>,
     // RK <--
 ) : ViewModel() {
 
@@ -116,7 +117,7 @@ class MoreViewModel(
                 downloadManager.isDownloaderRunning,
                 downloadManager.queueState,
                 // RK: fold the novel download queue into the More badge, so its count covers both types
-                novelDownloadManager.queueState,
+                novelDownloadManager().queueState,
             ) { isRunning, downloadQueue, novelQueue ->
                 Triple(isRunning, downloadQueue.size, novelQueue.size)
             }

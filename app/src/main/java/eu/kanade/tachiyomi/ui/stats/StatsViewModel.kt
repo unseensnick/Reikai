@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.core.util.fastCountNot
@@ -62,7 +63,7 @@ class StatsViewModel(
     private val novelHistoryRepository: NovelHistoryRepository,
     private val novelPreferences: NovelPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
-    private val novelDownloadManager: NovelDownloadManager,
+    private val novelDownloadManager: Provider<NovelDownloadManager>,
     private val mergeGroupRepository: MergeGroupRepository,
     // RK <--
 ) : ViewModel() {
@@ -111,7 +112,7 @@ class StatsViewModel(
                 //     carries a hardcoded 0 (NovelMapper), filled in only by the library screen's own
                 //     overlay, so reading it here reported no novel downloads at all.
                 novelDownloadCount = distinctLibraryNovels.sumOf {
-                    novelDownloadManager.getDownloadCount(it.novel)
+                    novelDownloadManager().getDownloadCount(it.novel)
                 },
             )
 

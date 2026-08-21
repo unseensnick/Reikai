@@ -17,6 +17,7 @@ import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Provider
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.track.service.TrackPreferences
@@ -141,7 +142,7 @@ class NovelDetailsViewModel(
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
     private val database: Database,
-    private val downloadManager: NovelDownloadManager,
+    private val downloadManagerProvider: Provider<NovelDownloadManager>,
     private val novelDownloadCache: NovelDownloadCache,
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
@@ -165,6 +166,10 @@ class NovelDetailsViewModel(
     private val trackerManager: TrackerManager,
     private val trackPreferences: TrackPreferences,
 ) : ViewModel() {
+
+    // Building the manager restores the persisted queue and can start the download worker, which
+    // opening a novel page must not do. Resolved on first use instead.
+    private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
 
     val state: StateFlow<NovelDetailsState>
         field = MutableStateFlow<NovelDetailsState>(NovelDetailsState.Loading)
