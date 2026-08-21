@@ -1,0 +1,53 @@
+name: Deploy docs site
+
+# The user docs live here, but the site that publishes them lives in unseensnick/Reikai-website and
+# only rebuilds when something pushes to it. So a docs change here used to need that workflow run by
+# hand, and forgetting meant the site quietly served an older copy. This fires the deploy for you.
+#
+# It runs AFTER the push has landed, which is the point: the site build checks this repo out, so a
+# deploy started before the push produces a stale site. That is not hypothetical, it happened on
+# 2026-08-21 and left the nav pointing at a page the build had not published yet.
+
+on:
+  push:
+    # Same set as nightly.yml. The branch travels in the dispatch payload and the site builds from
+    # it, so a release branch needs no edit here and no matching edit to the site's APP_REF.
+    #
+    # The consequence to know: a docs push on ANY of these republishes the live site from that
+    # branch. That is what you want on a release branch and a trap on a scratch one.
+    branches: [main, 'feat/**', 'fix/**']
+    # The sync skips the contributor material that shares this tree, so a change to it publishes
+    # nothing and should not spend a deploy. Mirrors the SKIP list in the site's sync-docs.mjs.
+    paths:
+      - 'docs/**'
+      - '!docs/dev/**'
+      - '!docs/README.md'
+      - '!docs/guides/PORTING.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Ask the site to rebuild
+    runs-on: ubuntu-latest
+    steps:
+      # A fine-grained PAT with Actions: write on Reikai-website. GITHUB_TOKEN cannot do this: it is
+      # scoped to this repository, and repository_dispatch targets another one.
+      - name: Trigger the site deploy
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::SITE_DISPATCH_TOKEN is not set, so the site was not rebuilt."
+            echo "Add it under Settings -> Secrets and variables -> Actions, or run the site's"
+            echo "Deploy site workflow by hand."
+            exit 1
+          fi
+          gh api repos/unseensnick/Reikai-website/dispatches \
+            --method POST \
+            --field event_type=docs-updated \
+            --field "client_payload[ref]=${{ github.ref_name }}" \
+            --field "client_payload[sha]=${{ github.sha }}"
+          echo "Asked Reikai-website to deploy ${GITHUB_REF_NAME} at ${GITHUB_SHA:0:9}."

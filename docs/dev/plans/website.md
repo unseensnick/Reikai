@@ -56,6 +56,10 @@ In this repo:
 
 **Two site pages beyond the docs**: [Related apps](../../../Reikai-website/src/related/index.md), eight projects in the lineage described on their own terms, and a privacy policy written from what the build does rather than a template.
 
+**A docs push here deploys the site on its own.** `.github/workflows/deploy-docs.yml` sends a `repository_dispatch` to the site repo once the push has landed, and the site's `deploy.yml` listens for it. The ordering is the whole point: the site build checks this repo out, so a deploy started before the push publishes the old docs. It needs a `SITE_DISPATCH_TOKEN` secret here, a fine-grained PAT with Actions write on the site repo, because `GITHUB_TOKEN` cannot reach another repository. Without it the job fails loudly rather than silently skipping.
+
+**The dispatch carries its own branch, so nothing is pinned twice.** `deploy-docs.yml` fires on `main`, `feat/**` and `fix/**`, the same set `nightly.yml` uses, and passes the branch it ran on; the site's `APP_REF` reads that and falls back to a literal only for a push to the site repo or a manual run. A release branch therefore needs no edit in either file. The consequence to know is that a docs push on any of those branches republishes the live site from it, which is what you want on a release branch and a trap on a scratch one.
+
 **Live at [reikai.app](https://reikai.app), over HTTPS.** GitHub Pages serves it from the public site repo, which is MPL-2.0 to match Mihon's website since enough of the site derives from it, deployed by `.github/workflows/deploy.yml` on push. Every help link in the app now points here, built from one `Constants.URL_DOCS`.
 
 ## What the audit of Reikai's own docs found
