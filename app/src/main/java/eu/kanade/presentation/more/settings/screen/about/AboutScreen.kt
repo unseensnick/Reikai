@@ -218,7 +218,7 @@ object AboutScreen : Screen() {
                 }
             }
             isNightlyBuildType -> {
-                "Beta r${BuildConfig.COMMIT_COUNT}".let {
+                "Nightly r${BuildConfig.COMMIT_COUNT}".let {
                     if (withBuildDate) {
                         "$it (${BuildConfig.COMMIT_SHA}, ${getFormattedBuildTime()})"
                     } else {
