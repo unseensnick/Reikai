@@ -1,6 +1,6 @@
 # Documentation website
 
-Developer-facing record of the Reikai docs site: why it exists, how it is wired to this repo, and what is deliberately not done yet. Scaffolded 2026-08-21; lives in its own repo at `../Reikai-website`, unpublished.
+Developer-facing record of the Reikai docs site: why it exists, how it is wired to this repo, and what is deliberately not done yet. Scaffolded 2026-08-21; lives in its own public repo, [unseensnick/Reikai-website](https://github.com/unseensnick/Reikai-website), not yet deployed.
 
 ## Goal
 
@@ -50,7 +50,9 @@ In this repo:
 
 **Reikai's own seven pages were audited against the code and rewritten in Mihon's voice**: frontmatter, `<nav>` chips for in-app paths, `::: tip How to` step blocks, `Badge` defaults, `::: tabs` for variants. What the audit turned up is below.
 
-**Not done, in the order it matters.** The 23 ported pages have been debranded and spot-corrected, never audited against how Reikai behaves, and two statements turned out flatly wrong rather than merely stale. Nothing is published yet: no GitHub repo, no remote, no domain, no deploy.
+**Every ported page has now been read against the app**, in three passes: labels against `strings.xml`, the migrate flow walked on a device, then each page opened against the screen it describes. `docs/guides/PORTING.md` carries what each pass found.
+
+**Not deployed.** The repo is public and `main` is pushed, but there is no Pages build, no domain and no in-app link. The repo itself is MPL-2.0, matching Mihon's website, since enough of the site derives from it.
 
 ## What the audit of Reikai's own docs found
 
@@ -69,7 +71,7 @@ The docs were mostly right about behaviour and wrong about names, which is the f
 - **So do their illustrations.** A screenshot is invalidated by the same UI change that invalidates the sentence next to it, so it belongs in the repo where that change lands, referenced by an absolute `/docs/...` path and copied into the site's `public/` at sync time. The app repo already carries 29 MB of README assets, so 6 MB of doc captures is not a new kind of cost.
 - **Buy the domain before shipping an in-app link to it** (owner, 2026-08-21). Pages hosting is free either way and supports custom domains, so the money buys only the name. It matters because in-app help URLs ship inside released APKs and live forever: a `github.io` path dies if the repo or account is ever renamed, a domain is a DNS change. Starting on Pages and adding the domain later is safe, since GitHub redirects the old URL.
 - **The re-cut happened after the guides were wired in, not before** (done 2026-08-21). Each overlapping pair was merged into the ported guide rather than the other way round, because the guide already covered the common ground and Reikai's page only carried what it adds.
-- **Publishing still trades against the public-facing naming rule.** A docs site can stay plain and source-name-free, but it is indexed. `docs/adult-sources.md` names the sources 8 times and cannot avoid it, since the in-app toggle is labelled with one. Whether it publishes is unresolved.
+- **Publishing still trades against the public-facing naming rule.** A docs site can stay plain and source-name-free, but it is indexed. `docs/adult-sources.md` names the sources 8 times and cannot avoid it, since the in-app toggle is labelled with one. Whether it publishes is unresolved, and the decision point is the Pages deploy rather than the repo: the repo going public changes nothing, because the app repo has always carried these docs and the rule exempts detailed feature docs. What it does bind is the site repo's own description and topics, which are a marketing surface like any other.
 - **No doc-sync ledger for the fork sites.** There is nothing on them to track.
 
 ## Gotchas
