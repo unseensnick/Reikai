@@ -232,7 +232,10 @@ jobs:
               echo ""
               echo "$new_lines"
               echo ""
-              printf '**Full changelog:** %s/blob/main/CHANGELOG.md\n' "$repo"
+              # Pin the link to the commit this nightly was built from, not to a branch. A nightly is
+              # usually cut from a feature branch, so blob/main pointed at a changelog that does not
+              # contain these entries, and a branch link would 404 once that branch is merged away.
+              printf '**Full changelog:** %s/blob/%s/CHANGELOG.md\n' "$repo" "${{ github.sha }}"
             else
               commits=""
               if [ -n "$prev_ref" ]; then
