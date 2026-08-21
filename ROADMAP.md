@@ -2,6 +2,10 @@
 
 Forward plan only: what is left to build, in what order. Shipped work lives in [docs/dev/shipped.md](docs/dev/shipped.md); per-feature detail and decisions in [docs/dev/plans/](docs/dev/plans/); session state in `Handoff.md` (gitignored). Format and naming rules: [.claude/rules/roadmap-plans.md](.claude/rules/roadmap-plans.md).
 
+## The 0.4.0 cut
+
+0.4.0 is **not** cut before all three of these land: the tsundoku novel-reader migration, the download subsystem rework (Road B), and the new light-novel trackers under Trackers below. Owner ruling, 2026-08-21. Anything else in this file is free to ship into the cycle without moving the cut.
+
 ## Now
 
 - **Drop the `voyager-screenModel` dependency** `[S]` - Reikai's novel reader is the one model still on the old base, so the dependency stays in the catalog and the bundle. Deliberately not migrated on its own: the tsundoku reader migration deletes that model, so this closes out when it lands. [Plan](docs/dev/plans/viewmodel-migration.md).
@@ -87,7 +91,7 @@ From the same audit.
 Dedicated LN trackers are shippable via WebView session-scraping (no official API needed), which overturns the earlier park for RanobeDB / NovelList.
 
 - **Refresh a tracker's local row after a progress push** `[S]` - pushing progress from mark-as-read persists the row read *before* the push, so the local status still says "plan to read" until something refreshes it again, while the service already says reading. Affects both content types; upstream's shape, so it is a deliberate local fix.
-- **WebView cookie/token tracker login** `[M]` - a shared WebView login flow that captures a service's session cookie or JWT (tsundoku's `TrackerWebViewLoginActivity`), the auth path all three novel trackers below need; Reikai today has only OAuth-deeplink and username/password login. Strip tsundoku's raw-cookie DEBUG logging on port.
+- **WebView cookie/token tracker login** `[M]` (gates the 0.4.0 cut, with the three trackers below) - a shared WebView login flow that captures a service's session cookie or JWT (tsundoku's `TrackerWebViewLoginActivity`), the auth path all three novel trackers below need; Reikai today has only OAuth-deeplink and username/password login. Strip tsundoku's raw-cookie DEBUG logging on port.
 - **RanobeDB tracker** `[M]` - a dedicated light-novel tracker (ranobedb.org): status, score, dates and delete, via a public JSON read API plus a reverse-engineered write path. Strongest of the three; port first.
 - **NovelList tracker** `[M]` - novellist.co tracker: status, chapter progress and score via a JWT REST API (search needs no auth). Second.
 - **NovelUpdates tracker** `[L]` - novelupdates.com tracker: highest demand but 100% HTML scraping plus a notes-field progress hack, no score or date sync; high ongoing maintenance. Port last or skip.

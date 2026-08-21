@@ -64,6 +64,8 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Current release target (next cycle, on `feat/0.4.0`)
 
+**The cut is gated on three items** (owner, 2026-08-21): the tsundoku novel-reader migration, the download subsystem rework (Road B), and the new light-novel trackers. All three are named at the top of [ROADMAP.md](ROADMAP.md). Nothing else moves the cut.
+
 **0.3.0 shipped**: tagged `v0.3.0` -> `4b9f0e0c6`, released, and moved to [docs/dev/shipped.md](docs/dev/shipped.md). `app/build.gradle.kts` reads `versionName 0.3.0` / `versionCode 190` (the `versionCode` climbs mid-cycle whenever a preference migration needs it, see below; `versionName` moves at the 0.4.0 cut). Notes for continuing sessions:
 
 - New work lands its CHANGELOG entries under `[Unreleased]` and normally bumps nothing: `versionCode` / `versionName` move only at release-cut (see the `feedback_version_bumps` memory). **Standing exception:** a version-gated data migration is a no-op until the shipped `versionCode` reaches its gate, so adding one bumps `versionCode` mid-cycle to make it fire in dev / preview builds and be testable. That is why this cycle already climbed `183 -> 190`. `versionName` stays `0.3.0` until the cut.
