@@ -181,7 +181,7 @@ Once a phase's files are ported, audit the Reikai port against the Komikku sourc
 - **Absent Komikku helpers substituted:** `exh.util.under` / `nullIfZero` inlined; `exh.log.xLogE`/`xLogD` -> Reikai `logcat`; `exh.util.floor` -> `kotlin.math.floor`.
 - **`SManga.create().apply {}` / `SChapter.create().apply {}`** for both models (interfaces with `create()`).
 - **Phase 1 drops the `altTitlesInDesc` / `finalChapterInDesc` description branches and params** (deferred to Phase 5 with their settings UI and i18n). Not a lost feature.
-- **Injekt, not Koin.** DI wiring uses Reikai's Injekt registration; no Koin.
+- **Metro, not Koin.** DI wiring joins the Metro graph by annotation; the three `MetadataSource` contracts stay Injekt-registered because installed extensions resolve them.
 - **`// RK` islands** on any edit to a Mihon-owned file (registry, prefs), where Komikku uses `// SY` / `// KMK`.
 - **MVP scope cuts (Phase 1).** No external-aggregator page handlers (MangaPlus, Bilibili, Comikey, Azuki, MangaHot, Namicomi), no login/follows/similar; MangaDex at-home path only. These arrive in later phases (or Phase 6, deferred).
 - **`MdList` tracker id.** Reikai's own stable id (Komikku uses `60L`); may differ if `60L` is taken.

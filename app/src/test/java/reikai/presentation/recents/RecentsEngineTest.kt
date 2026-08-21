@@ -46,7 +46,7 @@ import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.i18n.MR
 
 /**
- * The engine over hand-built providers. The real adapters resolve Injekt at construction and cannot run
+ * The engine over hand-built providers. The real adapters need their surface's live models and cannot run
  * here, so these fakes stand in for them; the chip is preset before construction because the in-memory
  * preference store's `changes()` never emits, which makes a mid-test flip untestable rather than false.
  */

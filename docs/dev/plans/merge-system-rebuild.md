@@ -53,7 +53,7 @@ Rollout is big-bang: the cutover flips everything to rows, verified on-device, t
 - `reikai/domain/library/ReikaiLibraryPreferences`: the merge / unmerge / auto-merge keys (per type) are retired (kept read-only for old-backup restore); the global `preferred_manga_sources` / `preferred_novel_sources` keys are retained as the default source ranking a group falls back to.
 - `data/backup/models/BackupMangaMerge` (plus novel twin), `MangaRestorer` / `NovelRestorer`, `PreferenceRestorer`, `BackupCreator` / `NovelBackupCreator`: the ref-based round-trip; re-pointed at the group entity.
 - `data/src/main/sqldelight/tachiyomi/data/mangas.sq` / `novels.sq` / `chapters.sq` / `novel_chapters.sq`: the id-reuse and `source_order` overload hazards; addressed by the new tables plus cascade, not by editing these.
-- Wider blast radius (resolution callers that must move to the group-lookup API): both migration use-cases, `PropagateTrackerLinks` / `PropagateNovelTrackerLinks`, `GetNovelTracks`, `DeleteNovelTrack`, the Updates group-by-series header, both migration source-pick screens, the Settings clear-merges actions, and `LegacyYokaiDbImporter`. DI is four singletons in `DomainModule` / `PreferenceModule`.
+- Wider blast radius (resolution callers that must move to the group-lookup API): both migration use-cases, `PropagateTrackerLinks` / `PropagateNovelTrackerLinks`, `GetNovelTracks`, `DeleteNovelTrack`, the Updates group-by-series header, both migration source-pick screens, the Settings clear-merges actions, and `LegacyYokaiDbImporter`. DI is four singletons on the Metro graph (`ReikaiBindings` provides the two merge managers).
 
 ## Status
 

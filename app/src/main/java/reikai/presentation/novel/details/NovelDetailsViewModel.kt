@@ -167,8 +167,9 @@ class NovelDetailsViewModel(
     private val trackPreferences: TrackPreferences,
 ) : ViewModel() {
 
-    // Building the manager restores the persisted queue and can start the download worker, which
-    // opening a novel page must not do. Resolved on first use instead.
+    // Building the manager restores the persisted queue and can start the download worker, so it is
+    // resolved on first read rather than at construction: every read sits inside a coroutine, which
+    // keeps that work off the thread the screen opens on and skips it when nothing reads it at all.
     private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
 
     val state: StateFlow<NovelDetailsState>

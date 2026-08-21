@@ -7,7 +7,7 @@ import reikai.domain.library.ContentType
 
 /**
  * The recents kernel: one order and one collapse, both pure. Fixtures are built by hand because the
- * models these rows come from resolve Injekt at construction and cannot run here. Every rule has its
+ * models these rows come from need the graph to stand up. Every rule has its
  * twin across content types, since the two engines are separate and this is where they would drift.
  */
 class RecentsAssemblyTest {

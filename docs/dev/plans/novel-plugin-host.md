@@ -42,7 +42,7 @@ A plugin method call (`callMethod` in `LnPluginHost.kt`) takes the lock, then ev
 
 ### Load-once, app-scoped wiring
 
-The host is an Injekt singleton (`addSingletonFactory { LnPluginHost(app, get<NetworkHelper>().client, get()) }` in `AppModule.kt`). `LnPluginInstaller` (also a singleton in `AppModule.kt`) owns it and exposes `ensureLoaded()` (`LnPluginInstaller.kt`), which loads every installed plugin into the shared `NovelSourceManager` exactly once per process behind its own load-mutex, retrying only the ones that failed. Screens and workers call `ensureLoaded()` and read sources from the manager; they no longer build their own host. The background path is wired the same way: `NovelUpdateJob` injects the installer and calls `ensureLoaded()` before iterating (`NovelUpdateJob.kt`), so a cold process finds populated sources.
+The host is an app-scoped singleton on the Metro graph (`@Inject` + `@SingleIn(AppScope::class)` on the class). `LnPluginInstaller`, scoped the same way, owns it and exposes `ensureLoaded()` (`LnPluginInstaller.kt`), which loads every installed plugin into the shared `NovelSourceManager` exactly once per process behind its own load-mutex, retrying only the ones that failed. Screens and workers call `ensureLoaded()` and read sources from the manager; they no longer build their own host. The background path is wired the same way: `NovelUpdateJob` injects the installer and calls `ensureLoaded()` before iterating (`NovelUpdateJob.kt`), so a cold process finds populated sources.
 
 There is no separate on-screen versus background code path anymore. Both go through the one app-scoped host. The only remaining WebView in novel territory is the unrelated "open in WebView" escape hatch for clearing Cloudflare/Turnstile challenges, which is not the plugin host.
 
@@ -58,7 +58,7 @@ Confirmed present in the current tree (`reikai.*` package, post-rebase):
 - [`app/src/main/java/reikai/novel/install/LnPluginInstaller.kt`](../../../app/src/main/java/reikai/novel/install/LnPluginInstaller.kt): owns the host; `ensureLoaded()` / `loadInstalled()`.
 - [`app/src/main/java/reikai/novel/source/NovelSourceManager.kt`](../../../app/src/main/java/reikai/novel/source/NovelSourceManager.kt), [`LnPluginSource.kt`](../../../app/src/main/java/reikai/novel/source/LnPluginSource.kt): shared source registry + adapter.
 - [`app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt`](../../../app/src/main/java/reikai/data/novel/update/NovelUpdateJob.kt): background update path; calls `ensureLoaded()` cold.
-- [`app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt`](../../../app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt): `// RK` Injekt registration of the host + installer singletons.
+- [`app/src/main/java/reikai/novel/host/LnPluginHost.kt`](../../../app/src/main/java/reikai/novel/host/LnPluginHost.kt): the host itself; it and the installer join the graph by their own annotations rather than a DI module.
 
 ## Status
 

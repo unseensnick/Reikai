@@ -14,7 +14,7 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * Pins [assembleLibrary] to the bucketing, ordering, sort-scope and empty-category rules the manga and
  * novel models apply today, so the engine can render the assembled list knowing nothing visible moved.
- * Fixtures are hand-derived from those rules (the models themselves resolve Injekt at init, so they
+ * Fixtures are hand-derived from those rules (standing a model up needs the graph, so they
  * cannot run here); each rule's origin is cited in LibraryAssembly.kt's KDoc.
  */
 class LibraryAssemblyTest {

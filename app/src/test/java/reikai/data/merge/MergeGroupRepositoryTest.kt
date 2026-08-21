@@ -39,7 +39,7 @@ class MergeGroupRepositoryTest {
         runTest {
             driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
-            // Cascade only fires with foreign keys on; the app enables the same pragma in AppModule.
+            // Cascade only fires with foreign keys on; the app enables the same pragma in AppBindings.
             driver.execute(null, "PRAGMA foreign_keys=ON", 0).await()
             database = Database(
                 driver = driver,

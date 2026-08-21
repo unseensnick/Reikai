@@ -85,7 +85,7 @@ Persistence:
 - [MangaScreen.kt](../../../app/src/main/java/eu/kanade/presentation/manga/MangaScreen.kt): carousel item, phone (in-scroll) and tablet (start pane).
 - `MangaViewModel.kt`: state + debounced load + `tracks` plumbing.
 - [SettingsLibraryScreen.kt](../../../app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsLibraryScreen.kt): entry to `SettingsRecommendationsScreen` (Settings → Library → Recommendations).
-- The tracker `*Api.kt` recs/library-pull methods, `DomainModule` / `PreferenceModule`, `i18n` strings.
+- The tracker `*Api.kt` recs/library-pull methods, the Metro graph (`ReikaiBindings` for the fetcher list), `i18n` strings.
 
 ## Status
 

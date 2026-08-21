@@ -56,7 +56,7 @@ Mihon files patched with `// RK` islands (search path, sheet wiring, DI):
 
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/{anilist,kitsu,mangaupdates,myanimelist,shikimori,hikka,mangabaka}/`: the seven `searchNovel()` paths in each tracker + its API class.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/Tracker.kt`: the `searchNovel` + `supportsNovels` contract additions.
-- `app/src/main/java/eu/kanade/domain/DomainModule.kt`: DI registration of the novel track repo + interactors. `app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt` registers only the `NovelDelayedTrackingStore` (the offline queue).
+- `app/src/main/java/reikai/domain/novel/` and `reikai/data/novel/`: the novel track repo + interactors, all graph-owned by `@Inject`. Six of them stay Injekt-registered in `eu/kanade/domain/DomainModule.kt` only because the novel reader still resolves them by hand.
 
 UI / sync wiring:
 

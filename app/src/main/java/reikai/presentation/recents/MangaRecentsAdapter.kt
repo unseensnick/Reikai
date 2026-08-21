@@ -397,8 +397,8 @@ internal fun mangaDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val 
 }
 
 /**
- * Free rather than a member for the same reason the item mappers below are: an adapter resolves Injekt
- * while it is being constructed, so nothing on one can be reached from a unit test.
+ * Free rather than a member for the same reason the item mappers below are: an adapter carries the
+ * surface's live models, so a test can reach this without standing one up.
  */
 internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = item.payload) {
     is UpdatesItem -> RecentsRowUi(

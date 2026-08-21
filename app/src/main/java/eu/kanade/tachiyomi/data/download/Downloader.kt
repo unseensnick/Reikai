@@ -492,9 +492,9 @@ class Downloader(
     // RK: match a finished page image by the page's expected prefix ("001"), never the candidate
     // file's own name. Upstream reused `filename` here, so the check read name.startsWith(name + "."),
     // never matched, and every resume re-downloaded finished pages, producing "001 (1).webp"
-    // duplicates that broke the completion count. Upstream mihonapp/mihon#3504 later extracted the same
-    // helper but with `!tmp || match`, which is true for any non-tmp file (wrong page); the guard must
-    // stay `!tmp && match`.
+    // duplicates that broke the completion count. Upstream mihonapp/mihon#3504 later extracted the
+    // same helper and has since converged on this shape; ours keeps a nullable name and drops the
+    // trailing dot after __001, so a split page whose suffix runs straight on still matches.
     private fun isDownloadedPageImage(fileName: String?, pagePrefix: String): Boolean {
         if (fileName == null || fileName.endsWith(".tmp")) return false
         return fileName.startsWith("$pagePrefix.") || fileName.startsWith("${pagePrefix}__001")

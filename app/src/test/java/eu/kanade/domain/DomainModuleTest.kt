@@ -23,10 +23,10 @@ import uy.kohesive.injekt.registry.default.DefaultRegistrar
  * the novel reader, which stays on Injekt until the tsundoku migration, and `source-api`'s three
  * [MetadataSource] contracts, which installed extensions compile against.
  *
- * Its registrations resolve each other through `get()`, so deleting one another still needs fails at
- * runtime rather than at compile time, and 64 untyped `Injekt.get()` sites make a text search useless
- * for finding out which. This resolves instead of matching: every type with a live consumer is built
- * for real, so a deletion that breaks a dependency fails here.
+ * Its registrations resolve each other through untyped `get()`, so deleting one another still needs
+ * fails at runtime rather than at compile time, and a text search cannot find which: the type never
+ * appears at the call site. This resolves instead of matching, so every type with a consumer is
+ * built for real and a deletion that breaks a dependency fails here.
  */
 class DomainModuleTest {
 

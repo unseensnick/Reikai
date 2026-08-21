@@ -488,7 +488,7 @@ installed extensions keep working.
 **Those numbers describe upstream's commit, not this tree.** Here the port is staged, so as of
 2026-08-20 `AppModule`, `PreferenceModule` and `Migrations.kt` are deleted while `DomainModule` is
 still live (for six registrations the novel reader still resolves), and our `AppGraph` has grown past
-upstream's shape to 71 accessors and 23 `inject()` members. Our `App` also reads the migration set
+upstream's shape to 66 accessors and 23 `inject()` members (re-derived 2026-08-21). Our `App` also reads the migration set
 off the graph rather than injecting it as a field, for the ordering reason recorded in Status.
 
 ### The per-class pattern
@@ -508,8 +508,10 @@ Almost everything is a two to five line edit, and the shape is uniform:
 | Object / static | the companion function gains a `Context` parameter and reaches the graph through it |
 
 In every case the constructor defaults (`= Injekt.get()`) are deleted, which is what makes the diff
-large. The port started from roughly 506 of them (see Inventory); 82 remain, alongside 130
-`by injectLazy()`.
+large. The port started from roughly 506 of them (see Inventory); **3 remain, alongside 49
+`by injectLazy()`** (re-derived 2026-08-21). All three defaults are ruled: the two `hasCustomCover`
+twins and the inert download-queue model. Of the delegates, 17 are the novel reader's and the rest
+are `source-api`, `source-local`, `DebugToggles` and the tracker files upstream carries too.
 
 ### ViewModels
 
@@ -709,8 +711,13 @@ belongs to the ViewModel phase and is tracked there.
 
 **Amended 2026-08-20.** Items 3, 6, 7 and 8 came in with the skipped-files unit, because the files
 they touch could not convert without them. Only 1 and 2 are still deferred. Two halves were not
-taken: `DownloadNotifier` is `@Inject` but not app-scoped, and `BackupFileValidator` keeps its
-`context`, which the streaming reader needs where upstream decodes the whole file.
+taken, and only one of those is real: `BackupFileValidator` keeps its `context`, which the streaming
+reader needs where upstream decodes the whole file. **Corrected 2026-08-21:** the other half was
+recorded as `DownloadNotifier` being `@Inject` but not app-scoped here while upstream scopes it.
+Our file is byte-identical to upstream's and upstream leaves it unscoped too, so there is no
+divergence in either direction. Item 7 below also landed as a no-op rather than the behaviour change
+it was written up as: all three types were already built once here, by `DownloadManager` and
+`Downloader`, both of which were app-scoped before the port.
 
 1. `source-api/.../util/RxExtension.kt` deleted. Public extension-lib surface.
 2. `ConfigurableSource` switches `Injekt.get<Application>()` to `Injekt.get<Context>()`. Safe here:
@@ -724,7 +731,7 @@ taken: `DownloadNotifier` is `@Inject` but not app-scoped, and `BackupFileValida
 6. `ExtensionApi` and `DownloadNotifier` lose `internal`.
 7. `DownloadStore`, `DownloadNotifier` and `DownloadPendingDeleter` become app-scoped singletons
    where they were per-`Downloader` instances, and `Download.fromChapterId` moves into
-   `DownloadManager`. This one is a real behaviour change, not a refactor.
+   `DownloadManager`. Written up as a real behaviour change; here it changed no instance count (see the amendment above).
 8. `BackupFileValidator` drops its `context` parameter; `BackupCreator` becomes `@AssistedInject`
    with `isAutoBackup` moved to first position.
 9. `MangaCoverViewModel` is created from the screen's `mangaId` rather than

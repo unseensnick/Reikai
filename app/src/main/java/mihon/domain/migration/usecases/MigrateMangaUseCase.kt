@@ -43,7 +43,7 @@ class MigrateMangaUseCase(
     private val insertTrack: InsertTrack,
     private val coverCache: CoverCache,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
-    // RK: defaulted so DomainModule's positional factory stays unchanged; keeps migration merge-aware.
+    // RK: keeps migration merge-aware.
     private val mangaMergeManager: MangaMergeManager,
     // RK: the repository, not UpdateChapter, because that interactor logs and swallows; the carry
     // has to be able to fail the row. Same reason the novel engine checks its own carry.
