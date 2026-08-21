@@ -27,12 +27,6 @@ data class MURecord(
 )
 
 @Serializable
-data class MUAuthor(
-    val type: String? = null,
-    val name: String? = null,
-)
-
-@Serializable
 data class MUGenre(
     val genre: String? = null,
 )
@@ -48,5 +42,8 @@ fun MURecord.toTrackSearch(id: Long): TrackSearch {
         publishing_status = ""
         publishing_type = this@toTrackSearch.type.toString()
         start_date = this@toTrackSearch.year.toString()
+        score = this@toTrackSearch.bayesianRating?.takeIf { it > 0 } ?: -1.0
+        authors = this@toTrackSearch.authors.namesOfType("Author")
+        artists = this@toTrackSearch.authors.namesOfType("Artist")
     }
 }

@@ -122,6 +122,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
 
+**Tracking**
+
+- **MangaUpdates results now show each entry's rating and creators while you pick one to bind (synced from Mihon, mihonapp/mihon#3795).** Covers manga and novels alike.
+
 **Reader**
 
 - **Some image options under Settings -> Advanced are gone, now that manga pages decode through one modern decoder (synced from Mihon, mihonapp/mihon#3786).** The hardware bitmap threshold, legacy long strip decoding and custom display profile settings configured the legacy decoder, which went with it.

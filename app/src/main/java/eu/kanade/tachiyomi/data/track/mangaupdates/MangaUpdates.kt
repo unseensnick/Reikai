@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.MUListItem
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.MURating
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.copyTo
+import eu.kanade.tachiyomi.data.track.mangaupdates.dto.namesOfType
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.toTrackSearch
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -129,7 +130,7 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
     }
 
     // RK --> autofill entry metadata (Fill from tracker). MangaUpdates splits one author list into
-    // authors vs artists by each entry's type; genres are a separate clean list.
+    // authors vs artists by each entry's type (see namesOfType); genres are a separate clean list.
     override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
         val series = api.getSeries(track)
         return TrackMangaMetadata(
@@ -137,16 +138,8 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
             title = series.title?.htmlDecode(),
             thumbnailUrl = series.image?.url?.original,
             description = series.description?.htmlDecode(),
-            authors = series.authors
-                ?.filter { it.type != null && "Author" in it.type }
-                ?.mapNotNull { it.name }
-                ?.joinToString(", ")
-                ?.ifEmpty { null },
-            artists = series.authors
-                ?.filter { it.type != null && "Artist" in it.type }
-                ?.mapNotNull { it.name }
-                ?.joinToString(", ")
-                ?.ifEmpty { null },
+            authors = series.authors.namesOfType("Author").joinToString(", ").ifEmpty { null },
+            artists = series.authors.namesOfType("Artist").joinToString(", ").ifEmpty { null },
             genres = series.genres?.mapNotNull { it.genre }?.takeIf { it.isNotEmpty() },
         )
     }
