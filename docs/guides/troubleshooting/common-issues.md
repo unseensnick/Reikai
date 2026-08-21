@@ -52,7 +52,8 @@ See the [Scoped Storage](/docs/faq/storage#scoped-storage) portion of the FAQ to
 This error indicates the selected source is protected by **Cloudflare**.
 
 Consult the [Cloudflare guide](/docs/guides/troubleshooting/#cloudflare) for solutions.
-If issues persist, the source might have high **Cloudflare** protection.
+
+If it keeps happening on a source you want to keep, the protection is beyond what the in-app WebView can clear, and the answer is a [Cloudflare bypass proxy](/docs/flaresolverr) running on your own machine.
 
 ### `Unable to resolve host` / `Connection failed` / `Failed to connect to` / `timeout` / `connection reset`
 These errors indicate personal connection issues. Possible causes include:

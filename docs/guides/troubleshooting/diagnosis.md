@@ -22,9 +22,9 @@ Follow these steps to troubleshoot and find solutions.
 1. **Source Status**: Verify the source's status in a browser.
 1. **Retry Button**: Look for a retry button on the series page.
 1. **Advanced Settings**: Under <nav to="advanced">, try these options:
-   - Clear Cache
-   - Clear Cookies
-   - Clear Database
+   - Clear cookies
+   - Clear WebView data
+   - Clear database
    - DNS over HTTPS
 1. **Download Issues**: Delete the queue and retry downloads.
 1. **Restart Reikai**: Force close and reopen the app.
@@ -32,7 +32,7 @@ Follow these steps to troubleshoot and find solutions.
 If any of these solutions help, go to [Personalized Issue](#personalized-issue).
 If it is not just you, go to [Widespread Issue](#widespread-issue).
 
-If none of these solutions help, try asking in our [Discord server](https://discord.gg/mihon).
+If none of these solutions help, ask in [Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
 
 State your app version and the source, series, and chapter with the problem if it is not listed.
 
@@ -53,11 +53,15 @@ These are general guidelines as each site has its specific undisclosed limits an
 :::
 
 ## Widespread issue
-When everyone experiences a problem, it could be with the extension or app:
+When everyone experiences a problem, it could be with the extension or the app.
 
-1. Check [open issues](https://github.com/mihonapp/mihon/issues).
-2. Check [closed issues](https://github.com/mihonapp/mihon/issues?q=is%3Aissue+is%3Aclosed) in case it's resolved but not yet released.
-3. If not found, create a new issue.
+Third-party extensions are not **Reikai**'s to fix, so an extension bug belongs with whoever publishes it. See [built-in sources](/docs/built-in-sources) for which sources are Reikai's own.
+
+If it is the app:
+
+1. Check [open issues](https://github.com/unseensnick/Reikai/issues).
+2. Check [closed issues](https://github.com/unseensnick/Reikai/issues?q=is%3Aissue+is%3Aclosed) in case it is fixed but not yet released.
+3. If it is neither, file one with the [bug report form](https://github.com/unseensnick/Reikai/issues/new?template=2_report_issue.yml).
 
 ::: warning
 If the site itself is problematic, patience is the only solution until it becomes functional again.

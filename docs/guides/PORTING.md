@@ -166,12 +166,34 @@ actually does, by opening the screens. It caught a different class of error, and
 - **"Disallow non-English filenames" is "Disallow non-ASCII filenames".** A label, but it sat inside
   three paragraphs of otherwise-correct instructions, so it read as authoritative.
 
+### The last four, which were not the safe ones
+
+They were left last on the theory that setup-and-failure pages diverge least. Two of them held the
+worst content in the set, because a page about what to do when things break is where being sent to
+the wrong place costs most.
+
+- **`diagnosis.md` sent people to Mihon.** Its "ask for help" step linked Mihon's Discord and its
+  "check for a known bug" step linked Mihon's issue tracker. A Reikai user following it reports a
+  Reikai bug to a project that cannot fix it, in a channel that did not ask for it.
+- **`faq/browse/extensions.md` contradicted `built-in-sources.md`.** It said Reikai "does not have,
+  associate, or provide any repositories or extensions" and offers nothing, which is Mihon's position
+  and is not true here: four sources ship in the app and their bugs are ours.
+- **The metadata guide documented the deprecated format.** Local series details are read from
+  `ComicInfo.xml`. A `.json` file still works exactly once: the app converts it and **deletes it**,
+  which to anyone following that page looks like the app ate their file.
+- **The local source is manga-only**, which no page said. `LibraryQueryMatch.kt` puts it plainly:
+  novels have no local-source concept.
+- Smaller: four archive formats missing (`7Z`/`CB7`, `TAR`/`CBT`), a cover that can be any image
+  extension rather than `cover.jpg`, and `Clear Cache` again in the diagnosis checklist.
+
+The Cloudflare sections also never mentioned Reikai's own bypass proxy, which is the answer to the
+exact error they describe. Both now link it.
+
 ## What still has to happen
 
-The pages not yet opened against the app: `guides/local-source/*`, `guides/troubleshooting/*`,
-`faq/browse/*` and `guides/shizuku.md`. All four are about setup and failure modes rather than
-Reikai's own features, so they are the least likely to have diverged, which is exactly why they were
-left last rather than skipped.
+Nothing outstanding on these 23 pages: every one has been read against the app. What ages next is the
+app, so treat this record as the baseline rather than a finished job, and re-run the label sweep after
+any sync that renames things.
 
 ## Where Reikai already differs
 

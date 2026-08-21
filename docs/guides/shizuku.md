@@ -14,4 +14,8 @@ To get a detailed understanding of **Shizuku**, its purpose, and how it operates
 ## Setting up Shizuku
 To set up **Shizuku**, follow the instructions [here on Shizuku](https://shizuku.rikka.app/guide/setup/).
 
-After configuring it, enable **Shizuku** within **Reikai** by navigating to <nav to="advanced"> then changing the **Installer** setting.
+After configuring it, enable **Shizuku** within **Reikai** by navigating to <nav to="advanced"> then setting **Installer** to **Shizuku**.
+
+::: info Manga extensions only
+Light novel plugins are JavaScript that installs inside the app, so no installer setting touches them.
+:::

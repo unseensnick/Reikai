@@ -80,8 +80,14 @@ While some sources have specific user agent strings, most rely on the app's defa
 1. After changing the user agent string, remember to restart the app & check WebView to see if it passes verification.
 :::
 
-::: tip Did these methods not work?
-Wait for the source to lower its protection or switch to different sources.
+### Routing the source through a bypass proxy
+
+Some sources sit on protection the in-app WebView cannot clear at all, and no amount of retrying or user-agent swapping helps.
+
+For those, **Reikai** can hand the request to a bypass proxy you run yourself, which solves the challenge in a real browser. See [Cloudflare bypass](/docs/flaresolverr).
+
+::: tip Did none of this work?
+Wait for the source to lower its protection, or switch to a different source.
 :::
 
 ## General

@@ -12,6 +12,10 @@ If you like to download and organize your media, then you want to know how to ma
 This page explores some advanced features.
 :::
 
+::: info Manga only
+The local source reads folders of images and comic archives. Light novels have no equivalent: novel sources are plugins that fetch text, so there is nothing to point at a folder.
+:::
+
 ## Creating local series
 
 1. In the location you specified as your storage location (e.g., `/Reikai/`), there should be a `local` folder. Place correctly structured series inside that (e.g. `/Reikai/local/`).
@@ -22,7 +26,7 @@ This page explores some advanced features.
 
 If you add more chapters then you'll have to manually refresh the chapter list (by pulling down the list).
 
-Supported chapter formats are folders with pictures inside (such as `.jpg`, `.png`, etc) or archive files (`ZIP`/`CBZ`, `RAR`/`CBR`, and `EPUB`).
+Supported chapter formats are folders with pictures inside (such as `.jpg`, `.png`, etc), archive files (`ZIP`/`CBZ`, `RAR`/`CBR`, `7Z`/`CB7` and `TAR`/`CBT`), or an `EPUB`.
 But expect better performance with directories and `ZIP`/`CBZ`.
 
 Note that a single folder or archive file is treated as a single chapter. For example, Reikai will not automatically split an `EPUB` file containing multiple chapters into separate chapters within the app.
@@ -99,7 +103,7 @@ All images inside the archive regardless of folder structure will become pages f
 <div class="tree">
   <ul>
     <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
-    <span class="folder root">[your storage location]]/local</span>
+    <span class="folder root">[your storage location]/local</span>
     <li>
       <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
       <span class="folder main">[the series title]</span>
