@@ -8,6 +8,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 
 ## Foundation
 
+- [Documentation website](website.md): the VitePress docs and download site in its own repo, reading the user docs out of this one at build time so there is never a second copy.
 - [Reikai → Mihon rebase overview](rebase-overview.md): why Reikai moved off Yōkai onto Mihon, the phased structure (P0-P9), the `// RK` patch convention, and the decisions behind it.
 - [ViewModel migration](viewmodel-migration.md): taking Mihon's move off Voyager `ScreenModel` onto AndroidX `ViewModel` across Reikai's own screens too, phased so each cluster ships compiling, with the R8 risk proven up front. Deferred (attempted once, reverted, parked pending an upstream release).
 - [Metro DI migration](metro-di-migration.md): taking Mihon's move from Injekt to Metro (mihonapp/mihon#3608) across Reikai's own code too, as a hybrid that keeps Injekt alive for the extension contract. In progress: phases 0 to 4 have landed, the migrations, the Reikai-owned tail and cleanup remain. Carries the phase sequence, the traps and the riding-along upstream changes.
