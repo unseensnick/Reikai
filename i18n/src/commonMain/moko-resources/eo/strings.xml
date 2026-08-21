@@ -893,12 +893,6 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon estas nun finance subtenata de %d+ patronoj. Ni volas danki ĉiun el vi. Ni plibonigu Mihon eĉ pli kune.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Por alternativaj opcioj aŭ iaj ajn rilataj demandoj, aniĝu al nia Discord-servilo.</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">Ĉu vi ŝatas la apon?</string>
-    <string name="donationCampaign.paragraph1">Sal! Mi estas ĉefa programisto de Mihon kaj mi ŝatus peti vin konsideri finance subteni ĝian evoluigon. Kun sufiĉa subteno mi povos labori pri Mihon plentempe kaj koncentriĝi pri delonge ekzistantaj problemoj kaj ankaŭ pri tre petitaj funkcioj.</string>
-    <string name="donationCampaign.paragraph2">Vi povas donaci per Patreon (preferata) aŭ OpenCollective. Se vi havas demandojn aŭ vi volus subteni per alternativaj metodoj, ne hezitu kontakti min ĉe la Discord-servilo de Mihon.</string>
-    <string name="donationCampaign.paragraph3">Sendepende de tio, Mihon daŭre estos prizorgata de mi kaj la volontuloj, kaj ĝi restos malfermitkoda.</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">Kaŝi</string>
     <string name="pref_filter_upcoming_categories_details">Titoloj en ekskluzivitaj kategorioj ne estos montrotaj, eĉ se ili estas ankaŭ en inkluzivitaj kategorioj.</string>
     <string name="considering">Konsiderataj</string>
     <string name="pref_vertical_navigator_height">Alto de vertikala navigilo</string>

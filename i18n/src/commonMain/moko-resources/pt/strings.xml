@@ -887,10 +887,4 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon atualmente conta com o apoio de %d+ patrons. Queremos agradecer cada um de vocês. Vamos fazer Mihon ainda melhor juntos.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Para opções alternativas ou qualquer perguntas relacionadas, se junte ao nosso servidor no Discord.</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">Gosta da app?</string>
-    <string name="donationCampaign.paragraph1">Olá! Sou o programador principal por trás do Mihon, e gostaria de perguntar se consideraria apoiar o desenvolvimento financeiramente. Com apoio suficiente, poderei trabalhar integralmente no Mihon e focar em problemas pendentes tanto quanto em funcionalidades muito solicitadas.</string>
-    <string name="donationCampaign.paragraph2">Pode doar através do Patreon (preferencialmente) ou OpenCollective. Se tiver perguntas ou gostaria de apoiar a utilizar métodos alternativos, sinta-se livre para se aproximar através do servidor no Discord do Mihon.</string>
-    <string name="donationCampaign.paragraph3">Apesar disso, Mihon continuará a se mantido por mim e pelos voluntários e se manterá de código aberto.</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">Ignorar</string>
 </resources>

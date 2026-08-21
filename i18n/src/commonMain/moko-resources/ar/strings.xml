@@ -884,10 +884,4 @@
     <string name="supportUsScreen.currentlySupportedBy">ميهون مدعوم حاليًا بواسطة %d+ داعم. نشكركم جميعًا لدعمكم . معًا لجعل ميهون مكانًا أفضل.</string>
     <string name="supportUsScreen.contactForDetailsMessage">للحصول على خيارات بديلة أو أي أسئلة ذات صلة، انضم إلى خادم ديسكورد الخاص بنا.</string>
     <string name="supportUsScreen.contactPlatform">ديسكورد</string>
-    <string name="donationCampaign.title">أتستمع بالتطبيق؟</string>
-    <string name="donationCampaign.paragraph1">أهلاً! أنا المطور الرئيسي وراء «ميهون »، وأود أن أطلب منك التفكير في دعم تطويره ماليًا. ومع الدعم الكافي، سأكون قادرًا على العمل على «ميهون » طوال اليوم والتركيز على المشكلات طويلة الأمد التي تؤثر في تجربتك بالإضافة إلى الميزات المطلوبة بشدة.</string>
-    <string name="donationCampaign.paragraph2">يمكنك التبرع من خلال باتريون(مستحسن) أو منصة OpenCollective. إذا كانت لديك أسئلة أو كنت ترغب في الدعم باستخدام طرق بديلة، فلا تتردد في التواصل معي من خلال خادم ميهون على الديسكورد.</string>
-    <string name="donationCampaign.paragraph3">عمومًا، سأستمر في صيانة ميهون بواسطتي أنا والمتطوعين، وسيظل مفتوح المصدر.</string>
-    <string name="donationCampaign.contactPlatform">ديسكورد</string>
-    <string name="donationCampaign.dismiss">إغلاق</string>
 </resources>

@@ -901,11 +901,5 @@
     <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>
     <string name="supportUsScreen.currentlySupportedBy">Mihon sedang disokong oleh %d+ penaung. Kami mahu berterima kasih kepada setiap anda semua. Marilah kita membuat Mihon lebih bagus bersama-sama.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Untuk pilihan alternatif ataupun soalan berkaitan, sertai pelayan Discord kami.</string>
-    <string name="donationCampaign.title">Suka app ini?</string>
-    <string name="donationCampaign.paragraph1">Hai! Saya ialah pembangun utama di sebalik Mihon, dan saya ingin meminta anda untuk membuat pertimbangan dalam menyokong pembangunan Mihon dari segi kewangan. Dengan sumbangan yang cukup, saya boleh bekerja membangunkan Mihon secara sepenuh masa dan fokus sepenuhnya kepada isu-isu yang sudah lama berlarutan serta ciri-ciri yang amat diminta.</string>
-    <string name="donationCampaign.paragraph2">Anda boleh menyumbang sama ada melalui Patreon (diutamakan) atau OpenCollective. Sekiranya anda mempunyai pertanyaan atau ingin menyokong menggunakan kaedah alternatif, anda amat dialu-alukan untuk menghubungi saya melalui pelayan Discord Mihon.</string>
-    <string name="donationCampaign.paragraph3">Walau bagaimana sekalipun, Mihon akan tetap diselenggara oleh saya dan sukarelawan lain, dan ia akan kekal sebagai sumber terbuka.</string>
-    <string name="donationCampaign.dismiss">Tutup</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
 </resources>

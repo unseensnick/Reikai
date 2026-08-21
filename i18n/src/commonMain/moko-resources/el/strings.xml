@@ -901,10 +901,4 @@
     <string name="supportUsScreen.currentlySupportedBy">Το Mihon υποστηρίζεται αυτήν τη στιγμή από %d+ χρήστες. Θέλουμε να ευχαριστήσουμε τον καθένα από εσάς ξεχωριστά. Ας κάνουμε το Mihon ακόμα καλύτερο μαζί.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Για εναλλακτικές επιλογές ή οποιεσδήποτε σχετικές ερωτήσεις, εγγραφείτε στον Discord server.</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">Σας αρέσει η εφαρμογή;</string>
-    <string name="donationCampaign.paragraph1">Γεια σας! Είμαι ο κύριος προγραμματιστής πίσω από το Mihon και θα ήθελα να σας ζητήσω να εξετάσετε το ενδεχόμενο οικονομικής υποστήριξης στην ανάπτυξή του. Με επαρκή υποστήριξη, θα μπορώ να εργάζομαι στο Mihon με πλήρη απασχόληση και να επικεντρωθώ σε μακροχρόνια προβλήματα καθώς και σε λειτουργίες που έχουν μεγάλη ζήτηση.</string>
-    <string name="donationCampaign.paragraph2">Μπορείτε να κάνετε δωρεά μέσω του Patreon (προτιμάται) ή του OpenCollective. Εάν έχετε ερωτήσεις ή θέλετε να υποστηρίξετε χρησιμοποιώντας εναλλακτικές μεθόδους, μη διστάσετε να επικοινωνήσετε μαζί μου μέσω του Discord server του Mihon.</string>
-    <string name="donationCampaign.paragraph3">Ανεξάρτητα από αυτό, το Mihon θα συνεχίσει να συντηρείται από εμένα και τους εθελοντές και θα παραμείνει ανοιχτού κώδικα.</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">Απόρριψη</string>
 </resources>

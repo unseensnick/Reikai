@@ -886,10 +886,4 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon este sustinut de %d+ contribuitori. Va multumim tuturor pentru sustinere. Haideti sa imbunatatim impreuna Mihon.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Pentru optiuni alternative, sau orice intrebare despre subiect, alatura-te serverului nostru de Discord.</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">Iti place aplicatia?</string>
-    <string name="donationCampaign.paragraph1">Salut! Sunt dezvoltatorul principal al Mihon si as dori sa va rog sa luati in considerare sprijinirea financiara a proiectului. Cu un sprijin suficient, voi putea lucra la Mihon cu norma intreaga si ma voi puteam concentra atat pe probleme vechi, cat si pe functii noi solicitatate de comunitate.</string>
-    <string name="donationCampaign.paragraph2">Puteti face o donatie fie prin Patreon (metoda preferata), fie prin OpenCollective. Daca aveti intrebari sau doriti sa ne sprijiniti prin alte metode, nu ezitati sa ma contactati pe serverul de Discord al aplicatie Mihon.</string>
-    <string name="donationCampaign.paragraph3">In orice caz, Mihon va continua sa fie intretinut de mine si de voluntari si va ramane open source.</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">Ignora</string>
 </resources>

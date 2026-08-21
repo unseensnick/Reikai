@@ -594,12 +594,6 @@
     <string name="relative_time_span_never">Inoiz ez</string>
     <string name="action_sort_random">Ausaz</string>
     <string name="artist">Artista</string>
-    <string name="donationCampaign.title">Aplikazioa gustoko duzu?</string>
-    <string name="donationCampaign.paragraph1">Kaixo! Mihonen atzean dagoen garatzaile nagusia naiz, eta haren garapena ekonomikoki babestea aztertzeko eskatu nahi nizuke. Laguntza nahikoarekin, Mihonen denbora osoz lan egin ahal izango dut eta arazo zaharretan zein oso eskatutako funtzioetan zentratu ahal izango naiz.</string>
-    <string name="donationCampaign.paragraph2">Patreon (hobetsia) edo OpenCollective bitartez dirua eman dezakezu. Galderarik baduzu edo beste metodo batzuk erabiliz lagundu nahi baduzu, jar zaitez nirekin harremanetan Mihonen Discord zerbitzariaren bitartez.</string>
-    <string name="donationCampaign.paragraph3">Nolanahi ere, Mihon boluntarioek eta nik mantentzen jarraituko dugu, eta kode irekikoa izaten jarraituko du.</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">Baztertu</string>
     <string name="supportUsScreen.perks">Mezenasek kanal esklusiboetarako sarbidea lortzen dute, abantaila gehiagorekin etorkizunean.</string>
     <string name="supportUsScreen.donationPlatform.patreon">Patreon (hobetsia)</string>
     <string name="supportUsScreen.donationPlatform.opencollective">OpenCollective</string>

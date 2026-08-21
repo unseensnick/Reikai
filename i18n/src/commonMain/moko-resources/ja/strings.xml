@@ -861,11 +861,6 @@
     <string name="migrationConfigScreen.selectNoneLabel">すべて選択解除</string>
     <string name="migrationConfigScreen.additionalSearchQueryLabel">追加キーワード（任意）</string>
     <string name="migrationConfigScreen.additionalSearchQuerySupportingText">キーワードを追加することで、検索結果を絞り込むのに役立ちます</string>
-    <string name="donationCampaign.title">このアプリは気に入っていただけましたか？</string>
-    <string name="donationCampaign.paragraph1">こんにちは！Mihon のメイン開発者です。Mihon の開発を資金面でご支援いただけないでしょうか。十分なご支援をいただければ、Mihon の開発に専念し、長年の課題解決や多くのユーザーから要望のあった機能開発に集中できるようになります。</string>
-    <string name="donationCampaign.paragraph2">寄付は Patreon（推奨）または OpenCollective を通じて行うことができます。ご質問がある場合や、別の方法で支援をご希望の場合は、Mihon の Discord サーバーからお気軽にご連絡ください。</string>
-    <string name="donationCampaign.paragraph3">いずれにせよ、Mihon は私とボランティアによって引き続きメンテナンスされ、オープンソースのまま維持されます。</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
     <string name="migrationListScreenTitle">移行</string>
     <string name="migrationListScreenTitleWithProgress">移行（%1$d/%2$d）</string>
     <string name="migrationListScreen.copyActionLabel">コピー</string>
@@ -890,7 +885,6 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon は現在、%d 人以上の支援者の方々にご支援いただいています。皆様一人ひとりに心より感謝申し上げます。共に Mihon をさらに素晴らしいものにしていきましょう。</string>
     <string name="supportUsScreen.contactForDetailsMessage">代替案や関連するご質問については、Discord サーバーにご参加ください。</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">閉じる</string>
     <string name="pref_vertical_navigator">垂直な章ナビゲーターを使用</string>
     <string name="pref_vertical_navigator_height">垂直ナビゲーターの高さ</string>
     <string name="pref_webtoon_vertical_navigator_on_left">垂直ナビゲーターを左側に配置</string>

@@ -884,12 +884,6 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon cuenta ahora mismo con el apoyo de %d+ personas. Os damos las gracias de corazón por hacer que Mihon mejore día a día.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Únete a nuestro servidor de Discord si tienes dudas u otras formas de pago.</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">¿Te gusta la aplicación?</string>
-    <string name="donationCampaign.paragraph1">¡Hola! Soy el desarrollador principal de Mihon y me gustaría pedirte que apoyes su desarrollo económicamente. Así podré trabajar en Mihon a tiempo completo, centrarme en arreglar lo importante y añadir todo lo que me pedís.</string>
-    <string name="donationCampaign.paragraph2">Puedes donar a través de Patreon (la mejor opción) u OpenCollective. Si tienes alguna pregunta o quieres utilizar otras opciones de pago no dudes en contactarme a través del servidor de Discord de Mihon.</string>
-    <string name="donationCampaign.paragraph3">Pase lo que pase los voluntarios y yo seguiremos mejorando Mihon y seguirá siendo de código abierto.</string>
-    <string name="donationCampaign.dismiss">Cerrar</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
     <string name="extensionStores">Listados de extensiones</string>
     <string name="action.addExtensionStore">Añadir listado de extensiones</string>
     <string name="extensionStoresScreen.emptyLabel">Todavía no has configurado ningún listado de extensiones</string>

@@ -882,10 +882,4 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon বৰ্তমান %d+ পেট্ৰনৰ দ্বাৰা সমৰ্থিত। আমি আপোনালোক প্ৰত্যেকজনক ধন্যবাদ জনাইছো। মিলি Mihon ক আৰু উন্নত কৰোঁ আহক।</string>
     <string name="supportUsScreen.contactForDetailsMessage">বিকল্প বা যিকোনো সম্পৰ্কীয় প্ৰশ্নৰ বাবে, আমাৰ Discord চাৰ্ভাৰত যোগদান কৰক।</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">এপটো উপভোগ কৰি আছে নেকি?</string>
-    <string name="donationCampaign.paragraph1">নমস্কাৰ! মই Mihon ৰ প্ৰধান বিকাশকৰ্তা, আৰু মই আপোনাক ইয়াৰ বিকাশ বিত্তীয়ভাৱে সমৰ্থন কৰিবলৈ বিবেচনা কৰিবলৈ অনুৰোধ কৰিব বিচাৰিছো। যথেষ্ট সমৰ্থন থাকিলে, মই সম্পূৰ্ণ সময় Mihon ত কাম কৰিব পাৰিম আৰু দীৰ্ঘদিনীয়া সমস্যা তথা বহু অনুৰোধিত বৈশিষ্ট্যসমূহৰ ওপৰত গুৰুত্ব দিব পাৰিম।</string>
-    <string name="donationCampaign.paragraph2">আপুনি Patreon (পছন্দৰ) বা OpenCollective ৰ জৰিয়তে দান কৰিব পাৰে। যদি আপোনাৰ প্ৰশ্ন থাকে বা বিকল্প পদ্ধতি ব্যৱহাৰ কৰি সমৰ্থন কৰিব বিচাৰে, তেন্তে অনুগ্ৰহ কৰি Mihon ৰ Discord চাৰ্ভাৰৰ জৰিয়তে মোৰ লগত যোগাযোগ কৰক।</string>
-    <string name="donationCampaign.paragraph3">যিকি নহওক, Mihon মই আৰু স্বেচ্ছাসেৱকসকলৰ দ্বাৰা পৰিচালিত হৈ থাকিব, আৰু ই মুক্ত উৎস হৈ থাকিব।</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">খাৰিজ কৰক</string>
 </resources>

@@ -885,12 +885,6 @@
     <string name="supportUsScreen.currentlySupportedBy">Mihon hiện được hỗ trợ bởi %d+ người hỗ trợ. Chúng tôi muốn cảm ơn tất cả các bạn. Hãy cùng nhau làm cho Mihon trở nên tốt hơn nữa.</string>
     <string name="supportUsScreen.contactForDetailsMessage">Để biết các lựa chọn thay thế hoặc bất kỳ câu hỏi liên quan nào, hãy tham gia máy chủ Discord của chúng tôi.</string>
     <string name="supportUsScreen.contactPlatform">Discord</string>
-    <string name="donationCampaign.title">Bạn thích ứng dụng này?</string>
-    <string name="donationCampaign.paragraph1">Xin chào! Tôi là nhà phát triển chính đằng sau Mihon và tôi mong bạn cân nhắc về việc hỗ trợ tài chính cho sự phát triển của ứng dụng này. Với đủ sự hỗ trợ, tôi sẽ có thể phát triển Mihon toàn thời gian và tập trung vào các vấn đề tồn đọng lâu dài cũng như các tính năng được yêu cầu cao.</string>
-    <string name="donationCampaign.paragraph2">Bạn có thể quyên góp thông qua Patreon (ưu tiên) hoặc OpenCollective. Nếu bạn có thắc mắc hoặc muốn hỗ trợ bằng cách khác, hãy liên hệ với tôi thông qua nhóm Discord của Mihon.</string>
-    <string name="donationCampaign.paragraph3">Dù thế nào đi nữa, Mihon sẽ tiếp tục được tôi và các tình nguyện viên duy trì và nó sẽ vẫn là nguồn mở.</string>
-    <string name="donationCampaign.contactPlatform">Discord</string>
-    <string name="donationCampaign.dismiss">Bỏ qua</string>
     <string name="action.addExtensionStore">Thêm cửa hành tiện ích mở rộng</string>
     <string name="extensionStoresScreen.emptyLabel">Bạn chưa thêm cửa hàng tiện ích mở rộng</string>
     <string name="extensionStoresScreen.addStore.title">Thêm cửa hàng tiện ích mở rộng</string>
