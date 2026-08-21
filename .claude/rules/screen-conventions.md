@@ -33,7 +33,7 @@ Dependencies arrive as constructor parameters on the ViewModel, which the Metro 
 
 ### 4. State via `StateFlow`
 
-State exposed by the ViewModel is a `StateFlow` (typically `StateViewModel<S>`, from `mihon.core.viewmodel`). Trivial UI-only state (a text field value, a tab index) may use `mutableStateOf` / `rememberSaveable` in the composable. No RxJava `Observable` / `Subject` / `Flowable` on the screen path; adapt at the boundary with `.asFlow()` if a dependency still returns Rx.
+State exposed by the ViewModel is a `StateFlow`, declared on the model itself with a Kotlin explicit backing field (`val state: StateFlow<State>` then `field = MutableStateFlow<State>(...)`, as in `MangaViewModel`). There is no state base class to extend: `StateViewModel<S>` and the `core:viewmodel` module were removed upstream (see [architecture.md](architecture.md)). Trivial UI-only state (a text field value, a tab index) may use `mutableStateOf` / `rememberSaveable` in the composable. No RxJava `Observable` / `Subject` / `Flowable` on the screen path; adapt at the boundary with `.asFlow()` if a dependency still returns Rx.
 
 ### 5. No preferences inside `@Composable`
 

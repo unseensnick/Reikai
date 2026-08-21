@@ -7,11 +7,11 @@ paths:
 
 # Database (SQLDelight)
 
-- **Never modify an existing migration's SQL.** Schema changes go in a new `.sqm` file under `data/src/main/sqldelight/tachiyomi/migrations/`. Existing migrations may have already run on user devices — editing their statements silently corrupts already-migrated databases. Comment-only edits (`--` lines) are allowed: comments never execute, so they can be reworded without affecting any device.
+- **Never modify an existing migration's SQL.** Schema changes go in a new `.sqm` file under `data/src/main/sqldelight/tachiyomi/migrations/`. Existing migrations may have already run on user devices: editing their statements silently corrupts already-migrated databases. Comment-only edits (`--` lines) are allowed: comments never execute, so they can be reworded without affecting any device.
 - Migrations are ordered by their numeric filename prefix. New migrations get the next number.
 - Test migrations before committing: write a SQLDelight migration test (start from an older schema, apply the new one, verify the result), or at minimum exercise the affected query paths against a freshly-migrated fixture.
 - Never drop a column or table without confirming the data is no longer needed. Backups from older app versions still contain it.
 - Backup-restore compatibility: Reikai uses Mihon's backup format (`.tachibk`), and backup files don't bind to `applicationId`. These backups are not interchangeable with pre-rebase Yōkai-based builds (different schema); keep them compatible with the Mihon backup format so a backup round-trips across Reikai versions.
 - Prefer SQLDelight's `.sq` query syntax over raw `SqlDriver.execute`. The generated typesafe API is the reason we use this library.
 - Index changes go in their own migration, not bundled with schema changes. Easier to roll back independently.
-- Never seed data in a migration — use the app's first-run logic instead.
+- Never seed data in a migration. Use the app's first-run logic instead.

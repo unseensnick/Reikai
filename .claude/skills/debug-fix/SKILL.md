@@ -109,7 +109,7 @@ In `--fast` mode specifically:
 - Create a PR targeting production:
   - Title: `[HOTFIX] <description>`.
   - Body: `## Summary` with what broke, what caused it, what this fixes. **No `## Test plan` section. No `🤖 Generated with [Claude Code]` footer or other AI-attribution handle.**
-  - Run `gh pr create --repo unseensnick/Reikai --base main --label hotfix …` — the repo is standalone and `gh`'s default is set to `unseensnick/Reikai`, so these flags are optional now but kept for explicitness. Fall back to no label on failure.
+  - Run `gh pr create --repo unseensnick/Reikai --base main --label hotfix …`. The repo is standalone and `gh`'s default is set to `unseensnick/Reikai`, so these flags are optional now but kept for explicitness. Fall back to no label on failure.
 - Show the PR URL.
 
 ## Rules
