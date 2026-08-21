@@ -72,7 +72,7 @@ shape; where the two disagree, this note wins.
 **Fresh install is now exercised** (2026-08-20): the preview install was wiped, walked through
 onboarding and restored from its own backup. **Upgrade from a shipped build is still untested.**
 
-### The audit, done 2026-08-21
+### The audit, round one, done 2026-08-21
 
 Seven read-only passes over the finished port: scope drift, lazy-to-eager timing, missed conversions
 per file against `b2015d1ef`, runtime-resolution completeness, graph hygiene, startup ordering, and
@@ -113,6 +113,48 @@ four preference holders twice, which is upstream's shape and costs nothing that 
 legacy-Yokai upgrade still runs its version-gated migrations against the empty database the importer
 just forced, before the restore job lands, then stamps them complete; that is older than this port
 and is tracked with the Yokai-era migration work.
+
+### Rounds two and three, and the upgrade path, done 2026-08-21
+
+**Round two took seven fresh axes** (round one's own commits, the riding-along semantics, whether the
+objects the graph shares are safe to share, assisted-model identity, worker failure modes, what the
+tests actually pin, and port residue). It found a regression round one had itself shipped, the
+page-preview cache opening its DiskLruCache journal on the image-loader path, and a gap in the guard
+rule round one had just added and mutation-tested: it built its read set from typed calls only, so a
+type reached solely through a module's untyped `get()` was invisible. `MangaMetadataRepository` was
+the worked example, and deleting its hand-back would have passed every gate and thrown for the first
+extension to touch gallery metadata.
+
+**Round three took four more** (the extension binaries actually installed, manga/novel DI symmetry, a
+full inventory of edges the compiler cannot check, and whether the reader's deferred boundary is
+clean). It found a duplicate notification id, a hand-back kept alive by a dead reader, two
+multibindings with no membership gate at all, and the novel source registry never being populated for
+three readers.
+
+**The extension question is settled by binaries, not by reading source.** All 25 extensions on the
+emulator and all 18 on the Fold were pulled and dexdumped: 64 `getInstance` call sites, 64 recovered
+`FullTypeReference` signatures, and every one resolves either `Application` or `Json`. That is what
+licensed the trim from 89 hand-backs to **31**.
+
+**Upgrade from a shipped build is no longer untested.** Method, for repeating it: build the last
+shipped tag's `preview` variant (same package and debug key, so the upgrade is genuine rather than a
+reinstall), wipe, install it, onboard into a throwaway storage folder, restore, capture the baseline,
+then install HEAD's `preview` over it. From `v0.3.1` (versionCode 184, pre-Metro) to 190: the app
+starts, the library, recents, statistics, novel details, the novel reader, browse and a delegated
+adult source all work, and merged groups survive. The entry count changes because the two builds count
+merge members differently, not because rows are lost. A separate backup, wipe and restore on the
+current build is lossless to the figure: 212 entries, 354 in global update, 122,734 chapters, 1,718
+read and 352 downloaded, identical either side.
+
+**What the two rounds fixed, beyond the above:** the interop facade trimmed to what is actually
+resolved, both multibindings gated (mutation-verified), the assisted half of the ViewModel contract
+tested, a plugin-install race that lost records under Update all, a shared field published without
+`@Volatile`, unfenced divergences in three Mihon files, and roughly thirty documentation claims that
+had gone false.
+
+**Left deliberately:** the swallowed worker-construction failure, which is in `ROADMAP.md` because
+fixing it moves WorkManager to on-demand initialization; and the TTS transport the novel reader wires
+alone, recorded in the reader's own plan.
 
 ### The files this port had skipped, done 2026-08-20
 

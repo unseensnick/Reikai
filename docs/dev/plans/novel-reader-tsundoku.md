@@ -39,6 +39,18 @@ Symbols below are in `refs/tsundoku` at review time.
 
 Evaluated and recommended (2026-07-11), rescoped 2026-08-07. **Option 3 is the work, queued in 0.4.0 and starting with a migration-planning `/scout`; Option 1 is not being built.** Neither has started. Backlog lines in [ROADMAP.md](../../../ROADMAP.md), where Option 3 sits under Next and Option 1 under Parked / not building.
 
+**Two things the migration inherits, found by the DI audit (2026-08-21) rather than by planning this
+work.** The TTS transport is wired only by the reader model: `NovelTtsService` routes its MediaSession,
+lock-screen and notification actions through `NovelTtsSession`'s callbacks, which nothing but
+`NovelTtsController` writes and nothing but `NovelReaderScreenModel` constructs. Replacing the model
+compiles clean and leaves those buttons as silent no-ops, so the transport needs an owner in the new
+reader. Separately, `MainActivity` implements the reader package's `NovelVolumeKeyHost`, which is a
+compile-level dependency of a Mihon file on the reader and is not listed in the DI tail.
+
+Also worth knowing before the scout: the `reikai.**` and `exh.**` proguard keeps do NOT leave with this
+migration, contrary to what the DI plan said until 2026-08-21. Both are permanent for reasons that have
+nothing to do with the reader.
+
 ## Decisions & tradeoffs
 
 - **View-based for novels is accepted** for Option 3. This reverses the Compose-native novel-reader choice ([novel-reader.md](novel-reader.md)); justified by maintainability-via-upstream plus true manga/novel unification, and by the reader already being the one sanctioned View holdout ([unified-reader.md](unified-reader.md)).

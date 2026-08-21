@@ -231,6 +231,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel filter that matches nothing no longer says your library is empty.** Your novels are still there, behind the filter.
 - **Novel update notifications now carry the Reikai icon instead of a generic book, like manga.**
 - **Updating your novel library can no longer save one novel's title and cover onto a different novel; refresh an affected entry to restore its details.**
+- **Updating several light-novel plugins at once no longer loses one of them.** Two updates finishing close together could leave a plugin listed as updatable however often you updated it.
+- **A novel's full-cover view now loads on sources that need a referer.** Opening it before the source finished resolving left the request without one for as long as the page stayed open.
+- **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 
 **Reader & chapters**
 
@@ -272,6 +275,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring a backup now keeps your novel category filters and default category instead of quietly dropping them.**
 - **A backup made with Categories on but Library entries off now includes your novel categories.** Restoring also no longer assigns novels to categories when the Categories restore option is unticked; both matched manga behavior already.
 - **A backup with the read-entries option on now includes novels you have read but removed from your library, like manga.** Their read history used to drop out of the backup, including after migrating a novel to a new source.
+- **The warning before a restore no longer claims your light-novel sources are missing.** It read the source list before the plugins had loaded, so a restore begun from a fresh launch listed every one of them.
 
 **Downloads & extensions**
 
