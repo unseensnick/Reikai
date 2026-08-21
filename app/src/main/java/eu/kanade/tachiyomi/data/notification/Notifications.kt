@@ -48,7 +48,10 @@ object Notifications {
 
     // RK: E-Hentai favorited-gallery update checker, grouped with the library updater.
     const val CHANNEL_LIBRARY_EHENTAI = "library_ehentai_channel"
-    const val ID_EHENTAI_PROGRESS = -106
+
+    // -110, not -106: that collided with ID_NOVEL_LIBRARY_ERROR, so a gallery update replaced the
+    // novel updater's error notification and its cancel() dismissed one the user had not seen.
+    const val ID_EHENTAI_PROGRESS = -110
     const val ID_EHENTAI_ERROR = -107
 
     // RK: library-wide tracker refresh. Its own ids on the shared library channels, so its progress
