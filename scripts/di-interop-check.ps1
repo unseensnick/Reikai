@@ -17,8 +17,8 @@
     Injekt module files are discovered, not listed: a hard-coded list goes stale as the port deletes
     files, and a check that silently scans nothing reports success.
     Registrations made directly on Injekt, outside any module, are scanned on the same terms. The
-    run ends by naming the handed-back types nothing reads any more: a hint, not a failure, since a
-    type reached through another module's untyped get() is invisible from here.
+    run also fails on a handed-back type nothing reads, allowing by name only the nine upstream hands
+    back for the extension contract, which no code in this tree resolves and never will.
 #>
 [CmdletBinding()]
 param(
@@ -240,7 +240,18 @@ $mustResolve = [System.Collections.Generic.HashSet[string]]::new()
 foreach ($name in $readTypes) { [void]$mustResolve.Add($name) }
 foreach ($name in $moduleResolved) { [void]$mustResolve.Add($name) }
 $unregistered = @($mustResolve | Where-Object { -not $knownRegistered.Contains($_) } | Sort-Object)
-$unread = @($interopTypes | Where-Object { -not $readTypes.Contains($_) -and -not $closure.Contains($_) } | Sort-Object -Unique)
+# Upstream hands these back for the extension contract, so they have no reader in this tree and never
+# will. Anything else with no reader is either debt or a mistake, and fails below.
+$upstreamContract = @(
+    'Json', 'ProtoBuf', 'XML', 'NetworkHelper', 'JavaScriptEngine',
+    'PreferenceStore', 'TrackPreferences', 'ExtensionManager', 'CoverCache'
+)
+$unread = @(
+    $interopTypes |
+        Where-Object { -not $readTypes.Contains($_) -and -not $closure.Contains($_) } |
+        Where-Object { $upstreamContract -notcontains $_ } |
+        Sort-Object -Unique
+)
 
 $failed = $false
 foreach ($group in @(
@@ -252,6 +263,9 @@ foreach ($group in @(
         },
         @{ Message = 'a type is registered with Injekt and handed back by Metro.'; Items = $violations
             Hint = 'Delete the Injekt registration, or drop the type from MetroInteropModule. Never both.'
+        },
+        @{ Message = 'a type is handed back to Injekt that nothing reads.'; Items = @($unread | ForEach-Object { "  $_" })
+            Hint = 'Drop it. The only entries without a reader here are the nine upstream hands back for the extension contract, and those are allowed by name above.'
         },
         @{ Message = 'a type handed back to Injekt is not an application singleton.'; Items = $unscoped
             Hint = 'Injekt caches its instance forever while an unscoped graph binding builds a new one per injection, so the two halves of the app drift apart. Add @SingleIn(AppScope::class).'
@@ -271,10 +285,4 @@ if ($failed) { exit 1 }
 $moduleLabel = if ($moduleFiles.Count -eq 0) { 'no Injekt modules left' } else { "$($moduleFiles.Count) Injekt module(s)" }
 Write-Host "di-interop-check: $($interopTypes.Count) graph-owned types, all scoped, $moduleLabel, no duplicates."
 
-if ($unread.Count -gt 0) {
-    Write-Host "di-interop-check: $($unread.Count) handed-back type(s) with no Injekt reader in the tree."
-    Write-Host "  $($unread -join ', ')"
-    Write-Host "  Not a failure: a type reached through another module's untyped get() cannot be seen"
-    Write-Host "  from here. Check before adding more, and drop the ones nothing needs."
-}
 exit 0
