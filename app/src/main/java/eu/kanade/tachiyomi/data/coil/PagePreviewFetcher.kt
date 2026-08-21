@@ -249,9 +249,14 @@ class PagePreviewFetcher(
 
     class Factory(
         private val callFactoryLazy: Lazy<Call.Factory>,
-        private val pagePreviewCache: PagePreviewCache,
+        private val pagePreviewCacheLazy: Lazy<PagePreviewCache>,
         private val sourceManager: SourceManager,
     ) : Fetcher.Factory<PagePreview> {
+
+        // Lazy because the cache opens its DiskLruCache journal on construction, and this factory is
+        // built while the app assembles its image loader: an eager read would put that I/O on the
+        // first image request for every user, adult sources or not.
+        private val pagePreviewCache by pagePreviewCacheLazy
 
         override fun create(data: PagePreview, options: Options, imageLoader: ImageLoader): Fetcher {
             return PagePreviewFetcher(
