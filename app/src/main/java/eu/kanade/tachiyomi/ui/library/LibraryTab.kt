@@ -140,8 +140,8 @@ data object LibraryTab : Tab {
         // RK --> novels in the library behind the Manga/Novels chip. Both models stay live; a per-type
         // adapter maps each onto the neutral LibraryScreenState / LibraryBehavior, so the tab reads one
         // `libState` and dispatches one `behavior` instead of branching manga-vs-novel per field. The chip
-        // picks the active adapter; per-type navigation and the hopper long-press stay branched below (they
-        // need the navigator / per-type screen types). The `active*` locals are kept as thin aliases over
+        // picks the active adapter; only navigation stays branched below, because it needs the navigator
+        // and the per-type screen types. The `active*` locals are kept as thin aliases over
         // `libState` so every downstream view reads them unchanged.
         val novelModel = metroViewModel<NovelLibraryViewModel>()
         val novelState by novelModel.state.collectAsStateWithLifecycle()

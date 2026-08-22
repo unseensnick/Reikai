@@ -302,10 +302,6 @@ class LibraryViewModel(
     }
 
     // RK -->
-    fun setGroupLibraryBy(value: Int) {
-        reikaiLibraryPreferences.groupLibraryBy.set(value)
-    }
-
     fun setHopperGravity(value: Int) {
         reikaiLibraryPreferences.hopperGravity.set(value)
     }
