@@ -3,78 +3,36 @@ package eu.kanade.tachiyomi.data.track.kitsu.dto
 import kotlinx.serialization.Serializable
 
 /**
- * RK: wire types for the Kitsu JSON:API `manga/{id}?include=staff.person,genres` endpoint, used by
- * "Fill from tracker". Kitsu's GraphQL (`findLibraryEntryById`) that upstream/Komikku use is gated
- * (403), so this goes through the same JSON:API edge REST the rest of the tracker already uses.
- * The shared JSON:API relationship reference types live at the bottom of this file.
+ * RK: wire types for the "Fill from tracker" metadata read. This has its own query rather than
+ * reusing upstream's shared search fragment, which caps `staff` at five and carries no categories,
+ * so the credits would truncate and the genre list would be missing entirely.
  */
 @Serializable
 data class KitsuMetadataResult(
-    val data: KitsuMetadataManga,
-    val included: List<KitsuMetadataIncluded> = emptyList(),
+    val data: KitsuMetadataData,
 )
 
 @Serializable
-data class KitsuMetadataManga(
-    val id: Long,
-    val attributes: KitsuMetadataAttributes = KitsuMetadataAttributes(),
-    val relationships: KitsuMetadataRelationships = KitsuMetadataRelationships(),
+data class KitsuMetadataData(
+    val findMangaById: KitsuMangaMetadata? = null,
 )
 
 @Serializable
-data class KitsuMetadataIncluded(
-    val id: Long,
-    val type: String,
-    val attributes: KitsuMetadataAttributes = KitsuMetadataAttributes(),
-    val relationships: KitsuMetadataRelationships = KitsuMetadataRelationships(),
+data class KitsuMangaMetadata(
+    val id: String,
+    val titles: KitsuMangaTitles,
+    val description: Map<String, String> = emptyMap(),
+    val posterImage: KitsuMetadataPoster? = null,
+    val staff: KitsuMangaStaffData = KitsuMangaStaffData(emptyList()),
+    val categories: KitsuCategoryConnection = KitsuCategoryConnection(),
 )
 
+/**
+ * Its own poster type rather than upstream's [KitsuMangaPosters], which also requires the `views`
+ * list its search query asks for. Fill-from-tracker wants the full-size cover, so it selects only
+ * `original` and must not be tied to a selection set it does not share.
+ */
 @Serializable
-data class KitsuMetadataAttributes(
-    // manga
-    val canonicalTitle: String? = null,
-    val synopsis: String? = null,
-    val description: String? = null,
-    val posterImage: KitsuPosterImage? = null,
-    // included: `mediaStaff` carries role; `people` carry name; `categories` carry title + nsfw.
-    val role: String? = null,
-    val name: String? = null,
-    val title: String? = null,
-    val nsfw: Boolean? = null,
-)
-
-@Serializable
-data class KitsuPosterImage(
-    val original: String? = null,
-    val large: String? = null,
-    val medium: String? = null,
-)
-
-@Serializable
-data class KitsuMetadataRelationships(
-    val staff: KitsuRelationshipRefList? = null,
-    // Kitsu's `genres` relationship is usually empty; `categories` holds the real genre-like list
-    // (matches how the taste-profile fetcher reads Kitsu).
-    val categories: KitsuRelationshipRefList? = null,
-    // present on a `mediaStaff` included resource: the person it points to.
-    val person: KitsuRelationshipRef? = null,
-)
-
-// JSON:API relationship references, shared by the types above. They lived beside the library pull
-// until that moved to GraphQL, and this is now their only consumer.
-
-@Serializable
-data class KitsuRelationshipRef(
-    val data: KitsuRelationshipId? = null,
-)
-
-@Serializable
-data class KitsuRelationshipRefList(
-    val data: List<KitsuRelationshipId> = emptyList(),
-)
-
-@Serializable
-data class KitsuRelationshipId(
-    val id: Long,
-    val type: String,
+data class KitsuMetadataPoster(
+    val original: KitsuMangaPoster,
 )

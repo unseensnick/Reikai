@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
-import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuAccount
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuAddMangaResult
@@ -9,6 +8,7 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuCurrentAccountResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuDeleteMangaResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuManga
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuMangaMetadata
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuMetadataResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchByIdResult
@@ -20,7 +20,6 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryNode
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryResult
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -543,52 +542,84 @@ class KitsuApi(
     private fun KitsuCategoryNode.localizedTitle(): String? =
         (title["en"] ?: title.values.firstOrNull())?.takeIf { it.isNotBlank() }
 
-    // "Fill from tracker" metadata. Also still JSON:API: it needs the genre list, which upstream's
-    // GraphQL selection set does not carry. Resolves staff (author/artist by role) and genres out of
-    // the `included` graph.
+    // "Fill from tracker" metadata. Its own query rather than upstream's search fragment, which
+    // caps staff at five and selects no categories, so credits would truncate and genres would be
+    // missing. Adult categories are dropped from the genre list.
     suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
-        return withIOContext {
-            val url = "${JSON_API_BASE_URL}manga/${track.remoteId}".toUri().buildUpon()
-                .encodedQuery("include=staff.person,categories")
-                .build()
-                .toString()
-            val result = with(json) {
-                authClient.newCall(GET(url)).awaitSuccess().parseAs<KitsuMetadataResult>()
+        val query = $$"""
+            |query Query($id: ID!) {
+              |findMangaById(id: $id) {
+                |id
+                |titles {
+                  |preferred
+                |}
+                |description(locales: "en")
+                |posterImage {
+                  |original {
+                    |name
+                    |url
+                  |}
+                |}
+                |staff(first: 50) {
+                  |nodes {
+                    |role
+                    |person {
+                      |name
+                    |}
+                  |}
+                |}
+                |categories(first: 100) {
+                  |nodes {
+                    |title(locales: ["en"])
+                    |isNsfw
+                  |}
+                |}
+              |}
+            |}
+        """.trimMargin()
+
+        val payload = buildJsonObject {
+            put("query", query)
+            putJsonObject("variables") {
+                put("id", track.remoteId)
             }
-            val manga = result.data
-            val attrs = manga.attributes
+        }
 
-            val peopleById = result.included
-                .filter { it.type == "people" }
-                .associate { it.id to it.attributes.name.orEmpty() }
-            val staffById = result.included.filter { it.type == "mediaStaff" }.associateBy { it.id }
-            val categoryTitleById = result.included
-                .filter { it.type == "categories" && it.attributes.nsfw != true }
-                .associate { it.id to it.attributes.title.orEmpty() }
-
-            fun staffNames(roleMatch: String): String? =
-                manga.relationships.staff?.data.orEmpty()
-                    .mapNotNull { staffById[it.id] }
-                    .filter { roleMatch in it.attributes.role.orEmpty() }
-                    .mapNotNull { it.relationships.person?.data?.id?.let(peopleById::get) }
-                    .filter { it.isNotBlank() }
-                    .joinToString(", ")
-                    .ifEmpty { null }
+        return withIOContext {
+            val manga = with(json) {
+                authClient.newCall(
+                    POST(
+                        GRAPHQL_API_URL,
+                        body = payload.toString().toRequestBody(jsonMime),
+                    ),
+                )
+                    .awaitSuccess()
+                    .parseAs<KitsuMetadataResult>()
+            }.data.findMangaById ?: return@withIOContext TrackMangaMetadata()
 
             TrackMangaMetadata(
-                remoteId = manga.id,
-                title = attrs.canonicalTitle,
-                thumbnailUrl = attrs.posterImage?.run { original ?: large ?: medium },
-                description = attrs.synopsis?.ifBlank { null } ?: attrs.description?.ifBlank { null },
-                authors = staffNames("Story"),
-                artists = staffNames("Art"),
-                genres = manga.relationships.categories?.data.orEmpty()
-                    .mapNotNull { categoryTitleById[it.id] }
-                    .filter { it.isNotBlank() }
+                remoteId = manga.id.toLongOrNull(),
+                title = manga.titles.preferred,
+                thumbnailUrl = manga.posterImage?.original?.url,
+                description = manga.description["en"]?.ifBlank { null },
+                authors = manga.staffNames("Story"),
+                artists = manga.staffNames("Art"),
+                genres = manga.categories.nodes
+                    .filterNot { it.isNsfw }
+                    .mapNotNull { it.localizedTitle() }
                     .takeIf { it.isNotEmpty() },
             )
         }
     }
+
+    /** Kitsu spells credits as free-form role strings, so the match is a substring, not equality. */
+    private fun KitsuMangaMetadata.staffNames(roleMatch: String): String? =
+        staff.nodes
+            .filter { roleMatch in it.role }
+            .map { it.person.name }
+            .filter { it.isNotBlank() }
+            .joinToString(", ")
+            .ifEmpty { null }
     // RK <--
 
     companion object {
@@ -598,11 +629,7 @@ class KitsuApi(
         private const val GRAPHQL_API_URL = "https://kitsu.app/api/graphql"
         private const val LOGIN_URL = "https://kitsu.app/api/oauth/token"
 
-        // RK --> the JSON:API endpoint the two islands above still use, and the external-site slugs
-        // for resolving cross-tracker ids out of a manga's mappings.
-        private const val JSON_API_BASE_URL = "https://kitsu.app/api/edge/"
-
-        // Mapping external sites, named by GraphQL enum rather than by their JSON:API string value.
+        // RK --> external sites whose ids the taste profile resolves out of a manga's mappings.
         private const val MAL_MAPPING_SITE = "MYANIMELIST_MANGA"
         private const val ANILIST_MAPPING_SITE = "ANILIST_MANGA"
         // RK <--

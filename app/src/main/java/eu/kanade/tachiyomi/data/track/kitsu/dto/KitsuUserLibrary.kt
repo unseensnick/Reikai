@@ -67,6 +67,8 @@ data class KitsuCategoryConnection(
 data class KitsuCategoryNode(
     /** A localized field resolves to a loose locale-keyed map, not a bare string. */
     val title: Map<String, String> = emptyMap(),
+    /** Only selected by the metadata query, which drops adult categories from the genre list. */
+    val isNsfw: Boolean = false,
 )
 
 @Serializable
