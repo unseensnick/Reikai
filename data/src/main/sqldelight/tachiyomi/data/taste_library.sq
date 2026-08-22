@@ -10,17 +10,19 @@ CREATE TABLE taste_library (
     tags TEXT NOT NULL,
     mal_id INTEGER,
     anilist_id INTEGER,
+    -- RK: what the tracker says about sexual content; an AdultContent name, UNKNOWN when it cannot say.
+    adult TEXT NOT NULL DEFAULT 'UNKNOWN',
     fetched_at INTEGER NOT NULL,
     UNIQUE(tracker_id, remote_id) ON CONFLICT REPLACE
 );
 
 getAll:
-SELECT tracker_id, remote_id, title, score, status, tags, mal_id, anilist_id
+SELECT tracker_id, remote_id, title, score, status, tags, mal_id, anilist_id, adult
 FROM taste_library;
 
 insert:
-INSERT INTO taste_library(tracker_id, remote_id, title, score, status, tags, mal_id, anilist_id, fetched_at)
-VALUES (:trackerId, :remoteId, :title, :score, :status, :tags, :malId, :anilistId, :fetchedAt);
+INSERT INTO taste_library(tracker_id, remote_id, title, score, status, tags, mal_id, anilist_id, adult, fetched_at)
+VALUES (:trackerId, :remoteId, :title, :score, :status, :tags, :malId, :anilistId, :adult, :fetchedAt);
 
 deleteByTracker:
 DELETE FROM taste_library

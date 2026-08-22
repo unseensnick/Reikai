@@ -9,6 +9,8 @@ package reikai.domain.recommendation.taste
  * @property malId cross-tracker identity for deduplicating one series tracked on several services.
  * @property anilistId the second cross-tracker identity, which closes the gap where AniList reports
  *   no idMal and the entry has no MAL mapping.
+ * @property adult what the tracker says about sexual content, defaulting to
+ *   [AdultContent.UNKNOWN] for a tracker whose pull does not ask.
  */
 data class TrackedEntry(
     val trackerId: Long,
@@ -19,4 +21,5 @@ data class TrackedEntry(
     val tags: List<String>,
     val malId: Long? = null,
     val anilistId: Long? = null,
+    val adult: AdultContent = AdultContent.UNKNOWN,
 )

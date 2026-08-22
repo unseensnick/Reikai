@@ -1,0 +1,4 @@
+-- RK: record what a tracker says about an entry's sexual content, so the recommendation layer can
+-- be told to leave it out. The cache is rebuilt by the tracker-library pull, so existing rows keep
+-- the default until their tracker is pulled again; nothing reads the column before then.
+ALTER TABLE taste_library ADD COLUMN adult TEXT NOT NULL DEFAULT 'UNKNOWN';

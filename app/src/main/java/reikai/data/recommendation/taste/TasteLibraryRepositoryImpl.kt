@@ -6,6 +6,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import reikai.domain.recommendation.taste.AdultContent
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackStatus
 import reikai.domain.recommendation.taste.TrackedEntry
@@ -34,6 +35,7 @@ class TasteLibraryRepositoryImpl(
                     tags = entry.tags.joinToString(TAG_SEPARATOR),
                     malId = entry.malId,
                     anilistId = entry.anilistId,
+                    adult = entry.adult.name,
                     fetchedAt = fetchedAt,
                 )
             }
@@ -59,6 +61,7 @@ class TasteLibraryRepositoryImpl(
         tags: String,
         malId: Long?,
         anilistId: Long?,
+        adult: String,
     ): TrackedEntry = TrackedEntry(
         trackerId = trackerId,
         remoteId = remoteId,
@@ -68,6 +71,7 @@ class TasteLibraryRepositoryImpl(
         tags = tags.split(TAG_SEPARATOR).filter { it.isNotBlank() },
         malId = malId,
         anilistId = anilistId,
+        adult = runCatching { AdultContent.valueOf(adult) }.getOrDefault(AdultContent.UNKNOWN),
     )
 
     companion object {

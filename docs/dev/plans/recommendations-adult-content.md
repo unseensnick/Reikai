@@ -114,6 +114,14 @@ Resolution is one shared kernel both the profile and the suggestion path call:
 2. Tracker says `CLEAN`, the entry is clean. The tracker's own answer beats a keyword guess.
 3. `UNKNOWN`, fall back to matching the entry's tags against a sexual-content keyword list.
 
+### The keyword fallback is narrower than it looks
+
+Worth stating before the list, because it changes how much rides on it: **six of the eight services
+expose a machine-readable adult signal**, and all five current taste fetchers are among them. So once
+the per-tracker steps land, the fallback never fires for them. It earns its place in three other
+places: before those steps land, for a tracker that has no flag (MyNovelList has tags only), and on
+the suggestion side, where a candidate from a recommendation provider carries genres but no flag.
+
 ### The sexual-content keyword list is new, and deliberately not the existing one
 
 The app already has `hasLewdGenre` in `reikai/util/MangaLewd.kt`, used by the library Lewd filter and
@@ -122,12 +130,34 @@ its keyword set includes `mature`, matched by substring, so "Mature Themes" trip
 for its own job, which is a broad "might not want this on a lock screen" test, and wrong for this one,
 which is sex-only by the owner's definition.
 
-So this feature gets its own narrower list (hentai, erotica, smut, adult, ecchi, nudity, lolicon,
-shotacon, pornographic, 18+, and the tracker-specific genre names in the table above), living beside
-the existing helper rather than replacing it. Two lists is not duplication here: they answer two
-different questions, and collapsing them would silently change the shipped library filter. Whether
-`mature` should also leave the existing list is a separate question, raised in Open questions rather
-than decided here.
+So this feature gets its own narrower list, living beside the existing helper rather than replacing
+it. Two lists is not duplication here: they answer two different questions, and collapsing them would
+silently change the shipped library filter. Whether `mature` should also leave the existing list is a
+separate question, raised in Open questions rather than decided here.
+
+**The list is taken from the services' published vocabularies, not written from memory.** A term
+qualifies only where that service's own definition is sexual. The rule that does most of the work:
+a definition phrased as a disjunction is out, because it catches violence-only series. MangaUpdates
+defines **Mature** as "intense violence, blood and gore, sexual content and/or strong language" and
+**Adult** as "intense violence and/or graphic sexual content", so neither implies sexual content, and
+Berserk carries Mature. Only Smut and Hentai are unambiguous there.
+
+The near-misses matter as much as the matches, and each is pinned by a test: `adult` catches
+MyAnimeList's "Adult Cast" theme and AniList's "Primarily Adult Cast"; `sex` catches "Asexual",
+"Bisexual", "Heterosexual" and MyAnimeList's "Magical Sex Shift" theme; `nudity` is an AniList tag
+carrying `isAdult: false`; Yaoi, Yuri, Boys Love and Girls Love are orientation and romance rather
+than explicitness, and Shikimori censors them under local law rather than for content; Josei and
+Seinen are demographics; Doujinshi is "fan based work inspired by official anime or manga"; Harem is
+a non-adult tag on AniList and a not-NSFW category on Kitsu.
+
+Two deliberate exclusions that are judgement calls rather than clear-cut, recorded so they can be
+revisited. **Ecchi** is filed under MyAnimeList's "Explicit Genres" but carries `isAdult: false` on
+AniList, and it is common enough on ordinary series that matching it would visibly shrink a profile;
+it is fanservice rather than sex. **Tentacle** is an AniList adult tag but a not-NSFW category on
+Kitsu, so the two services disagree outright.
+
+Shikimori answers in Russian and Bangumi in Chinese, so the list carries their terms too; a
+Latin-only list would silently pass every adult entry from both.
 
 ### The setting is tracking-wide, not recommendations-scoped
 
