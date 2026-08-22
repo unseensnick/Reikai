@@ -77,15 +77,33 @@ indexing a side-loaded `included` array, so `resolveLibraryPage` and the nine JS
 poster and staff; the only field Fill-from-tracker needs beyond it is `categories`. So the two become
 one query with two mappers rather than two queries, and `dto/KitsuMetadata.kt` goes.
 
-### NSFW
+### NSFW, behind a preference
 
 Four signals arrive with the queries above: the entry's `nsfw`, the media's `sfw` and `ageRating`,
-and each category's `isNsfw`. The design uses two of them and deliberately ignores the others.
+and each category's `isNsfw`. The design uses the entry flag, keeps the category flag where it is
+already used, and deliberately ignores the other two.
+
+**The setting, the storage model and the filtering rules are owned by
+[recommendations-adult-content.md](recommendations-adult-content.md)**, which covers all five
+taste-profile trackers rather than Kitsu alone. Kitsu is one supplier in that design, and the only
+thing this plan owes it is the flag, selected in the queries below and stored unconditionally so the
+toggle applies at read time. What follows is Kitsu-specific and does not repeat that plan.
+
+**What Kitsu's flag actually means.** `LibraryEntry.nsfw` and `Media.sfw` both come from one rule in
+`app/models/concerns/age_ratings.rb`: `sfw?` is `age_rating.in?(%w[G PG R])`, so NSFW is exactly
+`age_rating == R18` and nothing else. This is a maturity axis rather than a dedicated sexual-content
+boolean, but the cut lands in a useful place for us: `R18` is documented as "Contains adult content or
+themes", while violent-but-not-sexual titles sit at `R`, "Possible lewd or intense themes", and stay
+unflagged. `Category.isNsfw` is separate and is a property of the category itself, so it marks the
+erotica and hentai categories directly. Two consequences to design around rather than discover later:
+an unrated title is treated as safe (`sfw?` also returns true when `age_rating` is nil), so the flag
+under-reports, and it will never catch violence, which is what the owner asked for.
 
 Category `isNsfw` replaces the JSON:API `nsfw` attribute in the metadata mapper, so Fill-from-tracker
-keeps its current behaviour with no user-visible change, and the same filter is applied to the taste
-profile's tags, which is the gap being closed. Entry `nsfw` is carried into `TrackedEntry` so the
-recommendation layer can tell an adult entry from a clean one at all, which today it cannot.
+keeps exactly its current behaviour with no user-visible change. That filter is deliberately **not**
+put behind the new preference: it governs which genres get written onto an entry from the edit-info
+dialog, a different surface with its own existing behaviour, and settings here stay scoped to the
+screen they affect.
 
 `ageRating` and `sfw` are not used. `sfw` is the inverse of information already carried by entry
 `nsfw`, and `ageRating` is a stricter axis (`R` covers "possible lewd or intense themes") that would
@@ -121,20 +139,22 @@ it into `TrackMangaMetadata`, delete `dto/KitsuMetadata.kt` and the JSON:API met
 Fill-from-tracker on a bound entry fills the same author, artist, description, cover and genre set it
 fills today, compared against a before capture.
 
-**Step 4, NSFW into the taste profile.** Filter `isNsfw` categories out of the tag set, and add the
-entry's NSFW flag to `TrackedEntry`, the `taste_library` table and its repository. Verify: a unit test
-over the mapper asserting an NSFW category is dropped and a clean one kept, verified by mutation, plus
-a device pull showing the adult titles in the real library stored with the flag set.
+**Step 4, answer the adult-content field for Kitsu.** Map `LibraryEntry.nsfw` or any category's
+`isNsfw` onto the `AdultContent` value that
+[recommendations-adult-content.md](recommendations-adult-content.md) defines, which by then exists
+with Kitsu answering `UNKNOWN`. Verify: a device pull, then a query against the pulled database
+showing the adult titles in the real library stored as `ADULT` and the clean ones as `CLEAN`, which
+doubles as the check that the deployed schema really returns the field.
 
 **Step 5, retire the JSON:API surface.** Remove `JSON_API_BASE_URL` and the two mapping-site
 constants, and confirm no request in a full session touches `/api/edge/`. Verify: exercise search,
 bind, update, refresh, unbind, Fill-from-tracker and a taste pull with logcat filtered to
 `kitsu.app/api`, and see only `/api/graphql`.
 
-**Step 6, the cross-tracker question.** Decide whether the other four fetchers answer the new NSFW
-field or leave it null, and whether the recommendation layer acts on it (hiding adult suggestions
-behind the existing Lewd preference) or merely records it. This is listed as a step rather than folded
-into step 4 because it is an owner decision, not a mechanical one; see Open questions.
+Step 4 is the only ordering constraint between the two plans: it needs the GraphQL library query from
+step 1, and it needs the `AdultContent` model from the adult-content plan's step 1. Everything else
+here is independent of that plan, and everything there except its own step 6 is independent of this
+one.
 
 ## Key files
 
@@ -146,7 +166,12 @@ into step 4 because it is an owner decision, not a mechanical one; see Open ques
   `dto/KitsuMetadata.kt`: the Reikai-owned JSON:API DTOs, deleted by steps 2 and 3.
 - `app/src/main/java/reikai/domain/recommendation/taste/KitsuLibraryFetcher.kt` and its siblings, plus
   `TrackedEntry.kt`, `TasteLibraryRepository.kt` and `reikai/data/recommendation/taste/`: the consumer
-  chain and the table step 4 changes.
+  chain and the table step 4 changes. `ComputeTasteProfile.kt` and `TasteCandidateFetcher.kt` are
+  where step 5 applies the preference.
+- `app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt`: the taste-profile
+  region holding the five `pullLibraryFrom*` toggles, which the new preference joins.
+- `app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt`:
+  `tasteProfileGroup`, which renders those toggles and gains the new row.
 - `app/src/main/java/reikai/presentation/library/LibraryItemFields.kt`,
   `reikai/util/MangaLewd.kt`, `reikai/domain/manga/AdultContentChecker.kt`: the app's existing adult
   content notion that step 6 would plug into.
