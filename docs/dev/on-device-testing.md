@@ -237,8 +237,8 @@ adb exec-out run-as eu.kanade.tachiyomi.debugY2k cat databases/tachiyomi.db > lo
 ```
 
 Novel rows live in `novels` / `novel_chapters` (chapters carry a `page` transport tag for paginated
-sources). See the `reference_adb_db_access` and `p5-ln-staging` memories for the edit-and-push-back
-flow and the pagination `page`-column gotcha.
+sources). See the `reference_adb_db_access` memory for the edit-and-push-back flow; the pagination
+`page`-column gotcha is documented in `novel_chapters.sq` itself.
 
 ## 7. Quick gotchas
 

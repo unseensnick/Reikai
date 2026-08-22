@@ -18,15 +18,17 @@ If each reader carried its own toolbar and settings, they would drift apart in l
 
 The current direction (called "Option F") keeps each reader's content host exactly where it is and shares only the chrome layer.
 
-The manga reader stays a View-based screen (`ReaderActivity`) that hosts the existing image viewers the proven Mihon way. The novel reader stays a Compose Voyager screen hosting a WebView. The manga reader's controls (the toolbar, page seekbar, chapter buttons, overlays) get re-expressed as the same Compose components the novel reader already uses, embedded into the View screen through a `ComposeView` (an Android bridge widget that renders Compose UI inside an XML/View layout). The result is two content hosts under the hood, but one shared chrome on top.
+The manga reader stays a View-based screen (`ReaderActivity`) that hosts the existing image viewers the proven Mihon way. The novel reader stays a Compose Voyager screen hosting a WebView. Both then draw the same Compose chrome on top, so there are two content hosts under the hood and one control surface above them.
+
+**Written before the Mihon rebase landed, and half of it arrived with the base.** `ReaderActivity` already renders its chrome as Compose from a compose overlay, so there is no imperative-View chrome left to move. Read everything below as describing the target, and the Status section for what is actually left.
 
 The mechanism:
 
-- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. The novel reader consumes them today.
+- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. **The novel reader consumes only two of them today**, `ReaderTopBar` and `ReaderContentOverlay`; its bottom bar is a hand-rolled Material3 `BottomAppBar`, so `ReaderAppBars`, `ReaderBottomBar`, `ChapterNavigator` and `ReaderPageIndicator` remain manga-only. That gap is the real remainder of this plan.
 
 - **The settings sheets are NOT shared yet.** Each reader has its own: Mihon's `ReaderSettingsDialog` (with `ReadingModePage` / `GeneralSettingsPage` / `ColorFilterPage`, all still byte-identical to upstream) for manga, and Reikai's `NovelReaderSettingsSheet` for novels. The only thing the two have in common is the `TabbedDialog` host. Settings sharing is a goal of this plan, not a shipped part of it. Which track collapses the two sheets is undecided: it can ride this chrome work, or wait for the content-layer reader phase ([content-layer-architecture.md](content-layer-architecture.md)).
 
-  Two facts that shape whatever does it. The manga sheet is still byte-identical to upstream apart from one rename, so a Reikai-owned sheet is the first divergence on those files and inherits the upstream churn (Mihon touched them roughly nine times in the last year, mostly adding new rows). And the two sides are plumbed differently: the manga pages take a `ScreenModel` and read preferences themselves, while the novel sheet is pure UI driven by a callback per setting.
+  Two facts that shape whatever does it. The manga sheet is still byte-identical to upstream apart from one rename, so a Reikai-owned sheet is the first divergence on those files and inherits the upstream churn (Mihon touched them roughly nine times in the last year, mostly adding new rows). And the two sides are plumbed differently: the manga pages take a `ReaderSettingsViewModel` (an androidx `ViewModel`) and read preferences themselves, while the novel sheet is pure UI driven by a callback per setting.
 
 - **The manga reader stays View-based.** `ReaderActivity` remains the manga host. The image viewers (`PagerViewer`, `WebtoonViewer`) take a concrete `ReaderActivity` reference, so leaving the activity in place means the viewers stay byte-identical to upstream and keep porting cleanly on each Mihon sync. No viewer decoupling is required.
 
@@ -44,7 +46,7 @@ The mechanism:
 ## Status
 
 - **Phase 1 (shipped):** the novel reader runs on the Compose shell with the shared chrome composables and a WebView text canvas. This is the live novel-reading surface; see [novel-reader.md](novel-reader.md).
-- **Phase 2 (current direction, Option F):** move the manga reader's chrome into a `ComposeView` of the shared composables while `ReaderActivity` stays the manga host. This is the agreed direction; the rest of the reader work for the rebase is the Roadmap P7 reader-tweaks pass, which has shipped.
+- **Phase 2 (largely overtaken by the Mihon base, re-scoped 2026-08-22):** the half this plan was written for, hosting the manga chrome in Compose rather than imperative View code, is already how Mihon's own `ReaderActivity` works: `AppBars` is a `@Composable` calling `ReaderAppBars` from the compose overlay, and that shape is upstream's, not something Reikai has to build. What is genuinely outstanding is the other half, the two readers drawing the *same* composables. Today the novel reader imports only `ReaderContentOverlay` and `ReaderTopBar`; `ReaderAppBars`, `ReaderBottomBar`, `ChapterNavigator` and `ReaderPageIndicator` are still manga-only, and the novel bottom bar is a hand-rolled `BottomAppBar`. Whether that convergence is worth doing on its own is doubtful given the tsundoku migration below.
 
 Rollback and recovery pointers (from the project memory):
 

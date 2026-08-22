@@ -30,7 +30,7 @@ A document is rebuilt only when the chapter HTML or the app theme colors change.
 
 ### Compose chrome
 
-`NovelReaderScreen.kt` is the Voyager `Screen` (serializable args only: `novelId`, `initialChapterId`, and an optional `orderedChapterIds` reading order). Its `Content()` is a `Box` holding the WebView canvas plus the chrome:
+`NovelReaderScreen.kt` is the Voyager `Screen`. Serializable args only, and there are three: `novelId`, `initialChapterId`, and `sourceScoped`, which decides whether prev/next walk the whole merge group (the default) or stay inside the source the reader was opened from. No caller passes a chapter list; the model resolves the group and holds the order itself. Its `Content()` is a `Box` holding the WebView canvas plus the chrome:
 
 - A top `TopAppBar` (back, chapter title, WebView, bookmark) and a bottom `BottomAppBar` (previous chapter, chapters list, rotation, settings, next chapter), both `AnimatedVisibility` that slide in and out with a `menuVisible` flag. Both bars use the manga reader's translucent `surfaceColorAtElevation(3.dp)` chrome color, and the bottom bar is evenly spaced.
 - A single center tap (relayed from the WebView's `hide` message) toggles `menuVisible`, which simultaneously hides/shows the chrome and the system bars via `WindowInsetsControllerCompat` (immersive reading). The system bars are restored when the screen is left so the rest of the app is unaffected.
@@ -43,7 +43,7 @@ A document is rebuilt only when the chapter HTML or the app theme colors change.
 
 `NovelReaderScreenModel.kt` (a Voyager `StateScreenModel`, the last screen not migrated to androidx `ViewModel`) owns all the loading and persistence logic. State is a `NovelReaderState` sealed interface (`Loading` / `Loaded` / `Failed`); display settings are a separate `settings: StateFlow<NovelReaderSettings>` so changing them never forces a reload.
 
-- On open it resolves the reading order (the passed `orderedChapterIds`, which for a merged novel is the unified cross-source order, else the novel's own chapter list) and loads the current chapter. Each chapter resolves its source per `chapter.novelId`, so a merged session walks across sources.
+- On open it resolves the reading order itself (for a merged novel under group scope, the unified cross-source order; under source scope or when unmerged, the novel's own chapter list) and loads the current chapter. Each chapter resolves its source per `chapter.novelId`, so a merged session walks across sources.
 - Chapter HTML loads through `loadChapterHtml`: a downloaded chapter reads self-contained HTML from disk (null base URL, images already inlined); otherwise it resolves the source and calls `parseChapter` live, using the source site as the base URL. Results go into a small session LRU cache (`htmlCache`, RAM only, dies with the screen). The resolved next chapter is prefetched once per open so forward paging is instant.
 - `next()` / `prev()` jump to the neighbors resolved by `resolveNeighbor`, which is skip-duplicate aware (with the pref on, it walks past same-numbered chapters a merge produces).
 - `saveProgress(percent)` is called from the WebView's `save` message. It stores the scroll position on the chapter (as 0..10000 hundredths of a percent, matching `lastTextProgress`), stamps the owning novel's last-read time for the library LastRead sort, and at >=97% auto-marks the chapter read, pushes progress to bound trackers (gated on `autoUpdateTrack`), and deletes the file if remove-after-read is on. On reopen the stored progress seeds the initial scroll.
@@ -76,7 +76,7 @@ A floating puck reads the chapter aloud. The split is the same as the rest of th
 
 ## Key files
 
-The reader and its details host are net-new `reikai.*` code. The only Mihon-file patches are the `// RK` launch sites that push `NovelReaderScreen`: `HistoryTab.kt`, `UpdatesTab.kt`, and `LibraryTab.kt`.
+The reader and its details host are net-new `reikai.*` code. Two Mihon files touch it, both `// RK` fenced: `LibraryTab.kt` pushes `NovelReaderScreen` for a resume tap, and `MainActivity` implements the reader package's `NovelVolumeKeyHost` so hardware volume keys can scroll. That second one is a compile-level dependency of a Mihon file on reader code, and it is the one a migration forgets. The other two push sites are Reikai-owned (`NovelScreen`, `NovelRecentsAdapter`); History and Updates no longer launch the reader directly, since the recents takeover routed them through the shared screen.
 
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreen.kt`: Voyager `Screen`; Compose chrome, immersive bars, keep-screen-on + orientation effects, history-on-leave, settings sheet host.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt`: Voyager `StateScreenModel`; chapter loading + prefetch, prev/next ordering (cross-source, skip-duplicate aware), progress saves, read-state + tracker sync, incognito gating, settings flow.

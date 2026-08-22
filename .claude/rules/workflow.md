@@ -65,13 +65,14 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 3. No em dashes; no AI watermark (`Co-Authored-By`, generated-by footer).
 4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
 
-A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). A companion **`pre-commit` hook** (`.githooks/pre-commit`) runs five checks on staged content, so a rejection can come from any of them:
+A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). A companion **`pre-commit` hook** (`.githooks/pre-commit`) runs six checks, so a rejection can come from any of them. The first five look at staged content; the sixth reads the manifest whether or not you staged it:
 
 1. `CHANGELOG.md`: no content-source names in added lines; a self-contained bold headline plus a length cap on new `[Unreleased]` entries.
 2. `ROADMAP.md`: no content-source names, no em dash, no bare `#N`.
 3. `docs/dev/upstream-sync.md`: no em dash, no bare `#N` (source names are allowed, it is a dev record).
 4. `.kt` / `.kts` / `.sq` / `.sqm` comments: no plan codename markers in added lines, and under `reikai/` or `exh/` a comment-block length cap.
 5. **DI ownership**: if any staged `.kt` mentions Metro or Injekt, it runs `scripts/di-interop-check.ps1` for graph-owned / singleton / not-also-Injekt-registered mistakes, all of which are silent at build and run time. Needs `pwsh`; it skips with a message if `pwsh` is absent.
+6. **Off-path manifest** (`docs/dev/off-path-manifest.md`), three checks in one: no manifested path may exist in the tree, every named Replacement must exist, and staging the deletion of a file `refs/mihon` still has needs a manifest row in the same commit. The last one warns rather than blocks when the clone is missing.
 
 The doc checks also run in CI via `.github/workflows/docs-lint.yml`. Reinstall both hooks on a fresh clone with `cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit`.
 

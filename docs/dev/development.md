@@ -40,6 +40,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 | `app/` | Android application (Compose + Voyager UI, AndroidX ViewModels) |
 | `core/common` | Shared utilities (coroutine + preference helpers) |
 | `core/archive` | Archive handling |
+| `core/metro` | Metro DI helpers: graph lookup, build-type qualifier, ViewModel wiring |
 | `core-metadata` | Metadata parsing |
 | `data/` | SQLDelight database + repository implementations |
 | `domain/` | Business logic + interactors (immutable `tachiyomi.domain.*` models; has unit tests) |
@@ -52,7 +53,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 
 ## Key technologies
 
-Compose + Voyager (no Conductor), Metro DI, SQLDelight, OkHttp, Coil 3, kotlinx.serialization, Kermit logging (+ optional Firebase Crashlytics), JUnit / MockK / Kotest.
+Compose + Voyager (no Conductor), Metro DI, SQLDelight, OkHttp, Coil 3, kotlinx.serialization, squareup logcat logging (+ optional Firebase Crashlytics), JUnit / MockK / Kotest.
 
 ## Reference clones
 

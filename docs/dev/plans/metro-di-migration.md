@@ -375,7 +375,8 @@ Phase 7 remains, with one correction found by the 2026-08-17 audit and amended s
 
 - **Phase 7 cannot drop the `reikai.**` / `exh.**` proguard keeps, and neither can the reader
   migration** (corrected 2026-08-21). `exh.**` is permanent because `source-api` reads
-  `DelegateSourcePreferences` from three places and `exh/debug/DebugToggles.kt` reads a fourth.
+  `DelegateSourcePreferences` from three places and `exh/debug/DebugToggles.kt` holds a reified read
+  of its own (a `PreferenceStore`, not a fourth `DelegateSourcePreferences`).
   `reikai.**` is permanent because `Novel.hasCustomCover` keeps a reified `Injekt.get()` default that
   is itself ruled to stay, for twin parity with the manga side. Phase 7 keeps the baseline profiles
   and the rules files only.
@@ -550,10 +551,14 @@ Almost everything is a two to five line edit, and the shape is uniform:
 | Object / static | the companion function gains a `Context` parameter and reaches the graph through it |
 
 In every case the constructor defaults (`= Injekt.get()`) are deleted, which is what makes the diff
-large. The port started from roughly 506 of them (see Inventory); **3 remain, alongside 49
-`by injectLazy()`** (re-derived 2026-08-21). All three defaults are ruled: the two `hasCustomCover`
-twins and the inert download-queue model. Of the delegates, 17 are the novel reader's and the rest
-are `source-api`, `source-local`, `DebugToggles` and the tracker files upstream carries too.
+large. The port started from roughly 506 of them (see Inventory); **2 remain, alongside 49
+`by injectLazy()`** (re-derived 2026-08-22, correcting an earlier count of 3). Both defaults are
+ruled, and they are the two `hasCustomCover` twins. The download-queue model was counted as a third
+by mistake: it takes a plain constructor parameter and holds no Injekt reference at all.
+`MetadataSource` has three more reified `Injekt.get()` reads, but they are property getters rather
+than constructor defaults, so the keep-analysis covers them while this count does not. Of the
+delegates, 17 are the novel reader's and the rest are `source-api`, `source-local`, `DebugToggles`
+and the tracker files upstream carries too.
 
 ### ViewModels
 

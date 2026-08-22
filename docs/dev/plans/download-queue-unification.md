@@ -40,7 +40,7 @@ A dropped connection (airplane mode, dead network) is not a download failure. Th
 - `reikai/novel/download/NovelDownloadManager.kt`: `downloadingNovelId`, the offline pause, and the mid-download requeue.
 - `reikai/presentation/download/MangaDownloadQueueViewModel.kt`: the manga aggregator (per-series cards from Mihon's `queueState` + `statusFlow`), `reorderBySeries`, `cancelSeries`, `sort`, pause/resume. The manga twin of the novel ScreenModel.
 - `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: hosts both content types behind the `ContentType` chip; both branches render the shared card list, and one Pause/Resume FAB drives the visible content's downloader(s).
-- `eu/kanade/tachiyomi/ui/download/DownloadQueueViewModel`, `DownloadHolder`, `DownloadHeaderHolder`, `DownloadAdapter`, `DownloadItem`, `DownloadHeaderItem`: the parked per-chapter manga View queue, left inert (marked with `// RK`) as the revive path for the expandable-cards roadmap item.
+- `eu/kanade/tachiyomi/ui/download/DownloadQueueViewModel`, `DownloadHolder`, `DownloadHeaderHolder`, `DownloadAdapter`, `DownloadItem`, `DownloadHeaderItem`: the parked per-chapter manga View queue, kept as the revive path for the expandable-cards roadmap item. Only `DownloadQueueViewModel` carries a `// RK: inert` marker; the five View classes below it are unmarked, and reachable only from each other and from that model.
 
 ## Status
 
