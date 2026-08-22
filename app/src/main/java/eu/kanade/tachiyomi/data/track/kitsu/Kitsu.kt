@@ -70,9 +70,8 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     private val api by lazy { KitsuApi(id, client, interceptor) }
 
-    // RK: full library pull for the recommendation taste profile. The stored password is the Kitsu
-    // user id, saved by login() below, so this needs no extra round trip to resolve it.
-    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(getUserId())
+    // RK: full library pull for the recommendation taste profile.
+    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary()
 
     private val scorePreference by lazy { trackPreferences.kitsuScoreType }
 
@@ -222,11 +221,6 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     override fun logout() {
         super.logout()
         interceptor.newAuth(null)
-    }
-
-    // RK: kept for the library pull above; upstream dropped it when GraphQL stopped needing a user id.
-    private fun getUserId(): String {
-        return getPassword()
     }
 
     fun saveToken(oauth: KitsuOAuth?) {

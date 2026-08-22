@@ -1,7 +1,7 @@
 package reikai.domain.recommendation.taste
 
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionsResult
-import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryResult
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryResult
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryResult
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRatesResponse
 import io.kotest.matchers.collections.shouldContainExactly
@@ -38,23 +38,33 @@ class LibraryFetcherDtoTest {
     }
 
     @Test
-    fun `Kitsu JSON-API envelope parses data, included and links`() {
+    fun `Kitsu GraphQL library connection parses nodes, categories and mappings`() {
         val payload = """
-            {"data":[{"id":100,"attributes":{"status":"current","ratingTwenty":16},
-                "relationships":{"manga":{"data":{"id":30,"type":"manga"}}}}],
-             "included":[
-               {"id":30,"type":"manga","attributes":{"canonicalTitle":"Berserk"},
-                "relationships":{"categories":{"data":[{"id":5,"type":"categories"}]}}},
-               {"id":5,"type":"categories","attributes":{"title":"Dark Fantasy"}}
-             ],
-             "links":{"next":"https://kitsu.app/next"}}
+            {"data":{"currentProfile":{"library":{"all":{
+               "pageInfo":{"hasNextPage":true,"endCursor":"Mg"},
+               "nodes":[{"status":"CURRENT","rating":16,"media":{
+                 "id":"30",
+                 "titles":{"preferred":"Berserk"},
+                 "categories":{"nodes":[{"title":{"en":"Dark Fantasy"}}]},
+                 "mappings":{"nodes":[
+                   {"externalSite":"MYANIMELIST_MANGA","externalId":"2"},
+                   {"externalSite":"ANILIST_MANGA","externalId":"30002"}
+                 ]}
+               }}]
+            }}}}}
         """.trimIndent()
 
-        val page = json.decodeFromString<KitsuLibraryResult>(payload)
-        page.data.single().relationships.manga?.data?.id shouldBe 30L
-        page.data.single().attributes.ratingTwenty shouldBe 16
-        page.included.first { it.type == "categories" }.attributes.title shouldBe "Dark Fantasy"
-        page.links.next shouldBe "https://kitsu.app/next"
+        val page = json.decodeFromString<KitsuUserLibraryResult>(payload)
+        val connection = page.data.currentProfile!!.library.all
+        val media = connection.nodes.single().media!!
+        connection.nodes.single().status shouldBe "CURRENT"
+        connection.nodes.single().rating shouldBe 16
+        media.id shouldBe "30"
+        media.titles.preferred shouldBe "Berserk"
+        media.categories.nodes.single().title["en"] shouldBe "Dark Fantasy"
+        media.mappings.nodes.map { it.externalSite } shouldContainExactly
+            listOf("MYANIMELIST_MANGA", "ANILIST_MANGA")
+        connection.pageInfo.endCursor shouldBe "Mg"
     }
 
     @Test

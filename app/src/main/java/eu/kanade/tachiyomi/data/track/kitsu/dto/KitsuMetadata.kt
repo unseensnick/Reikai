@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * RK: wire types for the Kitsu JSON:API `manga/{id}?include=staff.person,genres` endpoint, used by
  * "Fill from tracker". Kitsu's GraphQL (`findLibraryEntryById`) that upstream/Komikku use is gated
  * (403), so this goes through the same JSON:API edge REST the rest of the tracker already uses.
- * Reuses KitsuRelationshipRef / KitsuRelationshipRefList / KitsuRelationshipId from KitsuLibrary.kt.
+ * The shared JSON:API relationship reference types live at the bottom of this file.
  */
 @Serializable
 data class KitsuMetadataResult(
@@ -58,4 +58,23 @@ data class KitsuMetadataRelationships(
     val categories: KitsuRelationshipRefList? = null,
     // present on a `mediaStaff` included resource: the person it points to.
     val person: KitsuRelationshipRef? = null,
+)
+
+// JSON:API relationship references, shared by the types above. They lived beside the library pull
+// until that moved to GraphQL, and this is now their only consumer.
+
+@Serializable
+data class KitsuRelationshipRef(
+    val data: KitsuRelationshipId? = null,
+)
+
+@Serializable
+data class KitsuRelationshipRefList(
+    val data: List<KitsuRelationshipId> = emptyList(),
+)
+
+@Serializable
+data class KitsuRelationshipId(
+    val id: Long,
+    val type: String,
 )

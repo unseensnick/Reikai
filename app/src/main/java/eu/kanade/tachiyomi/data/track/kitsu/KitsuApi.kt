@@ -4,10 +4,10 @@ import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuAccount
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuAddMangaResult
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuCategoryNode
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuCurrentAccountResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuDeleteMangaResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
-import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuManga
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuMetadataResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
@@ -16,6 +16,8 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchByIdWithLibraryResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchBySlugResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchByTitleResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUpdateMangaResult
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryNode
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryResult
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
@@ -453,75 +455,93 @@ class KitsuApi(
         }
     }
 
-    // RK --> full library pull for the recommendation taste profile. Deliberately still on JSON:API
-    // `/library-entries`: GraphQL exposes no whole-library query, and the cross-tracker mappings this
-    // needs are not in upstream's selection set. Categories (tags) and mappings side-load inline,
-    // paged via links.next.
-    suspend fun getUserLibrary(userId: String): List<KitsuLibraryEntry> {
+    // RK --> full library pull for the recommendation taste profile. Upstream selects nothing like
+    // this, so there is no counterpart to sync against. `media` is the Media interface and every
+    // field below lives on it, so no `... on Manga` fragment is needed.
+    suspend fun getUserLibrary(): List<KitsuLibraryEntry> {
+        val query = $$"""
+            |query Query($cursor: String) {
+              |currentProfile {
+                |library {
+                  |all(mediaType: MANGA, first: 500, after: $cursor) {
+                    |pageInfo {
+                      |hasNextPage
+                      |endCursor
+                    |}
+                    |nodes {
+                      |status
+                      |rating
+                      |media {
+                        |id
+                        |titles {
+                          |preferred
+                        |}
+                        |categories(first: 100) {
+                          |nodes {
+                            |title(locales: ["en"])
+                          |}
+                        |}
+                        |mappings(first: 50) {
+                          |nodes {
+                            |externalSite
+                            |externalId
+                          |}
+                        |}
+                      |}
+                    |}
+                  |}
+                |}
+              |}
+            |}
+        """.trimMargin()
+
         return withIOContext {
             val accumulated = mutableListOf<KitsuLibraryEntry>()
-            var nextUrl: String? = buildInitialLibraryUrl(userId)
-            while (nextUrl != null) {
-                val url = nextUrl
-                val page = with(json) {
-                    authClient.newCall(GET(url)).awaitSuccess().parseAs<KitsuLibraryResult>()
+            var cursor: String? = null
+            while (true) {
+                val payload = buildJsonObject {
+                    put("query", query)
+                    putJsonObject("variables") {
+                        put("cursor", cursor)
+                    }
                 }
-                accumulated += resolveLibraryPage(page)
-                nextUrl = page.links.next
+                val connection = with(json) {
+                    authClient.newCall(
+                        POST(
+                            GRAPHQL_API_URL,
+                            body = payload.toString().toRequestBody(jsonMime),
+                        ),
+                    )
+                        .awaitSuccess()
+                        .parseAs<KitsuUserLibraryResult>()
+                }.data.currentProfile?.library?.all ?: break
+
+                accumulated += connection.nodes.mapNotNull { it.toLibraryEntry() }
+                if (!connection.pageInfo.hasNextPage) break
+                cursor = connection.pageInfo.endCursor ?: break
             }
             accumulated
         }
     }
 
-    private fun buildInitialLibraryUrl(userId: String): String {
-        // No `filter[kind]=manga` (silently zeroes this API revision) and no `fields[...]` sparse
-        // fieldsets (they strip the relationships block we need to link entries to manga). Anime
-        // entries are dropped by the resolver via their null manga relationship instead.
-        return "${JSON_API_BASE_URL}library-entries".toUri().buildUpon()
-            .encodedQuery(
-                "filter[user_id]=$userId" +
-                    "&include=manga,manga.categories,manga.mappings" +
-                    "&page[limit]=500",
-            )
-            .build()
-            .toString()
+    private fun KitsuUserLibraryNode.toLibraryEntry(): KitsuLibraryEntry? {
+        val media = media ?: return null
+        val mangaId = media.id.toLongOrNull() ?: return null
+        val externalIds = media.mappings.nodes.associate { it.externalSite to it.externalId }
+        return KitsuLibraryEntry(
+            mangaId = mangaId,
+            title = media.titles.preferred.orEmpty(),
+            status = status,
+            ratingTwenty = rating,
+            tags = media.categories.nodes.mapNotNull { it.localizedTitle() },
+            malId = externalIds[MAL_MAPPING_SITE]?.toLongOrNull(),
+            anilistId = externalIds[ANILIST_MAPPING_SITE]?.toLongOrNull(),
+        )
     }
 
-    private fun resolveLibraryPage(page: KitsuLibraryResult): List<KitsuLibraryEntry> {
-        val mangaById = page.included.filter { it.type == "manga" }.associateBy { it.id }
-        val categoryTitleById = page.included
-            .filter { it.type == "categories" }
-            .associate { it.id to it.attributes.title.orEmpty() }
-        val malIdByMappingId = HashMap<Long, Long>()
-        val anilistIdByMappingId = HashMap<Long, Long>()
-        for (mapping in page.included) {
-            if (mapping.type != "mappings") continue
-            val external = mapping.attributes.externalId?.toLongOrNull() ?: continue
-            when (mapping.attributes.externalSite) {
-                MAL_MAPPING_SITE -> malIdByMappingId[mapping.id] = external
-                ANILIST_MAPPING_SITE -> anilistIdByMappingId[mapping.id] = external
-            }
-        }
-
-        return page.data.mapNotNull { row ->
-            val mangaId = row.relationships.manga?.data?.id ?: return@mapNotNull null
-            val manga = mangaById[mangaId] ?: return@mapNotNull null
-            val tags = manga.relationships?.categories?.data
-                ?.mapNotNull { categoryTitleById[it.id] }
-                ?.filter { it.isNotEmpty() }
-                .orEmpty()
-            val mappingRefs = manga.relationships?.mappings?.data.orEmpty()
-            KitsuLibraryEntry(
-                mangaId = mangaId,
-                title = manga.attributes.canonicalTitle.orEmpty(),
-                status = row.attributes.status,
-                ratingTwenty = row.attributes.ratingTwenty,
-                tags = tags,
-                malId = mappingRefs.firstNotNullOfOrNull { malIdByMappingId[it.id] },
-                anilistId = mappingRefs.firstNotNullOfOrNull { anilistIdByMappingId[it.id] },
-            )
-        }
-    }
+    /** Prefers English, but takes whatever locale the entry has rather than dropping the tag. */
+    private fun KitsuCategoryNode.localizedTitle(): String? =
+        (title["en"] ?: title.values.firstOrNull())?.takeIf { it.isNotBlank() }
 
     // "Fill from tracker" metadata. Also still JSON:API: it needs the genre list, which upstream's
     // GraphQL selection set does not carry. Resolves staff (author/artist by role) and genres out of
@@ -581,8 +601,10 @@ class KitsuApi(
         // RK --> the JSON:API endpoint the two islands above still use, and the external-site slugs
         // for resolving cross-tracker ids out of a manga's mappings.
         private const val JSON_API_BASE_URL = "https://kitsu.app/api/edge/"
-        private const val MAL_MAPPING_SITE = "myanimelist/manga"
-        private const val ANILIST_MAPPING_SITE = "anilist/manga"
+
+        // Mapping external sites, named by GraphQL enum rather than by their JSON:API string value.
+        private const val MAL_MAPPING_SITE = "MYANIMELIST_MANGA"
+        private const val ANILIST_MAPPING_SITE = "ANILIST_MANGA"
         // RK <--
 
         fun refreshTokenRequest(token: String) = POST(

@@ -5,12 +5,11 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 
 /**
- * Pulls the user's full Kitsu manga library via the JSON:API `/library-entries` endpoint (categories
- * + mappings side-loaded, paged 500/entry) and normalizes each entry into a [TrackedEntry].
+ * Pulls the user's full Kitsu manga library through GraphQL (`currentProfile.library.all`, paged 500
+ * an entry) and normalizes each entry into a [TrackedEntry].
  *
- * Score: Kitsu's `ratingTwenty` (1..20 regardless of display preference), divided by 20; missing/0
- * becomes -1.0. Status: Kitsu uses `current` / `planned` rather than the other trackers' tokens.
- * Tags: the manga's `categories` titles. Cross-tracker [malId] / [anilistId] come from mappings.
+ * Score is Kitsu's native 1..20 rating regardless of display preference, so it divides by 20 and
+ * missing or 0 becomes -1.0. Statuses are Kitsu's own tokens, not the other trackers'.
  */
 class KitsuLibraryFetcher(
     private val kitsu: Kitsu,
@@ -36,7 +35,9 @@ class KitsuLibraryFetcher(
         anilistId = anilistId,
     )
 
-    private fun mapStatus(raw: String): TrackStatus = when (raw) {
+    // Lower-cased because GraphQL reports the status enum in upper case where the JSON:API reported
+    // it lower, and both spellings mean the same thing.
+    private fun mapStatus(raw: String): TrackStatus = when (raw.lowercase()) {
         "current" -> TrackStatus.READING
         "completed" -> TrackStatus.COMPLETED
         "on_hold" -> TrackStatus.ON_HOLD
