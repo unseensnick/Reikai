@@ -308,6 +308,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- The bottom navigation and the tablet side rail are now drawn by Material's own adaptive navigation component instead of hand-rolled copies (synced from Mihon, mihonapp/mihon#3834).
 - The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).
 - Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
 - Translated strings refreshed across 56 locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677 and mihonapp/mihon#3701).
