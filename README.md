@@ -24,7 +24,7 @@ A free and open source reader for Android, built on Mihon.
 
 Reikai (霊界, "spirit world") is a personal manga and light-novel reader for Android, built on [Mihon](https://github.com/mihonapp/mihon) (Tachiyomi lineage). It started as a fork of [Yōkai](https://github.com/null2264/yokai) and was later rebased onto Mihon.
 
-Two things set it apart from the lineage: **manga and light novels share one library** as equal content types, with the same layout and interactions; and it adds **multi-source power features** the lineage lacks, like folding the same series from several sources into a single entry, and ordering categories per library.
+Two things set it apart from the lineage: **manga and light novels share one library** as equal content types, with the same layout and interactions; and it adds **multi-source power features** the lineage lacks, like folding the same series from several sources into a single entry, and sorting your categories rather than only dragging them.
 
 It is built first for my own daily use, so development is sporadic and the feature set follows my taste rather than a broad roadmap. It rides Mihon's actively maintained base for the core reader and layers these features on top.
 
@@ -44,7 +44,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka.
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](https://reikai.app/docs/related-mangas#your-taste-profile))
 - `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](https://reikai.app/docs/flaresolverr))
-- `Library update errors`: an opt-in list of entries that failed their last update.
+- `Library update errors`: a list of entries that failed their last update, recorded by default and switchable off under Advanced.
 
 <details>
 <summary><strong>From Yōkai</strong></summary>
@@ -66,7 +66,7 @@ Ported from [Komikku](https://github.com/komikku-app/komikku) (a Mihon fork), re
 - `Adult content sources`: built-in sources, browse, tag search, metadata, account settings and backup. Off by default. ([docs](https://reikai.app/docs/adult-sources))
 - `Enhanced source support`: sign in to one of the most-used manga sources for source-native details, follows browse, two-way library sync, and its built-in `MDList` tracker.
 - `Edit info` (manga + novels): edit an entry's title, author, cover, description, tags and status, with `Fill from tracker` to autofill them. Reikai unifies it across both types and keeps the source's own values intact.
-- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by tags and source name. Off by default. ([FAQ](https://reikai.app/docs/faq/reader#i-turned-on-auto-webtoon-mode-but-a-manhwa-still-opens-paged-why))
+- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by tags and source name. On by default. ([FAQ](https://reikai.app/docs/faq/reader#i-turned-on-auto-webtoon-mode-but-a-manhwa-still-opens-paged-why))
 
 </details>
 

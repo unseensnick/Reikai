@@ -28,11 +28,13 @@ See the [Local source guide](/docs/guides/local-source/) for instructions.
 == External repositories
 External repositories add additional sources to **Reikai**:
 * Add one by going to <nav to="browse"> and tapping **Extension stores**.
-* Paste the store's index URL, which normally ends in `repo.json`.
+* Paste the store's index URL, as the store gives it to you. It usually ends in `index.min.json`, and for an older array-format store it has to, because the app derives that store's real address from it.
 
 Light novel repos are added on the same screen, in their own section further down. **Reikai** reads
 [LNReader](https://github.com/LNReader/lnreader)-style plugins rather than manga extensions, so novel
-sources come from their own repos, and the store list shows both counts.
+sources come from their own repos, and the store list shows both counts. A novel repo URL points at a
+`plugins.min.json` registry instead, and nothing checks it as you type, so a wrong address is accepted
+and simply lists no plugins.
 
 ::: danger Caution
 Reikai will not provide resources for any unofficial repositories. Beware that any third-party repositories or extensions will have full access to the app and may contain malware.
@@ -72,7 +74,7 @@ If you want to search for series across all your sources, you can use the Global
 Follow these steps:
 
 1. Go to the "**Browse**" section.
-1. Ensure you're on the "**Sources**" tab located at the top-right corner.
+1. Ensure you're on the "**Sources**" tab, the first of the three along the top.
 1. Use the Search icon in the toolbar to find series from all available sources.
 
 ### Trouble finding a specific series?

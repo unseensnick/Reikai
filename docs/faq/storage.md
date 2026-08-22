@@ -106,7 +106,7 @@ The following illustrates the folder structure:
 </div>
 :::
 
-A fourth folder, **`novel_downloads`**, sits beside these once you download a light novel. It follows the same shape, `novel_downloads/Source name/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images.
+A fourth folder, **`novel_downloads`**, is created beside these along with the others. It follows the same shape, `novel_downloads/Source name/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images.
 
 Backup file name prefixes are unique for the app to avoid potential collisions between forks.
 

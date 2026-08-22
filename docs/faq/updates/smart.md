@@ -13,7 +13,7 @@ Reikai intelligently works to reduce the number of series in a global update to 
 3. **Chapter Completion**: The series has **no unread chapters**, you've read all the chapters you already have,
 4. **Time Elapsed**: There's been enough time since the last update for the series that **the app predicts a new chapter is available**.
 
-You can see how often the app predicts a new chapter for a series **by looking at the hourglass**.
+You can see how many days the app expects to wait for the next chapter of a series **by looking at the hourglass**.
 After that many days, the app will allow that series to check for updates.
 
 ::: info Light novels get the first three conditions, not the fourth

@@ -10,15 +10,19 @@ _Dev records: [novel-tracking.md](../dev/plans/novel-tracking.md), [tracker-awar
 
 **Reikai** supports various tracking services to help you automatically update your tracking details such as read chapters, scoring, start & finish dates, etc.
 
-Link supported tracking services in <nav to="tracking">. Everything on this page works the same for manga and for light novels.
+Link supported tracking services in <nav to="tracking">.
 
 ## Services
 
-**Reikai** currently supports tracking with [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one/), and [Bangumi](https://bangumi.tv/).
+**Reikai** currently supports tracking with [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one/), [MangaBaka](https://mangabaka.org/), [Hikka](https://hikka.io/) and [Bangumi](https://bangumi.tv/). Signing in to MangaDex adds its own **MDList** tracker.
 
 * You must add the desired tracker to each series to begin tracking.
-* Track entries privately with supported tracking services (AniList, Kitsu).
+* Track entries privately with supported tracking services (AniList, Kitsu, MangaBaka, Bangumi).
 * You can adjust each field in the tracker entry by tapping on it.
+
+::: warning Light novels reach fewer services
+Only trackers with a real light-novel search are offered on a novel: **AniList**, **Kitsu**, **MyAnimeList**, **MangaUpdates**, **Shikimori**, **MangaBaka** and **Hikka**. Bangumi and the enhanced services below are manga only, so a novel's tracking sheet simply does not list them. Everything else on this page works the same for both.
+:::
 
 :::info Tracker behavior in Reikai
 * Tracking is one-way: **Reikai -> Tracker**
@@ -55,7 +59,7 @@ When an entry is part of a [multi-source group](/docs/multi-source), you do not 
 
 **Removing** a tracker unbinds it from every source in the group. Leaving a sibling's binding would keep the entry showing as tracked in the library filters even though its chip is gone.
 
-**Splitting the group up** hands each in-library source its own copy of the bindings first, carrying the group's furthest-read progress, so both halves keep tracking on their own. That applies however you break it up: **Split** in the Manage sources sheet, the library's **Unmerge** action, **Remove from library**, or **Clear all merges** in <nav to="advanced">. Two cases are skipped rather than guessed: a source that is not in your library, and a tracker whose linked remote entry disagrees across the group.
+**Splitting the group up** hands each in-library source its own copy of the bindings first, carrying the group's furthest-read progress, so both halves keep tracking on their own. That applies however you break it up: **Split** in the Manage sources sheet, the library's <icon name="unmerge"> action, **Remove from library**, or **Clear all merges** in <nav to="advanced">, which is two separate rows there, one for manga and one for novels. Two cases are skipped rather than guessed: a source that is not in your library, and a tracker whose linked remote entry disagrees across the group.
 
 Turning the setting off gives each source its own tracking again. Existing bindings are left alone either way, so you can switch back.
 

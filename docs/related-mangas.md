@@ -41,7 +41,7 @@ Switching source with the chip row fetches again for the new source.
 :::
 
 Two more streams need you signed in to AniList, MyAnimeList, MangaUpdates or Shikimori, and only fire on a manga that is itself tracked there.
-Both live in <nav to="recommendations">, under **Suggestions from your tracking**, a section that only appears once you are signed in to one of those four.
+Both live in <nav to="recommendations">, under **Suggestions from your tracking**, a section that appears once you are signed in to one of those four, with both **Tracker recommendations** and **Show related manga** left on.
 
 - **Because you're reading…** <Badge type="info" text="On" /> takes titles you rated highly, keeps the ones your tracker also links to the manga you have open, and pulls in what those are compared to. Narrow, and usually the best of the bunch.
 - **Matching your taste** <Badge type="info" text="On" /> searches the current source for the genres you read most. It needs a source that supports genre search; on a title-only source it adds nothing.
@@ -52,7 +52,7 @@ Each of the four trackers also has its own switch under it.
 ## Your taste profile
 
 The two streams above, and the reordering below, read a taste profile: the genres you read, weighted by how you rated and what you did with each series.
-Completed and Reading count for a genre, Dropped counts against it, and Plan to read counts for nothing either way.
+Completed counts most for a genre, then Reading, then On-hold. Dropped counts against it, and Plan to read counts for nothing either way.
 
 Building it needs your tracker library, which is private, so nothing is pulled until you opt in per tracker.
 
@@ -66,21 +66,21 @@ Your library is then cached locally, so the row does not call out to every track
 It updates in place when you add or change a track entry in the app, and **Auto-refresh library** <Badge type="info" text="Off" /> can also re-pull it weekly or monthly.
 **Refresh now** shows when each tracker was last pulled, and has a short cooldown between presses.
 
-The cache is included in your backups.
+The cache is not included in your backups. After a restore it rebuilds itself from your trackers on the next pull, so nothing is lost beyond the wait.
 
 ## Reordering the row
 
 With **Rerank by taste** <Badge type="info" text="On" /> the source's suggestions are reordered toward your taste.
 Tracker recommendations keep the order they arrived in, since they are already personal.
 
-Two sliders shape it, and both are disabled while reranking is off.
+Two sliders shape it, and both are hidden while reranking is off.
 
-- **Recommendation style** <Badge type="info" text="25%" /> weighs your taste against plain popularity. At 0% the row is ordered as the sources returned it; at 100% it is ordered almost entirely by taste.
+- **Recommendation style** <Badge type="info" text="25%" /> weighs your taste against plain popularity. At 0% your taste stops counting, though titles several sources agree on still rise and the serendipity share below still applies; at 100% it is ordered almost entirely by taste.
 - **Serendipity** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and reserves a share of the row that keeps popularity order no matter what. That reservation is what stops a high style setting from showing you the same five genres forever.
 
 No more than two of the taste-ranked picks may share a dominant genre; the rest are pushed to the end, so one genre cannot take over the row.
 
-With no taste profile built, the reordering is skipped and the row arrives as the sources returned it.
+With no taste profile built, the taste half of the reordering is skipped; titles that several sources agree on are still pulled forward.
 
 ## Hiding things you have seen
 
@@ -109,7 +109,7 @@ Several sources plus tracker fan-out routinely produce far more, and when there 
 
 That opens a full grid with the same ordering and filters and no cap, on as many columns as the screen fits.
 
-Two icons sit in its toolbar, each only when it has something to do:
+Three icons sit in its toolbar. **Select** is always there; the other two appear only when they have something to do:
 
 - **Group by source** splits the grid into labelled sections, so you can see what came from where: *From `<source>`*, *From your `<tracker>` recommendations*, *Because you're reading `<title>`*, *Matching your taste: `<genre>`*. It appears once the suggestions come from more than one place.
 - **Show hidden** brings back whatever your filters removed, without changing the filters. It appears only when something is actually hidden.
@@ -121,7 +121,7 @@ Two icons sit in its toolbar, each only when it has something to do:
 :::
 
 Everything selected goes into one set of categories, following your **Default category** setting.
-Tracker suggestions are skipped, since they map to no installed source, and the toast tells you how many: *Added 5 to library, skipped 2*.
+Tracker suggestions are skipped, since they map to no installed source, and a snackbar tells you how many: *Added 5 to library, skipped 2*.
 
 ::: warning Bulk add does not check for duplicates
 Adding one at a time asks whether a match already in your library should be migrated or grouped.

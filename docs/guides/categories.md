@@ -60,17 +60,17 @@ A category that spans both libraries is a single category, not a copy in each, s
 
 ## Category sort order
 
-Open the display settings sheet in <nav to="main_library"> (the sliders icon), go to the **Display** tab, and set **Category sort order** under **Categories**.
+Open the display settings sheet in <nav to="main_library"> with the <icon name="filter"> icon, go to the **Display** tab, and set **Category sort order** under **Categories**.
 
 By default, categories appear in the order you arranged them, which you set by dragging them in the category manager. This setting lets you override that with a static sort:
 
 | Option | Behavior |
 |---|---|
 | **Off** | Manual order, dragged in the category manager. *(Default.)* |
-| **A→Z** | Ascending alphabetical. |
-| **Z→A** | Descending alphabetical. |
+| **A to Z** | Ascending alphabetical. |
+| **Z to A** | Descending alphabetical. |
 
-Switching to A→Z or Z→A doesn't destroy your manual order; flipping back to **Off** restores it. The sort applies everywhere categories are listed: the library tab strip, the "Move to category" sheet, and the categories screen.
+Switching to A to Z or Z to A doesn't destroy your manual order; flipping back to **Off** restores it. The sort applies everywhere categories are listed: the library tab strip, the **Set categories** sheet, and the categories screen.
 
 ## Deleting several categories at once
 

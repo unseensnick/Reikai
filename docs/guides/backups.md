@@ -44,12 +44,15 @@ One backup covers both libraries: everything below applies to manga and light no
 
 #### Library data
 - **Library entries**
+- **Manga** and **Novels** - Back up one library without the other, which also halves the file
 - **Chapters** - Chapter data for saved entries
 - **Tracking** - Trackers added to individual saved entries
 - **History** - Read history for saved entries
 - **Categories**
-- **Merged groups** - The sources you grouped together under one entry, saved as source-and-address references, so they rebuild correctly even onto a fresh install
+- **Custom entry info** - The title, author, cover and tags you edited yourself, kept apart from the source's own values
 - **All read entries** - Keeps unsaved entry data (not included in automatic backups)
+
+The sources you grouped together under one entry are saved as source-and-address references, so they rebuild correctly even onto a fresh install. They ride along with **Library entries** and have no checkbox of their own.
 
 #### Settings data
 - **App settings**
@@ -81,8 +84,9 @@ The app will list any missing trackers and/or extensions in the Restore screen.
 :::
 
 Manga extensions are recorded rather than bundled, so until you install a matching one the entry
-reappears in your library but cannot fetch chapters. **Novel plugins are the exception**: they are
-re-downloaded automatically from their saved addresses once the restore finishes.
+reappears in your library but cannot fetch chapters. **Novel plugins come back on their own**, but not
+during the restore: their addresses ride along in **App settings**, and the app re-downloads them the
+next time you open a novel screen. Leave **App settings** included, or they will not return.
 
 ### Transferring downloads to a new installation
 During the setup or after restoring a backup to **Reikai**:

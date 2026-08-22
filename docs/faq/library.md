@@ -15,6 +15,8 @@ The app's default behavior is to skip updates for entries that meet the followin
 1. Marked with a "**Completed**" status
 1. Isn't predicted to receive new chapters yet
 
+Adult gallery sources are always left out of a global update, whichever of those criteria you turn off, because a gallery gains pages in place rather than gaining chapters. They have their own **Gallery update checker** instead, described in [adult sources](/docs/adult-sources).
+
 This strategy helps reduce unnecessary requests which may lead to sources implementing measures against **Reikai** or your extensions.
 * We recommend to prioritize reading your unread chapters, and letting **Reikai** update the library by itself to better adapt & predict chapter releases over time.
 
@@ -33,12 +35,12 @@ For more information, check out the [Smart Updates](/docs/faq/updates/smart) and
 **Reikai** provides a reminder when updating multiple titles or bulk downloading chapters, since excessive requests may trigger a source's anti-bot measures.
 This can lead to stalled updates and downloads, extending the time needed to complete your requests, which also impacts your device's battery life.
 ### To mitigate these concerns
-* In <nav to="downloads">, enable "**Auto download while reading**" to download chapters while reading.
+* In <nav to="downloads">, set "**Auto download while reading**" to how many chapters ahead you want fetched. It starts on **Disabled**, and the other choices are the next 2, 3, 5 or 10 chapters.
 * If possible, download in small batches at a time to avoid excessive requests to avoid slow or incomplete downloads.
 
 #### Splitting up your Library into categories
 1. Go to <nav to="library">, and create categories to segment your library ("Reading", "Plan to Read", "Completed", etc.).
-1. Under the **Global update** settings, tap on **Categories** and select individual categories such as "Reading" to be included.
+1. Under the **Global update** settings, tap on **Categories** and select individual categories such as "Reading" to be included. That group is split by content type, so set it under **Global update · Manga** and **Global update · Novels** separately.
 1. If the warning persists, create another category for infrequently updated entries (such as monthly series, on hiatus), and only include the more frequently updated reading category.
 
 ## Why aren't library updates working in the background?
@@ -47,8 +49,8 @@ Some Android skins (e.g., **MIUI**) aggressively save battery & limit performanc
 * If the issue still occurs, refer to [Don't Kill My App](https://dontkillmyapp.com/) for steps on disabling specific battery-saving options for your device's brand.
 
 ## How can I see the number of downloaded chapters?
-Badges can be enabled by navigating to <nav to="main_library">, then going to **Filter** and clicking the **Display** tab.
-Then, under **Badges**, select **Downloaded chapters**.
+Navigate to <nav to="main_library">, tap <icon name="filter"> in the toolbar and open the **Display** tab.
+Then, under **Overlay**, select **Downloaded chapters**.
 
 ## Can I sync between multiple devices?
 **Reikai** can't sync between devices.

@@ -19,7 +19,7 @@ Once you've entered a source/series, go to <nav to="webview">, or simply press t
 == From Browse
 1. Open **Browse** from the bottom navbar.
 2. Tap the desired source.
-3. Tap the **WebView** icon in the top toolbar.
+3. Open <nav to="overflow"> in the top toolbar and tap **Open in WebView**.
 4. Complete a **CAPTCHA** if one is shown.
 5. Close by tapping `X` at the top-left.
 == From a Series

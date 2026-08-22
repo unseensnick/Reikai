@@ -40,7 +40,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A finished migration tells you how many entries moved.**
 - **Search a target by hand, or browse a whole source, when the suggested match is wrong.** Every source you chose is searched, and one that fails says so instead of looking empty.
 - **Check a match before you commit to it: long-press any result to open its page, and anything already in your library is marked.** Works the same whether you are picking one entry or working through a batch.
-- **Set how a migration searches before it runs: an extra search term, deep search, and filters for unmatched entries or ones already up to date.** Novels get the options their sources can support.
+- **Set how a migration searches before it runs: extra keywords, advanced search mode, and filters for unmatched entries or ones already up to date.** Novels get the options their sources can support.
 
 **Updates & History**
 
@@ -140,7 +140,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **App**
 
-- **Preview builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
+- **Nightly builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
 - **Updating the app now happens on the update screen itself, with the download progress on the button (synced from Mihon, mihonapp/mihon#3669 and mihonapp/mihon#3707).** Tap once more when it finishes to install.
 - **Reikai now checks for app and extension updates every time you open it from cold (synced from Mihon, mihonapp/mihon#3658).** It used to wait days between checks, so a fresh build could sit unoffered.
 - **Every help link in the app now opens Reikai's own documentation at reikai.app.** They pointed at Mihon's site, which does not cover what Reikai adds.

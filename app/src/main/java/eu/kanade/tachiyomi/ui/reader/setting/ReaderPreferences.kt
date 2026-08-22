@@ -109,8 +109,8 @@ class ReaderPreferences(
     // RK -->
     val markReadOnSkip: Preference<Boolean> = preferenceStore.getBoolean("mark_read_on_skip", false)
 
-    // Komikku's key verbatim, so the toggle survives a backup restored in either direction. Our
-    // default differs (off, where Komikku ships on); an absent key just lets each app use its own.
+    // Komikku's key verbatim, so the toggle survives a backup restored in either direction, and both
+    // apps default it on, so an absent key behaves the same on either side.
     val autoWebtoonMode: Preference<Boolean> = preferenceStore.getBoolean("eh_use_auto_webtoon", true)
 
     val readerBottomButtons: Preference<Set<String>> =

@@ -22,7 +22,8 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Adult sources | [adult-sources.md](adult-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
 | Library search | [library-search.md](library-search.md) | [library-all-chip.md](dev/plans/library-all-chip.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
 | Cloudflare bypass | [flaresolverr.md](flaresolverr.md) | [flaresolverr-integration.md](dev/plans/flaresolverr-integration.md) |
-| MangaDex enhanced source | (in [adult-sources.md](adult-sources.md) settings) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
+| Built-in sources | [built-in-sources.md](built-in-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md) |
+| MangaDex enhanced source | [built-in-sources.md](built-in-sources.md) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
 | Light novels | [about.md](about.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/ln-plugin-host.md) |
 | Library shell | (none yet) | [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-tabbed-shell.md](dev/plans/library-tabbed-shell.md) |
 | Unified manga + novel UI | (none yet) | the Unified-surfaces records in [plans/](dev/plans/README.md) |

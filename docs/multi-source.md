@@ -33,7 +33,7 @@ When you add a series that matches one already in your library, the duplicate di
 Pick the entry it belongs with, and the new copy is added to your library and joined to that group.
 
 ::: tip Where the prompt appears
-Adding from Browse, global search, History, or MangaDex Follows.
+Adding from Browse, global search, a series' own details page, History or Updates, or MangaDex Follows.
 :::
 
 That prompt is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Sources**, once for **Manga** and once for **Novels**.
@@ -68,28 +68,39 @@ Merge those by hand.
 ::: tip How to merge
 1. Long-press an entry in <nav to="main_library"> to start selecting.
 1. Tap the other entries you want with it.
-1. Tap **Merge** in the bottom bar.
+1. Tap <icon name="merge"> in the bar along the bottom.
 :::
+
+The selection bar draws its actions as icons with no text beside them, so look for the shape rather than the word.
+The merge icon only appears once you have selected two or more entries **of the same type**, since a group is either manga or novels, never a mix.
+It is also hidden while **Group series across sources** is off.
 
 The selected entries become one card and share a chapter list, progress and library state from then on.
 
 ## Splitting a group up
 
 Splitting a source out returns it to a standalone library entry and leaves the rest of the group merged.
-Every route shows an undo snackbar, so a mistaken tap is recoverable.
 
 ::::tabs
 == From the chip row
 Long-press the source's chip on the details screen and confirm **Split**.
 
-Quickest when you are already looking at the chip row.
+Quickest when you are already looking at the chip row. Shows an undo snackbar.
 == From Manage sources
 On the details screen, open <nav to="overflow"> and tap **Manage sources**, then pick the source and tap **Split**.
 
-Easier than a long-press on a small screen.
+Easier than a long-press on a small screen. Shows an undo snackbar.
+== From the library
+Long-press a merged entry in <nav to="main_library"> and tap <icon name="unmerge">, which dissolves that whole group rather than splitting one source out of it.
+
+The icon appears whenever your selection includes a merged entry. No undo.
 == Every group at once
 **Clear all merges** in <nav to="advanced">, once for manga and once for novels, splits every group you have back into separate entries.
 ::::
+
+::: danger Two of these cannot be undone
+Splitting from the chip row or from Manage sources offers an undo snackbar. Unmerging from the library does not, and neither does **Clear all merges**, which dissolves every group of that content type at once. Rebuilding after either means merging each group by hand again.
+:::
 
 Groups are saved in your backups, so they survive a backup and restore.
 

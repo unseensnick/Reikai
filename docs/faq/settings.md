@@ -8,7 +8,7 @@ description: Frequently Asked Questions about various app settings.
 Frequently Asked Questions about various app settings.
 
 ## Why is taking screenshots blocked?
-Turn off **Secure screen** in <nav to="security-and-privacy">.
+Set **Secure screen** to **Never** in <nav to="security-and-privacy">. It is a three-way choice rather than a switch, and it starts on **Incognito mode**, so out of the box screenshots are blocked only while incognito is on.
 
 ## What is DNS over HTTPS?
 **DNS over HTTPS (DoH)** (in <nav to="advanced">) offers secure DNS resolution through HTTPS, preventing attacks.

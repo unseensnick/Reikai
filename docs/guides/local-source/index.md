@@ -18,11 +18,11 @@ The local source reads folders of images and comic archives. Light novels have n
 
 ## Creating local series
 
-1. In the location you specified as your storage location (e.g., `/Reikai/`), there should be a `local` folder. Place correctly structured series inside that (e.g. `/Reikai/local/`).
+1. In the location you specified as your storage location (e.g., `/Reikai/`), create a `local` folder if one is not there yet. Place correctly structured series inside that (e.g. `/Reikai/local/`).
 
     > If adding series in folders it is recommended to add a file named `.nomedia` to the local folder so images do not show up in the gallery.
 
-1. You should now be able to access the series in <nav to="sources"> under **Local source**.
+1. You should now be able to access the series in <nav to="sources"> under **Local source**. If the list is filtered to novels by the chip row at the top, switch it back to manga or all.
 
 If you add more chapters then you'll have to manually refresh the chapter list (by pulling down the list).
 

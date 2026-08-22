@@ -58,8 +58,9 @@ Decides which categories the front page shows you at all.
 
 ### Favorites backup
 
-Copies your account's favorites into a chosen slot, so a list you built over years is not one bad click from gone.
-There is a back-up-now action, and an option to keep doing it automatically.
+Pushes the galleries you have favorited in Reikai up to a chosen favorites slot on your account, so a list you built over years also lives somewhere the app cannot lose it.
+There is a back-up-now action, and **Back up favorites to account** keeps doing it as you go.
+It only ever adds: removing a gallery from your library leaves it on the account.
 
 ### Gallery update checker
 
@@ -77,7 +78,7 @@ This is the main reason to use the built-in source rather than a generic extensi
 
 **Not a general adult-content unlock.**
 Other adult sources are ordinary extensions: install them from a repository in <nav to="extensions"> and they work like any other source, switch or no switch.
-This page is only about the built-in E-Hentai and ExHentai support.
+The switch registers a small set of built-in sources, listed in [built-in-sources.md](built-in-sources.md); this page covers the E-Hentai and ExHentai support, which is the part with settings of its own.
 
 **Not a content filter.**
 Nothing here changes what any other source shows you.

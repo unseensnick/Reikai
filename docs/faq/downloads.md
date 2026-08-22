@@ -35,7 +35,7 @@ Navigate to <nav to="download-queue"> to interact with queued downloads.
 Manga and light novels share the queue, with **All** / **Manga** / **Novels** chips to narrow it. Each series is one card holding its chapters.
 
 * The pause button stops and restarts whatever is currently shown, so pausing on **Manga** leaves novels running.
-* **Sort** and **Cancel all** are in the toolbar overflow, and **Cancel all** clears only what is shown.
+* **Sort** is an icon in the toolbar and **Cancel all** is in the overflow beside it. **Cancel all** clears only what is shown.
 * Drag a card by its handle to move that series up or down the queue.
 
 ## Can I use both internal storage and external SD card storage?
@@ -48,7 +48,7 @@ However, in some cases, this might not function as intended.
 A quick solution is to create the `.nomedia` file yourself, name it as such, and place it in your downloads folder. If the issue pertains to local source, put the `.nomedia` file in the respective local folder.
 
 ## How are downloads organized on the filesystem?
-They are stored as `downloads/Source Name/Manga Name/Chapter Name (abcdef).cbz`.
+They are stored as `downloads/Source Name/Manga Name/Chapter Name_abcdef.cbz`, where the six characters after the underscore are a hash of the chapter's address.
 Light novels use a folder of their own, `novel_downloads/Source Name/Novel Name/`, with each chapter saved as an `.html` file. Everything below applies to both.
 The `abcdef` string is the first 6 hexadecimal digits of the MD5 hash of the URL of the chapter, so that if two chapters have the same name, they won't try to write to the same filename.
 In the case of a scanlator, it is `Scanlator Name_Chapter Name` instead of just `Chapter Name`.

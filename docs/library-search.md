@@ -112,7 +112,7 @@ Writing `&&` for "and" is allowed but never needed.
 ## Gallery sources
 
 Entries from gallery sources also answer the namespace tag grammar those sources use, such as `artist:toyya` or `female:glasses`, on top of everything above.
-An entry matches if either grammar matches it.
+A search made only of positive terms matches an entry if either grammar matches it. A search made only of exclusions has to satisfy both, since every exclusion is meant to rule the entry out.
 See [adult sources](adult-sources.md).
 
 ## If something does not match

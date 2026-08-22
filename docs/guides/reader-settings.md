@@ -90,7 +90,7 @@ TBA
 <img src="/docs/guides/reader-settings/background-color_gray.webp" alt="Gray" width="512" height="788" loading="lazy" decoding="async" />
 == White
 <img src="/docs/guides/reader-settings/background-color_white.webp" alt="White" width="512" height="788" loading="lazy" decoding="async" />
-== Automatic
+== Auto
 Automatically sets the color based on the content of your page.
 :::
 
@@ -100,7 +100,7 @@ Allows app elements to extend to the edges of the screen, including the status a
 ### Show content in cutout area <Badge type="info" text="On" />
 Displays reader content in the camera cutout area, maximizing the use of the entire screen.
 
-### Keep screen on <Badge type="info" text="On" />
+### Keep screen on <Badge type="info" text="Off" />
 Keeps the screen from going to sleep.
 
 ### Show page number <Badge type="info" text="On" />
@@ -108,7 +108,16 @@ Shows the current page number at the bottom of the screen.
 
 ## E-Ink
 ### Flash on page change <Badge type="info" text="Off" />
-Flashes the screen on page change to reduce ghosting on E-ink displays.
+Flashes the screen on page change to reduce ghosting on E-ink displays. The three settings below only appear once this is on.
+
+### Flash duration <Badge type="info" text="100 ms" />
+How long each flash lasts.
+
+### Flash every <Badge type="info" text="1 page" />
+How many pages pass between flashes. Higher is less distracting and lets more ghosting build up.
+
+### Flash with <Badge type="info" text="Black" />
+Whether the flash is black, white, or white then black.
 
 ## Reading · Manga
 
@@ -124,7 +133,7 @@ Skips over chapters detected as duplicates.
 ### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.
 
-### Auto webtoon mode <Badge type="info" text="Off" />
+### Auto webtoon mode <Badge type="info" text="On" />
 Opens manhwa, manhua and webtoons in webtoon mode without you setting it per series.
 
 It goes by what the source says, not by the pictures: a "Manhwa", "Manhua", "Webtoon" or "Long strip" genre tag, or a source name that gives it away. A mode you picked for a series always wins.
@@ -145,19 +154,31 @@ Shows chapter transitions regardless of whether the next chapter is loaded or no
 
 The light-novel reader has its own settings, since scrolling text and turning pages are different problems.
 
-### Tap edges to scroll <Badge type="info" text="On" />
+### Default rotation <Badge type="info" text="Free" />
+How the screen is oriented in the novel reader. It offers the same choices as the manga one apart from Reverse portrait.
+
+### Tap edges to scroll <Badge type="info" text="Off" />
 Tapping near the top or bottom edge scrolls a screenful.
 
-### Swipe between chapters <Badge type="info" text="On" />
+### Swipe between chapters <Badge type="info" text="Off" />
 Swipe sideways to move to the previous or next chapter.
+
+### Skip duplicate chapters <Badge type="info" text="Off" />
+Skips over chapters detected as duplicates, which a merged novel produces when two sources number the same chapter.
+
+### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
+When you jump to the next chapter, marks the one you skipped as read.
 
 ### Auto-scroll
 Scrolls the text on its own at a speed you set, so you can read without touching the screen.
 
 ### Bottom bar buttons
-Which buttons sit in the novel reader's bottom bar. Rotation, view chapters and text size are on by default.
+Which buttons sit in the novel reader's bottom bar. View chapters and rotation are on by default, and the settings gear is always there.
 
 ## Accessibility · Novels
+
+### Keep screen on <Badge type="info" text="Off" />
+Keeps the screen from going to sleep while reading a novel. Separate from the manga setting of the same name.
 
 ### Show reading progress <Badge type="info" text="On" />
 Shows how far through the chapter you are.
@@ -212,8 +233,14 @@ Changes so that the tap zones are flipped horizontally and vertically.
 ### Split wide pages <Badge type="info" text="Off" /> {#split-wide-pages}
 TBA
 
+### Invert split page placement <Badge type="info" text="Off" /> {#invert-split-page-placement}
+Swaps which half of a split double-page spread comes first. Only useful once **Split wide pages** is on.
+
 ### Rotate wide pages to fit <Badge type="info" text="Off" /> {#rotate-wide-pages}
 TBA
+
+### Flip orientation of rotated wide pages <Badge type="info" text="Off" /> {#flip-rotated-wide-pages}
+Rotates those pages the other way round. Only useful once **Rotate wide pages to fit** is on.
 
 ### Scale type <Badge type="info" text="Fit screen" />
 
@@ -235,7 +262,7 @@ TBA
 ### Zoom start position <Badge type="info" text="Automatic" />
 
 ::: tabs
-== Automatic
+== Auto
 <img src="/docs/guides/reader-settings/zoom-start-position_center.webp" alt="Center (TBA Default Image)" width="512" height="788" loading="lazy" decoding="async" />
 == Left
 <img src="/docs/guides/reader-settings/zoom-start-position_left.webp" alt="Left" width="512" height="788" loading="lazy" decoding="async" />
@@ -253,9 +280,9 @@ TBA
 
 ## Long strip
 
-**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages** and **Rotate wide pages to fit** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above.
+**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above.
 
-### Side padding <Badge type="info" text="None" />
+### Side padding <Badge type="info" text="0%" />
 Adds the specified padding to the left and right of the screen.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
@@ -290,13 +317,13 @@ Inverts what the volume keys do.
 ### Volume key scroll amount <Badge type="info" text="75%" />
 How much of the screen one press moves. On manga this applies to the long strip modes only, since a paged reader turns a whole page either way.
 
-### Use vertical chapter navigator in <Badge type="info" text="Long strip, Long strip with gaps" />
-Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick.
+### Use vertical chapter navigator in <Badge type="info" text="None" />
+Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick. Nothing is picked on a fresh install, so the two settings below it stay unavailable until you choose a mode here. Upgrading from an older version starts you on the long strip modes instead.
 
 ### Place vertical navigator on the left side <Badge type="info" text="Off" />
 Moves that slider to the left edge, for left-handed reading.
 
-### Vertical navigator height <Badge type="info" text="80" />
+### Vertical navigator height <Badge type="info" text="65" />
 How tall the slider is, as a percentage of the screen.
 
 ## Actions

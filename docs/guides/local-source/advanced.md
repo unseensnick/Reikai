@@ -12,9 +12,13 @@ Advanced local series metadata editing for enhanced library organization.
 It is possible to add details to local series.
 Like series from other sources, you add information about the series such as the `author`, `artist`, `description`, and `genre` tags.
 
-Details are read from a **`ComicInfo.xml`** file in the **Series** folder. The app writes one there itself the first time it reads a series, so the easiest way to start is to open the series once and then edit the file it leaves behind.
+Details are read from a **`ComicInfo.xml`** file in the **Series** folder. Write that file yourself: the app does not create one for a plain folder of images.
 
-It also looks inside your chapter archives: if a chapter archive contains a `ComicInfo.xml` and the series folder does not, the app copies it up to the series folder and reads it. Most comic archives from other tools already carry one.
+It does look inside your chapter archives once. The first time it scans a series with no `ComicInfo.xml` of its own, it takes one out of a chapter archive if it finds it there and copies it up to the series folder. Most comic archives from other tools already carry one.
+
+::: warning That archive scan only ever runs once
+If the first scan finds nothing, the app drops an empty **`.noxml`** marker in the series folder so it never re-scans, and adding a `ComicInfo.xml` to your archives afterwards will not be noticed. Putting a `ComicInfo.xml` in the series folder is what clears the marker. So if a series is stuck without details, look for `.noxml` (it is a hidden file) and write the `ComicInfo.xml` by hand.
+:::
 
 ::: warning A `.json` details file is the old format
 It still works, but only once. The app reads it, converts it to `ComicInfo.xml`, and **deletes the JSON**, so do not be surprised when your file disappears. Write `ComicInfo.xml` directly for anything new.
