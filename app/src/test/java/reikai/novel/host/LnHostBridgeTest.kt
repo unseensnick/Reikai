@@ -31,4 +31,22 @@ class LnHostBridgeTest {
 
         Triple(opts.method, opts.headers, opts.body) shouldBe Triple("POST", null, "data")
     }
+
+    /**
+     * Resolving the User-Agent loads the WebView provider, which blocks for seconds on a cold device.
+     * The host builds this bridge while holding a Metro singleton lock, so doing it at construction
+     * froze every screen waiting on that lock. Reading it per request is what keeps that off the
+     * construction path.
+     */
+    @Test
+    fun `constructing the bridge never resolves the user agent`() {
+        var resolved = 0
+
+        LnHostBridge(preferenceStore = mockk(relaxed = true), client = mockk(relaxed = true)) {
+            resolved++
+            ""
+        }
+
+        resolved shouldBe 0
+    }
 }

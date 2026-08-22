@@ -32,6 +32,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
+import reikai.novel.network.deviceWebViewUserAgent
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
@@ -58,12 +59,12 @@ class LnPluginHost(
 
     private val appContext = context.applicationContext
 
-    // the device's real WebView User-Agent (real model + Android + Chrome version), like LNReader.
-    // Mihon's network client otherwise defaults to a stripped generic "Android 10; K" UA that some LN
-    // sources answer with a degraded page (e.g. Novel Bin serves 200x89 thumbnail covers to it).
-    private val deviceUserAgent: String =
-        runCatching { android.webkit.WebSettings.getDefaultUserAgent(appContext) }.getOrDefault("")
-    private val bridge = LnHostBridge(preferenceStore, networkHelper.client, deviceUserAgent)
+    // The shared helper caches the UA per process and resolves it on the first fetch, which already
+    // runs on IO. Reading it here instead would block on WebView load while this object's Metro
+    // singleton lock is held, freezing any screen that resolves the same lock.
+    private val bridge = LnHostBridge(preferenceStore, networkHelper.client) {
+        deviceWebViewUserAgent(appContext)
+    }
 
     /** What it takes to (re)load a plugin into an engine; retained per plugin so its own engine can
      *  replay the load after lazy creation or an idle close. */

@@ -29,8 +29,10 @@ import java.net.URLDecoder
 class LnHostBridge(
     private val preferenceStore: PreferenceStore,
     private val client: OkHttpClient,
-    // the device's real WebView User-Agent (see [LnPluginHost]); empty when unavailable.
-    private val userAgent: String = "",
+    // The device's real WebView User-Agent, resolved per request rather than passed in: reading it
+    // loads the WebView provider, which blocks for seconds on a cold device. Doing that while
+    // constructing froze the UI, because Metro holds this object's singleton lock across the call.
+    private val userAgent: () -> String = { "" },
 ) {
 
     /** One OkHttp call, response shaped as the runtime's `makeResponse` expects. Blocking; callers
@@ -58,7 +60,7 @@ class LnHostBridge(
             // Default the device WebView UA unless the plugin set one (the Referer is left to the
             // plugin for host fetches); shared with the cover fetcher via [applyNovelDefaults].
             val pluginSetUa = opts.headers?.keys?.any { it.equals("User-Agent", ignoreCase = true) } == true
-            builder.applyNovelDefaults(userAgent, pluginSetUserAgent = pluginSetUa)
+            builder.applyNovelDefaults(userAgent(), pluginSetUserAgent = pluginSetUa)
             // Laravel / Inertia sources expect the XSRF-TOKEN cookie echoed back as the X-XSRF-TOKEN
             // header. Derive it from the shared cookie jar unless the plugin set the header itself. The
             // token is a per-session CSRF value, applied but never logged.

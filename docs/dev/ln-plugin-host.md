@@ -66,7 +66,9 @@ multipart body (FormData posts), and a base64 binary body (gRPC-web / protobuf v
 returns the final post-redirect URL (Madara plugins read `response.url` to detect Cloudflare
 redirects). It defaults the device's real WebView User-Agent via `applyNovelDefaults`
 (`reikai.novel.network.NovelRequestHeaders`) unless the plugin set its own; Mihon's generic UA makes
-some LN sources serve degraded pages.
+some LN sources serve degraded pages. The bridge takes that UA as a supplier and resolves it per
+request rather than at construction, because reading it loads the WebView provider, which blocks for
+seconds on a cold device while the host's Metro singleton lock is held.
 
 Per-plugin storage is namespaced keys over `PreferenceStore` (raw SharedPreferences is forbidden),
 keyed `ln_storage::<pluginId>::<key>`. `clearPluginStorage` deletes every key with that prefix; the

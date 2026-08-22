@@ -149,6 +149,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library**
 
+- **The app no longer freezes on the Library while light-novel plugins are being set up.** It could hang long enough for Android to offer to close it, most often on a slow or freshly started device.
 - **Reset all in Edit info now clears a cover you set by hand, so the series goes back to the source's own cover.** It reset the text fields and left the picked cover in place, on both manga and novels.
 - **Downloaded badges now notice chapters you delete outside the app.** The check was meant to run hourly but restarted its clock on every launch, so opening the app more often than that meant it never ran.
 - **On a merged series, tapping the cover shows the selected source's cover, and changing the cover is done on the All chip.** Your library shows the group's cover, so an edit made under one source would have looked like it did nothing.

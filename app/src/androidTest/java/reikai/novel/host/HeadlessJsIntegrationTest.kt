@@ -19,16 +19,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * On-device integration test for the headless QuickJS stack (NOT a CI test: network-dependent).
+ * On-device integration test for the headless QuickJS stack, not a CI test: it is network-dependent
+ * and pulls the live plugin registry, so it runs on demand.
  *
- * Exercises the production classes, not an inline spike:
- *  - [LnPluginHost] running real lnreader plugins from the registry with NO WebView and NO Activity
- *    (the prerequisite for background novel updates / downloads), across a broad sample so engine
- *    incompatibilities surface per-plugin.
- *  - [JavaScriptEngine] (the extensions-lib helper, now dokar-backed after dropping app.cash.quickjs)
- *    on representative synchronous snippets, so the manga-source path is covered too.
- *
- * Read the full per-plugin breakdown from logcat tag "HeadlessJsTest".
+ * Covers [LnPluginHost] running real lnreader plugins with no WebView and no Activity, which is what
+ * background novel updates need, plus [JavaScriptEngine] for the manga-source path. The per-plugin
+ * breakdown goes to logcat tag "HeadlessJsTest"; how to run it is in docs/dev/on-device-testing.md.
  */
 @RunWith(AndroidJUnit4::class)
 class HeadlessJsIntegrationTest {
@@ -37,9 +33,10 @@ class HeadlessJsIntegrationTest {
 
     @Test
     fun lnPluginsRunInProductionHeadlessHost() = runBlocking {
-        val client = Injekt.get<NetworkHelper>().client
-        val host = LnPluginHost(context, client, Injekt.get())
-        val loader = LnPluginLoader(context, client)
+        val networkHelper = Injekt.get<NetworkHelper>()
+        val client = networkHelper.client
+        val host = LnPluginHost(context, networkHelper, Injekt.get())
+        val loader = LnPluginLoader(context, networkHelper)
         val report = StringBuilder("\n===== Production headless LN host =====\n")
 
         // Pull the real registry instead of hardcoding (fragile) plugin filenames. Test reinstalls
@@ -169,9 +166,10 @@ class HeadlessJsIntegrationTest {
         val anchorIds = args.getString("anchorIds")
             ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty()
 
-        val client = Injekt.get<NetworkHelper>().client
-        val host = LnPluginHost(context, client, Injekt.get())
-        val loader = LnPluginLoader(context, client)
+        val networkHelper = Injekt.get<NetworkHelper>()
+        val client = networkHelper.client
+        val host = LnPluginHost(context, networkHelper, Injekt.get())
+        val loader = LnPluginLoader(context, networkHelper)
 
         val entries = runCatching {
             client.newCall(Request.Builder().url(registryUrl).build()).execute().use { res ->

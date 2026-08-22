@@ -9,10 +9,12 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.ReikaiSourcePreferences
@@ -53,6 +55,9 @@ class NovelSourcesFilterViewModel(
         // The plugin host has to be loaded before the source list means anything, and this runs on
         // every (re)subscription now that the feed is not always-on. ensureLoaded is idempotent.
         .onStart { installer.ensureLoaded() }
+        // ensureLoaded can build a QuickJS engine and read assets on the collecting dispatcher, which
+        // without this is the main thread, so the sibling sources model carries the same line.
+        .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State.Loading)
 
     fun toggleSource(sourceId: String) {
