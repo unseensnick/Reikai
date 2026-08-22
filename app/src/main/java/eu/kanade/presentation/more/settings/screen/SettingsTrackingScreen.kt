@@ -142,6 +142,12 @@ object SettingsTrackingScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_sync_tracker_links_grouped),
                 subtitle = stringResource(MR.strings.pref_sync_tracker_links_grouped_summary),
             ),
+            // RK: sexual content only, so it never hides a series for being violent or dark
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.showAdultTrackerContent,
+                title = stringResource(MR.strings.pref_show_adult_tracker_content),
+                subtitle = stringResource(MR.strings.pref_show_adult_tracker_content_summary),
+            ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),
                 preferenceItems = listOf(

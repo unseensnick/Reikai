@@ -321,11 +321,15 @@ documentation and source.
 
 ## Decisions & tradeoffs
 
-**Off by default.** Nothing filters adult content in recommendations today, so shipping the filter on
-would quietly reshape every existing profile, and the app's convention for content availability is
-permissive (`showNsfwSource` defaults to true, and the fork's standing direction is to keep adult
-support rather than trim it). `hideAdultNotificationContent` defaults to true, but that is incidental
-exposure on a lock screen, a different axis from what a user's own recommendations are built from.
+**Adult content is opt-in** (owner, 2026-08-22): `showAdultTrackerContent` defaults to `false`, so
+the filter is on until a user turns it off. This overrides an earlier draft of this plan, which had
+it the other way round on the grounds that the app leans permissive elsewhere (`showNsfwSource`
+defaults to true).
+
+**The cost of that default, stated plainly:** nothing filters adult content in recommendations today,
+so an existing library's profile does change on upgrade, and adult titles stop shaping it until the
+user opts in. That is a real behaviour change rather than a no-op, and it wants a CHANGELOG entry
+that says so rather than one that only describes the new switch.
 
 **One toggle, not per-tracker toggles.** The taste-profile group already has five per-tracker pull
 switches, and adding five more would double it for a distinction nobody wants: a user who does not
