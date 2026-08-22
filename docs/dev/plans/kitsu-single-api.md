@@ -180,8 +180,23 @@ one.
 
 ## Status
 
-Not started. Grounded 2026-08-22 against `hummingbird-me/kitsu-server` on `the-future` and against the
-current tree; the GraphQL port it builds on shipped in `bf4c8d528`.
+**Steps 1, 2, 3 and 5 shipped** (`ebe0ff307`, `a522851b1`), so Kitsu now speaks one API and
+`/api/edge/` is gone from the tree. Step 4, the adult-content flag, belongs to
+[recommendations-adult-content.md](recommendations-adult-content.md) and is not started.
+
+Grounded 2026-08-22 against `hummingbird-me/kitsu-server` on `the-future` and against the current
+tree; the GraphQL port it builds on shipped in `bf4c8d528`.
+
+**What the device runs settled that reading could not.** The deployed schema does match
+`the-future`: the library pull returned exactly the JSON:API result, 88 entries with 75 MyAnimeList
+ids, 81 AniList ids and 87 carrying tags. Two things only a real run caught. Statuses would all have
+landed as `UNKNOWN`, because GraphQL reports the enum upper case where the JSON:API reported it
+lower. And Fill-from-tracker threw on a missing `views` field, because reusing upstream's poster DTO
+tied it to a selection set it does not share; the fix was its own poster type, and the lesson is that
+reusing a DTO across queries couples them to each other's field lists.
+
+The step ordering also proved worth keeping: building the GraphQL pull alongside the old one and
+comparing before deleting is what made both defects cheap.
 
 ## Decisions & tradeoffs
 
