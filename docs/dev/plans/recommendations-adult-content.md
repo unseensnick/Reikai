@@ -316,8 +316,28 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 
 ## Status
 
-Not started. Grounded 2026-08-22 against the current tree and against each service's public API
+**Steps 1 to 4 shipped** (`b515944ae`, `fc81876bc`, `b633a6e10`, `780428900`): the model and cache
+column, the setting and the two filtered readers, then AniList and MyAnimeList answering the field.
+Steps 5 to 10 are open. Grounded 2026-08-22 against the current tree and each service's own API
 documentation and source.
+
+**Device-verified end to end on the carousel**, which is the only place any of this is observable
+(the library screen has no recommendation surface). Same title, adult content on: "See all (135)"
+with doujinshi among the results, including one titled `Shingeki no Kyojin dj - knife`. Adult content
+off: "See all (282)", uniformly mainstream, no doujinshi. **The count rising when the filter is on is
+correct and worth understanding before touching this**: the filter does not subtract from a fixed
+list, it changes the taste profile, which changes which genres get searched for candidates, so a
+different and larger set comes back.
+
+Two things the device runs settled that reading could not. AniList flags 9 of 189 entries adult, and
+two of them (`Redo of Healer`, a MILF-party isekai) carry no tag the keyword list would have matched,
+so the service's own ruling catches what substring matching structurally cannot. And MyAnimeList's
+`nsfw=false` request really does drop adult entries before they reach the cache, which is the privacy
+half of the design working rather than a filter applied after storage.
+
+**Deferred from step 2 on purpose:** the cache invalidation the plan put there. It only matters once
+a request-side gate exists, which arrived with step 4, so the setting now needs to mark the taste
+cache stale when it flips. That is the first thing step 5 owes.
 
 ## Decisions & tradeoffs
 
