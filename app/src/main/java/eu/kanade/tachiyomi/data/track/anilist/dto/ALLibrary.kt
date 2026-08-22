@@ -46,6 +46,8 @@ data class ALLibraryMedia(
     val title: ALLibraryMediaTitle,
     val genres: List<String> = emptyList(),
     val tags: List<ALLibraryTag> = emptyList(),
+    /** AniList's own 18+ ruling. It excludes Ecchi, and treats the Hentai genre as adult. */
+    val isAdult: Boolean = false,
 )
 
 @Serializable

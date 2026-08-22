@@ -509,6 +509,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                                 |title { userPreferred }
                                 |genres
                                 |tags { name }
+                                |isAdult
                             |}
                         |}
                     |}

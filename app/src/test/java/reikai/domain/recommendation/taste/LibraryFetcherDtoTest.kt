@@ -1,5 +1,6 @@
 package reikai.domain.recommendation.taste
 
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionsResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryResult
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryResult
@@ -65,6 +66,24 @@ class LibraryFetcherDtoTest {
         media.mappings.nodes.map { it.externalSite } shouldContainExactly
             listOf("MYANIMELIST_MANGA", "ANILIST_MANGA")
         connection.pageInfo.endCursor shouldBe "Mg"
+    }
+
+    @Test
+    fun `AniList library entry carries its own adult ruling`() {
+        val payload = """
+            {"data":{"MediaListCollection":{"lists":[{"entries":[
+              {"status":"CURRENT","scoreRaw":90,"media":{
+                "id":30002,"idMal":2,"title":{"userPreferred":"Berserk"},
+                "genres":["Action"],"tags":[{"name":"Male Protagonist"}],"isAdult":false}},
+              {"status":"COMPLETED","scoreRaw":70,"media":{
+                "id":30003,"title":{"userPreferred":"Explicit"},
+                "genres":["Hentai"],"tags":[],"isAdult":true}}
+            ]}]}}}
+        """.trimIndent()
+
+        val entries = json.decodeFromString<ALUserLibraryResult>(payload)
+            .data.mediaListCollection.lists.single().entries
+        entries.map { it.media.isAdult } shouldContainExactly listOf(false, true)
     }
 
     @Test
