@@ -69,6 +69,23 @@ class LibraryFetcherDtoTest {
     }
 
     @Test
+    fun `MAL mangalist carries its own nsfw rating`() {
+        val payload = """
+            {"data":[
+              {"node":{"id":2,"title":"Berserk","genres":[{"name":"Action"}],"nsfw":"white"},
+               "list_status":{"status":"reading","score":9,"is_rereading":false}},
+              {"node":{"id":3,"title":"Borderline","genres":[],"nsfw":"gray"},
+               "list_status":{"status":"reading","score":0,"is_rereading":false}},
+              {"node":{"id":4,"title":"Unrated","genres":[]},
+               "list_status":{"status":"reading","score":0,"is_rereading":false}}
+            ],"paging":{"next":null}}
+        """.trimIndent()
+
+        val items = json.decodeFromString<MALLibraryResult>(payload).data
+        items.map { it.node.nsfw } shouldContainExactly listOf("white", "gray", null)
+    }
+
+    @Test
     fun `AniList library entry carries its own adult ruling`() {
         val payload = """
             {"data":{"MediaListCollection":{"lists":[{"entries":[

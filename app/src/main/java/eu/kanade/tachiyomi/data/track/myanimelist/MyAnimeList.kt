@@ -35,8 +35,10 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
     private val interceptor by lazy { MyAnimeListInterceptor(this) }
     private val api by lazy { MyAnimeListApi(id, client, interceptor) }
 
-    // RK: full library pull for the recommendation taste profile.
-    suspend fun getUserLibrary(): List<MALLibraryItem> = api.getUserLibrary()
+    // RK: full library pull for the recommendation taste profile. The adult setting gates the
+    // request, not just the read, so nothing explicit is stored locally when it is off.
+    suspend fun getUserLibrary(): List<MALLibraryItem> =
+        api.getUserLibrary(includeAdult = trackPreferences.showAdultTrackerContent.get())
 
     override val supportsReadingDates: Boolean = true
 
