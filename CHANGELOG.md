@@ -61,6 +61,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Tracking**
 
 - **A tracker search can now take an id, written as `id:12345` (synced from Mihon, mihonapp/mihon#3776).** AniList, Bangumi, Hikka, Kitsu, MangaUpdates and Shikimori join MyAnimeList and MangaBaka, on manga and novels alike.
+- **A Kitsu search can now take a title's web-address name too, written as `id:shadow-slave` (synced from Mihon, mihonapp/mihon#3792).** Handy when you have the Kitsu link but not the number, and it works on manga and novels alike.
 
 **Reader**
 
@@ -321,6 +322,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Every screen except the novel reader now holds its state in an AndroidX ViewModel instead of Voyager's ScreenModel, in its own field rather than through a shared base class, matching Mihon so future upstream changes to a screen apply cleanly (synced from Mihon, mihonapp/mihon#3594 and mihonapp/mihon#3763).
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 - Shikimori progress updates now go through the service's own update endpoint instead of re-posting the list entry (synced from Mihon, mihonapp/mihon#3810).
+- Kitsu tracking now runs on Kitsu's GraphQL API rather than the older one it is replacing (synced from Mihon, mihonapp/mihon#3792). The recommendation taste profile and Fill from tracker stay on the older API, which has no GraphQL equivalent for what they read.
 - The pre-release channel is now called nightly rather than preview, matching Mihon (synced from Mihon, mihonapp/mihon#3760). The About screen and the release title say Nightly; downloads keep their file names and installs are unaffected.
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Every list screen now stops querying a few seconds after you leave it, instead of running as long as the app does: the library, Recents, the source and extension lists, and the category, migration, cover and upcoming screens (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3762).

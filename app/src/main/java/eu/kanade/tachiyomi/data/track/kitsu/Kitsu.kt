@@ -68,10 +68,11 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     private val interceptor by lazy { KitsuInterceptor(this) }
 
-    private val api by lazy { KitsuApi(client, interceptor) }
+    private val api by lazy { KitsuApi(id, client, interceptor) }
 
-    // RK: full library pull for the recommendation taste profile.
-    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(api.getCurrentUser().id)
+    // RK: full library pull for the recommendation taste profile. The stored password is the Kitsu
+    // user id, saved by login() below, so this needs no extra round trip to resolve it.
+    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(getUserId())
 
     private val scorePreference by lazy { trackPreferences.kitsuScoreType }
 
@@ -97,7 +98,10 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     override fun getCompletionStatus(): Long = COMPLETED
 
     private fun getCurrentRatingSystem(): RatingSystem {
-        val ratingSystem = scorePreference.get()
+        // RK: lower-cased because GraphQL reports the rating system as SIMPLE / REGULAR / ADVANCED
+        // while these keys are lower case. Upstream lower-cases only the login guard, not the value
+        // it stores, so a session that logged in since that change holds an upper-case one here.
+        val ratingSystem = scorePreference.get().lowercase()
         return ratingSystems[ratingSystem] ?: throw Exception("Unknown score type $ratingSystem")
     }
 
@@ -122,7 +126,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     }
 
     private suspend fun add(track: Track): Track {
-        return api.addLibManga(track, getUserId())
+        return api.addLibManga(track)
     }
 
     override suspend fun update(track: Track, didReadChapter: Boolean): Track {
@@ -148,7 +152,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     }
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        val remoteTrack = api.findLibManga(track, getUserId())
+        val remoteTrack = api.findLibManga(track)
         return if (remoteTrack != null) {
             track.copyPersonalFrom(remoteTrack, copyRemotePrivate = false)
             track.remote_id = remoteTrack.remote_id
@@ -167,7 +171,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
-        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+        query.trackerSearchId { it }?.let { id ->
             return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
         }
 
@@ -178,7 +182,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {
-        query.trackerSearchId(String::toIntOrNull)?.let { id ->
+        query.trackerSearchId { it }?.let { id ->
             return api.getMangaDetails(id, novel = true)?.let { listOf(it) } ?: emptyList()
         }
 
@@ -187,7 +191,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     // RK <--
 
     override suspend fun refresh(track: Track): Track {
-        val remoteTrack = api.getLibManga(track)
+        val remoteTrack = api.findLibManga(track) ?: throw Exception("Could not find manga")
         track.copyPersonalFrom(remoteTrack)
         track.total_chapters = remoteTrack.total_chapters
         return track
@@ -204,14 +208,14 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         interceptor.newAuth(token)
         val currentUser = api.getCurrentUser()
 
-        val ratingSystem = currentUser.attributes.ratingSystem
+        val ratingSystem = currentUser.ratingSystem.lowercase() // RK: store it in the key casing
         if (ratingSystem in listOf(RATING_SIMPLE, RATING_REGULAR, RATING_ADVANCED)) {
             scorePreference.set(ratingSystem)
         } else {
             logcat(LogPriority.ERROR) { "Unsupported Kitsu score type: $ratingSystem" }
             scorePreference.set(RATING_ADVANCED)
         }
-        saveDisplayUsername(currentUser.attributes.name)
+        saveDisplayUsername(currentUser.profile.name)
         saveCredentials(username, currentUser.id)
     }
 
@@ -220,6 +224,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         interceptor.newAuth(null)
     }
 
+    // RK: kept for the library pull above; upstream dropped it when GraphQL stopped needing a user id.
     private fun getUserId(): String {
         return getPassword()
     }
