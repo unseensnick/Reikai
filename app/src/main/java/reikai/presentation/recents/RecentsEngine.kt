@@ -353,6 +353,10 @@ class RecentsEngine(
     fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) =
         apply(EntrySelection.range(selectionState, chapter, ordered))
 
+    /** A collapsed group is one press over a block of rows, so it sweeps to the block's far edge. */
+    fun toggleGroupSelection(group: List<ChapterRef>, ordered: List<ChapterRef>) =
+        apply(EntrySelection.rangeOrToggleBlock(selectionState, group, ordered))
+
     fun selectAll(ordered: List<ChapterRef>) = apply(EntrySelection.selectAll(selectionState, ordered))
 
     fun invertSelection(ordered: List<ChapterRef>) = apply(EntrySelection.invert(selectionState, ordered))

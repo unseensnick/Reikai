@@ -121,6 +121,16 @@ class CategoryViewModel(
         selectedIds.value = categorySelection.selection
     }
 
+    /** Long press: sweep from the last row touched to this one, or drop it if it is already picked. */
+    fun toggleRangeSelection(categoryId: Long) {
+        val ids = visibleCategoryIds() ?: return
+        categorySelection = EntrySelection.rangeOrToggle(categorySelection, categoryId, ids)
+        selectedIds.value = categorySelection.selection
+    }
+
+    private fun visibleCategoryIds(): List<Long>? =
+        (state.value as? CategoryScreenState.Success)?.categories?.map { it.id }
+
     fun selectAll() {
         val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
         categorySelection = EntrySelection.selectAll(categorySelection, ids)

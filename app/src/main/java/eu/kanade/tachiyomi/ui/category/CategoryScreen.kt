@@ -55,6 +55,7 @@ class CategoryScreen : Screen() {
             onDelete = viewModel::deleteCategory,
             onSelectContentType = viewModel::setContentType,
             onToggleSelection = { viewModel.toggleSelection(it.id) },
+            onToggleRangeSelection = { viewModel.toggleRangeSelection(it.id) },
             onSelectAll = viewModel::selectAll,
             onInvertSelection = viewModel::invertSelection,
             onClearSelection = viewModel::clearSelection,
@@ -81,6 +82,7 @@ private fun CategoryManager(
     onDelete: (Category) -> Unit,
     // RK --> multi-select + deferred bulk delete
     onToggleSelection: (Category) -> Unit,
+    onToggleRangeSelection: (Category) -> Unit,
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
     onClearSelection: () -> Unit,
@@ -113,6 +115,7 @@ private fun CategoryManager(
         onSelectContentType = onSelectContentType,
         snackbarHostState = snackbarHostState,
         onToggleSelection = onToggleSelection,
+        onToggleRangeSelection = onToggleRangeSelection,
         onSelectAll = onSelectAll,
         onInvertSelection = onInvertSelection,
         onClearSelection = onClearSelection,

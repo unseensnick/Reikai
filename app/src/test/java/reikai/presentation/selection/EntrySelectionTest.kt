@@ -168,6 +168,40 @@ class EntrySelectionTest {
     }
 
     @Test
+    fun `a long press on a group below the anchor sweeps up to the group's far edge`() {
+        EntrySelection.rangeOrToggleBlock(state(1L, anchor = 1L), listOf(5L, 6L, 7L), rows)
+            .selection shouldBe setOf(1L, 2L, 3L, 4L, 5L, 6L, 7L)
+    }
+
+    @Test
+    fun `a long press on a group above the anchor sweeps down to its far edge`() {
+        EntrySelection.rangeOrToggleBlock(state(9L, anchor = 9L), listOf(5L, 6L, 7L), rows)
+            .selection shouldBe setOf(5L, 6L, 7L, 8L, 9L)
+    }
+
+    @Test
+    fun `a long press on a group with no anchor selects just that group`() {
+        EntrySelection.rangeOrToggleBlock(state(), listOf(5L, 6L, 7L), rows).selection shouldBe setOf(5L, 6L, 7L)
+    }
+
+    @Test
+    fun `a long press on a fully selected group drops it`() {
+        EntrySelection.rangeOrToggleBlock(state(5L, 6L, 7L, anchor = 5L), listOf(5L, 6L, 7L), rows)
+            .selection shouldBe emptySet()
+    }
+
+    @Test
+    fun `a partly selected group is completed rather than dropped`() {
+        EntrySelection.rangeOrToggleBlock(state(6L, anchor = 6L), listOf(5L, 6L, 7L), rows)
+            .selection shouldBe setOf(5L, 6L, 7L)
+    }
+
+    @Test
+    fun `a group press anchors on the group, so the next range measures from it`() {
+        EntrySelection.rangeOrToggleBlock(state(1L, anchor = 1L), listOf(5L, 6L, 7L), rows).anchor shouldBe 7L
+    }
+
+    @Test
     fun `retain drops selected rows the list no longer contains`() {
         EntrySelection.retain(state(1L, 5L, 9L), listOf(1L, 2L, 5L)).selection shouldBe setOf(1L, 5L)
     }

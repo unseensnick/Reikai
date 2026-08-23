@@ -721,7 +721,7 @@ private fun LazyListScope.recentsRows(
                             engine.toggleGroupExpanded(row.key)
                         }
                     },
-                    onLongClick = { if (selectionEnabled) toggleAll() },
+                    onLongClick = { if (selectionEnabled) engine.toggleGroupSelection(refs, orderedRefs) },
                     // Quiet during a sweep, as the flat rows are: navigating away mid-selection takes
                     // the selection with it.
                     onClickCover = { onOpenDetails(first.entryId) }.takeIf { selection.isEmpty() },

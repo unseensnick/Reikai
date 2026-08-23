@@ -1,5 +1,7 @@
 package reikai.presentation.selection
 
+import kotlin.math.abs
+
 /**
  * A multi-select in progress: what is picked, plus the row a range press measures from.
  *
@@ -58,6 +60,29 @@ object EntrySelection {
      */
     fun <T> rangeOrToggle(state: SelectionState<T>, item: T, ordered: List<T>): SelectionState<T> =
         if (item in state.selection) toggle(state, item) else range(state, item, ordered)
+
+    /**
+     * A long press on a collapsed group, which stands for a contiguous block of rows rather than one.
+     * Extends to whichever end of [block] is farther from the anchor, so the group and everything
+     * between it and the anchor come in together. A block that is already fully selected is dropped
+     * instead, matching [rangeOrToggle] on a single row.
+     */
+    fun <T> rangeOrToggleBlock(state: SelectionState<T>, block: List<T>, ordered: List<T>): SelectionState<T> {
+        if (block.isEmpty()) return state
+        if (block.all { it in state.selection }) {
+            return SelectionState(state.selection - block.toSet(), block.last())
+        }
+        val anchorAt = state.anchor?.let(ordered::indexOf) ?: -1
+        val firstAt = ordered.indexOf(block.first())
+        val lastAt = ordered.indexOf(block.last())
+        if (anchorAt < 0 || firstAt < 0 || lastAt < 0) {
+            return SelectionState(state.selection + block, block.last())
+        }
+        val far = if (abs(anchorAt - firstAt) >= abs(anchorAt - lastAt)) block.first() else block.last()
+        // Union the block as well: an anchor sitting inside it would otherwise leave part unselected.
+        val ranged = range(state, far, ordered)
+        return SelectionState(ranged.selection + block, ranged.anchor)
+    }
 
     /** Add every visible row. Both bulk verbs drop the anchor: after one, nothing on screen
      *  corresponds to a row the user pressed, so a range measured from it would be arbitrary. */

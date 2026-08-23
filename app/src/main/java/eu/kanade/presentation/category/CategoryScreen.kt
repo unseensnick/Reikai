@@ -57,6 +57,7 @@ fun CategoryScreen(
     onSelectContentType: (ContentType) -> Unit,
     snackbarHostState: SnackbarHostState,
     onToggleSelection: (Category) -> Unit,
+    onToggleRangeSelection: (Category) -> Unit,
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
     onClearSelection: () -> Unit,
@@ -149,6 +150,7 @@ fun CategoryScreen(
                         selection = state.selection,
                         selectionMode = state.selectionMode,
                         onToggleSelection = onToggleSelection,
+                        onToggleRangeSelection = onToggleRangeSelection,
                     )
                 }
             }
@@ -172,6 +174,7 @@ private fun CategoryContent(
     selection: Set<Long> = emptySet(),
     selectionMode: Boolean = false,
     onToggleSelection: (Category) -> Unit = {},
+    onToggleRangeSelection: (Category) -> Unit = {},
     // RK <--
 ) {
     val categoriesState = remember { categories.toMutableStateList() }
@@ -210,7 +213,7 @@ private fun CategoryContent(
                     onClick = {
                         if (selectionMode) onToggleSelection(category) else onClickRename(category)
                     },
-                    onLongClick = { onToggleSelection(category) },
+                    onLongClick = { onToggleRangeSelection(category) },
                     // RK <--
                     onRename = { onClickRename(category) },
                     onDelete = { onClickDelete(category) },
