@@ -548,8 +548,8 @@ class KitsuApi(
 
     // "Fill from tracker" metadata. Its own query rather than upstream's search fragment, which
     // caps staff at five and selects no categories, so credits would truncate and genres would be
-    // missing. Adult categories are dropped from the genre list.
-    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+    // missing. Adult categories are dropped from the genre list unless the user opted in.
+    suspend fun getMangaMetadata(track: DomainTrack, includeAdult: Boolean): TrackMangaMetadata {
         val query = $$"""
             |query Query($id: ID!) {
               |findMangaById(id: $id) {
@@ -609,7 +609,10 @@ class KitsuApi(
                 authors = manga.staffNames("Story"),
                 artists = manga.staffNames("Art"),
                 genres = manga.categories.nodes
-                    .filterNot { it.isNsfw }
+                    // Kitsu is the one tracker that can name its own adult categories, so it keeps
+                    // dropping them precisely rather than by keyword. It follows the setting like
+                    // every other tracker: opting in gives the real list.
+                    .filterNot { it.isNsfw && !includeAdult }
                     .mapNotNull { it.localizedTitle() }
                     .takeIf { it.isNotEmpty() },
             )

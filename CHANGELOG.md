@@ -130,6 +130,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Kitsu scores now use whichever rating scale your Kitsu account is set to, smileys, stars or the 10 point decimal (synced from Mihon, mihonapp/mihon#3818).** Existing scores are converted on upgrade, for manga and novels alike.
 - **Sexually explicit titles you track no longer shape your recommendations, unless you switch them back on in Settings -> Tracking. Violence and gore are not affected either way, so a dark or brutal series still counts.**
 - **You can now correct which tags count as adult, in Settings -> Tracking.** Pick from the tags your own tracked libraries use, and your choice wins over what a tracker says.
+- **Filling an entry's details from a tracker no longer copies in adult genres.** Searching a tracker is never filtered, so you can still find and bind anything you go looking for.
 
 **Reader**
 

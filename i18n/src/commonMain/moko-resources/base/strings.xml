@@ -205,7 +205,7 @@
     <string name="pref_sync_tracker_links_grouped">Share trackers across merged sources</string>
     <string name="pref_sync_tracker_links_grouped_summary">A tracker on a merged series counts for every source in it, and each source keeps its own copy when you split them apart. Turn this off to track each source separately.</string>
     <string name="pref_show_adult_tracker_content">Show adult content from trackers</string>
-    <string name="pref_show_adult_tracker_content_summary">Turn this on to let sexually explicit titles appear in tracker search and count towards recommendations. Violence and gore are not affected either way.</string>
+    <string name="pref_show_adult_tracker_content_summary">Turn this on to let sexually explicit titles count towards recommendations and fill in genres from a tracker. Searching a tracker always finds them. Violence and gore are not affected either way.</string>
     <string name="pref_always_adult_tags">Treat these tags as adult</string>
     <string name="pref_never_adult_tags">Don\'t treat these tags as adult</string>
     <string name="pref_adult_tags_summary">Your choice wins over what a tracker says. Picked: %s</string>

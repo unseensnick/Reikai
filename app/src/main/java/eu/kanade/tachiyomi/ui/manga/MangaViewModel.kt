@@ -108,6 +108,7 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.domain.track.GetTrackerMetadata
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
@@ -216,6 +217,7 @@ class MangaViewModel(
     private val refreshTrackerLibrary: RefreshTrackerLibrary,
     private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
     private val buildAdultCandidateFilter: BuildAdultCandidateFilter, // RK
+    private val getTrackerMetadata: GetTrackerMetadata, // RK
     private val getFavorites: GetFavorites,
     private val networkToLocalManga: NetworkToLocalManga,
     private val uiPreferences: UiPreferences,
@@ -1714,7 +1716,7 @@ class MangaViewModel(
         buildTrackerAutofillCandidates(getTracksInGroup.await(mangaId), trackerManager)
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
-        tracker.getMangaMetadata(track)
+        getTrackerMetadata.await(track, tracker)
 
     // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
     // models run). selectSource + showManageSourcesDialog stay here: their bodies genuinely diverge.
