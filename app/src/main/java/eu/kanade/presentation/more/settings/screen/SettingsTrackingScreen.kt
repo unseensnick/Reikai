@@ -63,10 +63,12 @@ import reikai.domain.recommendation.taste.ObservedTag
 import reikai.domain.recommendation.taste.isBuiltInSexualTag
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -98,12 +100,21 @@ object SettingsTrackingScreen : SearchableSettings {
 
         // RK: the two adult-tag pickers offer only real tags from the cache, split by whether the
         // built-in list already catches them, so each list holds only choices that change something.
+        // withIOContext because a produceState body runs on the composition's Main dispatcher, and this
+        // reads the whole taste cache and splits every row's tag string.
         val observedTags by produceState(emptyList<ObservedTag>()) {
-            value = getObservedTasteTags.await()
+            value = withIOContext { getObservedTasteTags.await() }
         }
         val (caughtTags, uncaughtTags) = remember(observedTags) {
             observedTags.partition { isBuiltInSexualTag(it.tag) }
         }
+        // A pick outlives the cache row it came from, and still screens carousel candidates and
+        // Fill-from-tracker genres, neither of which reads the cache. Offering it back keeps it
+        // removable after a pull is turned off or the cache is dropped.
+        val alwaysPicked by trackPreferences.alwaysAdultTags.collectAsState()
+        val neverPicked by trackPreferences.neverAdultTags.collectAsState()
+        val alwaysEntries = remember(uncaughtTags, alwaysPicked) { adultTagEntries(uncaughtTags, alwaysPicked) }
+        val neverEntries = remember(caughtTags, neverPicked) { adultTagEntries(caughtTags, neverPicked) }
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {
@@ -165,26 +176,27 @@ object SettingsTrackingScreen : SearchableSettings {
                 // way the cache was built under the old answer: drop it and let the next pull
                 // rebuild. Turning adult content back off, this is also what gets those rows off
                 // disk, which filtering at read time alone would leave there.
+                // withIOContext because onValueChanged runs on rememberCoroutineScope, which is Main.
                 onValueChanged = {
-                    tasteLibraryRepository.deleteAll()
+                    withIOContext { tasteLibraryRepository.deleteAll() }
                     true
                 },
             ),
-            // RK: enabled means visible here, so an empty cache hides these rather than opening an
-            // empty dialog. Labels carry the entry count so the common tags are obvious.
+            // RK: enabled means visible here, so each picker shows while it has anything to offer and
+            // hides only when it has nothing at all. Labels carry the entry count where the cache knows it.
             Preference.PreferenceItem.MultiSelectListPreference(
                 preference = trackPreferences.alwaysAdultTags,
-                entries = uncaughtTags.associate { it.tag to "${it.tag} (${it.count})" },
+                entries = alwaysEntries,
                 title = stringResource(MR.strings.pref_always_adult_tags),
                 subtitle = stringResource(MR.strings.pref_adult_tags_summary),
-                enabled = uncaughtTags.isNotEmpty(),
+                enabled = alwaysEntries.isNotEmpty(),
             ),
             Preference.PreferenceItem.MultiSelectListPreference(
                 preference = trackPreferences.neverAdultTags,
-                entries = caughtTags.associate { it.tag to "${it.tag} (${it.count})" },
+                entries = neverEntries,
                 title = stringResource(MR.strings.pref_never_adult_tags),
                 subtitle = stringResource(MR.strings.pref_adult_tags_summary),
-                enabled = caughtTags.isNotEmpty(),
+                enabled = neverEntries.isNotEmpty(),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),
@@ -432,3 +444,10 @@ private data class LoginDialog(
 private data class LogoutDialog(
     val tracker: Tracker,
 )
+
+/** RK: what an adult-tag picker offers. Cache tags carry their entry count; a tag the user already
+ *  picked is offered back even once the cache no longer lists it, so it stays removable. */
+private fun adultTagEntries(observed: List<ObservedTag>, picked: Set<String>): Map<String, String> {
+    val fromCache = observed.associate { it.tag to "${it.tag} (${it.count})" }
+    return fromCache + (picked - fromCache.keys).associateWith { it }
+}

@@ -21,6 +21,7 @@ import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.TasteLibraryRepository
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -136,8 +137,9 @@ object SettingsRecommendationsScreen : SearchableSettings {
         // Bump to recompute the last-refresh summary after a manual pull lands.
         var refreshTick by remember { mutableIntStateOf(0) }
         val neverLabel = stringResource(MR.strings.pref_last_refresh_never)
+        // withIOContext because a produceState body runs on Main, and this is one DB read per tracker.
         val lastRefreshSummary by produceState("", refreshTick, neverLabel) {
-            value = buildLastRefreshSummary(repository, trackerManager, neverLabel)
+            value = withIOContext { buildLastRefreshSummary(repository, trackerManager, neverLabel) }
         }
 
         // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
