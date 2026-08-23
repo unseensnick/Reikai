@@ -95,6 +95,15 @@ class AdultContentTest {
             "harem",
             "reverse harem",
             "gender bender",
+            // Bangumi's Chinese fanservice tags, the local equivalent of Ecchi, excluded on the
+            // same grounds. They are the most common tag on the titles this rule deliberately
+            // does not catch.
+            "卖肉",
+            "肉番",
+            // Guards the two traps that make a tempting shorter term wrong. "ntr" would be matched
+            // inside "control"; the bare "成人" stem would catch a coming-of-age ceremony.
+            "control",
+            "成人式",
         ],
     )
     fun `near-miss genres are not treated as sexual content`(tag: String) {
@@ -102,7 +111,13 @@ class AdultContentTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["hentai", "erotica", "smut", "lolicon", "хентай", "里番", "r18"])
+    @ValueSource(
+        strings = [
+            "hentai", "erotica", "smut", "lolicon", "хентай", "里番", "r18",
+            // Bangumi vocabulary, each taken from a title the list used to miss.
+            "エロ", "成年コミック", "成人漫画",
+        ],
+    )
     fun `published adult genres are treated as sexual content`(tag: String) {
         entry(tags = listOf(tag)).isSexuallyExplicit() shouldBe true
     }
