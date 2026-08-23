@@ -21,13 +21,12 @@ import tachiyomi.domain.track.model.Track
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Orchestrates the related-mangas carousel: fetches candidates from every stream, dedups them into one
- * pool and ranks it, pushing intermediate snapshots so the UI renders progressively. The source-native
+ * Orchestrates the related-mangas carousel: candidates from every stream are deduped into one pool
+ * and ranked, with intermediate snapshots pushed so the UI renders progressively. The source-native
  * and tracker-recommendation streams run concurrently into ONE shared [Accumulator], so a title
- * surfaced by both dedups to a single candidate whose cross-stream agreement counts across both.
- * Dedup is two-keyed: by [SManga.url] for a source's own duplicate rows, and by normalized title set
- * for the same series listed under different titles. Agreement, the number of times a title key
- * appeared before dedup, is counted and fed to the ranker.
+ * surfaced by both dedups to a single candidate whose agreement counts across them. Dedup is
+ * two-keyed: by [SManga.url] for a source's own duplicate rows, and by normalized title set for one
+ * series listed under different titles. Agreement (times a key appeared before dedup) feeds the ranker.
  */
 @Inject
 class RelatedMangasLoader(
@@ -73,18 +72,16 @@ class RelatedMangasLoader(
                     },
                 )
             }
-            // For each recs-capable tracker M is tracked on, fetch its media context (recs + genres)
-            // once: the recs feed the carousel AND seed the taste-driven injection, so recs(M) isn't
-            // queried twice.
+            // The media context is fetched once per recs-capable tracker: its recs feed the carousel
+            // AND seed the taste-driven injection, so recs(M) isn't queried twice.
             val handledTrackerIds = tracks
                 .filter { providers.forTracker(it.trackerId) != null }
                 .map { it.trackerId }
                 .toSet()
             launch {
-                // The master "Tracker recommendations" toggle gates every tracker-derived stream: the
-                // direct recs below AND the taste injection. Off means a source-native-only carousel,
-                // so skip the whole media-context fetch. Per-tracker sub-toggles still filter the
-                // direct recs (by the map's tracker-id key) when the master is on.
+                // The master toggle gates every tracker-derived stream, the taste injection included,
+                // so off means skipping the media-context fetch entirely. The per-tracker sub-toggles
+                // only filter the direct recs below.
                 if (!preferences.includeTrackerRecommendations.get()) return@launch
                 val contexts = fetchMediaContexts(tracks)
                 val enabledTrackerIds = preferences.enabledRecommendationTrackerIds(trackerManager)
@@ -113,8 +110,7 @@ class RelatedMangasLoader(
         return accumulator.snapshot()
     }
 
-    /** Media context (recs + genres) for each recs-capable tracker M is tracked on, keyed by tracker
-     *  id. A tracker that errors or times out is dropped (its injection just doesn't run). */
+    /** A tracker that errors or times out is dropped from the map, so its injection just doesn't run. */
     private suspend fun fetchMediaContexts(tracks: List<Track>): Map<Long, TrackerRecommendations.MediaContext> =
         coroutineScope {
             tracks

@@ -12,7 +12,6 @@ import tachiyomi.i18n.MR
 
 /** Where the details screen surfaces the related-manga carousel when it is enabled. */
 enum class RelatedPlacement(val titleRes: StringResource) {
-    /** The inline body carousel (the original behaviour). */
     INLINE(MR.strings.pref_related_placement_inline),
 
     /** A three-dot overflow-menu action that opens the recommendations screen; no inline carousel and
@@ -21,9 +20,8 @@ enum class RelatedPlacement(val titleRes: StringResource) {
 }
 
 /**
- * Net-new preferences for the recommendation carousel + taste profile. Key strings are preserved
- * from the Yōkai-era fork where they existed (so an in-place upgrade keeps the user's choices);
- * the new external trackers (Shikimori recs, Shikimori/Bangumi library pull) get net-new keys.
+ * Preferences for the recommendation carousel and taste profile. Key strings are preserved from the
+ * Yōkai-era fork where they existed, so an in-place upgrade keeps the user's choices.
  *
  * MangaUpdates is recommendations-only (its user-library API is undocumented), so it has a recs
  * toggle but no library-pull toggle. Kitsu and Bangumi have no recommendations endpoint, so they
@@ -49,7 +47,6 @@ class ReikaiRecommendationPreferences(
     val relatedPlacement: Preference<RelatedPlacement> =
         preferenceStore.getEnum("pref_related_placement", RelatedPlacement.INLINE)
 
-    /** Master switch for tracker-origin recommendation candidates. */
     val includeTrackerRecommendations: Preference<Boolean> =
         preferenceStore.getBoolean("pref_include_tracker_recommendations", true)
 
@@ -102,7 +99,6 @@ class ReikaiRecommendationPreferences(
 
     // region Reranking
 
-    /** Master switch for taste-driven reordering of the carousel. */
     val enableRecommendationRerank: Preference<Boolean> =
         preferenceStore.getBoolean("pref_enable_recommendation_rerank", true)
 
@@ -118,8 +114,8 @@ class ReikaiRecommendationPreferences(
 
     // region Filters (hide already-tracked / in-library candidates from suggestions)
 
-    /** Hide any suggestion that matches a manga already in the library (by normalized title),
-     *  regardless of tracking. The simplest declutter; independent of the status filters below. */
+    /** Matches by normalized title regardless of tracking, and independently of the status filters
+     *  below. */
     val hideInLibraryRecommendations: Preference<Boolean> =
         preferenceStore.getBoolean("pref_hide_in_library_recommendations", false)
 
@@ -137,19 +133,16 @@ class ReikaiRecommendationPreferences(
 
     // endregion
 
-    /** Build a ranker from the current style/serendipity prefs (0..100 mapped to 0..1 weights). */
     fun buildRanker(): RecommendationRanker = RecommendationRanker(
         wPersonal = recommendationStyle.get().coerceIn(0, 100) / 100.0,
         wSerendipity = serendipity.get().coerceIn(0, 100) / 100.0,
     )
 
     /**
-     * Tracker ids whose recommendation stream is currently enabled: the master toggle on, AND that
-     * tracker's own sub-toggle on. Empty when the master toggle is off.
-     *
-     * Shared by both carousel paths (the title-search [RecommendationsFetcher] and the media-context
-     * [RelatedMangasLoader]) so they can't disagree on what the "Tracker recommendations" toggles
-     * gate. A media-context recommendation for a tracker not in this set is dropped from the pool.
+     * Tracker ids whose recommendation stream is enabled: the master toggle on AND that tracker's own
+     * sub-toggle on. Shared by both carousel paths (the title-search [RecommendationsFetcher] and the
+     * media-context [RelatedMangasLoader]) so they can't disagree on what the toggles gate; a
+     * media-context recommendation for a tracker outside this set is dropped from the pool.
      */
     fun enabledRecommendationTrackerIds(trackerManager: TrackerManager): Set<Long> {
         if (!includeTrackerRecommendations.get()) return emptySet()

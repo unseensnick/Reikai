@@ -6,12 +6,10 @@ import tachiyomi.domain.track.model.Track
 
 /**
  * Maps a local [Track]'s tracker-specific status id to a generic [TrackStatus], for the
- * recommendation anti-echo filter (hide already-tracked suggestions by status).
- *
- * Reading / rereading / completed use the Tracker interface's generic getters, correct for every
- * tracker. On-hold / dropped / plan-to-read have no generic getter, so they are mapped from each
- * external tracker's known status ids. Trackers without these semantics (Komga / Kavita / Suwayomi)
- * fall through to [TrackStatus.UNKNOWN] for those three.
+ * recommendation anti-echo filter. Reading / rereading / completed use the Tracker interface's
+ * generic getters, correct for every tracker. On-hold / dropped / plan-to-read have no generic
+ * getter, so they are mapped from each external tracker's known status ids; trackers without those
+ * semantics (Komga / Kavita / Suwayomi) fall through to [TrackStatus.UNKNOWN] for the three.
  */
 @Inject
 class LocalTrackStatusMapper(

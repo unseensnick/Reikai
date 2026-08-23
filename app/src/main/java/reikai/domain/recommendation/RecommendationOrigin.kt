@@ -9,7 +9,6 @@ sealed interface RecommendationOrigin {
      *  unambiguous away from the details page (the browse grid) and in a merged group. */
     data class SourceNative(val sourceName: String) : RecommendationOrigin
 
-    /** A tracker's per-manga recommendation endpoint (AniList, MAL, MangaUpdates, Shikimori). */
     data class Tracker(val trackerName: String) : RecommendationOrigin
 
     /** A taste-driven cross-recommendation seeded from a highly-rated tracked title. */

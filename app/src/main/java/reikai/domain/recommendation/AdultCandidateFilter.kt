@@ -8,11 +8,9 @@ import reikai.domain.recommendation.taste.toTagKey
 
 /**
  * Keeps sexually explicit suggestions off the carousel, the companion to the taste-profile filter:
- * one stops adult titles shaping recommendations, this stops them being recommended.
- *
- * Applied where [RecommendationHideFilter] is, on read rather than on accumulate, so the cached pool
- * stays neutral and flipping the setting takes effect on the next open instead of waiting out the
- * cache.
+ * one stops adult titles shaping recommendations, this stops them being recommended. Applied where
+ * [RecommendationHideFilter] is, on read rather than on accumulate, so the cached pool stays neutral
+ * and flipping the setting takes effect on the next open instead of waiting out the cache.
  */
 class AdultCandidateFilter(
     private val enabled: Boolean,
@@ -26,10 +24,7 @@ class AdultCandidateFilter(
         manga.getGenres().orEmpty().map { it.toTagKey() }.filter { it.isNotEmpty() }
 }
 
-/**
- * Builds the filter once per carousel open, matching how the hide filter is built. Cheap: two
- * preference reads and no I/O.
- */
+/** Built once per carousel open, matching how the hide filter is built. */
 @Inject
 class BuildAdultCandidateFilter(
     private val trackPreferences: TrackPreferences,

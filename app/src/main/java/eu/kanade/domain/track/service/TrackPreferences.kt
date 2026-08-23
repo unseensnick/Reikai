@@ -60,8 +60,8 @@ class TrackPreferences(
     )
 
     // RK --> whether sexually explicit titles from a tracker reach the rest of the app. Off by
-    // default so adult content is opt-in (owner, 2026-08-22), which means an existing library's
-    // recommendations do change on upgrade until the user turns this on.
+    // default, so adult content is opt-in: an existing library's recommendations do change on
+    // upgrade until the user turns this on.
     val showAdultTrackerContent: Preference<Boolean> =
         preferenceStore.getBoolean("show_adult_tracker_content", false)
 

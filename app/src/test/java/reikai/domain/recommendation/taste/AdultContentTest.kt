@@ -123,8 +123,8 @@ class AdultContentTest {
     }
 
     /**
-     * The user's own tag picks, which outrank both the keyword list and the tracker (owner,
-     * 2026-08-23). The precedence between the two lists is what keeps that safe.
+     * The user's own tag picks, which outrank both the keyword list and the tracker. The precedence
+     * between the two lists is what keeps that safe.
      */
     @Test
     fun `a denied tag makes an otherwise clean entry explicit`() {

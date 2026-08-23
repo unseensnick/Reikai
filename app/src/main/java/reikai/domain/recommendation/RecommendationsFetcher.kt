@@ -65,10 +65,9 @@ class RecommendationsFetcher(
                 when (e) {
                     // A slow tracker is dropped silently so it can't gate the carousel.
                     is TimeoutCancellationException -> Unit
-                    // A real cancellation (screen closed) must propagate, not be swallowed/logged as a
-                    // failure, so structured concurrency unwinds cleanly.
+                    // A real cancellation (screen closed) must propagate, not be logged as a failure,
+                    // so structured concurrency unwinds cleanly.
                     is CancellationException -> throw e
-                    // One tracker erroring never blocks the others; log and surface it.
                     else -> {
                         logcat(LogPriority.WARN, e) { "Tracker recommendations fetch failed (${provider.trackerName})" }
                         exceptionHandler(e)

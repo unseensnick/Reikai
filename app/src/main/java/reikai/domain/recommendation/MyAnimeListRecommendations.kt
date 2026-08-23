@@ -14,8 +14,7 @@ import reikai.domain.recommendation.dto.JikanSearchResponse
 /**
  * MyAnimeList recommendations via the public Jikan API. MAL's own API has no recommendations
  * endpoint, so Jikan is the standard substitute. Public, no auth. Jikan reports no alternative
- * titles here, so these candidates dedup on primary title only (synonym parsing deferred, see
- * docs/dev/development.md).
+ * titles here, so these candidates dedup on primary title only.
  */
 class MyAnimeListRecommendations(
     private val client: OkHttpClient,

@@ -438,7 +438,7 @@ class MangaViewModel(
             }
         }
         // Reactively load the active source's gallery metadata (primary when unified) so the tag
-        // chips + info box stay in sync. Crucial on a first open: the source fetch stores the
+        // chips + info box stay in sync. It matters on a first open: the source fetch stores the
         // metadata AFTER State.Success is built, and this upgrades the flat view to the rich one
         // without needing to back out and re-enter. Also refreshes on a source-chip switch or when
         // a gallery-update rewrites the metadata.
@@ -1130,7 +1130,6 @@ class MangaViewModel(
         return HiddenChapters(view.visible, view.showHidden, view.hasHidden, hiddenChapterIds)
     }
 
-    /** Hide the selected chapters, then clear the selection. */
     fun hideSelected() {
         val state = successState ?: return
         val keys = state.chapters.filter { it.selected }
@@ -1140,7 +1139,7 @@ class MangaViewModel(
         toggleAllSelection(false)
     }
 
-    /** Unhide the selected chapters (reachable while showing hidden), then clear the selection. */
+    /** Only reachable while hidden chapters are being shown. */
     fun unhideSelected() {
         val state = successState ?: return
         val keys = state.chapters.filter { it.selected }
@@ -1150,7 +1149,6 @@ class MangaViewModel(
         toggleAllSelection(false)
     }
 
-    /** Toggle temporarily showing hidden chapters (dimmed) in the list. */
     fun toggleShowHidden() {
         showHiddenFlow.value = !showHiddenFlow.value
     }

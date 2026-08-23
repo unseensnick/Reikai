@@ -69,8 +69,7 @@ class ShikimoriRecommendations(
         private const val BASE_URL = "https://shikimori.io"
         private const val API_URL = "$BASE_URL/api"
 
-        // Shikimori requires the registered app name as User-Agent (a browser UA risks an IP ban);
-        // matches eu.kanade.tachiyomi.data.track.shikimori.ShikimoriInterceptor.
+        // Matches eu.kanade.tachiyomi.data.track.shikimori.ShikimoriInterceptor.
         private val USER_AGENT = "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})"
     }
 }

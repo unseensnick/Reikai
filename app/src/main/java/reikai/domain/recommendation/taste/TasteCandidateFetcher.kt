@@ -20,13 +20,12 @@ import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Taste-driven extra candidates for the related-mangas carousel, pushed into the shared accumulator
- * alongside the source-native and tracker-recs streams. Gated on the current manga being tracked on a
- * recommendations-capable tracker, whose [TrackerRecommendations.MediaContext] the loader fetches once
- * and shares. Two sub-flows, each behind its own preference and neither blocking the other:
- * cross-recommendation seeds from highly-rated tracked titles that appear in this manga's own
- * recommendation list, so the tracker graph decides similarity rather than genre heuristics; tag
- * search queries the current source for the tracker genres the user scores positively.
+ * Taste-driven extra candidates, pushed into the shared accumulator alongside the source-native and
+ * tracker-recs streams. Gated on the current manga being tracked on a recs-capable tracker, whose
+ * [TrackerRecommendations.MediaContext] the loader fetches once and shares. Two sub-flows, each
+ * behind its own preference and neither blocking the other: cross-rec seeds from highly-rated
+ * tracked titles in this manga's own recommendation list, so the tracker graph decides similarity
+ * rather than genre heuristics; and tag search, which queries the source for genres the user likes.
  */
 @Inject
 class TasteCandidateFetcher(
@@ -54,7 +53,6 @@ class TasteCandidateFetcher(
 
         coroutineScope {
             if (tagSearchEnabled) {
-                // M's clean tracker genres if any returned them, else the source's genres.
                 val genres = mediaContexts.values.flatMap { it.genres }.distinct().ifEmpty { sourceGenres }
                 launch { runTagSearch(source, profile, genres, exceptionHandler, pushResults) }
             }
@@ -142,7 +140,6 @@ class TasteCandidateFetcher(
     }
 
     companion object {
-        /** Take the user's three highest-scoring tags among the current manga's genres. */
         const val TASTE_TOP_TAG_COUNT = 3
 
         /** Normalized score (0..1) above which a tracked entry counts as a "favorite". */
@@ -177,10 +174,9 @@ internal fun selectContextualTags(profile: TasteProfile, currentGenres: List<Str
 }
 
 /**
- * The user's highly-rated tracked titles (score >= [TasteCandidateFetcher.FAVORITE_SCORE_THRESHOLD],
- * COMPLETED or READING) on [trackerId] that the tracker lists among the current manga's own
- * recommendations ([recsIds]): titles you love that the tracker itself considers similar to the
- * manga you're viewing. Highest score first, capped at [max]. No genre heuristics.
+ * Titles the user rated highly that the tracker itself lists among the current manga's own
+ * recommendations ([recsIds]), so similarity comes from the tracker graph rather than any genre
+ * heuristic. Highest score first, capped at [max].
  */
 internal fun selectCrossRecSeeds(
     entries: List<TrackedEntry>,

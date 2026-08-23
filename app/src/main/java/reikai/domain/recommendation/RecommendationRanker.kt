@@ -57,9 +57,9 @@ class RecommendationRanker(
                 tags.sumOf { (taste.tagEntryCounts[it] ?: 0).toDouble() }.coerceAtLeast(1.0)
             }
             val noveltyBoost = wSerendipity * min(NOVELTY_CAP, ln(1.0 + totalEntries / tagExposure))
-            val popularityRank = 1.0 - index.toDouble() / source.size // earlier index → higher rank
+            val popularityRank = 1.0 - index.toDouble() / source.size
             val agreement = agreementByUrl[candidate.manga.url] ?: 1
-            val agreementBoost = AGREEMENT_WEIGHT * ln(agreement.toDouble()) // ln(1) = 0 → no boost
+            val agreementBoost = AGREEMENT_WEIGHT * ln(agreement.toDouble())
             val finalScore = (1.0 - wPersonal) * popularityRank +
                 wPersonal * (tasteScore + noveltyBoost) +
                 agreementBoost
@@ -72,9 +72,8 @@ class RecommendationRanker(
 
         val sourceSize = source.size
         val exploreCount = ceil(sourceSize * wSerendipity).toInt().coerceIn(0, sourceSize)
-        // Exploration slots come from the top of the popularity-ordered slice (original arrival
-        // order), so users always see "what the source ranked highest" regardless of taste. The
-        // taste-ranked picks fill the remaining slots, skipping anything exploration already claimed.
+        // Exploration slots come off the top of the popularity-ordered slice, so the user always sees
+        // what the source ranked highest regardless of taste; taste-ranked picks fill the rest.
         val explorationPicks = source.take(exploreCount)
         val explorationUrls = explorationPicks.mapTo(HashSet()) { it.manga.url }
 
@@ -88,11 +87,8 @@ class RecommendationRanker(
         return reorderedSource + tracker
     }
 
-    /**
-     * Walk [sorted] top-down. Keep up to [limit] candidates; for each, count its dominant tag. If
-     * that tag has already filled [maxPerDominantTag] slots, set it aside; the deferred candidates
-     * fill any remaining capacity at the end (preserving their taste-score order).
-     */
+    /** Candidates set aside by the cap fill any remaining capacity at the end, so the cap demotes
+     *  rather than drops: the result is still [limit] long whenever the input is. */
     private fun applyDiversityCap(sorted: List<Scored>, limit: Int): List<Scored> {
         if (limit <= 0) return emptyList()
         val kept = ArrayList<Scored>(limit)
@@ -133,7 +129,6 @@ class RecommendationRanker(
         /** Cap on the per-candidate novelty boost so extremely rare tags don't dominate. */
         private const val NOVELTY_CAP = 2.0
 
-        /** Weight of the cross-source agreement boost: AGREEMENT_WEIGHT * ln(streamCount). */
         private const val AGREEMENT_WEIGHT = 0.5
     }
 }

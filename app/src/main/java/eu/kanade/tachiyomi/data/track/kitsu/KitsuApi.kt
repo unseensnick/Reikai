@@ -551,10 +551,9 @@ class KitsuApi(
     // caps staff at five and selects no categories, so credits would truncate and genres would be
     // missing. Adult categories are dropped from the genre list unless the user opted in.
     //
-    // Kitsu only returns its NSFW categories at all to an account whose own SFW filter is off
-    // (measured 2026-08-23: it counts them in totalCount and omits them from nodes otherwise, with
-    // no query argument to ask), so on a default account this genre list is already short and no
-    // Reikai setting can lengthen it.
+    // Kitsu returns its NSFW categories only to an account whose own SFW filter is off: otherwise it
+    // counts them in totalCount and omits them from nodes, with no query argument to ask. So on a
+    // default account this genre list is already short and no Reikai setting can lengthen it.
     suspend fun getMangaMetadata(
         track: DomainTrack,
         includeAdult: Boolean,

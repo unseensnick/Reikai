@@ -8,10 +8,9 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
  * Pulls the user's full AniList manga library in one GraphQL call and normalizes each entry into a
  * [TrackedEntry] for the taste-profile cache.
  *
- * Score: AniList is asked for `POINT_100` directly, so it is always a 0..100 integer regardless of
- * the user's display format; divided by 100 and clamped. Raw 0 (unrated) becomes -1.0 so the
- * compute formula can tell "rated low" from "no rating". Tags: union of broad `genres` and specific
- * `tags[].name`, both weighted equally in v1.
+ * Score: AniList is asked for `POINT_100` directly, so it is a 0..100 integer whatever the user's
+ * display format; divided by 100, and raw 0 (unrated) becomes -1.0 so the compute formula can tell
+ * "rated low" from "no rating". Tags are the union of broad `genres` and specific `tags[].name`.
  */
 class AnilistLibraryFetcher(
     private val anilist: Anilist,

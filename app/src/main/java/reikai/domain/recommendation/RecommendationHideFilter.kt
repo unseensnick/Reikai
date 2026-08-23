@@ -5,9 +5,8 @@ package reikai.domain.recommendation
  * it. Pure, built once per open from the library's tracks and the taste-library cache. Matching is
  * identity-first, title-fallback: a tracker-recs candidate carries a `(trackerId, remoteId)` matched
  * exactly, and cross-tracker through a recorded AniList or MAL id; source-native candidates carry no
- * id and fall back to normalized-title matching. Two independent indexes back the two opt-in filter
- * groups, [inLibrary] and [hiddenStatus], each empty when its filter is off, so [shouldHide] is a
- * cheap no-op when nothing is enabled ([isNoOp]).
+ * id and fall back to normalized titles. [inLibrary] and [hiddenStatus] index the two opt-in filter
+ * groups independently, each empty when its own filter is off.
  */
 class RecommendationHideFilter(
     private val inLibrary: Index,
@@ -32,8 +31,6 @@ class RecommendationHideFilter(
         return candidate.titleKeys().any { it in index.titles }
     }
 
-    /** Identity keys for one filter group: exact tracker ids, cross-tracker AniList/MAL ids, and
-     *  normalized-title fallbacks. */
     data class Index(
         val pairs: Set<Pair<Long, Long>>,
         val anilistIds: Set<Long>,

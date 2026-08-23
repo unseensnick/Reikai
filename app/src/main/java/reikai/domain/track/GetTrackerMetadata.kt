@@ -11,12 +11,11 @@ import tachiyomi.domain.track.model.Track
 
 /**
  * "Fill from tracker" metadata, with sexually explicit genres dropped unless the user has opted in.
- *
- * Only [TrackMangaMetadata.genres] is screened: it is the one field that classifies content, and an
- * entry's genres are read back by the library's own lewd filter and by notification hiding, so an
- * autofill can reclassify an entry app-wide rather than just label it.
- *
  * Both details ViewModels call this, so the rule exists once for manga and novels.
+ *
+ * Only [TrackMangaMetadata.genres] is screened: an entry's genres are read back by the library's own
+ * lewd filter and by notification hiding, so an autofill can reclassify an entry app-wide rather
+ * than just label it.
  */
 @Inject
 class GetTrackerMetadata(

@@ -3,12 +3,11 @@ package reikai.domain.recommendation
 import java.text.Normalizer
 
 /**
- * Normalizes a manga title into a dedup key that collapses the cosmetic differences a plain
- * lowercase-and-collapse key let slip, which is what duplicated carousel entries. One NFKD pass does
- * the work, applying compatibility decomposition (fullwidth to ASCII, circled digits to digits) and
- * canonical decomposition (accented letters to base plus combining mark); the marks are then stripped,
- * the text lowercased, and every run of non-alphanumerics folded to one space. No fuzzy matching:
- * exact normalized equality only, so distinct series are never merged.
+ * Normalizes a manga title into a dedup key. One NFKD pass does both decompositions (fullwidth to
+ * ASCII, circled digits to digits, accented letters to base plus combining mark); the marks are then
+ * stripped, the text lowercased, and every run of non-alphanumerics folded to one space. A plain
+ * lowercase-and-collapse key let those cosmetic differences through, which duplicated carousel
+ * entries. No fuzzy matching: exact normalized equality only, so distinct series are never merged.
  */
 object TitleNormalizer {
 

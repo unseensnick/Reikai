@@ -31,9 +31,9 @@ data class AdultTagOverrides(
  * Resolves whether something counts as sexually explicit, from whatever its provider said plus its
  * tags. Every adult decision routes through here; a surface answering it its own way has drifted.
  *
- * A user's pick outranks the provider (owner, 2026-08-23): offering the control at all implies it
- * decides, since a switch the tracker can veto is not a control. Below that the provider's own
- * answer still beats the keyword guess. Tags are already lowercased by `toTagKey`.
+ * A user's pick outranks the provider: offering the control at all implies it decides, since a
+ * switch the tracker can veto is not a control. Below that the provider's own answer still beats the
+ * keyword guess. Tags are already lowercased by `toTagKey`.
  */
 fun resolveSexuallyExplicit(
     adult: AdultContent,
@@ -57,7 +57,6 @@ fun resolveSexuallyExplicit(
     }
 }
 
-/** A cached tracker entry, which carries its tracker's verdict alongside its tags. */
 fun TrackedEntry.isSexuallyExplicit(overrides: AdultTagOverrides = AdultTagOverrides.NONE): Boolean =
     resolveSexuallyExplicit(adult, tags, overrides)
 

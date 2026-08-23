@@ -6,9 +6,9 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 /**
- * Kitsu's two adult signals. Kitsu flags 25 of its 243 categories NSFW (measured 2026-08-23), and
- * two of them are not sexual content by Reikai's definition, which is the whole reason this is a
- * mapping rather than a straight read of the flag.
+ * Kitsu's two adult signals. Kitsu flags 25 of its 243 categories NSFW, and two of them are not
+ * sexual content by Reikai's definition, which is the whole reason this is a mapping rather than a
+ * straight read of the flag.
  */
 class KitsuAdultMappingTest {
 

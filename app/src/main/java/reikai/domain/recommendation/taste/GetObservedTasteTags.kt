@@ -2,7 +2,6 @@ package reikai.domain.recommendation.taste
 
 import dev.zacsweers.metro.Inject
 
-/** A tag the user's tracked libraries carry, with how many entries carry it. */
 data class ObservedTag(val tag: String, val count: Int)
 
 /**

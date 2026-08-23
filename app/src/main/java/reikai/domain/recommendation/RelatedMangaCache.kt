@@ -10,11 +10,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 /**
- * App-scoped, in-memory cache of the related-mangas carousel pool, keyed by manga id, so reopening a
- * manga shows its carousel instantly instead of re-querying the source and every tracker endpoint.
- * Each entry carries its fetch timestamp, so a fresh one is served untouched and a stale one is served
- * immediately while a background fetch updates it, bounding how out-of-date the carousel can look to
- * [FRESH_MS]. In-memory only, cleared on process death.
+ * In-memory cache of the related-mangas carousel pool, keyed by manga id, so reopening a manga shows
+ * its carousel instantly instead of re-querying the source and every tracker endpoint. A stale entry
+ * is still served immediately while a background fetch updates it, so the carousel can be up to
+ * [FRESH_MS] out of date. Cleared on process death.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -32,11 +31,8 @@ class RelatedMangaCache {
 
     fun get(mangaId: Long): Entry? = entries.value[mangaId]
 
-    /**
-     * Observe a manga's cached pool as it streams in and completes. The "See all" grid renders live off
-     * this, so it fills to the full pool even when opened mid-load (the menu placement opens it before the
-     * background load finishes, unlike "See all" which is tapped after the carousel is already loaded).
-     */
+    /** The "See all" grid renders live off this, so it fills to the full pool even when opened
+     *  mid-load, which the menu placement does (it opens before the background load finishes). */
     fun observe(mangaId: Long): Flow<Entry?> = entries.map { it[mangaId] }.distinctUntilChanged()
 
     fun put(
@@ -49,7 +45,6 @@ class RelatedMangaCache {
         entries.update { it + (mangaId to entry) }
     }
 
-    /** True while [entry] is within the freshness window and can be served without a refresh. */
     fun isFresh(entry: Entry, now: Long = System.currentTimeMillis()): Boolean =
         now - entry.fetchedAt < FRESH_MS
 

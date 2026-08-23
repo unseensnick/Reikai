@@ -160,7 +160,6 @@ class NovelDetailsViewModel(
     // RK: non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
     private val getCustomNovelInfo: GetCustomNovelInfo,
     private val setCustomNovelInfo: SetCustomNovelInfo,
-    // novel trackers
     private val getNovelTracks: GetNovelTracks,
     private val refreshNovelTracks: RefreshNovelTracks,
     private val trackNovelChapter: TrackNovelChapter,
@@ -686,8 +685,6 @@ class NovelDetailsViewModel(
 
     fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
 
-    // --- Merge: source switcher + split ---
-
     // Shared split / remove / reorder actions. Novels write favorite-only (so the merge-undo keeps the
     // original dateAdded) and propagate tracker links onto each member before a split. selectSource +
     // showManageSourcesDialog stay below: their bodies genuinely diverge.
@@ -827,8 +824,6 @@ class NovelDetailsViewModel(
         }
     }
 
-    // --- Favorite / categories ---
-
     fun toggleFavorite() {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
@@ -930,8 +925,6 @@ class NovelDetailsViewModel(
         }
     }
 
-    // --- Edit info ---
-
     fun showEditNovelInfoDialog() {
         updateLoaded { it.copy(dialog = NovelDetailsDialog.EditInfo) }
     }
@@ -971,8 +964,6 @@ class NovelDetailsViewModel(
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         getTrackerMetadata.await(track, tracker)
 
-    // --- Chapter sort / filter / display ---
-
     fun setSortOrder(sort: Long, descending: Boolean) =
         withLoadedNovel { setNovelChapterFlags.awaitSetSortOrder(it, sort, descending) }
 
@@ -996,7 +987,6 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** Drop this novel's overrides so the global default applies. */
     fun resetChapterSettings() =
         withLoadedNovel { setNovelChapterFlags.awaitClearLocalOverrides(it) }
 
@@ -1010,8 +1000,6 @@ class NovelDetailsViewModel(
     fun showChapterSettingsDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterSettings) }
 
     fun showCoverDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.FullCover) }
-
-    // --- Selection + read / bookmark ---
 
     fun toggleSelection(chapterId: Long, fromLongPress: Boolean) {
         updateLoaded { loaded ->
@@ -1142,8 +1130,6 @@ class NovelDetailsViewModel(
         return result
     }
 
-    // novel trackers
-
     /** True if any tracker is logged in; gates the toolbar action (sheet vs Settings > Tracking). */
     fun hasLoggedInTrackers(): Boolean = trackerManager.loggedInTrackers().isNotEmpty()
 
@@ -1198,8 +1184,6 @@ class NovelDetailsViewModel(
             clearSelection()
         }
     }
-
-    // --- Downloads ---
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
         when (action) {
@@ -1269,7 +1253,6 @@ class NovelDetailsViewModel(
         if (chapters.isNotEmpty()) updateLoaded { it.copy(dialog = NovelDetailsDialog.DeleteChapters(chapters)) }
     }
 
-    /** Delete the confirmed downloads, then clear the selection and dismiss the dialog. */
     fun deleteChapters(chapters: List<NovelChapter>) {
         viewModelScope.launchIO { downloadManager.deleteChapters(chapters) }
         clearSelection()
@@ -1332,7 +1315,6 @@ sealed interface NovelDetailsState {
         /** Page keys for the selector; empty when the source is single/unpaged (selector hidden). */
         val pages: List<String> = emptyList(),
         val pageIndex: Int = 0,
-        /** A lazy page fetch is in flight. */
         val isPageLoading: Boolean = false,
         val isRefreshing: Boolean = false,
         /** Live download-queue states by chapter id (queued/downloading/error only; a finished
@@ -1414,7 +1396,7 @@ sealed interface NovelDetailsDialog {
         val isOverridden: Boolean,
     ) : NovelDetailsDialog
 
-    // novel trackers. Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
+    // Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
     data object TrackSheet : NovelDetailsDialog
 
     /** Migrating the library's copy onto this one, both already stored by id. Replaces

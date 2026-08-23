@@ -105,7 +105,6 @@ class BuildRecommendationHideFilter(
             TitleNormalizer.normalize(title).takeIf { it.isNotEmpty() }?.let { titles += it }
         }
 
-        /** A library track also contributes a cross-tracker id when it's an AniList / MAL track. */
         fun addTrack(trackerId: Long, remoteId: Long) {
             pairs += trackerId to remoteId
             if (trackerId == anilistTrackerId) anilistIds += remoteId

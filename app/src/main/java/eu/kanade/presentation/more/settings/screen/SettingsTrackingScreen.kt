@@ -161,10 +161,10 @@ object SettingsTrackingScreen : SearchableSettings {
                 preference = trackPreferences.showAdultTrackerContent,
                 title = stringResource(MR.strings.pref_show_adult_tracker_content),
                 subtitle = stringResource(MR.strings.pref_show_adult_tracker_content_summary),
-                // MyAnimeList's library pull asks for adult entries only when this is on, so the
-                // cache was built under the old answer either way: drop it and let the next pull
-                // rebuild. Turning the filter on, that is also what takes adult rows off disk,
-                // which filtering at read alone would leave there.
+                // MyAnimeList's library pull asks for adult entries only when this is on, so either
+                // way the cache was built under the old answer: drop it and let the next pull
+                // rebuild. Turning adult content back off, this is also what gets those rows off
+                // disk, which filtering at read time alone would leave there.
                 onValueChanged = {
                     tasteLibraryRepository.deleteAll()
                     true

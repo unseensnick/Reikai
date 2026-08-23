@@ -28,7 +28,7 @@ class RefreshTrackerLibrary(
     private val mutex = Mutex()
     private var lastManualRefresh = 0L
 
-    /** Pull every enabled tracker now, unconditionally. */
+    /** Unconditional, unlike [refreshIfStale] and [refreshNow]. */
     suspend fun await() {
         mutex.withLock {
             dropUnrequestedTrackers()
@@ -36,9 +36,8 @@ class RefreshTrackerLibrary(
         }
     }
 
-    /** Manual "refresh now" with a short cooldown so the button can't be spammed. Returns false (and
-     *  does nothing) when pressed again within [cooldownMs]. The cooldown check-and-set runs under the
-     *  [mutex] with the pull, so two near-simultaneous taps can't both slip past the gate. */
+    /** Returns false and does nothing when pressed again within [cooldownMs]. The check-and-set runs
+     *  under the [mutex] with the pull, so two near-simultaneous taps can't both slip past. */
     suspend fun refreshNow(cooldownMs: Long = MANUAL_COOLDOWN_MS): Boolean =
         mutex.withLock {
             val now = System.currentTimeMillis()
@@ -49,8 +48,7 @@ class RefreshTrackerLibrary(
             true
         }
 
-    /** Pull only if an enabled tracker has never been pulled or its cache is older than [maxAgeMs].
-     *  Used to bootstrap the profile lazily on first use without re-pulling on every details open. */
+    /** Bootstraps the profile lazily on first use without re-pulling on every details open. */
     suspend fun refreshIfStale(maxAgeMs: Long = DEFAULT_STALE_MS) {
         mutex.withLock {
             dropUnrequestedTrackers()

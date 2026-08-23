@@ -20,7 +20,6 @@ class TitleNormalizerTest {
 
     @Test
     fun `unifies different punctuation and spacing`() {
-        // Fullwidth ampersand vs normal, smart quotes, and extra spaces all collapse the same.
         norm("Spice ＆ Wolf") shouldBe norm("Spice & Wolf")
         norm("It’s a Test") shouldBe norm("It's a Test")
         norm("A  -  B") shouldBe norm("a b")

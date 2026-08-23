@@ -15,8 +15,6 @@ import kotlin.time.Duration.Companion.seconds
  * Shared construction for the tracker recommendation providers, used by both the per-manga fan-out
  * ([RecommendationsFetcher]) and the taste-driven cross-recommendations
  * ([reikai.domain.recommendation.taste.TasteCandidateFetcher]).
- *
- * App-scoped because [client] must be built once per process: see its own note.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -27,11 +25,11 @@ class RecommendationProviders(
 ) {
 
     /**
-     * Shared client for the public tracker recommendation endpoints, derived from the app's base
-     * client with per-host rate limits so a burst of carousel opens can't hammer them. Built once
-     * per process (via [lazy] on an app-scoped holder) so the limiter windows persist across fetches;
-     * rebuilding per fetch would reset the windows and defeat the limit. Shikimori carries the
-     * tightest caps for IP-ban headroom; Jikan needs both a per-second and a per-minute bucket.
+     * Shared client for the public tracker recommendation endpoints, with per-host rate limits so a
+     * burst of carousel opens can't hammer them. This holder is app-scoped and the client [lazy] so
+     * the limiter windows persist across fetches; rebuilding per fetch would reset them and defeat
+     * the limit. Shikimori carries the tightest caps for IP-ban headroom; Jikan needs both a
+     * per-second and a per-minute bucket.
      */
     val client: OkHttpClient by lazy {
         networkHelper.client.newBuilder()

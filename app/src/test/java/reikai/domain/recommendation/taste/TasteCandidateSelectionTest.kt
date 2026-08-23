@@ -4,11 +4,6 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
-/**
- * The two pure selection helpers behind [TasteCandidateFetcher]: tag-search picks the manga's tracker
- * genres the user likes; cross-rec seeds from the user's highly-rated titles the tracker itself lists
- * among the manga's recommendations.
- */
 class TasteCandidateSelectionTest {
 
     private fun profile(vararg scores: Pair<String, Double>) =

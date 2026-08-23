@@ -77,7 +77,7 @@ internal fun isKitsuSexualCategory(category: String, allowedTags: Set<String> = 
 
 /**
  * Flagged NSFW by Kitsu but pinned as not sexual content by AdultContentTest: Nudity carries
- * `isAdult: false` on AniList, and Yuri is orientation rather than explicitness (owner, 2026-08-22).
- * Both still arrive as ordinary tags, where the user can deny them if they disagree.
+ * `isAdult: false` on AniList, and Yuri is orientation rather than explicitness. Both still arrive
+ * as ordinary tags, where the user can deny them if they disagree.
  */
 private val NON_SEXUAL_NSFW_CATEGORIES = setOf("nudity", "yuri")

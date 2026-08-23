@@ -6,10 +6,6 @@ import org.junit.jupiter.api.Test
 import reikai.domain.recommendation.taste.AdultContent
 import reikai.domain.recommendation.taste.AdultTagOverrides
 
-/**
- * Keeping explicit suggestions off the carousel. The companion to the taste-profile filter: one stops
- * adult titles shaping recommendations, this stops them being recommended.
- */
 class AdultCandidateFilterTest {
 
     private fun candidate(
