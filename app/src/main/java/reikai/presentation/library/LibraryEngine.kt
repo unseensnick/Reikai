@@ -35,6 +35,8 @@ import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -473,59 +475,48 @@ class LibraryEngine(
     // Selection. Every op that needs to know what is on screen takes the category's entries in display
     // order, so the engine never has to resolve rows itself and stays free of per-type lookups.
 
-    fun clearSelection() {
-        lastSelectionBucket = null
-        mutableSelection.value = emptySet()
+    /** Selection plus its range anchor. `mutableSelection` mirrors the set for the screen to collect. */
+    private var selectionState = SelectionState<EntryId>()
+
+    private fun apply(next: SelectionState<EntryId>, bucketKey: String? = null) {
+        selectionState = next
+        lastSelectionBucket = bucketKey
+        mutableSelection.value = next.selection
     }
 
+    fun clearSelection() = apply(EntrySelection.clear())
+
     fun toggleSelection(bucketKey: String, entry: EntryId) {
-        mutableSelection.update { if (entry in it) it - entry else it + entry }
-        lastSelectionBucket = bucketKey.takeIf { mutableSelection.value.isNotEmpty() }
+        val next = EntrySelection.toggle(selectionState, entry)
+        apply(next, bucketKey.takeIf { next.selection.isNotEmpty() })
     }
 
     /**
-     * Select every entry between [entry] and the last selected one, within one bucket. Falls back to
-     * selecting just [entry] when there is no usable anchor, which is what a long-press in a different
-     * bucket (or on a row that is no longer listed) means.
+     * Select every entry between [entry] and the last selected one, within one bucket. A long press in
+     * a different bucket has no usable anchor, because a range that spanned two categories would pick
+     * up rows the user never saw between them, so it selects [entry] alone.
      */
     fun toggleRangeSelection(bucketKey: String, entry: EntryId, ordered: List<EntryId>) {
-        mutableSelection.update { current ->
-            val anchor = current.lastOrNull()
-            val from = ordered.indexOf(anchor)
-            val to = ordered.indexOf(entry)
-            if (lastSelectionBucket != bucketKey || anchor == null || from < 0 || to < 0) {
-                current + entry
-            } else {
-                current + ordered.subList(minOf(from, to), maxOf(from, to) + 1)
-            }
-        }
-        lastSelectionBucket = bucketKey
+        val from =
+            selectionState.takeIf { lastSelectionBucket == bucketKey } ?: SelectionState(selectionState.selection)
+        apply(EntrySelection.range(from, entry, ordered), bucketKey)
     }
 
-    fun selectAll(ordered: List<EntryId>) {
-        lastSelectionBucket = null
-        mutableSelection.update { it + ordered }
-    }
+    fun selectAll(ordered: List<EntryId>) = apply(EntrySelection.selectAll(selectionState, ordered))
 
     /** Select every entry in one category, or deselect them when all are already selected. */
     fun selectAllInCategory(ordered: List<EntryId>) {
-        lastSelectionBucket = null
-        mutableSelection.update { current ->
-            if (ordered.isNotEmpty() && ordered.all { it in current }) {
-                current - ordered.toSet()
+        val allPicked = ordered.isNotEmpty() && ordered.all { it in selectionState }
+        apply(
+            if (allPicked) {
+                SelectionState(selectionState.selection - ordered.toSet())
             } else {
-                current + ordered
-            }
-        }
+                EntrySelection.selectAll(selectionState, ordered)
+            },
+        )
     }
 
-    fun invertSelection(ordered: List<EntryId>) {
-        lastSelectionBucket = null
-        mutableSelection.update { current ->
-            val (toRemove, toAdd) = ordered.partition { it in current }
-            current - toRemove.toSet() + toAdd
-        }
-    }
+    fun invertSelection(ordered: List<EntryId>) = apply(EntrySelection.invert(selectionState, ordered))
 
     // Bulk actions. Each is handed to every provider in the view, which narrows it to its own entries,
     // so one call covers a selection spanning both content types.

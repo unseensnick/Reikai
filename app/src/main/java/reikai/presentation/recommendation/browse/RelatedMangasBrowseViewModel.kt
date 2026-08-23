@@ -26,6 +26,8 @@ import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.browse.finishAdd
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -76,8 +78,8 @@ class RelatedMangasBrowseViewModel(
 
     val snackbarHostState = SnackbarHostState()
 
-    // Anchor for range selection (the last item toggled), mirroring the library's range-select.
-    private var lastSelectedUrl: String? = null
+    // Selection plus its range anchor; `state.selectedUrls` mirrors the set for the grid.
+    private var selectionState = SelectionState<String>()
 
     init {
         viewModelScope.launchIO {
@@ -119,35 +121,24 @@ class RelatedMangasBrowseViewModel(
     fun enterSelectionMode() = state.update { it.copy(selectionMode = true) }
 
     fun toggleSelection(url: String) = state.update { st ->
-        val selection = st.selectedUrls.toMutableSet()
-        if (!selection.add(url)) selection.remove(url)
-        lastSelectedUrl = url.takeIf { selection.isNotEmpty() }
-        st.copy(selectedUrls = selection)
+        selectionState = EntrySelection.toggle(selectionState, url)
+        st.copy(selectedUrls = selectionState.selection)
     }
 
     /** Select every item between the last-toggled anchor and [url] (inclusive), in display order. */
     fun toggleRangeSelection(url: String) = state.update { st ->
-        val urls = st.visibleItems().map { it.candidate.manga.url }
-        val anchorIndex = lastSelectedUrl?.let(urls::indexOf) ?: -1
-        val currentIndex = urls.indexOf(url)
-        val selection = st.selectedUrls.toMutableSet()
-        if (anchorIndex < 0 || currentIndex < 0) {
-            selection.add(url)
-        } else {
-            val range = if (anchorIndex <= currentIndex) anchorIndex..currentIndex else currentIndex..anchorIndex
-            range.forEach { selection.add(urls[it]) }
-        }
-        lastSelectedUrl = url
-        st.copy(selectedUrls = selection, selectionMode = true)
+        selectionState = EntrySelection.range(selectionState, url, st.visibleItems().map { it.candidate.manga.url })
+        st.copy(selectedUrls = selectionState.selection, selectionMode = true)
     }
 
     fun selectAll() = state.update { st ->
-        st.copy(selectedUrls = st.visibleItems().mapTo(HashSet()) { it.candidate.manga.url })
+        selectionState = EntrySelection.selectAll(selectionState, st.visibleItems().map { it.candidate.manga.url })
+        st.copy(selectedUrls = selectionState.selection)
     }
 
     fun clearSelection() = state.update {
-        lastSelectedUrl = null
-        it.copy(selectedUrls = emptySet(), selectionMode = false)
+        selectionState = EntrySelection.clear()
+        it.copy(selectedUrls = selectionState.selection, selectionMode = false)
     }
 
     fun dismissDialog() = state.update { it.copy(dialog = null) }

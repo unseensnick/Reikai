@@ -59,14 +59,20 @@ object EntrySelection {
     fun <T> rangeOrToggle(state: SelectionState<T>, item: T, ordered: List<T>): SelectionState<T> =
         if (item in state.selection) toggle(state, item) else range(state, item, ordered)
 
-    /** Add every visible row, leaving the anchor where the user last put it. */
+    /** Add every visible row. Both bulk verbs drop the anchor: after one, nothing on screen
+     *  corresponds to a row the user pressed, so a range measured from it would be arbitrary. */
     fun <T> selectAll(state: SelectionState<T>, visible: List<T>): SelectionState<T> =
-        SelectionState(state.selection + visible, state.anchor)
+        SelectionState(state.selection + visible, null)
 
-    /** Keep exactly the visible rows that were not selected. The anchor is dropped: whatever it
-     *  pointed at may no longer be selected, so measuring from it would surprise. */
-    fun <T> invert(state: SelectionState<T>, visible: List<T>): SelectionState<T> =
-        SelectionState(visible.toSet() - state.selection, null)
+    /**
+     * Flip the visible rows, and leave anything selected outside [visible] alone. That matters where
+     * the visible list is a slice: inverting one library category must not silently drop what is
+     * picked in the others.
+     */
+    fun <T> invert(state: SelectionState<T>, visible: List<T>): SelectionState<T> {
+        val (toRemove, toAdd) = visible.partition { it in state.selection }
+        return SelectionState(state.selection - toRemove.toSet() + toAdd, null)
+    }
 
     fun <T> clear(): SelectionState<T> = SelectionState()
 

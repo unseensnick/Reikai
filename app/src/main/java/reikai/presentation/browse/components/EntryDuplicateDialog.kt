@@ -72,6 +72,8 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import reikai.data.novel.NovelStatusCode
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
@@ -114,26 +116,16 @@ fun <T> EntryDuplicateDialog(
         collapseToCards(duplicates, toUi, groupIdByEntryId)
     }
     var selectionMode by remember { mutableStateOf(false) }
-    val selection = remember { mutableStateListOf<Long>() }
-    var selectionAnchor by remember { mutableStateOf<Long?>(null) }
+    var picked by remember { mutableStateOf(SelectionState<Long>()) }
+    val selection = picked.selection
 
     fun toggleSelection(id: Long) {
-        if (!selection.remove(id)) selection.add(id)
-        selectionAnchor = id.takeIf { selection.isNotEmpty() }
+        picked = EntrySelection.toggle(picked, id)
     }
 
     /** Select every card between the last-toggled anchor and [id] (inclusive), in display order. */
     fun toggleRangeSelection(id: Long) {
-        val ids = cards.map { it.ui.id }
-        val anchorIndex = selectionAnchor?.let(ids::indexOf) ?: -1
-        val targetIndex = ids.indexOf(id)
-        if (anchorIndex < 0 || targetIndex < 0) {
-            if (id !in selection) selection.add(id)
-        } else {
-            val range = if (anchorIndex <= targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
-            range.forEach { ids[it].takeIf { candidate -> candidate !in selection }?.let(selection::add) }
-        }
-        selectionAnchor = id
+        picked = EntrySelection.range(picked, id, cards.map { it.ui.id })
         selectionMode = true
     }
 
@@ -167,8 +159,7 @@ fun <T> EntryDuplicateDialog(
                         onClick = {
                             selectionMode = !selectionMode
                             if (!selectionMode) {
-                                selection.clear()
-                                selectionAnchor = null
+                                picked = EntrySelection.clear()
                             }
                         },
                     ) {

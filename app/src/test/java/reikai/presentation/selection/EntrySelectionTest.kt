@@ -109,8 +109,18 @@ class EntrySelectionTest {
     }
 
     @Test
-    fun `select all keeps the anchor, since the user's last press still means something`() {
-        EntrySelection.selectAll(state(1L, anchor = 1L), rows).anchor shouldBe 1L
+    fun `select all drops the anchor, since no row on screen is the one you pressed`() {
+        EntrySelection.selectAll(state(1L, anchor = 1L), rows).anchor shouldBe null
+    }
+
+    @Test
+    fun `inverting nothing selects every visible row`() {
+        EntrySelection.invert(state(), listOf(1L, 2L)).selection shouldBe setOf(1L, 2L)
+    }
+
+    @Test
+    fun `invert leaves selected rows outside the visible slice alone`() {
+        EntrySelection.invert(state(1L, 9L), listOf(1L, 2L)).selection shouldBe setOf(2L, 9L)
     }
 
     @Test

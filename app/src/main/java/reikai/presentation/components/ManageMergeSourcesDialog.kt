@@ -34,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -71,8 +73,8 @@ fun ManageMergeSourcesDialog(
     val listState = rememberLazyListState()
     var didDrag by remember { mutableStateOf(false) }
     var selectionMode by remember { mutableStateOf(false) }
-    val selection = remember { mutableStateListOf<Long>() }
-    var selectionAnchor by remember { mutableStateOf<Long?>(null) }
+    var picked by remember { mutableStateOf(SelectionState<Long>()) }
+    val selection = picked.selection
     // A drag turns the override on host-side; track it locally so the primary badge and Reset action
     // appear immediately, without waiting for the persisted flag to round-trip back.
     var overridden by remember { mutableStateOf(isOverridden) }
@@ -96,30 +98,17 @@ fun ManageMergeSourcesDialog(
 
     fun exitSelection() {
         selectionMode = false
-        selection.clear()
-        selectionAnchor = null
+        picked = EntrySelection.clear()
     }
 
     fun toggle(id: Long) {
-        if (!selection.remove(id)) selection.add(id)
-        selectionAnchor = id.takeIf { selection.isNotEmpty() }
-        if (selection.isEmpty()) selectionMode = false
+        picked = EntrySelection.toggle(picked, id)
+        if (picked.isEmpty) selectionMode = false
     }
 
-    /** Long-press range fill, matching the library: from the last-touched anchor to [id] inclusive, over
-     *  the current display order. The first long-press (no anchor yet) just selects that one row. */
     fun rangeSelect(id: Long) {
         selectionMode = true
-        val ids = items.map { it.id }
-        val anchorIndex = selectionAnchor?.let(ids::indexOf) ?: -1
-        val targetIndex = ids.indexOf(id)
-        if (anchorIndex < 0 || targetIndex < 0) {
-            if (id !in selection) selection.add(id)
-        } else {
-            val range = if (anchorIndex <= targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
-            range.forEach { ids[it].takeIf { candidate -> candidate !in selection }?.let(selection::add) }
-        }
-        selectionAnchor = id
+        picked = EntrySelection.range(picked, id, items.map { it.id })
     }
 
     AlertDialog(

@@ -34,6 +34,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -331,51 +333,29 @@ class RecentsEngine(
     private val mutableSelection = MutableStateFlow<Set<ChapterRef>>(emptySet())
     val selection: StateFlow<Set<ChapterRef>> = mutableSelection.asStateFlow()
 
-    /** Anchor for range-select; not reactive, it only decides how the next long-press behaves. */
-    private var lastSelected: ChapterRef? = null
+    /** Selection plus its range anchor. `mutableSelection` mirrors the set for the screen to collect. */
+    private var selectionState = SelectionState<ChapterRef>()
 
-    fun clearSelection() {
-        lastSelected = null
-        mutableSelection.value = emptySet()
+    private fun apply(next: SelectionState<ChapterRef>) {
+        selectionState = next
+        mutableSelection.value = next.selection
     }
 
-    fun toggleSelection(chapter: ChapterRef) {
-        mutableSelection.update { if (chapter in it) it - chapter else it + chapter }
-        lastSelected = chapter.takeIf { mutableSelection.value.isNotEmpty() }
-    }
+    fun clearSelection() = apply(EntrySelection.clear())
+
+    fun toggleSelection(chapter: ChapterRef) = apply(EntrySelection.toggle(selectionState, chapter))
 
     /**
-     * Select everything between [chapter] and the last selected row, in the order given. [ordered] is
-     * the rendered order, which only the caller knows: it interleaves both content types, and grouping
-     * and collapsing change it again. The replaced screen ranged over one model's own list instead, so
-     * a sweep under the All chip skipped every row of the other type.
+     * [ordered] is the rendered order, which only the caller knows: it interleaves both content types,
+     * and grouping and collapsing change it again. The replaced screen ranged over one model's own
+     * list instead, so a sweep under the All chip skipped every row of the other type.
      */
-    fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) {
-        val anchor = lastSelected
-        val from = ordered.indexOf(anchor)
-        val to = ordered.indexOf(chapter)
-        mutableSelection.update { current ->
-            if (anchor == null || from < 0 || to < 0) {
-                current + chapter
-            } else {
-                current + ordered.subList(minOf(from, to), maxOf(from, to) + 1)
-            }
-        }
-        lastSelected = chapter
-    }
+    fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) =
+        apply(EntrySelection.range(selectionState, chapter, ordered))
 
-    fun selectAll(ordered: List<ChapterRef>) {
-        lastSelected = null
-        mutableSelection.update { it + ordered }
-    }
+    fun selectAll(ordered: List<ChapterRef>) = apply(EntrySelection.selectAll(selectionState, ordered))
 
-    fun invertSelection(ordered: List<ChapterRef>) {
-        lastSelected = null
-        mutableSelection.update { current ->
-            val (toRemove, toAdd) = ordered.partition { it in current }
-            current - toRemove.toSet() + toAdd
-        }
-    }
+    fun invertSelection(ordered: List<ChapterRef>) = apply(EntrySelection.invert(selectionState, ordered))
 
     /**
      * Drop selected chapters the surface no longer draws, so the toolbar count cannot promise more

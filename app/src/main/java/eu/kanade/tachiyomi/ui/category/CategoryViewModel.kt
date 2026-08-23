@@ -24,8 +24,9 @@ import reikai.domain.category.categoriesForContentType
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.category.CategoryActions
-import reikai.presentation.category.CategorySelection
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -112,23 +113,29 @@ class CategoryViewModel(
         viewModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(1)) }
     }
 
-    // RK --> multi-select + deferred bulk delete
+    // RK --> multi-select + deferred bulk delete, over the shared selection kernel
+    private var categorySelection = SelectionState<Long>()
+
     fun toggleSelection(categoryId: Long) {
-        selectedIds.update { CategorySelection.toggle(it, categoryId) }
+        categorySelection = EntrySelection.toggle(categorySelection, categoryId)
+        selectedIds.value = categorySelection.selection
     }
 
     fun selectAll() {
         val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
-        selectedIds.update { CategorySelection.selectAll(it, ids) }
+        categorySelection = EntrySelection.selectAll(categorySelection, ids)
+        selectedIds.value = categorySelection.selection
     }
 
     fun invertSelection() {
         val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
-        selectedIds.update { CategorySelection.invert(it, ids) }
+        categorySelection = EntrySelection.invert(categorySelection, ids)
+        selectedIds.value = categorySelection.selection
     }
 
     fun clearSelection() {
-        selectedIds.value = emptySet()
+        categorySelection = EntrySelection.clear()
+        selectedIds.value = categorySelection.selection
     }
 
     /** Hide the selected categories and arm the undo snackbar; the DB delete waits for [commitPendingDelete]. */
