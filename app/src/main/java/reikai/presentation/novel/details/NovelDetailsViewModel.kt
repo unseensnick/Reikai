@@ -109,6 +109,8 @@ import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
@@ -237,8 +239,8 @@ class NovelDetailsViewModel(
     /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
     private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
 
-    /** Range-select anchor into the displayed chapter order; -1 when no selection. */
-    private val selectionAnchor = intArrayOf(-1, -1)
+    // Source of truth for the chapter multi-select; `Loaded.selection` mirrors it for the UI.
+    private var chapterSelection = SelectionState<Long>()
 
     /** Latest observed bound-tracker count, held outside state so the first [NovelDetailsState.Loaded]
      *  built picks it up even when the observer emitted while the screen was still loading. */
@@ -532,7 +534,7 @@ class NovelDetailsViewModel(
                 trackingCount = currentTrackingCount,
                 customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
-                selection = loaded?.selection.orEmpty().filterTo(HashSet()) { id -> chapters.any { it.id == id } },
+                selection = retainChapterSelection(chapters),
                 resumeChapter = resume,
                 hasStarted = chapters.any { it.read },
                 seedColor = loaded?.seedColor,
@@ -1001,35 +1003,34 @@ class NovelDetailsViewModel(
 
     fun showCoverDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.FullCover) }
 
-    fun toggleSelection(chapterId: Long, fromLongPress: Boolean) {
-        updateLoaded { loaded ->
-            val index = loaded.chapters.indexOfFirst { it.id == chapterId }
-            if (index < 0) return@updateLoaded loaded
-            val sel = loaded.selection.toMutableSet()
-            if (fromLongPress && loaded.selection.isNotEmpty() && selectionAnchor[0] >= 0) {
-                val from = minOf(selectionAnchor[0], index)
-                val to = maxOf(selectionAnchor[0], index)
-                for (i in from..to) sel.add(loaded.chapters[i].id)
-                selectionAnchor[1] = index
-            } else {
-                if (chapterId in sel) sel.remove(chapterId) else sel.add(chapterId)
-                selectionAnchor[0] = index
-                selectionAnchor[1] = index
-            }
-            loaded.copy(selection = sel)
-        }
+    /** A rebuilt chapter list drops whatever it no longer holds, the range anchor included. */
+    private fun retainChapterSelection(chapters: List<NovelChapter>): Set<Long> {
+        chapterSelection = EntrySelection.retain(chapterSelection, chapters.map { it.id })
+        return chapterSelection.selection
     }
 
-    fun selectAll() = updateLoaded { it.copy(selection = it.chapters.mapTo(HashSet()) { ch -> ch.id }) }
+    fun toggleSelection(chapterId: Long, fromLongPress: Boolean) = updateLoaded { loaded ->
+        chapterSelection = if (fromLongPress) {
+            EntrySelection.rangeOrToggle(chapterSelection, chapterId, loaded.chapters.map { it.id })
+        } else {
+            EntrySelection.toggle(chapterSelection, chapterId)
+        }
+        loaded.copy(selection = chapterSelection.selection)
+    }
+
+    fun selectAll() = updateLoaded { loaded ->
+        chapterSelection = EntrySelection.selectAll(chapterSelection, loaded.chapters.map { it.id })
+        loaded.copy(selection = chapterSelection.selection)
+    }
 
     fun invertSelection() = updateLoaded { loaded ->
-        loaded.copy(selection = loaded.chapters.mapNotNull { it.id.takeIf { id -> id !in loaded.selection } }.toSet())
+        chapterSelection = EntrySelection.invert(chapterSelection, loaded.chapters.map { it.id })
+        loaded.copy(selection = chapterSelection.selection)
     }
 
     fun clearSelection() {
-        selectionAnchor[0] = -1
-        selectionAnchor[1] = -1
-        updateLoaded { it.copy(selection = emptySet()) }
+        chapterSelection = EntrySelection.clear()
+        updateLoaded { it.copy(selection = chapterSelection.selection) }
     }
 
     /** Restore-stable hidden-chapter key: source + chapter url, no local novel id (so it survives a

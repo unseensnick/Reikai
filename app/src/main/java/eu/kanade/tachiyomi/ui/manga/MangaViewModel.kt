@@ -125,6 +125,8 @@ import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.selection.EntrySelection
+import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -274,8 +276,9 @@ class MangaViewModel(
     val isUpdateIntervalEnabled =
         LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in libraryPreferences.autoUpdateMangaRestrictions.get()
 
-    private val selectedPositions: Array<Int> = arrayOf(-1, -1) // first and last selected index in list
-    private val selectedChapterIds: HashSet<Long> = HashSet()
+    // RK: chapter multi-select, shared with novels through the kernel. It replaces upstream's
+    // first/last index window, which could disagree with the selection it described.
+    private var chapterSelection = SelectionState<Long>()
 
     // RK --> shared merge read/observe wiring: the group ids (just this manga when ungrouped), the selected
     // source chip, the membership observer, and the switcher chips. Written once in EntryMergeGroupHost so a
@@ -955,7 +958,7 @@ class MangaViewModel(
                 chapter = chapter,
                 downloadState = downloadState,
                 downloadProgress = activeDownload?.progress ?: 0,
-                selected = chapter.id in selectedChapterIds,
+                selected = chapter.id in chapterSelection, // RK: was selectedChapterIds
                 readInAnotherSource = chapter.id in readInOtherSources,
             )
         }
@@ -1515,92 +1518,42 @@ class MangaViewModel(
         }
     }
 
-    fun toggleSelection(
-        item: ChapterList.Item,
-        selected: Boolean,
-        fromLongPress: Boolean = false,
-    ) {
+    // RK --> chapter selection routes through the shared kernel, so manga, novels and every other
+    // multi-select surface answer a range the same way. A long press ranges from the last row you
+    // touched; a tap toggles one row.
+    fun toggleSelection(item: ChapterList.Item, fromLongPress: Boolean = false) {
         updateSuccessState { successState ->
-            val newChapters = successState.processedChapters.toMutableList().apply {
-                val selectedIndex = successState.processedChapters.indexOfFirst { it.id == item.chapter.id }
-                if (selectedIndex < 0) return@apply
-
-                val selectedItem = get(selectedIndex)
-                if ((selectedItem.selected && selected) || (!selectedItem.selected && !selected)) return@apply
-
-                val firstSelection = none { it.selected }
-                set(selectedIndex, selectedItem.copy(selected = selected))
-                selectedChapterIds.addOrRemove(item.id, selected)
-
-                if (selected && fromLongPress) {
-                    if (firstSelection) {
-                        selectedPositions[0] = selectedIndex
-                        selectedPositions[1] = selectedIndex
-                    } else {
-                        // Try to select the items in-between when possible
-                        val range: IntRange
-                        if (selectedIndex < selectedPositions[0]) {
-                            range = selectedIndex + 1..<selectedPositions[0]
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            range = (selectedPositions[1] + 1)..<selectedIndex
-                            selectedPositions[1] = selectedIndex
-                        } else {
-                            // Just select itself
-                            range = IntRange.EMPTY
-                        }
-
-                        range.forEach {
-                            val inbetweenItem = get(it)
-                            if (!inbetweenItem.selected) {
-                                selectedChapterIds.add(inbetweenItem.id)
-                                set(it, inbetweenItem.copy(selected = true))
-                            }
-                        }
-                    }
-                } else if (!fromLongPress) {
-                    if (!selected) {
-                        if (selectedIndex == selectedPositions[0]) {
-                            selectedPositions[0] = indexOfFirst { it.selected }
-                        } else if (selectedIndex == selectedPositions[1]) {
-                            selectedPositions[1] = indexOfLast { it.selected }
-                        }
-                    } else {
-                        if (selectedIndex < selectedPositions[0]) {
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            selectedPositions[1] = selectedIndex
-                        }
-                    }
-                }
+            chapterSelection = if (fromLongPress) {
+                EntrySelection.rangeOrToggle(chapterSelection, item.id, successState.processedChapters.map { it.id })
+            } else {
+                EntrySelection.toggle(chapterSelection, item.id)
             }
-            successState.copy(chapters = newChapters)
+            successState.withChapterSelection()
         }
     }
 
     fun toggleAllSelection(selected: Boolean) {
         updateSuccessState { successState ->
-            val newChapters = successState.chapters.map {
-                selectedChapterIds.addOrRemove(it.id, selected)
-                it.copy(selected = selected)
+            chapterSelection = if (selected) {
+                EntrySelection.selectAll(chapterSelection, successState.chapters.map { it.id })
+            } else {
+                EntrySelection.clear()
             }
-            selectedPositions[0] = -1
-            selectedPositions[1] = -1
-            successState.copy(chapters = newChapters)
+            successState.withChapterSelection()
         }
     }
 
     fun invertSelection() {
         updateSuccessState { successState ->
-            val newChapters = successState.chapters.map {
-                selectedChapterIds.addOrRemove(it.id, !it.selected)
-                it.copy(selected = !it.selected)
-            }
-            selectedPositions[0] = -1
-            selectedPositions[1] = -1
-            successState.copy(chapters = newChapters)
+            chapterSelection = EntrySelection.invert(chapterSelection, successState.chapters.map { it.id })
+            successState.withChapterSelection()
         }
     }
+
+    /** Fan the selection back out onto the rows the list renders. */
+    private fun State.Success.withChapterSelection(): State.Success =
+        copy(chapters = chapters.map { it.copy(selected = it.id in chapterSelection) })
+    // RK <--
 
     // Chapters list - end
 

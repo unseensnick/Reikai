@@ -153,7 +153,7 @@ class MangaEntryAdapter(
 
     override fun toggleSelection(chapterId: Long, fromLongPress: Boolean) {
         val item = itemById(chapterId) ?: return
-        model.toggleSelection(item, !item.selected, fromLongPress)
+        model.toggleSelection(item, fromLongPress)
     }
 
     override fun selectAll() {
