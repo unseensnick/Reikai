@@ -490,11 +490,19 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 
 ## Status
 
-**Steps 1 to 4 shipped** (`b515944ae`, `fc81876bc`, `b633a6e10`, `780428900`): the model and cache
-column, the setting and the two filtered readers, then AniList and MyAnimeList answering the field.
-Steps 5 onward are open. Grounded 2026-08-22 against the current tree and each service's own API
-documentation and source, then re-grounded 2026-08-23 against the live APIs, which rewrote step 5
-entirely (see the declines in Approach).
+**Shipped, end to end.** Steps 1 to 4 (`b515944ae`, `fc81876bc`, `b633a6e10`, `780428900`): the
+model and cache column, the setting and the two filtered readers, then AniList and MyAnimeList
+answering the field. Step 5 (`bc1199312`, `96e3235f0`): the two declines, the measured keyword
+widening, the cache invalidation and the orphan purge behind it. Step 5a (`2d7f00014`): the tag
+pickers. Step 5b (`9e484546a`): screening the carousel's candidates. Step 6 (`61f32b5d4`): Kitsu.
+Step 9 (`bc1eaa3f1`): Fill-from-tracker, and the ruling that search is never gated.
+
+Steps 7 and 8, the MangaDex fetcher and the unproven MangaBaka and Hikka endpoints, belong to the
+separate "widen the taste profile" roadmap item rather than to this one.
+
+Grounded 2026-08-22 against the current tree and each service's own API documentation and source,
+then re-grounded 2026-08-23 against the live APIs, which rewrote step 5 entirely, reshaped step 9,
+and corrected three claims this doc had been asserting from inference rather than measurement.
 
 **Neither the Shikimori nor the Bangumi account holds enough data to measure against.** The owner's
 Shikimori library returns one entry and their Bangumi collection two; both are test binds rather than
