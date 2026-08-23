@@ -67,6 +67,26 @@ It updates in place when you add or change a track entry in the app, and **Auto-
 **Refresh now** shows when each tracker was last pulled, and has a short cooldown between presses.
 
 The cache is not included in your backups. After a restore it rebuilds itself from your trackers on the next pull, so nothing is lost beyond the wait.
+Turning a tracker's pull off drops its cached entries, so it stops shaping the row straight away; turning it back on rebuilds them on the next pull.
+
+## Adult content
+
+Sexually explicit titles are kept out of all of this unless you ask for them.
+**Show adult content from trackers** <Badge type="info" text="Off" /> in <nav to="tracking"> covers three things: explicit titles you track do not shape your taste profile, they are not suggested to you, and they are left out when you use **Fill from tracker** to fill in an entry's genres.
+Searching a tracker is never filtered, so you can always find and bind a title you went looking for.
+
+The scope is sexual content only. Violence and gore are not affected either way, so a dark or brutal series still counts towards your taste.
+
+Trackers disagree about what counts, so where one can answer for itself Reikai uses its answer, and otherwise falls back to reading the title's tags.
+Two lists under the same setting let you correct either direction, picking from the tags your own tracked libraries actually use; your choice wins over what a tracker says.
+
+::: tip Correcting a tag
+1. Go to <nav to="tracking"> and find **Show adult content from trackers**.
+1. Use **Treat these tags as adult** for something being missed, or **Don't treat these tags as adult** for something wrongly caught.
+1. Each list offers only the tags where your choice would change something.
+:::
+
+Changing the setting clears the cached tracker libraries, because some trackers only return explicit titles when asked; the next pull fetches them again under the new answer.
 
 ## Reordering the row
 

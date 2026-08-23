@@ -220,22 +220,17 @@ are one consumer of it, not its owner.
 
 The surfaces it reaches:
 
-- **Tracker search**, the dialog a user searches in to bind an entry. Adult results are excluded when
-  the setting is off, and where a service offers a request-side parameter the search stops asking for
-  them rather than fetching and discarding.
 - **The taste profile**, so adult entries do not shape tag affinities.
-- **Tracker-sourced suggestions**, the four recommendation providers whose candidates reach the
-  carousel.
-- **Fill-from-tracker genres**, where Kitsu already drops NSFW categories. That existing filter
-  becomes one instance of the shared rule instead of a Kitsu-only special case, and it applies to
-  every tracker that can answer.
+- **Tracker-sourced suggestions**, the recommendation providers whose candidates reach the carousel.
+- **Fill-from-tracker genres**, where Kitsu already drops NSFW categories. That filter becomes one
+  instance of the shared rule instead of a Kitsu-only special case, and applies to every tracker that
+  returns genres.
 
-Gating search was a deliberate call and is worth recording, because the opposite argument is
-reasonable: a search that cannot find a title the user typed looks broken. The ruling is that a user
-who has turned adult content off has said what they want from the app's tracker surfaces, and a search
-box is one of them. Binding an entry the tracker will not return is still possible through the `id:`
-prefix, which resolves a specific id or slug rather than searching, so the escape hatch exists for
-someone who knows what they want.
+**Tracker search is not one of them** (owner, 2026-08-23). An earlier draft of this section had it
+gated, on the reasoning that a user who turned adult content off has said what they want from every
+tracker surface. That was reversed: the setting governs what the app volunteers, not what the user
+asks for, and a search box is the user asking. The full reasoning, and the four trackers that could
+have been gated, are in step 9.
 
 ### Where the preference applies inside recommendations
 
@@ -435,13 +430,30 @@ the cleanest adult signal of any tracker we support. Verify: the endpoint return
 owner's account; if it does not, the step closes as not-viable with that recorded rather than left
 open.
 
-**Step 9, tracker search and Fill-from-tracker.** Screen search results through the same kernel, and
-where a service takes a request-side adult parameter, stop sending it when the setting is off. Extend
-Kitsu's existing Fill-from-tracker category filter into the shared rule so every tracker that can
-answer applies it. Sequenced after the per-tracker steps because it reuses the signals they add, and
-it is the step that makes the setting genuinely app-wide rather than recommendations-only. Verify: a
-search for a known adult title returns it with the setting off and not with it on, on each tracker
-that can answer, and the `id:` escape hatch still binds it either way.
+**Step 9, Fill-from-tracker only. Search is deliberately left alone** (owner, 2026-08-23), settling
+the contradiction this plan carried: Approach said the setting governs search, Decisions said
+MyAnimeList's search stays unconditional, and both were attributed to the owner on the same day.
+
+**The rule that settles it: the setting governs what the app volunteers, not what the user asks
+for.** Recommendations are the app choosing titles for you, and Fill-from-tracker writes genres into
+your library without asking; filtering those is invisible and harmless. A search box is the opposite,
+since the user typed the title and already named what they want.
+
+Three findings made that the right call rather than the cheap one. The `id:` escape hatch the
+Approach leaned on needs the tracker's numeric id, so it is a developer affordance, not a user one.
+Only four of the eight trackers can gate request-side (MyAnimeList's `nsfw`, Shikimori's `censored`,
+AniList's `isAdult` and Bangumi's `filter.nsfw`, the last only when authenticated, all verified
+live), so gating would make search behave differently per tracker with nothing on screen to say why.
+And two of those four would change in the permissive direction, since Shikimori currently hides
+hentai, yaoi and yuri from search always: honouring the setting there would start returning them.
+
+So Fill-from-tracker screens the genres a tracker returns, at the one seam both content types share.
+Kitsu's own category filter stays, because it names its adult categories precisely where keywords
+guess, but it now follows the setting like everything else instead of stripping unconditionally.
+
+**Left as a separate question, not folded in:** Shikimori search silently hides hentai, yaoi and yuri
+today because we omit `censored` and its default hides them. Under the rule above that is a bug, and
+a one-line fix, but it is a permissive change and does not belong inside an adult-content commit.
 
 **Step 10, the docs.** The taste profile is a documented user feature; the new setting needs a line in
 the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG entry.
@@ -502,6 +514,12 @@ two of them (`Redo of Healer`, a MILF-party isekai) carry no tag the keyword lis
 so the service's own ruling catches what substring matching structurally cannot. And MyAnimeList's
 `nsfw=false` request really does drop adult entries before they reach the cache, which is the privacy
 half of the design working rather than a filter applied after storage.
+
+**Step 9 shipped, and with it the initiative's last surface.** One interactor both details
+ViewModels call, so the rule exists once for manga and novels. Verified on device end to end: Fill
+from tracker on an AniList-bound title replaced the author, artist, cover and description, and left
+the genre chips alone because none of AniList's genres for it are adult. Seven tests, the opt-in
+short circuit checked by mutation.
 
 **Step 6 shipped, and the device run is the best evidence any of this works.** Pulling the owner's
 real Kitsu library gave 88 rows: **3 `ADULT`, 0 `CLEAN`, 85 `UNKNOWN`**, so the never-CLEAN rule held
@@ -636,3 +654,8 @@ on search.** The two are different questions. The library pull feeds the profile
 setting. Search is the user typing a title and expecting to find it, and a tracker search that
 silently cannot find an adult title the user is looking for is a bug, not a feature; the setting is
 about what shapes recommendations, not about what the user is allowed to look up.
+
+This decision won, and it now generalises to every tracker rather than just MyAnimeList: **no search
+is gated at all** (owner, 2026-08-23). The Approach section used to contradict it and no longer does.
+The preference summary was rewritten at the same time, because the shipped string promised search
+gating and would otherwise have been a lie.
