@@ -18,8 +18,9 @@ class KitsuLibraryFetcher(
 
     override val trackerId: Long = kitsu.id
 
-    override fun isEnabled(): Boolean =
-        preferences.pullLibraryFromKitsu.get() && kitsu.isLoggedIn
+    override fun isPullRequested(): Boolean = preferences.pullLibraryFromKitsu.get()
+
+    override fun isEnabled(): Boolean = isPullRequested() && kitsu.isLoggedIn
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         kitsu.getUserLibrary().map { it.toTrackedEntry() }

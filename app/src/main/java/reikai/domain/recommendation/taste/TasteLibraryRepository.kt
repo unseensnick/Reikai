@@ -13,6 +13,9 @@ interface TasteLibraryRepository {
     /** Replace every cached row for [trackerId] with [entries] in one transaction. */
     suspend fun replaceTracker(trackerId: Long, entries: List<TrackedEntry>, fetchedAt: Long)
 
+    /** Drop every cached row for [trackerId], leaving the other trackers' rows alone. */
+    suspend fun deleteTracker(trackerId: Long)
+
     suspend fun deleteAll()
 
     suspend fun count(): Long

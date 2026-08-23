@@ -19,8 +19,9 @@ class ShikimoriLibraryFetcher(
 
     override val trackerId: Long = shikimori.id
 
-    override fun isEnabled(): Boolean =
-        preferences.pullLibraryFromShikimori.get() && shikimori.isLoggedIn
+    override fun isPullRequested(): Boolean = preferences.pullLibraryFromShikimori.get()
+
+    override fun isEnabled(): Boolean = isPullRequested() && shikimori.isLoggedIn
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         shikimori.getUserLibrary().mapNotNull { it.toTrackedEntry() }

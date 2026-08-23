@@ -88,6 +88,7 @@ object SettingsTrackingScreen : SearchableSettings {
         val context = LocalContext.current
         val trackPreferences = remember { context.appGraph.trackPreferences }
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
+        val tasteLibraryRepository = remember { context.appGraph.tasteLibraryRepository } // RK
         val trackerManager = remember { context.appGraph.trackerManager }
         val sourceManager = remember { context.appGraph.sourceManager }
 
@@ -147,6 +148,14 @@ object SettingsTrackingScreen : SearchableSettings {
                 preference = trackPreferences.showAdultTrackerContent,
                 title = stringResource(MR.strings.pref_show_adult_tracker_content),
                 subtitle = stringResource(MR.strings.pref_show_adult_tracker_content_summary),
+                // MyAnimeList's library pull asks for adult entries only when this is on, so the
+                // cache was built under the old answer either way: drop it and let the next pull
+                // rebuild. Turning the filter on, that is also what takes adult rows off disk,
+                // which filtering at read alone would leave there.
+                onValueChanged = {
+                    tasteLibraryRepository.deleteAll()
+                    true
+                },
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),

@@ -20,8 +20,9 @@ class MyAnimeListLibraryFetcher(
 
     override val trackerId: Long = myAnimeList.id
 
-    override fun isEnabled(): Boolean =
-        preferences.pullLibraryFromMyAnimeList.get() && myAnimeList.isLoggedIn
+    override fun isPullRequested(): Boolean = preferences.pullLibraryFromMyAnimeList.get()
+
+    override fun isEnabled(): Boolean = isPullRequested() && myAnimeList.isLoggedIn
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         myAnimeList.getUserLibrary().map { it.toTrackedEntry() }

@@ -13,6 +13,13 @@ interface TrackerLibraryFetcher {
 
     val trackerId: Long
 
+    /**
+     * The user's per-tracker "pull library" preference on its own, ignoring whether the tracker can
+     * answer right now. Purging cached rows is keyed to this and never to [isEnabled], so a tracker
+     * that logs itself out keeps its cache instead of losing it to a transient auth failure.
+     */
+    fun isPullRequested(): Boolean
+
     fun isEnabled(): Boolean
 
     suspend fun fetchLibrary(): List<TrackedEntry>

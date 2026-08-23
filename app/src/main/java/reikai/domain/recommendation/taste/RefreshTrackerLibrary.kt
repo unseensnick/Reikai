@@ -30,7 +30,10 @@ class RefreshTrackerLibrary(
 
     /** Pull every enabled tracker now, unconditionally. */
     suspend fun await() {
-        mutex.withLock { runPull(fetchers.filter { it.isEnabled() }) }
+        mutex.withLock {
+            dropUnrequestedTrackers()
+            runPull(fetchers.filter { it.isEnabled() })
+        }
     }
 
     /** Manual "refresh now" with a short cooldown so the button can't be spammed. Returns false (and
@@ -41,6 +44,7 @@ class RefreshTrackerLibrary(
             val now = System.currentTimeMillis()
             if (now - lastManualRefresh < cooldownMs) return@withLock false
             lastManualRefresh = now
+            dropUnrequestedTrackers()
             runPull(fetchers.filter { it.isEnabled() })
             true
         }
@@ -49,12 +53,24 @@ class RefreshTrackerLibrary(
      *  Used to bootstrap the profile lazily on first use without re-pulling on every details open. */
     suspend fun refreshIfStale(maxAgeMs: Long = DEFAULT_STALE_MS) {
         mutex.withLock {
+            dropUnrequestedTrackers()
             val enabled = fetchers.filter { it.isEnabled() }
             if (enabled.isEmpty()) return
             val cutoff = System.currentTimeMillis() - maxAgeMs
             val stale = enabled.filter { (repository.lastFetch(it.trackerId) ?: 0L) < cutoff }
             if (stale.isNotEmpty()) runPull(stale)
         }
+    }
+
+    /**
+     * Forget the cached rows of any tracker the user has turned the pull off for. Without this they
+     * keep shaping the profile forever, since the read path takes every cached row and only the pull
+     * path looks at whether a tracker is still feeding it. Keyed to the preference rather than
+     * [TrackerLibraryFetcher.isEnabled], so a tracker that logs itself out keeps its cache.
+     */
+    private suspend fun dropUnrequestedTrackers() {
+        fetchers.filterNot { it.isPullRequested() }
+            .forEach { repository.deleteTracker(it.trackerId) }
     }
 
     private suspend fun runPull(targets: List<TrackerLibraryFetcher>) {

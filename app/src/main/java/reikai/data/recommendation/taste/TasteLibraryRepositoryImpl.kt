@@ -42,6 +42,10 @@ class TasteLibraryRepositoryImpl(
         }
     }
 
+    override suspend fun deleteTracker(trackerId: Long) {
+        database.taste_libraryQueries.deleteByTracker(trackerId)
+    }
+
     override suspend fun deleteAll() {
         database.taste_libraryQueries.deleteAll()
     }

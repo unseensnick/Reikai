@@ -20,8 +20,9 @@ class AnilistLibraryFetcher(
 
     override val trackerId: Long = anilist.id
 
-    override fun isEnabled(): Boolean =
-        preferences.pullLibraryFromAnilist.get() && anilist.isLoggedIn
+    override fun isPullRequested(): Boolean = preferences.pullLibraryFromAnilist.get()
+
+    override fun isEnabled(): Boolean = isPullRequested() && anilist.isLoggedIn
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         anilist.getUserLibrary().map { it.toTrackedEntry() }

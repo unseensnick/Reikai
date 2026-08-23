@@ -19,8 +19,9 @@ class BangumiLibraryFetcher(
 
     override val trackerId: Long = bangumi.id
 
-    override fun isEnabled(): Boolean =
-        preferences.pullLibraryFromBangumi.get() && bangumi.isLoggedIn
+    override fun isPullRequested(): Boolean = preferences.pullLibraryFromBangumi.get()
+
+    override fun isEnabled(): Boolean = isPullRequested() && bangumi.isLoggedIn
 
     override suspend fun fetchLibrary(): List<TrackedEntry> =
         bangumi.getUserLibrary().map { it.toTrackedEntry() }
