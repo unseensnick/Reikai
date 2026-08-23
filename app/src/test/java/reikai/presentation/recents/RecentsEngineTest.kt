@@ -378,6 +378,18 @@ class RecentsEngineTest {
     }
 
     @Test
+    fun `a long press on an already-selected row drops it, as it does everywhere else`() {
+        val engine = engine(listOf(provider(ContentType.MANGA)))
+        val ordered = listOf(ref(manga1, 1), ref(manga2, 2))
+
+        engine.toggleSelection(ordered.first())
+        engine.toggleRangeSelection(ordered.last(), ordered)
+        engine.toggleRangeSelection(ordered.last(), ordered)
+
+        engine.selection.value shouldContainExactly listOf(ordered.first())
+    }
+
+    @Test
     fun `a range with no anchor selects only the row that was pressed`() {
         val engine = engine(listOf(provider(ContentType.MANGA)))
         val ordered = listOf(ref(manga1, 1), ref(manga2, 2))

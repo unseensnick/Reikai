@@ -125,7 +125,7 @@ fun <T> EntryDuplicateDialog(
 
     /** Select every card between the last-toggled anchor and [id] (inclusive), in display order. */
     fun toggleRangeSelection(id: Long) {
-        picked = EntrySelection.range(picked, id, cards.map { it.ui.id })
+        picked = EntrySelection.rangeOrToggle(picked, id, cards.map { it.ui.id })
         selectionMode = true
     }
 

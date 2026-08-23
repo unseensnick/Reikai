@@ -127,7 +127,8 @@ class RelatedMangasBrowseViewModel(
 
     /** Select every item between the last-toggled anchor and [url] (inclusive), in display order. */
     fun toggleRangeSelection(url: String) = state.update { st ->
-        selectionState = EntrySelection.range(selectionState, url, st.visibleItems().map { it.candidate.manga.url })
+        selectionState =
+            EntrySelection.rangeOrToggle(selectionState, url, st.visibleItems().map { it.candidate.manga.url })
         st.copy(selectedUrls = selectionState.selection, selectionMode = true)
     }
 

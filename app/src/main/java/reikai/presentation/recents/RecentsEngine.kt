@@ -351,7 +351,7 @@ class RecentsEngine(
      * list instead, so a sweep under the All chip skipped every row of the other type.
      */
     fun toggleRangeSelection(chapter: ChapterRef, ordered: List<ChapterRef>) =
-        apply(EntrySelection.range(selectionState, chapter, ordered))
+        apply(EntrySelection.rangeOrToggle(selectionState, chapter, ordered))
 
     /** A collapsed group is one press over a block of rows, so it sweeps to the block's far edge. */
     fun toggleGroupSelection(group: List<ChapterRef>, ordered: List<ChapterRef>) =

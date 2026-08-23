@@ -499,7 +499,7 @@ class LibraryEngine(
     fun toggleRangeSelection(bucketKey: String, entry: EntryId, ordered: List<EntryId>) {
         val from =
             selectionState.takeIf { lastSelectionBucket == bucketKey } ?: SelectionState(selectionState.selection)
-        apply(EntrySelection.range(from, entry, ordered), bucketKey)
+        apply(EntrySelection.rangeOrToggle(from, entry, ordered), bucketKey)
     }
 
     fun selectAll(ordered: List<EntryId>) = apply(EntrySelection.selectAll(selectionState, ordered))

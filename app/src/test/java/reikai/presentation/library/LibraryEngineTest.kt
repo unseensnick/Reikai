@@ -208,6 +208,15 @@ class LibraryEngineTest {
     }
 
     @Test
+    fun `a long press on an already-selected entry drops it, as it does everywhere else`() {
+        val ordered = listOf(m1, m2)
+        engine.toggleSelection(bucket, m1)
+        engine.toggleRangeSelection(bucket, m2, ordered)
+        engine.toggleRangeSelection(bucket, m2, ordered)
+        engine.selection.value shouldContainExactlyInAnyOrder listOf(m1)
+    }
+
+    @Test
     fun `a range select in a different category selects only the tapped entry`() {
         engine.toggleSelection(bucket, m1)
         engine.toggleRangeSelection("8", m3, listOf(m1, m2, m3))

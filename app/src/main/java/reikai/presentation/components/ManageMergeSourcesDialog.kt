@@ -108,7 +108,7 @@ fun ManageMergeSourcesDialog(
 
     fun rangeSelect(id: Long) {
         selectionMode = true
-        picked = EntrySelection.range(picked, id, items.map { it.id })
+        picked = EntrySelection.rangeOrToggle(picked, id, items.map { it.id })
     }
 
     AlertDialog(
