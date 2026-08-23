@@ -27,13 +27,24 @@ class GetTasteEntriesTest {
         tags = tags,
     )
 
-    private fun getTasteEntries(showAdult: Boolean): GetTasteEntries {
+    private fun getTasteEntries(
+        showAdult: Boolean,
+        alwaysAdult: Set<String> = emptySet(),
+        neverAdult: Set<String> = emptySet(),
+    ): GetTasteEntries {
         val repository = mockk<TasteLibraryRepository>()
         coEvery { repository.getAll() } returns listOf(clean, explicit)
         val preference = mockk<Preference<Boolean>>()
         every { preference.get() } returns showAdult
+        // Stubbed explicitly: a relaxed mock returns a bare Object for a generic Preference<T>.
+        val always = mockk<Preference<Set<String>>>()
+        every { always.get() } returns alwaysAdult
+        val never = mockk<Preference<Set<String>>>()
+        every { never.get() } returns neverAdult
         val preferences = mockk<TrackPreferences>()
         every { preferences.showAdultTrackerContent } returns preference
+        every { preferences.alwaysAdultTags } returns always
+        every { preferences.neverAdultTags } returns never
         return GetTasteEntries(repository, preferences)
     }
 
@@ -45,5 +56,17 @@ class GetTasteEntriesTest {
     @Test
     fun `every entry is kept when the user has opted in`() = runTest {
         getTasteEntries(showAdult = true).await() shouldContainExactly listOf(clean, explicit)
+    }
+
+    @Test
+    fun `the user's allowed tags reach the filter`() = runTest {
+        getTasteEntries(showAdult = false, neverAdult = setOf("hentai"))
+            .await() shouldContainExactly listOf(clean, explicit)
+    }
+
+    @Test
+    fun `the user's denied tags reach the filter`() = runTest {
+        getTasteEntries(showAdult = false, alwaysAdult = setOf("action"))
+            .await() shouldContainExactly emptyList()
     }
 }

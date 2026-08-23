@@ -121,4 +121,52 @@ class AdultContentTest {
     fun `published adult genres are treated as sexual content`(tag: String) {
         entry(tags = listOf(tag)).isSexuallyExplicit() shouldBe true
     }
+
+    /**
+     * The user's own tag picks, which outrank both the keyword list and the tracker (owner,
+     * 2026-08-23). The precedence between the two lists is what keeps that safe.
+     */
+    @Test
+    fun `a denied tag makes an otherwise clean entry explicit`() {
+        entry(tags = listOf("ecchi"))
+            .isSexuallyExplicit(AdultTagOverrides(alwaysAdult = setOf("ecchi"))) shouldBe true
+    }
+
+    @Test
+    fun `an allowed tag clears a keyword the built-in list would have caught`() {
+        entry(tags = listOf("erotica"))
+            .isSexuallyExplicit(AdultTagOverrides(neverAdult = setOf("erotica"))) shouldBe false
+    }
+
+    @Test
+    fun `an allowed tag also overrules the tracker's own adult verdict`() {
+        entry(adult = AdultContent.ADULT, tags = listOf("yaoi"))
+            .isSexuallyExplicit(AdultTagOverrides(neverAdult = setOf("yaoi"))) shouldBe false
+    }
+
+    @Test
+    fun `an allowed tag does not clear an entry that also carries an explicit one`() {
+        entry(tags = listOf("yaoi", "hentai"))
+            .isSexuallyExplicit(AdultTagOverrides(neverAdult = setOf("yaoi"))) shouldBe true
+    }
+
+    @Test
+    fun `denying beats allowing when a tag sits in both lists`() {
+        entry(tags = listOf("ecchi"))
+            .isSexuallyExplicit(
+                AdultTagOverrides(alwaysAdult = setOf("ecchi"), neverAdult = setOf("ecchi")),
+            ) shouldBe true
+    }
+
+    @Test
+    fun `an override matches a whole tag, never part of one`() {
+        entry(tags = listOf("reverse harem"))
+            .isSexuallyExplicit(AdultTagOverrides(alwaysAdult = setOf("harem"))) shouldBe false
+    }
+
+    @Test
+    fun `a tracker's adult verdict still stands when no tag was allowed`() {
+        entry(adult = AdultContent.ADULT, tags = listOf("romance"))
+            .isSexuallyExplicit(AdultTagOverrides(neverAdult = setOf("yaoi"))) shouldBe true
+    }
 }

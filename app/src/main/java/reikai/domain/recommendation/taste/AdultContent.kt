@@ -14,15 +14,47 @@ enum class AdultContent {
 }
 
 /**
- * Resolves whether an entry counts as sexually explicit. The tracker's own answer wins; only where
- * it cannot answer does this fall back to matching the entry's tags, which are already lowercased
- * by `toTagKey`.
+ * A user's own answers about specific tags. Matched exactly, because these are picked from tag keys
+ * already in the taste cache; the built-in list below stays substring-based because it screens
+ * vocabulary nobody enumerated.
  */
-fun TrackedEntry.isSexuallyExplicit(): Boolean = when (adult) {
-    AdultContent.ADULT -> true
-    AdultContent.CLEAN -> false
-    AdultContent.UNKNOWN -> tags.any { tag -> SEXUAL_CONTENT_TAGS.any { it in tag } }
+data class AdultTagOverrides(
+    val alwaysAdult: Set<String> = emptySet(),
+    val neverAdult: Set<String> = emptySet(),
+) {
+    companion object {
+        val NONE = AdultTagOverrides()
+    }
 }
+
+/**
+ * Resolves whether an entry counts as sexually explicit.
+ *
+ * A user's pick outranks the tracker (owner, 2026-08-23): offering the control at all implies it
+ * decides, since a switch the tracker can veto is not a control. Below that the tracker's own answer
+ * still beats the keyword guess. Tags are already lowercased by `toTagKey`.
+ */
+fun TrackedEntry.isSexuallyExplicit(overrides: AdultTagOverrides = AdultTagOverrides.NONE): Boolean {
+    // Deny is checked against the untouched tags, so a tag in both lists still counts as explicit.
+    if (tags.any { it in overrides.alwaysAdult }) return true
+    val considered = tags.filterNot { it in overrides.neverAdult }
+    // An allowed tag also clears the tracker's own ADULT verdict, leaving the rest of the tags to
+    // decide. Without this the control could not answer a title the tracker flagged.
+    val verdict = if (considered.size != tags.size && adult == AdultContent.ADULT) {
+        AdultContent.UNKNOWN
+    } else {
+        adult
+    }
+    return when (verdict) {
+        AdultContent.ADULT -> true
+        AdultContent.CLEAN -> false
+        AdultContent.UNKNOWN -> considered.any(::isBuiltInSexualTag)
+    }
+}
+
+/** Whether the built-in list already reads [tag] as sexual content, which is what decides which of
+ *  the two tag pickers offers it. */
+fun isBuiltInSexualTag(tag: String): Boolean = SEXUAL_CONTENT_TAGS.any { it in tag }
 
 /**
  * Substrings marking a genre or tag as sexually explicit, taken from the services' own published

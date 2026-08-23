@@ -64,5 +64,13 @@ class TrackPreferences(
     // recommendations do change on upgrade until the user turns this on.
     val showAdultTrackerContent: Preference<Boolean> =
         preferenceStore.getBoolean("show_adult_tracker_content", false)
+
+    // The user's own answers about specific tags, picked from what their tracked libraries carry.
+    // Both outrank the built-in keyword list and the tracker's own flag.
+    val alwaysAdultTags: Preference<Set<String>> =
+        preferenceStore.getStringSet("always_adult_tags", emptySet())
+
+    val neverAdultTags: Preference<Set<String>> =
+        preferenceStore.getStringSet("never_adult_tags", emptySet())
     // RK <--
 }

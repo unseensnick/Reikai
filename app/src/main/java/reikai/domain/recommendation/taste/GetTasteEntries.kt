@@ -19,6 +19,10 @@ class GetTasteEntries(
     suspend fun await(): List<TrackedEntry> {
         val entries = repository.getAll()
         if (trackPreferences.showAdultTrackerContent.get()) return entries
-        return entries.filterNot { it.isSexuallyExplicit() }
+        val overrides = AdultTagOverrides(
+            alwaysAdult = trackPreferences.alwaysAdultTags.get(),
+            neverAdult = trackPreferences.neverAdultTags.get(),
+        )
+        return entries.filterNot { it.isSexuallyExplicit(overrides) }
     }
 }

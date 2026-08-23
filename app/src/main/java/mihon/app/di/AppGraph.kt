@@ -65,6 +65,7 @@ import reikai.domain.novel.interactor.RepairNovelDetails
 import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import reikai.domain.recommendation.taste.GetObservedTasteTags
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.source.ReikaiSourcePreferences
@@ -197,6 +198,7 @@ interface AppGraph : ViewModelGraph {
     val mangaRecentsAdapterFactory: MangaRecentsAdapter.Factory
     val novelRecentsAdapterFactory: NovelRecentsAdapter.Factory
     val tasteLibraryRepository: TasteLibraryRepository
+    val getObservedTasteTags: GetObservedTasteTags
 
     // Interactors are unscoped, so every read builds a fresh instance. That matches the pre-port
     // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.

@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -58,6 +59,8 @@ import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
+import reikai.domain.recommendation.taste.ObservedTag
+import reikai.domain.recommendation.taste.isBuiltInSexualTag
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -89,8 +92,18 @@ object SettingsTrackingScreen : SearchableSettings {
         val trackPreferences = remember { context.appGraph.trackPreferences }
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
         val tasteLibraryRepository = remember { context.appGraph.tasteLibraryRepository } // RK
+        val getObservedTasteTags = remember { context.appGraph.getObservedTasteTags } // RK
         val trackerManager = remember { context.appGraph.trackerManager }
         val sourceManager = remember { context.appGraph.sourceManager }
+
+        // RK: the two adult-tag pickers offer only real tags from the cache, split by whether the
+        // built-in list already catches them, so each list holds only choices that change something.
+        val observedTags by produceState(emptyList<ObservedTag>()) {
+            value = getObservedTasteTags.await()
+        }
+        val (caughtTags, uncaughtTags) = remember(observedTags) {
+            observedTags.partition { isBuiltInSexualTag(it.tag) }
+        }
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {
@@ -156,6 +169,22 @@ object SettingsTrackingScreen : SearchableSettings {
                     tasteLibraryRepository.deleteAll()
                     true
                 },
+            ),
+            // RK: enabled means visible here, so an empty cache hides these rather than opening an
+            // empty dialog. Labels carry the entry count so the common tags are obvious.
+            Preference.PreferenceItem.MultiSelectListPreference(
+                preference = trackPreferences.alwaysAdultTags,
+                entries = uncaughtTags.associate { it.tag to "${it.tag} (${it.count})" },
+                title = stringResource(MR.strings.pref_always_adult_tags),
+                subtitle = stringResource(MR.strings.pref_adult_tags_summary),
+                enabled = uncaughtTags.isNotEmpty(),
+            ),
+            Preference.PreferenceItem.MultiSelectListPreference(
+                preference = trackPreferences.neverAdultTags,
+                entries = caughtTags.associate { it.tag to "${it.tag} (${it.count})" },
+                title = stringResource(MR.strings.pref_never_adult_tags),
+                subtitle = stringResource(MR.strings.pref_adult_tags_summary),
+                enabled = caughtTags.isNotEmpty(),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),
