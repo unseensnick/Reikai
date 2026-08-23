@@ -373,9 +373,21 @@ the shared `candidate()` builder in `TrackerRecommendations` set only url, title
   back in the same query at no extra cost, verified against the live API and then on device.
 - **MyAnimeList, Shikimori and MangaUpdates cannot, in the call we already make.** Jikan's
   `/manga/{id}/recommendations` returns a trimmed entry, and Shikimori's `/similar` returns the v1
-  short manga; neither carries genres or a rating. Each would need a per-title call, or for
-  Shikimori one batched GraphQL `mangas(ids:)` lookup. Not taken; they answer `UNKNOWN` and fall to
-  the genre path, which is empty for them.
+  short manga; neither carries genres or a rating. They answer `UNKNOWN` and fall to the genre path,
+  which is empty for them.
+
+  **Shikimori's batched lookup, priced properly** (measured 2026-08-23, correcting an earlier note
+  here that called it one call). `mangas(ids:)` caps at 50 per its own schema, and real `/similar`
+  lists are much longer: 88 for Solo Leveling, 138 for Berserk, 96 and 97 for two others, and 0 for
+  one. So it is two or three GraphQL calls per carousel open, not one. Cheaper than a call per title,
+  not free.
+
+  Two things worth knowing before anyone builds it. **Querying by explicit ids does not censor by
+  default**, so no extra parameter is needed: all four known-adult ids came back with the argument
+  omitted, and `censored: true` returned zero of four, which is the silent drop to avoid. And the
+  coverage is still partial for the reason already recorded above: one of those four carries genres
+  Comedy, Ecchi, School and Yuri with no Hentai among them, so the genre path misses it exactly as
+  `isCensored` would have over-caught it.
 - **Source-native candidates are uncertain.** They come from search parsing, and most extensions
   populate only title, url and thumbnail until details are fetched, so their genres are often absent.
 
