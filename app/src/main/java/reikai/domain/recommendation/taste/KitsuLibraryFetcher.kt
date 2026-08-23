@@ -34,6 +34,7 @@ class KitsuLibraryFetcher(
         tags = tags.map { it.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
         malId = malId,
         anilistId = anilistId,
+        adult = kitsuAdultContent(nsfwCategories, sfw),
     )
 
     // Lower-cased because GraphQL reports the status enum in upper case where the JSON:API reported
@@ -47,3 +48,25 @@ class KitsuLibraryFetcher(
         else -> TrackStatus.UNKNOWN
     }
 }
+
+/**
+ * Kitsu's two adult signals, neither of which can certify a title clean, so this never answers
+ * [AdultContent.CLEAN]: `sfw` only means "not rated R18" and an entry with no flagged category only
+ * means nobody tagged one. Leaving the rest [AdultContent.UNKNOWN] keeps the keyword fallback and
+ * the user's own tag picks able to speak.
+ *
+ * Measured 2026-08-23: Kitsu flags 25 of its 243 categories NSFW, and [NON_SEXUAL_NSFW_CATEGORIES]
+ * are the two that are not sexual content by Reikai's definition. `sfw == false` is exactly
+ * `ageRating == R18`, so it never fires on violence: Berserk is rated R and reads as safe here.
+ */
+internal fun kitsuAdultContent(nsfwCategories: List<String>, sfw: Boolean?): AdultContent {
+    val sexualCategory = nsfwCategories.any { it.toTagKey() !in NON_SEXUAL_NSFW_CATEGORIES }
+    return if (sexualCategory || sfw == false) AdultContent.ADULT else AdultContent.UNKNOWN
+}
+
+/**
+ * Flagged NSFW by Kitsu but pinned as not sexual content by AdultContentTest: Nudity carries
+ * `isAdult: false` on AniList, and Yuri is orientation rather than explicitness (owner, 2026-08-22).
+ * Both still arrive as ordinary tags, where the user can deny them if they disagree.
+ */
+private val NON_SEXUAL_NSFW_CATEGORIES = setOf("nudity", "yuri")

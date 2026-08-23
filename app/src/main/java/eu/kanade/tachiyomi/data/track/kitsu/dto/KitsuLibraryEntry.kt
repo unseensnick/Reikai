@@ -14,4 +14,9 @@ data class KitsuLibraryEntry(
     val tags: List<String>,
     val malId: Long?,
     val anilistId: Long?,
+    /** Titles of this entry's categories that Kitsu flags NSFW, kept separate from [tags] so the
+     *  fetcher can decide; two of the flagged ones are not sexual content by Reikai's definition. */
+    val nsfwCategories: List<String> = emptyList(),
+    /** Kitsu's `sfw`, which is `ageRating != R18`. Null when the query did not ask. */
+    val sfw: Boolean? = null,
 )

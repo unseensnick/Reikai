@@ -472,12 +472,14 @@ class KitsuApi(
                       |rating
                       |media {
                         |id
+                        |sfw
                         |titles {
                           |preferred
                         |}
                         |categories(first: 100) {
                           |nodes {
                             |title(locales: ["en"])
+                            |isNsfw
                           |}
                         |}
                         |mappings(first: 50) {
@@ -535,6 +537,8 @@ class KitsuApi(
             tags = media.categories.nodes.mapNotNull { it.localizedTitle() },
             malId = externalIds[MAL_MAPPING_SITE]?.toLongOrNull(),
             anilistId = externalIds[ANILIST_MAPPING_SITE]?.toLongOrNull(),
+            nsfwCategories = media.categories.nodes.filter { it.isNsfw }.mapNotNull { it.localizedTitle() },
+            sfw = media.sfw,
         )
     }
 
