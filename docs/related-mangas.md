@@ -88,6 +88,12 @@ Two lists under the same setting let you correct either direction, picking from 
 
 Changing the setting clears the cached tracker libraries, because some trackers only return explicit titles when asked; the next pull fetches them again under the new answer.
 
+::: warning Kitsu decides some of this before Reikai sees it
+Kitsu hides its own adult categories unless your Kitsu account's SFW filter is off, and there is no way to ask for them.
+So on a default Kitsu account those categories never reach Reikai: **Fill from tracker** gives a shorter genre list than other trackers would, and turning **Show adult content from trackers** on does not lengthen it.
+Change it on your Kitsu account settings if you want them.
+:::
+
 ## Reordering the row
 
 With **Rerank by taste** <Badge type="info" text="On" /> the source's suggestions are reordered toward your taste.

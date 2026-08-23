@@ -28,18 +28,23 @@ data class AdultTagOverrides(
 }
 
 /**
- * Resolves whether an entry counts as sexually explicit.
+ * Resolves whether something counts as sexually explicit, from whatever its provider said plus its
+ * tags. Every adult decision routes through here; a surface answering it its own way has drifted.
  *
- * A user's pick outranks the tracker (owner, 2026-08-23): offering the control at all implies it
- * decides, since a switch the tracker can veto is not a control. Below that the tracker's own answer
- * still beats the keyword guess. Tags are already lowercased by `toTagKey`.
+ * A user's pick outranks the provider (owner, 2026-08-23): offering the control at all implies it
+ * decides, since a switch the tracker can veto is not a control. Below that the provider's own
+ * answer still beats the keyword guess. Tags are already lowercased by `toTagKey`.
  */
-fun TrackedEntry.isSexuallyExplicit(overrides: AdultTagOverrides = AdultTagOverrides.NONE): Boolean {
+fun resolveSexuallyExplicit(
+    adult: AdultContent,
+    tags: List<String>,
+    overrides: AdultTagOverrides = AdultTagOverrides.NONE,
+): Boolean {
     // Deny is checked against the untouched tags, so a tag in both lists still counts as explicit.
     if (tags.any { it in overrides.alwaysAdult }) return true
     val considered = tags.filterNot { it in overrides.neverAdult }
-    // An allowed tag also clears the tracker's own ADULT verdict, leaving the rest of the tags to
-    // decide. Without this the control could not answer a title the tracker flagged.
+    // An allowed tag also clears the provider's own ADULT verdict, leaving the rest of the tags to
+    // decide. Without this the control could not answer a title the provider flagged.
     val verdict = if (considered.size != tags.size && adult == AdultContent.ADULT) {
         AdultContent.UNKNOWN
     } else {
@@ -48,21 +53,19 @@ fun TrackedEntry.isSexuallyExplicit(overrides: AdultTagOverrides = AdultTagOverr
     return when (verdict) {
         AdultContent.ADULT -> true
         AdultContent.CLEAN -> false
-        AdultContent.UNKNOWN -> areTagsSexuallyExplicit(considered, overrides)
+        AdultContent.UNKNOWN -> considered.any(::isBuiltInSexualTag)
     }
 }
 
-/**
- * The tag half on its own, for a candidate that carries genres but no tracker verdict. Same
- * precedence: a denied tag decides, an allowed tag is not evidence, then the built-in list.
- */
+/** A cached tracker entry, which carries its tracker's verdict alongside its tags. */
+fun TrackedEntry.isSexuallyExplicit(overrides: AdultTagOverrides = AdultTagOverrides.NONE): Boolean =
+    resolveSexuallyExplicit(adult, tags, overrides)
+
+/** Tags with nobody to rule on them: a genre list from a provider that reports no adult flag. */
 fun areTagsSexuallyExplicit(
     tags: List<String>,
     overrides: AdultTagOverrides = AdultTagOverrides.NONE,
-): Boolean {
-    if (tags.any { it in overrides.alwaysAdult }) return true
-    return tags.filterNot { it in overrides.neverAdult }.any(::isBuiltInSexualTag)
-}
+): Boolean = resolveSexuallyExplicit(AdultContent.UNKNOWN, tags, overrides)
 
 /** Whether the built-in list already reads [tag] as sexual content, which is what decides which of
  *  the two tag pickers offers it. */

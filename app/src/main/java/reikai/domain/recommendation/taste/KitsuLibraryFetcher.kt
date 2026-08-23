@@ -53,15 +53,26 @@ class KitsuLibraryFetcher(
  * Kitsu's two adult signals, neither of which can certify a title clean, so this never answers
  * [AdultContent.CLEAN]: `sfw` only means "not rated R18" and an entry with no flagged category only
  * means nobody tagged one. Leaving the rest [AdultContent.UNKNOWN] keeps the keyword fallback and
- * the user's own tag picks able to speak.
- *
- * Measured 2026-08-23: Kitsu flags 25 of its 243 categories NSFW, and [NON_SEXUAL_NSFW_CATEGORIES]
- * are the two that are not sexual content by Reikai's definition. `sfw == false` is exactly
- * `ageRating == R18`, so it never fires on violence: Berserk is rated R and reads as safe here.
+ * the user's own tag picks able to speak. `sfw == false` is exactly `ageRating == R18`, so it never
+ * fires on violence: Berserk is rated R and reads as safe. Which categories count is
+ * [isKitsuSexualCategory].
  */
 internal fun kitsuAdultContent(nsfwCategories: List<String>, sfw: Boolean?): AdultContent {
-    val sexualCategory = nsfwCategories.any { it.toTagKey() !in NON_SEXUAL_NSFW_CATEGORIES }
+    val sexualCategory = nsfwCategories.any { isKitsuSexualCategory(it) }
     return if (sexualCategory || sfw == false) AdultContent.ADULT else AdultContent.UNKNOWN
+}
+
+/**
+ * Whether a category Kitsu flags NSFW is sexual content by Reikai's definition, given the tags the
+ * user has said are not. Kitsu's own flag is the wider of the two, so reading it raw would both
+ * classify entries this app would not and strip genres from Fill-from-tracker that every other
+ * tracker keeps. `KitsuApi.getMangaMetadata` and [kitsuAdultContent] share it so one answer serves
+ * both; only the metadata path passes [allowedTags], since the library mapping is resolved against
+ * the user's picks later, at read time.
+ */
+internal fun isKitsuSexualCategory(category: String, allowedTags: Set<String> = emptySet()): Boolean {
+    val key = category.toTagKey()
+    return key !in NON_SEXUAL_NSFW_CATEGORIES && key !in allowedTags
 }
 
 /**

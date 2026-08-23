@@ -68,4 +68,22 @@ class AdultCandidateFilterTest {
         filter(overrides = AdultTagOverrides(neverAdult = setOf("erotica")))
             .shouldHide(candidate(genre = "Erotica")) shouldBe false
     }
+
+    @Test
+    fun `a denied tag outranks a provider saying clean`() {
+        filter(overrides = AdultTagOverrides(alwaysAdult = setOf("ecchi")))
+            .shouldHide(candidate(adult = AdultContent.CLEAN, genre = "Action, Ecchi")) shouldBe true
+    }
+
+    @Test
+    fun `an allowed tag clears a provider saying adult`() {
+        filter(overrides = AdultTagOverrides(neverAdult = setOf("yuri")))
+            .shouldHide(candidate(adult = AdultContent.ADULT, genre = "Yuri, Romance")) shouldBe false
+    }
+
+    @Test
+    fun `an allowed tag leaves the remaining genres to decide`() {
+        filter(overrides = AdultTagOverrides(neverAdult = setOf("yuri")))
+            .shouldHide(candidate(adult = AdultContent.ADULT, genre = "Yuri, Hentai")) shouldBe true
+    }
 }

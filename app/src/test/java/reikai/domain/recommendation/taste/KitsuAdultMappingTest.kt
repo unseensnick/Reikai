@@ -2,6 +2,8 @@ package reikai.domain.recommendation.taste
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 /**
  * Kitsu's two adult signals. Kitsu flags 25 of its 243 categories NSFW (measured 2026-08-23), and
@@ -48,5 +50,21 @@ class KitsuAdultMappingTest {
     @Test
     fun `category matching ignores case, since Kitsu titles them in title case`() {
         kitsuAdultContent(listOf("YURI"), sfw = true) shouldBe AdultContent.UNKNOWN
+    }
+
+    @Test
+    fun `the genre list drops a category Kitsu flags and Reikai agrees is sexual`() {
+        isKitsuSexualCategory("Sex") shouldBe true
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["Yuri", "Nudity"])
+    fun `the genre list keeps the categories Reikai does not call sexual`(category: String) {
+        isKitsuSexualCategory(category) shouldBe false
+    }
+
+    @Test
+    fun `a tag the user allowed outranks Kitsu's own flag`() {
+        isKitsuSexualCategory("Bondage", allowedTags = setOf("bondage")) shouldBe false
     }
 }

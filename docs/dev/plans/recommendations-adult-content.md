@@ -112,7 +112,7 @@ the services are. Measured against the current tree:
 
 | Tracker | Whole-list call | Score | Status | Tags | Verdict |
 |---|---|---|---|---|---|
-| MdList (MangaDex) | Yes, already built | Batched, separate call | Yes | On the DTO, dropped by the mapper | **Add it** |
+| MdList (MangaDex) | Yes, already built | Batched, separate call | Yes | On the DTO, dropped by the mapper | Capable, not being built (owner, 2026-08-23) |
 | MangaBaka | No, but `/v1/my/library` is the per-id path and the granted scope is `library.read` | Yes | Yes | Series call per title | Likely, verify the endpoint |
 | Hikka | No, but the granted OAuth scope includes `readlist` | Yes | Yes | Yes | Likely, verify the endpoint |
 | MangaUpdates | No, and none evidenced | Separate call per title | Yes | Separate call per title | **No** |
@@ -412,21 +412,40 @@ Slayer has no rating at all). `LibraryEntry.nsfw` also exists and reads as the i
 `media.sfw` on real data, so it carries the same information one level further from the categories
 and is not used.
 
+**The flagged categories only arrive if the user's own Kitsu account allows them** (measured
+2026-08-23, `devtools/api-probes/kitsu_graphql_vs_rest.py`). Kitsu counts them in the connection's
+`totalCount` and omits them from `nodes`: Citrus returns 4 of 5 (the missing one is Yuri), Gantz 13
+of 14 (Nudity), Beastars 5 of 6 (Nudity), Nana to Kaoru 7 of 10, while Berserk, Vagabond and Goblin
+Slayer, which sit in no flagged category, return exactly their `totalCount`. `Manga.categories`
+takes only paging and `sort`, and a full schema sweep found the switch on the account instead:
+`Account.sfwFilter` / `Account.sfwFilterPreference`. So the app cannot ask.
+
+Two consequences worth knowing before touching this. On a default account `nsfwCategories` is always
+empty, so this whole mapping reduces to `sfw == false` and the category half is dead weight rather
+than wrong. And **Fill from tracker gives a shorter genre list on Kitsu than on any other tracker**,
+which no Reikai setting can restore, because Kitsu withheld the genres upstream. That is now in
+`docs/related-mangas.md`, since a user would otherwise read it as Kitsu simply having poor data.
+
 It depended on the Kitsu GraphQL move, which is why it was sequenced last. See
 [kitsu-single-api.md](kitsu-single-api.md).
 
-**Step 7, the MangaDex taste fetcher.** Add `MdListLibraryFetcher` over the existing
-`fetchAllFollows()`, mapping tags off `MangaDataDto.attributes` rather than through
+**Step 7, the MangaDex taste fetcher. Not being built** (owner, 2026-08-23). Recorded because the
+capability is real and someone will price it again: `MdListLibraryFetcher` would sit over the
+existing `fetchAllFollows()`, mapping tags off `MangaDataDto.attributes` rather than through
 `MdUtil.createMangaEntry`, which drops them, and pulling scores through the batched `mangasRating`.
-MangaDex's `contentRating` is the adult signal, so it answers the field from step 1 on arrival rather
-than shipping as another `UNKNOWN`. Verify: a device pull whose entry count matches the owner's
-MangaDex follow count, with tags present and adult titles marked.
+`contentRating` answers the adult field on arrival, and `attributes.links` carries the `al` and `mal`
+ids, so it would also feed the anti-echo filter's cross-tracker keys for free. The one trap: `MdList`
+resolves its source through `MdUtil.getEnabledMangaDex`, which is null when that source is not
+enabled, so `isEnabled()` would have to handle it.
 
 **Step 8, MangaBaka and Hikka, if their list endpoints exist.** Both granted scopes imply a
 readable list (`library.read`, `readlist`) and both would arrive with good per-entry data, but neither
 endpoint is called anywhere in the tree, so this step starts by confirming the endpoint exists before
 committing to the fetcher. MangaBaka is the more valuable of the two, since its `content_rating` is
-the cleanest adult signal of any tracker we support. Verify: the endpoint returns a paged list for the
+the cleanest adult signal of any tracker we support, though `MangaBakaItem` parses neither that field
+nor the granular tags today, and `findLibManga` needs a second `/v1/series/{id}` call for title and
+genres, so unless the list endpoint embeds series data the tags cost a call per title, which is the
+exact cost that ruled MangaUpdates out. Verify: the endpoint returns a paged list for the
 owner's account; if it does not, the step closes as not-viable with that recorded rather than left
 open.
 
@@ -457,6 +476,14 @@ So Fill-from-tracker screens the genres a tracker returns, at the one seam both 
 Kitsu's own category filter stays, because it names its adult categories precisely where keywords
 guess, but it now follows the setting like everything else instead of stripping unconditionally.
 
+**Amended 2026-08-23, after an audit found it followed the setting but not the definition.** It was
+dropping every category Kitsu flags, while `kitsuAdultContent` excludes Nudity and Yuri, and it ran
+before `GetTrackerMetadata` so no user tag pick could reach it: a Kitsu-bound yuri title lost its
+Yuri genre where an AniList-bound one kept it, and "Don't treat these tags as adult" was inert on
+Kitsu entirely. `isKitsuSexualCategory` is now the one answer both paths call, and the metadata path
+passes the allow list down. The library mapping deliberately does not pass it, because that verdict
+is stored at pull time and the user's picks are resolved at read time.
+
 **Step 10, the docs.** The taste profile is a documented user feature; the new setting needs a line in
 the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG entry.
 
@@ -469,8 +496,9 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 - `app/src/main/java/reikai/domain/recommendation/taste/{Anilist,MyAnimeList,Kitsu}LibraryFetcher.kt`:
   the three fetchers that answer the field. `ShikimoriLibraryFetcher.kt` and `BangumiLibraryFetcher.kt`
   stay on the keyword fallback permanently, per the declines in Approach; do not add a flag to either.
-- `app/src/main/java/reikai/domain/recommendation/taste/AdultContent.kt`: the enum, the resolution
-  kernel and the keyword list, which is where the fallback and the tag picker both land.
+- `app/src/main/java/reikai/domain/recommendation/taste/AdultContent.kt`: the enum, the keyword list
+  and `resolveSexuallyExplicit`, the one kernel every adult decision goes through. A surface that
+  answers the question its own way has drifted, which is exactly what the carousel filter did.
 - `app/src/main/java/reikai/domain/recommendation/taste/RefreshTrackerLibrary.kt`: owns the invariant
   that the cache holds rows only for trackers the user still pulls from, which is what lets the
   adult-setting flip clear it whole.
@@ -497,8 +525,19 @@ widening, the cache invalidation and the orphan purge behind it. Step 5a (`2d7f0
 pickers. Step 5b (`9e484546a`): screening the carousel's candidates. Step 6 (`61f32b5d4`): Kitsu.
 Step 9 (`bc1eaa3f1`): Fill-from-tracker, and the ruling that search is never gated.
 
-Steps 7 and 8, the MangaDex fetcher and the unproven MangaBaka and Hikka endpoints, belong to the
-separate "widen the taste profile" roadmap item rather than to this one.
+Steps 7 and 8, the MangaBaka and Hikka endpoints, belong to the separate "widen the taste profile"
+roadmap item rather than to this one. The MangaDex fetcher is not being built (owner, 2026-08-23).
+
+**Audited 2026-08-23, and it found the surfaces disagreeing with each other.** The rule the whole
+design rests on, that a user's pick outranks the tracker, held on the taste profile and on
+Fill-from-tracker but not on the carousel: `AdultCandidateFilter` branched on the provider's verdict
+before reading either override list, so a denied tag lost to a `CLEAN` candidate and an allowed tag
+could not clear an `ADULT` one. Neither existing test caught it, because both override cases used an
+`UNKNOWN` candidate. The precedence now lives in one `resolveSexuallyExplicit`, which
+`isSexuallyExplicit`, `areTagsSexuallyExplicit` and the carousel filter all call. Verified by
+mutation: dropping the always-adult clause fails five tests across all three surfaces, and dropping
+the allowed-tag clearing fails one on the profile and one on the carousel. Kitsu's second divergence
+and its upstream gate are in step 6 and step 9 above.
 
 Grounded 2026-08-22 against the current tree and each service's own API documentation and source,
 then re-grounded 2026-08-23 against the live APIs, which rewrote step 5 entirely, reshaped step 9,
