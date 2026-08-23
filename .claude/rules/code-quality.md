@@ -35,7 +35,7 @@ Short, concise, useful: as brief as possible **without losing vital info**. Vita
 
 ### The length cap
 
-**Write to 8 lines. Over 10 is rejected by the `pre-commit` hook.** The unit is a run of consecutive comment lines, so a KDoc header and an inline paragraph are each measured whole; 9 or 10 lines is allowed but wants a reason you would say out loud. Scoped to the Reikai-owned trees (`reikai/`, `exh/`). Mihon's own files keep upstream shape, and the `// RK` islands in them already sit far under this.
+**8 lines. A 9th is rejected by the `pre-commit` hook.** The unit is a run of consecutive comment lines, so a KDoc header and an inline paragraph are each measured whole. Scoped to the Reikai-owned trees (`reikai/`, `exh/`); Mihon's own files keep upstream shape, and the `// RK` islands in them already sit far under this. The number is not arbitrary: 97% of Mihon's 1797 comment blocks already fit in 8 lines, so this codifies the surrounding style rather than departing from it.
 
 A KDoc tag list (`@param`, `@return`, `@property`) stops the count for the rest of its block: tags are an enumeration keyed to the signature, not narrative, and a function with six documented parameters is not the wall this cap is aimed at. Tags come last in a KDoc, so the prose above them is still measured in full. This is not a loophole to route prose through: a `@param` whose text is three sentences of rationale is the same wall, and belongs in the plan doc like any other.
 
@@ -46,6 +46,10 @@ A KDoc tag list (`@param`, `@return`, `@property`) stops the count for the rest 
 **When the explanation is genuinely irreducible, it splits in two places.** The part that stops the next reader from writing a bug (the invariant, the coupling, the trap that already bit, the deliberate divergence from upstream) stays in the code as a sentence or two. The narrative (why this approach, what else was tried, what broke, how the design got here) moves into the feature's record in `docs/dev/plans/`, and the comment points at it by filename. If no such record exists, that is the signal to write one, not to keep the paragraph in the source.
 
 Measure a tree with `pwsh scripts/comment-census.ps1 -Roots app/src/main/java/reikai`. A file above roughly 30% comments is a smell worth a look, not a hook failure.
+
+### No calendar dates in code comments
+
+**A comment never carries a date** (`2026-08-23`, "measured in August"). Git already records when a line was written, and a date in the source reads as an expiry the code does not have: the next reader cannot tell whether a two-year-old note is stale or simply still true. State the durable fact instead, and let the feature's record in `docs/dev/plans/` carry when something was measured and who ruled on it, which is what those docs are for. Enforced by the `pre-commit` hook on added comment lines in `.kt` / `.kts` / `.sq` / `.sqm`; only `20xx-MM-DD` is matched, so a format string (`yyyy-MM-dd`) and an epoch (`1970-01-01`) are spared. Attribution follows the same rule: `(owner, 2026-08-22)` belongs in the plan doc, not in the source.
 
 ## Naming (Kotlin)
 

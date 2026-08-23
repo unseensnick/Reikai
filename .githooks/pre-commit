@@ -148,6 +148,21 @@ if [ -n "$codenames" ]; then
   fail=1
 fi
 
+# ===== code comments (.kt/.kts/.sq/.sqm): no calendar dates =====
+# A date stamps when someone looked, which is what git already records, and it reads as an expiry the
+# code does not have. State the durable fact instead, and let the plan doc carry when it was measured.
+# Only 20xx-MM-DD is matched, so a format string ("yyyy-MM-dd") and an epoch (1970-01-01) are spared.
+datestamps=$(git diff --cached -U0 --diff-filter=ACM -- '*.kt' '*.kts' '*.sq' '*.sqm' \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E '(//|/\*|^\+[[:space:]]*\*|^\+[[:space:]]*--)' \
+  | grep -E '\b20[0-9]{2}-[01][0-9]-[0-3][0-9]\b' || true)
+if [ -n "$datestamps" ]; then
+  echo "code comments: drop the calendar date, state the durable fact instead"
+  echo "(git records when; the plan doc records what was measured):"
+  echo "$datestamps"
+  fail=1
+fi
+
 # ===== docs/dev/off-path-manifest.md: a deleted Mihon file must stay deleted and stay declared =====
 # The manifest only works if every row is real and no listed file comes back. Both failures used to be
 # silent: a resurrected file gives two implementations of one surface, and a reroute with no row means
@@ -199,12 +214,13 @@ if [ -f "$manifest" ]; then
 fi
 
 # ===== comment blocks (.kt under reikai/ or exh/): no wall of text =====
-# See .claude/rules/code-quality.md "Comments". A run of consecutive comment lines is capped: write to
-# 8, 9 or 10 needs a reason, over 10 is rejected. Over the cap the invariant stays in the code as a
-# sentence or two and the narrative moves to the feature's record in docs/dev/plans/.
+# See .claude/rules/code-quality.md "Comments". A run of consecutive comment lines is capped at 8, and
+# a 9th line is rejected. Over the cap the invariant stays in the code as a sentence or two and the
+# narrative moves to the feature's record in docs/dev/plans/.
 #
-# Scoped to the Reikai-owned trees. Mihon's own files keep upstream shape, and the // RK islands in
-# them already sit far under the cap (259 islands, none over 10 lines).
+# Scoped to the Reikai-owned trees. Mihon's own files keep upstream shape, which measures at 97% of
+# comment blocks within the same 8 lines, so this codifies the surrounding style rather than departing
+# from it.
 #
 # The whole staged file is measured, not just its added lines: a comment block is contiguous, so a
 # diff shows fragments of one and a wall added over two commits would slip through.
@@ -228,19 +244,13 @@ for f in $(git diff --cached --name-only --diff-filter=ACM -- '*.kt' | grep -E '
   ')
 "
 done
-over_cap=$(printf '%s' "$blocks" | grep -E ': (1[1-9]|[2-9][0-9]|[0-9]{3,}) lines$' || true)
-near_cap=$(printf '%s' "$blocks" | grep -E ': (9|10) lines$' || true)
+over_cap=$(printf '%s' "$blocks" | grep -E ': [0-9]+ lines$' || true)
 if [ -n "$over_cap" ]; then
-  echo "code comments: a comment block runs past the hard cap of 10 lines."
+  echo "code comments: a comment block runs past the cap of 8 lines."
   echo "Keep the invariant, the trap or the coupling in the code as a sentence or two; move the"
   echo "narrative to the feature's record in docs/dev/plans/ and point at it by filename:"
   echo "$over_cap"
   fail=1
-fi
-if [ -n "$near_cap" ]; then
-  echo "code comments: a block is at 9 or 10 lines, over the 8 you should be writing to."
-  echo "Allowed, but only with a reason you would say out loud; otherwise trim it:"
-  echo "$near_cap"
 fi
 
 if [ "$fail" -ne 0 ]; then
