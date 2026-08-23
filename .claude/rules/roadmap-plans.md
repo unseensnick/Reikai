@@ -35,7 +35,7 @@ A **substantial** feature or initiative gets one markdown here: a developer-faci
 - **Goal**: one or two sentences, what this delivers for the user.
 - **Why**: the motivation, the parity gap, or the constraint that made it worth building.
 - **Approach**: how it works now, in plain English first, then the mechanism. Describe current behavior, never the journey ("we tried X then switched to Y").
-- **Key files**: the entry points a developer would open first (`file:line` or path).
+- **Key files**: the entry points a developer would open first. **Cite a path plus the symbol a reader can grep for (`LibraryViewModel.kt`, `applyGrouping`), never a line number.** A `:NNN` is stale the next time anything above it moves, and a stale one is worse than none because it reads as precise. The same holds in the body of a plan doc. (Conversation is different: an inline `file:line` you just read is the evidence a claim is grounded, and CLAUDE.md's cite-before-you-claim rule asks for it there.)
 - **Status**: shipped / in progress / deferred, with commit short-SHA(s).
 - **Decisions & tradeoffs**: the choices made and what was deliberately left out.
 
