@@ -539,6 +539,23 @@ mutation: dropping the always-adult clause fails five tests across all three sur
 the allowed-tag clearing fails one on the profile and one on the carousel. Kitsu's second divergence
 and its upstream gate are in step 6 and step 9 above.
 
+**The audit's remaining four findings, closed 2026-08-23: two fixed, two retracted on measurement.**
+
+Fixed. The two tag pickers used to disappear whenever the taste cache was empty, stranding picks that
+stay in force: three of the four consumers of those lists (the carousel filter, Fill-from-tracker and
+Kitsu's category drop) read no cache at all, so a pick kept working while its control was gone. Each
+picker now offers the cache's tags plus anything already picked, and hides only when it has neither.
+Also fixed: three call sites read the cache from a `produceState` body or from `onValueChanged`, both
+of which run on Main. The repository is deliberately unchanged, since every upstream one has the same
+dispatcher-free shape and ours is the only one read from Compose.
+
+Retracted. The **Ukrainian keyword gap does not exist**: all 78 of Hikka's manga genres carry a
+`name_en`, `HikkaApi` reads `nameEn ?: nameUa`, and the only two sexual genres in its whole vocabulary
+are Erotica and Hentai, both already on the keyword list. The **orphan-row purge cannot fire**:
+`replaceTracker` is only ever called with a fetcher's own `trackerId`, so rows for a fetcher-less
+tracker are unreachable. Both were asserted from inference and died on a probe, which is the same
+failure this doc already records twice.
+
 Grounded 2026-08-22 against the current tree and each service's own API documentation and source,
 then re-grounded 2026-08-23 against the live APIs, which rewrote step 5 entirely, reshaped step 9,
 and corrected three claims this doc had been asserting from inference rather than measurement.
