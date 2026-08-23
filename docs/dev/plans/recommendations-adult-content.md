@@ -352,15 +352,36 @@ unchanged. Known limit, recorded rather than fixed: a per-tag control cannot ove
 verdict on a title carrying no relevant tag, which is the `Redo of Healer` case from step 3. That
 needs a per-title override and is out of scope.
 
-**Step 5b, screen the candidates, which the setting never actually did.** Found while grounding 5a
-and recorded here because the Approach above has claimed it since the plan was written. The setting
-reaches the taste profile only: `GetTasteEntries` is the single caller of the kernel, so
-`TasteCandidateFetcher` screens its cross-recommendation *seeds* and nothing else. Everything the
-carousel is fed goes through unscreened, both the source results from its tag search and the tracker
-recommendations, and a grep for the kernel across `reikai/domain/recommendation` finds it nowhere
-outside the `taste` package. Candidates carry `SManga.genre`, so they can go through the same kernel
-on the keyword path with no flag, which is the case the fallback was designed for. Verify: a known
-adult candidate reaches the carousel with the setting on and not with it off.
+**Step 5b, screen the candidates, which the setting never actually did.** The setting reached the
+taste profile only: `GetTasteEntries` was the single caller of the kernel, so `TasteCandidateFetcher`
+screened its cross-recommendation *seeds* and nothing else, while everything the carousel was fed
+went through unscreened.
+
+`AdultCandidateFilter` now runs where `RecommendationHideFilter` runs, **on read rather than on
+accumulate**. `Accumulator.add` is the tempting single funnel all four streams pass through, but the
+pool is cached, so screening there would bake the setting into the cache and leave a flip stale until
+the 30-minute window expired. Filtering per open costs nothing and needs no invalidation. On the
+browse grid adult candidates are dropped rather than marked `hidden`, because that hidden state has a
+reveal and revealing what the setting excluded would defeat it.
+
+**How far it actually reaches, which is the part worth knowing.** A candidate is screened by its
+provider's flag if it has one, else by its genres. Grounding found most candidates have neither:
+the shared `candidate()` builder in `TrackerRecommendations` set only url, title and thumbnail, so
+**every tracker recommendation arrived with nothing to screen at all**.
+
+- **AniList answers properly.** `mediaRecommendation` is a `Media`, so `isAdult` and `genres` come
+  back in the same query at no extra cost, verified against the live API and then on device.
+- **MyAnimeList, Shikimori and MangaUpdates cannot, in the call we already make.** Jikan's
+  `/manga/{id}/recommendations` returns a trimmed entry, and Shikimori's `/similar` returns the v1
+  short manga; neither carries genres or a rating. Each would need a per-title call, or for
+  Shikimori one batched GraphQL `mangas(ids:)` lookup. Not taken; they answer `UNKNOWN` and fall to
+  the genre path, which is empty for them.
+- **Source-native candidates are uncertain.** They come from search parsing, and most extensions
+  populate only title, url and thumbnail until details are fetched, so their genres are often absent.
+
+So the filter is real for AniList and best-effort elsewhere. That is worth stating plainly rather
+than letting the next reader assume the surface is covered, which is the mistake this step exists to
+correct.
 
 **Step 6, Kitsu.** Map `LibraryEntry.nsfw` or any `Category.isNsfw` to `ADULT`. Depends on the Kitsu
 GraphQL move, which is why it is last. See [kitsu-single-api.md](kitsu-single-api.md).
@@ -447,6 +468,11 @@ two of them (`Redo of Healer`, a MILF-party isekai) carry no tag the keyword lis
 so the service's own ruling catches what substring matching structurally cannot. And MyAnimeList's
 `nsfw=false` request really does drop adult entries before they reach the cache, which is the privacy
 half of the design working rather than a filter applied after storage.
+
+**Step 5b shipped.** Verified on device that the AniList recommendation query still returns `200`
+with the two new fields and that the carousel populates unchanged, which was the real risk in
+editing a live query. Not verified on device: an actual adult candidate being dropped, which would
+need a tracked title whose recommendations include one. The unit tests cover the decision itself.
 
 **Step 5a shipped.** Both pickers render under the adult switch, and on the owner's 142-row cache the
 allow picker correctly offered exactly one tag, `erotica (1)`, the only one the built-in list catches
