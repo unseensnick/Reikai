@@ -41,13 +41,12 @@ import java.util.concurrent.Executors
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Hosts lnreader plugins in headless QuickJS engines (no WebView, no Activity), so novel sources run
- * the same on a screen or on a background worker. Isolation is per plugin: each gets its own engine on
- * its own confinement thread, created lazily and closed after [IDLE_CLOSE_MS] idle, so calls to
- * different sources no longer serialize behind one app-wide lane. [loadPlugin] runs on a shared loader
- * engine instead, so a bulk `ensureLoaded` costs one engine rather than one per plugin; its args are
- * replayed into the plugin's own engine on the first real call. Every call suspends, returning a typed
- * value or throwing [LnPluginException], with per-call timeouts.
+ * Hosts lnreader plugins in headless QuickJS engines (no WebView, no Activity), so novel sources run the same on a
+ * screen or on a background worker. Isolation is per plugin: each gets its own engine on its own confinement thread,
+ * created lazily and closed after [IDLE_CLOSE_MS] idle, so calls to different sources do not serialize behind one
+ * app-wide lane. [loadPlugin] runs on a shared loader engine instead, so a bulk `ensureLoaded` costs one engine
+ * rather than one per plugin; its args are replayed into the plugin's own engine on the first real call. Calls
+ * suspend and throw [LnPluginException] on failure, under per-call timeouts.
  */
 @Inject
 @SingleIn(AppScope::class)

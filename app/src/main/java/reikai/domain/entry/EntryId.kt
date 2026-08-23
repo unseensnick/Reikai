@@ -5,8 +5,7 @@ import reikai.domain.library.ContentType
 /**
  * Neutral identity for a content entry the shared content layer drives, so shared behaviour and UI can
  * point at an entry without branching on manga-vs-novel to know what it is. The sealed shape makes a
- * mismatched (type, id) impossible to construct and gives an exhaustive `when`, the same compile-caught
- * safety the adapter seam relies on. Pairs with [ContentType], already used for filtering and grouping.
+ * mismatched (type, id) impossible to construct and gives an exhaustive `when`.
  *
  * [rawId] is the entry's own positive row id in its own table (a manga id or a novel id). The two id
  * spaces are disjoint only by this wrapper, never by sign, so never compare raw ids across types.

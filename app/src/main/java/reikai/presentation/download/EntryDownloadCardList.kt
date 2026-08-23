@@ -68,12 +68,10 @@ data class EntryDownloadCardUi(
 
 /**
  * The shared download-queue list for both content types: a flat, drag-reorderable list of per-series
- * cards. Each card can be dragged, bumped to the top / bottom, or cancelled. All three reorder paths
- * commit the same way, a new series-id order via [onReorder]; [onCancel] drops a whole series.
- *
- * A committed order (from a drag or a chevron) is held until the manager's queue echoes it back, so a
- * stale progress-driven emission arriving before the echo can't clobber it. Card content (counts,
- * status) always refreshes; only the ordering is guarded.
+ * cards, where a drag and the top / bottom chevrons all commit the same way, a new series-id order via
+ * [onReorder]. A committed order is held until the manager's queue echoes it back, so a stale
+ * progress-driven emission arriving before the echo can't clobber it. Card content (counts, status)
+ * always refreshes; only the ordering is guarded.
  */
 @Composable
 fun EntryDownloadCardList(

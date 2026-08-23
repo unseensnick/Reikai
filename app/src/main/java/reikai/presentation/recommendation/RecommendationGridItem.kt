@@ -18,13 +18,12 @@ import eu.kanade.presentation.manga.components.MangaCover
 import reikai.domain.recommendation.RecommendationOrigin
 
 /**
- * A recommendation cover cell for the details carousel and the "See all" grid: the shared library cover,
- * selection and in-library badge, with the origin as an eyebrow between the cover and the title.
+ * A recommendation cover cell for the details carousel and the "See all" grid, composed from the library
+ * grid item's own internal pieces so it matches that look.
  *
- * Composed from the library grid item's own internal pieces so it matches that look, but keeps the origin
- * snug: a caption below the fixed two-line title leaves a visible gap under a one-line title, whereas an
- * eyebrow above it sits flush under the cover and the two-line title stays uniform. [showOrigin] is false
- * in the grouped grid view, where a section header names the origin instead.
+ * The origin sits as an eyebrow between cover and title, not as a caption below it: the title box is a
+ * fixed two lines, so a caption leaves a visible gap under a one-line title, whereas an eyebrow sits
+ * flush under the cover. [showOrigin] is false in the grouped grid view, where a header names it.
  */
 @Composable
 fun RecommendationGridItem(

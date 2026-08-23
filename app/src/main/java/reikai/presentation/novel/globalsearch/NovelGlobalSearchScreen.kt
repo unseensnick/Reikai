@@ -105,7 +105,6 @@ class NovelGlobalSearchScreen(
         }
         val state by viewModel.state.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
-        // RK: shared bulk-selection add-to-library
         val bulkModel = metroViewModel<NovelBulkFavoriteViewModel>()
         val bulkState by bulkModel.state.collectAsState()
 
@@ -113,7 +112,7 @@ class NovelGlobalSearchScreen(
 
         Scaffold(
             topBar = { scrollBehavior ->
-                // RK: while bulk-selecting, the selection bar replaces the search toolbar (matches manga).
+                // While bulk-selecting, the selection bar replaces the search toolbar (matches manga).
                 if (bulkState.selectionMode) {
                     BulkSelectionToolbar(
                         selectedCount = bulkState.selection.size,
@@ -150,7 +149,6 @@ class NovelGlobalSearchScreen(
                 selection = bulkState.selection,
                 onSetSourceFilter = viewModel::setSourceFilter,
                 onToggleHasResults = viewModel::toggleHasResults,
-                // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
                 onResultClick = { source, item ->
                     if (bulkState.selectionMode) {
                         bulkModel.toggleSelection(source.id, item)
@@ -202,7 +200,7 @@ class NovelGlobalSearchScreen(
             null -> {}
         }
 
-        // RK: bulk add-to-library category picker, one choice applied to the whole selection.
+        // Bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
             is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
                 initialSelection = bulkDialog.initialSelection,

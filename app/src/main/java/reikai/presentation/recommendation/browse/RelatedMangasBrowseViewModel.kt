@@ -257,7 +257,7 @@ class RelatedMangasBrowseViewModel(
         val showHidden: Boolean = false,
         val dialog: Dialog? = null,
         val loading: Boolean = true,
-        // RK: explicit so the toolbar Select button can enter selection with nothing selected yet
+        // Explicit so the toolbar Select button can enter selection with nothing selected yet
         val selectionMode: Boolean = false,
     ) {
         val hasHidden: Boolean get() = items.any { it.hidden }

@@ -28,14 +28,12 @@ class EntryMergeGroupHost(
 ) {
 
     /**
-     * The group and the chip chosen inside it, as ONE cell.
-     *
-     * [selected] is only ever an id present in [ids], which two separate flows could not hold: a
-     * consumer combining them saw the pair disagree for one emission whenever a member left. Migrating
-     * a selected source out crashed the manga chapter pipeline on an unguarded lookup and silently
-     * rendered the migrated-away source on novels. [ids] compares by IDENTITY ([LongArray] has no
-     * structural equals), which the re-aggregate paths rely on: writing a `copyOf()` re-emits without
-     * changing membership.
+     * The group and the chip chosen inside it, as ONE cell: [selected] is only ever an id present in
+     * [ids], which two separate flows could not hold, since a consumer combining them saw the pair
+     * disagree for one emission whenever a member left, crashing the manga chapter pipeline on an
+     * unguarded lookup and rendering a migrated-away source on novels. [ids] compares by IDENTITY
+     * ([LongArray] has no structural equals), which the re-aggregate paths rely on: writing a
+     * `copyOf()` re-emits without changing membership.
      */
     data class GroupState(val ids: LongArray, val selected: Long?)
 
@@ -87,13 +85,12 @@ class EntryMergeGroupHost(
     }
 
     /**
-     * Re-read [anchorId]'s group from storage and publish it.
-     *
-     * The one way a caller that just changed the grouping updates this cell. Callers used to state the
-     * new membership from whatever their operation returned, and a split returns the SURVIVORS: split
-     * the anchor's own source out of a three-member group and the cell became the two OTHER entries.
-     * Reading the same source of truth [observe] reads means an optimistic update cannot disagree with
-     * the membership emission that follows it.
+     * Re-read [anchorId]'s group from storage and publish it: the one way a caller that just changed
+     * the grouping updates this cell, and it reads the same source of truth [observe] does, so an
+     * optimistic update cannot disagree with the membership emission that follows. Callers used to
+     * state the new membership from whatever their operation returned, and a split returns the
+     * SURVIVORS: split the anchor's own source out of a three-member group and the cell became the two
+     * OTHER entries.
      */
     suspend fun refresh(anchorId: Long) = setRelated(mergeManager.computeRelatedIds(anchorId))
 

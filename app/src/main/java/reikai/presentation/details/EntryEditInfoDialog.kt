@@ -78,10 +78,9 @@ data class EntryEditInfoUi(
  * The shared manga/novel edit-info editor: a Material dialog ported from Komikku's EditMangaDialog
  * whose scrolling content is a native [EditEntryInfoBinding] view in an [AndroidView]. Native EditText
  * keeps the soft keyboard stable across field switches, which the pure-Compose form could not on
- * edge-to-edge Android 15+. THE ONE SANCTIONED EXCEPTION to the Compose-native screen rule. The dialog
- * owns Save/Cancel; the native form owns the three resets, the Fill-from-tracker slot ([autofill]) and
- * the cover preview, which loads live from the URL field through [coverModel], the app's registered
- * fetcher, so header-protected hosts work.
+ * edge-to-edge Android 15+, so this is THE ONE SANCTIONED EXCEPTION to the Compose-native screen rule.
+ * The cover preview loads live from the URL field through [coverModel], the app's registered fetcher,
+ * so header-protected hosts work.
  */
 @Composable
 fun EntryEditInfoDialog(

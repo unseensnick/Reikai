@@ -22,13 +22,12 @@ import tachiyomi.domain.storage.service.StorageManager
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * In-memory index of which novel chapters are downloaded, derived from a disk scan rather than a DB
- * flag, mirroring the manga [eu.kanade.tachiyomi.data.download.DownloadCache]. Disk is the source of
- * truth, so downloaded state survives reinstall, restore and storage moves. The tree is
- * `source dir -> novel dir -> chapter file names`. Queries answer from the possibly-stale tree
- * synchronously and kick a background [renew] past [RENEW_INTERVAL_MS], which rescans and emits
- * [changes]: eventually consistent, like the manga cache. Files carrying the downloader's
- * [Downloader.TMP_DIR_SUFFIX] are skipped, so a half-written chapter is never counted.
+ * In-memory index of which novel chapters are downloaded, derived from a disk scan rather than a DB flag, mirroring
+ * the manga [eu.kanade.tachiyomi.data.download.DownloadCache]. Disk is the source of truth, so downloaded state
+ * survives reinstall, restore and storage moves. Queries answer from the possibly-stale tree synchronously and kick
+ * a background [renew] past [RENEW_INTERVAL_MS], which rescans and emits [changes]: eventually consistent, like the
+ * manga cache. Files carrying the downloader's [Downloader.TMP_DIR_SUFFIX] are skipped, so a half-written chapter is
+ * never counted.
  */
 @Inject
 @SingleIn(AppScope::class)

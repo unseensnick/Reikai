@@ -14,12 +14,11 @@ import reikai.novel.install.LnPluginInstaller
 
 /**
  * In-memory registry of installed [NovelSource]s, keyed by `source.id`. Mirrors
- * [eu.kanade.tachiyomi.source.SourceManager] but drops the extension-manager and stub-source
- * machinery: lnreader plugins are JS loaded directly, not APKs class-loaded.
+ * [eu.kanade.tachiyomi.source.SourceManager] but drops the extension-manager and stub-source machinery: lnreader
+ * plugins are JS loaded directly, not APKs class-loaded.
  *
- * Unlike the manga registry it cannot fill itself, because plugins have to be fetched and evaluated,
- * so nothing populates the map until something asks. [ensureLoaded] is that ask, and it lives here
- * so a caller holding the registry can satisfy its own precondition.
+ * Unlike the manga registry it cannot fill itself, because plugins have to be fetched and evaluated, so nothing
+ * populates the map until something asks. [ensureLoaded] is that ask.
  */
 @Inject
 @SingleIn(AppScope::class)

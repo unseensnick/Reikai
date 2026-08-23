@@ -44,10 +44,8 @@ class MergedChapterProvider(
      * Ids of [unified] chapters whose own row is unread but which another grouped source has already
      * read. The aggregation keeps one row per cross-source chapter and drops the rest, so without this
      * the list would show a chapter as unread purely because the copy that won happens to be the unread
-     * one. Uses the same identity as the library's unread count, so the list and the badge agree.
-     *
-     * Empty for an unmerged entry, and for chapters with no cross-source identity (they cannot be
-     * matched, so nothing can stand in for them).
+     * one. Uses the same identity as the library's unread count, so the list and the badge agree. Empty
+     * for an unmerged entry and for chapters with no cross-source identity.
      */
     fun readInOtherSources(
         chaptersBySource: Map<Long, List<Chapter>>,

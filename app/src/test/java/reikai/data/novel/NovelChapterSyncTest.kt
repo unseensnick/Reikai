@@ -21,11 +21,6 @@ import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 
 /**
- * Reconciliation of a freshly-parsed novel chapter list against the stored rows. Covers the three
- * behaviours a reader would notice if they broke: a re-added chapter (same number, new url) keeps its
- * read/bookmark state instead of resurfacing as unread; trailing-slash url variants are treated as
- * distinct (exact-match dedup only); and fetch dates stagger so list order stays stable.
- *
  * The writes happen inside a suspend `database.transaction`, so the test runs that body inline and
  * captures the insert arguments; selectLastInsertedRowId().awaitAsOne() is stubbed via the async
  * extension facade.

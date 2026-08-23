@@ -13,8 +13,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 /**
  * The one list of every preference that stores a category id, split by content type. The cleanup
  * migration, both category-delete paths and backup restore all read this list, so a new category-id
- * preference is declared here once and every cleanup path picks it up for the right content type. Without
- * it the manga and novel coverage would be hand-maintained in several places and could silently drift.
+ * preference is declared here once and every cleanup path picks it up for the right content type.
  *
  * Excluded on purpose: manga's `lastUsedCategory` is a library tab index (app-state, never backed up),
  * not a category id.

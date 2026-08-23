@@ -48,21 +48,21 @@ class MangaLibraryAdder(
     private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags,
     private val updateManga: UpdateManga,
     private val addTracks: AddTracks,
-    // RK: add-time grouping (the suggestion gate + the merge into the duplicate's group).
+    // Add-time grouping (the suggestion gate + the merge into the duplicate's group).
     private val mergeManager: MangaMergeManager,
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
 
-    /** RK: whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
+    /** Whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
     val suggestGrouping: Boolean get() = mergeManager.suggestGroupingOnAdd
 
-    /** RK: group ids for the duplicate dialog, which collapses same-group duplicates into one card. */
+    /** Group ids for the duplicate dialog, which collapses same-group duplicates into one card. */
     suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
         mergeManager.groupIdsFor(duplicates.map { it.manga.id })
 
     /**
-     * RK: file [mangaId] into the categories its new group already uses, so a new source lands where the
+     * File [mangaId] into the categories its new group already uses, so a new source lands where the
      * rest of the series lives. Returns whether it filed any (false when the group is uncategorized).
      */
     suspend fun seedCategoriesFromGroup(mangaId: Long, memberIds: List<Long>): Boolean {
@@ -76,7 +76,7 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: merge [manga] with the user's picked duplicates, then favorite it. Only the picks: the duplicate
+     * Merge [manga] with the user's picked duplicates, then favorite it. Only the picks: the duplicate
      * list is fuzzy, and one member is enough since the merge absorbs that member's whole group.
      * Favorites up front (before any category choice) so an abandoned choice can't leave a merged-but-
      * unfavorited copy feeding chapters into the group while invisible in the library. The new source
@@ -94,7 +94,7 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into that
+     * Favorite [manga] and merge it into [selectedIds]'s group as ONE unit, then file it into that
      * group's categories. Null when the row is gone or the write failed. Atomic because membership is
      * not favorite-filtered: a merged copy that never got favorited feeds the group while invisible in
      * the library, with nothing able to unmerge it. The row is re-read rather than trusted from a
@@ -123,8 +123,8 @@ class MangaLibraryAdder(
             dateAdded = if (manga.favorite) 0 else Clock.System.now().toEpochMilliseconds(),
         )
         if (!new.favorite) {
-            // RK: its own copy of the group's shared tracker, before it leaves; the hand-out skips
-            //     non-favorites, so after the write it would miss exactly this entry.
+            // Hand this entry its own copy of the group's shared tracker before it leaves; the hand-out
+            // skips non-favorites, so after the write it would miss exactly this entry.
             mergeManager.handOutTrackersBeforeRemoval(listOf(manga.id))
             new = new.removeCovers(coverCache)
         } else {
@@ -138,7 +138,7 @@ class MangaLibraryAdder(
         getDuplicateLibraryManga.invoke(manga)
 
     /**
-     * RK: each duplicate's source, resolved here so no dialog host needs a [SourceManager] of its own.
+     * Each duplicate's source, resolved here so no dialog host needs a [SourceManager] of its own.
      * A stub source means the extension is not installed, which the duplicate card warns about.
      */
     fun duplicateSourceLabels(duplicates: List<MangaWithChapterCount>): Map<Long, EntrySourceLabel> =
@@ -155,7 +155,7 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: add to library through the shared sequence ([addEntry]): decide, favorite, then file. With no
+     * Add to library through the shared sequence ([addEntry]): decide, favorite, then file. With no
      * usable default the caller shows its own picker, whose confirm owes both writes, so backing out of
      * it adds nothing.
      */
@@ -167,7 +167,7 @@ class MangaLibraryAdder(
     )
 
     /**
-     * RK: the writes a picker's confirm owes for a stored row, in the shared order, so backing out of
+     * The writes a picker's confirm owes for a stored row, in the shared order, so backing out of
      * the picker adds nothing and the row is favorited only when the user confirms. Twin of
      * `NovelLibraryAdder.confirmAddCategories`, pinned by `AddToGroupConformanceTest`'s confirm cases.
      */
@@ -178,7 +178,7 @@ class MangaLibraryAdder(
     )
 
     /**
-     * RK: favorite [mangaId] for an add, answering its id, or null when the row is gone or the write
+     * Favorite [mangaId] for an add, answering its id, or null when the row is gone or the write
      * failed. The row is re-read rather than trusted from a snapshot, which can say favorited for an
      * entry unfavorited since and would file categories against a row outside the library. An already
      * favorited row is not re-written: that would reset dateAdded. Twin of
@@ -191,7 +191,7 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: where a new favorite should land, or null when the user has to be asked. Reads only, so a
+     * Where a new favorite should land, or null when the user has to be asked. Reads only, so a
      * caller can favorite between this and [moveToCategories]; the two cannot be split apart once
      * [applyDefaultCategoryOrPrompt] has joined them. Twin of `NovelLibraryAdder.resolveDefaultCategories`;
      * both call the `resolveDefaultCategoryIds` kernel, pinned by `AddDecisionConformanceTest`.
@@ -199,14 +199,14 @@ class MangaLibraryAdder(
     suspend fun resolveDefaultCategories(): List<Long>? =
         resolveDefaultCategoryIds(getUserCategories(), libraryPreferences.defaultCategory.get())
 
-    /** RK: the picker's initial state for [mangaId], its current categories checked. Reads only. */
+    /** The picker's initial state for [mangaId], its current categories checked. Reads only. */
     suspend fun categoryPickerSelection(mangaId: Long): List<CheckboxState.State<Category>> {
         val preselectedIds = getCategories.await(mangaId).map { it.id }
         return getUserCategories().mapAsCheckboxState { it.id in preselectedIds }
     }
 
     /**
-     * RK: file [manga] into its default category (or none), or return the picker data when the user must
+     * File [manga] into its default category (or none), or return the picker data when the user must
      * choose. Never toggles favorite: the two add-paths favorite at different points ([resolveAddFavorite]
      * after, [addToExistingGroup] up front), so favoriting is the caller's job.
      */
@@ -221,7 +221,7 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: user categories, excluding the system default, ordered by the category sort-order preference
+     * User categories, excluding the system default, ordered by the category sort-order preference
      * so every picker lists them the way the library and the details picker do, not in table order.
      */
     suspend fun getUserCategories(): List<Category> = reikaiSortCategories(

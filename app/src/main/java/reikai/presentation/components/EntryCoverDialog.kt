@@ -173,7 +173,7 @@ fun EntryCoverDialog(
             },
         ) { contentPadding ->
             if (useNewRenderer) {
-                // RK --> the viewer is laid out inside the bars rather than over them, and the page
+                // The viewer is laid out inside the bars rather than over them, and the page
                 // is fitted to that box whenever it changes, so a fold or a rotation re-fits instead
                 // of keeping a scale measured for the old window. The library has no fit of its own,
                 // so the scale is ours to set, the way the reader's viewer sets its fit modes.
@@ -222,7 +222,6 @@ fun EntryCoverDialog(
                         .onSizeChanged { boxSize = it },
                     state = state,
                 )
-                // RK <--
                 return@Scaffold
             }
 

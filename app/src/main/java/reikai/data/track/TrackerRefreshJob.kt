@@ -45,14 +45,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Pulls fresh remote state for every tracker bound to a library entry, both content types. Without it
- * a track row only refreshes when its details screen is opened, so the library's tracker-score sort
- * and tracker filter read whatever happened to be cached.
- *
- * Manual only, and deliberately NOT folded into the library chapter update: that runs on a schedule
- * per source, while this is one rate-limited network call per bound tracker per entry, so attaching it
- * would multiply every update's remote traffic invisibly. Only entries carrying a track are visited.
- * Both interactors are merge-group aware, so a grouped entry refreshes every tracker in its group.
+ * Pulls fresh remote state for every tracker bound to a library entry, both content types. Without it a track row
+ * only refreshes when its details screen is opened, so the library's tracker-score sort and tracker filter read
+ * whatever happened to be cached. Manual only, and deliberately NOT folded into the library chapter update: that
+ * runs on a schedule per source, while this is one rate-limited network call per bound tracker per entry, so
+ * attaching it would multiply every update's remote traffic invisibly.
  */
 class TrackerRefreshJob(
     private val context: Context,

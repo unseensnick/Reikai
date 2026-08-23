@@ -138,7 +138,7 @@ class NovelDetailsViewModel(
     @Assisted private val novelUrl: String,
     private val novelRepo: NovelRepository,
     private val updateNovel: UpdateNovel,
-    // RK: "Reset all" clears the cached custom cover too, not just the custom-info row.
+    // "Reset all" clears the cached custom cover too, not just the custom-info row.
     private val coverCache: CoverCache,
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
@@ -157,7 +157,7 @@ class NovelDetailsViewModel(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
     private val context: Context,
-    // RK: non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
+    // Non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
     private val getCustomNovelInfo: GetCustomNovelInfo,
     private val setCustomNovelInfo: SetCustomNovelInfo,
     private val getNovelTracks: GetNovelTracks,
@@ -547,7 +547,7 @@ class NovelDetailsViewModel(
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeGroup.chips.value,
                 selectedSourceNovelId = mergeGroup.selectedSource,
-                // RK: match manga's swipe mapping (MangaViewModel): the start/end action fields cross
+                // Match manga's swipe mapping (MangaViewModel): the start/end action fields cross
                 // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
                 chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),
                 chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get(),
@@ -893,7 +893,7 @@ class NovelDetailsViewModel(
     fun showChangeCategoryDialog() {
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            // RK: order the picker by the category sort-order pref, matching the library and its pickers.
+            // Order the picker by the category sort-order pref, matching the library and its pickers.
             val categories = reikaiSortCategories(
                 categories = getNovelCategories.await().filterNot { it.isSystemCategory },
                 sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
@@ -947,7 +947,7 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
-            // RK: a cover set from the picker is a cached file, not a row field, so clearing the row
+            // A cover set from the picker is a cached file, not a row field, so clearing the row
             // alone leaves it in place and winning (NovelCoverKeyer).
             coverCache.deleteCustomCover(EntryId.Novel(n.id))
             updateNovel.awaitUpdateCoverLastModified(n.id)
@@ -1228,7 +1228,7 @@ class NovelDetailsViewModel(
     fun runDownloadAction(action: DownloadAction) {
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            // RK: hidden chapters are never bulk-downloaded, so drop them before picking targets.
+            // Hidden chapters are never bulk-downloaded, so drop them before picking targets.
             val hidden = hiddenChaptersPref.get()
             val available = chapterRepo.getByNovelId(loaded.novel.id).filterNot { hiddenKey(it) in hidden }
             val downloadedIds = available
@@ -1273,7 +1273,7 @@ class NovelDetailsViewModel(
 }
 
 /**
- * RK: per-field override, store a value only when it differs from the current source value; a blank field
+ * Per-field override, store a value only when it differs from the current source value; a blank field
  * (or "Unknown" status) stores nothing, so that field tracks the source again. The novel twin of
  * MangaViewModel's EntryEditInfoUi.toCustomMangaInfo (blanks preserve the source, drop empty genres).
  */

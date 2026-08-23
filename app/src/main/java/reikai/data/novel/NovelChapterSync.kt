@@ -14,12 +14,11 @@ import java.util.TreeSet
 
 /**
  * Novel-side parallel of the manga `syncChaptersWithSource`: reconcile a freshly-parsed source chapter
- * list against the stored `novel_chapters` rows, in one transaction, without the manga-only concerns.
- * A re-added chapter inherits the read/bookmark state and `dateFetch` of the one it replaces, so it
- * does not bubble up as new. [page] scopes the sync to one page of a paged source, reconciling against
- * that page's rows plus any leftover unpaged ones, so a novel that flips from unpaged to paged re-tags
- * in place instead of duplicating; null syncs the whole novel. Returns (inserted, deleted), each
- * excluding a pure duplicate-read carry-over so a new-chapter signal does not fire on reorders.
+ * list against the stored `novel_chapters` rows, in one transaction. A re-added chapter inherits the
+ * read/bookmark state and `dateFetch` of the one it replaces, so it does not bubble up as new. [page]
+ * scopes the sync to one page of a paged source, so a novel that flips from unpaged to paged re-tags in
+ * place instead of duplicating; null syncs the whole novel. Returns (inserted, deleted), each excluding
+ * a pure duplicate-read carry-over so a new-chapter signal does not fire on reorders.
  */
 suspend fun syncChaptersWithNovelSource(
     rawSourceChapters: List<ChapterItem>,

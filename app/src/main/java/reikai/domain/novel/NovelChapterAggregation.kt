@@ -5,12 +5,11 @@ import reikai.domain.novel.model.NovelChapter
 
 /**
  * Pure cross-source chapter stitcher for merged novel groups, the novel analogue of
- * [reikai.domain.manga.ChapterAggregation]. Trunk = the preferred source if one is in the group, else
- * the source with the most chapters. Chapters match across sources by [matchKey]: normalized TITLE
- * TEXT when the name has any, else the recognized number. Title-first survives the off-by-one numbers
- * sources disagree on and the title-only MTL sources that ship no number. EVERY trunk chapter is kept,
- * a sibling is added only when its key is absent, and a sibling with no usable key is dropped. Each
- * [NovelChapter] keeps its own `novelId`, so it can be read from its origin source; output unsorted.
+ * [reikai.domain.manga.ChapterAggregation]. Trunk = the preferred source if one is in the group, else the
+ * source with the most chapters. Chapters match across sources by [matchKey]: normalized TITLE TEXT when
+ * the name has any, else the recognized number. Title-first survives the off-by-one numbers sources
+ * disagree on and the title-only MTL sources that ship no number. Each [NovelChapter] keeps its own
+ * `novelId`, so it can be read from its origin source.
  */
 object NovelChapterAggregation {
 

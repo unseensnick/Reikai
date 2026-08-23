@@ -127,7 +127,7 @@ class ReikaiLibraryPreferences(
     // endregion
 
     // region Novel library filters: RETIRED
-    // The library filter preferences unified onto the manga keys (2026-07-31), following the sort
+    // The library filter preferences unified onto the manga keys, following the sort
     // unification: a filter describes the list, not a content type. Every `novel_library_filter_*` key
     // (the tri-state axes, lewd, the per-tracker filters, the category include/exclude set) is dead and
     // skipped on restore via DEAD_NOVEL_FILTER_KEY_PREFIX below, like the sort keys. The novel global

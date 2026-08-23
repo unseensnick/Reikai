@@ -18,13 +18,12 @@ import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * Category management for the shared edit-categories screen, which is one list spanning both libraries.
+ * Category management for the shared edit-categories screen, one list spanning both libraries.
  *
- * Rows carry their own content type, so there is no per-type adapter any more: rename and hide are
- * type-agnostic and go through Mihon's interactors unchanged, while create, reorder and delete are owned
- * here because each of them has to reason about the whole table. Mihon's own create/reorder/delete scope
- * themselves to the manga-visible rows, which overlap the novel-visible rows on universal categories, so
- * letting either library renumber alone is what made the two fight over a shared row's order.
+ * Rename and hide are type-agnostic and go through Mihon's interactors unchanged. Create, reorder and
+ * delete are owned here because Mihon's own scope themselves to the manga-visible rows, which overlap
+ * the novel-visible rows on universal categories, so letting either library renumber alone made the two
+ * fight over a shared row's order.
  */
 @Inject
 class CategoryActions(

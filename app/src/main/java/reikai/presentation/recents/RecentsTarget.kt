@@ -1,13 +1,11 @@
 package reikai.presentation.recents
 
 /**
- * One of an entry's chapters, projected to what a target rule needs. Each provider builds this from
- * its own engine, so the data access stays per type while the rules below stay one rule.
- *
- * **The list is always ascending reading order**, oldest first. Every rule here walks it forwards, and
- * the two engines' native orders disagree (a merged manga list arrives newest-first), so a provider
- * handing one over unsorted makes "the next chapter" mean the previous one. [read] folds in what
- * another source of a merge group already read.
+ * One of an entry's chapters, projected to what a target rule needs, built by each provider from its own
+ * engine so the data access stays per type while the rules stay one rule. **The list is always ascending
+ * reading order**, oldest first: every rule walks it forwards and the two engines' native orders disagree
+ * (a merged manga list arrives newest-first), so a provider handing one over unsorted makes "the next
+ * chapter" mean the previous one. [read] folds in what another source of a merge group already read.
  */
 data class RecentsChapter(
     val id: Long,

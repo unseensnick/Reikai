@@ -120,7 +120,6 @@ class NovelBrowseScreen(
         }
         val state by viewModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
-        // RK: shared bulk-selection add-to-library
         val bulkModel = metroViewModel<NovelBulkFavoriteViewModel>()
         val bulkState by bulkModel.state.collectAsState()
 
@@ -167,8 +166,8 @@ class NovelBrowseScreen(
         Scaffold(
             topBar = { scrollBehavior ->
                 Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                    // RK: while bulk-selecting, the selection bar replaces the search toolbar; the
-                    //     Popular / Latest / Filter chip row below stays put (matches manga browse).
+                    // While bulk-selecting, the selection bar replaces the search toolbar; the
+                    // Popular / Latest / Filter chip row below stays put (matches manga browse).
                     if (bulkState.selectionMode) {
                         BulkSelectionToolbar(
                             selectedCount = bulkState.selection.size,
@@ -205,7 +204,6 @@ class NovelBrowseScreen(
                                                 onClick = { selectingDisplayMode = true },
                                             ),
                                         )
-                                        // RK: bulk-select entry
                                         add(
                                             AppBar.Action(
                                                 title = stringResource(MR.strings.action_bulk_select),
@@ -311,10 +309,9 @@ class NovelBrowseScreen(
                 selection = bulkState.selection,
                 onRetry = viewModel::retry,
                 onWebViewClick = onWebViewClick,
-                // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
                 onResultClick = { item ->
                     when {
-                        // RK: picking a migration target; store the row and hand its id back.
+                        // Picking a migration target; store the row and hand its id back.
                         migratePickFor != null -> viewModel.pickAsMigrationTarget(item, migratePickFor) {
                             navigator.pop()
                         }
@@ -323,7 +320,7 @@ class NovelBrowseScreen(
                     }
                 },
                 onLongClickItem = { item ->
-                    // RK: in pick mode long-press previews the candidate, matching the manga picker.
+                    // In pick mode long-press previews the candidate, matching the manga picker.
                     // The normal long-press adds to library, which would favorite a novel the user
                     // is only inspecting before choosing a migration target.
                     if (migratePickFor != null || bulkState.selectionMode) {
@@ -369,7 +366,7 @@ class NovelBrowseScreen(
             null -> {}
         }
 
-        // RK: bulk add-to-library category picker, one choice applied to the whole selection.
+        // Bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
             is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
                 initialSelection = bulkDialog.initialSelection,

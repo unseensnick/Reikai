@@ -33,8 +33,6 @@ import java.io.IOException
  * override and no per-source OkHttp client. It always uses the shared network client (so it inherits
  * the Cloudflare + FlareSolverr interceptors) and attaches the device WebView User-Agent plus the
  * source [NovelCover.site] as a Referer, which is what some LN cover hosts gate full-image delivery on.
- *
- * Library novel covers persist via [CoverCache]; browse covers fall back to coil's [DiskCache].
  */
 class NovelCoverFetcher(
     private val url: String?,

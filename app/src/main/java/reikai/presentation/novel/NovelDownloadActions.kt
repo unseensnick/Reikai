@@ -5,8 +5,7 @@ import reikai.domain.novel.model.NovelChapter
 
 /**
  * Resolve a toolbar or library [DownloadAction] to the novel chapters it should enqueue, shared by the
- * novel library's multi-select and the details toolbar. NEXT_N takes the next unread chapters in
- * source order, UNREAD every unread one, BOOKMARKED every bookmarked one.
+ * novel library's multi-select and the details toolbar.
  *
  * Already-downloaded and already-queued chapters are excluded BEFORE NEXT_N's take(N), as on manga.
  * Otherwise, once the first N are downloaded, take(N) keeps returning them and repeated NEXT_N never

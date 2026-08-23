@@ -16,13 +16,12 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 
 /**
- * Pushing progress to an entry's trackers after chapters are marked read from its details list, for both
- * content types. Honours the never / always / ask preference, refreshes first so the decision is made
- * against current remote values, and reports a failed refresh the same way on both types.
+ * Pushes progress to an entry's trackers after chapters are marked read from its details list, for both
+ * content types. Refreshes first, so the ask / always decision is made against current remote values.
  *
- * The three per-type halves come in as lambdas, since manga and novel tracks live in different tables:
- * [refresh] and [lastReadPerTracker] read them, [pushProgress] writes. Both sides read the whole merge
- * group, so a tracker bound on one source still advances when a chapter of a sibling source is read.
+ * The per-type halves come in as lambdas, since manga and novel tracks live in different tables. Both
+ * [refresh] and [lastReadPerTracker] must read the whole merge group, so a tracker bound on one source
+ * still advances when a chapter of a sibling source is read.
  */
 class EntryAutoTrackOnMarkRead(
     private val context: Context,

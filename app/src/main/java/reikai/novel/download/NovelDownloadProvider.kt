@@ -19,12 +19,11 @@ import tachiyomi.domain.storage.service.StorageManager
 
 /**
  * Resolves on-disk locations for downloaded novel chapter text, mirroring the manga [DownloadProvider]:
- * `<novel downloads dir>/<source>/<novel title>/<chapter name>_<url hash>.html`. Derived from stable
- * metadata rather than numeric DB ids, so a download survives reinstall, restore and storage moves.
- * The `<source>` segment keys on the PLUGIN ID, not a display name, which a plugin update can change
- * (the manga side keys on display name because its numeric source ids are stable). Title and chapter
- * naming delegate to the manga provider rather than copying it, so the two cannot drift. One
- * self-contained HTML file per chapter, written to a temp name and renamed on success.
+ * `<novel downloads dir>/<source>/<novel title>/<chapter name>_<url hash>.html`. Derived from stable metadata
+ * rather than numeric DB ids, so a download survives reinstall, restore and storage moves. The `<source>` segment
+ * keys on the PLUGIN ID, not a display name, which a plugin update can change (the manga side keys on display name
+ * because its numeric source ids are stable). One self-contained HTML file per chapter, written to a temp name and
+ * renamed on success.
  */
 @Inject
 @SingleIn(AppScope::class)

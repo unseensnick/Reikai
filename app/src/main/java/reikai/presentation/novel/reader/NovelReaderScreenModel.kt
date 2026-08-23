@@ -70,10 +70,9 @@ private const val MAX_CACHED_CHAPTERS = 5
  * Loads novel chapters for the WebView reader. [sourceScoped] picks what prev/next walks: source scope
  * (Updates, a source chip, notifications) uses just [novelId]'s own chapters; group scope (the default:
  * details All chip, Library resume, History) resolves the merge group from [novelId] and aggregates the
- * unified cross-source order in-reader, the novel twin of the manga reader, so no caller passes a list.
- * Each chapter loads through its own source, resolved per `chapter.novelId`, so a merged session walks
- * across sources. Chapters load live via `parseChapter`, offline ones from disk, and reading past 97%
- * auto-marks the chapter read.
+ * unified cross-source order in-reader, so no caller passes a list. Each chapter loads through its own
+ * source, resolved per `chapter.novelId`, so a merged session walks across sources. Chapters load live
+ * via `parseChapter`, offline ones from disk, and reading past 97% auto-marks the chapter read.
  */
 class NovelReaderScreenModel(
     private val novelId: Long,
@@ -101,7 +100,7 @@ class NovelReaderScreenModel(
     private val mergeManager: NovelMergeManager by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
 
-    // RK: global novel source ranking, to pick the merge trunk when the reader resolves group scope
+    // Global novel source ranking, to pick the merge trunk when the reader resolves group scope
     // (matches the details/library aggregation).
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
 
@@ -386,7 +385,7 @@ class NovelReaderScreenModel(
     }
 
     /** Toggle the current chapter's bookmark (the top-bar action). */
-    // RK: the chapters-sheet swipe actions follow the same prefs as the details and manga-reader lists,
+    // The chapters-sheet swipe actions follow the same prefs as the details and manga-reader lists,
     // with start/end crossed so a given swipe direction does the same thing everywhere.
     val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
     val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()

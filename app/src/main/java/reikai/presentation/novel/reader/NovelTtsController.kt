@@ -17,13 +17,12 @@ import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.novel.tts.TtsVoice
 
 /**
- * Drives read-aloud for the novel reader. The WebView's `core.js` owns which paragraph is current and
- * its highlight; this owns the voice. The loop: play asks `core.js` to start, it posts a `speak` per
- * paragraph, [NovelTtsEngine] voices it, and each utterance's end tells `core.js` to advance.
- * Lifecycle-owned by [NovelReaderScreenModel] so it survives rotation; the WebView registers its
- * `evaluateJavascript` sink via [setEvalJs] and forwards messages via [onWebMessage]. Playback state
- * mirrors to [NovelTtsSession], which [NovelTtsService] renders as a media notification and which
- * keeps the process alive so reading continues in the background.
+ * Drives read-aloud for the novel reader: `core.js` in the WebView owns which paragraph is current and
+ * its highlight, this owns the voice. Play asks `core.js` to start, it posts a `speak` per paragraph,
+ * [NovelTtsEngine] voices it, and each utterance's end tells `core.js` to advance. Owned by
+ * [NovelReaderScreenModel] so it survives rotation; the WebView registers its `evaluateJavascript` sink
+ * via [setEvalJs] and forwards messages via [onWebMessage]. Playback mirrors to [NovelTtsSession],
+ * which [NovelTtsService] renders as a notification that keeps the process alive for background reading.
  */
 class NovelTtsController(
     private val context: Context,

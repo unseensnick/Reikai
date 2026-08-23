@@ -3,13 +3,12 @@ package reikai.domain.manga
 import tachiyomi.domain.chapter.model.Chapter
 
 /**
- * Pure cross-source chapter stitcher for merged manga groups. Trunk = the source with the most
- * DISTINCT recognized chapter numbers, not the most rows, so a source listing one chapter under many
- * scanlators cannot win on row count; every number the trunk lacks is gap-filled from the next source
- * in that order. One row per recognized number, with the trunk's unrecognized chapters kept and
- * siblings' dropped. The dedup key is the number narrowed to [Float], because a source-reported number
- * is a 32-bit float where a parsed one is a double: an exact double key duplicates a chapter across
- * sources, and float spacing still keeps real sub-chapters distinct.
+ * Pure cross-source chapter stitcher for merged manga groups. Trunk = the source with the most DISTINCT recognized
+ * chapter numbers, not the most rows, so a source listing one chapter under many scanlators cannot win on row count;
+ * every number the trunk lacks is gap-filled from the next source in rank order. One row per recognized number,
+ * keeping the trunk's unrecognized chapters and dropping siblings'. The dedup key is the number narrowed to [Float]:
+ * a source-reported number is a 32-bit float where a parsed one is a double, so an exact double key duplicates a
+ * chapter across sources, while float spacing still keeps real sub-chapters distinct.
  */
 object ChapterAggregation {
 

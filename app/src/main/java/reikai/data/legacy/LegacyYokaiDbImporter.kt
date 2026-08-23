@@ -24,13 +24,12 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import java.io.File
 
 /**
- * Recovers a library left behind when a user updates in place from the old Yokai-based build. Both
- * forks ship the same `tachiyomi.db` filename, but the Yokai schema sits at a higher and unrelated
- * version, so SQLDelight treats the on-disk DB as newer than the code, runs no migrations, and crashes
- * on the first query against a table Yokai never had. To recover instead, the old library is read out
- * with plain SQL, written as a normal backup, and the old DB moved aside so a fresh one is created;
- * [eu.kanade.tachiyomi.App] enqueues the restore once DI is ready. Settings and tracker logins are
- * untouched, living in SharedPreferences, which survive the update.
+ * Recovers a library left behind when a user updates in place from the old Yokai-based build. Both forks
+ * ship the same `tachiyomi.db` filename, but the Yokai schema sits at a higher and unrelated version, so
+ * SQLDelight treats the on-disk DB as newer than the code, runs no migrations, and crashes on the first
+ * query against a table Yokai never had. The old library is read out with plain SQL into a normal backup
+ * and the old DB moved aside; [eu.kanade.tachiyomi.App] enqueues the restore once DI is ready. Settings
+ * and tracker logins live in SharedPreferences and are untouched.
  */
 object LegacyYokaiDbImporter {
 

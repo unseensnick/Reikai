@@ -50,13 +50,11 @@ data class ManageMergeSourceRow(
 )
 
 /**
- * Lists the sources merged into one series and lets the user reorder which one leads the combined
- * chapter list, split a source back out, split-and-remove it, or dissolve the group. One shared dialog
- * for both content types, rows keyed on the member entry id. Reordering applies live: a drag persists
- * through [onReorder] and turns on the group's source-ranking override, so the top row becomes the
- * primary source, and [onResetOrder] clears it back to the global ranking. Long-press enters a
- * contextual multi-select. Every structural action dismisses the dialog, so the member list is stable
- * while open and the reorder list never has to reconcile an external change.
+ * Lists the sources merged into one series, shared by both content types with rows keyed on the member
+ * entry id. A drag persists through [onReorder] and turns on the group's source-ranking override, so
+ * the top row becomes the primary source; [onResetOrder] clears it back to the global ranking. Every
+ * structural action dismisses the dialog, so the member list is stable while open and the reorder list
+ * never has to reconcile an external change.
  */
 @Composable
 fun ManageMergeSourcesDialog(

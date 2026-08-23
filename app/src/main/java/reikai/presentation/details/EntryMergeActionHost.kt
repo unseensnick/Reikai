@@ -16,12 +16,11 @@ import tachiyomi.i18n.MR
 
 /**
  * The shared source split / remove / reorder actions for a merged entry's details screen, so the
- * snackbar-with-undo logic both details models run lives in one place. The one per-type difference
- * left is the [setFavorite] lambda: novels write favorite-only, so a merge-undo restores the original
- * dateAdded. Handing each member its own tracker copy is NOT here; [MergeManager] does it on every
- * path that breaks a group up. [anchorId] is a getter, not a captured value, because the novel model
- * resolves its anchor after construction. selectSource and showManageSourcesDialog stay out: those
- * bodies genuinely diverge.
+ * snackbar-with-undo logic both details models run lives in one place. The one per-type difference left
+ * is [setFavorite]: novels write favorite-only, so a merge-undo restores the original dateAdded.
+ * Handing each member its own tracker copy is NOT here; [MergeManager] does it on every path that
+ * breaks a group up. [anchorId] is a getter, not a captured value, because the novel model resolves its
+ * anchor after construction. selectSource and showManageSourcesDialog stay out: those bodies diverge.
  */
 class EntryMergeActionHost(
     private val scope: CoroutineScope,

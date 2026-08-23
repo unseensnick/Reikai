@@ -36,7 +36,7 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
- * RK: "See all" browse grid for a manga's related-mangas pool. Constructor takes serializable args
+ * "See all" browse grid for a manga's related-mangas pool. Constructor takes serializable args
  * only ([mangaId] + [mangaTitle]); the candidate pool is re-read from [reikai.domain.recommendation
  * .RelatedMangaCache] inside the screen model.
  */
@@ -58,7 +58,7 @@ class RelatedMangasBrowseScreen(
 
         Scaffold(
             topBar = { scrollBehavior ->
-                // RK: selection toolbar while bulk-selecting, otherwise the normal toolbar with a
+                // Selection toolbar while bulk-selecting, otherwise the normal toolbar with a
                 //     Select button (long-press an item is the other way into selection mode).
                 if (state.selectionMode) {
                     BulkSelectionToolbar(

@@ -13,9 +13,8 @@ import kotlinx.coroutines.flow.onStart
  * type. A tracker bound on one source of a merged series has to count while reading or displaying any
  * other source, so tracking spans the group rather than the single entry the per-type repositories read.
  *
- * The engines stay split (manga rows live in `manga_sync`, novels in `novel_tracks`), so the per-type
- * halves come in as lambdas: the group resolver, the single-entry read, and the two fields the shared rule
- * needs. Everything above them is written once here.
+ * The engines stay split (manga rows live in `manga_sync`, novels in `novel_tracks`), so the per-type halves
+ * come in as lambdas: the group resolver, the single-entry read, and the two fields the shared rule needs.
  */
 class GroupTrackReader<T>(
     private val sharingEnabled: () -> Boolean,
@@ -57,8 +56,6 @@ suspend fun trackGroupIds(
 ): List<Long> = if (sharingEnabled()) relatedIds(entryId) else listOf(entryId)
 
 /**
- * One track per tracker for a merged group, keeping the furthest-read row.
- *
  * A group can hold several rows for the same tracker: copies left behind by an earlier split, or two
  * already-tracked entries merged together. The copies are not kept in step, because a progress push writes
  * back only to the row it read. Keeping the furthest-read one means a stale copy can never drive the

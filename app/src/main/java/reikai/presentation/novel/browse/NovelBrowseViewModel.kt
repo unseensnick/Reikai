@@ -53,7 +53,7 @@ class NovelBrowseViewModel(
     private val manager: NovelSourceManager,
     private val novelRepository: NovelRepository,
     private val libraryAdder: NovelLibraryAdder,
-    // RK: where a migration-target pick is left for the screen that asked for it.
+    // Where a migration-target pick is left for the screen that asked for it.
     private val pickHandoff: MigrationPickHandoff,
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
     private val sourcePreferences: SourcePreferences,
@@ -159,8 +159,6 @@ class NovelBrowseViewModel(
         }
     }
 
-    // RK -->
-
     /**
      * Report [item] back as the migration target for the novel with id [entryRawId], then run
      * [onPicked] (which pops back to the migration screen waiting for it).
@@ -177,7 +175,6 @@ class NovelBrowseViewModel(
             withUIContext { onPicked() }
         }
     }
-    // RK <--
 
     /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
     fun addFromDuplicate(item: NovelItem) {

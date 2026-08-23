@@ -119,9 +119,8 @@ interface RecentsProvider : RecentsBehavior {
      * unread of the burst on updated, the first unread on added. Null when nothing is left to open.
      * Which lanes resolve over the merge group rather than in-source is what [sourceScoped] pairs to.
      *
-     * Suspend and called per rendered row on purpose. Resolving at assembly would put one chapter
-     * query per row on every emission, which on a five-hundred-row feed is the cost this surface is
-     * being built to avoid.
+     * Suspend and called per rendered row on purpose: resolving at assembly would put one chapter query
+     * per row on every emission of a feed that can run to hundreds of rows.
      */
     suspend fun targetChapter(item: RecentsItem): ChapterRef?
 

@@ -82,10 +82,10 @@ fun ExpandableEntryDescription(
     onTagSearch: (String) -> Unit,
     onCopyTagToClipboard: (tag: String) -> Unit,
     onEditNotes: () -> Unit,
-    // RK: global search across sources for the tapped tag (Komikku's tag menu); null hides the item
-    //     for callers with no cross-source global search from a tag (e.g. novels).
+    // Global search across sources for the tapped tag (Komikku's tag menu); null hides the item
+    // for callers with no cross-source global search from a tag (e.g. novels).
     onGlobalSearch: ((String) -> Unit)? = null,
-    // RK: namespaced, color-weighted tag chips for adult-gallery metadata sources; null = flat genre tags.
+    // Namespaced, color-weighted tag chips for adult-gallery metadata sources; null = flat genre tags.
     searchMetadataChips: SearchMetadataChips? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -128,8 +128,6 @@ fun ExpandableEntryDescription(
                             showMenu = false
                         },
                     )
-                    // RK: global search across sources for the tag (Komikku parity); shown only when
-                    // the caller supplies a global-search action.
                     if (onGlobalSearch != null) {
                         DropdownMenuItem(
                             text = { Text(text = stringResource(MR.strings.action_global_search)) },
@@ -148,8 +146,8 @@ fun ExpandableEntryDescription(
                     )
                 }
                 if (expanded) {
-                    // RK --> namespaced, color-weighted chips for adult-gallery metadata; tapping one
-                    // reuses the same search/copy dropdown as the flat tags. Falls back when absent.
+                    // Tapping a namespaced metadata chip reuses the same search/copy dropdown as the
+                    // flat tags.
                     if (searchMetadataChips != null) {
                         NamespaceTags(
                             tags = searchMetadataChips,
@@ -159,7 +157,6 @@ fun ExpandableEntryDescription(
                             },
                         )
                     } else {
-                        // RK <--
                         FlowRow(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
@@ -175,7 +172,7 @@ fun ExpandableEntryDescription(
                                 )
                             }
                         }
-                    } // RK: end flat-tags fallback
+                    }
                 } else {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
