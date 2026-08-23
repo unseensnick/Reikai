@@ -49,8 +49,8 @@ them.
 | AniList | `Media.isAdult` | Yes, single 18+ bucket; AniList excludes Ecchi from it | No |
 | MyAnimeList | `nsfw`: `white` / `gray` / `black` | Undocumented by MAL; manga has no `rating` enum | No |
 | Kitsu | `LibraryEntry.nsfw` (`ageRating == R18`) plus `Category.isNsfw` | The entry flag is a maturity axis; the category flag is directly sexual | Category flag only, and only for Fill-from-tracker |
-| Shikimori | `isCensored` (GraphQL only) | Yes, though over-broad: it also flags BL and GL regardless of explicitness | No |
-| Bangumi | `nsfw` on Subject | Yes, undocumented, equated with R18 by their own search filter | No |
+| Shikimori | `isCensored` (GraphQL only) | No. Its own schema defines the axis as hentai, yaoi **or** yuri in one bucket | Declined, measured 2026-08-23 |
+| Bangumi | `nsfw`, on the full Subject only and never on the collections payload | Partly, and applied to about a quarter of adult titles | Declined, measured 2026-08-23 |
 | MangaUpdates | none at all | n/a | n/a, genres only |
 | Hikka | `nsfw`, undocumented, not server-filterable | Unknown | No fetcher |
 | MangaBaka | `content_rating`: `safe` / `suggestive` / `erotica` / `pornographic` | Yes; violence tags sit at `safe` | No fetcher |
@@ -62,6 +62,47 @@ rated `R`, or one with no rating at all, reads as clean, since `sfw?` also retur
 rating. Kitsu's `Category.isNsfw` is the better signal and is per-category, so the two combine.
 **MAL's three values are undefined in MAL's own documentation**; the meaning is taken from a
 community spec.
+
+### Shikimori and Bangumi are declined, on measurement
+
+Both were planned as ordinary per-tracker steps. Read-only probes against each service's live API on
+2026-08-23, authenticated with the owner's own accounts, killed both. Recorded here because the
+obvious next reader will propose them again.
+
+**Shikimori's `isCensored` is not a sexual-content axis.** Its schema documents the sibling filter as
+"Set to `false` to allow hentai, yaoi and yuri", so the three sit in one bucket, and a live sample of
+the 500 most popular manga bears that out: 29 carry the flag, the shipped keyword list already flags
+10 of those, and the remaining 19 are titles like Banana Fish, Given, Sasaki to Miyano, Yagate Kimi
+ni Naru and Killing Stalking. None is sexually explicit. **Not one entry in the sample was flagged by
+the keyword list and not by `isCensored`**, so mapping the flag would have added zero true positives
+against 19 false ones, and it would have marked as adult exactly the tags `AdultContentTest` pins as
+clean. With the filter on by default, a BL or GL reader's taste profile would have been gutted.
+
+The flag would still catch a genuinely explicit work tagged only Yaoi, which exists. There is no
+field that separates that from Banana Fish, so the recall is unreachable rather than merely unbought.
+
+Shikimori also has **no request-side gate on the library pull**: `userRates` takes page, limit,
+userId, targetType, status and order, and nothing else. `censored` belongs to the catalog `mangas`
+query. So the pull was never missing adult entries, and there is nothing to send.
+
+**Bangumi cannot answer per entry on the call the pull makes.** Collections return `SlimSubject`,
+which has no `nsfw` property; only the full subject read does, at one HTTP call per entry. The
+endpoint also ignores an nsfw parameter, so there is no request-side gate here either. Paying for the
+flag was then measured directly against 50 adult-tagged books: the keyword list catches 39 of them
+from the top ten tags the collections payload already carries, `nsfw` is set on 14, **13 of those 14
+are already keyword-caught, so the flag's entire contribution is one entry in fifty**, and that one
+is tagged with vocabulary the widened keyword list now covers. The other 36 explicit books read
+`nsfw: false`, which would map to `CLEAN` and suppress the keyword fallback, so buying the flag would
+have made the filter worse than not buying it.
+
+One correction worth keeping, because the first reading of the anonymous data was wrong: Bangumi's
+flag is both sparsely applied and hidden from unauthenticated callers. Authenticated search returns
+more results than anonymous, and `nsfw: true` appears only once authenticated. Neither half rescues a
+signal that fires on a quarter of adult titles and is redundant on almost all of them.
+
+**What this costs, stated plainly:** two of the five taste fetchers stay on the keyword fallback
+permanently. That is the reason the fallback is worth widening and worth making user-correctable,
+rather than a stopgap to be retired tracker by tracker.
 
 ### Which trackers can actually feed a taste profile
 
@@ -114,13 +155,18 @@ Resolution is one shared kernel both the profile and the suggestion path call:
 2. Tracker says `CLEAN`, the entry is clean. The tracker's own answer beats a keyword guess.
 3. `UNKNOWN`, fall back to matching the entry's tags against a sexual-content keyword list.
 
-### The keyword fallback is narrower than it looks
+### The keyword fallback is permanent, not a stopgap
 
-Worth stating before the list, because it changes how much rides on it: **six of the eight services
-expose a machine-readable adult signal**, and all five current taste fetchers are among them. So once
-the per-tracker steps land, the fallback never fires for them. It earns its place in three other
-places: before those steps land, for a tracker that has no flag (MyNovelList has tags only), and on
-the suggestion side, where a candidate from a recommendation provider carries genres but no flag.
+An earlier draft of this section had it the other way round, on the assumption that every current
+taste fetcher would end up answering the field directly and the fallback would stop firing for them.
+The measurements above retired that: **Shikimori and Bangumi are declined, so two of the five stay on
+the fallback for good.** It also carries the suggestion side, where a candidate from a recommendation
+provider arrives with genres and no flag, and any tracker with no usable signal at all (MyNovelList
+has tags only).
+
+That changes how much rides on the list, and it is why widening it is real work rather than
+housekeeping, and why the tag picker in the steps below is worth building: a heuristic that is
+permanent for two trackers will keep meeting vocabulary nobody enumerated.
 
 ### The sexual-content keyword list is new, and deliberately not the existing one
 
@@ -156,8 +202,14 @@ AniList, and it is common enough on ordinary series that matching it would visib
 it is fanservice rather than sex. **Tentacle** is an AniList adult tag but a not-NSFW category on
 Kitsu, so the two services disagree outright.
 
-Shikimori answers in Russian and Bangumi in Chinese, so the list carries their terms too; a
-Latin-only list would silently pass every adult entry from both.
+Bangumi answers in Chinese, so the list carries its vocabulary; a Latin-only list would silently pass
+every adult entry from it. The Chinese half was widened on measurement (see the step below), because
+the first pass covered only a fraction of the terms Bangumi's community tags actually use.
+
+Shikimori was assumed to need the same treatment and does not. Its GraphQL `genres` selection returns
+English names, with the Russian in a separate `russian` field the fetcher does not request, so the
+Cyrillic entries never fire on that path. They are kept because the same list screens candidates from
+elsewhere, but nothing on the Shikimori pull depends on them.
 
 ### The setting is tracking-wide, not recommendations-scoped
 
@@ -200,20 +252,24 @@ being suggested to me" are not two things a user would want separately.
 
 ### The preference also gates the request, not just the read
 
-Several services return adult titles only if asked, and default to hiding them: MAL documents that
-"by default, some APIs don't return nsfw content", Shikimori's `censored=false` is what "allows
-hentai, yaoi and yuri", and Bangumi excludes R18 for unauthenticated callers. So a library pull that
-does not ask can be silently incomplete.
+Some services return adult titles only if asked: MAL documents that "by default, some APIs don't
+return nsfw content". So a library pull that does not ask can be silently incomplete.
 
 **Ask when the setting allows adult content, and stop asking when it does not** (owner, 2026-08-22).
-The setting is off by default, so the default behaviour is to ask, which also closes gaps the profile
-has today on Shikimori and Bangumi. The reason to gate the request rather than only the read is
-privacy: a user who has asked to exclude sexual content should not have adult titles fetched and
-stored in a local database anyway. Filtering only at read would leave them on disk.
+The setting is off by default, so the default behaviour is not to ask. The reason to gate the request
+rather than only the read is privacy: a user who has asked to exclude sexual content should not have
+adult titles fetched and stored in a local database anyway. Filtering only at read would leave them
+on disk.
+
+**In practice this reaches exactly one tracker.** An earlier draft expected Shikimori and Bangumi to
+be gated here too, on the strength of `censored=false` and an nsfw search filter. Neither applies to
+the call the pull makes: Shikimori's `userRates` takes no `censored` argument, and Bangumi's
+collections endpoint ignores an nsfw parameter, both verified against the live APIs on 2026-08-23.
+AniList's library query has never had one. So MyAnimeList is the only request-side gate there is, and
+it is also the whole reason cache invalidation matters.
 
 The read filter stays as well, as the second layer. It is what handles entries already in the cache,
-entries from services with no request-side filter (AniList's library query has none, Hikka has none at
-all), and any title a service mislabels.
+entries from the four services with no request-side filter, and any title a service mislabels.
 
 **Consequence, stated because it is a real cost:** turning the setting off widens what the API
 returns, so the cache is stale in a way a normal refresh interval will not notice. Changing the
@@ -255,13 +311,36 @@ one on search unconditional. Verify: same on-device comparison, plus confirming 
 returns fewer entries with the setting on. This step also settles whether `gray` behaves as borderline
 in practice, which MAL does not document.
 
-**Step 5, Shikimori and Bangumi.** Add `isCensored` to Shikimori's GraphQL library query and `nsfw` to
-Bangumi's collections read, and start sending Shikimori's `censored=false` and Bangumi's `filter.nsfw`
-according to the setting. Both currently ask for neither, so their profiles may be missing adult
-entries today, and this is the step that closes that. Verify: on-device pull per tracker with the
-setting off, expecting entry counts to rise if the owner's libraries hold adult titles, and noting
-that Shikimori will flag BL and GL titles that are not explicit, which is its behaviour and not a bug
-in the mapping.
+**Step 5, the two declines, the measured keyword widening, and the invalidation.** Replaces the
+per-tracker step this used to be; the reasoning is in the Approach section above, and the trackers
+themselves need no code. Three parts:
+
+- Record the Shikimori and Bangumi declines with their measurements. The `yaoi` and `yuri` cases
+  `AdultContentTest` already pins are the rule the Shikimori decline protects, so no new test is
+  owed there.
+- Widen the keyword list with the Bangumi vocabulary the 50-title sample named: the Japanese `エロ`
+  stem, `成年コミック`, `成人漫画`, `黄漫`, `H漫画` and `18X`. Deliberately out: `卖肉` and `肉番`, which are the
+  Chinese equivalent of Ecchi and follow that exclusion; `NTR`, because matching is by substring and
+  "ntr" sits inside "control"; and the bare `成人` stem, which would catch `成人式`, a coming-of-age
+  ceremony. Verify: each new term gets a case in `AdultContentTest`, plus a near-miss case for the
+  three exclusions, all checked by mutation.
+- Mark the taste cache stale when the setting flips, the piece deferred from step 2. Verify:
+  on-device, flip the setting, confirm the cached rows go, open a details page and confirm a refetch
+  lands rather than the old rows persisting.
+
+**Step 5a, the tag picker** (owner, 2026-08-23). The keyword list is permanent for two trackers, so
+users need a way to correct both a false positive and a miss without waiting on a release. Two string
+sets on `TrackPreferences`, edited by picking from the tags actually present in the local taste cache,
+sorted by frequency and showing which the built-in list currently matches. **Not free-text entry:**
+tags are matched as substrings against `lowercase().trim()`, so a typo or an unused term is a setting
+that silently does nothing and gives the user no way to tell. Resolution order, settling the ruling
+below: whitelisted tags are subtracted from the entry's tags; any remaining blacklisted tag makes it
+explicit; a whitelisted tag present on the entry downgrades a tracker's `ADULT` to `UNKNOWN` so the
+remaining tags decide; otherwise the kernel is unchanged. Known limit, recorded rather than fixed: a
+per-tag control cannot override a tracker verdict on a title carrying no relevant tag, which is the
+`Redo of Healer` case from step 3. That needs a per-title override and is out of scope. Verify: unit
+tests over each clause of the order, including the mixed case where a whitelisted and an explicit tag
+sit on the same entry, each by mutation.
 
 **Step 6, Kitsu.** Map `LibraryEntry.nsfw` or any `Category.isNsfw` to `ADULT`. Depends on the Kitsu
 GraphQL move, which is why it is last. See [kitsu-single-api.md](kitsu-single-api.md).
@@ -298,11 +377,14 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
   `GetTasteProfile.kt`, `TasteCandidateFetcher.kt`: the model and the two filtered readers.
 - `app/src/main/java/reikai/domain/recommendation/BuildRecommendationHideFilter.kt`: the third reader,
   deliberately unfiltered.
-- `app/src/main/java/reikai/domain/recommendation/taste/{Anilist,MyAnimeList,Kitsu,Shikimori,Bangumi}LibraryFetcher.kt`:
-  the five fetchers that answer the new field.
-- `app/src/main/java/eu/kanade/tachiyomi/data/track/anilist/AnilistApi.kt` (the library selection set),
-  `myanimelist/MyAnimeListApi.kt` (`LIBRARY_FIELDS`, and the two `nsfw=true` request params),
-  `shikimori/ShikimoriApi.kt`, `bangumi/BangumiApi.kt`.
+- `app/src/main/java/reikai/domain/recommendation/taste/{Anilist,MyAnimeList,Kitsu}LibraryFetcher.kt`:
+  the three fetchers that answer the field. `ShikimoriLibraryFetcher.kt` and `BangumiLibraryFetcher.kt`
+  stay on the keyword fallback permanently, per the declines in Approach; do not add a flag to either.
+- `app/src/main/java/reikai/domain/recommendation/taste/AdultContent.kt`: the enum, the resolution
+  kernel and the keyword list, which is where the fallback and the tag picker both land.
+- `app/src/main/java/eu/kanade/tachiyomi/data/track/anilist/AnilistApi.kt` (the library selection set)
+  and `myanimelist/MyAnimeListApi.kt` (`LIBRARY_FIELDS`, and the two `nsfw=true` request params, of
+  which only the library one follows the setting).
 - `app/src/main/java/eu/kanade/domain/track/service/TrackPreferences.kt` and
   `eu/kanade/presentation/more/settings/screen/SettingsTrackingScreen.kt`: where the setting lives and
   renders, since it is tracking-wide rather than recommendations-scoped.
@@ -318,8 +400,16 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 
 **Steps 1 to 4 shipped** (`b515944ae`, `fc81876bc`, `b633a6e10`, `780428900`): the model and cache
 column, the setting and the two filtered readers, then AniList and MyAnimeList answering the field.
-Steps 5 to 10 are open. Grounded 2026-08-22 against the current tree and each service's own API
-documentation and source.
+Steps 5 onward are open. Grounded 2026-08-22 against the current tree and each service's own API
+documentation and source, then re-grounded 2026-08-23 against the live APIs, which rewrote step 5
+entirely (see the declines in Approach).
+
+**Neither the Shikimori nor the Bangumi account holds enough data to measure against.** The owner's
+Shikimori library returns one entry and their Bangumi collection two; both are test binds rather than
+real libraries. So the two declines rest on public-sample measurements and each service's own schema,
+not on the owner's own data, and that is the one place the evidence is thinner than preferred. It is
+recorded rather than left implicit, because "verify against the owner's library" is the obvious thing
+a later reader will reach for and it will not work.
 
 **Device-verified end to end on the carousel**, which is the only place any of this is observable
 (the library screen has no recommendation surface). Same title, adult content on: "See all (135)"
@@ -337,7 +427,14 @@ half of the design working rather than a filter applied after storage.
 
 **Deferred from step 2 on purpose:** the cache invalidation the plan put there. It only matters once
 a request-side gate exists, which arrived with step 4, so the setting now needs to mark the taste
-cache stale when it flips. That is the first thing step 5 owes.
+cache stale when it flips. Step 5 owes it.
+
+**Tokens refresh lazily, which is normal but has a tail worth knowing.** Both interceptors refresh an
+expired access token on the next request, so a tracker nothing calls sits with a dead token
+indefinitely; the owner's Shikimori and Bangumi tokens were 22 and 16 days stale simply because
+neither pull toggle is on. That self-heals on first use. The hazard behind it is the refresh token
+expiring during a long idle stretch, which logs the tracker out silently and shows up only as a
+tracker row with no username under it. Noted here, not owned by this plan.
 
 ## Decisions & tradeoffs
 
@@ -345,6 +442,33 @@ cache stale when it flips. That is the first thing step 5 owes.
 the filter is on until a user turns it off. This overrides an earlier draft of this plan, which had
 it the other way round on the grounds that the app leans permissive elsewhere (`showNsfwSource`
 defaults to true).
+
+**A user's tag pick outranks the tracker's own answer** (owner, 2026-08-23). This inverts the rule
+step 1 set, where a tracker saying `ADULT` or `CLEAN` was final and keywords only spoke when it could
+not. Recorded as an inversion rather than folded in quietly, because the original rule is stated
+above and a reader meeting both would otherwise have to guess which won. The reasoning: offering the
+control at all implies it decides, since a switch the tracker can veto is not a control. The
+precedence that makes this safe, including why a whitelist does not clear a title that also carries
+an explicit tag, is in step 5a.
+
+**Invalidation hangs off the settings switch, not a listener or a stored marker** (2026-08-23). The
+switch's `onValueChanged` runs before the write commits and returns whether to commit, so clearing
+the cache there needs no new state, and this feature area already reacts to a preference the same way
+where the auto-refresh interval reschedules its job. The two alternatives were measured against it
+and lost. An app-scoped collector on the preference's `changes()` would fire on its ignition emission
+and clear the cache on every launch unless a drop is threaded through, and it would put recommendation
+knowledge into a Mihon file for a preference nothing else writes. A stored marker compared at refresh
+time is self-healing but keeps a second source of truth about what the cache was built under, and it
+purges late: rows survive until the next details-page open, which is the wrong answer for a setting
+whose request-side half exists for privacy. The one hole in the chosen approach is a backup restore
+flipping the preference without going through the switch, and it is harmless, because the taste cache
+is not in the backup and a restore therefore leaves it empty and repulled anyway.
+
+**Deleting the whole cache, not just the affected tracker.** MyAnimeList is the only tracker whose
+request depends on the setting, so a narrower delete is possible and would need the fetcher to declare
+that dependency. It is not worth a typed capability with one implementer, and the wide delete is
+better on the privacy axis regardless: the read filter only hides AniList's adult rows, while a delete
+removes them.
 
 **The cost of that default, stated plainly:** nothing filters adult content in recommendations today,
 so an existing library's profile does change on upgrade, and adult titles stop shaping it until the
@@ -355,10 +479,12 @@ that says so rather than one that only describes the new switch.
 switches, and adding five more would double it for a distinction nobody wants: a user who does not
 want adult content shaping recommendations does not want it from AniList but not MAL.
 
-**Both layers, not one.** The request-side gate is for privacy and for completeness; the read-side
-filter is for everything the request cannot cover, which is AniList (no adult argument on the library
-query), Hikka (no filterable attribute at all), already-cached entries, and mislabelled titles.
-Neither layer alone is sufficient, so both ship.
+**Both layers, not one**, though the split turned out lopsided. The request-side gate is for privacy
+and for completeness, and it reaches MyAnimeList alone: AniList's library query has no adult argument,
+Shikimori's `userRates` takes no `censored`, Bangumi's collections ignore an nsfw parameter, and Hikka
+has no filterable attribute at all. The read-side filter carries everything else, which is the other
+four trackers, already-cached entries, and mislabelled titles. Neither layer alone is sufficient, so
+both ship, but the read filter is doing nearly all the work.
 
 **`UNKNOWN` is a state, not a null.** Recorded because the obvious shortcut is a `Boolean?`, and the
 whole point is that a tracker's inability to answer stays visible rather than defaulting to "clean".
