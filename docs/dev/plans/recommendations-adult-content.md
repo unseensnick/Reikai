@@ -332,17 +332,35 @@ themselves need no code. Three parts:
 
 **Step 5a, the tag picker** (owner, 2026-08-23). The keyword list is permanent for two trackers, so
 users need a way to correct both a false positive and a miss without waiting on a release. Two string
-sets on `TrackPreferences`, edited by picking from the tags actually present in the local taste cache,
-sorted by frequency and showing which the built-in list currently matches. **Not free-text entry:**
-tags are matched as substrings against `lowercase().trim()`, so a typo or an unused term is a setting
-that silently does nothing and gives the user no way to tell. Resolution order, settling the ruling
-below: whitelisted tags are subtracted from the entry's tags; any remaining blacklisted tag makes it
-explicit; a whitelisted tag present on the entry downgrades a tracker's `ADULT` to `UNKNOWN` so the
-remaining tags decide; otherwise the kernel is unchanged. Known limit, recorded rather than fixed: a
-per-tag control cannot override a tracker verdict on a title carrying no relevant tag, which is the
-`Redo of Healer` case from step 3. That needs a per-title override and is out of scope. Verify: unit
-tests over each clause of the order, including the mixed case where a whitelisted and an explicit tag
-sit on the same entry, each by mutation.
+sets on `TrackPreferences`, edited by picking from the tags actually in the local taste cache.
+
+**Two pickers, not one list, because the DSL decides it.** `MultiSelectListPreference` binds a single
+`PreferenceData<Set<T>>`, so a single list writing two derived sets would need the bound preference
+kept in sync by hand. Each picker instead offers only the tags where a choice changes something: the
+deny list shows tags the built-in list does not already catch, the allow list only the ones it does.
+That communicates the current classification without a separate marking, and it stops an allow pick
+clearing a tracker verdict through an unrelated tag like `romance`.
+
+**Not free-text entry:** a typo or an unused term would be a setting that silently does nothing and
+gives the user no way to tell. Overrides therefore match a whole tag exactly, unlike the built-in
+list, which stays substring-based because it screens vocabulary nobody enumerated.
+
+Resolution order: a denied tag makes the entry explicit, checked against the untouched tags so a tag
+in both lists still counts; then allowed tags are subtracted; an allowed tag present on the entry
+downgrades a tracker's `ADULT` to `UNKNOWN` so the remaining tags decide; otherwise the kernel is
+unchanged. Known limit, recorded rather than fixed: a per-tag control cannot override a tracker
+verdict on a title carrying no relevant tag, which is the `Redo of Healer` case from step 3. That
+needs a per-title override and is out of scope.
+
+**Step 5b, screen the candidates, which the setting never actually did.** Found while grounding 5a
+and recorded here because the Approach above has claimed it since the plan was written. The setting
+reaches the taste profile only: `GetTasteEntries` is the single caller of the kernel, so
+`TasteCandidateFetcher` screens its cross-recommendation *seeds* and nothing else. Everything the
+carousel is fed goes through unscreened, both the source results from its tag search and the tracker
+recommendations, and a grep for the kernel across `reikai/domain/recommendation` finds it nowhere
+outside the `taste` package. Candidates carry `SManga.genre`, so they can go through the same kernel
+on the keyword path with no flag, which is the case the fallback was designed for. Verify: a known
+adult candidate reaches the carousel with the setting on and not with it off.
 
 **Step 6, Kitsu.** Map `LibraryEntry.nsfw` or any `Category.isNsfw` to `ADULT`. Depends on the Kitsu
 GraphQL move, which is why it is last. See [kitsu-single-api.md](kitsu-single-api.md).
@@ -429,6 +447,13 @@ two of them (`Redo of Healer`, a MILF-party isekai) carry no tag the keyword lis
 so the service's own ruling catches what substring matching structurally cannot. And MyAnimeList's
 `nsfw=false` request really does drop adult entries before they reach the cache, which is the privacy
 half of the design working rather than a filter applied after storage.
+
+**Step 5a shipped.** Both pickers render under the adult switch, and on the owner's 142-row cache the
+allow picker correctly offered exactly one tag, `erotica (1)`, the only one the built-in list catches
+there, which is the partition working. The pick persisted to the string set and the subtitle showed
+it. Eleven tests cover the resolution order, with three mutations each failing exactly their own
+case: reordering the deny check, dropping the tracker-verdict downgrade, and matching overrides by
+substring.
 
 **Step 5 shipped**, and the device run is what proves the request-side gate does its job end to end.
 MyAnimeList held 142 cached rows, every one `CLEAN`, because `nsfw=false` had been dropping adult
