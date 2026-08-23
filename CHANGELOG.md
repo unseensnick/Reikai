@@ -24,6 +24,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **You can find an entry by one of its chapter names, with `chapter:epilogue`.** Works on manga and novels, and combines with everything else, so `chapter:finale -genre:horror` does what it reads like.
 - **The library's three-dot menu can now refresh tracker data for everything you track, in one pass.** Scores and statuses were only pulled when you opened an entry, so sorting or filtering by tracker score read whatever was last cached.
 - **Settings -> Library -> Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
+- **Long-pressing a second category on the Edit categories screen now selects everything between the two.** Long-press one you have already picked to drop it again.
+- **A long press on a grouped row in Updates now selects everything between it and your last pick, that whole group included.** It only ever selected the group you pressed.
 
 **Merged series**
 
@@ -154,6 +156,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Library**
 
 - **The app no longer freezes on the Library while light-novel plugins are being set up.** It could hang long enough for Android to offer to close it, most often on a slow or freshly started device.
+- **Selecting a range of chapters no longer leaves a hole where you dropped one.** Dropping a chapter out of the middle of a range and then extending it skipped the chapter you had dropped, on manga and novels alike.
+- **Manga and novel chapter lists now answer a range selection the same way.** The two screens filled a range differently, so the same three presses gave you different chapters depending on which you were reading.
+- **Deselecting one chapter out of a selected range now sticks on novels.** The next long press quietly took it back.
+- **Inverting a selection no longer drops what you had picked elsewhere.** Inverting inside one library category cleared picks in the others.
 - **Reset all in Edit info now clears a cover you set by hand, so the series goes back to the source's own cover.** It reset the text fields and left the picked cover in place, on both manga and novels.
 - **Downloaded badges now notice chapters you delete outside the app.** The check was meant to run hourly but restarted its clock on every launch, so opening the app more often than that meant it never ran.
 - **On a merged series, tapping the cover shows the selected source's cover, and changing the cover is done on the All chip.** Your library shows the group's cover, so an edit made under one source would have looked like it did nothing.
