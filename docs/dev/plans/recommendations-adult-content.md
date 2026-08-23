@@ -439,21 +439,23 @@ for.** Recommendations are the app choosing titles for you, and Fill-from-tracke
 your library without asking; filtering those is invisible and harmless. A search box is the opposite,
 since the user typed the title and already named what they want.
 
-Three findings made that the right call rather than the cheap one. The `id:` escape hatch the
-Approach leaned on needs the tracker's numeric id, so it is a developer affordance, not a user one.
-Only four of the eight trackers can gate request-side (MyAnimeList's `nsfw`, Shikimori's `censored`,
+Two findings made that the right call rather than the cheap one. The `id:` escape hatch the Approach
+leaned on needs the tracker's numeric id, so it is a developer affordance, not a user one. And only
+four of the eight trackers can gate request-side (MyAnimeList's `nsfw`, Shikimori's `censored`,
 AniList's `isAdult` and Bangumi's `filter.nsfw`, the last only when authenticated, all verified
 live), so gating would make search behave differently per tracker with nothing on screen to say why.
-And two of those four would change in the permissive direction, since Shikimori currently hides
-hentai, yaoi and yuri from search always: honouring the setting there would start returning them.
+
+**Every tracker's search is unfiltered today, including Shikimori's.** An earlier draft of this
+section claimed Shikimori already hid hentai, yaoi and yuri because we omit `censored` and its
+documented text reads "Set to `false` to allow hentai, yaoi and yuri", which implies a censoring
+default. Measured 2026-08-23, that inference is wrong for the GraphQL endpoint: omitting the argument
+returns 14 censored entries out of 20, byte-identical to sending `false`, while `censored: true`
+returns 0. So the default behaves as `false`, there is no behaviour difference between trackers, and
+there is nothing to fix. The argument still works as a gate if search is ever gated.
 
 So Fill-from-tracker screens the genres a tracker returns, at the one seam both content types share.
 Kitsu's own category filter stays, because it names its adult categories precisely where keywords
 guess, but it now follows the setting like everything else instead of stripping unconditionally.
-
-**Left as a separate question, not folded in:** Shikimori search silently hides hentai, yaoi and yuri
-today because we omit `censored` and its default hides them. Under the rule above that is a bug, and
-a one-line fix, but it is a permissive change and does not belong inside an adult-content commit.
 
 **Step 10, the docs.** The taste profile is a documented user feature; the new setting needs a line in
 the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG entry.
