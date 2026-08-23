@@ -67,6 +67,10 @@ data class ALRecsMediaRecommendation(
     val title: ALRecsTitle? = null,
     val synonyms: List<String> = emptyList(),
     val coverImage: ALRecsCover? = null,
+    // A recommendation is a Media, so it answers the same adult flag the library pull reads, in the
+    // same query. Without these two a recommended title reaches the carousel with nothing to screen.
+    val isAdult: Boolean? = null,
+    val genres: List<String> = emptyList(),
 )
 
 @Serializable

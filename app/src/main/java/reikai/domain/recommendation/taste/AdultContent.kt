@@ -48,8 +48,20 @@ fun TrackedEntry.isSexuallyExplicit(overrides: AdultTagOverrides = AdultTagOverr
     return when (verdict) {
         AdultContent.ADULT -> true
         AdultContent.CLEAN -> false
-        AdultContent.UNKNOWN -> considered.any(::isBuiltInSexualTag)
+        AdultContent.UNKNOWN -> areTagsSexuallyExplicit(considered, overrides)
     }
+}
+
+/**
+ * The tag half on its own, for a candidate that carries genres but no tracker verdict. Same
+ * precedence: a denied tag decides, an allowed tag is not evidence, then the built-in list.
+ */
+fun areTagsSexuallyExplicit(
+    tags: List<String>,
+    overrides: AdultTagOverrides = AdultTagOverrides.NONE,
+): Boolean {
+    if (tags.any { it in overrides.alwaysAdult }) return true
+    return tags.filterNot { it in overrides.neverAdult }.any(::isBuiltInSexualTag)
 }
 
 /** Whether the built-in list already reads [tag] as sexual content, which is what decides which of

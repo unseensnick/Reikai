@@ -2,6 +2,7 @@ package reikai.domain.recommendation
 
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.json.Json
+import reikai.domain.recommendation.taste.AdultContent
 
 /**
  * Base contract for a tracker-backed recommendation provider: given a manga the user is viewing,
@@ -50,6 +51,10 @@ abstract class TrackerRecommendations {
         thumbnailUrl: String?,
         remoteId: Long? = null,
         altTitles: List<String> = emptyList(),
+        // Both default to "we were not told". A provider whose recommendation payload carries an
+        // adult flag or genres passes them, and only then can the adult filter screen its results.
+        adult: AdultContent = AdultContent.UNKNOWN,
+        genres: List<String> = emptyList(),
     ): RelatedMangaCandidate = RelatedMangaCandidate(
         sourceId = RECOMMENDS_SOURCE,
         trackerName = trackerName,
@@ -57,11 +62,13 @@ abstract class TrackerRecommendations {
             this.url = url
             this.title = title
             this.thumbnail_url = thumbnailUrl
+            this.genre = genres.joinToString(", ").ifBlank { null }
             this.initialized = true
         },
         altTitles = altTitles,
         origin = RecommendationOrigin.Tracker(trackerName),
         trackerId = trackerId,
         remoteId = remoteId,
+        adult = adult,
     )
 }
