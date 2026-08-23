@@ -324,9 +324,11 @@ themselves need no code. Three parts:
   "ntr" sits inside "control"; and the bare `成人` stem, which would catch `成人式`, a coming-of-age
   ceremony. Verify: each new term gets a case in `AdultContentTest`, plus a near-miss case for the
   three exclusions, all checked by mutation.
-- Mark the taste cache stale when the setting flips, the piece deferred from step 2. Verify:
-  on-device, flip the setting, confirm the cached rows go, open a details page and confirm a refetch
-  lands rather than the old rows persisting.
+- Mark the taste cache stale when the setting flips, the piece deferred from step 2, and stop the
+  cache holding rows for trackers whose pull the user turned off, without which clearing it whole
+  destroys data nothing will rebuild. Verify: on-device, flip the setting, confirm the cached rows go
+  and a details-page open refetches; separately, enable a tracker's pull, let it populate, turn it
+  off and confirm only its rows go.
 
 **Step 5a, the tag picker** (owner, 2026-08-23). The keyword list is permanent for two trackers, so
 users need a way to correct both a false positive and a miss without waiting on a release. Two string
@@ -382,6 +384,9 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
   stay on the keyword fallback permanently, per the declines in Approach; do not add a flag to either.
 - `app/src/main/java/reikai/domain/recommendation/taste/AdultContent.kt`: the enum, the resolution
   kernel and the keyword list, which is where the fallback and the tag picker both land.
+- `app/src/main/java/reikai/domain/recommendation/taste/RefreshTrackerLibrary.kt`: owns the invariant
+  that the cache holds rows only for trackers the user still pulls from, which is what lets the
+  adult-setting flip clear it whole.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/anilist/AnilistApi.kt` (the library selection set)
   and `myanimelist/MyAnimeListApi.kt` (`LIBRARY_FIELDS`, and the two `nsfw=true` request params, of
   which only the library one follows the setting).
@@ -425,9 +430,13 @@ so the service's own ruling catches what substring matching structurally cannot.
 `nsfw=false` request really does drop adult entries before they reach the cache, which is the privacy
 half of the design working rather than a filter applied after storage.
 
-**Deferred from step 2 on purpose:** the cache invalidation the plan put there. It only matters once
-a request-side gate exists, which arrived with step 4, so the setting now needs to mark the taste
-cache stale when it flips. Step 5 owes it.
+**Step 5 shipped**, and the device run is what proves the request-side gate does its job end to end.
+MyAnimeList held 142 cached rows, every one `CLEAN`, because `nsfw=false` had been dropping adult
+entries before they reached the cache. Flipping the setting on cleared the cache, the next
+details-page open refetched, and MyAnimeList came back with 145 rows of which 3 were `ADULT`. Those
+three were unreachable before and would have stayed missing for up to six hours without the
+invalidation. Turning a tracker's pull off was verified separately: AniList's 189 rows went and
+MyAnimeList's 142 stayed.
 
 **Tokens refresh lazily, which is normal but has a tail worth knowing.** Both interceptors refresh an
 expired access token on the next request, so a tracker nothing calls sits with a dead token
@@ -469,6 +478,27 @@ request depends on the setting, so a narrower delete is possible and would need 
 that dependency. It is not worth a typed capability with one implementer, and the wide delete is
 better on the privacy axis regardless: the read filter only hides AniList's adult rows, while a delete
 removes them.
+
+**The wide delete was only safe once the cache stopped holding rows nobody pulls** (owner, 2026-08-23).
+The device run that verified the invalidation exposed the reason. Flipping the setting cleared 419
+rows and the refetch restored 142: MyAnimeList's, because it was the only tracker whose pull was still
+switched on. AniList's 189 and Kitsu's 88 were orphans, cached back when those pulls were enabled,
+never removed when they were turned off, and shaping the taste profile the whole time, since the read
+path takes every cached row and only the pull path asks whether a tracker still feeds it. Flipping one
+switch therefore shrank the profile by two thirds with nothing to say so.
+
+Rather than narrow the delete around that, the orphans are gone: `RefreshTrackerLibrary` now drops the
+rows of any tracker whose pull preference is off, at the top of all three entry points. The cache can
+then only hold rows a refetch can rebuild, which is what makes clearing it whole a cheap operation
+instead of a lossy one. It also closes the older bug on its own, that a tracker you stopped pulling
+from kept steering recommendations forever.
+
+**The purge is keyed to the preference, never to `isEnabled()`.** The obvious version drops any
+tracker that cannot answer, which folds in being logged out, and a tracker that logs itself out
+silently is a thing that happens here. That would turn a transient auth failure into a wiped profile
+contribution, so the fetcher exposes `isPullRequested()` for the preference alone and keeps
+`isEnabled()` as that plus the login check. A conformance test pins the distinction: keying the purge
+to `isEnabled()` fails exactly the logged-out case and nothing else.
 
 **The cost of that default, stated plainly:** nothing filters adult content in recommendations today,
 so an existing library's profile does change on upgrade, and adult titles stop shaping it until the
