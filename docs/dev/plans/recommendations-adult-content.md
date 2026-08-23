@@ -395,8 +395,30 @@ So the filter is real for AniList and best-effort elsewhere. That is worth stati
 than letting the next reader assume the surface is covered, which is the mistake this step exists to
 correct.
 
-**Step 6, Kitsu.** Map `LibraryEntry.nsfw` or any `Category.isNsfw` to `ADULT`. Depends on the Kitsu
-GraphQL move, which is why it is last. See [kitsu-single-api.md](kitsu-single-api.md).
+**Step 6, Kitsu.** Two signals, both already reachable in the library query, which was already
+selecting `categories`: any category Kitsu flags `isNsfw`, and `media.sfw`, which is exactly
+`ageRating != R18`.
+
+**It never answers `CLEAN`.** `sfw == true` only means "not rated R18", and an entry with no flagged
+category only means nobody tagged one; neither certifies a title clean. Answering `UNKNOWN` instead
+keeps the keyword fallback and the user's own tag picks able to speak, which a false `CLEAN` would
+silence.
+
+**Nudity and Yuri are excluded from the category check** (owner, 2026-08-23). Measured against the
+live API: Kitsu flags 25 of its 243 categories NSFW, and 23 are unambiguous (Sex, Anal, Bondage,
+Incest, Prostitution, Shota, Erotic Torture and so on). The two exceptions are exactly the ones
+`AdultContentTest` pins as not sexual content: Nudity carries `isAdult: false` on AniList, and Yuri
+is orientation rather than explicitness. Both still arrive as ordinary tags, so a user who disagrees
+can deny them in the tag picker.
+
+`sfw` never misfires on violence, which is what makes it safe to use at all: Berserk is rated `R`
+and reads `sfw = true`. It under-reports instead, since an unrated title also reads safe (Goblin
+Slayer has no rating at all). `LibraryEntry.nsfw` also exists and reads as the inverse of
+`media.sfw` on real data, so it carries the same information one level further from the categories
+and is not used.
+
+It depended on the Kitsu GraphQL move, which is why it was sequenced last. See
+[kitsu-single-api.md](kitsu-single-api.md).
 
 **Step 7, the MangaDex taste fetcher.** Add `MdListLibraryFetcher` over the existing
 `fetchAllFollows()`, mapping tags off `MangaDataDto.attributes` rather than through
@@ -480,6 +502,15 @@ two of them (`Redo of Healer`, a MILF-party isekai) carry no tag the keyword lis
 so the service's own ruling catches what substring matching structurally cannot. And MyAnimeList's
 `nsfw=false` request really does drop adult entries before they reach the cache, which is the privacy
 half of the design working rather than a filter applied after storage.
+
+**Step 6 shipped, and the device run is the best evidence any of this works.** Pulling the owner's
+real Kitsu library gave 88 rows: **3 `ADULT`, 0 `CLEAN`, 85 `UNKNOWN`**, so the never-CLEAN rule held
+in practice. The three it caught are the point. `Kaifuku Jutsushi Yarinaoshi` is Redo of Healer, the
+title recorded in step 3 as one AniList flagged adult while carrying no tag the keyword list could
+match; its tags here are ecchi, revenge, fantasy and harem, none of which the list matches and the
+first of which is deliberately excluded. Kitsu's categories caught it anyway, as they did
+`My Wife is a Demon Queen` (via Large Breasts) and `Mahou Shoujo ni Akogarete`. So the step bought
+recall the fallback structurally could not reach, rather than duplicating it.
 
 **Step 5b shipped.** Verified on device that the AniList recommendation query still returns `200`
 with the two new fields and that the carousel populates unchanged, which was the real risk in
