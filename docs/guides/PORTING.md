@@ -6,6 +6,12 @@ core reading experience Reikai inherits, which Reikai has never documented: gett
 reader settings, backups, storage, downloads, source migration, local source and troubleshooting.
 About 10,700 words.
 
+**Checked through mihon `1de5e8d` (2026-08-24).** Nothing that feeds these pages has moved since the
+copy: `git diff --stat 455bd7c..origin/main` in `refs/mihon-website` touches only `website/package.json`
+and its two lockfiles, and `website/src/docs/` has no commit at all in that range. Advance this line
+after the next check rather than re-deriving it. What to diff: `website/src/docs/` for the pages, plus
+`.vitepress/config/shortcodes.ts` and `theme/styles/tree.styl` for the pieces the website repo borrowed.
+
 **They are live on the site.** `sync-docs.mjs` walks the whole `docs/` tree, carrying the markdown
 into `src/docs/` and everything else into `src/public/docs/`, and the sidebar follows Mihon's own shape:
 site pages, then Frequently Asked Questions, then Guides. What is still outstanding is the content: **the text has been debranded and
