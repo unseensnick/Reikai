@@ -34,7 +34,6 @@ class KitsuLibraryFetcher(
         tags = tags.map { it.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
         malId = malId,
         anilistId = anilistId,
-        adult = kitsuAdultContent(nsfwCategories, sfw),
     )
 
     // Lower-cased because GraphQL reports the status enum in upper case where the JSON:API reported
@@ -48,36 +47,3 @@ class KitsuLibraryFetcher(
         else -> TrackStatus.UNKNOWN
     }
 }
-
-/**
- * Kitsu's two adult signals, neither of which can certify a title clean, so this never answers
- * [AdultContent.CLEAN]: `sfw` only means "not rated R18" and an entry with no flagged category only
- * means nobody tagged one. Leaving the rest [AdultContent.UNKNOWN] keeps the keyword fallback and
- * the user's own tag picks able to speak. `sfw == false` is exactly `ageRating == R18`, so it never
- * fires on violence: Berserk is rated R and reads as safe. Which categories count is
- * [isKitsuSexualCategory].
- */
-internal fun kitsuAdultContent(nsfwCategories: List<String>, sfw: Boolean?): AdultContent {
-    val sexualCategory = nsfwCategories.any { isKitsuSexualCategory(it) }
-    return if (sexualCategory || sfw == false) AdultContent.ADULT else AdultContent.UNKNOWN
-}
-
-/**
- * Whether a category Kitsu flags NSFW is sexual content by Reikai's definition, given the tags the
- * user has said are not. Kitsu's own flag is the wider of the two, so reading it raw would both
- * classify entries this app would not and strip genres from Fill-from-tracker that every other
- * tracker keeps. `KitsuApi.getMangaMetadata` and [kitsuAdultContent] share it so one answer serves
- * both; only the metadata path passes [allowedTags], since the library mapping is resolved against
- * the user's picks later, at read time.
- */
-internal fun isKitsuSexualCategory(category: String, allowedTags: Set<String> = emptySet()): Boolean {
-    val key = category.toTagKey()
-    return key !in NON_SEXUAL_NSFW_CATEGORIES && key !in allowedTags
-}
-
-/**
- * Flagged NSFW by Kitsu but pinned as not sexual content by AdultContentTest: Nudity carries
- * `isAdult: false` on AniList, and Yuri is orientation rather than explicitness. Both still arrive
- * as ordinary tags, where the user can deny them if they disagree.
- */
-private val NON_SEXUAL_NSFW_CATEGORIES = setOf("nudity", "yuri")

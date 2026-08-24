@@ -152,7 +152,8 @@ because the published API docs still describe the API as read-only.
 
 **RanobeDB first, and alone at first.** It is the only one of the four with documented endpoints, a
 curated catalogue, stable integer ids, a token flow needing no OAuth redirect and no secret in the
-APK, and tags plus an NSFW flag that let it feed recommendations. See
+APK, and tags that let it feed recommendations. Its NSFW flag was part of that case when the tracker
+adult-content filter existed; that filter was removed, so only the tags count now. See
 [recommendations-adult-content.md](recommendations-adult-content.md).
 
 **"No public API" is a maintenance cost here, not a blocker.** NovelUpdates and NovelList have no

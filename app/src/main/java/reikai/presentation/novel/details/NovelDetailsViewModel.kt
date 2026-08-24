@@ -85,7 +85,6 @@ import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
-import reikai.domain.track.GetTrackerMetadata
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -167,7 +166,6 @@ class NovelDetailsViewModel(
     private val trackNovelChapter: TrackNovelChapter,
     private val trackerManager: TrackerManager,
     private val trackPreferences: TrackPreferences,
-    private val getTrackerMetadata: GetTrackerMetadata,
 ) : ViewModel() {
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
@@ -964,7 +962,7 @@ class NovelDetailsViewModel(
     }
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
-        getTrackerMetadata.await(track, tracker)
+        tracker.getMangaMetadata(track)
 
     fun setSortOrder(sort: Long, descending: Boolean) =
         withLoadedNovel { setNovelChapterFlags.awaitSetSortOrder(it, sort, descending) }

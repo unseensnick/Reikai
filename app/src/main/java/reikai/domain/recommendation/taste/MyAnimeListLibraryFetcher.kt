@@ -37,7 +37,6 @@ class MyAnimeListLibraryFetcher(
         // MAL's remote id IS the MAL id, so cross-tracker dedup can collapse AniList entries that
         // point here via Media.idMal.
         malId = node.id,
-        adult = malNsfwToAdultContent(node.nsfw),
     )
 
     private fun mapStatus(listStatus: MALLibraryListStatus?): TrackStatus {
@@ -52,16 +51,4 @@ class MyAnimeListLibraryFetcher(
             else -> TrackStatus.UNKNOWN
         }
     }
-}
-
-/**
- * MyAnimeList rates an entry `white`, `gray` or `black` and documents none of the three. `gray` is
- * read as adult: it is the borderline bucket, and a setting whose job is keeping explicit material
- * out should resolve a maybe towards keeping it out. An entry MAL has not rated stays unknown, so
- * the tag fallback can still answer for it.
- */
-internal fun malNsfwToAdultContent(nsfw: String?): AdultContent = when (nsfw?.lowercase()) {
-    "white" -> AdultContent.CLEAN
-    "gray", "grey", "black" -> AdultContent.ADULT
-    else -> AdultContent.UNKNOWN
 }

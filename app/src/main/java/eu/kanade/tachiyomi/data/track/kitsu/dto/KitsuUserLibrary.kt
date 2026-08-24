@@ -48,9 +48,6 @@ data class KitsuUserLibraryNode(
 @Serializable
 data class KitsuUserLibraryMedia(
     val id: String,
-    /** Kitsu's own safe-for-work helper, which is exactly `ageRating != R18`. Absent means the query
-     *  did not ask; false is the only value that positively says adult. */
-    val sfw: Boolean? = null,
     val titles: KitsuUserLibraryTitles = KitsuUserLibraryTitles(),
     val categories: KitsuCategoryConnection = KitsuCategoryConnection(),
     val mappings: KitsuMappingConnection = KitsuMappingConnection(),
@@ -70,9 +67,6 @@ data class KitsuCategoryConnection(
 data class KitsuCategoryNode(
     /** A localized field resolves to a loose locale-keyed map, not a bare string. */
     val title: Map<String, String> = emptyMap(),
-    /** Kitsu flags 25 of its 243 categories NSFW. The metadata query drops them from the genre list;
-     *  the library query reads them to decide whether an entry is adult. */
-    val isNsfw: Boolean = false,
 )
 
 @Serializable

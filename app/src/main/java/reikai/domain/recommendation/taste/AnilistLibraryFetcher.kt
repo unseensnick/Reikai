@@ -37,8 +37,6 @@ class AnilistLibraryFetcher(
         // anilistId is our own remote id so a Kitsu entry's anilist mapping can join on the 2nd key.
         malId = media.idMal,
         anilistId = media.id,
-        // AniList rules on this itself, so there is never a reason to fall back to the tag list.
-        adult = if (media.isAdult) AdultContent.ADULT else AdultContent.CLEAN,
     )
 
     private fun ALLibraryEntry.collectTags(): List<String> =

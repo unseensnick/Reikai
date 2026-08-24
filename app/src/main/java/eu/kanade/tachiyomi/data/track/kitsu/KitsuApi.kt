@@ -34,7 +34,6 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import reikai.domain.recommendation.taste.isKitsuSexualCategory
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
@@ -473,14 +472,12 @@ class KitsuApi(
                       |rating
                       |media {
                         |id
-                        |sfw
                         |titles {
                           |preferred
                         |}
                         |categories(first: 100) {
                           |nodes {
                             |title(locales: ["en"])
-                            |isNsfw
                           |}
                         |}
                         |mappings(first: 50) {
@@ -538,8 +535,6 @@ class KitsuApi(
             tags = media.categories.nodes.mapNotNull { it.localizedTitle() },
             malId = externalIds[MAL_MAPPING_SITE]?.toLongOrNull(),
             anilistId = externalIds[ANILIST_MAPPING_SITE]?.toLongOrNull(),
-            nsfwCategories = media.categories.nodes.filter { it.isNsfw }.mapNotNull { it.localizedTitle() },
-            sfw = media.sfw,
         )
     }
 
@@ -549,16 +544,12 @@ class KitsuApi(
 
     // "Fill from tracker" metadata. Its own query rather than upstream's search fragment, which
     // caps staff at five and selects no categories, so credits would truncate and genres would be
-    // missing. Adult categories are dropped from the genre list unless the user opted in.
+    // missing.
     //
     // Kitsu returns its NSFW categories only to an account whose own SFW filter is off: otherwise it
     // counts them in totalCount and omits them from nodes, with no query argument to ask. So on a
-    // default account this genre list is already short and no Reikai setting can lengthen it.
-    suspend fun getMangaMetadata(
-        track: DomainTrack,
-        includeAdult: Boolean,
-        allowedTags: Set<String>,
-    ): TrackMangaMetadata {
+    // default account this genre list is short and nothing in the app can lengthen it.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
         val query = $$"""
             |query Query($id: ID!) {
               |findMangaById(id: $id) {
@@ -584,7 +575,6 @@ class KitsuApi(
                 |categories(first: 100) {
                   |nodes {
                     |title(locales: ["en"])
-                    |isNsfw
                   |}
                 |}
               |}
@@ -618,13 +608,6 @@ class KitsuApi(
                 authors = manga.staffNames("Story"),
                 artists = manga.staffNames("Art"),
                 genres = manga.categories.nodes
-                    // Kitsu is the one tracker that can name its own adult categories, so it keeps
-                    // dropping them precisely rather than by keyword. What counts as adult is still
-                    // Reikai's call, not Kitsu's: its NSFW set is the wider of the two, and a tag
-                    // the user allowed outranks it either way.
-                    .filterNot {
-                        !includeAdult && it.isNsfw && isKitsuSexualCategory(it.localizedTitle().orEmpty(), allowedTags)
-                    }
                     .mapNotNull { it.localizedTitle() }
                     .takeIf { it.isNotEmpty() },
             )

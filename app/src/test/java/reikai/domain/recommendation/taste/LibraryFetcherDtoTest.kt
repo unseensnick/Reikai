@@ -69,41 +69,6 @@ class LibraryFetcherDtoTest {
     }
 
     @Test
-    fun `MAL mangalist carries its own nsfw rating`() {
-        val payload = """
-            {"data":[
-              {"node":{"id":2,"title":"Berserk","genres":[{"name":"Action"}],"nsfw":"white"},
-               "list_status":{"status":"reading","score":9,"is_rereading":false}},
-              {"node":{"id":3,"title":"Borderline","genres":[],"nsfw":"gray"},
-               "list_status":{"status":"reading","score":0,"is_rereading":false}},
-              {"node":{"id":4,"title":"Unrated","genres":[]},
-               "list_status":{"status":"reading","score":0,"is_rereading":false}}
-            ],"paging":{"next":null}}
-        """.trimIndent()
-
-        val items = json.decodeFromString<MALLibraryResult>(payload).data
-        items.map { it.node.nsfw } shouldContainExactly listOf("white", "gray", null)
-    }
-
-    @Test
-    fun `AniList library entry carries its own adult ruling`() {
-        val payload = """
-            {"data":{"MediaListCollection":{"lists":[{"entries":[
-              {"status":"CURRENT","scoreRaw":90,"media":{
-                "id":30002,"idMal":2,"title":{"userPreferred":"Berserk"},
-                "genres":["Action"],"tags":[{"name":"Male Protagonist"}],"isAdult":false}},
-              {"status":"COMPLETED","scoreRaw":70,"media":{
-                "id":30003,"title":{"userPreferred":"Explicit"},
-                "genres":["Hentai"],"tags":[],"isAdult":true}}
-            ]}]}}}
-        """.trimIndent()
-
-        val entries = json.decodeFromString<ALUserLibraryResult>(payload)
-            .data.mediaListCollection.lists.single().entries
-        entries.map { it.media.isAdult } shouldContainExactly listOf(false, true)
-    }
-
-    @Test
     fun `Shikimori GraphQL userRates maps score, status and manga genres`() {
         val payload = """
             {"data":{"userRates":[

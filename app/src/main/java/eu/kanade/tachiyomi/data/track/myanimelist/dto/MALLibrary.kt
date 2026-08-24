@@ -26,8 +26,6 @@ data class MALLibraryNode(
     val id: Long,
     val title: String,
     val genres: List<MALLibraryGenre> = emptyList(),
-    /** MyAnimeList's own rating: `white`, `gray` or `black`. Absent on an entry it has not rated. */
-    val nsfw: String? = null,
 )
 
 @Serializable

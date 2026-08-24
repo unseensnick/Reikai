@@ -58,19 +58,4 @@ class TrackPreferences(
         "pref_auto_update_manga_on_mark_read",
         AutoTrackState.ALWAYS,
     )
-
-    // RK --> whether sexually explicit titles from a tracker reach the rest of the app. Off by
-    // default, so adult content is opt-in: an existing library's recommendations do change on
-    // upgrade until the user turns this on.
-    val showAdultTrackerContent: Preference<Boolean> =
-        preferenceStore.getBoolean("show_adult_tracker_content", false)
-
-    // The user's own answers about specific tags, picked from what their tracked libraries carry.
-    // Both outrank the built-in keyword list and the tracker's own flag.
-    val alwaysAdultTags: Preference<Set<String>> =
-        preferenceStore.getStringSet("always_adult_tags", emptySet())
-
-    val neverAdultTags: Preference<Set<String>> =
-        preferenceStore.getStringSet("never_adult_tags", emptySet())
-    // RK <--
 }

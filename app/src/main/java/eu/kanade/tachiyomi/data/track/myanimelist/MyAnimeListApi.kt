@@ -260,12 +260,12 @@ class MyAnimeListApi(
 
     // RK --> full library pull for the recommendation taste profile. Pages /users/@me/mangalist with
     // genres + list_status inline (one node-field request per page, never per title).
-    suspend fun getUserLibrary(includeAdult: Boolean): List<MALLibraryItem> {
+    suspend fun getUserLibrary(): List<MALLibraryItem> {
         return withIOContext {
             val results = mutableListOf<MALLibraryItem>()
             var offset = 0
             while (true) {
-                val page = getLibraryPage(offset, includeAdult)
+                val page = getLibraryPage(offset)
                 results += page.data
                 if (page.paging.next.isNullOrBlank()) break
                 offset += LIST_PAGINATION_AMOUNT
@@ -274,13 +274,11 @@ class MyAnimeListApi(
         }
     }
 
-    private suspend fun getLibraryPage(offset: Int, includeAdult: Boolean): MALLibraryResult {
-        // MAL omits adult entries unless asked, so this is what decides whether they reach the
-        // cache at all, not just whether they are used once there.
+    private suspend fun getLibraryPage(offset: Int): MALLibraryResult {
         val urlBuilder = "$BASE_API_URL/users/@me/mangalist".toUri().buildUpon()
             .appendQueryParameter("fields", LIBRARY_FIELDS)
             .appendQueryParameter("limit", LIST_PAGINATION_AMOUNT.toString())
-            .appendQueryParameter("nsfw", includeAdult.toString())
+            .appendQueryParameter("nsfw", "true")
         if (offset > 0) {
             urlBuilder.appendQueryParameter("offset", offset.toString())
         }
@@ -360,8 +358,8 @@ class MyAnimeListApi(
         private const val SEARCH_FIELDS =
             "id,title,synopsis,num_chapters,mean,main_picture,status,media_type,start_date,authors{first_name,last_name}"
 
-        // RK: genres, reading status and MAL's own adult rating inline for the taste-profile pull.
-        private const val LIBRARY_FIELDS = "list_status,genres,nsfw"
+        // RK: genres + reading status inline for the taste-profile library pull.
+        private const val LIBRARY_FIELDS = "list_status,genres"
 
         private const val LIST_PAGINATION_AMOUNT = 250
 

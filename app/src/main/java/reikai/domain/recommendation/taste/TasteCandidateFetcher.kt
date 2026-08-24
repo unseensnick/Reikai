@@ -29,7 +29,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Inject
 class TasteCandidateFetcher(
-    private val getTasteEntries: GetTasteEntries,
+    private val repository: TasteLibraryRepository,
     private val computeTasteProfile: ComputeTasteProfile,
     private val preferences: ReikaiRecommendationPreferences,
     private val providers: RecommendationProviders,
@@ -48,7 +48,7 @@ class TasteCandidateFetcher(
         // Gate: M is tracked on a recs-capable tracker (the loader passes its context).
         if (mediaContexts.isEmpty()) return
 
-        val entries = getTasteEntries.await()
+        val entries = repository.getAll()
         val profile = computeTasteProfile(entries)
 
         coroutineScope {

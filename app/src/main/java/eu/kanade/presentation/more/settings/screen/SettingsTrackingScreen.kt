@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -59,16 +58,12 @@ import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
-import reikai.domain.recommendation.taste.ObservedTag
-import reikai.domain.recommendation.taste.isBuiltInSexualTag
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -93,28 +88,8 @@ object SettingsTrackingScreen : SearchableSettings {
         val context = LocalContext.current
         val trackPreferences = remember { context.appGraph.trackPreferences }
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
-        val tasteLibraryRepository = remember { context.appGraph.tasteLibraryRepository } // RK
-        val getObservedTasteTags = remember { context.appGraph.getObservedTasteTags } // RK
         val trackerManager = remember { context.appGraph.trackerManager }
         val sourceManager = remember { context.appGraph.sourceManager }
-
-        // RK: the two adult-tag pickers offer only real tags from the cache, split by whether the
-        // built-in list already catches them, so each list holds only choices that change something.
-        // withIOContext because a produceState body runs on the composition's Main dispatcher, and this
-        // reads the whole taste cache and splits every row's tag string.
-        val observedTags by produceState(emptyList<ObservedTag>()) {
-            value = withIOContext { getObservedTasteTags.await() }
-        }
-        val (caughtTags, uncaughtTags) = remember(observedTags) {
-            observedTags.partition { isBuiltInSexualTag(it.tag) }
-        }
-        // A pick outlives the cache row it came from, and still screens carousel candidates and
-        // Fill-from-tracker genres, neither of which reads the cache. Offering it back keeps it
-        // removable after a pull is turned off or the cache is dropped.
-        val alwaysPicked by trackPreferences.alwaysAdultTags.collectAsState()
-        val neverPicked by trackPreferences.neverAdultTags.collectAsState()
-        val alwaysEntries = remember(uncaughtTags, alwaysPicked) { adultTagEntries(uncaughtTags, alwaysPicked) }
-        val neverEntries = remember(caughtTags, neverPicked) { adultTagEntries(caughtTags, neverPicked) }
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {
@@ -166,37 +141,6 @@ object SettingsTrackingScreen : SearchableSettings {
                 preference = reikaiLibraryPreferences.syncTrackerLinksGrouped,
                 title = stringResource(MR.strings.pref_sync_tracker_links_grouped),
                 subtitle = stringResource(MR.strings.pref_sync_tracker_links_grouped_summary),
-            ),
-            // RK: sexual content only, so it never hides a series for being violent or dark
-            Preference.PreferenceItem.SwitchPreference(
-                preference = trackPreferences.showAdultTrackerContent,
-                title = stringResource(MR.strings.pref_show_adult_tracker_content),
-                subtitle = stringResource(MR.strings.pref_show_adult_tracker_content_summary),
-                // MyAnimeList's library pull asks for adult entries only when this is on, so either
-                // way the cache was built under the old answer: drop it and let the next pull
-                // rebuild. Turning adult content back off, this is also what gets those rows off
-                // disk, which filtering at read time alone would leave there.
-                // withIOContext because onValueChanged runs on rememberCoroutineScope, which is Main.
-                onValueChanged = {
-                    withIOContext { tasteLibraryRepository.deleteAll() }
-                    true
-                },
-            ),
-            // RK: enabled means visible here, so each picker shows while it has anything to offer and
-            // hides only when it has nothing at all. Labels carry the entry count where the cache knows it.
-            Preference.PreferenceItem.MultiSelectListPreference(
-                preference = trackPreferences.alwaysAdultTags,
-                entries = alwaysEntries,
-                title = stringResource(MR.strings.pref_always_adult_tags),
-                subtitle = stringResource(MR.strings.pref_adult_tags_summary),
-                enabled = alwaysEntries.isNotEmpty(),
-            ),
-            Preference.PreferenceItem.MultiSelectListPreference(
-                preference = trackPreferences.neverAdultTags,
-                entries = neverEntries,
-                title = stringResource(MR.strings.pref_never_adult_tags),
-                subtitle = stringResource(MR.strings.pref_adult_tags_summary),
-                enabled = neverEntries.isNotEmpty(),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),
@@ -444,10 +388,3 @@ private data class LoginDialog(
 private data class LogoutDialog(
     val tracker: Tracker,
 )
-
-/** RK: what an adult-tag picker offers. Cache tags carry their entry count; a tag the user already
- *  picked is offered back even once the cache no longer lists it, so it stays removable. */
-private fun adultTagEntries(observed: List<ObservedTag>, picked: Set<String>): Map<String, String> {
-    val fromCache = observed.associate { it.tag to "${it.tag} (${it.count})" }
-    return fromCache + (picked - fromCache.keys).associateWith { it }
-}

@@ -1,5 +1,27 @@
 # Adult content from trackers, behind one setting
 
+**Removed, 2026-08-24 (owner).** The filter is gone from the tree: the setting, both tag pickers,
+the keyword list, `resolveSexuallyExplicit` and every reader that called it. Trackers are ungated
+again, and adult titles reach the taste profile, the carousel and Fill from tracker like any other
+title. Everything below is the design as it stood when it shipped; read it as history.
+
+**Why it went.** An evaluation put its reach next to its cost. It touched the recommendation
+carousel (manga only, since novels have no carousel) and the genre field of Fill from tracker, and
+nothing else: not the library, browse, sources, tracker search or the reader. Half of it was inert
+on a default install, since every `pullLibraryFrom*` toggle is off, so the taste cache is empty and
+both pickers hide themselves. On the carousel it could only fire on AniList candidates and
+source-derived ones, because `TrackerRecommendations.candidate` defaulted `adult` and `genres` and
+only AniList overrode them, leaving MyAnimeList, MangaUpdates and Shikimori candidates with nothing
+to screen. That bought 617 lines of production code and 770 lines of tests.
+
+**Kept, because neither was adult-specific:** the per-tracker cache purge keyed to `isPullRequested`
+in `RefreshTrackerLibrary` (`96e3235f0`), and the `withIOContext` around
+`SettingsRecommendationsScreen`'s last-refresh `produceState` (`12686a2ba`).
+
+**Why this record survives.** It holds measurements nothing else in the tree does: what each
+tracker's API can actually answer, the Shikimori and Bangumi declines, and the Kitsu account-level
+SFW gate that still shortens Fill from tracker. Three other plan docs link here for them.
+
 ## Goal
 
 One setting covering every surface where a tracker's content reaches the user: tracker search, the
@@ -517,6 +539,9 @@ the "Your taste profile" section of `docs/related-mangas.md`, plus a CHANGELOG e
 - `data/src/main/sqldelight/tachiyomi/data/taste_library.sq`: the cache table.
 
 ## Status
+
+**Superseded by the removal recorded at the top of this file.** What follows is the state at the
+time it shipped, kept for the measurements it cites.
 
 **Shipped, end to end.** Steps 1 to 4 (`b515944ae`, `fc81876bc`, `b633a6e10`, `780428900`): the
 model and cache column, the setting and the two filtered readers, then AniList and MyAnimeList

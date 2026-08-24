@@ -16,7 +16,6 @@ import reikai.domain.recommendation.dto.ALRecsMedia
 import reikai.domain.recommendation.dto.ALRecsMediaRecommendation
 import reikai.domain.recommendation.dto.ALRecsResponse
 import reikai.domain.recommendation.dto.ALRecsTitle
-import reikai.domain.recommendation.taste.AdultContent
 
 /**
  * AniList public GraphQL recommendations (`Media.recommendations`). No auth required, so the shared
@@ -92,18 +91,8 @@ class AnilistRecommendations(
                     thumbnailUrl = rec.coverImage?.large,
                     remoteId = rec.id,
                     altTitles = rec.altTitles(),
-                    adult = anilistIsAdultToAdultContent(rec.isAdult),
-                    genres = rec.genres,
                 )
             }
-
-    /** AniList's single 18+ bucket, the same field the taste-library pull reads. Absent means the
-     *  query did not ask or the media is gone, which is unknown rather than clean. */
-    private fun anilistIsAdultToAdultContent(isAdult: Boolean?): AdultContent = when (isAdult) {
-        true -> AdultContent.ADULT
-        false -> AdultContent.CLEAN
-        null -> AdultContent.UNKNOWN
-    }
 
     private fun ALRecsMedia.matchesQuery(query: String): Boolean {
         if (title?.contains(query) == true) return true
@@ -153,8 +142,6 @@ class AnilistRecommendations(
                           title { romaji english native }
                           synonyms
                           coverImage { large }
-                          isAdult
-                          genres
                         }
                       }
                     }
@@ -178,8 +165,6 @@ class AnilistRecommendations(
                         title { romaji english native }
                         synonyms
                         coverImage { large }
-                        isAdult
-                        genres
                       }
                     }
                   }
@@ -204,8 +189,6 @@ class AnilistRecommendations(
                           title { romaji english native }
                           synonyms
                           coverImage { large }
-                          isAdult
-                          genres
                         }
                       }
                     }

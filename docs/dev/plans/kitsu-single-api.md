@@ -28,6 +28,10 @@ but `getUserLibrary` takes every category title straight into the taste profile'
 tracker library steers recommendations by its adult tags, with no way to see that happening or turn
 it off, on a screen whose library-side twin has had a Lewd filter all along.
 
+**That paragraph is history as of 2026-08-24.** The filter it argues for was built and then removed,
+and `getMangaMetadata` no longer drops any category, so Kitsu now offers its full genre list. See
+the NSFW section below and [recommendations-adult-content.md](recommendations-adult-content.md).
+
 ## Approach
 
 ### What Kitsu's schema actually offers
@@ -78,6 +82,11 @@ poster and staff; the only field Fill-from-tracker needs beyond it is `categorie
 one query with two mappers rather than two queries, and `dto/KitsuMetadata.kt` goes.
 
 ### NSFW, behind a preference
+
+**Void as of 2026-08-24:** the tracker adult-content filter this section serves was removed in full,
+so step 4 below is not work anyone owes. Kitsu's `sfw` and `isNsfw` are no longer selected by either
+query and Fill from tracker returns every category Kitsu gives it. See
+[recommendations-adult-content.md](recommendations-adult-content.md). What follows is history.
 
 Four signals arrive with the queries above: the entry's `nsfw`, the media's `sfw` and `ageRating`,
 and each category's `isNsfw`. The design uses the entry flag, keeps the category flag where it is
@@ -181,8 +190,9 @@ one.
 ## Status
 
 **Steps 1, 2, 3 and 5 shipped** (`ebe0ff307`, `a522851b1`), so Kitsu now speaks one API and
-`/api/edge/` is gone from the tree. Step 4, the adult-content flag, belongs to
-[recommendations-adult-content.md](recommendations-adult-content.md) and is not started.
+`/api/edge/` is gone from the tree. Step 4, the adult-content flag, shipped in `61f32b5d4` and was
+then undone along with the filter it fed, so the plan is closed with that step deliberately
+reverted. See [recommendations-adult-content.md](recommendations-adult-content.md).
 
 Grounded 2026-08-22 against `hummingbird-me/kitsu-server` on `the-future` and against the current
 tree; the GraphQL port it builds on shipped in `bf4c8d528`.

@@ -95,8 +95,6 @@ import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
-import reikai.domain.recommendation.AdultCandidateFilter
-import reikai.domain.recommendation.BuildAdultCandidateFilter
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationHideFilter
@@ -108,7 +106,6 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
-import reikai.domain.track.GetTrackerMetadata
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.addEntry
@@ -218,8 +215,6 @@ class MangaViewModel(
     private val getTasteProfile: GetTasteProfile,
     private val refreshTrackerLibrary: RefreshTrackerLibrary,
     private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
-    private val buildAdultCandidateFilter: BuildAdultCandidateFilter, // RK
-    private val getTrackerMetadata: GetTrackerMetadata, // RK
     private val getFavorites: GetFavorites,
     private val networkToLocalManga: NetworkToLocalManga,
     private val uiPreferences: UiPreferences,
@@ -1667,7 +1662,7 @@ class MangaViewModel(
         buildTrackerAutofillCandidates(getTracksInGroup.await(mangaId), trackerManager)
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
-        getTrackerMetadata.await(track, tracker)
+        tracker.getMangaMetadata(track)
 
     // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
     // models run). selectSource + showManageSourcesDialog stay here: their bodies genuinely diverge.
@@ -1772,12 +1767,9 @@ class MangaViewModel(
             // Anti-echo: opt-in filter that hides suggestions the user already has/tracks (by id, then
             // title). No-op when no filter is enabled.
             val hideFilter = buildRecommendationHideFilter.await()
-            // RK: keeps explicit suggestions off the carousel. Built here rather than baked into the
-            // pool so the cache stays neutral and flipping the setting takes effect on the next open.
-            val adultFilter = buildAdultCandidateFilter.build()
             val cached = relatedMangaCache.get(state.manga.id)
             if (cached != null) {
-                applyRelated(cached.fullPool, favoriteKeys, hideFilter, adultFilter)
+                applyRelated(cached.fullPool, favoriteKeys, hideFilter)
                 if (cached.isComplete && relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
@@ -1804,11 +1796,11 @@ class MangaViewModel(
                     // Cache each streamed snapshot (incomplete) so "See all" works before the load
                     // finishes; the final put below marks it complete.
                     relatedMangaCache.put(mangaId, it.take(CAROUSEL_CAP), it, isComplete = false)
-                    applyRelated(it, favoriteKeys, hideFilter, adultFilter)
+                    applyRelated(it, favoriteKeys, hideFilter)
                 },
             )
             relatedMangaCache.put(mangaId, pool.take(CAROUSEL_CAP), pool)
-            applyRelated(pool, favoriteKeys, hideFilter, adultFilter)
+            applyRelated(pool, favoriteKeys, hideFilter)
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
@@ -1817,10 +1809,8 @@ class MangaViewModel(
         pool: List<RelatedMangaCandidate>,
         favoriteKeys: Set<Pair<String, Long>>,
         hideFilter: RecommendationHideFilter,
-        adultFilter: AdultCandidateFilter,
     ) {
         val items = pool
-            .filterNot { adultFilter.shouldHide(it) }
             .filterNot { hideFilter.shouldHide(it) }
             .map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
         // Cap the carousel; the full pool stays in the cache for the "See all" browse grid.

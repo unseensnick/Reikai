@@ -1,0 +1,3 @@
+-- RK: the tracker adult-content filter is gone, so nothing reads this column. The cache itself is
+-- rebuilt by the tracker-library pull, so dropping a column costs nothing beyond the next refresh.
+ALTER TABLE taste_library DROP COLUMN adult;

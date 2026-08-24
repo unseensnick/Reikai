@@ -1,7 +1,6 @@
 package reikai.domain.recommendation
 
 import eu.kanade.tachiyomi.source.model.SManga
-import reikai.domain.recommendation.taste.AdultContent
 
 /**
  * Pool element for the related-mangas carousel: an [SManga] plus the source it counts as coming from,
@@ -19,9 +18,6 @@ class RelatedMangaCandidate(
     val origin: RecommendationOrigin,
     val trackerId: Long? = null,
     val remoteId: Long? = null,
-    /** What the provider says about sexual content. [AdultContent.UNKNOWN] for every provider whose
-     *  recommendation payload carries no such field, which leaves the genre fallback to answer. */
-    val adult: AdultContent = AdultContent.UNKNOWN,
 ) {
     fun titleKeys(): Set<String> =
         (listOf(manga.title) + altTitles)
@@ -31,7 +27,7 @@ class RelatedMangaCandidate(
             .toSet()
 
     fun withOrigin(newOrigin: RecommendationOrigin): RelatedMangaCandidate =
-        RelatedMangaCandidate(sourceId, trackerName, manga, altTitles, newOrigin, trackerId, remoteId, adult)
+        RelatedMangaCandidate(sourceId, trackerName, manga, altTitles, newOrigin, trackerId, remoteId)
 
     override fun equals(other: Any?): Boolean =
         other is RelatedMangaCandidate && manga.url == other.manga.url

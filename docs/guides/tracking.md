@@ -93,6 +93,10 @@ Search with a different title if there is no match.
 ### How do I log in with Kitsu?
 * To log in with Kitsu, you need to use your email address as your username.
 
+### Why is Kitsu's genre list shorter?
+* If your Kitsu account still has its SFW filter on, Kitsu leaves its adult categories out before Reikai ever sees them, so **Fill from tracker** gives a Kitsu-bound entry fewer genres than another tracker would.
+* Nothing in Reikai can bring them back. To get them, turn the SFW filter off in your Kitsu account settings.
+
 ### Can't find a series on MyAnimeList?
 * If you cannot find a series by name, you can look it up on MyAnimeList and then search for it in **Reikai** using the following format: `id:<id from series URL>`.
 * You can also search for a series on your MAL profile list by searching in the following format: `my:<series name>`.

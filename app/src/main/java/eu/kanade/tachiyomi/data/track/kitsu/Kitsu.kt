@@ -198,11 +198,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     // RK --> autofill entry metadata (Fill from tracker)
     override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
-        return api.getMangaMetadata(
-            track,
-            includeAdult = trackPreferences.showAdultTrackerContent.get(),
-            allowedTags = trackPreferences.neverAdultTags.get(),
-        )
+        return api.getMangaMetadata(track)
     }
     // RK <--
 

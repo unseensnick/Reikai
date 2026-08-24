@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import mihon.domain.manga.model.toDomainManga
 import reikai.domain.category.resolveDefaultCategoryIds
-import reikai.domain.recommendation.BuildAdultCandidateFilter
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
@@ -63,7 +62,6 @@ class RelatedMangasBrowseViewModel(
     private val networkToLocalManga: NetworkToLocalManga,
     private val libraryPreferences: LibraryPreferences,
     private val buildRecommendationHideFilter: BuildRecommendationHideFilter,
-    private val buildAdultCandidateFilter: BuildAdultCandidateFilter,
 ) : ViewModel() {
 
     val state: StateFlow<RelatedMangasBrowseViewModel.State>
@@ -85,14 +83,11 @@ class RelatedMangasBrowseViewModel(
         viewModelScope.launchIO {
             val favoriteKeys = currentFavoriteKeys()
             val hideFilter = buildRecommendationHideFilter.await()
-            // Adult candidates are dropped, never marked hidden: the anti-echo filter's hidden state
-            // has a reveal, and revealing what the adult setting excluded would defeat it.
-            val adultFilter = buildAdultCandidateFilter.build()
             // Render live off the cache so a grid opened mid-load (the menu placement opens it before the
             // background load finishes) fills to the full pool as it streams, instead of freezing on the
             // partial snapshot present at open. "See all" is tapped after the carousel, so it starts full.
             relatedMangaCache.observe(mangaId).collect { entry ->
-                val pool = entry?.fullPool.orEmpty().filterNot { adultFilter.shouldHide(it) }
+                val pool = entry?.fullPool.orEmpty()
                 val items = pool.map {
                     BrowseItem(it, (it.manga.url to it.sourceId) in favoriteKeys, hidden = hideFilter.shouldHide(it))
                 }

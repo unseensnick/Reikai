@@ -9,8 +9,8 @@ import dev.zacsweers.metro.Inject
  */
 @Inject
 class GetTasteProfile(
-    private val getTasteEntries: GetTasteEntries,
+    private val repository: TasteLibraryRepository,
     private val compute: ComputeTasteProfile,
 ) {
-    suspend fun await(): TasteProfile = compute(getTasteEntries.await())
+    suspend fun await(): TasteProfile = compute(repository.getAll())
 }
