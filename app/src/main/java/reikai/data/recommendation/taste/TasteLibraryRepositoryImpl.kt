@@ -44,9 +44,6 @@ class TasteLibraryRepositoryImpl(
         database.taste_libraryQueries.deleteByTracker(trackerId)
     }
 
-    override suspend fun count(): Long =
-        database.taste_libraryQueries.count().awaitAsOne()
-
     override suspend fun lastFetch(trackerId: Long): Long? =
         database.taste_libraryQueries.lastFetchByTracker(trackerId).awaitAsOne().last_fetch
 

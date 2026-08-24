@@ -26,10 +26,6 @@ deleteByTracker:
 DELETE FROM taste_library
 WHERE tracker_id = :trackerId;
 
-count:
-SELECT COUNT(*)
-FROM taste_library;
-
 lastFetchByTracker:
 SELECT MAX(fetched_at) AS last_fetch
 FROM taste_library

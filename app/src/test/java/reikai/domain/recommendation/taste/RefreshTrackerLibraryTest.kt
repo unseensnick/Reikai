@@ -32,7 +32,6 @@ class RefreshTrackerLibraryTest {
         override suspend fun deleteTracker(trackerId: Long) {
             deletedTrackers += trackerId
         }
-        override suspend fun count(): Long = 0
         override suspend fun lastFetch(trackerId: Long): Long? = null
     }
 

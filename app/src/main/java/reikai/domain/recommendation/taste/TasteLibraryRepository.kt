@@ -15,8 +15,6 @@ interface TasteLibraryRepository {
 
     suspend fun deleteTracker(trackerId: Long)
 
-    suspend fun count(): Long
-
     /** Epoch millis of the most recent pull for [trackerId], or null if never pulled. */
     suspend fun lastFetch(trackerId: Long): Long?
 }
