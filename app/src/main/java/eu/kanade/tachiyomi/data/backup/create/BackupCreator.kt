@@ -322,7 +322,7 @@ class BackupCreator(
     }
 
     // RK: installed manga extensions, gated by the same toggle as their repos.
-    private fun backupExtensions(options: BackupOptions): List<BackupExtension> {
+    private suspend fun backupExtensions(options: BackupOptions): List<BackupExtension> {
         if (!options.extensionStores) return emptyList()
 
         return extensionBackupCreator()

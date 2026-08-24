@@ -38,7 +38,7 @@ class ExtensionRestorer(
             extensionManager.availableExtensionsFlow.first { it.isNotEmpty() }
         }.orEmpty()
         val availableByPkg = available.associateBy { it.pkgName }
-        val installedPkgs = extensionManager.installedExtensionsFlow.value.mapTo(HashSet()) { it.pkgName }
+        val installedPkgs = extensionManager.installedExtensionsFlow.first().mapTo(HashSet()) { it.pkgName }
 
         val unmatched = mutableListOf<String>()
         backupExtensions.forEach { backupExtension ->

@@ -239,6 +239,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The duplicate warning for a novel now shows its artist and flags a source that is no longer installed, like the manga one.**
 - **Peeking at a possible duplicate no longer throws away the add you were making.** Long-press opens it, and the same question is waiting when you come back.
 - **Opening a title from Browse no longer shows it pre-grouped with same-named titles in your library.**
+- **A global search run moments after opening the app now waits for your sources instead of quietly searching fewer.** Manga and novels alike, and the searched source list no longer depends on how fast the app finished starting up.
 
 **Light novels**
 

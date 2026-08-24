@@ -63,9 +63,14 @@ class LibraryUpdateNotifier(
 
     // RK: hide adult titles + covers from the "new chapters" notification (lock-screen privacy).
     private val adultChecker by lazy { adultCheckerProvider() }
-    private fun hideContent(manga: Manga): Boolean =
-        securityPreferences.hideNotificationContent.get() ||
-            (securityPreferences.hideAdultNotificationContent.get() && adultChecker.isAdult(manga))
+
+    // RK: resolved once per batch, because the adult verdict now suspends and the notification
+    //     builders below do not, so it cannot be asked per row.
+    private suspend fun hiddenContentIds(entries: List<Manga>): Set<Long> = when {
+        securityPreferences.hideNotificationContent.get() -> entries.mapTo(mutableSetOf()) { it.id }
+        securityPreferences.hideAdultNotificationContent.get() -> adultChecker.adultIdsAmong(entries)
+        else -> emptySet()
+    }
 
     /**
      * Pending intent of action that cancels the library update
@@ -184,14 +189,16 @@ class LibraryUpdateNotifier(
      *
      * @param updates a list of manga with new updates.
      */
-    fun showUpdateNotifications(updates: List<Pair<Manga, Array<Chapter>>>) {
+    suspend fun showUpdateNotifications(updates: List<Pair<Manga, Array<Chapter>>>) {
+        val hidden = hiddenContentIds(updates.map { it.first })
+
         // Parent group notification
         context.notify(
             Notifications.ID_NEW_CHAPTERS,
             Notifications.CHANNEL_NEW_CHAPTERS,
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
-            if (updates.size == 1 && !hideContent(updates.first().first)) {
+            if (updates.size == 1 && updates.first().first.id !in hidden) {
                 setContentText(updates.first().first.title.chop(NOTIF_TITLE_MAX_LEN))
             } else {
                 setContentText(
@@ -207,7 +214,7 @@ class LibraryUpdateNotifier(
                         NotificationCompat.BigTextStyle().bigText(
                             updates.joinToString("\n") {
                                 // RK: generic line for adult titles so they don't leak to the lock screen
-                                if (hideContent(it.first)) {
+                                if (it.first.id in hidden) {
                                     context.stringResource(MR.strings.notification_new_chapters)
                                 } else {
                                     it.first.title.chop(NOTIF_TITLE_MAX_LEN)
@@ -240,7 +247,7 @@ class LibraryUpdateNotifier(
                         NotificationManagerCompat.NotificationWithIdAndTag(
                             manga.id.hashCode(),
                             // RK: hide the title + cover for adult manga
-                            createNewChaptersNotification(manga, chapters, hideContent(manga)),
+                            createNewChaptersNotification(manga, chapters, manga.id in hidden),
                         )
                     },
                 )

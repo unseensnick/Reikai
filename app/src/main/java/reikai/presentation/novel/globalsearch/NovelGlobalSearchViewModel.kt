@@ -62,12 +62,7 @@ class NovelGlobalSearchViewModel(
 
     init {
         state.update { it.copy(onlyShowHasResults = sourcePreferences.novelGlobalSearchHasResults.get()) }
-        viewModelScope.launchIO {
-            try {
-                installer.ensureLoaded()
-            } catch (_: Throwable) {}
-            if (initialQuery.isNotBlank()) search(initialQuery)
-        }
+        if (initialQuery.isNotBlank()) search(initialQuery)
         // In-library marking, same read-only (source, url) key set as browse.
         viewModelScope.launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
@@ -149,15 +144,20 @@ class NovelGlobalSearchViewModel(
             state.update { it.copy(query = "", results = emptyList()) }
             return
         }
-        val pinned = sourcePreferences.pinnedNovelSources.get()
-        val sources = selectGlobalSearchSources(getEnabledNovelSources.get(), pinned, state.value.sourceFilter)
-        state.update {
-            it.copy(
-                query = query,
-                results = sources.map { source -> SourceSearchResult(source, SearchState.Loading) },
-            )
-        }
         searchJob = viewModelScope.launchIO {
+            // Plugins load in the background and the registry answers "missing" for every source
+            // until that finishes, so resolving the set any earlier searches nothing at all.
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
+            val pinned = sourcePreferences.pinnedNovelSources.get()
+            val sources = selectGlobalSearchSources(getEnabledNovelSources.get(), pinned, state.value.sourceFilter)
+            state.update {
+                it.copy(
+                    query = query,
+                    results = sources.map { source -> SourceSearchResult(source, SearchState.Loading) },
+                )
+            }
             val semaphore = Semaphore(SEARCH_CONCURRENCY)
             sources.map { source ->
                 async {

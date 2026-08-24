@@ -25,12 +25,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -68,19 +69,18 @@ class ExtensionManager(
 
     val scope = CoroutineScope(SupervisorJob())
 
-    private val _isInitialized = MutableStateFlow(false)
-    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
+    private val isInitialized = MutableStateFlow(false)
 
     private val iconMap = mutableMapOf<String, Drawable>()
 
     private val installedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Installed>())
-    val installedExtensionsFlow = installedExtensionMapFlow.mapExtensions(scope)
+    val installedExtensionsFlow = installedExtensionMapFlow.mapExtensionsOnceInitialized()
 
     private val availableExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Available>())
     val availableExtensionsFlow = availableExtensionMapFlow.mapExtensions(scope)
 
     private val untrustedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Untrusted>())
-    val untrustedExtensionsFlow = untrustedExtensionMapFlow.mapExtensions(scope)
+    val untrustedExtensionsFlow = untrustedExtensionMapFlow.mapExtensionsOnceInitialized()
 
     // RK --> one scan at a time. It now runs from three places on this scope, and each pass assigns
     // both maps wholesale from a store list it read when it started, so a slow startup scan landing
@@ -112,7 +112,7 @@ class ExtensionManager(
     private var subLanguagesEnabledOnFirstRun = preferences.enabledLanguages.isSet()
 
     fun getExtensionPackage(sourceId: Long): String? {
-        return installedExtensionsFlow.value.find { extension ->
+        return installedExtensionMapFlow.value.values.find { extension ->
             extension.sources.any { it.id == sourceId }
         }
             ?.pkgName
@@ -161,7 +161,7 @@ class ExtensionManager(
             .filterIsInstance<LoadResult.Untrusted>()
             .associate { it.extension.pkgName to it.extension }
 
-        _isInitialized.value = true
+        isInitialized.value = true
     }
 
     // RK -->
@@ -433,6 +433,18 @@ class ExtensionManager(
         return combine(exhPreferences.isHentaiEnabled().changes()) { map, hentaiEnabled ->
             map.values.filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
         }.stateIn(scope, SharingStarted.Lazily, value.values.filterNotBlacklisted())
+    }
+
+    /**
+     * [mapExtensions] without the [stateIn], whose seed would replay the empty map the flow was
+     * constructed with, so a reader before the scan finished got a wrong answer rather than a slow
+     * one. Emits nothing until the scan completes; the EH gate is applied the same way.
+     */
+    private fun <T : Extension> StateFlow<Map<String, T>>.mapExtensionsOnceInitialized(): Flow<List<T>> {
+        return onStart { isInitialized.first { it } }
+            .combine(exhPreferences.isHentaiEnabled().changes()) { map, hentaiEnabled ->
+                map.values.filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
+            }
     }
 
     // RK: initial value for mapExtensions before the gate flow first emits.
