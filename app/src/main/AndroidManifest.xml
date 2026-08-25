@@ -241,6 +241,13 @@
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- RK: WebView sign-in for trackers with neither OAuth nor a pasted token. Not exported:
+             it is launched from Settings, never from a link. -->
+        <activity
+            android:name=".ui.setting.track.TrackerWebViewLoginActivity"
+            android:configChanges="uiMode|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation"
+            android:exported="false" />
+
         <activity
             android:name=".ui.setting.track.TrackLoginActivity"
             android:exported="true"

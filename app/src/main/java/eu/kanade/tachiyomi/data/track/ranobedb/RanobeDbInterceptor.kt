@@ -12,10 +12,19 @@ class RanobeDbInterceptor(
     private var token: String? = ranobeDb.restoreToken()
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = token ?: throw IOException("Not authenticated with RanobeDB")
+        val credential = token ?: throw IOException("Not authenticated with RanobeDB")
 
         val authRequest = chain.request().newBuilder()
-            .addHeader("Authorization", "Bearer $token")
+            // A WebView login stores the session cookie, a token login stores the token itself, and
+            // the server accepts either on /api/v0/user. The prefix tells them apart; see
+            // RanobeDb.SESSION_COOKIE_PREFIX for why it cannot collide with a token.
+            .apply {
+                if (credential.startsWith(RanobeDb.SESSION_COOKIE_PREFIX)) {
+                    addHeader("Cookie", credential)
+                } else {
+                    addHeader("Authorization", "Bearer $credential")
+                }
+            }
             .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
             .build()
 

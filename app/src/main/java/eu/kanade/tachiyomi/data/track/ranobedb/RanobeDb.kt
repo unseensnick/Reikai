@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
+import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -21,12 +22,12 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * Binds to a **series**, not a book: a series carries the volume count, the publication status and
  * the tag taxonomy, and its delete route needs no book-to-series lookup first.
  *
- * The API exposes no way to read a user's own list entry back (there is no GET under
- * `/api/v0/user/`, and the series detail route never passes the caller's id to its query), so
- * [refresh] can only refresh catalogue metadata and the local row stays authoritative for status,
- * score and progress.
+ * No route reads a user's own list entry back: the only GET under `/api/v0/user/` is `me`, and the
+ * series detail route never passes the caller's id to its query. So [refresh] can only refresh
+ * catalogue metadata, the local row stays authoritative for status and score, and a write cannot
+ * preserve fields it does not send. See the plan doc for what that costs.
  */
-class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
+class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, CookieLoginTracker {
 
     companion object {
         const val READING = 1L
@@ -37,6 +38,15 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
 
         // Score is 1..10 on the wire; index 0 is "unset", which the API takes as null.
         private val SCORE_LIST = listOf("-") + (1..10).map { it.toString() }
+
+        /**
+         * Marks a stored credential as a session cookie rather than a token, so the interceptor
+         * knows which header to send. A token is base32 without padding, so it can never contain
+         * `=` and the two are impossible to confuse.
+         */
+        const val SESSION_COOKIE_PREFIX = "auth_session="
+
+        private val SESSION_COOKIE = Regex("auth_session=([^;]+)")
     }
 
     private val interceptor by lazy { RanobeDbInterceptor(this) }
@@ -143,18 +153,35 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
 
     override suspend fun login(username: String, password: String) = login(password)
 
+    suspend fun login(token: String) = storeCredential(token.trim())
+
+    // RanobeDB's session cookie authenticates `/api/v0/user` just as a token does: the request hook
+    // resolves the cookie into the caller before it looks for an Authorization header, and only
+    // rejects a request that has neither. So both logins reach the same routes with the same bodies.
+    override val cookieLoginUrl: String = "${RanobeDbApi.BASE_URL}/login"
+
+    override val cookieDomain: String = RanobeDbApi.BASE_URL
+
+    override fun credentialFromCookies(cookies: String): String? =
+        SESSION_COOKIE.find(cookies)
+            ?.groupValues
+            ?.get(1)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { SESSION_COOKIE_PREFIX + it }
+
+    override suspend fun loginWithCookie(credential: String) = storeCredential(credential)
+
     /**
-     * The token is the whole credential, so the username slot is filled from `/user/me`: it both
-     * proves the token works before it is stored, and keeps [isLoggedIn] true, which requires the
-     * username and password slots to be non-empty.
+     * Both logins land here. The username slot is filled from `/user/me`, which proves the
+     * credential works before it is stored and keeps [isLoggedIn] true, since that reads the
+     * username and password slots and a token login leaves the username otherwise empty.
      */
-    suspend fun login(token: String) {
-        val trimmed = token.trim()
-        interceptor.newAuth(trimmed)
+    private suspend fun storeCredential(credential: String) {
+        interceptor.newAuth(credential)
         try {
             val user = api.getCurrentUser()
             saveDisplayUsername(user.username)
-            saveCredentials(user.username, trimmed)
+            saveCredentials(user.username, credential)
         } catch (e: Throwable) {
             interceptor.newAuth(null)
             throw e

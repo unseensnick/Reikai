@@ -160,10 +160,25 @@ designed out.
 OkHttp. Keep the user-editable base URL, because the default host is one person's free-tier
 deployment. Verify: the same end-to-end pass as step 2, plus that a changed base URL is honoured.
 
-**Step 5, the WebView cookie login, only if NovelList or NovelUpdates is going ahead.** Port
-`TrackerWebViewLoginActivity` without the three cookie-logging lines, and with per-tracker extraction
-rather than the id switch. Verify: the captured credential authenticates a real request, confirmed by
-a successful write, and a logcat capture of the whole login shows no cookie value.
+**Step 5, the WebView cookie login. Built, ahead of the scraping trackers that were meant to gate
+it,** because RanobeDB turned out to accept a session cookie on the same `/api/v0/user` routes as a
+token. `hooks.server.ts` resolves the `auth_session` cookie into the caller *before* it looks for an
+`Authorization` header, and rejects only a request carrying neither. So both credentials reach the
+same JSON routes with the same bodies, and offering both logins costs one branch in the interceptor.
+
+That also explains tsundoku's SuperForms machinery: it is not what a cookie forces, it is what
+predates the v0 user routes, which landed 2026-08-13.
+
+Shape: a `CookieLoginTracker` capability carrying the login URL, the cookie origin and the
+extraction, plus a generic `TrackerWebViewLoginActivity` that knows nothing about any service.
+tsundoku instead switches on tracker id in the login screen, which grows with every service. Its
+three raw-cookie DEBUG lines are not ported; `security.md` forbids them because logs reach crash
+reports. Both credentials validate against `/user/me` before being stored, and a stored cookie is
+marked by its `auth_session=` prefix, which a base32 token can never contain.
+
+The token stays the better credential and the field stays in the dialog beside the browser button: a
+PAT has no expiry column, while a Lucia session does. Verify: sign in through the WebView, confirm a
+bind writes, and confirm a logcat capture of the whole login shows no cookie value.
 
 **Step 6, NovelList.** Port the JWT client, storing the UUID in `remote_url` rather than hashing it.
 Verify: bind and update against a real account, and confirm identity survives an app restart and a

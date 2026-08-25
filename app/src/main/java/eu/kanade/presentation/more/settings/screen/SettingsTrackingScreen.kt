@@ -48,6 +48,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
@@ -56,6 +57,7 @@ import eu.kanade.tachiyomi.data.track.hikka.HikkaApi
 import eu.kanade.tachiyomi.data.track.mangabaka.MangaBakaApi
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
+import eu.kanade.tachiyomi.ui.setting.track.TrackerWebViewLoginActivity
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
@@ -113,6 +115,15 @@ object SettingsTrackingScreen : SearchableSettings {
                         tracker = tracker,
                         tokenStringRes = tokenStringRes,
                         helpUrl = helpUrl,
+                        // Offered only where the service accepts a session cookie as well.
+                        onWebViewLogin = (tracker as? CookieLoginTracker)?.let {
+                            {
+                                context.startActivity(
+                                    TrackerWebViewLoginActivity.newIntent(context, tracker.id),
+                                )
+                                dialog = null
+                            }
+                        },
                         onDismissRequest = { dialog = null },
                     )
                 }
@@ -389,6 +400,7 @@ object SettingsTrackingScreen : SearchableSettings {
         tracker: Tracker,
         tokenStringRes: StringResource,
         helpUrl: String,
+        onWebViewLogin: (() -> Unit)?,
         onDismissRequest: () -> Unit,
     ) {
         val context = LocalContext.current
@@ -417,7 +429,19 @@ object SettingsTrackingScreen : SearchableSettings {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(text = stringResource(MR.strings.login_token_info))
+                    if (onWebViewLogin != null) {
+                        // The easier path, so it leads. A token outlasts a session cookie, which is
+                        // why the field below stays rather than being replaced by this.
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onWebViewLogin,
+                        ) {
+                            Text(text = stringResource(MR.strings.login_with_browser))
+                        }
+                        Text(text = stringResource(MR.strings.login_token_or_paste))
+                    } else {
+                        Text(text = stringResource(MR.strings.login_token_info))
+                    }
 
                     var hideToken by remember { mutableStateOf(true) }
                     OutlinedTextField(

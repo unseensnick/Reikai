@@ -907,6 +907,8 @@
     <string name="login_token">Personal access token</string>
     <string name="login_token_info">Generate a token on the tracker\'s website, then paste it here.</string>
     <string name="login_get_token">Get a token</string>
+    <string name="login_with_browser">Log in in a browser</string>
+    <string name="login_token_or_paste">Or paste a personal access token, which does not expire the way a browser session does.</string>
     <string name="login">Login</string>
     <string name="logging_in">Logging in…</string>
     <string name="login_success">Logged in</string>
