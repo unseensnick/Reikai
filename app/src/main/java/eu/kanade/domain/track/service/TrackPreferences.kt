@@ -59,6 +59,15 @@ class TrackPreferences(
     val ranobeDbSyncWhileReading: Preference<Boolean> =
         preferenceStore.getBoolean("ranobedb_sync_while_reading", true)
 
+    // RK: NovelUpdates lets a user rename and add reading lists, so which list a status moves an
+    // entry to is theirs to choose. Off by default, when the site's five stock lists are used.
+    val novelUpdatesUseCustomListMapping: Preference<Boolean> =
+        preferenceStore.getBoolean("novelupdates_use_custom_list_mapping", false)
+
+    // A `status -> listId` map as JSON. Empty means every status keeps its default list.
+    val novelUpdatesCustomListMapping: Preference<String> =
+        preferenceStore.getString("novelupdates_custom_list_mapping", "")
+
     // RK: NovelList's API host, editable because it is a generated Cloud Run hostname carrying their
     // project number rather than a domain they own. A move would otherwise brick the tracker with no
     // way out but an app update. Blank means the built-in default.

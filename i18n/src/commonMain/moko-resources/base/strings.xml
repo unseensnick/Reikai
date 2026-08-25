@@ -751,6 +751,11 @@
     <string name="tracking_info">One-way sync to update the chapter progress in external tracker services. Set up tracking for individual entries from their tracking button.</string>
     <string name="pref_ranobedb_sync_while_reading">Update RanobeDB while you read</string>
     <string name="pref_ranobedb_sync_while_reading_summary">Reading a novel sets its status on RanobeDB. Each update clears that entry&apos;s labels, notes and volume count, because the site offers no way to read them back first.</string>
+    <string name="pref_novelupdates_custom_lists">Use my own NovelUpdates lists</string>
+    <string name="pref_novelupdates_custom_lists_summary">Choose which of your lists each status moves a novel to, instead of the five NovelUpdates starts with.</string>
+    <string name="pref_novelupdates_configure_lists">Match statuses to lists</string>
+    <string name="pref_novelupdates_configure_lists_summary">Tap a status to move it to your next list.</string>
+    <string name="pref_novelupdates_lists_failed">Could not load your NovelUpdates lists</string>
     <string name="pref_novellist_api_url">NovelList server address</string>
     <string name="pref_novellist_api_url_summary">Leave empty unless NovelList moves its server. Tracking stops working if this is wrong.</string>
     <string name="enhanced_services">Enhanced trackers</string>

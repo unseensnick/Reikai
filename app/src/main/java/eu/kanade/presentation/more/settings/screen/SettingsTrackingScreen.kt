@@ -1,6 +1,7 @@
 package eu.kanade.presentation.more.settings.screen
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,6 +58,8 @@ import eu.kanade.tachiyomi.data.track.bangumi.BangumiApi
 import eu.kanade.tachiyomi.data.track.hikka.HikkaApi
 import eu.kanade.tachiyomi.data.track.mangabaka.MangaBakaApi
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
+import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdates
+import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdatesListMapping
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.ui.setting.track.TrackerWebViewLoginActivity
 import eu.kanade.tachiyomi.util.system.openInBrowser
@@ -69,6 +73,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState as collectPreferenceAsState
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -100,6 +105,8 @@ object SettingsTrackingScreen : SearchableSettings {
             .collectAsState(initial = trackerManager.ranobeDb.isLoggedIn)
         val novelListLoggedIn by trackerManager.novelList.isLoggedInFlow
             .collectAsState(initial = trackerManager.novelList.isLoggedIn)
+        val novelUpdatesLoggedIn by trackerManager.novelUpdates.isLoggedInFlow
+            .collectAsState(initial = trackerManager.novelUpdates.isLoggedIn)
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {
@@ -126,6 +133,13 @@ object SettingsTrackingScreen : SearchableSettings {
                                 dialog = null
                             }
                         },
+                        onDismissRequest = { dialog = null },
+                    )
+                }
+                is NovelUpdatesListMappingDialog -> {
+                    NovelUpdatesListMappingDialogContent(
+                        tracker = trackerManager.novelUpdates,
+                        preference = trackPreferences.novelUpdatesCustomListMapping,
                         onDismissRequest = { dialog = null },
                     )
                 }
@@ -250,9 +264,20 @@ object SettingsTrackingScreen : SearchableSettings {
                         },
                         logout = { dialog = LogoutDialog(trackerManager.novelList) },
                     ),
+                    // RK: NovelUpdates. Scraped, so the browser sign-in is the only way in.
+                    Preference.PreferenceItem.TrackerPreference(
+                        tracker = trackerManager.novelUpdates,
+                        login = {
+                            context.startActivity(
+                                TrackerWebViewLoginActivity.newIntent(context, trackerManager.novelUpdates.id),
+                            )
+                        },
+                        logout = { dialog = LogoutDialog(trackerManager.novelUpdates) },
+                    ),
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.tracking_info)),
                 ) + ranobeDbPreferences(trackPreferences, ranobeDbLoggedIn) +
-                    novelListPreferences(trackPreferences, novelListLoggedIn),
+                    novelListPreferences(trackPreferences, novelListLoggedIn) +
+                    novelUpdatesPreferences(trackPreferences, novelUpdatesLoggedIn) { dialog = it },
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.enhanced_services),
@@ -425,6 +450,32 @@ object SettingsTrackingScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_novellist_api_url),
                 subtitle = stringResource(MR.strings.pref_novellist_api_url_summary),
             ),
+        )
+    }
+
+    /**
+     * NovelUpdates lets a user rename and add reading lists, so which list a status moves an entry
+     * to is theirs to choose. The picker only appears once the mapping is switched on.
+     */
+    @Composable
+    private fun novelUpdatesPreferences(
+        trackPreferences: TrackPreferences,
+        isLoggedIn: Boolean,
+        onShowDialog: (Any) -> Unit,
+    ): List<Preference.PreferenceItem<out Any, out Any>> {
+        if (!isLoggedIn) return emptyList()
+        val useCustom by trackPreferences.novelUpdatesUseCustomListMapping.collectPreferenceAsState()
+        return listOfNotNull(
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.novelUpdatesUseCustomListMapping,
+                title = stringResource(MR.strings.pref_novelupdates_custom_lists),
+                subtitle = stringResource(MR.strings.pref_novelupdates_custom_lists_summary),
+            ),
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_novelupdates_configure_lists),
+                subtitle = stringResource(MR.strings.pref_novelupdates_configure_lists_summary),
+                onClick = { onShowDialog(NovelUpdatesListMappingDialog) },
+            ).takeIf { useCustom },
         )
     }
 
@@ -601,3 +652,76 @@ private data class TokenLoginDialog(
 private data class LogoutDialog(
     val tracker: Tracker,
 )
+
+// RK: NovelUpdates has one tracker, so the mapping picker needs no argument to identify it.
+private object NovelUpdatesListMappingDialog
+
+/**
+ * Picks which of the user's NovelUpdates lists each status moves an entry to. The lists are fetched
+ * on open rather than cached, so a list renamed on the site shows its current name; a fetch failure
+ * leaves the existing choices editable rather than emptying them.
+ */
+@Composable
+private fun NovelUpdatesListMappingDialogContent(
+    tracker: NovelUpdates,
+    preference: tachiyomi.core.common.preference.Preference<String>,
+    onDismissRequest: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val json = remember { context.appGraph.json }
+
+    var lists by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var chosen by remember {
+        mutableStateOf(NovelUpdatesListMapping.from(preference.get(), json).asStatusToList())
+    }
+
+    LaunchedEffect(Unit) {
+        runCatching { tracker.readingLists() }
+            .onSuccess { lists = it }
+            .onFailure { withUIContext { context.toast(MR.strings.pref_novelupdates_lists_failed) } }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(MR.strings.pref_novelupdates_configure_lists)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+                NovelUpdates.STATUSES.forEach { status ->
+                    val label = tracker.getStatus(status)?.let { stringResource(it) }.orEmpty()
+                    val current = chosen[status]
+                    val currentName = lists.firstOrNull { it.first == current.toString() }?.second
+                        ?: current.toString()
+                    Text(
+                        text = "$label: $currentName",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = lists.isNotEmpty()) {
+                                val order = lists.mapNotNull { it.first.toLongOrNull() }
+                                val next = order.getOrNull(order.indexOf(current) + 1) ?: order.firstOrNull()
+                                if (next != null) chosen = chosen + (status to next)
+                            },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall)) {
+                OutlinedButton(modifier = Modifier.weight(1f), onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        scope.launchIO {
+                            preference.set(json.encodeToString(chosen.mapKeys { it.key.toString() }))
+                            withUIContext { onDismissRequest() }
+                        }
+                    },
+                ) {
+                    Text(text = stringResource(MR.strings.action_save))
+                }
+            }
+        },
+    )
+}
