@@ -17,6 +17,7 @@ data class DummyTracker(
     override val supportsReadingDates: Boolean = false,
     override val supportsPrivateTracking: Boolean = false,
     override val supportsNovels: Boolean = false,
+    override val supportsManga: Boolean = true,
     override val isLoggedIn: Boolean = false,
     override val isLoggedInFlow: Flow<Boolean> = flowOf(false),
     val valLogo: Int = R.drawable.brand_anilist,

@@ -21,9 +21,10 @@ trackers are single self-contained files (`RanobeDb.kt` 475 lines, `NovelUpdates
 **The interface is nearly identical, so the shape ports mechanically.** Comparing tsundoku's
 `data/track/Tracker.kt` against ours member by member: same ids, same status and score members, same
 `bind` / `update` / `refresh` / `login` / `logout`. Two differences only: tsundoku names the novel
-search `searchNovels` where we use `searchNovel`, and we add `supportsNovels` plus `getMangaMetadata`,
-the latter already defaulted in `BaseTracker`. A ported tracker therefore needs a rename, a
-`supportsNovels = true`, and nothing else structural.
+search `searchNovels` where we use `searchNovel`, and we add `supportsNovels` / `supportsManga` plus
+`getMangaMetadata`, the last already defaulted in `BaseTracker`. A ported tracker therefore needs a
+rename and both capability flags. Setting only `supportsNovels` is not enough: manga support is the
+default, so a novel-only tracker left at that default is still offered on every manga.
 
 **RanobeDB's write path should not be ported at all.** `RanobeDbSuperForm` (`RanobeDb.kt:361-475`,
 about a quarter of the file) hand-encodes SvelteKit SuperForms *slot indices*: a positional JSON array
@@ -187,8 +188,9 @@ PAT has no expiry column, while a Lucia session does. Verify: sign in through th
 bind writes, and confirm a logcat capture of the whole login shows no cookie value.
 
 **Step 6, NovelList.** Port the JWT client, storing the UUID in `remote_url` rather than hashing it.
-Verify: bind and update against a real account, and confirm identity survives an app restart and a
-backup round trip, which is what the hash-and-fragment scheme puts at risk.
+Depends on the per-type capability below, which landed first so the tracker is never offered on a
+manga. Verify: bind and update against a real account, and confirm identity survives an app restart
+and a backup round trip, which is what the hash-and-fragment scheme puts at risk.
 
 **Step 7, NovelUpdates, or a decision not to.** Entirely scraped, with progress living in the user's
 own notes field. If it goes ahead, the notes read and write need to be non-destructive under failure,
@@ -205,6 +207,8 @@ existing notes untouched.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/TrackerManager.kt`: ids and registration.
 - `app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsTrackingScreen.kt`: the two
   existing login shapes and `LoginDialog`.
+- `app/src/main/java/reikai/domain/track/TrackerContentSupport.kt`: the per-type capability kernel
+  both tracking sheets filter through.
 - `data/src/main/sqldelight/tachiyomi/data/novel_tracks.sq`: `remote_id INTEGER`, `remote_url TEXT`.
 
 ## Status
@@ -256,6 +260,29 @@ the extension ecosystem through exactly that: `NetworkHelper` installs `Cloudfla
 FlareSolverr fallback, and `AndroidCookieJar` shares OkHttp's cookies with the WebView's own store, so
 a WebView login carries straight into API calls. Both are buildable; the real cost is that scraped
 selectors and private endpoints rot, which is why they are sequenced last and may be dropped.
+
+**A tracker now declares which content types its catalogue holds, and a novel-only one is hidden
+from manga.** `Tracker` gained `supportsManga` beside `supportsNovels`, defaulting true in
+`BaseTracker` because every service inherited from upstream catalogues manga. Both tracking sheets
+and the manga details count filter through one kernel, `List<Tracker>.supportingContent(isNovel)` in
+`reikai/domain/track/TrackerContentSupport.kt`, so the rule is pinned once rather than restated per
+surface, and one `@ParameterizedTest` covers both types.
+
+This is the write-once exit the content-layer rule asks for, and the named mechanism is the remote
+catalogue. RanobeDB lists light novels only. NovelList markets itself as a "Novel and Manhwa
+Directory", but its one catalogue endpoint is `/api/novels/filter`, its records carry no medium
+field, and pure manhwa are absent: Tower of God, Lookism and The Breaker each return zero results,
+while Omniscient Reader returns the 551-chapter novel and Solo Leveling carries `TAG: Adapted to
+Manhwa` on a novel row. Manhwa are not bindable entities there.
+
+Binding across the two types is worse than an empty search. For the overlap titles a user reading
+the manhwa would bind the novel entry, and that work's chapter count would then drive progress sync,
+which is the same failure the RanobeDB volume count already forced `total_chapters = 0` for.
+
+Before this, `RanobeDb` was offered on every manga's track sheet once logged in, and its
+`search()` delegates to `searchNovel()`, so a manga search answered with light novels. The library
+tracking filter is deliberately left listing every logged-in tracker: that sheet is shared by one
+library holding both types, ruled in `reikai/presentation/library/LibraryEngine.kt`.
 
 **MyNovelList's risk is who runs it, not whether it works.** IReader points at
 `mynoveltracker.netlify.app`, its own deployment, and not at mynovellist.net, which exposes no API at

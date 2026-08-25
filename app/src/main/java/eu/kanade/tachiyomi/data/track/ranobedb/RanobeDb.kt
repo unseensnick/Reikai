@@ -73,6 +73,10 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
 
     override val supportsNovels = true
 
+    // Their catalogue is light novels only, so a manga has nothing here to bind to. Left true, the
+    // manga sheet would offer RanobeDB and search() would answer with light novels.
+    override val supportsManga = false
+
     override val supportsReadingDates = true
 
     override fun getStatusList(): List<Long> =

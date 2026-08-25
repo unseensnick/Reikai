@@ -84,6 +84,7 @@ import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.track.NovelTrackUpdater
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.track.supportingContent
 import reikai.domain.track.trackWriterFor
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -102,12 +103,12 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * The single track-info dialog stack for both manga and novels. Both content types carry the same domain
- * [Track] (novels adapt via [reikai.domain.novel.track.toUiTrack]) and write through a [TrackWriter], so the
- * two catalogues cannot drift. Only five things branch on [isNovel]: the track subscription (single-id vs
- * merge-group), the tracker filter (source-accept vs supportsNovels), the search endpoint (search vs
- * searchNovel), the bind target (tracker.register + group propagate vs AddNovelTrack), and the delete scope
- * (single-id vs group). The [EnhancedTracker] auto-bind is a manga-only slot (no novel tracker is enhanced).
+ * The single track-info dialog stack for both manga and novels: the same domain [Track] (novels adapt
+ * via [reikai.domain.novel.track.toUiTrack]) written through a [TrackWriter], so the two cannot drift.
+ * Five things branch on [isNovel]: the track subscription, the manga-only source-accept filter, the
+ * search endpoint, the bind target and the delete scope. Only manga narrows by source, because
+ * [EnhancedTracker] is a manga-only slot; a tracker serving novels from one source would need that
+ * gate before it could declare supportsNovels, or it would be offered on every novel.
  */
 data class EntryTrackInfoDialogHomeScreen(
     private val entryId: Long,
@@ -267,12 +268,10 @@ data class EntryTrackInfoDialogHomeScreen(
         }
 
         private fun List<Track>.mapToTrackItem(): List<TrackItem> {
-            val loggedInTrackers = trackerManager.loggedInTrackers()
+            // Only trackers whose catalogue holds this type; the rest would silently bind the other's hit.
+            val loggedInTrackers = trackerManager.loggedInTrackers().supportingContent(isNovel)
             return if (isNovel) {
-                // Only trackers with a real novel search; the rest would silently bind a manga hit.
-                loggedInTrackers
-                    .filter { it.supportsNovels }
-                    .map { service -> TrackItem(find { it.trackerId == service.id }, service) }
+                loggedInTrackers.map { service -> TrackItem(find { it.trackerId == service.id }, service) }
             } else {
                 val source = sourceManager.getOrStub(sourceId!!)
                 loggedInTrackers

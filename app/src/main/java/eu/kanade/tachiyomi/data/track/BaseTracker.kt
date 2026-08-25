@@ -46,8 +46,12 @@ abstract class BaseTracker(
 
     override val supportsPrivateTracking: Boolean = false
 
-    // RK --> novel search capability; overridden true by the novel-capable trackers
+    // RK --> per-type capability. Manga defaults true because every service inherited from upstream
+    // catalogues manga; a light-novel service whose catalogue holds none overrides it false.
     override val supportsNovels: Boolean = false
+
+    override val supportsManga: Boolean = true
+    // RK <--
 
     /**
      * The `id:` search prefix, defined once so a tracker's manga and novel searches cannot answer it

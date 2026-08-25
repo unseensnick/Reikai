@@ -51,11 +51,15 @@ interface Tracker {
 
     suspend fun search(query: String): List<TrackSearch>
 
-    // RK --> novel-aware search. searchNovel defaults to the manga search so trackers
-    // outside the novel-capable set degrade gracefully; the seven novel-capable trackers override it.
-    // supportsNovels gates the novel tracking sheet: only trackers that declare it (the same seven)
-    // are offered, so a tracker that can only return manga hits can't be bound to a novel.
+    // RK --> per-type capability. Each gates the matching tracking sheet, so a service is offered
+    // only where its catalogue actually holds entries: one that lists no manga can't be bound to a
+    // manga, and one that lists no novels can't be bound to a novel. Binding across the two is worse
+    // than an empty search, because the wrong work's chapter count then drives progress sync.
+    // searchNovel defaults to the manga search so a tracker outside the novel-capable set degrades
+    // gracefully.
     val supportsNovels: Boolean
+
+    val supportsManga: Boolean
 
     suspend fun searchNovel(query: String): List<TrackSearch> = search(query)
     // RK <--
