@@ -215,11 +215,24 @@ existing notes untouched.
 
 ## Status
 
-**NovelList is built and registered at id 101, and unverified on device.** The client, the tracker,
-the browser sign-in and the editable server address are in, with the write contract measured rather
-than assumed. Nothing about it has been exercised against a real account through the app yet: bind,
-progress, score, refresh and unbind all still need a device pass, and the cookie extraction has
-never run against a live sign-in.
+**NovelList is built, registered at id 101, and verified end to end on device.** The client, the
+tracker, the browser sign-in and the editable server address are in, with the write contract measured
+rather than assumed.
+
+Verified on the owner's real account: the **browser sign-in**, which is the part with no second
+source, since the chunked-cookie layout was read out of tsundoku rather than off a live session; and
+**bind**, **status**, **score** and **chapter progress**, the last of which also confirms the
+always-send-`chapter_count` rule holds through the app and not only through a probe. And **unbind**,
+which removed the entry from the site: worth noting because the reference fork implements no delete
+at all, so that route came from the OpenAPI document with nothing to cross-check it against.
+
+Also **refresh** and **Fill from tracker**, the two read paths: refresh is the only caller of the
+remote-to-local status mapping, and Fill is the only caller of `GET /novels/{id}`, the one shape
+carrying the author. Nothing in the tracker is now unexercised.
+
+Worth contrasting: RanobeDB's refresh cannot do this and never will, because no route there returns a
+user's list entry, so its local row stays authoritative for status and score. NovelList reading back
+is the difference that lets its writes be non-destructive.
 
 **RanobeDB is built (steps 1 to 3, plus step 5 out of order), and partly verified on device.** The
 two logins, the series-bound tracker and its Fill-from-tracker support are in, alongside the shared
