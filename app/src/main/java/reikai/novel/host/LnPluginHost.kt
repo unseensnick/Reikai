@@ -94,6 +94,12 @@ class LnPluginHost(
     private val loaderSlot = EngineSlot("loader")
     private val pluginSlots = ConcurrentHashMap<String, EngineSlot>()
 
+    // QuickJs.create runs the native initGlobals, which caches jclass handles as PROCESS-wide JNI
+    // global refs. Two slots creating engines at once race there and abort the runtime with
+    // "jobject is an invalid global reference". A slot's own mutex cannot cover this: every slot
+    // holds a different one. Only the native init is serialised, so searches still fan out.
+    private val engineCreationMutex = Mutex()
+
     // Idle sweeper lifecycle; guarded by [sweeperLock].
     private val sweeperLock = Any()
     private val hostScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -120,7 +126,7 @@ class LnPluginHost(
         qjs?.let { return it }
         val exec = Executors.newSingleThreadExecutor { r -> Thread(r, "LnPlugin-$label") }
         val disp = exec.asCoroutineDispatcher()
-        val q = QuickJs.create(disp)
+        val q = engineCreationMutex.withLock { QuickJs.create(disp) }
         q.function("__lnLog") { args ->
             bridge.log(args.getOrNull(0) as? String ?: "info", args.getOrNull(1) as? String ?: "")
             null

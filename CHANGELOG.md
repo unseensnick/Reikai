@@ -246,6 +246,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Light novels**
 
+- **Searching every novel source at once no longer closes the app.** Starting several sources together could take the whole app down before any results arrived, so the All filter in novel global search was the quickest way to hit it.
 - **Adding a novel from its details page now files it in your default novel category.** It opened the category picker every time instead, even with a default set, the one add path that ignored the setting.
 - **Novels now use the same category picker manga does.** It carries the Edit categories shortcut, and with no categories yet it offers to make one instead of doing nothing at all.
 - **Updating the novel library now tells you when an update is already running.** It used to say it had started a new one every time.
