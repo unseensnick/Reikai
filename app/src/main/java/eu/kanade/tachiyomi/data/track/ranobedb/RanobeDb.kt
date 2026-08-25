@@ -72,8 +72,10 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
 
     override fun indexToScore(index: Int): Double = index.toDouble()
 
+    // Anything at or below zero is unscored: the API's range starts at 1, and a search result's
+    // score arrives as -1 until something sets it.
     override fun displayScore(track: DomainTrack): String =
-        if (track.score == 0.0) SCORE_LIST[0] else track.score.toInt().toString()
+        if (track.score <= 0.0) SCORE_LIST[0] else track.score.toInt().toString()
 
     override suspend fun search(query: String): List<TrackSearch> = searchNovel(query)
 
@@ -86,6 +88,9 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
         track.status = if (hasReadChapters) READING else PLAN_TO_READ
+        // A search result carries score -1 as its "unset" marker, which would persist as a real
+        // score and render as -1. Every other tracker zeroes it here for the same reason.
+        track.score = 0.0
         api.updateSeriesListEntry(track.remote_id, track.toListEntry())
         return track
     }
@@ -101,7 +106,12 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
     override suspend fun refresh(track: Track): Track {
         val series = api.getSeries(track.remote_id)
         track.title = series.title
-        track.total_chapters = series.volumeCount
+        // The detail route does not select c_num_books, only the list route does, so the count comes
+        // from the books it does return. Never write a zero over a total a search already found.
+        val total = series.volumeCount.takeIf { it > 0 } ?: series.books.size.toLong()
+        if (total > 0) {
+            track.total_chapters = total
+        }
         return track
     }
 

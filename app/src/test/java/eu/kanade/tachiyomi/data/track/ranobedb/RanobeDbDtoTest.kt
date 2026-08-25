@@ -89,6 +89,29 @@ class RanobeDbDtoTest {
     }
 
     @Test
+    fun `series detail omits the cached volume count, so books is the only source`() {
+        // getSeriesOne does not select c_num_books; only the list route does. Reading volumeCount
+        // here would decode to 0 and wipe a total the search already found.
+        val payload = """
+            {
+              "series": {
+                "id": 1234,
+                "title": "Seishun Buta Yarou",
+                "books": [
+                  { "sort_order": 1, "book_type": "main" },
+                  { "sort_order": 2, "book_type": "main" }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val series = json.decodeFromString<RDBSeriesOne>(payload).series
+
+        series.volumeCount shouldBe 0L
+        series.books.size shouldBe 2
+    }
+
+    @Test
     fun `write payload always carries the three lists the route requires`() {
         // langs, formats and selectedCustLabels have no server-side default, so the route rejects a
         // body that omits them. They must survive encoding even when empty.
