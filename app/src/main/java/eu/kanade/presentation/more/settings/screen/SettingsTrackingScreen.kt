@@ -93,7 +93,7 @@ object SettingsTrackingScreen : SearchableSettings {
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
         val trackerManager = remember { context.appGraph.trackerManager }
         val sourceManager = remember { context.appGraph.sourceManager }
-        // RK: RanobeDB's two sync toggles only mean anything once it is bound, so they follow it.
+        // RK: RanobeDB's sync toggle only means anything once it is bound, so it follows it.
         val ranobeDbLoggedIn by trackerManager.ranobeDb.isLoggedInFlow
             .collectAsState(initial = trackerManager.ranobeDb.isLoggedIn)
 
@@ -377,9 +377,9 @@ object SettingsTrackingScreen : SearchableSettings {
         if (!isLoggedIn) return emptyList()
         return listOf(
             Preference.PreferenceItem.SwitchPreference(
-                preference = trackPreferences.ranobeDbSyncReadingList,
-                title = stringResource(MR.strings.pref_ranobedb_sync_reading_list),
-                subtitle = stringResource(MR.strings.pref_ranobedb_sync_reading_list_summary),
+                preference = trackPreferences.ranobeDbSyncWhileReading,
+                title = stringResource(MR.strings.pref_ranobedb_sync_while_reading),
+                subtitle = stringResource(MR.strings.pref_ranobedb_sync_while_reading_summary),
             ),
         )
     }

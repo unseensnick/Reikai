@@ -52,10 +52,11 @@ class TrackPreferences(
 
     val mangabakaScoreType: Preference<String> = preferenceStore.getString("mangabaka_score_type", MangaBaka.STEP_1)
 
-    // RK: RanobeDB's reading status can be turned off without unbinding the tracker. There is no
-    // progress counterpart: it counts volumes where a source counts chapters, so nothing is pushed.
-    val ranobeDbSyncReadingList: Preference<Boolean> =
-        preferenceStore.getBoolean("ranobedb_sync_reading_list", true)
+    // RK: whether reading a novel pushes its status to RanobeDB. Off by default because every write
+    // replaces list fields the API offers no way to read back first. Deliberate edits in the
+    // tracking sheet are never gated, so nothing a user asks for silently does nothing.
+    val ranobeDbSyncWhileReading: Preference<Boolean> =
+        preferenceStore.getBoolean("ranobedb_sync_while_reading", false)
 
     val autoUpdateTrack: Preference<Boolean> = preferenceStore.getBoolean("pref_auto_update_manga_sync_key", true)
 

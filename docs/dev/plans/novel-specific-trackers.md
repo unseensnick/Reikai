@@ -88,17 +88,26 @@ it silently (`z.number().min(0).max(maxNumberValue)`), so it would just be wrong
 same conclusion independently: its book form has no `volumes_read` field at all and its series form
 hardcodes the slot to `0`.
 
-Two consequences worth knowing. **Any push clobbers a manually set `volumes_read`**, because the route
-writes `volumes_read: data.volumes_read` straight through and there is no `GET` under
-`/api/v0/user/` to read the current value first, so a status or score change cannot preserve it.
-And **the local row still counts chapters against a volume total**, so an entry reads "574 / 15"
+**Every write is destructive, and this is the most important thing to know about the integration.**
+The route writes `readingStatus`, `score`, `started`, `finished`, `notes`, `volumes_read`, `langs`,
+`formats` and `selectedCustLabels` straight through from the request body, and there is no `GET`
+under `/api/v0/user/` to read the current values back first. A `PUT` therefore replaces the whole
+entry, so any status or score change from Reikai **clears that series' custom labels, notes, volume
+count, and language and format filters**. We cannot preserve them; we can only choose what replaces
+them, and an empty value is at least honest where a chapter number would be a lie. tsundoku has the
+same hole through the website's form endpoint.
+
+That is what the **`ranobeDbSyncWhileReading`** preference exists for, and why it is **off by
+default**: with it on, finishing a chapter rewrites the entry. Two rules keep the damage bounded.
+A read-driven push happens only when the status actually moves, so reading a hundred chapters costs
+one write rather than a hundred. And deliberate edits in the tracking sheet are never gated, because
+a switch that makes a user's own action silently do nothing is exactly what
+[content-layer.md](../../.claude/rules/content-layer.md) forbids.
+
+Also note **the local row still counts chapters against a volume total**, so an entry reads "574 / 15"
 in-app after reading even though nothing wrong reaches the service. Fixing that properly needs a
 typed capability saying a tracker does not track chapters, which the shared chapter interactor would
 honour for both content types; it is not worth inventing for one tracker.
-
-There is deliberately no progress preference. An earlier draft had one, but a switch labelled "sync
-reading progress" that cannot sync progress is worse than no switch. Only the reading-status toggle
-survives, because that one gates a push that really happens.
 
 **Decided: series** (owner, 2026-08-25). `GET /series/{id}` carries `publication_status`, the
 descriptions, `staff[].role_type` and the `tags[]` taxonomy, where the book endpoint reaches most of

@@ -96,8 +96,16 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
     }
 
     override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+        val statusBefore = track.status
         if (didReadChapter && track.status != COMPLETED) {
             track.status = READING
+        }
+        // Every write replaces list fields this API gives no way to read back first, so a push
+        // driven by reading needs both the user's say-so and something actually worth saying.
+        // Without the second test, finishing a chapter would rewrite the entry once per chapter.
+        if (didReadChapter) {
+            val statusMoved = track.status != statusBefore
+            if (!statusMoved || !trackPreferences.ranobeDbSyncWhileReading.get()) return track
         }
         api.updateSeriesListEntry(track.remote_id, track.toListEntry())
         return track
@@ -117,11 +125,6 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
 
     override suspend fun delete(track: DomainTrack) {
         api.deleteSeriesListEntry(track.remoteId)
-    }
-
-    override suspend fun setRemoteStatus(track: Track, status: Long) {
-        if (!trackPreferences.ranobeDbSyncReadingList.get()) return
-        super.setRemoteStatus(track, status)
     }
 
     override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {

@@ -749,8 +749,8 @@
     <string name="pref_auto_update_manga_on_mark_read">Update progress when marked as read</string>
     <string name="services">Trackers</string>
     <string name="tracking_info">One-way sync to update the chapter progress in external tracker services. Set up tracking for individual entries from their tracking button.</string>
-    <string name="pref_ranobedb_sync_reading_list">Sync reading status</string>
-    <string name="pref_ranobedb_sync_reading_list_summary">Update your RanobeDB reading list when a novel\'s status changes.</string>
+    <string name="pref_ranobedb_sync_while_reading">Update RanobeDB while you read</string>
+    <string name="pref_ranobedb_sync_while_reading_summary">Reading a novel sets its status on RanobeDB. Each update clears that entry&apos;s labels, notes and volume count, because the site offers no way to read them back first.</string>
     <string name="enhanced_services">Enhanced trackers</string>
     <string name="enhanced_services_not_installed">Available but source not installed: %s</string>
     <string name="enhanced_tracking_info">Provides enhanced features for specific sources. Entries are automatically tracked when added to your library.</string>
