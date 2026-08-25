@@ -52,11 +52,12 @@ class TrackPreferences(
 
     val mangabakaScoreType: Preference<String> = preferenceStore.getString("mangabaka_score_type", MangaBaka.STEP_1)
 
-    // RK: whether reading a novel pushes its status to RanobeDB. Off by default because every write
-    // replaces list fields the API offers no way to read back first. Deliberate edits in the
-    // tracking sheet are never gated, so nothing a user asks for silently does nothing.
+    // RK: whether reading a novel pushes its status to RanobeDB. On, because a read-driven push only
+    // happens when the status actually moves, so it costs about one write per series rather than one
+    // per chapter. Off, the status still reached the site eventually, carried by an unrelated score
+    // or date edit, which is more confusing than either always or never.
     val ranobeDbSyncWhileReading: Preference<Boolean> =
-        preferenceStore.getBoolean("ranobedb_sync_while_reading", false)
+        preferenceStore.getBoolean("ranobedb_sync_while_reading", true)
 
     val autoUpdateTrack: Preference<Boolean> = preferenceStore.getBoolean("pref_auto_update_manga_sync_key", true)
 

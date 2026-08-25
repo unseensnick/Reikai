@@ -99,12 +99,18 @@ and format filters**. We cannot preserve them; we can only choose what replaces 
 value is at least honest where a chapter number would be a lie. A first bind has nothing to lose,
 which is why one looks clean. tsundoku has the same hole through the website's form endpoint.
 
-That is what the **`ranobeDbSyncWhileReading`** preference exists for, and why it is **off by
-default**: with it on, finishing a chapter rewrites the entry. Two rules keep the damage bounded.
-A read-driven push happens only when the status actually moves, so reading a hundred chapters costs
-one write rather than a hundred. And deliberate edits in the tracking sheet are never gated, because
-a switch that makes a user's own action silently do nothing is exactly what
+That is what the **`ranobeDbSyncWhileReading`** preference exists for. Two rules bound the damage.
+A read-driven push happens only when the status actually **moves**, so reading a hundred chapters
+costs one write rather than a hundred. And deliberate edits in the tracking sheet are never gated,
+because a switch that makes a user's own action silently do nothing is exactly what
 [content-layer.md](../../.claude/rules/content-layer.md) forbids.
+
+**It defaults on, reversing an earlier call to default it off** (2026-08-25). Off was chosen before
+the status-moved test existed, when the cost looked like one write per chapter rather than one per
+series. Worse, off did not mean the status stayed local: every payload carries `readingStatus`, and
+`setRemoteScore` is ungated, so scoring an entry pushed the status that reading had already changed
+locally. The status therefore arrived at the site anyway, just late and attached to an unrelated
+edit, which is more confusing than either always or never. Found on a real account.
 
 Also note **the local row still counts chapters against a volume total**, so an entry reads "574 / 15"
 in-app after reading even though nothing wrong reaches the service. Fixing that properly needs a

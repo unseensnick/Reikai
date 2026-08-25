@@ -122,14 +122,10 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
     }
 
     override suspend fun refresh(track: Track): Track {
-        val series = api.getSeries(track.remote_id)
-        track.title = series.title
-        // The detail route does not select c_num_books, only the list route does, so the count comes
-        // from the books it does return. Never write a zero over a total a search already found.
-        val total = series.volumeCount.takeIf { it > 0 } ?: series.books.size.toLong()
-        if (total > 0) {
-            track.total_chapters = total
-        }
+        track.title = api.getSeries(track.remote_id).title
+        // Also clears a volume count an earlier build stored here, so a row bound then heals itself
+        // rather than keeping a total that would complete it early. See toTrackSearch.
+        track.total_chapters = 0
         return track
     }
 
@@ -196,10 +192,14 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
     fun restoreToken(): String? = trackPreferences.trackPassword(this).get().ifBlank { null }
 
     // `this@RanobeDb.id` is the tracker id: a bare `id` here would resolve to the series' own.
+    //
+    // total_chapters is deliberately left at zero even though the series knows its volume count.
+    // The number beside it counts chapters, and a mixed pair is not merely odd to read: reaching
+    // the volume count marks the entry finished (TrackFieldMutations.applyLastChapterRead), so a
+    // 583-chapter series would complete itself at chapter 15. Progress shows as a plain count.
     private fun RDBSeries.toTrackSearch(): TrackSearch = TrackSearch.create(this@RanobeDb.id).also {
         it.remote_id = id
         it.title = title
-        it.total_chapters = volumeCount
         it.cover_url = book?.image?.filename?.let(RanobeDbApi::coverUrl).orEmpty()
         it.summary = description.orEmpty()
         it.tracking_url = RanobeDbApi.seriesUrl(id)

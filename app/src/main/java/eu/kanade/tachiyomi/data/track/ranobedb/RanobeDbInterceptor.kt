@@ -26,6 +26,11 @@ class RanobeDbInterceptor(
                 }
             }
             .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            // SvelteKit refuses a non-GET whose content type is form-encoded unless Origin matches
+            // the site, with a 403 raised before the route runs. The shared DELETE helper defaults
+            // its body to an empty FormBody, so unbinding hit exactly that while the JSON PUT, which
+            // the check exempts, went through. tsundoku sends this header for the same reason.
+            .header("Origin", RanobeDbApi.BASE_URL)
             .build()
 
         return chain.proceed(authRequest)
