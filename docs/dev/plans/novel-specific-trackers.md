@@ -267,16 +267,16 @@ Worth contrasting: RanobeDB's refresh cannot do this and never will, because no 
 user's list entry, so its local row stays authoritative for status and score. NovelList reading back
 is the difference that lets its writes be non-destructive.
 
-**RanobeDB is built (steps 1 to 3, plus step 5 out of order), and partly verified on device.** The
+**RanobeDB is built (steps 1 to 3, plus step 5 out of order), and verified end to end on device.** The
 two logins, the series-bound tracker and its Fill-from-tracker support are in, alongside the shared
 `pushChapterProgress` kernel that fixed the stale local row for both content types. Unit tests cover
 the schema and the kernel, both verified by mutation.
 
 Verified against a real account: **both logins**, token and WebView cookie, each validating through
-`/user/me` before storing. And a **bind writes**, proven rather than assumed, because
-`AddNovelTrack.bind` does not catch, `awaitSuccess` throws on a non-2xx, and the local row exists
-anyway. Still unverified: a write carrying the *cookie* credential rather than the token, score and
-date round-trips, `refresh`, unbind, and the read-while-syncing gate.
+`/user/me` before storing; a write carrying either credential; and bind, status, score, dates,
+refresh, unbind and the read-while-syncing gate, each confirmed on the RanobeDB site rather than only
+in-app. Reading progress is not in that list because it is never pushed, for the volume-counting
+reason recorded above, and `refresh` is verified within the limit the third bullet below describes.
 
 Grounded 2026-08-22 by reading both reference implementations, and re-verified 2026-08-25 against the
 RanobeDB server source directly, because the published docs still describe the API as read-only.
@@ -296,9 +296,6 @@ Three things that reading settled, none of them visible from tsundoku's client:
   `book`, `series`, `release` and `publisher` export `PUT` and `DELETE` only, and the
   series detail route never passes the caller's id into `getSeriesOne`, so `refresh` can only refresh
   catalogue metadata and the local row stays authoritative for status, score and progress.
-
-Remaining before this counts as done: bind, progress, score, dates, refresh and unbind against a real
-account, each confirmed on the RanobeDB site rather than only in-app.
 
 **MyNovelList is not built, and will not be** (owner, 2026-08-25). The service works and its API is
 real, better documented than IReader's client suggests, and live: `/docs/api` publishes nine
