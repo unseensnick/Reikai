@@ -122,6 +122,36 @@ class NovelUpdatesParsingTest {
         parseListId(page) shouldBe 3L
     }
 
+    /** Fixtures here are the real header markup, so this one is not a guess at the site's shape. */
+    @Test
+    fun `the username comes from the profile link`() {
+        val page = Jsoup.parse(
+            "<a href='https://www.novelupdates.com/user/12345/booklover/'>User Profile</a>",
+        )
+
+        parseUsername(page) shouldBe "booklover"
+    }
+
+    /** The header carries one label per layout, and the id-suffixed one is padded with markup space. */
+    @Test
+    fun `the username falls back to the header label`() {
+        val page = Jsoup.parse(
+            """
+            <span class='menu_username_right' id='menu_username_right'>booklover
+
+            </span>
+            <span class='menu_right username_main' id='menu_right_item'>booklover</span>
+            """,
+        )
+
+        parseUsername(page) shouldBe "booklover"
+    }
+
+    @Test
+    fun `a signed-out page reports no username`() {
+        parseUsername(Jsoup.parse("<a href='/login/'>Log in</a>")) shouldBe null
+    }
+
     @Test
     fun `reading lists come from the menu when it is present`() {
         val page = Jsoup.parse(

@@ -129,12 +129,19 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), CookieLoginTrack
 
     override suspend fun loginWithCookie(credential: String) = storeCredential(credential)
 
-    /** Reading the user's own lists proves the session works before the credential is stored. */
+    /**
+     * Reading the account page proves the session works before the credential is stored, and gives
+     * the name for the tracker row. Falling back to the service name would put a label there that is
+     * not the user's, which reads worse than the blank the widget leaves when the name is missing.
+     */
     private suspend fun storeCredential(credential: String) {
-        if (api.readingLists().isEmpty()) {
+        val account = api.account()
+        if (account.lists.isEmpty()) {
             throw IOException("Signed in, but NovelUpdates returned no reading lists")
         }
-        saveCredentials(name, credential)
+        val username = account.username.orEmpty()
+        saveDisplayUsername(username)
+        saveCredentials(username.ifBlank { name }, credential)
     }
 
     /**

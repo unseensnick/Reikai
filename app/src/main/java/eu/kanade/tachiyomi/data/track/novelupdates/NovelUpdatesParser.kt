@@ -7,6 +7,12 @@ import org.jsoup.nodes.Element
 // fixture. Selectors sit in NuSelector so a site redesign has one place to fix rather than a hunt
 // through the call sites, which is the whole maintenance cost of a scraped tracker.
 
+/** What signing in reads back: the name for the tracker row, and the lists to map statuses onto. */
+data class NovelUpdatesAccount(
+    val username: String?,
+    val lists: List<Pair<String, String>>,
+)
+
 /** A search hit. [id] is the numeric post id when the row carries one, resolved at bind when not. */
 data class NovelUpdatesSeries(
     val id: String?,
@@ -35,6 +41,11 @@ internal object NuSelector {
     const val LIST_LINK = "span.sttitle a"
     const val LIST_MENU_ITEM = "div#cssmenu li a[href*=reading-list/?list=]"
     const val LIST_OPTION = "div.sticon select.stmove option"
+
+    // The profile link carries `/user/<id>/<name>/`; the labels are the header's own copies, one
+    // per layout, and `menu_username_right` is skipped because its text carries markup whitespace.
+    const val PROFILE_LINK = "a[href*=/user/]"
+    const val USERNAME_LABEL = "span.username_main, span.username"
 }
 
 private val SHORTLINK_ID = Regex("""p=(\d+)""")
@@ -42,6 +53,7 @@ private val ACTIVITY_ID = Regex("""seriesid=(\d+)""")
 private val LIST_ID = Regex("""list=(\d+)""")
 private val SID = Regex("""sid(\d+)""")
 private val WHITESPACE = Regex("""\s+""")
+private val PROFILE_NAME = Regex("""/user/\d+/([^/]+)""")
 
 internal fun parseSearch(document: Document): List<NovelUpdatesSeries> =
     document.select(NuSelector.SEARCH_ROW).map { it.toSeries() }
@@ -77,6 +89,20 @@ internal fun parseReadingLists(document: Document): List<Pair<String, String>> {
         val id = option.attr("value").takeIf { it.isNotBlank() && it != "---" } ?: return@mapNotNull null
         id to (option.text().trim().ifBlank { return@mapNotNull null })
     }
+}
+
+/**
+ * The signed-in user's name, for the tracker row's subtitle. Read from the profile link first,
+ * because a URL shape outlives a class name, with the header labels as the fallback.
+ */
+internal fun parseUsername(document: Document): String? {
+    PROFILE_NAME.find(document.select(NuSelector.PROFILE_LINK).attr("href"))
+        ?.let { return it.groupValues[1] }
+    return document.select(NuSelector.USERNAME_LABEL)
+        .firstOrNull()
+        ?.text()
+        ?.trim()
+        ?.ifBlank { null }
 }
 
 internal fun Element.toSeries(): NovelUpdatesSeries {

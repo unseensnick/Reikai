@@ -41,6 +41,12 @@ class NovelUpdatesApi(client: OkHttpClient) {
 
     suspend fun readingLists(): List<Pair<String, String>> = parseReadingLists(get("$BASE_URL/reading-list/"))
 
+    /** Both come off the reading-list page, so signing in costs one request rather than two. */
+    suspend fun account(): NovelUpdatesAccount {
+        val page = get("$BASE_URL/reading-list/")
+        return NovelUpdatesAccount(username = parseUsername(page), lists = parseReadingLists(page))
+    }
+
     /** Null when the response does not parse, which the caller must treat as "do not write". */
     suspend fun readNotes(novelId: String): NovelUpdatesNotes? {
         val body = FormBody.Builder()
