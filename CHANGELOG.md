@@ -244,6 +244,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Peeking at a possible duplicate no longer throws away the add you were making.** Long-press opens it, and the same question is waiting when you come back.
 - **Opening a title from Browse no longer shows it pre-grouped with same-named titles in your library.**
 - **A global search run moments after opening the app now waits for your sources instead of quietly searching fewer.** Manga and novels alike, and the searched source list no longer depends on how fast the app finished starting up.
+- **Testing FlareSolverr no longer leaves every source stuck on a Cloudflare challenge.** It stored FlareSolverr's browser as your app-wide user agent, so the in-app bypass could never pass again; if you have tested it before, use Settings -> Advanced -> Reset default user agent string once.
 
 **Light novels**
 

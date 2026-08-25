@@ -381,9 +381,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                             context.toast(MR.strings.error_flaresolverr_invalid_url)
                         } else {
                             scope.launch {
+                                // The agent it reports is deliberately not stored as the app default.
+                                // Doing that made every WebView announce FlareSolverr's desktop browser
+                                // while running as Android WebView, and Cloudflare re-challenged that
+                                // mismatch endlessly. UserAgentInterceptor already pins the agent per
+                                // solved host, which is what cf_clearance is actually bound to.
                                 networkHelper.flareSolverr.test(url)
-                                    .onSuccess { userAgent ->
-                                        userAgentPref.set(userAgent)
+                                    .onSuccess {
                                         context.toast(MR.strings.flaresolverr_test_success)
                                     }
                                     .onFailure {
