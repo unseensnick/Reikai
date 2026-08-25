@@ -203,10 +203,16 @@ existing notes untouched.
 
 ## Status
 
-**RanobeDB is built (steps 1 to 3), and awaiting device verification against a real account.** The
-token login, the series-bound tracker and its Fill-from-tracker support are in, alongside the shared
+**RanobeDB is built (steps 1 to 3, plus step 5 out of order), and partly verified on device.** The
+two logins, the series-bound tracker and its Fill-from-tracker support are in, alongside the shared
 `pushChapterProgress` kernel that fixed the stale local row for both content types. Unit tests cover
-the schema and the kernel, both verified by mutation; nothing has yet touched the live API.
+the schema and the kernel, both verified by mutation.
+
+Verified against a real account: **both logins**, token and WebView cookie, each validating through
+`/user/me` before storing. And a **bind writes**, proven rather than assumed, because
+`AddNovelTrack.bind` does not catch, `awaitSuccess` throws on a non-2xx, and the local row exists
+anyway. Still unverified: a write carrying the *cookie* credential rather than the token, score and
+date round-trips, `refresh`, unbind, and the read-while-syncing gate.
 
 Grounded 2026-08-22 by reading both reference implementations, and re-verified 2026-08-25 against the
 RanobeDB server source directly, because the published docs still describe the API as read-only.
@@ -214,14 +220,16 @@ RanobeDB server source directly, because the published docs still describe the A
 Three things that reading settled, none of them visible from tsundoku's client:
 
 - **tsundoku does not use the public API to write.** It posts SuperForms payloads to `/api/i/user/...`,
-  which is a `+page.server.ts` form action backing the website's own UI, and authenticates with an
-  `auth_session` cookie. The PAT check in `hooks.server.ts` is scoped to `/api/v0/user`, so its
-  endpoint cannot take a token and ours cannot take its cookie. The two clients are not variations on
-  one integration; roughly 210 of its 475 lines had no counterpart here.
+  a `+page.server.ts` form action backing the website's own UI, authenticated by the `auth_session`
+  cookie. Roughly 210 of its 475 lines had no counterpart here. Note the asymmetry: its endpoint
+  cannot take a token, but **ours takes either credential**, because `hooks.server.ts` resolves the
+  cookie into the caller before it looks for an `Authorization` header. So their design is not the
+  alternative to ours, it is what predates the v0 user routes.
 - **The write routes are merged and live but undocumented.** The docs page source says the API
   "currently only supports read-only endpoints", so `/api/v0/user/` carries no deprecation promise.
   That is why `RanobeDbDtoTest` pins the payload shape: nothing else would notice it moving.
-- **Nothing can read a user's own list entry back.** The only `GET` under `/api/v0/user/` is `me`; `book`, `series`, `release` and `publisher` export `PUT` and `DELETE` only, and the
+- **Nothing can read a user's own list entry back.** The only `GET` under `/api/v0/user/` is `me`;
+  `book`, `series`, `release` and `publisher` export `PUT` and `DELETE` only, and the
   series detail route never passes the caller's id into `getSeriesOne`, so `refresh` can only refresh
   catalogue metadata and the local row stays authoritative for status, score and progress.
 
