@@ -64,7 +64,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Current release target (next cycle, on `feat/0.4.0`)
 
-**The cut is gated on three items** (owner, 2026-08-21): the tsundoku novel-reader migration, the download subsystem rework (Road B), and the new light-novel trackers. All three are named at the top of [ROADMAP.md](ROADMAP.md). Nothing else moves the cut.
+**The cut is gated on the tsundoku novel-reader migration and the download subsystem rework (Road B)** (owner, 2026-08-21, which named a third gate since satisfied). The gates and the one open question about them are at the top of [ROADMAP.md](ROADMAP.md). Nothing else moves the cut.
 
 **0.3.0 shipped**: tagged `v0.3.0` -> `4b9f0e0c6`, released, and moved to [docs/dev/shipped.md](docs/dev/shipped.md). `app/build.gradle.kts` reads `versionName 0.3.0` / `versionCode 190` (the `versionCode` climbs mid-cycle whenever a preference migration needs it, see below; `versionName` moves at the 0.4.0 cut). Notes for continuing sessions:
 
