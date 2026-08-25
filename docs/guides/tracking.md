@@ -6,32 +6,61 @@ description: Tracking helps track your library with different online services.
 
 # Tracking
 
-_Dev records: [novel-tracking.md](../dev/plans/novel-tracking.md), [tracker-aware-duplicate-detection.md](../dev/tracker-aware-duplicate-detection.md). Doc map: [README.md](../README.md)._
+_Dev records: [novel-tracking.md](../dev/plans/novel-tracking.md), [novel-specific-trackers.md](../dev/plans/novel-specific-trackers.md), [tracker-aware-duplicate-detection.md](../dev/tracker-aware-duplicate-detection.md). Doc map: [README.md](../README.md)._
 
-**Reikai** supports various tracking services to help you automatically update your tracking details such as read chapters, scoring, start & finish dates, etc.
+**Reikai** supports various tracking services to help you automatically update your tracking details such as read chapters, scoring, start & finish dates, etc. Not every service stores all of that, so a tracker only shows the fields it can actually save.
 
 Link supported tracking services in <nav to="tracking">.
 
 ## Services
 
-**Reikai** currently supports tracking with [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one/), [MangaBaka](https://mangabaka.org/), [Hikka](https://hikka.io/) and [Bangumi](https://bangumi.tv/). Signing in to MangaDex adds its own **MDList** tracker.
+**Reikai** currently supports tracking with [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one/), [MangaBaka](https://mangabaka.org/), [Hikka](https://hikka.io/) and [Bangumi](https://bangumi.tv/), plus three services built for light novels: [RanobeDB](https://ranobedb.org/), [NovelList](https://www.novellist.co/) and [NovelUpdates](https://www.novelupdates.com/). Signing in to MangaDex adds its own **MDList** tracker.
 
 * You must add the desired tracker to each series to begin tracking.
 * Track entries privately with supported tracking services (AniList, Kitsu, MangaBaka, Bangumi).
 * You can adjust each field in the tracker entry by tapping on it.
+* Start and finish dates reach MyAnimeList, AniList, Kitsu, Hikka, MangaBaka and RanobeDB. The rest store no dates, so those rows are not shown.
 
-::: warning Light novels reach fewer services
-Only trackers with a real light-novel search are offered on a novel: **AniList**, **Kitsu**, **MyAnimeList**, **MangaUpdates**, **Shikimori**, **MangaBaka** and **Hikka**. Bangumi and the enhanced services below are manga only, so a novel's tracking sheet simply does not list them. Everything else on this page works the same for both.
+::: warning Each type sees only the trackers that catalogue it
+A tracking sheet lists only the services whose catalogue holds that kind of entry, so a manga and a novel offer different lists.
+
+* **Both**: AniList, Kitsu, MyAnimeList, MangaUpdates, Shikimori, MangaBaka and Hikka.
+* **Manga only**: Bangumi, MDList and the enhanced trackers below.
+* **Light novels only**: RanobeDB, NovelList and NovelUpdates. Their catalogues hold no manga, so they never appear on one.
 :::
 
 :::info Tracker behavior in Reikai
 * Tracking is one-way: **Reikai -> Tracker**
-* Status, Start & Finish date automatically changes when you start & complete a series.
+* Status changes automatically when you start & complete a series, and so do the start & finish dates on a service that stores them.
 * After reading the last page of a chapter, or marking a chapter as read, the tracker's progress will update.
 * Offline progress syncs when back online.
 :::
 
-## Enhanced services
+## Light-novel trackers
+
+Three of the services are built for novels rather than manga. They work like every other tracker, with the differences below.
+
+::::tabs
+==RanobeDB
+* **Signing in**: paste a personal access token generated in your [RanobeDB settings](https://ranobedb.org/settings), or use the browser button and sign in there instead.
+* Statuses, a 1 to 10 score, and start & finish dates all sync.
+* **Chapter progress is never sent.** RanobeDB counts volumes where a source counts chapters, and nothing converts between them, so progress stays a plain count in Reikai rather than reporting chapter 574 as 574 volumes.
+* **Refresh tracker data** brings back only the title. The site has no way to read your own list entry back, so status and score stay whatever Reikai holds.
+* **Update RanobeDB while you read** in <nav to="tracking"> pushes your status as you read and is on by default. Each push clears that entry's labels, notes and volume count on the site, because there is no way to read them back first. Turn it off to keep them.
+==NovelList
+* **Signing in**: tap the row and sign in through the browser. There is no token to paste.
+* Statuses and a 1 to 10 score sync. There is **no On hold status** and there are **no reading dates**, because the service stores neither.
+* **NovelList server address** in <nav to="tracking"> exists only for the day NovelList moves its server. Leave it empty until then: a wrong address stops tracking.
+==NovelUpdates
+* **Signing in**: tap the row and sign in through the browser.
+* All five statuses sync. There is **no score and there are no reading dates**, because the site stores neither.
+* **Your progress lives in the note on your NovelUpdates list entry**, written as `total chapters read: 12`, because the site keeps no reading position of its own. Reikai rewrites that one line and leaves the rest of your note alone, and if it cannot read the note it writes nothing rather than risk replacing it.
+* **Use my own NovelUpdates lists** in <nav to="tracking"> sends each status to one of your own reading lists instead of the five NovelUpdates starts with.
+::::
+
+**Fill from tracker** works with all three, so a novel bound to any of them can pull its cover, description, author and genres from the service.
+
+## Enhanced trackers
 
 **Reikai** also supports various self-hosted services with exclusive features between the service & the self-hosted series.
 
@@ -80,6 +109,8 @@ It visits only entries carrying a tracker you are signed into, so an untracked l
 ### How do I log in to trackers?
 1. Go to <nav to="tracking">.
 1. Tap the desired tracker to begin login.
+
+Which login you get depends on the service: most open your browser, a few ask for a username and password in the app, and RanobeDB takes a token you paste (or the browser, if you prefer). NovelList and NovelUpdates only sign in through the browser, because neither issues a token.
 
 ### How do I set up tracking for each series?
 1. Go into the series.

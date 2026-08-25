@@ -41,7 +41,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Merge-aware reading`: read a merged series through every source, one unified chapter list. ([docs](https://reikai.app/docs/multi-source#reading-a-group))
 - `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](https://reikai.app/docs/guides/tracking))
 - `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](https://reikai.app/docs/guides/categories))
-- `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka.
+- `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka, plus the novel-first [RanobeDB](https://ranobedb.org/), [NovelList](https://www.novellist.co/) and [NovelUpdates](https://www.novelupdates.com/). ([docs](https://reikai.app/docs/guides/tracking))
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](https://reikai.app/docs/related-mangas#your-taste-profile))
 - `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](https://reikai.app/docs/flaresolverr))
 - `Library update errors`: a list of entries that failed their last update, recorded by default and switchable off under Advanced.
