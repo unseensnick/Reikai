@@ -91,7 +91,13 @@ class CloudflareInterceptor(
         // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that
         // we don't crash the entire app
         catch (e: CloudflareBypassException) {
-            throw IOException(context.stringResource(MR.strings.information_cloudflare_bypass_failure), e)
+            // RK: carry the blocked URL so the caller can open that page for the user to solve. The
+            //     site root often is not challenged at all, which leaves nothing to clear.
+            throw CloudflareBypassIOException(
+                context.stringResource(MR.strings.information_cloudflare_bypass_failure),
+                request.url.toString(),
+                e,
+            )
         } catch (e: Exception) {
             throw IOException(e)
         }
@@ -209,3 +215,17 @@ private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
 private val COOKIE_NAMES = listOf("cf_clearance")
 
 private class CloudflareBypassException : Exception()
+
+// RK: thrown when the bypass gives up, carrying the URL the challenge blocked.
+class CloudflareBypassIOException(
+    message: String?,
+    val url: String,
+    cause: Throwable?,
+) : IOException(message, cause)
+
+// RK: the failure can arrive wrapped by a source, so walk the cause chain for the blocked URL.
+fun Throwable.cloudflareBlockedUrl(): String? =
+    generateSequence(this, Throwable::cause)
+        .filterIsInstance<CloudflareBypassIOException>()
+        .firstOrNull()
+        ?.url

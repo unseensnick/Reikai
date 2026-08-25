@@ -131,8 +131,10 @@ class NovelBrowseScreen(
         // user doesn't have to. Survives the activity stop the WebView causes.
         var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
 
+        // Prefer the URL the challenge blocked: a plugin site root is often not challenged at all, so
+        // opening it showed a working page with nothing to solve and left every retry failing.
         val onWebViewClick: () -> Unit = {
-            state.source?.site?.takeIf { it.isNotBlank() }?.let { url ->
+            (state.challengeUrl ?: state.source?.site)?.takeIf { it.isNotBlank() }?.let { url ->
                 pendingWebViewRetry = true
                 navigator.push(WebViewScreen(url = url, initialTitle = state.source?.name, sourceId = null))
             }

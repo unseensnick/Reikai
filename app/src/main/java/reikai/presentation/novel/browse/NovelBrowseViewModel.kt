@@ -13,6 +13,7 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -90,7 +91,7 @@ class NovelBrowseViewModel(
             } catch (_: Throwable) {}
             val source = manager.get(sourceId)
             if (source == null) {
-                state.update { it.copy(error = "Source not installed: $sourceId") }
+                state.update { it.copy(error = "Source not installed: $sourceId", challengeUrl = null) }
                 return@launchIO
             }
             state.update {
@@ -118,9 +119,11 @@ class NovelBrowseViewModel(
             fetchFirstPage(source)
             return
         }
-        state.update { it.copy(loading = true, error = null, query = query) }
+        state.update { it.copy(loading = true, error = null, challengeUrl = null, query = query) }
         viewModelScope.launchIO {
-            runFetch(error = { e -> state.update { it.copy(loading = false, error = errorText(e)) } }) {
+            runFetch(error = { e ->
+                state.update { it.copy(loading = false, error = errorText(e), challengeUrl = e.cloudflareBlockedUrl()) }
+            }) {
                 val novels = source.searchNovels(query, 1)
                 val more = hasMore(novels, 1) { p -> source.searchNovels(query, p) }
                 state.update {
@@ -228,7 +231,12 @@ class NovelBrowseViewModel(
                 } catch (_: Throwable) {}
                 manager.get(sourceId)?.let { s ->
                     state.update {
-                        it.copy(source = s, error = null, filterValues = defaultFilterValues(s.filters))
+                        it.copy(
+                            source = s,
+                            error = null,
+                            challengeUrl = null,
+                            filterValues = defaultFilterValues(s.filters),
+                        )
                     }
                     fetchFirstPage(s)
                 }
@@ -323,15 +331,19 @@ class NovelBrowseViewModel(
             } catch (e: Throwable) {
                 // Don't latch endReached on a transient error: a single network hiccup mid-scroll must
                 // not permanently kill paging. Keep the page retryable and surface the error instead.
-                state.update { it.copy(loadingMore = false, error = errorText(e)) }
+                state.update {
+                    it.copy(loadingMore = false, error = errorText(e), challengeUrl = e.cloudflareBlockedUrl())
+                }
             }
         }
     }
 
     private fun fetchFirstPage(source: NovelSource) {
-        state.update { it.copy(loading = true, error = null) }
+        state.update { it.copy(loading = true, error = null, challengeUrl = null) }
         viewModelScope.launchIO {
-            runFetch(error = { e -> state.update { it.copy(loading = false, error = errorText(e)) } }) {
+            runFetch(error = { e ->
+                state.update { it.copy(loading = false, error = errorText(e), challengeUrl = e.cloudflareBlockedUrl()) }
+            }) {
                 val opts = buildOptions(source.filters, state.value.filterValues, state.value.showLatest)
                 val novels = source.popularNovels(1, opts)
                 val more = hasMore(novels, 1) { p -> source.popularNovels(p, opts) }
@@ -402,6 +414,8 @@ data class NovelBrowseState(
     /** Next-page fetch in flight (footer spinner), distinct from the first-page [loading]. */
     val loadingMore: Boolean = false,
     val error: String? = null,
+    /** RK: the URL a Cloudflare challenge blocked, so the WebView opens a page with something to solve. */
+    val challengeUrl: String? = null,
     /** (source, url) pairs in the library, for in-library marking of results. */
     val favoritedKeys: Set<Pair<String, String>> = emptySet(),
     val filterSheetOpen: Boolean = false,

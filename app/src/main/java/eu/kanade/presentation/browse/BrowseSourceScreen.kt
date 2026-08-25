@@ -22,6 +22,7 @@ import eu.kanade.presentation.browse.components.BrowseSourceEHentaiList
 import eu.kanade.presentation.browse.components.BrowseSourceList
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.formattedMessage
+import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import eu.kanade.tachiyomi.source.Source
 import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.flow.StateFlow
@@ -48,7 +49,8 @@ fun BrowseSourceContent(
     useEhentaiView: Boolean,
     snackbarHostState: SnackbarHostState,
     contentPadding: PaddingValues,
-    onWebViewClick: () -> Unit,
+    // RK: takes the URL to open, or null for the source root.
+    onWebViewClick: (String?) -> Unit,
     onHelpClick: () -> Unit,
     onLocalSourceHelpClick: () -> Unit,
     onMangaClick: (Manga) -> Unit,
@@ -60,6 +62,10 @@ fun BrowseSourceContent(
 
     val errorState = mangaList.loadState.refresh.takeIf { it is LoadState.Error }
         ?: mangaList.loadState.append.takeIf { it is LoadState.Error }
+
+    // RK: a Cloudflare challenge blocks one URL, and a source root is often not challenged at all,
+    //     so opening that leaves the user nothing to solve and the retry keeps failing.
+    val challengeUrl = (errorState as? LoadState.Error)?.error?.cloudflareBlockedUrl()
 
     val getErrorMessage: (LoadState.Error) -> String = { state ->
         with(context) { state.error.formattedMessage }
@@ -109,7 +115,7 @@ fun BrowseSourceContent(
                     EmptyScreenAction(
                         stringRes = MR.strings.action_open_in_web_view,
                         icon = Icons.Outlined.Public,
-                        onClick = onWebViewClick,
+                        onClick = { onWebViewClick(challengeUrl) },
                     ),
                     EmptyScreenAction(
                         stringRes = MR.strings.label_help,

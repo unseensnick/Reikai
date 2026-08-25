@@ -25,13 +25,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -132,16 +137,29 @@ data class BrowseSourceScreen(
         }
 
         val onHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) }
-        val onWebViewClick = f@{
+        // RK --> open the URL the Cloudflare challenge actually blocked when we have it. The source
+        //     root is frequently not challenged, so opening it showed a working page with nothing to
+        //     solve and left every retry failing. Coming back re-runs the listing, as novels do.
+        var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
+        val onWebViewClick = f@{ challengeUrl: String? ->
             val source = viewModel.source as? HttpSource ?: return@f
+            pendingWebViewRetry = true
             navigator.push(
                 WebViewScreen(
-                    url = source.getHomeUrl(),
+                    url = challengeUrl ?: source.getHomeUrl(),
                     initialTitle = source.name,
                     sourceId = source.id,
                 ),
             )
         }
+
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+            if (pendingWebViewRetry) {
+                pendingWebViewRetry = false
+                mangaList.refresh()
+            }
+        }
+        // RK <--
 
         LaunchedEffect(viewModel.source) {
             assistUrl = (viewModel.source as? HttpSource)?.getHomeUrl()
@@ -180,7 +198,7 @@ data class BrowseSourceScreen(
                             displayMode = viewModel.displayMode,
                             onDisplayModeChange = { viewModel.displayMode = it },
                             navigateUp = navigateUp,
-                            onWebViewClick = onWebViewClick,
+                            onWebViewClick = { onWebViewClick(null) },
                             onHelpClick = onHelpClick,
                             onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
                             onSearch = viewModel::search,
