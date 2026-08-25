@@ -183,8 +183,8 @@ An earlier draft of this section had it the other way round, on the assumption t
 taste fetcher would end up answering the field directly and the fallback would stop firing for them.
 The measurements above retired that: **Shikimori and Bangumi are declined, so two of the five stay on
 the fallback for good.** It also carries the suggestion side, where a candidate from a recommendation
-provider arrives with genres and no flag, and any tracker with no usable signal at all (MyNovelList
-has tags only).
+provider arrives with genres and no flag, and any tracker with no usable signal at all (the scraped
+novel trackers carry neither tags nor a rating).
 
 That changes how much rides on the list, and it is why widening it is real work rather than
 housekeeping, and why the tag picker in the steps below is worth building: a heuristic that is
@@ -733,10 +733,9 @@ in Approach. Recorded here so a later reader does not add them as an obvious gap
 of `ROADMAP.md`). Its documented v0 response types carry a tag taxonomy typed
 `"content" | "demographic" | "genre" | "tag"` plus an `nsfw` boolean, so it can both feed the profile
 and answer the adult field, and its `content` tags are the closest thing to a sexual-content axis any
-tracker we support offers. MyNovelList returns a flat `tags` array with no adult flag, and the
-scraped NovelUpdates and NovelList paths carry neither tags nor a rating. Those three answer
-`UNKNOWN`, and with no usable tags the keyword fallback has nothing to match either, so they read as
-clean. That is the honest outcome rather than a
+tracker we support offers. The scraped NovelUpdates and NovelList paths carry neither tags nor a
+rating, so both answer `UNKNOWN`, and with no usable tags the keyword fallback has nothing to match
+either, so they read as clean. That is the honest outcome rather than a
 gap to close, and it is the reason `UNKNOWN` is a real state instead of a null that defaults to
 "clean" by accident.
 

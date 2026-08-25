@@ -163,9 +163,8 @@ designed out.
 
 **Step 3, decide book versus series** using what step 2 learns, and record it here.
 
-**Step 4, MyNovelList, if it is wanted.** A rewrite of IReader's Ktor client onto `BaseTracker` and
-OkHttp. Keep the user-editable base URL, because the default host is one person's free-tier
-deployment. Verify: the same end-to-end pass as step 2, plus that a changed base URL is honoured.
+**Step 4, MyNovelList. Not built** (owner, 2026-08-25). The step asked whether to depend on the
+service at all, and the answer is no. See the Status entry for what the investigation found.
 
 **Step 5, the WebView cookie login. Built, ahead of the scraping trackers that were meant to gate
 it,** because RanobeDB turned out to accept a session cookie on the same `/api/v0/user` routes as a
@@ -301,6 +300,36 @@ Three things that reading settled, none of them visible from tsundoku's client:
 Remaining before this counts as done: bind, progress, score, dates, refresh and unbind against a real
 account, each confirmed on the RanobeDB site rather than only in-app.
 
+**MyNovelList is not built, and will not be** (owner, 2026-08-25). The service works and its API is
+real, better documented than IReader's client suggests, and live: `/docs/api` publishes nine
+endpoints against the four IReader calls, adding a progress read, a metadata update, an `increment`
+field, and `notes` and `tags`. Authentication is enforced server-side rather than only client-side,
+since an unauthenticated search answers 401 rather than an empty list.
+
+What settled it is who runs it and what is in it:
+
+- **The shared catalogue holds zero entries.** `/browse` renders "0 novels in database", server-side,
+  so the count is a live database read rather than a client-side placeholder. Novels are public and
+  progress is private, so search hits that one empty table. Reikai's tracker flow is search, pick,
+  bind (`EntryTrackInfoDialog.kt`, `trackingSearch`), so a faithful client would bind nothing for
+  anyone. The only working shape would be create-on-bind through `POST /novels`, which creates from
+  local metadata and is legitimate (`AddNovelTrack.bind` calls `tracker.bind` before persisting, so a
+  bind can write the created id back), but it means every user seeds the catalogue by hand.
+- **The service is one evening of work, abandoned.** `IReaderorg/MyNovelList` was created and last
+  pushed on 2025-12-31, inside three hours, and untouched since. One star, no license, SvelteKit over
+  Supabase, deployed to Netlify's free tier. IReader's own login dialog calls it the "official
+  server" and offers the base-URL field for self-hosting your own Supabase copy.
+- **The name collides with an unrelated site.** mynovellist.net is a much larger Asian-translated
+  novel database on EmpireCMS, with no API (`/api`, `/api/v1`, `/graphql` all 404 from nginx) and a
+  robots.txt that disallows AI crawlers outright. Shipping a row labelled MyNovelList would send
+  users there for a key that could never work.
+- **No user route exists**, so `BaseTracker.isLoggedIn`, which needs a non-empty username beside the
+  password, would have to be satisfied with a synthesized one. Small on its own, and it is one more
+  place the integration does not fit.
+
+Nothing here is a defect in the API. The judgement is that a tracker is only worth its maintenance if
+there is something on the other end, and there is not.
+
 ## Decisions & tradeoffs
 
 **RanobeDB first, and alone at first.** Of the four it has the curated catalogue, stable integer ids,
@@ -388,13 +417,11 @@ That is the opposite of RanobeDB, whose SvelteKit host needs `Origin` on any non
 
 **The backend is not the site.** It answers on `novellist-be-960019704910.asia-east1.run.app`, a
 generated Cloud Run hostname carrying their project number, and it is the only host the spec
-describes. A move to a custom domain would brick the client, which is the same risk that keeps
-MyNovelList's base URL editable.
+describes. A move to a custom domain would brick the client, which is why the base URL is editable.
 
-**MyNovelList's risk is who runs it, not whether it works.** IReader points at
-`mynoveltracker.netlify.app`, its own deployment, and not at mynovellist.net, which exposes no API at
-all. The catalogue is user-created and there is no content rating. Keeping the base URL editable is
-the mitigation, and depending on it is a judgement call rather than a technical one.
+**MyNovelList's risk was who runs it, not whether it works, and that is what decided it.** The API is
+sound; the deployment behind it is a one-evening side project with an empty catalogue. The verdict
+and the evidence are in Status.
 
 **The reference defects above are the reason this is a port and not a copy.** Blocking calls in
 coroutines, writes that cannot fail, and session cookies in the log are each individually small and
