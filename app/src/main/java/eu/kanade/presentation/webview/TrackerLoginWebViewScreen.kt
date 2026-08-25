@@ -3,13 +3,19 @@ package eu.kanade.presentation.webview
 import android.webkit.WebView
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -20,15 +26,23 @@ import com.kevinnzou.web.LoadingState
 import com.kevinnzou.web.rememberWebViewNavigator
 import com.kevinnzou.web.rememberWebViewState
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 import com.kevinnzou.web.WebView as ComposeWebView
 
 /**
- * Generic sign-in WebView for a [eu.kanade.tachiyomi.data.track.CookieLoginTracker]: it only shows
- * the service's own login page and reports each finished page, leaving the caller to decide when a
- * usable cookie has appeared. Unlike the ExHentai login it clears no cookies on entry, so a user
- * already signed in on that site is recognised without typing anything.
+ * Generic sign-in WebView for a [eu.kanade.tachiyomi.data.track.CookieLoginTracker].
+ *
+ * The check button is the reliable way to finish, not a convenience: these sites route client-side
+ * after a sign-in, so `onPageFinished` may never fire again and an automatic capture alone would
+ * leave the user re-entering the screen to be noticed. [onPageFinished] still fires so a session
+ * that does land on a page load is picked up without a tap.
+ *
+ * Cookies are deliberately not cleared on entry, so someone already signed in is recognised at once.
  */
 @Composable
 fun TrackerLoginWebViewScreen(
@@ -36,6 +50,7 @@ fun TrackerLoginWebViewScreen(
     url: String,
     onUp: () -> Unit,
     onPageFinished: (url: String) -> Unit,
+    onConfirmLogin: () -> Unit,
 ) {
     val state = rememberWebViewState(url = url)
     val navigator = rememberWebViewNavigator()
@@ -47,6 +62,22 @@ fun TrackerLoginWebViewScreen(
                     title = title,
                     navigateUp = onUp,
                     navigationIcon = Icons.Outlined.Close,
+                    actions = {
+                        AppBarActions(
+                            listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_webview_refresh),
+                                    icon = Icons.Outlined.Refresh,
+                                    onClick = { navigator.reload() },
+                                ),
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.login_webview_confirm),
+                                    icon = Icons.Outlined.Check,
+                                    onClick = onConfirmLogin,
+                                ),
+                            ),
+                        )
+                    },
                 )
                 when (val loadingState = state.loadingState) {
                     is LoadingState.Initializing -> LinearProgressIndicator(
@@ -81,14 +112,26 @@ fun TrackerLoginWebViewScreen(
             }
         }
 
-        ComposeWebView(
-            state = state,
-            navigator = navigator,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding),
-            onCreated = { it.setDefaultSettings() },
-            client = webClient,
-        )
+        Column(modifier = Modifier.padding(contentPadding)) {
+            ComposeWebView(
+                state = state,
+                navigator = navigator,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                onCreated = { it.setDefaultSettings() },
+                client = webClient,
+            )
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+                Text(
+                    text = stringResource(MR.strings.login_webview_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(MaterialTheme.padding.medium),
+                )
+            }
+        }
     }
 }

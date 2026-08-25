@@ -51,19 +51,28 @@ class TrackerWebViewLoginActivity : BaseActivity() {
                 title = stringResourceLoginTitle(tracker),
                 url = cookieLogin.cookieLoginUrl,
                 onUp = { finish() },
-                onPageFinished = { tryCapture(tracker, cookieLogin) },
+                onPageFinished = { tryCapture(tracker, cookieLogin, explicit = false) },
+                onConfirmLogin = { tryCapture(tracker, cookieLogin, explicit = true) },
             )
         }
     }
 
     /**
-     * Runs after every page load, because the cookie can appear on any of them: the sign-in POST,
-     * the redirect that follows it, or immediately when the user was already signed in.
+     * Called after each page load and again when the user taps the check.
+     *
+     * [explicit] separates the two: an automatic attempt that finds nothing is simply a page the
+     * user has not signed in on yet, while a tap that finds nothing is a question that deserves an
+     * answer. tsundoku's equivalent stays silent either way, so a mistimed tap looks like a dead
+     * button.
      */
-    private fun tryCapture(tracker: Tracker, cookieLogin: CookieLoginTracker) {
+    private fun tryCapture(tracker: Tracker, cookieLogin: CookieLoginTracker, explicit: Boolean) {
         if (captured) return
-        val cookies = CookieManager.getInstance().getCookie(cookieLogin.cookieDomain) ?: return
-        val credential = cookieLogin.credentialFromCookies(cookies) ?: return
+        val cookies = CookieManager.getInstance().getCookie(cookieLogin.cookieDomain)
+        val credential = cookies?.let(cookieLogin::credentialFromCookies)
+        if (credential == null) {
+            if (explicit) toast(MR.strings.login_webview_not_signed_in)
+            return
+        }
 
         captured = true
         lifecycleScope.launch {
