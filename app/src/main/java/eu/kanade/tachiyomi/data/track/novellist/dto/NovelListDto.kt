@@ -69,16 +69,17 @@ data class NLReadingListEntry(
 )
 
 /**
- * Write payload for `PUT /users/current/reading-list/{id}`. Every field is optional server-side, so a
- * null here means "leave alone". It stays out of the body while the graph-wide `Json` keeps either
- * `encodeDefaults` or `explicitNulls` false; it sets the latter and inherits the former. Flip both
- * and a status edit sends `note: null`, destroying the user's own note. Rating is constrained to
- * 1..10 by the schema, so an unset score is omitted rather than sent as 0, which the route rejects.
+ * Write payload for `PUT /users/current/reading-list/{id}`. [chapterCount] is not optional even
+ * though the schema says it is: the route resets progress to 0 for any body that leaves it out, so a
+ * status or score edit alone silently wipes the user's chapter count. Measured against the live
+ * service; nothing in their document hints at it. The other fields are genuinely preserved when
+ * omitted, and a null stays out of the body, so they mean "leave alone". Rating is constrained to
+ * 1..10, so an unset score is omitted rather than sent as 0.
  */
 @Serializable
 data class NLUpdateRequest(
+    @SerialName("chapter_count") val chapterCount: Long,
     val status: String? = null,
-    @SerialName("chapter_count") val chapterCount: Long? = null,
     val rating: Double? = null,
     val note: String? = null,
 )

@@ -303,12 +303,28 @@ Four things the spec settled that tsundoku's client does not show:
 - **The entry reads back.** `GET` on the same path returns `status`, `chapter_count`, `rating` and
   `note`. Unlike RanobeDB, an update can therefore carry what it is not changing, so writes need not
   be destructive. `note` is the field at risk, because nothing in Reikai edits it.
-- **The write is a partial update.** Every field in the `PUT` body is optional, and a null is
-  omitted rather than sent, so an untouched field is left alone. Whether the server preserves an
-  omitted field is the one thing the spec cannot answer; the device test settles it.
+- **The write is a partial update, with one exception.** Every field in the `PUT` body is optional
+  and a null is omitted rather than sent, so `status`, `rating` and `note` are left alone when
+  absent. `chapter_count` is not: see the measured write contract below.
 - **There is no on-hold status.** The reading-list enum is `COMPLETED`, `DROPPED`, `IN_PROGRESS`,
   `PLANNED`, `UNKNOWN`. tsundoku maps `ON_HOLD` to `PLANNED`, which round-trips back as plan-to-read.
   Under the capability rule that is a silent no-op, so the status is not offered instead.
+
+**Every write must carry `chapter_count`, and nothing in their document says so.** Measured against
+the live service: a `PUT` that omits `chapter_count` resets it to 0, so a status-only or score-only
+edit silently wipes the user's reading progress. `rating` and `note` are genuinely preserved when
+omitted; `chapter_count` alone is defaulted rather than left alone. `NLUpdateRequest` therefore
+declares it non-optional, and a test asserts the serializer still marks it required, because the
+regression is invisible at the call site and destroys user data at runtime.
+
+This took four probes because the first three each compared zero against zero: their own setup wrote
+a status or a score after arming the progress, which zeroed the field under test before the test ran.
+The probes live in `devtools/api-probes/novellist_*.py` (local only). The one that settles it re-arms
+progress immediately before each write, so a zero afterwards can only have come from that write.
+
+It is very likely a defect on their side rather than a deliberate contract, since it would lose a
+chapter count for anyone changing status through the website too. Worth reporting to the maintainer,
+and worth coding around regardless: a fix would not reach the deployed backend on any known schedule.
 
 **`rating` is a float constrained to 1..10**, so an unset score cannot be pushed as 0, which is what
 tsundoku's 422 comment refers to. Clearing a score has no representation and is recorded as a gap.

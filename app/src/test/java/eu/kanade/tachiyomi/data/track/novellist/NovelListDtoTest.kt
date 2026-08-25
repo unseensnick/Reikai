@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.track.novellist.dto.NLUpdateRequest
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.serialization.serializer
 import mihon.app.di.AppBindings
 import org.junit.jupiter.api.Test
 
@@ -99,12 +100,26 @@ class NovelListDtoTest {
 
     /** A null means "leave alone" to this route, so it must not reach the wire as an explicit null. */
     @Test
-    fun `an update omits every field it is not changing`() {
-        val body = json.encodeToString(NLUpdateRequest(status = "IN_PROGRESS", chapterCount = 12))
+    fun `an update omits the fields it is not changing`() {
+        val body = json.encodeToString(NLUpdateRequest(chapterCount = 12, status = "IN_PROGRESS"))
 
         body shouldContain "\"status\":\"IN_PROGRESS\""
-        body shouldContain "\"chapter_count\":12"
         body shouldNotContain "note"
         body shouldNotContain "rating"
+    }
+
+    /**
+     * The service resets progress to 0 for any body without `chapter_count`, so a status-only or
+     * score-only edit would wipe it. Measured live; nothing in their document hints at it.
+     */
+    @Test
+    fun `every update carries the chapter count, even a score-only edit`() {
+        val scoreEdit = json.encodeToString(NLUpdateRequest(chapterCount = 7, rating = 9.0))
+
+        scoreEdit shouldContain "\"chapter_count\":7"
+        // The serialized shape above only holds while the field stays mandatory. Give it a default
+        // and a caller could leave it out, which is the write that wipes the user's progress.
+        val descriptor = NLUpdateRequest.serializer().descriptor
+        descriptor.isElementOptional(descriptor.getElementIndex("chapter_count")) shouldBe false
     }
 }
