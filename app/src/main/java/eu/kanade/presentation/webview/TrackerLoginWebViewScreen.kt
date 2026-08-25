@@ -28,6 +28,7 @@ import com.kevinnzou.web.rememberWebViewState
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -48,6 +49,7 @@ import com.kevinnzou.web.WebView as ComposeWebView
 fun TrackerLoginWebViewScreen(
     title: String,
     url: String,
+    defaultUserAgentProvider: () -> String,
     onUp: () -> Unit,
     onPageFinished: (url: String) -> Unit,
     onConfirmLogin: () -> Unit,
@@ -119,7 +121,12 @@ fun TrackerLoginWebViewScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                onCreated = { it.setDefaultSettings() },
+                onCreated = {
+                    it.setDefaultSettings()
+                    // Must match what OkHttp sends: a Cloudflare clearance cookie is bound to the agent
+                    // that earned it, so a sign-in solved here would be rejected on every later request.
+                    it.setUserAgent(defaultUserAgentProvider())
+                },
                 client = webClient,
             )
             Surface(color = MaterialTheme.colorScheme.surfaceVariant) {

@@ -50,6 +50,7 @@ class TrackerWebViewLoginActivity : BaseActivity() {
             TrackerLoginWebViewScreen(
                 title = stringResourceLoginTitle(tracker),
                 url = cookieLogin.cookieLoginUrl,
+                defaultUserAgentProvider = appGraph.networkHelper::defaultUserAgentProvider,
                 onUp = { finish() },
                 onPageFinished = { tryCapture(tracker, cookieLogin, explicit = false) },
                 onConfirmLogin = { tryCapture(tracker, cookieLogin, explicit = true) },
