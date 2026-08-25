@@ -207,6 +207,8 @@ existing notes untouched.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/TrackerManager.kt`: ids and registration.
 - `app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsTrackingScreen.kt`: the two
   existing login shapes and `LoginDialog`.
+- `app/src/main/java/eu/kanade/tachiyomi/data/track/novellist/`: the NovelList client, `NovelListApi`
+  over the documented routes plus its bearer interceptor and `dto/`.
 - `app/src/main/java/reikai/domain/track/TrackerContentSupport.kt`: the per-type capability kernel
   both tracking sheets filter through.
 - `data/src/main/sqldelight/tachiyomi/data/novel_tracks.sq`: `remote_id INTEGER`, `remote_url TEXT`.
@@ -248,17 +250,18 @@ account, each confirmed on the RanobeDB site rather than only in-app.
 
 ## Decisions & tradeoffs
 
-**RanobeDB first, and alone at first.** It is the only one of the four with documented endpoints, a
-curated catalogue, stable integer ids, a token flow needing no OAuth redirect and no secret in the
-APK, and tags that let it feed recommendations. Its NSFW flag was part of that case when the tracker
-adult-content filter existed; that filter was removed, so only the tags count now. See
+**RanobeDB first, and alone at first.** Of the four it has the curated catalogue, stable integer ids,
+a token flow needing no OAuth redirect and no secret in the APK, and tags that let it feed
+recommendations. Its NSFW flag was part of that case when the tracker adult-content filter existed;
+that filter was removed, so only the tags count now. See
 [recommendations-adult-content.md](recommendations-adult-content.md).
 
-**"No public API" is a maintenance cost here, not a blocker.** NovelUpdates and NovelList have no
-documented API and NovelUpdates sits behind a Cloudflare managed challenge, but Reikai already carries
-the extension ecosystem through exactly that: `NetworkHelper` installs `CloudflareInterceptor` with a
-FlareSolverr fallback, and `AndroidCookieJar` shares OkHttp's cookies with the WebView's own store, so
-a WebView login carries straight into API calls. Both are buildable; the real cost is that scraped
+**"No public API" is a maintenance cost here, not a blocker.** NovelUpdates has no documented API and
+sits behind a Cloudflare managed challenge, and NovelList documents its routes but does not advertise
+them (see below). Reikai already carries the extension ecosystem through exactly that:
+`NetworkHelper` installs `CloudflareInterceptor` with a FlareSolverr fallback, and `AndroidCookieJar`
+shares OkHttp's cookies with the WebView's own store, so a WebView login carries straight into API
+calls. Both are buildable; the real cost is that scraped
 selectors and private endpoints rot, which is why they are sequenced last and may be dropped.
 
 **A tracker now declares which content types its catalogue holds, and a novel-only one is hidden
@@ -283,6 +286,41 @@ Before this, `RanobeDb` was offered on every manga's track sheet once logged in,
 `search()` delegates to `searchNovel()`, so a manga search answered with light novels. The library
 tracking filter is deliberately left listing every logged-in tracker: that sheet is shared by one
 library holding both types, ruled in `reikai/presentation/library/LibraryEngine.kt`.
+
+
+**NovelList publishes an OpenAPI document, so it is only the human-facing docs that are missing.**
+`GET /api/openapi.json` returns a complete OpenAPI 3.1.0 spec titled "Novellist API 1.0.0", covering
+every route with request and response schemas, enum values and numeric constraints. Their site has
+no `/docs`, `/developers` or terms page, and web search finds nothing, so "no public API" was right
+about discoverability and wrong about the contract. The DTOs are typed from the spec rather than
+from sample responses, which matters because it marks `chapter_count` and the three collections
+nullable where 90 live records had no null, and a wrong non-null throws at parse time.
+
+Four things the spec settled that tsundoku's client does not show:
+
+- **Unbind exists.** `DELETE /users/current/reading-list/{novel_id}` is a real route, so NovelList
+  can implement `DeletableTracker`. tsundoku has no delete at all.
+- **The entry reads back.** `GET` on the same path returns `status`, `chapter_count`, `rating` and
+  `note`. Unlike RanobeDB, an update can therefore carry what it is not changing, so writes need not
+  be destructive. `note` is the field at risk, because nothing in Reikai edits it.
+- **The write is a partial update.** Every field in the `PUT` body is optional, and a null is
+  omitted rather than sent, so an untouched field is left alone. Whether the server preserves an
+  omitted field is the one thing the spec cannot answer; the device test settles it.
+- **There is no on-hold status.** The reading-list enum is `COMPLETED`, `DROPPED`, `IN_PROGRESS`,
+  `PLANNED`, `UNKNOWN`. tsundoku maps `ON_HOLD` to `PLANNED`, which round-trips back as plan-to-read.
+  Under the capability rule that is a silent no-op, so the status is not offered instead.
+
+**`rating` is a float constrained to 1..10**, so an unset score cannot be pushed as 0, which is what
+tsundoku's 422 comment refers to. Clearing a score has no representation and is recorded as a gap.
+
+**None of tsundoku's spoofed CORS headers are reproduced.** Every write route answers 401 rather
+than 403 without them, including a form-encoded `DELETE`, so the backend reaches its handler unaided.
+That is the opposite of RanobeDB, whose SvelteKit host needs `Origin` on any non-GET.
+
+**The backend is not the site.** It answers on `novellist-be-960019704910.asia-east1.run.app`, a
+generated Cloud Run hostname carrying their project number, and it is the only host the spec
+describes. A move to a custom domain would brick the client, which is the same risk that keeps
+MyNovelList's base URL editable.
 
 **MyNovelList's risk is who runs it, not whether it works.** IReader points at
 `mynoveltracker.netlify.app`, its own deployment, and not at mynovellist.net, which exposes no API at
