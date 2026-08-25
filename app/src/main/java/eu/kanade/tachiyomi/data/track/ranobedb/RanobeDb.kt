@@ -53,6 +53,22 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
 
     private val api by lazy { RanobeDbApi(interceptor, client) }
 
+    /**
+     * The last body accepted for a series, so an identical one is not sent again. A repeat here is
+     * not merely wasted: each write clears the list fields no route can read back, so it is a second
+     * pass over someone's labels and notes. Binding a partly-read novel used to push twice with the
+     * same body, once from `bind` and once from the read catch-up that follows it.
+     *
+     * Cleared on delete and logout, so a rebind after either always writes.
+     */
+    private var lastWrite: Pair<Long, RDBSeriesListEntry>? = null
+
+    private suspend fun writeListEntry(seriesId: Long, entry: RDBSeriesListEntry) {
+        if (lastWrite == seriesId to entry) return
+        api.updateSeriesListEntry(seriesId, entry)
+        lastWrite = seriesId to entry
+    }
+
     override fun getLogo(): Int = R.drawable.brand_ranobedb
 
     override val supportsNovels = true
@@ -101,7 +117,7 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
         // A search result carries score -1 as its "unset" marker, which would persist as a real
         // score and render as -1. Every other tracker zeroes it here for the same reason.
         track.score = 0.0
-        api.updateSeriesListEntry(track.remote_id, track.toListEntry())
+        writeListEntry(track.remote_id, track.toListEntry())
         return track
     }
 
@@ -117,7 +133,7 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
             val statusMoved = track.status != statusBefore
             if (!statusMoved || !trackPreferences.ranobeDbSyncWhileReading.get()) return track
         }
-        api.updateSeriesListEntry(track.remote_id, track.toListEntry())
+        writeListEntry(track.remote_id, track.toListEntry())
         return track
     }
 
@@ -131,6 +147,9 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
 
     override suspend fun delete(track: DomainTrack) {
         api.deleteSeriesListEntry(track.remoteId)
+        // Without this, rebinding a series to the same status would match the remembered body and
+        // send nothing, leaving the entry deleted on the site while the app shows it bound.
+        lastWrite = null
     }
 
     override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
@@ -187,6 +206,7 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker, Cookie
     override fun logout() {
         super.logout()
         interceptor.newAuth(null)
+        lastWrite = null
     }
 
     fun restoreToken(): String? = trackPreferences.trackPassword(this).get().ifBlank { null }
