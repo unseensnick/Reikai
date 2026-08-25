@@ -63,7 +63,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Tracking**
 
 - **Light novels can now be tracked on RanobeDB, a database built for them.** Sign in through a browser window or paste a personal access token, then bind a novel to a series to sync status, score and your reading dates.
-- **Filling a novel's details from a tracker now works with RanobeDB, which knows novels better than the manga services do.** It fills the description, author, artist and genres.
+- **Light novels can now be tracked on NovelList too.** Sign in through a browser window, then bind a novel to sync its status, score and chapter progress; on-hold is unavailable because NovelList has no such state.
+- **Filling a novel's details from a tracker now works with RanobeDB and NovelList, which know novels better than the manga services do.** It fills the description, author, artist and genres.
 - **A tracker search can now take an id, written as `id:12345` (synced from Mihon, mihonapp/mihon#3776).** AniList, Bangumi, Hikka, Kitsu, MangaUpdates and Shikimori join MyAnimeList and MangaBaka, on manga and novels alike.
 - **A Kitsu search can now take a title's web-address name too, written as `id:shadow-slave` (synced from Mihon, mihonapp/mihon#3792).** Handy when you have the Kitsu link but not the number, and it works on manga and novels alike.
 

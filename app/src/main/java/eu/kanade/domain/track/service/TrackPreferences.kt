@@ -59,6 +59,11 @@ class TrackPreferences(
     val ranobeDbSyncWhileReading: Preference<Boolean> =
         preferenceStore.getBoolean("ranobedb_sync_while_reading", true)
 
+    // RK: NovelList's API host, editable because it is a generated Cloud Run hostname carrying their
+    // project number rather than a domain they own. A move would otherwise brick the tracker with no
+    // way out but an app update. Blank means the built-in default.
+    val novelListApiUrl: Preference<String> = preferenceStore.getString("novellist_api_url", "")
+
     val autoUpdateTrack: Preference<Boolean> = preferenceStore.getBoolean("pref_auto_update_manga_sync_key", true)
 
     val autoUpdateTrackOnMarkRead: Preference<AutoTrackState> = preferenceStore.getEnum(

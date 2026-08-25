@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.track.mangabaka.MangaBaka
 import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdates
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
+import eu.kanade.tachiyomi.data.track.novellist.NovelList
 import eu.kanade.tachiyomi.data.track.ranobedb.RanobeDb
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
@@ -31,7 +32,8 @@ class TrackerManager {
         // RK: MangaDex MDList tracker (id matches Komikku; ids persist with tracks, never change it)
         const val MDLIST = 60L
 
-        // RK: RanobeDB light-novel tracker (id matches tsundoku; ids persist with tracks)
+        // RK: light-novel trackers (ids match tsundoku; ids persist with tracks, never change one)
+        const val NOVELLIST = 101L
         const val RANOBEDB = 102L
     }
 
@@ -49,6 +51,9 @@ class TrackerManager {
 
     // RK: RanobeDB light-novel tracker (paste-a-token login, binds to a series)
     val ranobeDb = RanobeDb(RANOBEDB)
+
+    // RK: NovelList light-novel tracker (browser sign-in, UUID ids)
+    val novelList = NovelList(NOVELLIST)
 
     // RK: MangaDex MDList tracker (OAuth login + follow-status/rating sync)
     val mdList = MdList(MDLIST)
@@ -68,6 +73,7 @@ class TrackerManager {
         // RK -->
         mdList,
         ranobeDb,
+        novelList,
         // RK <--
     )
 

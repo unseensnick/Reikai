@@ -22,6 +22,7 @@ import kotlin.time.Duration.Companion.minutes
 class NovelListApi(
     interceptor: NovelListInterceptor,
     client: OkHttpClient,
+    private val apiUrl: () -> String,
 ) {
     private val json: Json by injectLazy()
 
@@ -42,7 +43,7 @@ class NovelListApi(
         val body = json.encodeToString(NLFilterRequest(titleSearchQuery = query))
             .toRequestBody(JSON_MEDIA_TYPE)
         return with(json) {
-            rateLimitedClient.newCall(POST("$API_URL/novels/filter", body = body))
+            rateLimitedClient.newCall(POST("${apiUrl()}/novels/filter", body = body))
                 .awaitSuccess()
                 .parseAs<List<NLNovel>>()
         }
@@ -51,7 +52,7 @@ class NovelListApi(
     /** Also public, and the only shape carrying `author`. The path rejects a slug with 422. */
     suspend fun getNovel(novelId: String): NLNovel {
         return with(json) {
-            rateLimitedClient.newCall(GET("$API_URL/novels/$novelId"))
+            rateLimitedClient.newCall(GET("${apiUrl()}/novels/$novelId"))
                 .awaitSuccess()
                 .parseAs<NLNovel>()
         }
@@ -59,7 +60,7 @@ class NovelListApi(
 
     suspend fun getCurrentUser(): NLUser {
         return with(json) {
-            authClient.newCall(GET("$API_URL/users/current"))
+            authClient.newCall(GET("${apiUrl()}/users/current"))
                 .awaitSuccess()
                 .parseAs<NLUser>()
         }
@@ -67,7 +68,7 @@ class NovelListApi(
 
     suspend fun getReadingListEntry(novelId: String): NLReadingListEntry {
         return with(json) {
-            authClient.newCall(GET("$API_URL/users/current/reading-list/$novelId"))
+            authClient.newCall(GET("${apiUrl()}/users/current/reading-list/$novelId"))
                 .awaitSuccess()
                 .parseAs<NLReadingListEntry>()
         }
@@ -75,13 +76,13 @@ class NovelListApi(
 
     suspend fun updateReadingListEntry(novelId: String, entry: NLUpdateRequest) {
         val body = json.encodeToString(entry).toRequestBody(JSON_MEDIA_TYPE)
-        authClient.newCall(PUT("$API_URL/users/current/reading-list/$novelId", body = body))
+        authClient.newCall(PUT("${apiUrl()}/users/current/reading-list/$novelId", body = body))
             .awaitSuccess()
             .close()
     }
 
     suspend fun deleteReadingListEntry(novelId: String) {
-        authClient.newCall(DELETE("$API_URL/users/current/reading-list/$novelId"))
+        authClient.newCall(DELETE("${apiUrl()}/users/current/reading-list/$novelId"))
             .awaitSuccess()
             .close()
     }
@@ -90,8 +91,9 @@ class NovelListApi(
         const val BASE_URL = "https://www.novellist.co"
 
         // The backend answers on its generated Cloud Run hostname, which is not the site's domain and
-        // carries their project number. It is the only host the OpenAPI document describes.
-        private const val API_URL = "https://novellist-be-960019704910.asia-east1.run.app/api"
+        // carries their project number, so a move would brick the client. That is why the tracker can
+        // override this. It is the only host the OpenAPI document describes.
+        const val DEFAULT_API_URL = "https://novellist-be-960019704910.asia-east1.run.app/api"
 
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 

@@ -215,6 +215,12 @@ existing notes untouched.
 
 ## Status
 
+**NovelList is built and registered at id 101, and unverified on device.** The client, the tracker,
+the browser sign-in and the editable server address are in, with the write contract measured rather
+than assumed. Nothing about it has been exercised against a real account through the app yet: bind,
+progress, score, refresh and unbind all still need a device pass, and the cookie extraction has
+never run against a live sign-in.
+
 **RanobeDB is built (steps 1 to 3, plus step 5 out of order), and partly verified on device.** The
 two logins, the series-bound tracker and its Fill-from-tracker support are in, alongside the shared
 `pushChapterProgress` kernel that fixed the stale local row for both content types. Unit tests cover

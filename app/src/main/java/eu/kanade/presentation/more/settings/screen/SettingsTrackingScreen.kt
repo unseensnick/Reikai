@@ -98,6 +98,8 @@ object SettingsTrackingScreen : SearchableSettings {
         // RK: RanobeDB's sync toggle only means anything once it is bound, so it follows it.
         val ranobeDbLoggedIn by trackerManager.ranobeDb.isLoggedInFlow
             .collectAsState(initial = trackerManager.ranobeDb.isLoggedIn)
+        val novelListLoggedIn by trackerManager.novelList.isLoggedInFlow
+            .collectAsState(initial = trackerManager.novelList.isLoggedIn)
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {
@@ -237,8 +239,20 @@ object SettingsTrackingScreen : SearchableSettings {
                         },
                         logout = { dialog = LogoutDialog(trackerManager.ranobeDb) },
                     ),
+                    // RK: NovelList light-novel tracker. It issues no personal token, so signing in
+                    // goes straight to the browser rather than offering a field nobody can fill.
+                    Preference.PreferenceItem.TrackerPreference(
+                        tracker = trackerManager.novelList,
+                        login = {
+                            context.startActivity(
+                                TrackerWebViewLoginActivity.newIntent(context, trackerManager.novelList.id),
+                            )
+                        },
+                        logout = { dialog = LogoutDialog(trackerManager.novelList) },
+                    ),
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.tracking_info)),
-                ) + ranobeDbPreferences(trackPreferences, ranobeDbLoggedIn),
+                ) + ranobeDbPreferences(trackPreferences, ranobeDbLoggedIn) +
+                    novelListPreferences(trackPreferences, novelListLoggedIn),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.enhanced_services),
@@ -391,6 +405,25 @@ object SettingsTrackingScreen : SearchableSettings {
                 preference = trackPreferences.ranobeDbSyncWhileReading,
                 title = stringResource(MR.strings.pref_ranobedb_sync_while_reading),
                 subtitle = stringResource(MR.strings.pref_ranobedb_sync_while_reading_summary),
+            ),
+        )
+    }
+
+    /**
+     * NovelList answers on a generated hosting URL rather than a domain it owns, so the address is
+     * editable and a move does not need an app update. Blank restores the built-in default.
+     */
+    @Composable
+    private fun novelListPreferences(
+        trackPreferences: TrackPreferences,
+        isLoggedIn: Boolean,
+    ): List<Preference.PreferenceItem<out Any, out Any>> {
+        if (!isLoggedIn) return emptyList()
+        return listOf(
+            Preference.PreferenceItem.EditTextPreference(
+                preference = trackPreferences.novelListApiUrl,
+                title = stringResource(MR.strings.pref_novellist_api_url),
+                subtitle = stringResource(MR.strings.pref_novellist_api_url_summary),
             ),
         )
     }
