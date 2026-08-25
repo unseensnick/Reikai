@@ -1,0 +1,113 @@
+package eu.kanade.tachiyomi.data.track.novelupdates
+
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+
+// Every parse NovelUpdates needs, kept apart from the requests so each one is testable against a
+// fixture. Selectors sit in NuSelector so a site redesign has one place to fix rather than a hunt
+// through the call sites, which is the whole maintenance cost of a scraped tracker.
+
+/** A search hit. [id] is the numeric post id when the row carries one, resolved at bind when not. */
+data class NovelUpdatesSeries(
+    val id: String?,
+    val title: String,
+    val seriesUrl: String,
+    val coverUrl: String,
+    val summary: String,
+    val publishingStatus: String,
+)
+
+internal object NuSelector {
+    const val SEARCH_ROW = "div.search_main_box_nu"
+    const val RESULT_TITLE = "div.search_title a, .search_title a"
+    const val RESULT_ID = "span[id^=sid]"
+    const val RESULT_COVER = "div.search_img_nu img, .search_img_nu img"
+    const val RESULT_BODY = "div.search_body_nu"
+    const val RESULT_HIDDEN_TEXT = ".testhide"
+    const val RESULT_GENRES = "div.search_genre, .search_genre"
+
+    const val SHORTLINK = "link[rel=shortlink]"
+    const val ACTIVITY_LINK = "a[href*=activity-stats]"
+    const val POST_ID = "input#mypostid"
+
+    const val LIST_PANEL = "div.sticon"
+    const val ADD_ME = "img[src*=addme.png]"
+    const val LIST_LINK = "span.sttitle a"
+    const val LIST_MENU_ITEM = "div#cssmenu li a[href*=reading-list/?list=]"
+    const val LIST_OPTION = "div.sticon select.stmove option"
+}
+
+private val SHORTLINK_ID = Regex("""p=(\d+)""")
+private val ACTIVITY_ID = Regex("""seriesid=(\d+)""")
+private val LIST_ID = Regex("""list=(\d+)""")
+private val SID = Regex("""sid(\d+)""")
+private val WHITESPACE = Regex("""\s+""")
+
+internal fun parseSearch(document: Document): List<NovelUpdatesSeries> =
+    document.select(NuSelector.SEARCH_ROW).map { it.toSeries() }
+
+/** The numeric post id, which search rows do not always carry. Null when the page shows none. */
+internal fun parseNovelId(document: Document): String? {
+    SHORTLINK_ID.find(document.select(NuSelector.SHORTLINK).attr("href"))
+        ?.let { return it.groupValues[1] }
+    ACTIVITY_ID.find(document.select(NuSelector.ACTIVITY_LINK).attr("href"))
+        ?.let { return it.groupValues[1] }
+    return document.select(NuSelector.POST_ID).attr("value").ifBlank { null }
+}
+
+/** The list the novel sits on, or null when it is on none, which the add button marks. */
+internal fun parseListId(document: Document): Long? {
+    val panel = document.select(NuSelector.LIST_PANEL)
+    if (panel.select(NuSelector.ADD_ME).isNotEmpty()) return null
+    return LIST_ID.find(panel.select(NuSelector.LIST_LINK).attr("href"))
+        ?.groupValues
+        ?.get(1)
+        ?.toLongOrNull()
+}
+
+/** The user's own lists as id to name. The menu is authoritative; the dropdown is the fallback. */
+internal fun parseReadingLists(document: Document): List<Pair<String, String>> {
+    val fromMenu = document.select(NuSelector.LIST_MENU_ITEM).mapNotNull { link ->
+        val id = LIST_ID.find(link.attr("href"))?.groupValues?.get(1) ?: return@mapNotNull null
+        id to (link.text().trim().ifBlank { return@mapNotNull null })
+    }
+    if (fromMenu.isNotEmpty()) return fromMenu
+
+    return document.select(NuSelector.LIST_OPTION).mapNotNull { option ->
+        val id = option.attr("value").takeIf { it.isNotBlank() && it != "---" } ?: return@mapNotNull null
+        id to (option.text().trim().ifBlank { return@mapNotNull null })
+    }
+}
+
+internal fun Element.toSeries(): NovelUpdatesSeries {
+    val link = selectFirst(NuSelector.RESULT_TITLE)
+    val cover = selectFirst(NuSelector.RESULT_COVER)?.attr("src").orEmpty()
+    val body = selectFirst(NuSelector.RESULT_BODY)
+    val hidden = body?.selectFirst(NuSelector.RESULT_HIDDEN_TEXT)?.text().orEmpty()
+    val genres = select(NuSelector.RESULT_GENRES).text()
+
+    return NovelUpdatesSeries(
+        id = SID.find(selectFirst(NuSelector.RESULT_ID)?.attr("id").orEmpty())?.groupValues?.get(1),
+        title = link?.text()?.trim().orEmpty(),
+        seriesUrl = link?.attr("href").orEmpty(),
+        coverUrl = if (cover.isBlank() || cover.startsWith("http")) {
+            cover
+        } else {
+            "${NovelUpdatesApi.BASE_URL}$cover"
+        },
+        summary = stitchSummary(body?.text().orEmpty(), hidden),
+        publishingStatus = when {
+            genres.contains("Completed", ignoreCase = true) -> "Completed"
+            genres.contains("Ongoing", ignoreCase = true) -> "Ongoing"
+            else -> ""
+        },
+    )
+}
+
+/** The blurb is truncated with a hidden remainder, so the two halves are stitched back together. */
+private fun stitchSummary(whole: String, hidden: String): String =
+    (whole.replace(hidden, "") + " " + hidden)
+        .replace("... more>>", "")
+        .replace("<<less", "")
+        .replace(WHITESPACE, " ")
+        .trim()
