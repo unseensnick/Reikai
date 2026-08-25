@@ -42,7 +42,7 @@ Three of the services are built for novels rather than manga. They work like eve
 
 ::::tabs
 ==RanobeDB
-* **Signing in**: paste a personal access token generated in your [RanobeDB settings](https://ranobedb.org/settings), or use the browser button and sign in there instead.
+* **Signing in**: sign in on [RanobeDB](https://ranobedb.org/login), open **Settings**, and generate a personal access token on the **Account** tab, then paste it into Reikai. The browser button in the same dialog signs you in with a session instead, which works the same way but expires; a token does not.
 * Statuses, a 1 to 10 score, and start & finish dates all sync.
 * **Chapter progress is never sent.** RanobeDB counts volumes where a source counts chapters, and nothing converts between them, so progress stays a plain count in Reikai rather than reporting chapter 574 as 574 volumes.
 * **Refresh tracker data** brings back only the title. The site has no way to read your own list entry back, so status and score stay whatever Reikai holds.

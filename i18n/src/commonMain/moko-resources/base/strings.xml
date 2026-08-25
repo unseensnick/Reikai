@@ -921,6 +921,7 @@
     <string name="login_webview_hint">Sign in above, then tap the check to finish. Reikai picks the session up itself if the site sends you back to a new page.</string>
     <string name="login_webview_not_signed_in">Not signed in yet. Finish signing in, then tap the check again.</string>
     <string name="login_token_or_paste">Or paste a personal access token, which does not expire the way a browser session does.</string>
+    <string name="login_ranobedb_token_info">To generate one: sign in on RanobeDB, open Settings, and use the Account tab.</string>
     <string name="login">Login</string>
     <string name="logging_in">Logging in…</string>
     <string name="login_success">Logged in</string>

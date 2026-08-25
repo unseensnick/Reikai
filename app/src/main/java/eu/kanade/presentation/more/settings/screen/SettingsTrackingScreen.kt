@@ -126,6 +126,7 @@ object SettingsTrackingScreen : SearchableSettings {
                     TrackingTokenLoginDialog(
                         tracker = tracker,
                         tokenStringRes = tokenStringRes,
+                        helpStringRes = helpStringRes,
                         helpUrl = helpUrl,
                         // Offered only where the service accepts a session cookie as well.
                         onWebViewLogin = (tracker as? CookieLoginTracker)?.let {
@@ -251,7 +252,8 @@ object SettingsTrackingScreen : SearchableSettings {
                             dialog = TokenLoginDialog(
                                 tracker = trackerManager.ranobeDb,
                                 tokenStringRes = MR.strings.login_token,
-                                helpUrl = RANOBEDB_TOKEN_URL,
+                                helpStringRes = MR.strings.login_ranobedb_token_info,
+                                helpUrl = RANOBEDB_LOGIN_URL,
                             )
                         },
                         logout = { dialog = LogoutDialog(trackerManager.ranobeDb) },
@@ -420,7 +422,11 @@ object SettingsTrackingScreen : SearchableSettings {
     }
 
     // RK --> single-secret token login, plus RanobeDB's two sync toggles.
-    private const val RANOBEDB_TOKEN_URL = "https://ranobedb.org/settings/account"
+    //
+    // The sign-in page, not the token form: RanobeDB's settings tabs are a `?view=` query rather
+    // than a path, and the whole page renders empty until you are signed in, so sending a signed-out
+    // user straight there shows them nothing. `login_ranobedb_token_info` carries the last step.
+    private const val RANOBEDB_LOGIN_URL = "https://ranobedb.org/login"
 
     @Composable
     private fun ranobeDbPreferences(
@@ -486,6 +492,7 @@ object SettingsTrackingScreen : SearchableSettings {
     private fun TrackingTokenLoginDialog(
         tracker: Tracker,
         tokenStringRes: StringResource,
+        helpStringRes: StringResource,
         helpUrl: String,
         onWebViewLogin: (() -> Unit)?,
         onDismissRequest: () -> Unit,
@@ -529,6 +536,12 @@ object SettingsTrackingScreen : SearchableSettings {
                     } else {
                         Text(text = stringResource(MR.strings.login_token_info))
                     }
+
+                    Text(
+                        text = stringResource(helpStringRes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
 
                     var hideToken by remember { mutableStateOf(true) }
                     OutlinedTextField(
@@ -646,9 +659,11 @@ private data class LoginDialog(
 )
 
 // RK: the single-secret counterpart to LoginDialog, for a pasted token with no username.
+// [helpStringRes] says where on that service a token is generated, which no generic line can.
 private data class TokenLoginDialog(
     val tracker: Tracker,
     val tokenStringRes: StringResource,
+    val helpStringRes: StringResource,
     val helpUrl: String,
 )
 
