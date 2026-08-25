@@ -8,6 +8,7 @@ import kotlinx.coroutines.awaitAll
 import logcat.LogPriority
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.InsertNovelTrack
+import reikai.domain.track.pushChapterProgress
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
 
@@ -41,11 +42,11 @@ class TrackNovelChapter(
                 async {
                     runCatching {
                         try {
-                            val updatedTrack = service.refresh(track.toDbTrack())
+                            val refreshed = service.refresh(track.toDbTrack())
                                 .toNovelTrack(idRequired = true)!!
                                 .copy(lastChapterRead = chapterNumber)
-                            service.update(updatedTrack.toDbTrack(), true)
-                            insertNovelTrack.await(updatedTrack)
+                            val pushed = service.pushChapterProgress(refreshed.toDbTrack())
+                            insertNovelTrack.await(pushed.toNovelTrack(idRequired = true)!!)
                             delayedTrackingStore.remove(track.id)
                         } catch (e: Exception) {
                             delayedTrackingStore.add(track.id, chapterNumber)

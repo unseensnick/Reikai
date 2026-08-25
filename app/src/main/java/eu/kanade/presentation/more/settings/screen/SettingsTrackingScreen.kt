@@ -21,8 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.track.model.AutoTrackState
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -90,6 +93,9 @@ object SettingsTrackingScreen : SearchableSettings {
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
         val trackerManager = remember { context.appGraph.trackerManager }
         val sourceManager = remember { context.appGraph.sourceManager }
+        // RK: RanobeDB's two sync toggles only mean anything once it is bound, so they follow it.
+        val ranobeDbLoggedIn by trackerManager.ranobeDb.isLoggedInFlow
+            .collectAsState(initial = trackerManager.ranobeDb.isLoggedIn)
 
         var dialog by remember { mutableStateOf<Any?>(null) }
         dialog?.run {
@@ -101,6 +107,16 @@ object SettingsTrackingScreen : SearchableSettings {
                         onDismissRequest = { dialog = null },
                     )
                 }
+                // RK --> single-secret login, for a tracker whose whole credential is a pasted token
+                is TokenLoginDialog -> {
+                    TrackingTokenLoginDialog(
+                        tracker = tracker,
+                        tokenStringRes = tokenStringRes,
+                        helpUrl = helpUrl,
+                        onDismissRequest = { dialog = null },
+                    )
+                }
+                // RK <--
                 is LogoutDialog -> {
                     TrackingLogoutDialog(
                         tracker = tracker,
@@ -197,8 +213,21 @@ object SettingsTrackingScreen : SearchableSettings {
                         },
                         logout = { dialog = LogoutDialog(trackerManager.mdList) },
                     ),
+                    // RK: RanobeDB light-novel tracker. The whole credential is a personal access
+                    // token generated on the site, so no OAuth redirect and no WebView.
+                    Preference.PreferenceItem.TrackerPreference(
+                        tracker = trackerManager.ranobeDb,
+                        login = {
+                            dialog = TokenLoginDialog(
+                                tracker = trackerManager.ranobeDb,
+                                tokenStringRes = MR.strings.login_token,
+                                helpUrl = RANOBEDB_TOKEN_URL,
+                            )
+                        },
+                        logout = { dialog = LogoutDialog(trackerManager.ranobeDb) },
+                    ),
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.tracking_info)),
-                ),
+                ) + ranobeDbPreferences(trackPreferences, ranobeDbLoggedIn),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.enhanced_services),
@@ -337,6 +366,131 @@ object SettingsTrackingScreen : SearchableSettings {
         }
     }
 
+    // RK --> single-secret token login, plus RanobeDB's two sync toggles.
+    private const val RANOBEDB_TOKEN_URL = "https://ranobedb.org/settings/account"
+
+    @Composable
+    private fun ranobeDbPreferences(
+        trackPreferences: TrackPreferences,
+        isLoggedIn: Boolean,
+    ): List<Preference.PreferenceItem<out Any, out Any>> {
+        if (!isLoggedIn) return emptyList()
+        return listOf(
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.ranobeDbMarkChaptersAsRead,
+                title = stringResource(MR.strings.pref_ranobedb_mark_chapters_as_read),
+                subtitle = stringResource(MR.strings.pref_ranobedb_mark_chapters_as_read_summary),
+            ),
+            Preference.PreferenceItem.SwitchPreference(
+                preference = trackPreferences.ranobeDbSyncReadingList,
+                title = stringResource(MR.strings.pref_ranobedb_sync_reading_list),
+                subtitle = stringResource(MR.strings.pref_ranobedb_sync_reading_list_summary),
+            ),
+        )
+    }
+
+    @Composable
+    private fun TrackingTokenLoginDialog(
+        tracker: Tracker,
+        tokenStringRes: StringResource,
+        helpUrl: String,
+        onDismissRequest: () -> Unit,
+    ) {
+        val context = LocalContext.current
+        val uriHandler = LocalUriHandler.current
+        val scope = rememberCoroutineScope()
+
+        var token by remember { mutableStateOf(TextFieldValue(tracker.getPassword())) }
+        var processing by remember { mutableStateOf(false) }
+        var inputError by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(MR.strings.login_title, tracker.name),
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onDismissRequest) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = stringResource(MR.strings.action_close),
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(text = stringResource(MR.strings.login_token_info))
+
+                    var hideToken by remember { mutableStateOf(true) }
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentType = ContentType.Password },
+                        value = token,
+                        onValueChange = { token = it },
+                        label = { Text(text = stringResource(tokenStringRes)) },
+                        trailingIcon = {
+                            IconButton(onClick = { hideToken = !hideToken }) {
+                                Icon(
+                                    imageVector = if (hideToken) {
+                                        Icons.Filled.Visibility
+                                    } else {
+                                        Icons.Filled.VisibilityOff
+                                    },
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                        visualTransformation = if (hideToken) {
+                            PasswordVisualTransformation()
+                        } else {
+                            VisualTransformation.None
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done,
+                        ),
+                        singleLine = true,
+                        isError = inputError && !processing,
+                    )
+
+                    TextButton(onClick = { uriHandler.openUri(helpUrl) }) {
+                        Text(text = stringResource(MR.strings.login_get_token))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !processing && token.text.isNotBlank(),
+                    onClick = {
+                        scope.launchIO {
+                            processing = true
+                            // The tracker reads the token out of the password slot, so the username
+                            // it stores comes from the service itself once the token validates.
+                            val result = checkLogin(
+                                context = context,
+                                tracker = tracker,
+                                username = "",
+                                password = token.text,
+                            )
+                            inputError = !result
+                            if (result) onDismissRequest()
+                            processing = false
+                        }
+                    },
+                ) {
+                    val id = if (processing) MR.strings.logging_in else MR.strings.login
+                    Text(text = stringResource(id))
+                }
+            },
+        )
+    }
+    // RK <--
+
     @Composable
     private fun TrackingLogoutDialog(
         tracker: Tracker,
@@ -383,6 +537,13 @@ object SettingsTrackingScreen : SearchableSettings {
 private data class LoginDialog(
     val tracker: Tracker,
     val uNameStringRes: StringResource,
+)
+
+// RK: the single-secret counterpart to LoginDialog, for a pasted token with no username.
+private data class TokenLoginDialog(
+    val tracker: Tracker,
+    val tokenStringRes: StringResource,
+    val helpUrl: String,
 )
 
 private data class LogoutDialog(

@@ -81,13 +81,27 @@ column, so the UUID can live there honestly. The unique constraint is on `(novel
 API. A light novel a user reads is usually a series, while tsundoku binds per book and then has to
 look the series up to delete. Deciding this once, up front, avoids a migration later.
 
+**Decided: series** (owner, 2026-08-25). `GET /series/{id}` carries `publication_status`, the
+descriptions, `staff[].role_type` and the `tags[]` taxonomy, where the book endpoint reaches most of
+that only by nesting the series inside itself; `c_num_books` is a real volume total, where tsundoku
+counts the length of a `books` array instead; `userListSeriesSchema` has `volumes_read`, so
+series-level binding keeps progress rather than trading it away; and deleting needs no book-to-series
+lookup. Take the total from `c_num_books`, never the sibling `volumes.count`, which is nullable and
+typed `string | number | bigint` because it reaches the wire as an unnormalised Postgres count.
+
 ## What Reikai is missing
 
-- **A paste-a-token login.** Today `SettingsTrackingScreen` offers exactly two shapes: an OAuth
-  deeplink through `openInBrowser(authUrl())`, and `LoginDialog(tracker, uNameStringRes)`, a
-  two-field username and password form. RanobeDB's PAT and MyNovelList's API key are a single secret
-  with no username, so they need a one-field variant. `LoginDialog` is a two-property data class, so
-  this is a small addition rather than new infrastructure.
+- **A paste-a-token login.** `SettingsTrackingScreen` offers three shapes, not the two an earlier
+  draft of this doc claimed: an OAuth deeplink through `openInBrowser(authUrl())` (plus MdList's PKCE
+  variant), `LoginDialog(tracker, uNameStringRes)` as a two-field username and password form, and
+  `loginNoop()` for the enhanced trackers. RanobeDB's PAT and MyNovelList's API key are a single
+  secret with no username, so they need a one-field variant; `LoginDialog` is a two-property data
+  class, so this is a small addition rather than new infrastructure. **Shipped** as
+  `TokenLoginDialog` / `TrackingTokenLoginDialog`.
+- **A username for a tracker that has none.** `BaseTracker.isLoggedIn` is username **and** password
+  both non-empty, so a token-only tracker that leaves the username blank reads as logged out
+  forever. RanobeDB fills it from `GET /api/v0/user/me`, which doubles as the check that a pasted
+  token is real before it is stored.
 - **A WebView cookie login**, for NovelList and NovelUpdates only. tsundoku's
   `TrackerWebViewLoginActivity` is 475 lines and hardcodes per-tracker cookie extraction in a `when`
   over tracker ids (`:418-473`). If we build it, the extraction belongs on each tracker as a typed
@@ -144,9 +158,30 @@ existing notes untouched.
 
 ## Status
 
-Not started. Grounded 2026-08-22 by reading both reference implementations and the RanobeDB server
-source; its `PUT` and `DELETE` handlers and its PAT check in `hooks.server.ts` were read directly,
-because the published API docs still describe the API as read-only.
+**RanobeDB is built (steps 1 to 3), and awaiting device verification against a real account.** The
+token login, the series-bound tracker and its Fill-from-tracker support are in, alongside the shared
+`pushChapterProgress` kernel that fixed the stale local row for both content types. Unit tests cover
+the schema and the kernel, both verified by mutation; nothing has yet touched the live API.
+
+Grounded 2026-08-22 by reading both reference implementations, and re-verified 2026-08-25 against the
+RanobeDB server source directly, because the published docs still describe the API as read-only.
+
+Three things that reading settled, none of them visible from tsundoku's client:
+
+- **tsundoku does not use the public API to write.** It posts SuperForms payloads to `/api/i/user/...`,
+  which is a `+page.server.ts` form action backing the website's own UI, and authenticates with an
+  `auth_session` cookie. The PAT check in `hooks.server.ts` is scoped to `/api/v0/user`, so its
+  endpoint cannot take a token and ours cannot take its cookie. The two clients are not variations on
+  one integration; roughly 210 of its 475 lines had no counterpart here.
+- **The write routes are merged and live but undocumented.** The docs page source says the API
+  "currently only supports read-only endpoints", so `/api/v0/user/` carries no deprecation promise.
+  That is why `RanobeDbDtoTest` pins the payload shape: nothing else would notice it moving.
+- **Nothing can read a user's own list entry back.** There is no `GET` under `/api/v0/user/`, and the
+  series detail route never passes the caller's id into `getSeriesOne`, so `refresh` can only refresh
+  catalogue metadata and the local row stays authoritative for status, score and progress.
+
+Remaining before this counts as done: bind, progress, score, dates, refresh and unbind against a real
+account, each confirmed on the RanobeDB site rather than only in-app.
 
 ## Decisions & tradeoffs
 

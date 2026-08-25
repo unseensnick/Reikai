@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.track.mangabaka.MangaBaka
 import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdates
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
+import eu.kanade.tachiyomi.data.track.ranobedb.RanobeDb
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
 import kotlinx.coroutines.flow.combine
@@ -29,6 +30,9 @@ class TrackerManager {
 
         // RK: MangaDex MDList tracker (id matches Komikku; ids persist with tracks, never change it)
         const val MDLIST = 60L
+
+        // RK: RanobeDB light-novel tracker (id matches tsundoku; ids persist with tracks)
+        const val RANOBEDB = 102L
     }
 
     val myAnimeList = MyAnimeList(1L)
@@ -42,6 +46,9 @@ class TrackerManager {
     val suwayomi = Suwayomi(9L)
     val hikka = Hikka(10L)
     val mangaBaka = MangaBaka(MANGABAKA)
+
+    // RK: RanobeDB light-novel tracker (paste-a-token login, binds to a series)
+    val ranobeDb = RanobeDb(RANOBEDB)
 
     // RK: MangaDex MDList tracker (OAuth login + follow-status/rating sync)
     val mdList = MdList(MDLIST)
@@ -60,6 +67,7 @@ class TrackerManager {
         mangaBaka,
         // RK -->
         mdList,
+        ranobeDb,
         // RK <--
     )
 
