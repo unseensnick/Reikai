@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
+import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
@@ -16,11 +17,10 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * NovelUpdates (novelupdates.com), scraped because it publishes no API.
  *
  * It stores no reading position, so progress lives in the user's own note and every update is a
- * read-modify-write over their text. It also has no score and no reading dates, and no route
- * removes an entry, so unbinding is local only and [eu.kanade.tachiyomi.data.track.DeletableTracker]
- * is deliberately not implemented: the tracking sheet then hides the remove-from-service option.
+ * read-modify-write over their text. It has no score and no reading dates either, so both rows stay
+ * hidden rather than doing nothing.
  */
-class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), CookieLoginTracker {
+class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), DeletableTracker, CookieLoginTracker {
 
     companion object {
         const val READING = 1L
@@ -111,6 +111,8 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), CookieLoginTrack
             ?.let { track.last_chapter_read = it.toDouble() }
         return track
     }
+
+    override suspend fun delete(track: DomainTrack) = api.removeFromList(track.remoteId.toString())
 
     override suspend fun login(username: String, password: String) = storeCredential(password.trim())
 

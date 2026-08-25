@@ -73,6 +73,17 @@ class NovelUpdatesApi(client: OkHttpClient) {
             .close()
     }
 
+    /**
+     * Removal is a different endpoint from the move, and its two odd parameters are what the site's
+     * own Remove button sends: `rid` is hardcoded to 0 there, and `checked=noo` is the sentinel that
+     * means "off the list". Taken from the page rather than guessed.
+     */
+    suspend fun removeFromList(novelId: String) {
+        client.newCall(GET("$BASE_URL/readinglist_update.php?rid=0&sid=$novelId&checked=noo", headers))
+            .awaitSuccess()
+            .close()
+    }
+
     private suspend fun get(url: String) = client.newCall(GET(url, headers)).awaitSuccess().asJsoup()
 
     companion object {
