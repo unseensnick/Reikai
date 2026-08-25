@@ -215,6 +215,40 @@ existing notes untouched.
 
 ## Status
 
+**NovelUpdates is built, registered at id 100, and verified end to end on device.** Search, bind,
+refresh, unbind, progress-in-notes, the list mapping and Fill from tracker all confirmed against the
+owner's real account. Every selector was transcribed blind from tsundoku and then corrected against
+markup dumped from the live site, which is the only reason it works.
+
+What the live markup changed, none of which was knowable from the reference fork:
+
+- **Removal is a separate endpoint.** The site's own Remove button calls
+  `readinglist_update.php?rid=0&sid=<id>&checked=noo`, not the `updatelist.php` used for list moves.
+  tsundoku implements no delete at all, so an earlier claim here that the site offers no removal
+  route was inferred from their gap rather than from evidence, and was wrong.
+- **The cover selector is `.serieseditimg img`**, not the `.seriesimg img` community scrapers use.
+- **Credits are listed twice**, romanized then in their own script, so a raw join reads as twice as
+  many people. The romanized form is kept and the duplicate dropped, falling back to everything for
+  an entry that was never romanized.
+- **The username has no endpoint**, so it comes off the account page's profile link, whose
+  `/user/<id>/<name>/` shape outlives the header class names it falls back to.
+- **`select.stmove` is empty in server-fetched HTML**, because chosen.js fills it at runtime. The
+  `#cssmenu` path is what actually carries the reading lists; the dropdown fallback is untested
+  insurance.
+
+**Genres only, not tags** (owner, 2026-08-25). One page carried 8 genres against roughly 84 tags,
+they share one `TrackMangaMetadata.genres` field, and the site self-censors some tag names.
+
+**The list mapping answers in both directions** (owner, 2026-08-25), unlike the reference fork, which
+honours a custom map when writing and ignores it when reading so a remapped status returns as a
+different one.
+
+**No score, no reading dates, and progress lives in the user's own note.** The first two hide their
+rows rather than showing dead ones. The note is decoded as real JSON and refuses to write when it
+cannot parse, because the reference fork's regex truncates a note containing a quote and writes the
+truncation back, and treats a failed parse as an empty note.
+
+
 **NovelList is built, registered at id 101, and verified end to end on device.** The client, the
 tracker, the browser sign-in and the editable server address are in, with the write contract measured
 rather than assumed.
