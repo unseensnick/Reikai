@@ -749,8 +749,6 @@
     <string name="pref_auto_update_manga_on_mark_read">Update progress when marked as read</string>
     <string name="services">Trackers</string>
     <string name="tracking_info">One-way sync to update the chapter progress in external tracker services. Set up tracking for individual entries from their tracking button.</string>
-    <string name="pref_ranobedb_mark_chapters_as_read">Sync reading progress</string>
-    <string name="pref_ranobedb_mark_chapters_as_read_summary">Send how many volumes you have read to RanobeDB.</string>
     <string name="pref_ranobedb_sync_reading_list">Sync reading status</string>
     <string name="pref_ranobedb_sync_reading_list_summary">Update your RanobeDB reading list when a novel\'s status changes.</string>
     <string name="enhanced_services">Enhanced trackers</string>

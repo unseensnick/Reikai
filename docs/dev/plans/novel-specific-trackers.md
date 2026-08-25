@@ -81,6 +81,25 @@ column, so the UUID can live there honestly. The unique constraint is on `(novel
 API. A light novel a user reads is usually a series, while tsundoku binds per book and then has to
 look the series up to delete. Deciding this once, up front, avoids a migration later.
 
+**Decided: reading progress is never pushed to RanobeDB** (2026-08-25). RanobeDB counts **volumes**
+(`volumes_read`) while a source counts **chapters**, and nothing converts between them, so sending
+`last_chapter_read` would report chapter 574 as 574 volumes of a 15-volume series. The route accepts
+it silently (`z.number().min(0).max(maxNumberValue)`), so it would just be wrong. tsundoku reached the
+same conclusion independently: its book form has no `volumes_read` field at all and its series form
+hardcodes the slot to `0`.
+
+Two consequences worth knowing. **Any push clobbers a manually set `volumes_read`**, because the route
+writes `volumes_read: data.volumes_read` straight through and there is no `GET` under
+`/api/v0/user/` to read the current value first, so a status or score change cannot preserve it.
+And **the local row still counts chapters against a volume total**, so an entry reads "574 / 15"
+in-app after reading even though nothing wrong reaches the service. Fixing that properly needs a
+typed capability saying a tracker does not track chapters, which the shared chapter interactor would
+honour for both content types; it is not worth inventing for one tracker.
+
+There is deliberately no progress preference. An earlier draft had one, but a switch labelled "sync
+reading progress" that cannot sync progress is worse than no switch. Only the reading-status toggle
+survives, because that one gates a push that really happens.
+
 **Decided: series** (owner, 2026-08-25). `GET /series/{id}` carries `publication_status`, the
 descriptions, `staff[].role_type` and the `tags[]` taxonomy, where the book endpoint reaches most of
 that only by nesting the series inside itself; `c_num_books` is a real volume total, where tsundoku

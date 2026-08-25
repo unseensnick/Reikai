@@ -119,11 +119,6 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
         api.deleteSeriesListEntry(track.remoteId)
     }
 
-    override suspend fun setRemoteLastChapterRead(track: Track, chapterNumber: Int) {
-        if (!trackPreferences.ranobeDbMarkChaptersAsRead.get()) return
-        super.setRemoteLastChapterRead(track, chapterNumber)
-    }
-
     override suspend fun setRemoteStatus(track: Track, status: Long) {
         if (!trackPreferences.ranobeDbSyncReadingList.get()) return
         super.setRemoteStatus(track, status)
@@ -184,7 +179,10 @@ class RanobeDb(id: Long) : BaseTracker(id, "RanobeDB"), DeletableTracker {
     private fun Track.toListEntry(): RDBSeriesListEntry = RDBSeriesListEntry(
         readingStatus = status.toRemoteStatus(),
         score = score.takeIf { it > 0.0 },
-        volumesRead = last_chapter_read.toLong().takeIf { it > 0 },
+        // Progress is deliberately never sent. RanobeDB counts volumes while a source counts
+        // chapters, and nothing converts between them, so pushing last_chapter_read would report
+        // chapter 574 as 574 volumes of a 15-volume series. tsundoku omits it for the same reason.
+        volumesRead = null,
         started = started_reading_date.toIsoDate(),
         finished = finished_reading_date.toIsoDate(),
         langs = emptyList(),

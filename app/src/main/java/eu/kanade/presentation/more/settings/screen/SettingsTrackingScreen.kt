@@ -377,11 +377,6 @@ object SettingsTrackingScreen : SearchableSettings {
         if (!isLoggedIn) return emptyList()
         return listOf(
             Preference.PreferenceItem.SwitchPreference(
-                preference = trackPreferences.ranobeDbMarkChaptersAsRead,
-                title = stringResource(MR.strings.pref_ranobedb_mark_chapters_as_read),
-                subtitle = stringResource(MR.strings.pref_ranobedb_mark_chapters_as_read_summary),
-            ),
-            Preference.PreferenceItem.SwitchPreference(
                 preference = trackPreferences.ranobeDbSyncReadingList,
                 title = stringResource(MR.strings.pref_ranobedb_sync_reading_list),
                 subtitle = stringResource(MR.strings.pref_ranobedb_sync_reading_list_summary),
