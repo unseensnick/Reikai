@@ -111,6 +111,20 @@ if printf '%s' "$CMD_NOQUOTE" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]+[[:space:]]+)
   emit_deny "Blocked: recursive delete targeting a system directory."
 fi
 
+# ── Secret files are never read through the shell ───────────────────────
+# The permissions deny list is tool-scoped (Read/Write/Edit only), and auto mode routes
+# file reads through Bash instead, so `cat keystore.properties` walks straight past it.
+# Only the hook sees the command text, which makes this the sole place the rule can hold.
+SECRET_READERS='cat|head|tail|sed|awk|grep|rg|less|more|strings|xxd|od|base64|cp|mv|scp|curl|Get-Content|Select-String'
+SECRET_TARGETS='keystore\.properties|google-services\.json|\.jks([[:space:]]|$)|\.keystore([[:space:]]|$)|api-probes.\.env|(^|[[:space:]=/])\.env([[:space:]./]|$)'
+# The verb must sit in command position (line start, or after a shell operator), never
+# merely after a space: several reader names are also ordinary English words, so matching
+# mid-sentence rejects any command carrying prose, a commit message being the way that bit.
+if printf '%s' "$CMD_NOQUOTE" | grep -qE "(^|[;&|(])[[:space:]]*($SECRET_READERS)[[:space:]]" \
+   && printf '%s' "$CMD_NOQUOTE" | grep -qE "$SECRET_TARGETS"; then
+  emit_deny "Blocked: that reads a secret file (signing keystore, google-services.json, or a .env). Open it yourself if you need its contents."
+fi
+
 # ── Dangerous database operations ───────────────────────────────────────
 # DROP TABLE|DATABASE|SCHEMA
 if contains_icmd 'DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)[[:space:]]+'; then
