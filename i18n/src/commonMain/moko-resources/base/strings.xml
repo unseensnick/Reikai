@@ -755,6 +755,8 @@
     <string name="pref_novelupdates_custom_lists_summary">Choose which of your lists each status moves a novel to, instead of the five NovelUpdates starts with.</string>
     <string name="pref_novelupdates_configure_lists">Match statuses to lists</string>
     <string name="pref_novelupdates_configure_lists_summary">Tap a status to move it to your next list.</string>
+    <string name="pref_novelupdates_lists_loading">Loading your lists</string>
+    <string name="pref_novelupdates_lists_loaded">%1$d lists loaded</string>
     <string name="pref_novelupdates_lists_failed">Could not load your NovelUpdates lists</string>
     <string name="pref_novellist_api_url">NovelList server address</string>
     <string name="pref_novellist_api_url_summary">Leave empty unless NovelList moves its server. Tracking stops working if this is wrong.</string>

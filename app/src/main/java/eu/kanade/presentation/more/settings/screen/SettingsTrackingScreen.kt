@@ -1,8 +1,8 @@
 package eu.kanade.presentation.more.settings.screen
 
 import android.content.Context
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.presentation.components.DropdownMenu
+import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
@@ -676,10 +679,14 @@ private fun NovelUpdatesListMappingDialogContent(
         mutableStateOf(NovelUpdatesListMapping.from(preference.get(), json).asStatusToList())
     }
 
+    var loading by remember { mutableStateOf(true) }
+    var openFor by remember { mutableStateOf<Long?>(null) }
+
     LaunchedEffect(Unit) {
         runCatching { tracker.readingLists() }
             .onSuccess { lists = it }
             .onFailure { withUIContext { context.toast(MR.strings.pref_novelupdates_lists_failed) } }
+        loading = false
     }
 
     AlertDialog(
@@ -687,21 +694,74 @@ private fun NovelUpdatesListMappingDialogContent(
         title = { Text(text = stringResource(MR.strings.pref_novelupdates_configure_lists)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
-                NovelUpdates.STATUSES.forEach { status ->
-                    val label = tracker.getStatus(status)?.let { stringResource(it) }.orEmpty()
-                    val current = chosen[status]
-                    val currentName = lists.firstOrNull { it.first == current.toString() }?.second
-                        ?: current.toString()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Text(
-                        text = "$label: $currentName",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = lists.isNotEmpty()) {
-                                val order = lists.mapNotNull { it.first.toLongOrNull() }
-                                val next = order.getOrNull(order.indexOf(current) + 1) ?: order.firstOrNull()
-                                if (next != null) chosen = chosen + (status to next)
-                            },
+                        text = if (loading) {
+                            stringResource(MR.strings.pref_novelupdates_lists_loading)
+                        } else {
+                            stringResource(MR.strings.pref_novelupdates_lists_loaded, lists.size)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
                     )
+                    TextButton(
+                        enabled = !loading,
+                        onClick = {
+                            loading = true
+                            scope.launchIO {
+                                val fetched = runCatching { tracker.readingLists() }
+                                withUIContext {
+                                    fetched
+                                        .onSuccess { lists = it }
+                                        .onFailure { context.toast(MR.strings.pref_novelupdates_lists_failed) }
+                                    loading = false
+                                }
+                            }
+                        },
+                    ) {
+                        Text(text = stringResource(MR.strings.action_webview_refresh))
+                    }
+                }
+                HorizontalDivider()
+                NovelUpdates.STATUSES.forEach { status ->
+                    val current = chosen[status]
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(text = tracker.getStatus(status)?.let { stringResource(it) }.orEmpty())
+                        Box {
+                            OutlinedButton(
+                                enabled = lists.isNotEmpty(),
+                                onClick = { openFor = status },
+                            ) {
+                                Text(
+                                    text = lists.firstOrNull { it.first == current.toString() }?.second
+                                        ?: current.toString(),
+                                    maxLines = 1,
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = openFor == status,
+                                onDismissRequest = { openFor = null },
+                            ) {
+                                lists.forEach { (listId, listName) ->
+                                    RadioMenuItem(
+                                        text = { Text(text = listName) },
+                                        isChecked = listId == current.toString(),
+                                        onClick = {
+                                            listId.toLongOrNull()?.let { chosen = chosen + (status to it) }
+                                            openFor = null
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
