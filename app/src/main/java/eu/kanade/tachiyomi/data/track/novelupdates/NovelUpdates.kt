@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
@@ -113,6 +114,23 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates"), DeletableTracker
     }
 
     override suspend fun delete(track: DomainTrack) = api.removeFromList(track.remoteId.toString())
+
+    /**
+     * Genres only, not the sibling tag list: a popular series carries eighty or more tags against a
+     * handful of genres, and they share one field, so tags would bury what describes the work.
+     */
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        val details = api.details(track.remoteUrl)
+        return TrackMangaMetadata(
+            remoteId = track.remoteId,
+            title = details.title,
+            thumbnailUrl = details.coverUrl,
+            description = details.description,
+            authors = details.authors.joinToString().ifBlank { null },
+            artists = details.artists.joinToString().ifBlank { null },
+            genres = details.genres.takeIf { it.isNotEmpty() },
+        )
+    }
 
     override suspend fun login(username: String, password: String) = storeCredential(password.trim())
 

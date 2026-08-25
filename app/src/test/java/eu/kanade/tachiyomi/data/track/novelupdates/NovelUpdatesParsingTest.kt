@@ -152,6 +152,57 @@ class NovelUpdatesParsingTest {
         parseUsername(Jsoup.parse("<a href='/login/'>Log in</a>")) shouldBe null
     }
 
+    private val seriesPage = """
+        <div class='seriestitlenu'>A Novel (WN)</div>
+        <div class='serieseditimg'><img src='https://cdn.novelupdates.com/images/2016/03/latest-1.jpeg'></div>
+        <div id='editdescription'>Seventeen-year-old Hajime is an everyday otaku.</div>
+        <div id='showauthors'><a>Chuuni Suki</a><a>Ryo Shirakome</a><a>&#21388;&#20108;&#22909;&#12365;</a><a>&#30333;&#31859;&#33391;</a></div>
+        <div id='showartists'><a>Takayaki</a><a>&#12383;&#12363;&#12420;Ki</a></div>
+        <div id='seriesgenre'><a>Action</a><a>Adventure</a><a>Fantasy</a></div>
+        <div id='showtags'><a>Adapted to Anime</a><a>Angels</a><a>Betrayal</a></div>
+    """.trimIndent()
+
+    @Test
+    fun `a series page yields the fields Fill from tracker uses`() {
+        parseDetails(Jsoup.parse(seriesPage)).run {
+            title shouldBe "A Novel (WN)"
+            coverUrl shouldBe "https://cdn.novelupdates.com/images/2016/03/latest-1.jpeg"
+            description shouldBe "Seventeen-year-old Hajime is an everyday otaku."
+            genres shouldBe listOf("Action", "Adventure", "Fantasy")
+        }
+    }
+
+    /** Tags outnumber genres roughly ten to one, and both would land in the same field. */
+    @Test
+    fun `the tag list is left out of the genres`() {
+        parseDetails(Jsoup.parse(seriesPage)).genres.contains("Adapted to Anime") shouldBe false
+    }
+
+    /** The site credits each person twice, romanized then native; both are the same two people. */
+    @Test
+    fun `a credit listed in two scripts is not counted twice`() {
+        parseDetails(Jsoup.parse(seriesPage)).run {
+            authors shouldBe listOf("Chuuni Suki", "Ryo Shirakome")
+            artists shouldBe listOf("Takayaki")
+        }
+    }
+
+    /** An entry that was never romanized keeps its credits rather than losing them entirely. */
+    @Test
+    fun `a credit with no romanized form is kept`() {
+        preferLatinNames(listOf("白米良")) shouldBe listOf("白米良")
+    }
+
+    @Test
+    fun `a series page missing its optional parts still parses`() {
+        parseDetails(Jsoup.parse("<div class='seriestitlenu'>Bare</div>")).run {
+            title shouldBe "Bare"
+            coverUrl shouldBe null
+            description shouldBe null
+            genres shouldBe emptyList()
+        }
+    }
+
     @Test
     fun `reading lists come from the menu when it is present`() {
         val page = Jsoup.parse(

@@ -37,6 +37,8 @@ class NovelUpdatesApi(client: OkHttpClient) {
 
     suspend fun findNovelId(seriesUrl: String): String? = parseNovelId(get(seriesUrl))
 
+    suspend fun details(seriesUrl: String): NovelUpdatesDetails = parseDetails(get(seriesUrl))
+
     suspend fun findListId(novelId: String): Long? = parseListId(get("$BASE_URL/series/?p=$novelId"))
 
     suspend fun readingLists(): List<Pair<String, String>> = parseReadingLists(get("$BASE_URL/reading-list/"))

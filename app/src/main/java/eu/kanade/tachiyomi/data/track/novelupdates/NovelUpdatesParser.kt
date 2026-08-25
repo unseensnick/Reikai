@@ -13,6 +13,16 @@ data class NovelUpdatesAccount(
     val lists: List<Pair<String, String>>,
 )
 
+/** What "Fill from tracker" reads off a series page. */
+data class NovelUpdatesDetails(
+    val title: String?,
+    val coverUrl: String?,
+    val description: String?,
+    val authors: List<String>,
+    val artists: List<String>,
+    val genres: List<String>,
+)
+
 /** A search hit. [id] is the numeric post id when the row carries one, resolved at bind when not. */
 data class NovelUpdatesSeries(
     val id: String?,
@@ -46,6 +56,16 @@ internal object NuSelector {
     // per layout, and `menu_username_right` is skipped because its text carries markup whitespace.
     const val PROFILE_LINK = "a[href*=/user/]"
     const val USERNAME_LABEL = "span.username_main, span.username"
+
+    const val DETAILS_TITLE = ".seriestitlenu"
+    const val DETAILS_COVER = ".serieseditimg img"
+    const val DETAILS_DESCRIPTION = "#editdescription"
+    const val DETAILS_AUTHORS = "#showauthors a"
+    const val DETAILS_ARTISTS = "#showartists a"
+
+    // Genres only. The sibling `#showtags` runs to eighty or more entries on a popular series, and
+    // there is one field to put them in, so tags would bury the handful that describe the work.
+    const val DETAILS_GENRES = "#seriesgenre a"
 }
 
 private val SHORTLINK_ID = Regex("""p=(\d+)""")
@@ -54,6 +74,9 @@ private val LIST_ID = Regex("""list=(\d+)""")
 private val SID = Regex("""sid(\d+)""")
 private val WHITESPACE = Regex("""\s+""")
 private val PROFILE_NAME = Regex("""/user/\d+/([^/]+)""")
+
+// Where the CJK blocks begin: kana, Han and Hangul all sit above it, Latin and its accents below.
+private const val CJK_BLOCK_START = 0x2E80
 
 internal fun parseSearch(document: Document): List<NovelUpdatesSeries> =
     document.select(NuSelector.SEARCH_ROW).map { it.toSeries() }
@@ -103,6 +126,26 @@ internal fun parseUsername(document: Document): String? {
         ?.text()
         ?.trim()
         ?.ifBlank { null }
+}
+
+/** What "Fill from tracker" takes off a series page. */
+internal fun parseDetails(document: Document): NovelUpdatesDetails = NovelUpdatesDetails(
+    title = document.selectFirst(NuSelector.DETAILS_TITLE)?.text()?.trim()?.ifBlank { null },
+    coverUrl = document.selectFirst(NuSelector.DETAILS_COVER)?.attr("src")?.ifBlank { null },
+    description = document.selectFirst(NuSelector.DETAILS_DESCRIPTION)?.text()?.trim()?.ifBlank { null },
+    authors = preferLatinNames(document.select(NuSelector.DETAILS_AUTHORS).map { it.text().trim() }),
+    artists = preferLatinNames(document.select(NuSelector.DETAILS_ARTISTS).map { it.text().trim() }),
+    genres = document.select(NuSelector.DETAILS_GENRES).map { it.text().trim() }.filter { it.isNotEmpty() },
+)
+
+/**
+ * NovelUpdates credits each person twice, romanized then in their own script, so a raw join reads as
+ * twice as many people as there are. Keeping the Latin-script entries drops the duplicates, and an
+ * entry that was never romanized keeps everything rather than losing its credits entirely.
+ */
+internal fun preferLatinNames(names: List<String>): List<String> {
+    val cleaned = names.filter { it.isNotEmpty() }
+    return cleaned.filterNot { name -> name.any { it.code >= CJK_BLOCK_START } }.ifEmpty { cleaned }
 }
 
 internal fun Element.toSeries(): NovelUpdatesSeries {
