@@ -90,12 +90,14 @@ hardcodes the slot to `0`.
 
 **Every write is destructive, and this is the most important thing to know about the integration.**
 The route writes `readingStatus`, `score`, `started`, `finished`, `notes`, `volumes_read`, `langs`,
-`formats` and `selectedCustLabels` straight through from the request body, and there is no `GET`
-under `/api/v0/user/` to read the current values back first. A `PUT` therefore replaces the whole
-entry, so any status or score change from Reikai **clears that series' custom labels, notes, volume
-count, and language and format filters**. We cannot preserve them; we can only choose what replaces
-them, and an empty value is at least honest where a chapter number would be a lie. tsundoku has the
-same hole through the website's form endpoint.
+`formats` and `selectedCustLabels` straight through from the request body, and no `GET` under
+`/api/v0/user/` returns a list entry, so nothing can read the current values back first.
+`editSeriesInList` makes this concrete: it `UPDATE`s the whole row and runs
+`DELETE FROM user_list_series_label` before re-inserting whatever the body carried. So editing an
+entry that already has data **clears that series' custom labels, notes, volume count, and language
+and format filters**. We cannot preserve them; we can only choose what replaces them, and an empty
+value is at least honest where a chapter number would be a lie. A first bind has nothing to lose,
+which is why one looks clean. tsundoku has the same hole through the website's form endpoint.
 
 That is what the **`ranobeDbSyncWhileReading`** preference exists for, and why it is **off by
 default**: with it on, finishing a chapter rewrites the entry. Two rules keep the damage bounded.
@@ -204,7 +206,7 @@ Three things that reading settled, none of them visible from tsundoku's client:
 - **The write routes are merged and live but undocumented.** The docs page source says the API
   "currently only supports read-only endpoints", so `/api/v0/user/` carries no deprecation promise.
   That is why `RanobeDbDtoTest` pins the payload shape: nothing else would notice it moving.
-- **Nothing can read a user's own list entry back.** There is no `GET` under `/api/v0/user/`, and the
+- **Nothing can read a user's own list entry back.** The only `GET` under `/api/v0/user/` is `me`; `book`, `series`, `release` and `publisher` export `PUT` and `DELETE` only, and the
   series detail route never passes the caller's id into `getSeriesOne`, so `refresh` can only refresh
   catalogue metadata and the local row stays authoritative for status, score and progress.
 
