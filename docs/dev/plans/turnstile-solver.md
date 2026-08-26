@@ -47,20 +47,42 @@ unchanged.
   a window, registered from `App.onCreate` (net-new).
 - `CloudflareInterceptor`: arm, detach, do not trust a bare clearance while armed, and the
   cleared-without-a-report fallback. A `// RK` island on Mihon's file.
-- `NetworkPreferences.enableTurnstileSolver`, `SettingsAdvancedScreen`: the switch.
+- `NetworkPreferences.enableTurnstileSolver`, `SettingsAdvancedScreen`, `strings.xml`
+  (`pref_enable_turnstile_solver`): the switch and its wording.
+- `SearchViewModel.updateItem`: not part of this feature, but the global search defect below
+  was found through it and fixed alongside.
 
 ## Status
 
-Prototype, device-verified on the Fold over a VPN across repeated cold starts. Six challenged hosts
-in one global search clear in about 3.4 seconds with no failures: `aquareader.org`, `comix.to`,
-`comick.live`, `mangafire.to`, `www.natomanga.com`, `toonily.com`.
+Prototype, shipped off by default in `14d3d54c1`. Device-verified on the Fold over a VPN across
+repeated cold starts with cookies and WebView data cleared between runs.
+
+Six challenged hosts in one global search clear in **under four seconds**, in parallel, with no
+failures and no keyboard disruption: `aquareader.org`, `comix.to`, `comick.live`, `mangafire.to`,
+`www.natomanga.com`, `toonily.com`. A single source on its own clears in about two and a half
+seconds from the challenge turning interactive.
+
+The shape of the numbers, run over the same test as the design changed:
+
+| build | solved | burst | failures |
+|---|---|---|---|
+| concurrent, pressing before the challenge turned interactive | 0 of 6 | n/a | all |
+| serialized, one solve at a time | 3 of 6 | ~35s | 3 |
+| serialized, press gated on interactive, per-host dedup | 5 of 6 | ~33s | 1 |
+| parallel, dedup, undetected-solve fallback | **6 of 6** | **3.4s** | **0** |
+
+Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
+Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
+challenge, neither of which is reachable from a unit test.
 
 ## Decisions & tradeoffs
 
-- **Attachment is the whole feature, measured three ways.** Detached, the widget never lays out and
-  no checkbox renders; no synthesized touch reaches the renderer, measured as zero pointer events
-  across a full solve; and the DOM patching that stands in for real input gets the challenge
-  reissued rather than cleared. Attached, all three problems disappear and every patch drops out.
+- **Attachment is the whole feature.** Detached, the widget's shadow root only ever held a spinner,
+  some text and a link, with no `input` in it, so there was nothing to press however the events were
+  dressed up; fourteen real taps over a full thirty seconds changed nothing. Attached, the widget
+  reports `300x65`, the checkbox appears, and an ordinary tap clears it in about two seconds. A
+  pointer-event counter also read zero throughout, but it ran in an isolated world and was never
+  shown able to read anything else, so the behaviour above is the load-bearing evidence, not it.
 - **Focus turned out not to matter, and taking it was a bug.** An early design spoofed
   `document.hasFocus()` because the synthetic-event press needed it. With a real `MotionEvent` it is
   irrelevant: 28 consecutive presses solved with focus already false. Worse, holding focus made the
@@ -85,10 +107,40 @@ in one global search clear in about 3.4 seconds with no failures: `aquareader.or
 - **No window, no solver.** A challenge raised with no activity on screen, such as a background
   library update, is not solved and behaves exactly as before.
 
+## Dead ends
+
+Each of these was built and run against a live challenge before being dropped. Do not re-tread them.
+
+- **Porting the Tampermonkey script as-is.** Synthetic DOM events plus an `isTrusted` proxy, an
+  `attachShadow` capture and a `hasFocus` spoof. It genuinely pressed the checkbox and the challenge
+  markup tore down, but Cloudflare then issued another round instead of the content, every time.
+  That is the behaviour Byparr measured for page-world scripts, and it is why the reads moved to an
+  isolated world and the press moved to real input.
+- **Real input without attaching.** `dispatchTouchEvent` on a detached WebView does nothing at all.
+  Laying the view out by hand with `measure` and `layout` gives it a viewport, and the checkbox
+  renders, but layout is not attachment and input still goes nowhere.
+- **Serving the WebView's own page as the response**, the way the FlareSolverr path does. Built,
+  including the JSON-viewer unwrap, then reverted: the clearance from a real solve replays through
+  OkHttp on every host measured, so the ordinary retry is correct and simpler.
+- **One solve at a time.** See the decision above; the concurrency failure it was built for was
+  really the wasted-press bug.
+- **Waiting for `document.readyState === 'complete'`** before judging the page. Left over from the
+  body-serving design. An image-heavy source cleared its challenge and then kept loading, so the
+  solve was never reported and the request failed despite having succeeded.
+
 ## Open
 
-- **A source can be left spinning forever in global search.** Its search returns 200 and the row
-  never leaves `Loading`, because upstream updates the row only inside `if (isActive)` in both the
-  success and error branches, with no fallback. Not caused by this feature, but a solve takes seconds
-  where a challenged source used to fail in milliseconds, which widens the window. Unpinned: the
-  cause of the cancellation is not yet known.
+- **Breadth.** Six hosts, one device, one VPN, one afternoon. Nothing says how this behaves on a
+  host with a different challenge configuration.
+- **Global search is capped at five concurrent sources** (`SearchViewModel`'s fixed thread pool), and
+  a solve holds one of those threads for its duration. At three seconds a solve this is not painful;
+  it was when a solve took thirty.
+
+## Resolved during this work
+
+- **A source left spinning forever in global search**, its results already fetched. Traced to
+  `updateItem` reading the item map out of state, adding one entry and writing it back wholesale, so
+  two sources completing in the same millisecond erased each other and the loser kept `Loading`.
+  Upstream carries the same code. Fixed in `70f6b5626` by building the new map inside `state.update`.
+  Not caused by this feature, but it surfaced constantly once solved sources started completing in a
+  cluster instead of failing one by one.
