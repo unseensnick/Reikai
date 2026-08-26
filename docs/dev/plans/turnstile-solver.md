@@ -85,8 +85,9 @@ challenge, neither of which is reachable from a unit test.
   shown able to read anything else, so the behaviour above is the load-bearing evidence, not it.
 - **Focus turned out not to matter, and taking it was a bug.** An early design spoofed
   `document.hasFocus()` because the synthetic-event press needed it. With a real `MotionEvent` it is
-  irrelevant: 28 consecutive presses solved with focus already false. Worse, holding focus made the
-  soft keyboard reopen once per solve, so the view is now non-focusable.
+  irrelevant: across three runs all 28 presses ran with `document.hasFocus()` already false and the
+  hosts solved anyway. Worse, holding focus reopened the soft keyboard over whatever the user was
+  typing in, once per solve, so the view is now non-focusable.
 - **Press only once the challenge turns interactive.** The response token exists from the first
   paint, so a rect is measurable before there is any checkbox behind it. Pressing then does nothing
   except start the cooldown that delays the press which counts, costing about two seconds a solve.
@@ -97,7 +98,7 @@ challenge, neither of which is reachable from a unit test.
   wasted-press bug above. With that fixed, six WebViews solve in parallel in the time one used to
   take, so the semaphore, its queue and its timeouts are gone.
 - **A clearance is only trusted with the page.** Cloudflare hands out a `cf_clearance` on a challenge
-  it has not accepted, which ended three test solves early with a 403 on the retry. While the solver
+  it has not accepted, which repeatedly ended a solve early with a 403 on the retry. While the solver
   is armed the cookie alone never counts as success; the page must also be past the interstitial, by
   Solverr's `looks_like_challenge_html` markers.
 - **Serving the WebView's own page was built and reverted.** It was written for a problem that did
