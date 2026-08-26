@@ -525,8 +525,9 @@ private fun ExtensionHeader(
     }
 }
 
+// RK: public so the Reikai unified "All" Browse view can host the same prompt.
 @Composable
-private fun ExtensionTrustDialog(
+fun ExtensionTrustDialog(
     onClickConfirm: () -> Unit,
     onClickDismiss: () -> Unit,
     onDismissRequest: () -> Unit,

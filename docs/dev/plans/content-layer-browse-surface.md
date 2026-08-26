@@ -153,5 +153,13 @@ reader.
   stays for what that flow cannot see: a scan that failed transiently, or a package change the
   install receiver missed. Novels have no counterpart to build, because a plugin's trust is a repo
   vouching for its URL, checked at load time rather than cached from a signature.
+- **The All chip re-wires the manga row's clicks, so it owes Mihon's row dialogs with them.**
+  Mihon's extension list owns its own scroll container, so the unified list cannot nest it and
+  hand-wires the same click lambdas over a shared `ExtensionItem`. It shipped without the trust
+  prompt and the private-uninstall confirmation, and the trust half did nothing observable at all:
+  an untrusted row was routed to the extension details screen, which resolves only
+  `installedExtensionsFlow` and so pops straight back off a package that is untrusted rather than
+  installed. Both dialogs are now hosted by the unified list, with Mihon's two composables made
+  public rather than copied. Novels need no counterpart, for the reason the ruling above gives.
 - **The ROADMAP browse feature items ride after the collapse** (genre-tap-search, source-row
   polish, find-a-source search), on the shared parts, rather than landing inside this surface.

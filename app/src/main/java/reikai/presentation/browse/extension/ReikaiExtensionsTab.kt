@@ -6,21 +6,28 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.ExtensionItem
+import eu.kanade.presentation.browse.ExtensionTrustDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionFilterScreen
+import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUninstallConfirmation
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.components.BrowseSectionHeader
@@ -127,9 +134,10 @@ fun Screen.reikaiExtensionsTab(
 
 /**
  * The unified "All" Extensions list: Mihon's manga extension rows (reused verbatim) under a Manga
- * header, then the LN plugin sections under a Novels header. The overview wires the core manga
- * actions (install / update / open / uninstall); deeper flows (trust prompt, private-uninstall
- * confirmation) stay on the Manga chip and the extension details screen.
+ * header, then the LN plugin sections under a Novels header. Mihon's list owns its own scroll
+ * container, so the row click routing is re-wired here, and it has to carry Mihon's two row dialogs
+ * with it: an untrusted row routed to the details screen instead does nothing at all, because that
+ * screen only knows installed extensions and pops straight back off an untrusted package.
  */
 @Composable
 private fun CombinedExtensionsContent(
@@ -140,7 +148,10 @@ private fun CombinedExtensionsContent(
     contentPadding: PaddingValues,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
     val mangaItems = extState.items.values.flatten()
+    var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
+    var privateExtensionToUninstall by remember { mutableStateOf<Extension?>(null) }
 
     FastScrollLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
         if (mangaItems.isNotEmpty()) {
@@ -154,13 +165,19 @@ private fun CombinedExtensionsContent(
                         when (extension) {
                             is Extension.Available -> extensionsViewModel.installExtension(extension)
                             is Extension.Installed -> navigator.push(ExtensionDetailsScreen(extension.pkgName))
-                            is Extension.Untrusted -> navigator.push(ExtensionDetailsScreen(extension.pkgName))
+                            is Extension.Untrusted -> trustState = extension
                         }
                     },
                     onLongClickItem = { extension ->
                         when (extension) {
                             is Extension.Available -> extensionsViewModel.installExtension(extension)
-                            else -> extensionsViewModel.uninstallExtension(extension)
+                            // A privately installed extension is not a package the system can remove,
+                            // so it is confirmed here rather than uninstalled on the long press.
+                            else -> if (context.isPackageInstalled(extension.pkgName)) {
+                                extensionsViewModel.uninstallExtension(extension)
+                            } else {
+                                privateExtensionToUninstall = extension
+                            }
                         }
                     },
                     onClickItemCancel = extensionsViewModel::cancelInstallUpdateExtension,
@@ -172,7 +189,7 @@ private fun CombinedExtensionsContent(
                             } else {
                                 navigator.push(ExtensionDetailsScreen(extension.pkgName))
                             }
-                            is Extension.Untrusted -> navigator.push(ExtensionDetailsScreen(extension.pkgName))
+                            is Extension.Untrusted -> trustState = extension
                         }
                     },
                     onClickItemSecondaryAction = { extension ->
@@ -202,6 +219,28 @@ private fun CombinedExtensionsContent(
                 onUpdateAll = lnModel::updateAll,
             )
         }
+    }
+
+    trustState?.let { extension ->
+        ExtensionTrustDialog(
+            onClickConfirm = {
+                extensionsViewModel.trustExtension(extension)
+                trustState = null
+            },
+            onClickDismiss = {
+                extensionsViewModel.uninstallExtension(extension)
+                trustState = null
+            },
+            onDismissRequest = { trustState = null },
+        )
+    }
+
+    privateExtensionToUninstall?.let { extension ->
+        ExtensionUninstallConfirmation(
+            extensionName = extension.name,
+            onClickConfirm = { extensionsViewModel.uninstallExtension(extension) },
+            onDismissRequest = { privateExtensionToUninstall = null },
+        )
     }
 }
 

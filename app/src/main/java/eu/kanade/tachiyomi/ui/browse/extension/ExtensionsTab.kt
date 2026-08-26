@@ -107,8 +107,9 @@ fun extensionsTab(
     )
 }
 
+// RK: public so the Reikai unified "All" Browse view can host the same confirmation.
 @Composable
-private fun ExtensionUninstallConfirmation(
+fun ExtensionUninstallConfirmation(
     extensionName: String,
     onClickConfirm: () -> Unit,
     onDismissRequest: () -> Unit,

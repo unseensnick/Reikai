@@ -309,6 +309,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Installing an extension through Shizuku works again.**
 - **Updating a privately installed extension no longer switches it to a shared install.**
+- **Trusting an extension now works from Browse's All chip.** The prompt only appeared with the Manga chip selected; under All, tapping the shield or the row did nothing at all.
+- **Removing a privately installed extension from Browse's All chip now asks for confirmation.** A long press removed it outright, where the Manga chip has always confirmed first.
 - **A resumed image download now shows the right progress instead of restarting from zero.**
 - **Migrating a novel with "Delete downloaded" now stops the downloads it still had queued.** They used to keep downloading into the source you had just moved away from, and the files they wrote stayed behind.
 - **Cancel on the novel download notification now cancels instead of pausing.** The queue came back and carried on the next time you opened the app.
