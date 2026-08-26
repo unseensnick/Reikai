@@ -240,6 +240,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Browse & sources**
 
+- **A source in global search no longer spins forever with its results already fetched.** Sources that finished at the same moment could erase each other, leaving one stuck on loading.
 - **The Hide entries already in library setting now applies to novel sources too.** Browsing keeps loading further pages when everything on a page is already in your library.
 - **Light-novel source icons are no longer larger than manga ones in the same list.** Most noticeable on the Migrate tab, where both appear one under the other.
 - **The duplicate warning for a novel now shows its artist and flags a source that is no longer installed, like the manga one.**

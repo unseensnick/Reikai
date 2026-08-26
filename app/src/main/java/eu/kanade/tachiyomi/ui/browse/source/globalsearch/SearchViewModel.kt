@@ -208,7 +208,14 @@ abstract class SearchViewModel(
     }
 
     private fun updateItem(source: Source, result: SearchItemResult) {
-        updateItems(state.value.items + (source to result))
+        // RK: read and write in one update. Sources finish concurrently, often within the same few
+        //     milliseconds, and reading `state.value` outside meant two of them could each add only
+        //     their own result to the same snapshot, so whichever wrote last erased the other. The
+        //     erased source kept whatever it held, which is Loading, and its row spins forever.
+        state.update {
+            val items = it.items + (source to result)
+            it.copy(items = items.toSortedMap(sortComparator(items)))
+        }
     }
 
     fun setMigrateDialog(currentId: Long, target: Manga) {
