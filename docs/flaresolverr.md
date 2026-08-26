@@ -51,7 +51,7 @@ Pick Byparr or FlareSolverr only if you already run one and it works for your so
 1. Check it is reachable: open `http://<host>:8191` in a browser on the same network. Solverr and FlareSolverr answer with a welcome page, Byparr serves its API docs at `/docs`.
 1. Go to <nav to="advanced"> and, under **Networking**, turn on **Enable FlareSolverr**.
 1. Enter `http://<host>:8191` in **FlareSolverr URL**. That field and the test below it are not on the screen at all until the switch is on, so turn it on first.
-1. Tap **Test FlareSolverr**. Optional, but it also pins the browser identity the proxy reports as the app's own, so the two match.
+1. Tap **Test FlareSolverr**. Optional: it fetches a page through the server and tells you whether that worked.
 :::
 
 All three listen on port `8191`.

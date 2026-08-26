@@ -323,6 +323,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A date older than about a month now says how old it really is (synced from Mihon, mihonapp/mihon#3696).** Something read 40 days ago was described as 10 days old, wherever a date is shown relatively.
 - **Statistics now counts a merged series once instead of once per source.** The title, completed, started and tracked figures all read higher than the library they describe.
 - **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.
+- **Test FlareSolverr no longer claims it updated your user agent.** It stopped doing that a while back, because the mismatch made Cloudflare re-challenge everything; the test just checks the server now.
 - **Update notifications no longer hide the title of every series from a source that carries extra metadata.** "Hide adult content in notifications" was treating those as adult, so their notifications arrived blank.
 - **A long series title no longer pushes the chapter numbers out of its update notification.**
 - **A crash can no longer run your data migrations, library recovery or a backup restore a second time.** The crash screen runs in its own process, which was repeating the app's whole startup.
