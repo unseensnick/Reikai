@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## The 0.4.0 cut
 
-0.4.0 is **not** cut before these land: the tsundoku novel-reader migration and the download subsystem rework (Road B). The light-novel trackers no longer gate it. The 2026-08-21 ruling named them while pinning it to RanobeDB, and all four were made cut-blocking on 2026-08-25; MyNovelList was dropped rather than built the same day (owner), so it sits under Parked and the gate is two items. Anything else in this file is free to ship into the cycle without moving the cut.
+0.4.0 is **not** cut before these land: the tsundoku novel-reader migration and the download subsystem rework (Road B). Two items, and nothing else in this file moves the cut. The light-novel trackers no longer gate it; MyNovelList sits under Parked, and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
 
 ## Now
 
@@ -58,6 +58,7 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 
 From the same audit.
 
+- **Decide whether the interactive Cloudflare solver graduates from experimental** `[S]` - the switch cannot default on until it is verified beyond one device and a handful of hosts, and it can never run while the app is closed. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.

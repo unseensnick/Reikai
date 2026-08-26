@@ -14,6 +14,12 @@ For those, **Reikai** can hand the request to a bypass proxy running on your own
 This is optional and off by default.
 WebView stays the primary solver: most challenges never reach the proxy.
 
+::: tip Try the in-app solver first
+A challenge that shows a **Verify you are human** box can often be cleared without a proxy at all.
+Turn on **Settings -> Advanced -> Solve interactive Cloudflare challenges**, which ticks the box for
+you while the app is open. It is experimental and off by default.
+:::
+
 ::: info Light novels too
 Novel sources use the same network client, so a Cloudflare-protected novel site takes the same route.
 :::
