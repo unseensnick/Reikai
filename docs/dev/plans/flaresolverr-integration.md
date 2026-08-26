@@ -2,6 +2,8 @@
 
 The developer-facing record for the optional Cloudflare bypass proxy. The user-facing setup, engine choice (Solverr / Byparr / FlareSolverr), and troubleshooting live in [flaresolverr.md](../../flaresolverr.md); this doc covers only how the integration is built and the choices behind it.
 
+The in-app solver for *interactive* challenges is a separate mechanism with its own record, [turnstile-solver.md](turnstile-solver.md); it measured that a genuine solve's `cf_clearance` does replay through OkHttp, which narrows the claim below to the hosts this doc was written about.
+
 ## Goal
 
 Give sources behind Cloudflare's stricter bot-management tiers a working path when the in-app WebView challenge solver can't clear them, without changing the normal request path for everything else.

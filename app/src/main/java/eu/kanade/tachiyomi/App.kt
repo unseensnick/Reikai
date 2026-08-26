@@ -48,6 +48,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
 import eu.kanade.tachiyomi.util.system.DeviceUtil
+import eu.kanade.tachiyomi.util.system.ForegroundActivity
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -136,6 +137,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Security.insertProviderAt(Conscrypt.newProvider(), 1)
         }
+
+        // RK: the Cloudflare bypass needs a real window to solve an interactive challenge in, and
+        //     the interceptor it runs from holds only this context.
+        ForegroundActivity.register(this)
 
         Injekt.addSingleton<Application>(this)
         Injekt.addSingleton<Context>(this)

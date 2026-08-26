@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
+import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import eu.kanade.tachiyomi.util.system.isShizukuInstalled
@@ -274,6 +275,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         // RK: FlareSolverr settings live in the Network group, gated on the enable toggle
         val scope = rememberCoroutineScope()
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
+        val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
@@ -353,6 +355,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 // RK -->
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = networkPreferences.enableTurnstileSolver,
+                    title = stringResource(MR.strings.pref_enable_turnstile_solver),
+                    subtitle = stringResource(MR.strings.pref_enable_turnstile_solver_summary),
+                    enabled = TurnstileSolver.isSupported,
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = networkPreferences.enableFlareSolverr,
                     title = stringResource(MR.strings.pref_enable_flaresolverr),
                     subtitle = stringResource(MR.strings.pref_enable_flaresolverr_summary),
@@ -360,7 +368,14 @@ object SettingsAdvancedScreen : SearchableSettings {
                 Preference.PreferenceItem.EditTextPreference(
                     preference = networkPreferences.flareSolverrUrl,
                     title = stringResource(MR.strings.pref_flaresolverr_url),
-                    subtitle = stringResource(MR.strings.pref_flaresolverr_url_summary),
+                    // The example is only worth screen space until an address exists; after that the
+                    // address is what the reader wants. "%s" is the widget's own value placeholder,
+                    // so the URL is never run through a format string that could choke on a percent.
+                    subtitle = if (flareSolverrUrl.isBlank()) {
+                        stringResource(MR.strings.pref_flaresolverr_url_summary)
+                    } else {
+                        "%s"
+                    },
                     enabled = flareSolverrEnabled,
                     onValueChanged = {
                         if (it.isBlank() || it.trim().toHttpUrlOrNull() != null) {

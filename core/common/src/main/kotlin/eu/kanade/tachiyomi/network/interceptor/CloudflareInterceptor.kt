@@ -20,9 +20,11 @@ import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.Jsoup
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CloudflareInterceptor(
     private val context: Context,
@@ -68,7 +70,13 @@ class CloudflareInterceptor(
                 flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
             } else {
                 try {
-                    resolveWithWebView(request, oldCookie)
+                    // One solve per host: a page that fires two challenged requests only needs one,
+                    // and the second falls through to the retry below with what the solve left.
+                    if (networkPreferences.enableTurnstileSolver.get()) {
+                        TurnstileSolver.onlyOncePerHost(host) { resolveWithWebView(request, oldCookie) }
+                    } else {
+                        resolveWithWebView(request, oldCookie)
+                    }
                 } catch (e: CloudflareBypassException) {
                     if (!fsActive) throw e
                     // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
@@ -117,6 +125,12 @@ class CloudflareInterceptor(
 
         val origRequestUrl = originalRequest.url.toString()
         val headers = parseHeaders(originalRequest.headers)
+        // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
+        //     armed that challenge is no longer a reason to give up. Off by default, and it only
+        //     arms once the WebView is in a window, which needs an activity on screen.
+        val solverArmed = AtomicBoolean(false)
+        val interactive = AtomicBoolean(false)
+        val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
 
         executor.execute {
             webview = createWebView(originalRequest)
@@ -127,11 +141,40 @@ class CloudflareInterceptor(
                     @JavascriptInterface
                     fun interactiveDetected() {
                         // The challenge cannot be solved non-interactively, abort.
-                        latch.countDown()
+                        if (!solverArmed.get()) {
+                            latch.countDown()
+                        } else {
+                            // RK: the solver waits for this before pressing. A checkbox only exists
+                            //     once the challenge turns interactive, and an earlier press just
+                            //     starts the cooldown that then delays the one that counts.
+                            interactive.set(true)
+                            logcat {
+                                "Turnstile[${originalRequest.url.host}]: interactive began"
+                            }
+                        }
                     }
                 },
                 "mihon",
             )
+
+            // RK: arming has to precede the load, since an injected script only reaches documents
+            //     created after it is registered.
+            if (solverWanted) {
+                val armed = TurnstileSolver.attach(webview, originalRequest.url.host, interactive) {
+                    // The retry needs the clearance cookie, and it lands after the challenge page
+                    // goes, so a solve is only accepted once both have happened.
+                    val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
+                        .firstOrNull { it.name == "cf_clearance" }
+                    (cleared != null && cleared != oldCookie).also { accepted ->
+                        if (accepted) {
+                            cloudflareBypassed = true
+                            latch.countDown()
+                        }
+                    }
+                }
+                solverArmed.set(armed)
+                if (!armed) logcat { "Turnstile[${originalRequest.url.host}]: no window, not armed" }
+            }
 
             webview.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
@@ -141,7 +184,11 @@ class CloudflareInterceptor(
                             .let { it != null && it != oldCookie }
                     }
 
-                    if (isCloudFlareBypassed()) {
+                    // RK: with the solver running, a fresh cf_clearance is not proof of anything.
+                    //     Cloudflare hands one out on a challenge it has not accepted, which ended
+                    //     three test solves early with a 403 on the retry; the solver reports when
+                    //     the challenge markup is actually gone instead.
+                    if (!solverArmed.get() && isCloudFlareBypassed()) {
                         cloudflareBypassed = true
                         latch.countDown()
                     }
@@ -188,12 +235,25 @@ class CloudflareInterceptor(
 
         latch.awaitFor30Seconds()
 
+        // RK: a solve the WebView performed but never reported still leaves its clearance in the
+        //     jar, so ask the jar before giving up. Measured on a source whose two requests raced:
+        //     one retried to a 200 while the other threw, having solved the challenge itself.
+        if (!cloudflareBypassed && solverWanted) {
+            val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
+                .firstOrNull { it.name == "cf_clearance" }
+            if (cleared != null && cleared != oldCookie) {
+                cloudflareBypassed = true
+                logcat { "Turnstile[${originalRequest.url.host}]: cleared without a report, retrying" }
+            }
+        }
+
         executor.execute {
             if (!cloudflareBypassed) {
                 isWebViewOutdated = webview?.isOutdated() == true
             }
 
             webview?.run {
+                TurnstileSolver.detach(this) // RK
                 stopLoading()
                 destroy()
             }

@@ -839,6 +839,9 @@
     <string name="pref_enable_flaresolverr_summary">Route Cloudflare challenges through a FlareSolverr proxy instead of the in-app WebView</string>
     <string name="pref_flaresolverr_url">FlareSolverr URL</string>
     <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
+    <!-- RK: in-WebView solver for interactive Cloudflare challenges -->
+    <string name="pref_enable_turnstile_solver">Solve interactive Cloudflare challenges</string>
+    <string name="pref_enable_turnstile_solver_summary">Tick the verification box in the background instead of giving up on it. Experimental</string>
     <string name="pref_test_flaresolverr">Test FlareSolverr</string>
     <string name="pref_test_flaresolverr_summary">Check the server and update the default user agent to match</string>
     <string name="flaresolverr_test_success">FlareSolverr is working. User agent updated.</string>
