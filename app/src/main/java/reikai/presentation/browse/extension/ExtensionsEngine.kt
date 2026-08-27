@@ -54,7 +54,10 @@ class ExtensionsEngine(
             query = query,
             // One value each over the active providers: a chip must never be gated on a list it is
             // not showing, which is what a flag per content type lets happen.
-            isLoading = active.any { snapshots[it].rows == null },
+            // Only while nothing has answered: the light-novel half waits on network, and holding
+            // the whole list back for it hid manga extensions that were ready immediately.
+            isLoading = active.all { snapshots[it].rows == null },
+            hasPending = active.any { snapshots[it].rows == null },
             isRefreshing = active.any { snapshots[it].isRefreshing },
             hasRepos = active.any { snapshots[it].hasRepos },
             needsInstallPermission = active.any { snapshots[it].needsInstallPermission },
@@ -109,12 +112,15 @@ class ExtensionsEngine(
         val contentType: ContentType = ContentType.ALL,
         val query: String? = null,
         val isLoading: Boolean = true,
+        /** A content type that has not answered yet, so the list is showing part of itself. */
+        val hasPending: Boolean = true,
         val isRefreshing: Boolean = false,
         val hasRepos: Boolean = true,
         val needsInstallPermission: Boolean = false,
         val items: List<ExtensionsListItem> = emptyList(),
     ) {
-        val isEmpty get() = items.isEmpty()
+        // A half still on its way must not read as "nothing found".
+        val isEmpty get() = items.isEmpty() && !hasPending
         val isSearching get() = !query.isNullOrBlank()
     }
 

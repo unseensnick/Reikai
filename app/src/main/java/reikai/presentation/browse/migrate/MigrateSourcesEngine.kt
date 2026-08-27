@@ -50,8 +50,10 @@ class MigrateSourcesEngine(
         State(
             contentType = contentType,
             // One loading state over the active providers: a chip must never be gated on a list it
-            // is not showing, which is what a flag per content type lets happen.
-            isLoading = active.any { rowsPerProvider[it] == null },
+            // is not showing. Only while nothing has answered, so a half that is still loading no
+            // longer holds back the half that is ready.
+            isLoading = active.all { rowsPerProvider[it] == null },
+            hasPending = active.any { rowsPerProvider[it] == null },
             items = active.flatMap { rowsPerProvider[it].orEmpty() }
                 .sortedWith(compareMigrateRows(mode, direction)),
             sortingMode = mode,
@@ -94,11 +96,14 @@ class MigrateSourcesEngine(
     data class State(
         val contentType: ContentType = ContentType.ALL,
         val isLoading: Boolean = true,
+        /** A content type that has not answered yet, so the list is showing part of itself. */
+        val hasPending: Boolean = true,
         val items: List<BrowseMigrateRow> = emptyList(),
         val sortingMode: SetMigrateSorting.Mode = SetMigrateSorting.Mode.ALPHABETICAL,
         val sortingDirection: SetMigrateSorting.Direction = SetMigrateSorting.Direction.ASCENDING,
     ) {
-        val isEmpty get() = items.isEmpty()
+        // A half still on its way must not read as "nothing found".
+        val isEmpty get() = items.isEmpty() && !hasPending
     }
 
     @AssistedFactory
