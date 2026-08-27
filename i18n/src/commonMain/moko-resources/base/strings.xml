@@ -300,10 +300,9 @@
     <string name="updating_both_libraries">Updating both libraries</string>
     <!-- RK: light-novel browse (P5 S3a) -->
     <string name="repos">Repos</string>
-    <string name="ln_available">Available</string>
     <string name="ln_repos">Light novel repos</string>
-    <string name="ln_no_repos">No light novel repos yet. Add one to install plugins.</string>
-    <string name="ln_no_plugins">Couldn\'t load any plugins from your repos. Check the repo and your connection, then retry.</string>
+    <string name="ext_no_repos">No repos yet. Add one to install extensions.</string>
+    <string name="ext_repos_empty">Couldn\'t load anything from your repos. Check the repos and your connection, then retry.</string>
     <string name="ln_no_sources">No light novel sources installed. Install one from the Extensions tab.</string>
     <string name="channel_ln_plugin_updates">Light novel plugin updates</string>
     <string name="channel_novel_tts">Novel read aloud</string>

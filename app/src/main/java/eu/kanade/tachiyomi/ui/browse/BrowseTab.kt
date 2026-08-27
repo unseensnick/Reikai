@@ -58,11 +58,13 @@ data object BrowseTab : Tab {
     override fun Content() {
         val context = LocalContext.current
 
+        // RK: shared content-type filter, search query and LN update badge across the tabs. The
+        //     search bar drives one list serving both content types, so its query is Browse-level
+        //     rather than the manga model's.
+        val browseViewModel = metroViewModel<ReikaiBrowseViewModel>()
+        val searchQuery by browseViewModel.searchQuery.collectAsStateWithLifecycle()
         // Hoisted for extensions tab's search bar
         val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
-        val extensionsSearchQuery by extensionsViewModel.searchQuery.collectAsStateWithLifecycle()
-        // RK: shared content-type filter + LN update badge across the Sources/Extensions tabs.
-        val browseViewModel = metroViewModel<ReikaiBrowseViewModel>()
 
         val tabs = listOf(
             // RK: chip-switched manga + light-novel sources / extensions.
@@ -78,8 +80,8 @@ data object BrowseTab : Tab {
             titleRes = MR.strings.browse,
             tabs = tabs,
             state = state,
-            searchQuery = extensionsSearchQuery,
-            onChangeSearchQuery = extensionsViewModel::search,
+            searchQuery = searchQuery,
+            onChangeSearchQuery = browseViewModel::search,
         )
         LaunchedEffect(Unit) {
             switchToExtensionTabChannel.receiveAsFlow()

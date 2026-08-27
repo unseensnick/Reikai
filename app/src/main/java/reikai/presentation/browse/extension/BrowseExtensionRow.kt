@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.compareBrowseLanguages
 
-/** Identity for an installable source, whichever kind it is: a package name or a plugin's URL. */
+/** Identity for an installable source, whichever kind it is: a package name or a plugin id. */
 sealed interface ExtensionKey {
     val contentType: ContentType
 
@@ -12,7 +12,7 @@ sealed interface ExtensionKey {
         override val contentType: ContentType get() = ContentType.MANGA
     }
 
-    data class Novel(val url: String) : ExtensionKey {
+    data class Novel(val pluginId: String) : ExtensionKey {
         override val contentType: ContentType get() = ContentType.NOVELS
     }
 }
@@ -31,14 +31,16 @@ sealed interface ExtensionSection {
  * One installable source as the shared Extensions list sees it.
  *
  * [payload] is the provider's own object, unwrapped only by the leaf that renders its type. The two
- * search fields are split because they match differently: a term matches on containment, an id only
- * when it is the whole query, which is the rule the manga list already had.
+ * search fields match differently: a term on containment, an id only as the whole query, which is
+ * the rule the manga list already had. [needsAttention] lifts a row to the top of its section
+ * because something is wrong with it, today only a manga extension gone obsolete.
  */
 @Immutable
 data class BrowseExtensionRow(
     val key: ExtensionKey,
     val name: String,
     val section: ExtensionSection,
+    val needsAttention: Boolean,
     val searchTerms: List<String>,
     val searchIds: List<String>,
     val payload: Any,
@@ -57,7 +59,10 @@ sealed interface ExtensionsListItem {
  */
 fun sectionExtensions(rows: List<BrowseExtensionRow>): List<ExtensionsListItem> {
     val sections = rows
-        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        .sortedWith(
+            compareByDescending<BrowseExtensionRow> { it.needsAttention }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
+        )
         .groupBy { it.section }
         .toSortedMap(SECTION_ORDER)
     return sections.flatMap { (section, rows) ->

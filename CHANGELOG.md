@@ -125,6 +125,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **The Sources list now shows manga and light-novel sources in one list, grouped by language.** Each row says which kind it is while both are showing, the chips filter that one list instead of switching between two, and the language groups run in the same order as on Extensions.
 - **The Sources list now remembers one "Last used" source across manga and light novels.** Opening either kind updates it from any screen that opens a catalogue, and it starts empty after this update until you next open one.
+- **The Extensions list now shows manga extensions and light-novel plugins in one list, sectioned the same way.** Pending updates share one section with a single Update all, pull to refresh covers both, and searching filters both halves at once.
 
 **Details**
 
@@ -243,7 +244,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Browse & sources**
 
-- **Light-novel sources that name their language differently no longer split into two sections.** Some plugins say "Spanish" and others "es", which read as two languages.
+- **Light-novel sources and plugins now group under their language, beside the manga sources of that language.** Plugin repos name a language in that language ("Español"), which the app read as a language of its own and could not put a heading on.
+- **An installed light-novel plugin is no longer listed a second time as available to install.** It happens when a repo offers the plugin at a second address.
 - **A source in global search no longer spins forever with its results already fetched.** Sources that finished at the same moment could erase each other, leaving one stuck on loading.
 - **The Hide entries already in library setting now applies to novel sources too.** Browsing keeps loading further pages when everything on a page is already in your library.
 - **Light-novel source icons are no longer larger than manga ones in the same list.** Most noticeable on the Migrate tab, where both appear one under the other.

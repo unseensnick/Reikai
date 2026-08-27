@@ -1,18 +1,14 @@
 package eu.kanade.presentation.browse
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.GetApp
@@ -21,11 +17,9 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -40,234 +34,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.presentation.browse.components.ExtensionIcon
-import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.presentation.manga.components.DotSeparatorNoSpaceText
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
-import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
-import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.FastScrollLazyColumn
-import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.EmptyScreen
-import tachiyomi.presentation.core.screens.EmptyScreenAction
-import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.theme.header
-import tachiyomi.presentation.core.util.plus
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 
-@Composable
-fun ExtensionScreen(
-    state: ExtensionsViewModel.State,
-    contentPadding: PaddingValues,
-    searchQuery: String?,
-    onLongClickItem: (Extension) -> Unit,
-    onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension.Available) -> Unit,
-    onInstallExtension: (Extension.Available) -> Unit,
-    onUninstallExtension: (Extension) -> Unit,
-    onUpdateExtension: (Extension.Installed) -> Unit,
-    onTrustExtension: (Extension.Untrusted) -> Unit,
-    onOpenExtension: (Extension.Installed) -> Unit,
-    onClickUpdateAll: () -> Unit,
-    onRefresh: () -> Unit,
-) {
-    val navigator = LocalNavigator.currentOrThrow
+// RK: partially collapsed. The screen, its sectioned list, pull-to-refresh, the install-permission
+//     banner and the loading and empty states moved to the shared Extensions engine and tab
+//     (reikai/presentation/browse/extension/). What is left is the manga extension row and the two
+//     dialogs it raises, which the shared list draws for its manga half.
 
-    PullRefresh(
-        refreshing = state.isRefreshing,
-        onRefresh = onRefresh,
-        enabled = !state.isLoading,
-    ) {
-        when {
-            state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
-            state.isEmpty -> {
-                val msg = if (!searchQuery.isNullOrEmpty()) {
-                    MR.strings.no_results_found
-                } else {
-                    MR.strings.empty_screen
-                }
-                EmptyScreen(
-                    stringRes = msg,
-                    modifier = Modifier.padding(contentPadding),
-                    actions = listOf(
-                        EmptyScreenAction(
-                            stringRes = MR.strings.extensionStores,
-                            icon = Icons.Outlined.Settings,
-                            onClick = { navigator.push(ExtensionStoresScreen()) },
-                        ),
-                    ),
-                )
-            }
-            else -> {
-                ExtensionContent(
-                    state = state,
-                    contentPadding = contentPadding,
-                    onLongClickItem = onLongClickItem,
-                    onClickItemCancel = onClickItemCancel,
-                    onOpenWebView = onOpenWebView,
-                    onInstallExtension = onInstallExtension,
-                    onUninstallExtension = onUninstallExtension,
-                    onUpdateExtension = onUpdateExtension,
-                    onTrustExtension = onTrustExtension,
-                    onOpenExtension = onOpenExtension,
-                    onClickUpdateAll = onClickUpdateAll,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExtensionContent(
-    state: ExtensionsViewModel.State,
-    contentPadding: PaddingValues,
-    onLongClickItem: (Extension) -> Unit,
-    onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension.Available) -> Unit,
-    onInstallExtension: (Extension.Available) -> Unit,
-    onUninstallExtension: (Extension) -> Unit,
-    onUpdateExtension: (Extension.Installed) -> Unit,
-    onTrustExtension: (Extension.Untrusted) -> Unit,
-    onOpenExtension: (Extension.Installed) -> Unit,
-    onClickUpdateAll: () -> Unit,
-) {
-    val context = LocalContext.current
-    var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
-    val installGranted = rememberRequestPackageInstallsPermissionState(initialValue = true)
-
-    FastScrollLazyColumn(
-        contentPadding = contentPadding + topSmallPaddingValues,
-    ) {
-        if (!installGranted && state.installer?.requiresSystemPermission == true) {
-            item(key = "extension-permissions-warning") {
-                WarningBanner(
-                    textRes = MR.strings.ext_permission_install_apps_warning,
-                    modifier = Modifier.clickable {
-                        context.launchRequestPackageInstallsPermission()
-                    },
-                )
-            }
-        }
-
-        state.items.forEach { (header, items) ->
-            item(
-                contentType = "header",
-                key = "extensionHeader-${header.hashCode()}",
-            ) {
-                when (header) {
-                    is ExtensionUiModel.Header.Resource -> {
-                        val action: @Composable RowScope.() -> Unit =
-                            if (header.textRes == MR.strings.ext_updates_pending) {
-                                {
-                                    Button(onClick = { onClickUpdateAll() }) {
-                                        Text(
-                                            text = stringResource(MR.strings.ext_update_all),
-                                            style = LocalTextStyle.current.copy(
-                                                color = MaterialTheme.colorScheme.onPrimary,
-                                            ),
-                                        )
-                                    }
-                                }
-                            } else {
-                                {}
-                            }
-                        ExtensionHeader(
-                            textRes = header.textRes,
-                            modifier = Modifier.animateItem(),
-                            action = action,
-                        )
-                    }
-                    is ExtensionUiModel.Header.Text -> {
-                        ExtensionHeader(
-                            text = header.text,
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
-                }
-            }
-
-            items(
-                items = items,
-                contentType = { "item" },
-                key = { item ->
-                    when (item.extension) {
-                        is Extension.Untrusted -> "extension-untrusted-${item.hashCode()}"
-                        is Extension.Installed -> "extension-installed-${item.hashCode()}"
-                        is Extension.Available -> "extension-available-${item.hashCode()}"
-                    }
-                },
-            ) { item ->
-                ExtensionItem(
-                    modifier = Modifier.animateItem(),
-                    item = item,
-                    onClickItem = {
-                        when (it) {
-                            is Extension.Available -> onInstallExtension(it)
-                            is Extension.Installed -> onOpenExtension(it)
-                            is Extension.Untrusted -> {
-                                trustState = it
-                            }
-                        }
-                    },
-                    onLongClickItem = onLongClickItem,
-                    onClickItemSecondaryAction = {
-                        when (it) {
-                            is Extension.Available -> onOpenWebView(it)
-                            is Extension.Installed -> onOpenExtension(it)
-                            else -> {}
-                        }
-                    },
-                    onClickItemCancel = onClickItemCancel,
-                    onClickItemAction = {
-                        when (it) {
-                            is Extension.Available -> onInstallExtension(it)
-                            is Extension.Installed -> {
-                                if (it.hasUpdate) {
-                                    onUpdateExtension(it)
-                                } else {
-                                    onOpenExtension(it)
-                                }
-                            }
-                            is Extension.Untrusted -> {
-                                trustState = it
-                            }
-                        }
-                    },
-                )
-            }
-        }
-    }
-    if (trustState != null) {
-        ExtensionTrustDialog(
-            onClickConfirm = {
-                onTrustExtension(trustState!!)
-                trustState = null
-            },
-            onClickDismiss = {
-                onUninstallExtension(trustState!!)
-                trustState = null
-            },
-            onDismissRequest = {
-                trustState = null
-            },
-        )
-    }
-}
-
-// RK: public so the Reikai unified "All" Browse view can reuse the manga extension row verbatim.
+// RK: public so the Reikai unified Browse view can reuse the manga extension row verbatim.
 @Composable
 fun ExtensionItem(
     item: ExtensionUiModel.Item,
@@ -491,41 +275,7 @@ private fun ExtensionItemActions(
     }
 }
 
-@Composable
-private fun ExtensionHeader(
-    textRes: StringResource,
-    modifier: Modifier = Modifier,
-    action: @Composable RowScope.() -> Unit = {},
-) {
-    ExtensionHeader(
-        text = stringResource(textRes),
-        modifier = modifier,
-        action = action,
-    )
-}
-
-@Composable
-private fun ExtensionHeader(
-    text: String,
-    modifier: Modifier = Modifier,
-    action: @Composable RowScope.() -> Unit = {},
-) {
-    Row(
-        modifier = modifier.padding(horizontal = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .weight(1f),
-            style = MaterialTheme.typography.header,
-        )
-        action()
-    }
-}
-
-// RK: public so the Reikai unified "All" Browse view can host the same prompt.
+// RK: public so the Reikai unified Browse view can host the same prompt.
 @Composable
 fun ExtensionTrustDialog(
     onClickConfirm: () -> Unit,
@@ -547,6 +297,40 @@ fun ExtensionTrustDialog(
         dismissButton = {
             TextButton(onClick = onClickDismiss) {
                 Text(text = stringResource(MR.strings.ext_uninstall))
+            }
+        },
+        onDismissRequest = onDismissRequest,
+    )
+}
+
+// RK: moved here from the deleted ExtensionsTab.kt, beside the other extension dialog, so both stay
+//     upstream-tracked in one place. See the off-path manifest.
+@Composable
+fun ExtensionUninstallConfirmation(
+    extensionName: String,
+    onClickConfirm: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    AlertDialog(
+        title = {
+            Text(text = stringResource(MR.strings.ext_confirm_remove))
+        },
+        text = {
+            Text(text = stringResource(MR.strings.remove_private_extension_message, extensionName))
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onClickConfirm()
+                    onDismissRequest()
+                },
+            ) {
+                Text(text = stringResource(MR.strings.ext_remove))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
             }
         },
         onDismissRequest = onDismissRequest,

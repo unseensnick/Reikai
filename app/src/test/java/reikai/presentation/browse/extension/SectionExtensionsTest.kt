@@ -63,6 +63,16 @@ class SectionExtensionsTest {
     }
 
     @Test
+    fun `a row needing attention leads its section, whatever its name`() {
+        val items = section(
+            row("Anna", ExtensionSection.Installed),
+            row("Zed", ExtensionSection.Installed, needsAttention = true),
+        )
+
+        items.namesUnder(ExtensionSection.Installed) shouldBe listOf("Zed", "Anna")
+    }
+
+    @Test
     fun `an empty query keeps every row`() {
         matchesExtensionQuery(row("Asura", ExtensionSection.Installed), null) shouldBe true
         matchesExtensionQuery(row("Asura", ExtensionSection.Installed), "  ") shouldBe true
@@ -92,21 +102,27 @@ class SectionExtensionsTest {
 
     private fun section(vararg rows: BrowseExtensionRow) = sectionExtensions(rows.toList())
 
-    private fun row(name: String, section: ExtensionSection, ids: List<String> = emptyList()) =
-        BrowseExtensionRow(
-            key = ExtensionKey.Manga(name),
-            name = name,
-            section = section,
-            searchTerms = listOf(name),
-            searchIds = ids,
-            payload = Unit,
-        )
+    private fun row(
+        name: String,
+        section: ExtensionSection,
+        ids: List<String> = emptyList(),
+        needsAttention: Boolean = false,
+    ) = BrowseExtensionRow(
+        key = ExtensionKey.Manga(name),
+        name = name,
+        section = section,
+        needsAttention = needsAttention,
+        searchTerms = listOf(name),
+        searchIds = ids,
+        payload = Unit,
+    )
 
     private fun novelRow(name: String, section: ExtensionSection) =
         BrowseExtensionRow(
             key = ExtensionKey.Novel(name),
             name = name,
             section = section,
+            needsAttention = false,
             searchTerms = listOf(name),
             searchIds = emptyList(),
             payload = Unit,

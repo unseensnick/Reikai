@@ -3,21 +3,36 @@ package reikai.novel.source
 /**
  * The language a plugin declares, as the ISO code the rest of the app speaks.
  *
- * The lnreader registry is not consistent with itself: most plugins name the language in English
- * ("Spanish"), a few give the code ("es"), and both forms are live. Left as-is they group as two
- * different languages, and beside the manga sources, which are all codes, they group as a third.
+ * An lnreader registry names the language in the language itself ("Español", "Русский"), so left
+ * as-is a plugin never groups with the manga sources of its language, and Android cannot resolve the
+ * name to a heading at all. Anything unrecognised passes through rather than being dropped.
  */
-fun NovelSource.langCode(): String = LANGUAGE_CODES[lang] ?: lang
+fun String.toLangCode(): String {
+    // Arabic arrives with a leading left-to-right mark, which is invisible and breaks the lookup.
+    val declared = filterNot { it.category == CharCategory.FORMAT }.trim()
+    return LANGUAGE_CODES[declared] ?: declared
+}
 
+/** The declared language of an installed plugin, normalised by [toLangCode]. */
+fun NovelSource.langCode(): String = lang.toLangCode()
+
+// The registry's own name-to-language table (lnreader-plugins `scripts/languages.js`), inverted.
+// Multi maps onto Mihon's "all", so a multi-language plugin shares the manga sources' Multi section.
 private val LANGUAGE_CODES = mapOf(
-    "Arabic" to "ar",
+    "العربية" to "ar",
+    "中文, 汉语, 漢語" to "zh",
     "English" to "en",
-    "French" to "fr",
-    "Indonesian" to "id",
-    "Korean" to "ko",
-    "Portuguese" to "pt",
-    "Russian" to "ru",
-    "Spanish" to "es",
-    "Thai" to "th",
-    "Turkish" to "tr",
+    "Français" to "fr",
+    "Bahasa Indonesia" to "id",
+    "日本語" to "ja",
+    "조선말, 한국어" to "ko",
+    "Polski" to "pl",
+    "Português" to "pt",
+    "Русский" to "ru",
+    "Español" to "es",
+    "ไทย" to "th",
+    "Türkçe" to "tr",
+    "Українська" to "uk",
+    "Tiếng Việt" to "vi",
+    "Multi" to "all",
 )

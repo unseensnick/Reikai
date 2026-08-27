@@ -27,7 +27,6 @@ import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
@@ -35,6 +34,7 @@ import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntrySourceOptionsDialog
 import reikai.presentation.browse.ReikaiBrowseViewModel
+import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
@@ -193,7 +193,7 @@ private fun SourcesList(
         ) { item ->
             when (item) {
                 is SourcesListItem.Header -> BrowseSectionHeader(
-                    title = LocaleHelper.getSourceDisplayName(item.key, context),
+                    title = browseLanguageLabel(item.key, context),
                 )
                 is SourcesListItem.Row -> SourceRow(
                     row = item.row,

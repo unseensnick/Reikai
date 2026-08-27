@@ -177,13 +177,16 @@ Nine steps, each independently shippable and device-verified before the next.
   it, so the capability is decided there. Absent means it cannot honour the option and the chip
   hides; present means assume supported. The error is asymmetric in the safe direction, since
   `showLatestNovels` is an external contract name a minifier will not rename.
-- **A plugin's language is normalised to an ISO code (step 4).** The lnreader registry declares it
-  both ways, most plugins in English ("Spanish") and four by code ("es"), so the Novels chip was
-  already splitting one language into two sections before either type shared a list. The novel
-  provider maps the ten known names to codes and passes anything else through; the deny-list behind
-  the Sources filter screen still keys on the raw value, so hiding a language there still hides only
-  the plugins declaring it that way. That is a smaller pre-existing gap, left for the filter screen's
-  own step rather than widened into this one.
+- **A plugin's language is normalised to an ISO code (step 4, corrected in step 5).** An lnreader
+  registry names the language in the language itself, which `scripts/languages.js` in
+  `refs/lnreader-plugins` is the table for: "Español", "Русский", "中文, 汉语, 漢語", and "Multi" for
+  the multi-language ones. Step 4 mapped the English names instead, which the registry emits for none
+  of them except English, so 125 of the live registry's 278 entries fell through unmapped and Android
+  could put no heading on them at all. `toLangCode` now inverts that table, strips the invisible
+  left-to-right mark the registry prefixes Arabic with, and sends Multi to Mihon's own "all". The
+  deny-list behind the Sources filter screen still keys on the raw value, so hiding a language there
+  hides only the plugins declaring it that way; that is a smaller pre-existing gap, left for the
+  filter screen's own step.
 - **Novel browse adopts manga's display mode and column preferences.** This is one screen serving two
   content types rather than two surfaces, so the surface-scoped-settings rule does not apply, and
   novels currently ignore the column setting entirely.
@@ -197,12 +200,21 @@ Nine steps, each independently shippable and device-verified before the next.
 
 ### What is deleted and manifested
 
-Fully replaced pure-UI Mihon files: `SourcesScreen.kt`, `ExtensionsScreen.kt`, `ExtensionsTab.kt`,
-both `GlobalSearchScreen.kt`, `MigrateSourceScreen.kt`, and both `BrowseSourceScreen.kt`. Per-file
+Fully replaced pure-UI Mihon files: `SourcesScreen.kt`, `ExtensionsTab.kt`, both
+`GlobalSearchScreen.kt`, `MigrateSourceScreen.kt`, and both `BrowseSourceScreen.kt`. Per-file
 upstream churn over twelve months is 1 to 5 commits each, well inside what the migrate takeover was
 ruled affordable at. The row leaves stay live and synced (`SourceItem`, `BaseSourceItem`,
-`ExtensionItem`, `ExtensionHeader`, `ExtensionUiModel`, the four browse grid variants), as do every
-ViewModel and interactor below them.
+`ExtensionItem`, `ExtensionUiModel`, the four browse grid variants), as do every ViewModel and
+interactor below them.
+
+**`ExtensionsScreen.kt` is partially collapsed, not deleted** (found on doing step 5, correcting the
+line above): its screen, list, pull-to-refresh, banner and loading and empty states moved out, but
+`ExtensionItem` is one of the row leaves that stays, so the file keeps a live remainder and takes an
+`// RK` note instead of a manifest row. `ExtensionsTab.kt` reached the bar the other way round: its
+one keeper, `ExtensionUninstallConfirmation`, moved beside `ExtensionTrustDialog` in
+`ExtensionsScreen.kt`, so nothing live remained and it is deleted and manifested. `ExtensionHeader`
+went with the list rather than staying a leaf: both Browse lists head their sections with Reikai's
+`BrowseSectionHeader`, so keeping Mihon's would be a second header component for one surface.
 
 ## Key files
 
@@ -239,13 +251,17 @@ For the takeover:
 step 3 `cadf22edb`, step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fold-verified on both
 content types (the add / remove round trips, the hide-in-library toggle, the language switch).
 
-**The takeover is under way**: steps 1 to 4 are in, so the Sources list is assembled once for both
-content types and the chip is a predicate over it. Step 5 has its pure core in (the neutral row, the
-sectioning and the search rule, tested) but nothing draws it yet; the provider seam, the engine and
-the tab cutover that closes the five known drops are still to come. Steps 6 to 9 are unstarted. It lands in the 0.4.0 cycle
-but does not join the cut gate, which stays the tsundoku reader migration and Road B; if it is not
-finished when those two are, it slips rather than holding the release. `ROADMAP.md` carries the
-forward item.
+**The takeover is under way**: steps 1 to 5 are in, so the Sources and Extensions lists are each
+assembled once for both content types and the chip is a predicate over them. Step 5 closed the five
+known drops by construction (section headers and Update all, pull-to-refresh, the install-permission
+banner, the loading and empty states, the back-clears-search handler) and turned up two defects
+neither list showed before: an lnreader repo names a language in that language, so every non-English
+plugin section was headed by nothing at all, and a plugin installed from one address while a repo
+offers it at another was listed twice, which one shared list turns from a cosmetic duplicate into a
+duplicate-key crash. Both are fixed and mutation-verified. Steps 6 to 9 are unstarted. It lands in
+the 0.4.0 cycle but does not join the cut gate, which stays the tsundoku reader migration and Road B;
+if it is not finished when those two are, it slips rather than holding the release. `ROADMAP.md`
+carries the forward item.
 
 ## Decisions & tradeoffs
 
