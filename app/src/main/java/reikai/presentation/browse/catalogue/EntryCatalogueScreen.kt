@@ -64,6 +64,7 @@ import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
+import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -178,7 +179,13 @@ class EntryCatalogueScreen(
         Catalogue(
             behavior = adapter,
             onOpenEntry = { row -> navigator.push(NovelScreen(sourceId, row.item.path)) },
-            onOpenEntryById = { },
+            // A novel is addressed by source and path, so an id is resolved against the duplicates
+            // the dialog was raised with, which are the only rows this can be called for.
+            onOpenEntryById = { id ->
+                (modelState.dialog as? NovelBrowseDialog.AddDuplicate)?.duplicates
+                    ?.firstOrNull { it.novel.id == id }
+                    ?.let { navigator.push(NovelScreen(it.novel.source, it.novel.url)) }
+            },
             onOpenSettings = viewModel::openSettingsSheet,
             onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
             extraSheets = {
