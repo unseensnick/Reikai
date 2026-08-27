@@ -126,8 +126,9 @@ Nine steps, each independently shippable and device-verified before the next.
   the browse analogue of `EntryId`, keying every section and map on this surface. One shared
   last-used preference written by both browse entry points, replacing `lastUsedSource` and
   `lastUsedNovelSource`. No migration: each has one reader and one writer today, and the section
-  refills the first time a source is opened. `GetEnabledSources` stays unpatched and the manga
-  adapter drops the `isUsedLast` row it duplicates, so the assembler owns the flag.
+  refills the first time a source is opened. **On doing it, `GetEnabledSources` was patched instead**
+  (`// RK`-fenced): it reads the shared key and still emits the duplicate `isUsedLast` row, which the
+  manga provider consumes and the novel one now mimics, rather than the assembler owning the flag.
 - **Step 4, the list engine, on Sources.** One assembler over both providers' source rows, doing the
   sectioning once: Last used, Pinned, per-language across both content types, then Other. The chips
   become predicates; loading, emptiness and every value describing the list derive in the engine over
@@ -200,11 +201,16 @@ Nine steps, each independently shippable and device-verified before the next.
 
 ### What is deleted and manifested
 
-Fully replaced pure-UI Mihon files: `SourcesScreen.kt`, `ExtensionsTab.kt`, both
-`GlobalSearchScreen.kt`, `MigrateSourceScreen.kt`, and both `BrowseSourceScreen.kt`. Per-file
-upstream churn over twelve months is 1 to 5 commits each, well inside what the migrate takeover was
-ruled affordable at. The row leaves stay live and synced (`SourceItem`, `BaseSourceItem`,
-`ExtensionItem`, `ExtensionUiModel`), as do every ViewModel and interactor below them.
+Fully replaced pure-UI Mihon files: `ExtensionsTab.kt`, both `GlobalSearchScreen.kt`,
+`MigrateSourceScreen.kt`, and both `BrowseSourceScreen.kt`. Per-file upstream churn over twelve
+months is 1 to 5 commits each, well inside what the migrate takeover was ruled affordable at. The row
+leaves stay live and synced (`SourceItem`, `BaseSourceItem`, `ExtensionItem`, `ExtensionUiModel`), as
+do every ViewModel and interactor below them.
+
+`SourcesScreen.kt` is **not** deleted, correcting an earlier line here that listed it: `SourceItem`
+lives in it and the shared list still draws manga rows through it, so it is partially collapsed and
+carries an `// RK` note saying what moved out. Its `SourceOptionsDialog` went when the shared list
+stopped calling it.
 
 **Three of the four browse grid variants go too** (found on doing step 8c, correcting a line here
 that counted them as row leaves). `BrowseSourceComfortableGrid`, `BrowseSourceCompactGrid` and
@@ -229,9 +235,10 @@ went with the list rather than staying a leaf: both Browse lists head their sect
   `reikai/presentation/novel/browse/NovelBulkFavoriteViewModel.kt`.
 - Adders: `reikai/presentation/browse/MangaLibraryAdder.kt`,
   `reikai/presentation/novel/browse/NovelLibraryAdder.kt`.
-- Hosts: `eu/kanade/tachiyomi/ui/browse/source/browse/BrowseSourceScreen.kt`,
-  `reikai/presentation/novel/browse/NovelBrowseScreen.kt`, both global-search screens, and
-  `exh/md/follows/MangaDexFollowsScreen.kt`.
+- Hosts, now that the takeover has landed: `reikai/presentation/browse/catalogue/`
+  `EntryCatalogueScreen.kt` and `reikai/presentation/browse/globalsearch/EntryGlobalSearchScreen.kt`,
+  plus `exh/md/follows/MangaDexFollowsScreen.kt` and `reikai/presentation/migrate/flow/`
+  `MigrationDeepPicker.kt`, which render the catalogue body without the shared screen.
 
 For the takeover:
 
@@ -242,10 +249,9 @@ For the takeover:
   `MigrateSourceViewModel`, `SearchViewModel`, and their novel counterparts `NovelSourcesViewModel`,
   `LnPluginManagerViewModel`, `MigrateNovelSourcesViewModel`, `NovelGlobalSearchViewModel`.
 - Identity: `reikai/domain/entry/EntryId.kt` is the template for the new `SourceKey`.
-- The last-used keys being replaced: `SourcePreferences.lastUsedSource` (read only by
-  `GetEnabledSources`, written only by `BrowseSourceViewModel`) and
-  `NovelPreferences.lastUsedNovelSource` (read only by `NovelSourcesViewModel`, written only by
-  `ReikaiBrowseViewModel`).
+- The last used source: `ReikaiSourcePreferences.lastUsedSource`, one app-state key for both content
+  types. It replaced `SourcePreferences.lastUsedSource` and `NovelPreferences.lastUsedNovelSource`,
+  both since deleted.
 - The pagers: `BaseSourcePagingSource` in `data/.../source/SourcePagingSource.kt` is the shape the
   novel one copies, over `NovelSource` in `reikai/novel/source/`.
 - The latest-capability check reads the plugin source text `LnPluginInstaller` already holds when it
@@ -257,8 +263,11 @@ For the takeover:
 step 3 `cadf22edb`, step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fold-verified on both
 content types (the add / remove round trips, the hide-in-library toggle, the language switch).
 
-**The takeover is under way**: steps 1 to 7 are in, so the Sources, Extensions, Migrate and global
-search lists are each assembled once for both content types and the chip is a predicate over them.
+**The takeover shipped in full on `feat/0.4.0`.** All nine steps are in: the four multi-source lists
+are each assembled once over two providers with the chip as a predicate, both per-source catalogues
+render through one screen, and the CHANGELOG carries what a reader sees. What follows records what
+each step decided or turned up, because those are the parts a later reader cannot re-derive.
+
 Step 5 closed the five known drops by construction (section headers and Update all, pull-to-refresh,
 the install-permission banner, the loading and empty states, the back-clears-search handler) and
 turned up two defects neither list showed before: an lnreader repo names a language in that
@@ -285,8 +294,8 @@ empties its own selection. Routing goes through the row's `SourceKey`, never the
 provider stores the extension-facing `Source`, so the obvious cast compiles and throws on tap.
 `novelGlobalSearchHasResults` is retired, one Mihon preference now driving the toggle for both halves.
 
-**Step 8 is under way: the neutral contract (8a), the two adapters (8b), and one catalogue body
-(8c).** Both per-source screens now page the neutral row and render through `EntryBrowseCatalogue`,
+**Step 8 built the neutral contract (8a), the two adapters (8b) and one catalogue body (8c).**
+Both per-source screens now page the neutral row and render through `EntryBrowseCatalogue`,
 which owns the loading, empty and fetch-error states and all three grid layouts. Writing the adapters
 corrected two things the contract had wrong: a shared `refresh()` verb, which manga would have
 answered with nothing, so recovering a failed source moved onto the failure state itself; and a row
@@ -326,10 +335,9 @@ The pin needed a fourth case to be worth anything. Three tests left the marker u
 truncating it to `showLatest` still matched every positive fixture; a plugin naming a same-prefix
 option is what makes the full lnreader name load-bearing.
 
-The takeover is complete: all nine steps are in, and the CHANGELOG carries what a reader sees. Three
-things it deliberately left standing are forward work rather than part of it, and `ROADMAP.md` carries
-them: the follows screen keeping its own chrome, the manga migration picker still being its own
-screen, and the search-field X behaving as manga does on a light-novel source.
+Three things the takeover deliberately left standing are forward work rather than part of it, and
+`ROADMAP.md` carries them: the follows screen keeping its own chrome, the manga migration picker
+still being its own screen, and the search-field X behaving as manga does on a light-novel source.
 
 ## The behaviour inventory (step 9)
 
@@ -444,3 +452,22 @@ shared body started reading the column preference itself.
   public rather than copied. Novels need no counterpart, for the reason the ruling above gives.
 - **The ROADMAP browse feature items ride after the collapse** (genre-tap-search, source-row
   polish, find-a-source search), on the shared parts, rather than landing inside this surface.
+- **A row's neutral content is a derived view, never its own collector (2026-08-27, from the
+  post-takeover review).** `EntryBrowseRow.content` started as `map { }.stateIn(model.viewModelScope)`
+  per row. That reads as a cheap mapping and is not: single-argument `stateIn` starts eagerly and
+  ends only with the ViewModel, the mapping sits downstream of `cachedIn`, and each fresh collection
+  of the pager rebuilds the whole set, so a browsing session accumulated one live collector per
+  result ever loaded. `mapState` in `EntryBrowseRow.kt` returns a view that launches nothing, so the
+  only collector is the cell drawing the row. Anything derived per row belongs on that rung.
+- **The display mode has to travel in each model's state.** Upstream keeps it as a Compose value the
+  screen reads from composition; the shared catalogue renders from a flow instead, which cannot
+  observe one, so picking a layout wrote a preference nothing re-read. `trackDisplayMode` is the
+  kernel both models call, so neither half can grow the bug back alone.
+- **A global search is scoped by where it was started from (owner, 2026-08-27).** It read the Browse
+  chip, so searching from a manga while Browse was left on Novels returned nothing with no
+  explanation. The scope is an assisted value on the engine now; a scoped search does not write the
+  Browse chip back, and only Browse's own search still opens on it.
+- **A multi-source list shows each half as it lands (owner, 2026-08-27).** The shared loading flag
+  was true while any provider was still null, so a slow plugin repo held back manga rows that were
+  ready. It is now true only while every active provider is, with `hasPending` keeping a half still
+  on its way from reading as "nothing found".
