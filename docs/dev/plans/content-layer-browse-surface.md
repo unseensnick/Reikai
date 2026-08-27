@@ -474,3 +474,14 @@ shared body started reading the column preference itself.
   was true while any provider was still null, so a slow plugin repo held back manga rows that were
   ready. It is now true only while every active provider is, with `hasPending` keeping a half still
   on its way from reading as "nothing found".
+- **A verb that recovers its payload from the live dialog is broken by the dialog closing.** Found
+  after the takeover, by pressing buttons rather than reading code. `EntryDuplicateDialog`,
+  `EntryRemoveDialog` and Mihon's `ChangeCategoryDialog` all call `onDismissRequest()` before the
+  action, so every catalogue verb that read `model.state.value.dialog` for its entry found null and
+  returned: migrating onto a duplicate, adding anyway, joining a group, removing, and setting
+  categories, on both content types. The two adapters now hold the dialog they mapped. Global search
+  was never affected, because its callbacks capture the dialog in the composable.
+- **An inventory item counts as present when it has been pressed, not when it has been traced.** Six
+  review agents and the step 9 inventory both walked those five verbs and marked them present; the
+  call chains exist and read correctly, and the break was ordering between a UI leaf and an adapter.
+  A surface whose verbs route through an adapter needs a device pass, not a reading pass.

@@ -11,6 +11,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 - **Drop the `voyager-screenModel` dependency** `[S]` - Reikai's novel reader is the one model still on the old base, so the dependency stays in the catalog and the bundle. Deliberately not migrated on its own: the tsundoku reader migration deletes that model, so this closes out when it lands. [Plan](docs/dev/plans/viewmodel-migration.md).
 - **Take the novel reader off Injekt, and the DI port's tail with it** `[S]` - the novel reader still resolves eighteen types through Injekt, which keeps six `DomainModule` registrations and its subgraph in the interop module alive. The proguard keeps are not part of this: all five are permanent, on evidence recorded in the plan. Gated the same way as the line above, and for the same reason: the tsundoku reader migration deletes that model, so converting it first is work with a shorter life than the work. [Plan](docs/dev/plans/metro-di-migration.md).
 - **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters. Remaining: the download unification below, then the reader migration. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Re-audit the browse and global-search surface by driving it** `[M]` - a device pass over every affordance of the four multi-source lists, both catalogues and global search, where an item counts as present only once it has been pressed. A code-read review of the same surface marked five long-press verbs present that did nothing, so this round exists to catch the class that reading cannot. [Plan](docs/dev/plans/content-layer-browse-surface.md).
 - **Fold the follows screen into the shared catalogue** `[S]` - the one browse screen still carrying chrome of its own. Folding it means two flags in shared chrome whose only job is to blank it, which is why it was left; the ruling is whether that trade is worth taking. [Plan](docs/dev/plans/content-layer-browse-surface.md).
 
 ## Next
@@ -31,11 +32,11 @@ Remaining manga/novel parity work, smaller enhancements and polish. The write-on
 - **Smart update (auto fetch-interval) for novels** `[M]` (open gap) - give novels manga's per-entry update-interval prediction (the details "next update" action-row button plus a Set-interval dialog), so the novel action row matches manga's and Share can move to the overflow. Needs a `fetch_interval` / `next_update` schema migration on novels, the `FetchInterval` algorithm re-typed onto novel chapters, and the novel update job honouring it (algorithm reference: Mihon / tsundoku `FetchInterval`).
 
 Opportunistic polish:
-- Browse: Latest shortcut on novel source rows, per-row language, genre-tap-search.
+- Browse: Latest shortcut on novel source rows, genre-tap-search.
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Updates / history: fast-scroll animation.
-- Details: per-source scanlator filter for merged novels, novel tag-tap global search.
+- Details: per-source scanlator filter for merged novels.
 
 ### Library
 
