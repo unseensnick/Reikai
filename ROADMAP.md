@@ -31,7 +31,7 @@ Remaining manga/novel parity work, smaller enhancements and polish. The write-on
 - **Smart update (auto fetch-interval) for novels** `[M]` (open gap) - give novels manga's per-entry update-interval prediction (the details "next update" action-row button plus a Set-interval dialog), so the novel action row matches manga's and Share can move to the overflow. Needs a `fetch_interval` / `next_update` schema migration on novels, the `FetchInterval` algorithm re-typed onto novel chapters, and the novel update job honouring it (algorithm reference: Mihon / tsundoku `FetchInterval`).
 
 Opportunistic polish:
-- Browse: Latest shortcut, hide-in-library, per-row language, genre-tap-search.
+- Browse: Latest shortcut on novel source rows, per-row language, genre-tap-search.
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Updates / history: fast-scroll animation.
