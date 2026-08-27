@@ -287,6 +287,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**
 - **Sorting the library by tracker score no longer floats signed-out trackers above your rated entries.** A merged series also counts each tracker once instead of doubling it across sources.
 - **The tracker refresh notification now uses the app's own refresh icon.** It was showing a generic Android sync glyph.
+- **The Reikai icon on a notification is now the same size as every other notification icon.** It was drawing about a fifth smaller than its neighbours in the shade.
 - **A MyAnimeList entry dated with only a year, or a year and month, no longer errors out (synced from Mihon, mihonapp/mihon#3573).**
 - **A score you pick on MangaBaka is now saved as that score, at every step size (synced from Mihon, mihonapp/mihon#3740).** With steps larger than 1 it was sending the score's position in the list instead.
 - **A MangaBaka score no longer skews your library's tracker-score sort and your statistics.** Its 0 to 100 scale was being read as if it were out of 10, so one scored entry floated to the top and pulled the average with it.
