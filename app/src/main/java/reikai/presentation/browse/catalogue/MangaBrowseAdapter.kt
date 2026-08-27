@@ -84,7 +84,7 @@ class MangaBrowseAdapter(
             rowStyle = if (model.useEhentaiView) {
                 EntryBrowseRowStyle.Gallery
             } else {
-                EntryBrowseRowStyle.Standard(model.displayMode)
+                EntryBrowseRowStyle.Standard(state.displayMode)
             },
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf(), ::mangaRowKey),
@@ -134,9 +134,7 @@ class MangaBrowseAdapter(
 
     override fun search(query: String?) = model.search(query)
 
-    override fun setDisplayMode(mode: LibraryDisplayMode) {
-        model.displayMode = mode
-    }
+    override fun setDisplayMode(mode: LibraryDisplayMode) = model.setDisplayMode(mode)
 
     override fun openFilterSheet() = model.openFilterSheet()
 

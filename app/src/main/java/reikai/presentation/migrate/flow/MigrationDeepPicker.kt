@@ -133,7 +133,7 @@ class MigrationDeepPickerScreen(
             EntryBrowseCatalogue(
                 rows = entries,
                 // The target picker keeps the plain grid; the enhanced rows are a browse-only surface.
-                rowStyle = EntryBrowseRowStyle.Standard(viewModel.displayMode),
+                rowStyle = EntryBrowseRowStyle.Standard(state.displayMode),
                 selectedKeys = emptySet(),
                 snackbarHostState = snackbarHostState,
                 contentPadding = contentPadding,

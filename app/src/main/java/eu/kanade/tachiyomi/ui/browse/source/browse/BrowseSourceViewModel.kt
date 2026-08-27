@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse.source.browse
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -17,7 +15,6 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
-import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -44,12 +41,14 @@ import reikai.domain.source.SourceKey
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.catalogue.trackDisplayMode
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.finishAdd
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
@@ -94,7 +93,13 @@ open class BrowseSourceViewModel(
         fun create(sourceId: Long, listingQuery: String?): BrowseSourceViewModel
     }
 
-    var displayMode by sourcePreferences.sourceDisplayMode.asState(viewModelScope)
+    // RK --> upstream keeps this a Compose `asState` property the screen reads from composition.
+    //        Reikai's catalogue draws from `state`, so the value travels there instead and the
+    //        preference is written through this verb.
+    private val displayModePreference = sourcePreferences.sourceDisplayMode
+
+    fun setDisplayMode(mode: LibraryDisplayMode) = displayModePreference.set(mode)
+    // RK <--
 
     val source = sourceManager.getOrStub(sourceId)
 
@@ -116,6 +121,11 @@ open class BrowseSourceViewModel(
                 filters = source.getFilterList(),
                 toolbarQuery = query,
             )
+        }
+
+        // RK: shared with the novel catalogue, which owes the same invariant.
+        displayModePreference.trackDisplayMode(viewModelScope) { mode ->
+            state.update { it.copy(displayMode = mode) }
         }
 
         if (!getIncognitoState.await(source.id)) {
@@ -418,6 +428,10 @@ open class BrowseSourceViewModel(
         val dialog: Dialog? = null,
         // RK: one-shot nav target for the MangaDex "Random" button (an "id:<uuid>" search).
         val randomMangaTarget: String? = null,
+        // RK: the grid layout. It lives in the state because the catalogue screen renders off this
+        //     flow rather than reading the model from composition, so a Compose-only value set here
+        //     would change nothing on screen until some unrelated update happened to emit.
+        val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }

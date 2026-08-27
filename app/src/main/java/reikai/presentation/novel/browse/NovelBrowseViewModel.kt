@@ -1,7 +1,5 @@
 package reikai.presentation.novel.browse
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -16,7 +14,6 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
-import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.flow.Flow
@@ -44,12 +41,14 @@ import reikai.novel.source.NovelListingPagingSource
 import reikai.novel.source.NovelSearchPagingSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.catalogue.trackDisplayMode
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.migrate.flow.MigrationPickHandoff
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
  * Per-source light-novel browse state holder. The source is pre-picked (the Browse Sources tab is the
@@ -76,8 +75,11 @@ class NovelBrowseViewModel(
     val state: StateFlow<NovelBrowseState>
         field = MutableStateFlow<NovelBrowseState>(NovelBrowseState())
 
-    /** Compose-observable display mode (comfortable / compact / list), persisted via [ReikaiSourcePreferences]. */
-    var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(viewModelScope)
+    /** The grid layout (comfortable / compact / list), persisted via [ReikaiSourcePreferences] and
+     *  carried in [NovelBrowseState] by [trackDisplayMode], which states why. */
+    private val displayModePreference = reikaiSourcePreferences.novelBrowseDisplayMode
+
+    fun setDisplayMode(mode: LibraryDisplayMode) = displayModePreference.set(mode)
 
     // Same preference and same load-time snapshot as manga browse (BrowseSourceViewModel).
     private val hideInLibraryItems = sourcePreferences.hideInLibraryItems.get()
@@ -111,6 +113,11 @@ class NovelBrowseViewModel(
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyFlow())
 
     init {
+        // Shared with the manga catalogue, which owes the same invariant.
+        displayModePreference.trackDisplayMode(viewModelScope) { mode ->
+            state.update { it.copy(displayMode = mode) }
+        }
+
         // In-library marking: favorited (source, url) keys so results already saved are dimmed +
         // badged like the manga catalogue. Read-only; nothing written back.
         viewModelScope.launchIO {
@@ -304,6 +311,9 @@ data class NovelBrowseState(
     val settingsSheetOpen: Boolean = false,
     /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
     val dialog: NovelBrowseDialog? = null,
+    /** The grid layout. Held here for the same reason the manga state holds it: the catalogue
+     *  screen renders from this flow, so a value it cannot observe never reaches the grid. */
+    val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
 ) {
     val showLatest: Boolean get() = listing == Listing.Latest
 

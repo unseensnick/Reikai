@@ -123,7 +123,7 @@ class NovelBrowseAdapter(
             filtersActive = searching || state.hasActiveFilters,
             hasSettings = source.pluginSettings != null,
             webUrl = source.site.takeIf { it.isNotBlank() },
-            rowStyle = EntryBrowseRowStyle.Standard(model.displayMode),
+            rowStyle = EntryBrowseRowStyle.Standard(state.displayMode),
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf()) { rowKey(it.sourceId, it.item) },
             capabilities = capabilities,
@@ -178,9 +178,7 @@ class NovelBrowseAdapter(
         model.search(query.orEmpty())
     }
 
-    override fun setDisplayMode(mode: LibraryDisplayMode) {
-        model.displayMode = mode
-    }
+    override fun setDisplayMode(mode: LibraryDisplayMode) = model.setDisplayMode(mode)
 
     override fun openFilterSheet() = model.openFilterSheet()
 
