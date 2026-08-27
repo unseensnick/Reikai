@@ -17,6 +17,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.asState
+import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelListingPagingSource
@@ -68,6 +70,7 @@ class NovelBrowseViewModel(
     private val pickHandoff: MigrationPickHandoff,
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
     private val sourcePreferences: SourcePreferences,
+    private val getIncognitoState: GetIncognitoState,
 ) : ViewModel() {
 
     val state: StateFlow<NovelBrowseState>
@@ -128,6 +131,12 @@ class NovelBrowseViewModel(
         if (source == null) {
             state.update { it.copy(sourceError = "Source not installed: $sourceId") }
             return
+        }
+        // Recorded here rather than at the Sources row, so every route into a catalogue marks it
+        // the way manga's does: global search, a details source link and the migration picker too.
+        // Incognito is checked globally, since a novel source has no Mihon source id to scope it by.
+        if (!getIncognitoState.await(null)) {
+            reikaiSourcePreferences.lastUsedSource.set(SourceKey.Novel(sourceId))
         }
         val filterValues = defaultFilterValues(source.filters)
         state.update {

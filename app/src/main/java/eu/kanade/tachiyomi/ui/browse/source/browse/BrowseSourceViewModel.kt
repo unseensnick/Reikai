@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceKey
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
@@ -74,6 +76,9 @@ open class BrowseSourceViewModel(
     private val getRemoteManga: GetRemoteManga,
     private val getManga: GetManga,
     getIncognitoState: GetIncognitoState,
+    // RK --> the last-used source is shared with the novel catalogue, so it is written to one key
+    reikaiSourcePreferences: ReikaiSourcePreferences,
+    // RK <--
     // RK --> favorite / category / duplicate orchestration extracted to the shared MangaLibraryAdder
     private val mangaLibraryAdder: MangaLibraryAdder,
     // RK <--
@@ -117,7 +122,8 @@ open class BrowseSourceViewModel(
         }
 
         if (!getIncognitoState.await(source.id)) {
-            sourcePreferences.lastUsedSource.set(source.id)
+            // RK: one key for both content types (see ReikaiSourcePreferences.lastUsedSource).
+            reikaiSourcePreferences.lastUsedSource.set(SourceKey.Manga(source.id))
         }
     }
 

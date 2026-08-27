@@ -19,8 +19,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceKey
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -39,7 +39,6 @@ class NovelSourcesViewModel(
     manager: NovelSourceManager,
     private val installer: LnPluginInstaller,
     private val sourcePreferences: ReikaiSourcePreferences,
-    private val novelPreferences: NovelPreferences,
 ) : ViewModel() {
 
     private val dialog = MutableStateFlow<Dialog?>(null)
@@ -49,9 +48,9 @@ class NovelSourcesViewModel(
         sourcePreferences.pinnedNovelSources.changes(),
         sourcePreferences.disabledNovelSources.changes(),
         sourcePreferences.disabledNovelLanguages.changes(),
-        novelPreferences.lastUsedNovelSource().changes(),
+        sourcePreferences.lastUsedSource.changes(),
     ) { sources, pinned, disabled, disabledLangs, lastUsed ->
-        sources.toUiModels(pinned, disabled, disabledLangs, lastUsed)
+        sources.toUiModels(pinned, disabled, disabledLangs, (lastUsed as? SourceKey.Novel)?.id)
     }
         // The plugin host has to be loaded before the source list means anything, and this runs on
         // every (re)subscription now that the feed is not always-on. ensureLoaded is idempotent.
@@ -85,7 +84,7 @@ class NovelSourcesViewModel(
         pinned: Set<String>,
         disabled: Set<String>,
         disabledLangs: Set<String>,
-        lastUsedId: String,
+        lastUsedId: String?,
     ): List<NovelSourceUiModel> {
         // The last-used source leads in its own section, then pinned sources, then language groups
         // (mirrors the manga sources list). Each source shows in exactly one section: the last-used
@@ -93,7 +92,7 @@ class NovelSourcesViewModel(
         // Disabled sources and languages are filtered out entirely (like manga); they are re-enabled
         // from the Sources filter screen and stay excluded from global search (GetEnabledNovelSources).
         val enabled = filterNot { it.id in disabled || it.lang in disabledLangs }
-        val lastUsed = lastUsedId.takeIf { it.isNotBlank() }?.let { id -> enabled.firstOrNull { it.id == id } }
+        val lastUsed = lastUsedId?.let { id -> enabled.firstOrNull { it.id == id } }
         val remaining = enabled.filter { it.id != lastUsed?.id }
         val pinnedSources = remaining.filter { it.id in pinned }.sortedBy { it.name.lowercase() }
         val byLanguage = remaining.filterNot { it.id in pinned }

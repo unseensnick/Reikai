@@ -7,7 +7,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.domain.source.interactor.GetIncognitoState
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
@@ -27,7 +26,6 @@ import tachiyomi.core.common.util.lang.launchIO
 class ReikaiBrowseViewModel(
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelPreferences: NovelPreferences,
-    private val getIncognitoState: GetIncognitoState,
     updateChecker: LnPluginUpdateChecker,
 ) : ViewModel() {
 
@@ -41,12 +39,5 @@ class ReikaiBrowseViewModel(
 
     fun setContentType(type: ContentType) {
         sourcePreferences.browseContentType.set(type)
-    }
-
-    /** Record the most recently opened LN source so the sources list's Last Used section populates.
-     *  Skipped while incognito (global-only; mirrors BrowseSourceViewModel's lastUsedSource gate). */
-    fun setLastUsedNovelSource(id: String) {
-        if (getIncognitoState.await(null)) return
-        novelPreferences.lastUsedNovelSource().set(id)
     }
 }

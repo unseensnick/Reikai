@@ -39,6 +39,19 @@ class ReikaiSourcePreferences(
         preferenceStore.getBoolean("novel_downloads_paused", false)
 
     /**
+     * The source opened most recently, whichever content type it belongs to. One value rather than one
+     * per type, because the Sources list has one "Last used" section and two stored answers cannot be
+     * ordered against each other. Written by whichever browse screen opens a source, skipped while
+     * incognito; null until a source has been opened.
+     */
+    val lastUsedSource: Preference<SourceKey?> = preferenceStore.getObjectFromString(
+        "reikai_last_used_source",
+        null,
+        { it?.serialize().orEmpty() },
+        SourceKey::parse,
+    )
+
+    /**
      * Pinned light-novel source ids. Novel twin of
      * [eu.kanade.domain.source.service.SourcePreferences.pinnedSources]: pinned sources rise to a
      * "Pinned" section on the Sources list and back the global-search Pinned filter.

@@ -66,9 +66,6 @@ class NovelPreferences(
         },
     )
 
-    /** Most recently tapped LN source id (drives the Last Used section on the sources list). */
-    fun lastUsedNovelSource() = preferenceStore.getString("last_used_novel_source", "")
-
     /**
      * Plugin repo URLs (i.e. `plugins.min.json` registries) the user added. Distinct from
      * [installedPluginUrls]: this tracks repos (sources of plugins); that tracks the individual

@@ -16,6 +16,7 @@ import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
@@ -41,6 +42,7 @@ class MangaDexFollowsViewModel(
     getRemoteManga: GetRemoteManga,
     getManga: GetManga,
     getIncognitoState: GetIncognitoState,
+    reikaiSourcePreferences: ReikaiSourcePreferences,
     mangaLibraryAdder: MangaLibraryAdder,
     getFlatMetadataById: GetFlatMetadataById,
 ) : BrowseSourceViewModel(
@@ -52,6 +54,7 @@ class MangaDexFollowsViewModel(
     getRemoteManga = getRemoteManga,
     getManga = getManga,
     getIncognitoState = getIncognitoState,
+    reikaiSourcePreferences = reikaiSourcePreferences,
     mangaLibraryAdder = mangaLibraryAdder,
     getFlatMetadataById = getFlatMetadataById,
 ) {

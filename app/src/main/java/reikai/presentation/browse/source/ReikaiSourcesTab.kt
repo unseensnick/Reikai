@@ -71,11 +71,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
     val novelState by novelModel.state.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsState()
 
-    // Open a novel source's browse grid, recording it as last-used so the sources list populates.
-    val openNovelSource: (String) -> Unit = { id ->
-        browseViewModel.setLastUsedNovelSource(id)
-        navigator.push(NovelBrowseScreen(id))
-    }
+    val openNovelSource: (String) -> Unit = { id -> navigator.push(NovelBrowseScreen(id)) }
 
     return TabContent(
         titleRes = MR.strings.label_sources,

@@ -121,6 +121,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The filter icon now lights up for every filter you have set, not just the chapter ones (synced from Mihon, mihonapp/mihon#3772).** A category filter used to leave it plain, so a narrowed feed looked unfiltered; the Upcoming calendar gained the same.
 - **A half-read manga chapter now says how long it is, as "Page: 5/38".** Shows on the recents rows and the chapter list once you have opened that chapter, since that is when the length becomes known; novels already showed a percentage.
 
+**Browse**
+
+- **The Sources list now remembers one "Last used" source across manga and light novels.** Opening either kind updates it from any screen that opens a catalogue, and it starts empty after this update until you next open one.
+
 **Details**
 
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.

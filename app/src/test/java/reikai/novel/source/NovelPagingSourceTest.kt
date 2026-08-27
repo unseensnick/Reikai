@@ -55,9 +55,17 @@ class NovelPagingSourceTest {
 
     private fun page(vararg paths: String) = paths.map { NovelItem(name = it, path = it) }
 
-    private fun refresh() = PagingSource.LoadParams.Refresh<Long>(key = null, loadSize = 20, placeholdersEnabled = false)
+    private fun refresh() = PagingSource.LoadParams.Refresh<Long>(
+        key = null,
+        loadSize = 20,
+        placeholdersEnabled = false,
+    )
 
-    private fun append(key: Long) = PagingSource.LoadParams.Append(key = key, loadSize = 20, placeholdersEnabled = false)
+    private fun append(key: Long) = PagingSource.LoadParams.Append(
+        key = key,
+        loadSize = 20,
+        placeholdersEnabled = false,
+    )
 
     private fun PagingSource.LoadResult<Long, NovelItem>.nextKey() =
         (this as PagingSource.LoadResult.Page).nextKey
