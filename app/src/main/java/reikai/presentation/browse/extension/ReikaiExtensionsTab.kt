@@ -2,20 +2,25 @@ package reikai.presentation.browse.extension
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.GetApp
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,6 +66,7 @@ import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
+import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -377,6 +383,7 @@ private fun NovelExtensionRow(
     model: LnPluginManagerViewModel,
     badge: @Composable () -> Unit,
 ) {
+    val navigator = LocalNavigator.currentOrThrow
     when (val payload = row.payload) {
         is LnPluginUpdate -> NovelSourceRow(
             name = payload.entry.name,
@@ -418,8 +425,17 @@ private fun NovelExtensionRow(
                 subtitle = state.errors[key],
                 badge = badge,
                 action = {
+                    // The same pair of icon buttons the manga rows use, so one list reads as one
+                    // list. Both go while an install runs, as they do on the manga side.
                     NovelRowAction(inProgress = key in state.inProgress) {
-                        // The same icon button the manga rows use, so one list reads as one list.
+                        if (payload.site.isNotEmpty()) {
+                            IconButton(onClick = { navigator.push(webViewFor(payload)) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Public,
+                                    contentDescription = stringResource(MR.strings.action_open_in_web_view),
+                                )
+                            }
+                        }
                         IconButton(onClick = { model.install(payload) }) {
                             Icon(
                                 imageVector = Icons.Outlined.GetApp,
@@ -433,11 +449,26 @@ private fun NovelExtensionRow(
     }
 }
 
+/**
+ * A plugin's site in the WebView. No source id goes with it: that only carries an HTTP source's own
+ * request headers, which a JavaScript plugin does not have.
+ */
+private fun webViewFor(entry: LnRegistryEntry) =
+    WebViewScreen(url = entry.site, initialTitle = entry.name)
+
+/**
+ * A novel row's trailing buttons, or a spinner while its install runs.
+ *
+ * The Row and its spacing are the manga rows' own, so the two kinds line their buttons up in the
+ * same columns; emitting the buttons bare leaves the group narrower and shifts all but the last.
+ */
 @Composable
-private fun NovelRowAction(inProgress: Boolean, button: @Composable () -> Unit) {
-    if (inProgress) {
-        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-    } else {
-        button()
+private fun NovelRowAction(inProgress: Boolean, buttons: @Composable RowScope.() -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+        if (inProgress) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+        } else {
+            buttons()
+        }
     }
 }
