@@ -110,9 +110,7 @@ class NovelBrowseAdapter(
             },
             query = query,
             isUserQuery = searching,
-            // The plugin format declares no latest flag, so every plugin is offered the chip until
-            // the installer can answer for it from the plugin's own source text.
-            supportsLatest = true,
+            supportsLatest = source.supportsLatest,
             hasFilters = source.filters?.isNotEmpty() == true,
             filtersActive = searching || state.hasActiveFilters,
             hasSettings = source.pluginSettings != null,

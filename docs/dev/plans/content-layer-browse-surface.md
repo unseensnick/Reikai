@@ -315,7 +315,18 @@ search from a details page, long-press add, selection, and both MangaDex filter 
 opens the follows list, Random pushes a fresh catalogue carrying its `id:` query). The novel
 migrate-pick mode is the one path not walked.
 
-Step 8e (the Latest capability) is left, then step 9. It lands in the 0.4.0 cycle but does not join
+**Step 8e derives the Latest capability from the plugin source.** `LnPluginHost.loadPlugin` already
+holds the source text, so `derivesLatestSupport` decides there and the flag rides `LnPluginInfo` out
+to `NovelSource`. A plugin that reads lnreader's `showLatestNovels` gets the chip; one that never
+mentions it loses the chip rather than getting one that answers with the Popular list. Verified both
+ways on device: Royal Road, Novel Fire and ReadNovelFull keep Latest, and Novel Arrow, which the
+registry confirms never names the option, now shows Popular alone where it used to offer both.
+
+The pin needed a fourth case to be worth anything. Three tests left the marker unpinned, because
+truncating it to `showLatest` still matched every positive fixture; a plugin naming a same-prefix
+option is what makes the full lnreader name load-bearing.
+
+Step 9, the behaviour inventory, is what is left. It lands in the 0.4.0 cycle but does not join
 the cut gate, which stays the tsundoku reader migration and Road B; if it is not finished when those
 two are, it slips rather than holding the release. `ROADMAP.md`
 carries the forward item.

@@ -187,6 +187,7 @@ class LnPluginHost(
             )
             loaderSlot.lastUsedMs = System.currentTimeMillis()
             JSON.decodeFromString(LnPluginInfo.serializer(), infoJson)
+                .copy(supportsLatest = derivesLatestSupport(source))
         }
         // Retain the args under the plugin's CANONICAL id (callMethod is keyed by it, which can
         // differ from the URL-derived pluginId), and drop a live engine still running the previous
@@ -419,3 +420,13 @@ class LnPluginHost(
 }
 
 class LnPluginException(message: String) : Exception(message)
+
+/**
+ * Whether a plugin can serve a Latest listing, derived from its source rather than declared: the
+ * lnreader format has no flag for it, so the only evidence is that the plugin reads the option at
+ * all. The name is an external contract, so no minifier renames it. A plugin that reaches Latest
+ * some other way loses the chip, which is the safe direction: the alternative is a chip that
+ * silently re-serves the Popular list.
+ */
+internal fun derivesLatestSupport(pluginSource: String): Boolean =
+    "showLatestNovels" in pluginSource

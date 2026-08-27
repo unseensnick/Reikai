@@ -47,6 +47,13 @@ interface NovelSource {
      */
     val pluginSettings: JsonObject? get() = null
 
+    /**
+     * This source can serve a Latest listing, which is why browse offers the chip. The lnreader
+     * format declares no such flag, so it is derived rather than read: a plugin that never mentions
+     * the option would answer a Latest request with the Popular list.
+     */
+    val supportsLatest: Boolean get() = false
+
     /** Read a saved per-plugin setting value (the `storage:` scope plugins use). Null if unset. */
     suspend fun getSetting(key: String): JsonElement? = null
 

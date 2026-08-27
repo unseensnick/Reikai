@@ -29,6 +29,7 @@ class LnPluginSource(
     override val iconUrl: String? = info.iconUrl
     override val filters: JsonObject? = info.filters
     override val pluginSettings: JsonObject? = info.pluginSettings
+    override val supportsLatest: Boolean = info.supportsLatest
 
     override suspend fun getSetting(key: String): JsonElement? = host.getSetting(info.id, key)
 

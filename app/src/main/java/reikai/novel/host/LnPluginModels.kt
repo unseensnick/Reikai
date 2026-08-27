@@ -23,6 +23,12 @@ data class LnPluginInfo(
     val filters: JsonObject? = null,
     /** Raw plugin.pluginSettings schema (per-plugin config). Pass-through; rendered by the settings UI. */
     val pluginSettings: JsonObject? = null,
+    /**
+     * The plugin reads lnreader's `showLatestNovels` option, so it can serve a Latest listing. Not a
+     * field the plugin declares: the format has none, so the host derives it from the plugin source
+     * and fills it in after decoding. Decoded as false, which is why the loader must set it.
+     */
+    val supportsLatest: Boolean = false,
 )
 
 /**
