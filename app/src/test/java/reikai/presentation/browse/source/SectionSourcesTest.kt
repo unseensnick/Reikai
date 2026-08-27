@@ -76,6 +76,20 @@ class SectionSourcesTest {
     }
 
     @Test
+    fun `the last-used copy of a pinned source stays under Last used`() {
+        // It carries isPinned so its row and its long-press sheet agree the source is pinned; only
+        // the section check keeps it out of Pinned.
+        val items = sectionSources(
+            listOf(
+                manga("Anna", lang = "en", isPinned = true),
+                manga("Anna", lang = "en", isPinned = true, isUsedLast = true),
+            ),
+        )
+
+        items.headers() shouldBe listOf("last_used", "pinned")
+    }
+
+    @Test
     fun `an empty list has no sections`() {
         sectionSources(emptyList()) shouldBe emptyList()
     }

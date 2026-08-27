@@ -48,7 +48,11 @@ class MangaSourcesProvider(private val model: SourcesViewModel) : SourcesProvide
                 key = SourceKey.Manga(source.id),
                 name = source.name,
                 lang = source.lang,
-                isPinned = Pin.Actual in source.pin,
+                // Whether the user pinned it, which is what the row's pin icon and the long-press
+                // sheet's Pin / Unpin both read. Not `Pin.Actual`, which the Last used copy has
+                // stripped so it does not also appear under Pinned: the section check below reads
+                // `isUsedLast` first, so that copy lands there either way.
+                isPinned = Pin.Pinned in source.pin,
                 isUsedLast = source.isUsedLast,
                 source = source,
             )
