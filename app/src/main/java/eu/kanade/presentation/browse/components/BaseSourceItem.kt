@@ -1,11 +1,14 @@
 package eu.kanade.presentation.browse.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -21,9 +24,13 @@ fun BaseSourceItem(
     showLanguageInContent: Boolean = true,
     onClickItem: () -> Unit = {},
     onLongClickItem: () -> Unit = {},
+    // RK: content-type badge, beside the name, drawn by the shared list when it holds both types.
+    badge: @Composable () -> Unit = {},
     icon: @Composable RowScope.(Source) -> Unit = defaultIcon,
     action: @Composable RowScope.(Source) -> Unit = {},
-    content: @Composable RowScope.(Source, String?) -> Unit = defaultContent,
+    content: @Composable RowScope.(Source, String?) -> Unit = { source, lang ->
+        DefaultContent(source, lang, badge)
+    },
 ) {
     val sourceLangString = LocaleHelper.getSourceDisplayName(source.lang, LocalContext.current).takeIf {
         showLanguageInContent
@@ -42,18 +49,31 @@ private val defaultIcon: @Composable RowScope.(Source) -> Unit = { source ->
     SourceIcon(source = source)
 }
 
-private val defaultContent: @Composable RowScope.(Source, String?) -> Unit = { source, sourceLangString ->
+// RK: was a val, now a function so the badge slot above can reach the name row.
+@Composable
+private fun RowScope.DefaultContent(
+    source: Source,
+    sourceLangString: String?,
+    badge: @Composable () -> Unit,
+) {
     Column(
         modifier = Modifier
             .padding(horizontal = MaterialTheme.padding.medium)
             .weight(1f),
     ) {
-        Text(
-            text = source.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = source.name,
+                modifier = Modifier.weight(1f, fill = false),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            badge()
+        }
         if (sourceLangString != null) {
             Text(
                 modifier = Modifier.secondaryItemAlpha(),

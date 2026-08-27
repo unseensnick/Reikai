@@ -47,6 +47,8 @@ fun NovelSourceRow(
     subtitle: String? = null,
     onClickItem: () -> Unit = {},
     onLongClickItem: () -> Unit = {},
+    /** Content-type badge, beside the name, drawn by a shared list that holds both types. */
+    badge: @Composable () -> Unit = {},
     action: @Composable RowScope.() -> Unit = {},
 ) {
     BaseBrowseItem(
@@ -61,12 +63,19 @@ fun NovelSourceRow(
                     .padding(horizontal = MaterialTheme.padding.medium)
                     .weight(1f),
             ) {
-                Text(
-                    text = name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = name,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    badge()
+                }
                 val secondary = subtitle ?: lang.takeIf { it.isNotEmpty() }
                     ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) }
                 if (secondary != null) {

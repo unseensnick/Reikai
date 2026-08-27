@@ -34,16 +34,16 @@ fun SourceItem(
     onLongClickItem: (Source) -> Unit,
     onClickPin: (Source) -> Unit,
     modifier: Modifier = Modifier,
-    // RK: content-type badge, drawn by the shared list when it holds both types.
-    badge: @Composable RowScope.() -> Unit = {},
+    // RK: content-type badge, drawn beside the name by the shared list when it holds both types.
+    badge: @Composable () -> Unit = {},
 ) {
     BaseSourceItem(
         modifier = modifier,
         source = source,
         onClickItem = { onClickItem(source, Listing.Popular) },
         onLongClickItem = { onLongClickItem(source) },
+        badge = badge,
         action = {
-            badge()
             if (source.supportsLatest) {
                 TextButton(onClick = { onClickItem(source, Listing.Latest) }) {
                     Text(

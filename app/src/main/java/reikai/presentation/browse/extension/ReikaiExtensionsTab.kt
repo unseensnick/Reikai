@@ -56,6 +56,7 @@ import reikai.novel.update.LnPluginUpdate
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
+import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
@@ -154,6 +155,7 @@ fun Screen.reikaiExtensionsTab(
                         )
                         else -> ExtensionsList(
                             state = state,
+                            showContentType = state.contentType == ContentType.ALL,
                             contentPadding = contentPadding,
                             extensionsViewModel = extensionsViewModel,
                             lnModel = lnModel,
@@ -206,6 +208,7 @@ private fun ExtensionsEmptyScreen(
 @Composable
 private fun ExtensionsList(
     state: ExtensionsEngine.State,
+    showContentType: Boolean,
     contentPadding: PaddingValues,
     extensionsViewModel: ExtensionsViewModel,
     lnModel: LnPluginManagerViewModel,
@@ -248,14 +251,20 @@ private fun ExtensionsList(
         ) { item ->
             when (item) {
                 is ExtensionsListItem.Header -> ExtensionsSectionHeader(item.section, onUpdateAll)
-                is ExtensionsListItem.Row -> when (item.row.key) {
-                    is ExtensionKey.Manga -> MangaExtensionRow(
-                        item = item.row.payload as ExtensionUiModel.Item,
-                        model = extensionsViewModel,
-                        onUntrusted = { trustState = it },
-                        onConfirmPrivateUninstall = { privateExtensionToUninstall = it },
-                    )
-                    is ExtensionKey.Novel -> NovelExtensionRow(item.row, lnState, lnModel)
+                is ExtensionsListItem.Row -> {
+                    val badge: @Composable () -> Unit = {
+                        if (showContentType) ContentTypeBadge(item.row.key.contentType)
+                    }
+                    when (item.row.key) {
+                        is ExtensionKey.Manga -> MangaExtensionRow(
+                            item = item.row.payload as ExtensionUiModel.Item,
+                            model = extensionsViewModel,
+                            badge = badge,
+                            onUntrusted = { trustState = it },
+                            onConfirmPrivateUninstall = { privateExtensionToUninstall = it },
+                        )
+                        is ExtensionKey.Novel -> NovelExtensionRow(item.row, lnState, lnModel, badge)
+                    }
                 }
             }
         }
@@ -307,6 +316,7 @@ private fun ExtensionsSectionHeader(section: ExtensionSection, onUpdateAll: () -
 private fun MangaExtensionRow(
     item: ExtensionUiModel.Item,
     model: ExtensionsViewModel,
+    badge: @Composable () -> Unit,
     onUntrusted: (Extension.Untrusted) -> Unit,
     onConfirmPrivateUninstall: (Extension) -> Unit,
 ) {
@@ -315,6 +325,7 @@ private fun MangaExtensionRow(
 
     ExtensionItem(
         item = item,
+        badge = badge,
         onClickItem = {
             when (it) {
                 is Extension.Available -> model.installExtension(it)
@@ -365,6 +376,7 @@ private fun NovelExtensionRow(
     row: BrowseExtensionRow,
     state: LnPluginManagerViewModel.State,
     model: LnPluginManagerViewModel,
+    badge: @Composable () -> Unit,
 ) {
     when (val payload = row.payload) {
         is LnPluginUpdate -> NovelSourceRow(
@@ -372,6 +384,7 @@ private fun NovelExtensionRow(
             lang = payload.entry.lang,
             iconUrl = payload.entry.iconUrl,
             subtitle = "v${payload.installedVersion} -> v${payload.entry.version}",
+            badge = badge,
             action = {
                 NovelRowAction(inProgress = canonicalizePluginUrl(payload.entry.url) in state.inProgress) {
                     IconButton(onClick = { model.update(payload) }) {
@@ -387,6 +400,7 @@ private fun NovelExtensionRow(
             name = payload.name,
             lang = payload.lang,
             iconUrl = payload.iconUrl,
+            badge = badge,
             action = {
                 IconButton(onClick = { model.uninstall(payload) }) {
                     Icon(
@@ -403,6 +417,7 @@ private fun NovelExtensionRow(
                 lang = payload.lang,
                 iconUrl = payload.iconUrl,
                 subtitle = state.errors[key],
+                badge = badge,
                 action = {
                     NovelRowAction(inProgress = key in state.inProgress) {
                         TextButton(onClick = { model.install(payload) }) {

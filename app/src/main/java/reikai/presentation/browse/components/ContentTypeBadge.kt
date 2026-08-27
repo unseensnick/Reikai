@@ -8,16 +8,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import reikai.domain.library.ContentType
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Says which content type a source row belongs to. Drawn only where the list holds both, since the
- * sources are interleaved by language there and the row is otherwise the only thing that can say.
+ * Says which content type a Browse row belongs to, beside its name. Drawn only where the list holds
+ * both, since the rows are interleaved by language there and nothing else on the row can say.
  */
 @Composable
-fun SourceContentTypeBadge(
+fun ContentTypeBadge(
     contentType: ContentType,
     modifier: Modifier = Modifier,
 ) {
@@ -33,8 +34,9 @@ fun SourceContentTypeBadge(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(4.dp),
             )
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-        style = MaterialTheme.typography.labelSmall,
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+        // Sits inline with the name, so it stays a shade smaller than the name's own style.
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }

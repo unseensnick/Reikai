@@ -61,6 +61,8 @@ fun ExtensionItem(
     onClickItemAction: (Extension) -> Unit,
     onClickItemSecondaryAction: (Extension) -> Unit,
     modifier: Modifier = Modifier,
+    // RK: content-type badge, beside the name, drawn by the shared list when it holds both types.
+    badge: @Composable () -> Unit = {},
 ) {
     val (extension, installStep) = item
     BaseBrowseItem(
@@ -110,6 +112,7 @@ fun ExtensionItem(
         ExtensionItemContent(
             extension = extension,
             installStep = installStep,
+            badge = badge,
             modifier = Modifier.weight(1f),
         )
     }
@@ -120,16 +123,25 @@ private fun ExtensionItemContent(
     extension: Extension,
     installStep: InstallStep,
     modifier: Modifier = Modifier,
+    // RK: content-type badge, beside the name.
+    badge: @Composable () -> Unit = {},
 ) {
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),
     ) {
-        Text(
-            text = extension.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = extension.name,
+                modifier = Modifier.weight(1f, fill = false),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            badge()
+        }
         // Won't look good but it's not like we can ellipsize overflowing content
         FlowRow(
             modifier = Modifier.secondaryItemAlpha(),

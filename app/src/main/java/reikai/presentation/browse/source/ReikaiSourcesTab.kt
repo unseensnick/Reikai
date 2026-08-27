@@ -2,7 +2,6 @@ package reikai.presentation.browse.source
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -36,9 +35,9 @@ import reikai.presentation.browse.EntrySourceOptionsDialog
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.BrowseSectionHeader
+import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
-import reikai.presentation.browse.components.SourceContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
@@ -216,8 +215,8 @@ private fun SourceRow(
     onClickPin: (BrowseSourceRow) -> Unit,
     onLongClickItem: (BrowseSourceRow) -> Unit,
 ) {
-    val badge: @Composable RowScope.() -> Unit = {
-        if (showContentType) SourceContentTypeBadge(row.key.contentType)
+    val badge: @Composable () -> Unit = {
+        if (showContentType) ContentTypeBadge(row.key.contentType)
     }
     when (row.key) {
         is SourceKey.Manga -> SourceItem(
@@ -233,8 +232,8 @@ private fun SourceRow(
             iconUrl = (row.source as NovelSource).iconUrl,
             onClickItem = { onClickItem(row, null) },
             onLongClickItem = { onLongClickItem(row) },
+            badge = badge,
             action = {
-                badge()
                 NovelSourcePinButton(
                     isPinned = row.isPinned,
                     onClick = { onClickPin(row) },
