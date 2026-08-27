@@ -45,7 +45,9 @@ class ReikaiSourcePreferences(
      * incognito; null until a source has been opened.
      */
     val lastUsedSource: Preference<SourceKey?> = preferenceStore.getObjectFromString(
-        "reikai_last_used_source",
+        // App state, as Mihon's own last-used key is: it describes this device's session, so a
+        // backup restored on another device must not hand it a source it has never opened.
+        Preference.appStateKey("reikai_last_used_source"),
         null,
         { it?.serialize().orEmpty() },
         SourceKey::parse,
