@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.network.interceptor
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -153,6 +154,17 @@ class CloudflareInterceptor(
                             }
                         }
                     }
+
+                    // RK: Cloudflare reports a challenge it has given up on. Without this the
+                    //     request sits out the full latch timeout for a result already decided.
+                    //     Only trusted while the solver is off: it keeps pressing through a failed
+                    //     round, and Cloudflare reissues after one often enough to matter.
+                    @Suppress("unused")
+                    @JavascriptInterface
+                    fun challengeFailed() {
+                        logcat { "Turnstile[${originalRequest.url.host}]: challenge failed" }
+                        if (!solverArmed.get()) latch.countDown()
+                    }
                 },
                 "mihon",
             )
@@ -205,12 +217,24 @@ class CloudflareInterceptor(
                                         if (data?.source === "cloudflare-challenge" && data?.event === "interactiveBegin") {
                                             mihon.interactiveDetected();
                                         }
+                                        // RK -->
+                                        if (data?.source === "cloudflare-challenge" && data?.event === "fail") {
+                                            mihon.challengeFailed();
+                                        }
+                                        // RK <--
                                     })
                                 """.trimIndent(),
                                 null,
                             )
                         }
                     }
+                }
+
+                // RK: a dead renderer never finishes the page, so the request would sit out the
+                //     latch timeout, and returning false from here kills the app process.
+                override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                    latch.countDown()
+                    return true
                 }
 
                 override fun onReceivedHttpError(

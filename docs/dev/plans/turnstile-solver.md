@@ -57,7 +57,7 @@ unchanged.
 Prototype, shipped off by default in `14d3d54c1`. Device-verified on the Fold over a VPN across
 repeated cold starts with cookies and WebView data cleared between runs.
 
-Four or five challenged hosts in one global search clear in **2.9 to 3.5 seconds**, in parallel,
+Four or five challenged hosts in one global search clear in **2.9 to 3.9 seconds**, in parallel,
 with no failures and no keyboard disruption: `aquareader.org`, `comix.to`, `comick.live`,
 `mangafire.to`, `www.natomanga.com`, `toonily.com`. A single host takes 2.2 to 3.1 seconds from the
 challenge turning interactive to the page being past it.
@@ -70,7 +70,7 @@ The shape of the numbers, run over the same test as the design changed:
 | serialized, one solve at a time | 3 of 6 | ~35s | 3 |
 | serialized, press gated on interactive, per-host dedup | 5 of 6 | ~33s | 1 |
 | parallel, dedup, undetected-solve fallback | 6 of 6 | 3.4s | 0 |
-| pressing with Tab and Space instead of a tap | **29 of 29** | **2.9-3.5s** | **0** |
+| pressing with Tab and Space instead of a tap | **44 of 44** | **2.9-3.9s** | **0** |
 
 Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
 Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
@@ -85,10 +85,15 @@ challenge, neither of which is reachable from a unit test.
   pointer-event counter also read zero throughout, but it ran in an isolated world and was never
   shown able to read anything else, so the behaviour above is the load-bearing evidence, not it.
 - **The press is Tab then Space, not a tap at a computed point.** Suggested by the person who
-  proposed the solver, and used by their upstream port (mihonapp/mihon#3858). Twenty-nine interactive
-  challenges over six VPN rounds cleared on keys alone, at 2.2 to 3.1 seconds each, the range the
-  tap measured. The four rounds run before the tap came out carried it as a fallback and never
+  proposed the solver, and used by their upstream port (mihonapp/mihon#3858). Forty-four interactive
+  challenges over nine VPN rounds cleared on keys alone, at 2.2 to 3.1 seconds each, the range
+  the tap measured. The four rounds run before the tap came out carried it as a fallback and never
   reached it.
+- **A failed challenge and a dead renderer end the wait early**, both taken from
+  mihonapp/mihon#3858. Cloudflare posts a `fail` event on a round it has abandoned, and a renderer
+  that dies never finishes the page, so either one used to cost the whole thirty-second latch. The
+  `fail` abort is trusted only while the solver is off: armed, it keeps pressing, because Cloudflare
+  reissues after a failed round often enough to matter. Neither path fired in testing.
   Keys need no coordinate, so the checkbox inset, the widget-rect walk in the probe and the viewport
   scaling are gone: that arithmetic was the part most exposed to Cloudflare restyling its widget.
 - **Focus turned out not to matter, and taking it was a bug.** An early design spoofed

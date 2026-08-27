@@ -87,10 +87,11 @@ object TurnstileSolver {
         val container = ForegroundActivity.current?.window?.decorView as? ViewGroup ?: return false
 
         // Off screen rather than invisible: Chromium stops rendering a view it considers hidden, and
-        // a widget that does not render is one that cannot be pressed.
+        // a widget that does not render is one that cannot be pressed. Shifted left by its own width
+        // rather than right, so it stays off screen if the window grows under it.
         val width = container.width.takeIf { it > 0 } ?: DEFAULT_WIDTH
         val height = container.height.takeIf { it > 0 } ?: DEFAULT_HEIGHT
-        webView.translationX = width.toFloat()
+        webView.translationX = -width.toFloat()
 
         // It must never hold focus. Taking it on attach and handing it back on detach is what
         // reopens the soft keyboard over whatever the user was typing in, once per solve. The keys
