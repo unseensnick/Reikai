@@ -310,6 +310,11 @@ whose only job is to blank that chrome. And the manga migration target picker is
 `MigrationDeepPicker` while the novel one is this screen's `migrateForId` mode, so the pick flow is
 the one fork this step leaves standing.
 
+Verified on device: both catalogues, both filter sheets, the adult-source rows, toolbar search, genre
+search from a details page, long-press add, selection, and both MangaDex filter entries (Follows
+opens the follows list, Random pushes a fresh catalogue carrying its `id:` query). The novel
+migrate-pick mode is the one path not walked.
+
 Step 8e (the Latest capability) is left, then step 9. It lands in the 0.4.0 cycle but does not join
 the cut gate, which stays the tsundoku reader migration and Road B; if it is not finished when those
 two are, it slips rather than holding the release. `ROADMAP.md`
