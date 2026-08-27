@@ -37,7 +37,8 @@ fun EntryCatalogueToolbar(
     onHelpClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
-    /** The search field's X: clears the search rather than leaving the source. */
+    /** Leaving the search bar: clears the search rather than the source. The X beside the field is
+     *  upstream's own reset, which only empties the text. */
     onCloseSearch: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     onToggleSelectionMode: (() -> Unit)? = null,

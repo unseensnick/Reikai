@@ -336,8 +336,10 @@ truncating it to `showLatest` still matched every positive fixture; a plugin nam
 option is what makes the full lnreader name load-bearing.
 
 Two of the three things the takeover left standing were closed afterwards (owner, 2026-08-27): the
-manga migration target picker now uses the catalogue's own pick mode, and the search field's X
+manga migration target picker now uses the catalogue's own pick mode, and leaving the search bar
 clears the search on both types rather than leaving the source, restoring what the novel screen did.
+The control is the back arrow while searching, not the X beside the field, which is upstream's own
+reset and only empties the text.
 The follows screen keeping its own chrome is the one still open, and `ROADMAP.md` carries it.
 
 ## The behaviour inventory (step 9)
