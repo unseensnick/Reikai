@@ -335,9 +335,10 @@ The pin needed a fourth case to be worth anything. Three tests left the marker u
 truncating it to `showLatest` still matched every positive fixture; a plugin naming a same-prefix
 option is what makes the full lnreader name load-bearing.
 
-Three things the takeover deliberately left standing are forward work rather than part of it, and
-`ROADMAP.md` carries them: the follows screen keeping its own chrome, the manga migration picker
-still being its own screen, and the search-field X behaving as manga does on a light-novel source.
+Two of the three things the takeover left standing were closed afterwards (owner, 2026-08-27): the
+manga migration target picker now uses the catalogue's own pick mode, and the search field's X
+clears the search on both types rather than leaving the source, restoring what the novel screen did.
+The follows screen keeping its own chrome is the one still open, and `ROADMAP.md` carries it.
 
 ## The behaviour inventory (step 9)
 
