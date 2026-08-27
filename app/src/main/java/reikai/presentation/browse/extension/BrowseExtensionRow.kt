@@ -39,6 +39,8 @@ sealed interface ExtensionSection {
 data class BrowseExtensionRow(
     val key: ExtensionKey,
     val name: String,
+    /** The language as an ISO code, normalised, so a row renders the same name as its section. */
+    val lang: String,
     val section: ExtensionSection,
     val needsAttention: Boolean,
     val searchTerms: List<String>,

@@ -399,7 +399,7 @@ private fun NovelExtensionRow(
         is LnPluginUpdate -> NovelSourceRow(
             modifier = modifier,
             name = payload.entry.name,
-            lang = payload.entry.lang,
+            lang = row.lang,
             iconUrl = payload.entry.iconUrl,
             subtitle = "v${payload.installedVersion} -> v${payload.entry.version}",
             badge = badge,
@@ -417,7 +417,7 @@ private fun NovelExtensionRow(
         is NovelSource -> NovelSourceRow(
             modifier = modifier,
             name = payload.name,
-            lang = payload.lang,
+            lang = row.lang,
             iconUrl = payload.iconUrl,
             badge = badge,
             action = {
@@ -434,7 +434,7 @@ private fun NovelExtensionRow(
             NovelSourceRow(
                 modifier = modifier,
                 name = payload.name,
-                lang = payload.lang,
+                lang = row.lang,
                 iconUrl = payload.iconUrl,
                 subtitle = state.errors[key],
                 badge = badge,

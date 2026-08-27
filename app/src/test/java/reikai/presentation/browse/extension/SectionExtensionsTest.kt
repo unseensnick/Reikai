@@ -110,6 +110,7 @@ class SectionExtensionsTest {
     ) = BrowseExtensionRow(
         key = ExtensionKey.Manga(name),
         name = name,
+        lang = "en",
         section = section,
         needsAttention = needsAttention,
         searchTerms = listOf(name),
@@ -121,6 +122,7 @@ class SectionExtensionsTest {
         BrowseExtensionRow(
             key = ExtensionKey.Novel(name),
             name = name,
+            lang = "en",
             section = section,
             needsAttention = false,
             searchTerms = listOf(name),

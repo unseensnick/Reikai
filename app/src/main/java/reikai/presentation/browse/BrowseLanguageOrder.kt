@@ -14,8 +14,15 @@ fun compareBrowseLanguages(a: String, b: String): Int = when {
     a == b -> 0
     a.isEmpty() -> 1
     b.isEmpty() -> -1
+    // The local source's own group belongs with the leftovers at the end, not sorted among real
+    // languages under the letter its code happens to start with.
+    a == OTHER_LANGUAGE -> 1
+    b == OTHER_LANGUAGE -> -1
     else -> LocaleHelper.comparator(a, b)
 }
+
+/** The language the local source declares, which names no language at all. */
+private const val OTHER_LANGUAGE = "other"
 
 /**
  * The heading for a language section. Android names a language only from its tag, and a plugin can

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
+import reikai.novel.source.langCode
 import reikai.novel.source.toLangCode
 import reikai.novel.update.LnPluginUpdate
 
@@ -84,6 +85,7 @@ private fun Extension.toRow(section: ExtensionSection, downloads: Map<String, In
     BrowseExtensionRow(
         key = ExtensionKey.Manga(pkgName),
         name = name,
+        lang = lang.orEmpty(),
         section = section,
         // An obsolete extension is the one the user has to act on, so it leads its section, which is
         // the order GetExtensionsByType hands the installed list over in.
@@ -152,14 +154,17 @@ fun novelExtensionRows(
     available: List<LnRegistryEntry>,
 ): List<BrowseExtensionRow> {
     val claimed = mutableSetOf<String>()
+    // Languages normalised to a code, so a plugin declaring its language in that language lands
+    // with the ones declaring a code, with the manga extensions of that language, and renders the
+    // same name its own section header does.
     return updates.mapNotNull {
-        novelRow(claimed, it.entry.site, it.entry.id, it.entry.name, ExtensionSection.Updates, it)
+        val lang = it.entry.lang.toLangCode()
+        novelRow(claimed, it.entry.site, it.entry.id, it.entry.name, lang, ExtensionSection.Updates, it)
     } + installed.mapNotNull {
-        novelRow(claimed, it.site, it.id, it.name, ExtensionSection.Installed, it)
+        novelRow(claimed, it.site, it.id, it.name, it.langCode(), ExtensionSection.Installed, it)
     } + available.mapNotNull {
-        // Normalised to a code so a plugin declaring "Español" lands with one declaring "es", and
-        // with the manga extensions of that language.
-        novelRow(claimed, it.site, it.id, it.name, ExtensionSection.Available(it.lang.toLangCode()), it)
+        val lang = it.lang.toLangCode()
+        novelRow(claimed, it.site, it.id, it.name, lang, ExtensionSection.Available(lang), it)
     }
 }
 
@@ -168,6 +173,7 @@ private fun novelRow(
     site: String,
     id: String,
     name: String,
+    lang: String,
     section: ExtensionSection,
     payload: Any,
 ) = if (!claimed.add(id)) {
@@ -176,6 +182,7 @@ private fun novelRow(
     BrowseExtensionRow(
         key = ExtensionKey.Novel(id),
         name = name,
+        lang = lang,
         section = section,
         needsAttention = false,
         searchTerms = listOf(name, site),

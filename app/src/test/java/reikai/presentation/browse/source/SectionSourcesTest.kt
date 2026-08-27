@@ -76,6 +76,16 @@ class SectionSourcesTest {
     }
 
     @Test
+    fun `the local source's group sinks below every real language`() {
+        // "other" names no language, so sorting it by display name would bury it under O.
+        val items = sectionSources(
+            listOf(manga("Zed", lang = "other"), manga("Anna", lang = "sv")),
+        )
+
+        items.headers() shouldBe listOf("sv", "other")
+    }
+
+    @Test
     fun `the last-used copy of a pinned source stays under Last used`() {
         // It carries isPinned so its row and its long-press sheet agree the source is pinned; only
         // the section check keeps it out of Pinned.
