@@ -204,8 +204,14 @@ Fully replaced pure-UI Mihon files: `SourcesScreen.kt`, `ExtensionsTab.kt`, both
 `GlobalSearchScreen.kt`, `MigrateSourceScreen.kt`, and both `BrowseSourceScreen.kt`. Per-file
 upstream churn over twelve months is 1 to 5 commits each, well inside what the migrate takeover was
 ruled affordable at. The row leaves stay live and synced (`SourceItem`, `BaseSourceItem`,
-`ExtensionItem`, `ExtensionUiModel`, the four browse grid variants), as do every ViewModel and
-interactor below them.
+`ExtensionItem`, `ExtensionUiModel`), as do every ViewModel and interactor below them.
+
+**Three of the four browse grid variants go too** (found on doing step 8c, correcting a line here
+that counted them as row leaves). `BrowseSourceComfortableGrid`, `BrowseSourceCompactGrid` and
+`BrowseSourceList` are containers, not leaves: the leaf is `EntryBrowseGridCell`, which all three
+already delegated to and which both content types already shared. `BrowseSourceEHentaiList` is the
+one that stays, re-typed to the neutral row, because it is a layout rather than a repeat of the
+same one.
 
 **`ExtensionsScreen.kt` is partially collapsed, not deleted** (found on doing step 5, correcting the
 line above): its screen, list, pull-to-refresh, banner and loading and empty states moved out, but
@@ -267,22 +273,31 @@ sort lifts a stub above everything, in either mode, and orders names through a c
 view a sort header at all. Two more novel-side gaps closed with it: a gone plugin now says "Not
 installed" like a manga stub, and the manga list's fetch-error snackbar, which had no listener left
 after `MigrateSourceTab.kt` was deleted, is wired again.
-
 **Step 7 replaced both search screens with one (`c8e938037`), and the content type became tabs
-rather than a second chip row.** Two chip rows would have put an All chip beside an All chip meaning different things, so
-`ContentTypeTabs` sits above the source filters, matching the recents strip. The engine owns the
-query, the source filter, the has-results toggle, one comparator and one concurrency limiter, and it
-fans each query to both providers. A selection can span both types; the categories prompt then runs
-twice, labelled per type, because novel categories are a different partition of the same table and a
-merged list would let a reader tick a manga category expecting it to apply to a novel. Which prompts
-run is decided when the batch is dispatched, since the first one resolving empties its own selection.
-Routing goes through the row's `SourceKey`, never the payload: the manga provider stores the
-extension-facing `Source`, so the obvious cast compiles and throws on tap. `novelGlobalSearchHasResults`
-is retired, one Mihon preference now driving the toggle for both halves.
+rather than a second chip row.** Two chip rows would have put an All chip beside an All chip meaning
+different things, so `ContentTypeTabs` sits above the source filters, matching the recents strip. The
+engine owns the query, the source filter, the has-results toggle, one comparator and one concurrency
+limiter, and it fans each query to both providers. A selection can span both types; the categories
+prompt then runs twice, labelled per type, because novel categories are a different partition of the
+same table and a merged list would let a reader tick a manga category expecting it to apply to a
+novel. Which prompts run is decided when the batch is dispatched, since the first one resolving
+empties its own selection. Routing goes through the row's `SourceKey`, never the payload: the manga
+provider stores the extension-facing `Source`, so the obvious cast compiles and throws on tap.
+`novelGlobalSearchHasResults` is retired, one Mihon preference now driving the toggle for both halves.
 
-Steps 8 and 9 are unstarted. It lands in the 0.4.0 cycle but does not join the cut gate, which stays
-the tsundoku reader migration and Road B; if it is not finished when those two are, it slips rather
-than holding the release. `ROADMAP.md` carries the forward item.
+**Step 8 is under way: the neutral contract (8a), the two adapters (8b), and one catalogue body
+(8c).** Both per-source screens now page the neutral row and render through `EntryBrowseCatalogue`,
+which owns the loading, empty and fetch-error states and all three grid layouts. Writing the adapters
+corrected two things the contract had wrong: a shared `refresh()` verb, which manga would have
+answered with nothing, so recovering a failed source moved onto the failure state itself; and a row
+carrying its neutral data and payload in separate flows, which doubled the collectors on a paging
+list. Novels pick up the column preference and the empty state's Help action by construction. There
+are four hosts rather than two: `MangaDexFollowsScreen` and `MigrationDeepPicker` render the body too.
+
+Step 8 has 8d (the shared screen) and 8e (the Latest capability) left, then step 9. It lands in the
+0.4.0 cycle but does not join the cut gate, which stays the tsundoku reader migration and Road B; if
+it is not finished when those two are, it slips rather than holding the release. `ROADMAP.md`
+carries the forward item.
 
 ## Decisions & tradeoffs
 

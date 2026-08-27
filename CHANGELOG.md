@@ -129,6 +129,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Migrate list now shows manga and light-novel sources in one list, sorted together.** The sort controls cover the whole list instead of vanishing when both kinds are showing.
 - **Global search now searches manga and light-novel sources in one run, with All / Manga / Novels tabs at the top.** Sources are ordered together, so whichever kind found something rises above the ones still working.
 - **A global search selection can now add manga and novels to your library together.** Categories are asked for once per kind, because the two libraries keep their own.
+- **A light-novel source now browses in your chosen grid column count, like manga does.** Both kinds of source draw their results through one grid, so the display mode means the same thing on either.
 
 **Details**
 

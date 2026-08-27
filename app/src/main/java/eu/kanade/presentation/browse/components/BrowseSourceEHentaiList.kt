@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastAny
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import dev.icerock.moko.resources.StringResource
@@ -46,7 +45,7 @@ import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.util.SourceTagsUtil
 import exh.util.SourceTagsUtil.GenreColor
-import kotlinx.coroutines.flow.StateFlow
+import reikai.presentation.browse.catalogue.EntryBrowseRow
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
@@ -63,39 +62,39 @@ import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 
 @Composable
 fun BrowseSourceEHentaiList(
-    // pair carries the gallery metadata; the row renders rating / category / pages from .second.
-    mangaList: LazyPagingItems<StateFlow<Pair<Manga, RaisedSearchMetadata?>>>,
+    // RK: neutral catalogue rows. The manga adapter is the only one that asks for this layout, so its
+    //     payload is always the live (manga, gallery metadata) pair the rows render rating and pages from.
+    rows: LazyPagingItems<EntryBrowseRow>,
     contentPadding: PaddingValues,
-    onMangaClick: (Manga) -> Unit,
-    onMangaLongClick: (Manga) -> Unit,
-    // RK: highlighted when in bulk-selection mode
-    selection: List<Manga> = emptyList(),
+    selectedKeys: Set<String>,
+    onClick: (EntryBrowseRow) -> Unit,
+    onLongClick: (EntryBrowseRow) -> Unit,
 ) {
     LazyColumn(
         contentPadding = contentPadding,
     ) {
         item {
-            if (mangaList.loadState.prepend is LoadState.Loading) {
+            if (rows.loadState.prepend is LoadState.Loading) {
                 BrowseSourceLoadingItem()
             }
         }
 
-        items(count = mangaList.itemCount) { index ->
-            val pair by mangaList[index]?.collectAsState() ?: return@items
-            val manga = pair.first
-            val metadata = pair.second
+        items(count = rows.itemCount) { index ->
+            val row = rows[index] ?: return@items
+            val content by row.content.collectAsState()
+            val (manga, metadata) = content.payload as Pair<*, *>
 
             BrowseSourceEHentaiListItem(
-                manga = manga,
-                metadata = metadata,
-                onClick = { onMangaClick(manga) },
-                onLongClick = { onMangaLongClick(manga) },
-                isSelected = selection.fastAny { it.id == manga.id },
+                manga = manga as Manga,
+                metadata = metadata as RaisedSearchMetadata?,
+                onClick = { onClick(row) },
+                onLongClick = { onLongClick(row) },
+                isSelected = row.key in selectedKeys,
             )
         }
 
         item {
-            if (mangaList.loadState.refresh is LoadState.Loading || mangaList.loadState.append is LoadState.Loading) {
+            if (rows.loadState.refresh is LoadState.Loading || rows.loadState.append is LoadState.Loading) {
                 BrowseSourceLoadingItem()
             }
         }

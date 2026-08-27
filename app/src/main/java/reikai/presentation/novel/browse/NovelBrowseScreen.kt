@@ -5,14 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -21,7 +16,6 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -42,20 +36,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastAny
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.paging.LoadState
-import androidx.paging.compose.LazyPagingItems
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
-import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
@@ -63,7 +52,6 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
-import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
@@ -71,16 +59,18 @@ import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.library.ContentType
-import reikai.novel.host.NovelItem
-import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
+import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
+import reikai.presentation.browse.catalogue.EntryBrowseScreenState
+import reikai.presentation.browse.catalogue.NovelBrowseAdapter
+import reikai.presentation.browse.catalogue.item
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.components.toDuplicateCard
-import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.details.NovelScreen
+import tachiyomi.core.common.Constants
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -89,7 +79,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.util.plus
 
 /**
  * Per-source light-novel browse, rebuilt on Mihon's manga-browse primitives so it is visually
@@ -115,9 +104,14 @@ class NovelBrowseScreen(
         }
         val state by viewModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
+        val uriHandler = LocalUriHandler.current
         val bulkModel = metroViewModel<NovelBulkFavoriteViewModel>()
         val bulkState by bulkModel.state.collectAsState()
-        val novels = viewModel.novelPagerFlowFlow.collectAsLazyPagingItems()
+        val adapter = remember(viewModel, bulkModel) {
+            NovelBrowseAdapter(viewModel, bulkModel, sourceId, migratePickFor) { navigator.pop() }
+        }
+        val novels = adapter.rows.collectAsLazyPagingItems()
+        val browseState by adapter.state.collectAsState()
 
         BackHandler(enabled = bulkState.selectionMode) { bulkModel.backHandler() }
 
@@ -173,13 +167,9 @@ class NovelBrowseScreen(
                             selectedCount = bulkState.selection.size,
                             onClickClearSelection = bulkModel::toggleSelectionMode,
                             onChangeCategoryClick = { bulkModel.addFavorite(state.favoritedKeys) },
-                            onSelectAll = {
-                                novels.itemSnapshotList.items.forEach { bulkModel.select(sourceId, it) }
-                            },
+                            onSelectAll = { adapter.selectAll(novels.itemSnapshotList.items) },
                             onReverseSelection = {
-                                bulkModel.reverseSelection(
-                                    novels.itemSnapshotList.items.map { SelectedNovel(sourceId, it) },
-                                )
+                                adapter.invertSelection(novels.itemSnapshotList.items)
                             },
                         )
                     } else {
@@ -305,37 +295,46 @@ class NovelBrowseScreen(
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { contentPadding ->
-            NovelBrowseBody(
-                novels = novels,
-                state = state,
-                errorState = errorState as? LoadState.Error,
-                sourceId = sourceId,
-                displayMode = viewModel.displayMode,
-                contentPadding = contentPadding,
-                selection = bulkState.selection,
-                onRetrySource = viewModel::retryLoadSource,
-                onWebViewClick = onWebViewClick,
-                onResultClick = { item ->
-                    when {
-                        // Picking a migration target; store the row and hand its id back.
-                        migratePickFor != null -> viewModel.pickAsMigrationTarget(item, migratePickFor) {
-                            navigator.pop()
+            when (val loaded = browseState) {
+                // The plugin itself never resolved, so there is nothing to page and nothing for the
+                // pager to report; only re-resolving it can recover.
+                is EntryBrowseScreenState.SourceFailed -> EmptyScreen(
+                    message = loaded.message,
+                    modifier = Modifier.padding(contentPadding),
+                    actions = listOf(
+                        EmptyScreenAction(MR.strings.action_retry, Icons.Outlined.Refresh, loaded.reload),
+                    ),
+                )
+                is EntryBrowseScreenState.Loaded -> EntryBrowseCatalogue(
+                    rows = novels,
+                    rowStyle = loaded.rowStyle,
+                    selectedKeys = loaded.selectedKeys,
+                    snackbarHostState = snackbarHostState,
+                    contentPadding = contentPadding,
+                    onWebViewClick = { onWebViewClick() },
+                    onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
+                    onClick = { row ->
+                        val pick = loaded.capabilities.migrationPick
+                        when {
+                            // Picking a migration target; store the row and hand its id back.
+                            pick != null -> pick.pick(row) {}
+                            loaded.selectionMode -> adapter.toggleSelection(row)
+                            else -> navigator.push(NovelScreen(sourceId, row.item.path))
                         }
-                        bulkState.selectionMode -> bulkModel.toggleSelection(sourceId, item)
-                        else -> navigator.push(NovelScreen(sourceId, item.path))
-                    }
-                },
-                onLongClickItem = { item ->
-                    // In pick mode long-press previews the candidate, matching the manga picker.
-                    // The normal long-press adds to library, which would favorite a novel the user
-                    // is only inspecting before choosing a migration target.
-                    if (migratePickFor != null || bulkState.selectionMode) {
-                        navigator.push(NovelScreen(sourceId, item.path))
-                    } else {
-                        viewModel.onLongClickItem(item)
-                    }
-                },
-            )
+                    },
+                    onLongClick = { row ->
+                        // In pick mode long-press previews the candidate, matching the manga picker.
+                        // The normal long-press adds to library, which would favorite a novel the
+                        // reader is only inspecting before choosing a migration target.
+                        if (loaded.capabilities.migrationPick != null || loaded.selectionMode) {
+                            navigator.push(NovelScreen(sourceId, row.item.path))
+                        } else {
+                            adapter.onRowLongClick(row)
+                        }
+                    },
+                )
+                else -> LoadingScreen(Modifier.padding(contentPadding))
+            }
         }
 
         when (val dialog = state.dialog) {
@@ -417,97 +416,5 @@ class NovelBrowseScreen(
             },
             label = { Text(text = label) },
         )
-    }
-
-    @Composable
-    private fun NovelBrowseBody(
-        novels: LazyPagingItems<NovelItem>,
-        state: NovelBrowseState,
-        errorState: LoadState.Error?,
-        sourceId: String,
-        displayMode: LibraryDisplayMode,
-        contentPadding: PaddingValues,
-        selection: List<SelectedNovel>,
-        onRetrySource: () -> Unit,
-        onWebViewClick: () -> Unit,
-        onResultClick: (NovelItem) -> Unit,
-        onLongClickItem: (NovelItem) -> Unit,
-    ) {
-        val context = LocalContext.current
-        when {
-            // The plugin itself never resolved, so there is nothing to page and nothing for the
-            // pager to report; only re-resolving it can recover.
-            state.source == null && state.sourceError != null -> EmptyScreen(
-                message = state.sourceError,
-                modifier = Modifier.padding(contentPadding),
-                actions = listOf(
-                    EmptyScreenAction(MR.strings.action_retry, Icons.Outlined.Refresh, onRetrySource),
-                ),
-            )
-            novels.itemCount == 0 && novels.loadState.refresh is LoadState.Loading ->
-                LoadingScreen(Modifier.padding(contentPadding))
-            novels.itemCount == 0 -> EmptyScreen(
-                message = errorState?.let { with(context) { it.error.formattedMessage } }
-                    ?: stringResource(MR.strings.no_results_found),
-                modifier = Modifier.padding(contentPadding),
-                actions = listOf(
-                    EmptyScreenAction(MR.strings.action_retry, Icons.Outlined.Refresh, novels::refresh),
-                    EmptyScreenAction(MR.strings.action_open_in_web_view, Icons.Outlined.Public, onWebViewClick),
-                ),
-            )
-            displayMode == LibraryDisplayMode.List -> {
-                val haptic = LocalHapticFeedback.current
-                LazyColumn(contentPadding = contentPadding + PaddingValues(vertical = 8.dp)) {
-                    items(count = novels.itemCount) { index ->
-                        val item = novels[index] ?: return@items
-                        EntryBrowseGridCell(
-                            ui = item.toEntryBrowseUi(
-                                inLibrary = (sourceId to item.path) in state.favoritedKeys,
-                                site = state.source?.site,
-                            ),
-                            displayMode = displayMode,
-                            onClick = { onResultClick(item) },
-                            onLongClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onLongClickItem(item)
-                            },
-                            isSelected = selection.fastAny { it.sourceId == sourceId && it.item.path == item.path },
-                        )
-                    }
-                    if (novels.loadState.append is LoadState.Loading) {
-                        item { BrowseSourceLoadingItem() }
-                    }
-                }
-            }
-            else -> {
-                val haptic = LocalHapticFeedback.current
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(128.dp),
-                    contentPadding = contentPadding + PaddingValues(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
-                    horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
-                ) {
-                    items(count = novels.itemCount) { index ->
-                        val item = novels[index] ?: return@items
-                        EntryBrowseGridCell(
-                            ui = item.toEntryBrowseUi(
-                                inLibrary = (sourceId to item.path) in state.favoritedKeys,
-                                site = state.source?.site,
-                            ),
-                            displayMode = displayMode,
-                            onClick = { onResultClick(item) },
-                            onLongClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onLongClickItem(item)
-                            },
-                            isSelected = selection.fastAny { it.sourceId == sourceId && it.item.path == item.path },
-                        )
-                    }
-                    if (novels.loadState.append is LoadState.Loading) {
-                        item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }
-                    }
-                }
-            }
-        }
     }
 }

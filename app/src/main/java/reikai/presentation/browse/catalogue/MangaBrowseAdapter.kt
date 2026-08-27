@@ -56,7 +56,7 @@ class MangaBrowseAdapter(
             pagerFlow.map { pagingData ->
                 pagingData.map { entryFlow ->
                     EntryBrowseRow(
-                        key = rowKey(entryFlow.value.first),
+                        key = mangaRowKey(entryFlow.value.first),
                         // The model already keeps one flow per entry so a favourite toggle re-renders
                         // that cell alone; this maps it rather than opening a second collector. The
                         // payload stays the live pair, which the gallery rows read the metadata from.
@@ -90,7 +90,7 @@ class MangaBrowseAdapter(
                 EntryBrowseRowStyle.Standard(model.displayMode)
             },
             selectionMode = bulkState.selectionMode,
-            selectedKeys = bulkState.selection.mapTo(mutableSetOf(), ::rowKey),
+            selectedKeys = bulkState.selection.mapTo(mutableSetOf(), ::mangaRowKey),
             capabilities = capabilities,
             dialog = state.dialog?.toNeutral(),
         )
@@ -190,8 +190,8 @@ class MangaBrowseAdapter(
     }
 }
 
-private fun rowKey(manga: Manga) = "manga:${manga.id}"
+internal fun mangaRowKey(manga: Manga) = "manga:${manga.id}"
 
 /** The row's payload is this adapter's own entry pair, so unwrapping it is sound only here. */
-private val EntryBrowseRow.manga: Manga
+internal val EntryBrowseRow.manga: Manga
     get() = (content.value.payload as Pair<*, *>).first as Manga

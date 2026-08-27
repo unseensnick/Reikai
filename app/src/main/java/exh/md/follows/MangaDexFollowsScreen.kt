@@ -1,6 +1,7 @@
 package exh.md.follows
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material3.SnackbarHost
@@ -9,8 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -18,7 +18,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
-import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
@@ -29,6 +28,10 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteViewModel
+import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
+import reikai.presentation.browse.catalogue.EntryBrowseScreenState
+import reikai.presentation.browse.catalogue.MangaBrowseAdapter
+import reikai.presentation.browse.catalogue.manga
 import reikai.presentation.browse.components.BulkFavoriteDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -64,7 +67,11 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
 
         val bulkFavoriteViewModel = metroViewModel<BulkFavoriteViewModel>()
         val bulkFavoriteState by bulkFavoriteViewModel.state.collectAsState()
-        val mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems()
+        val adapter = remember(viewModel, bulkFavoriteViewModel) {
+            MangaBrowseAdapter(viewModel, bulkFavoriteViewModel)
+        }
+        val entries = adapter.rows.collectAsLazyPagingItems()
+        val browseState by adapter.state.collectAsState()
 
         BackHandler(enabled = bulkFavoriteState.selectionMode) {
             bulkFavoriteViewModel.backHandler()
@@ -77,15 +84,9 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                         selectedCount = bulkFavoriteState.selection.size,
                         onClickClearSelection = bulkFavoriteViewModel::toggleSelectionMode,
                         onChangeCategoryClick = bulkFavoriteViewModel::addFavorite,
-                        onSelectAll = {
-                            mangaList.itemSnapshotList.items
-                                .map { it.value.first }
-                                .forEach(bulkFavoriteViewModel::select)
-                        },
+                        onSelectAll = { adapter.selectAll(entries.itemSnapshotList.items) },
                         onReverseSelection = {
-                            bulkFavoriteViewModel.reverseSelection(
-                                mangaList.itemSnapshotList.items.map { it.value.first },
-                            )
+                            adapter.invertSelection(entries.itemSnapshotList.items)
                         },
                     )
                 } else {
@@ -111,33 +112,33 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { paddingValues ->
-            BrowseSourceContent(
-                source = viewModel.source,
-                mangaList = mangaList,
-                columns = viewModel.getColumnsPreference(LocalConfiguration.current.orientation),
-                displayMode = viewModel.displayMode,
-                useEhentaiView = viewModel.useEhentaiView,
+            val loaded = browseState as? EntryBrowseScreenState.Loaded
+            if (loaded == null) {
+                LoadingScreen(Modifier.padding(paddingValues))
+                return@Scaffold
+            }
+            EntryBrowseCatalogue(
+                rows = entries,
+                rowStyle = loaded.rowStyle,
+                selectedKeys = loaded.selectedKeys,
                 snackbarHostState = snackbarHostState,
                 contentPadding = paddingValues,
                 onWebViewClick = {},
                 onHelpClick = {},
-                onLocalSourceHelpClick = {},
-                onMangaClick = { manga ->
+                onClick = { row ->
                     if (bulkFavoriteState.selectionMode) {
-                        bulkFavoriteViewModel.toggleSelection(manga)
+                        adapter.toggleSelection(row)
                     } else {
-                        navigator.push(MangaScreen(manga.id, true))
+                        navigator.push(MangaScreen(row.manga.id, true))
                     }
                 },
-                onMangaLongClick = { manga ->
+                onLongClick = { row ->
                     if (bulkFavoriteState.selectionMode) {
-                        navigator.push(MangaScreen(manga.id, true))
+                        navigator.push(MangaScreen(row.manga.id, true))
                     } else {
-                        viewModel.onLongClick(manga)
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        adapter.onRowLongClick(row)
                     }
                 },
-                selection = bulkFavoriteState.selection,
             )
         }
 

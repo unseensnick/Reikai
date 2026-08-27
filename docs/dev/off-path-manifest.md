@@ -87,6 +87,9 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/presentation/updates/UpdatesUiItem.kt | mihon | reikai/presentation/recents/RecentsRows.kt |
 | app/src/main/java/eu/kanade/presentation/browse/GlobalSearchScreen.kt | mihon | reikai/presentation/browse/globalsearch/EntryGlobalSearchScreen.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/browse/source/globalsearch/GlobalSearchScreen.kt | mihon | reikai/presentation/browse/globalsearch/EntryGlobalSearchScreen.kt |
+| app/src/main/java/eu/kanade/presentation/browse/components/BrowseSourceComfortableGrid.kt | mihon | reikai/presentation/browse/catalogue/EntryBrowseCatalogue.kt |
+| app/src/main/java/eu/kanade/presentation/browse/components/BrowseSourceCompactGrid.kt | mihon | reikai/presentation/browse/catalogue/EntryBrowseCatalogue.kt |
+| app/src/main/java/eu/kanade/presentation/browse/components/BrowseSourceList.kt | mihon | reikai/presentation/browse/catalogue/EntryBrowseCatalogue.kt |
 
 **A row tracks the file's CURRENT upstream path, not the name Reikai deleted.** When upstream renames a
 manifested file, repoint the row at the new path, because the check `cat-file`s the path at upstream HEAD and,
@@ -113,3 +116,5 @@ The history and updates rows are the surfaces' UI leaves, replaced when the shar
 The three category interactors each scoped themselves to the manga-visible rows. Once a category can span both libraries those rows overlap the novel-visible ones, so a create, reorder or delete that only sees one library writes an order or a preference scrub that is wrong for the other. `CategoryActions` does all three over the whole table instead.
 
 `SupportUsScreen` is the manifest's first declined-feature row, so it has no replacement. It asked users to fund Mihon through Patreon or OpenCollective and told them Mihon is "backed by %d+ patrons"; Reikai runs no donation campaign, and its `More` screen never offered the entry that reached the screen, so nothing in this fork could open it. Soliciting money on another project's behalf is not something to keep sitting in the binary, and the code rules say dead code is deleted rather than marked. Its seven strings went with it, as did `donationCampaign`'s six, which were already unreachable. If Reikai ever wants its own support screen, port it fresh from upstream and rewrite it for Reikai rather than reviving this.
+
+The three browse-grid containers went when one catalogue body took over both per-source screens. Only the containers left: `EntryBrowseGridCell` was already the shared leaf all three delegated to, and `BrowseSourceEHentaiList` stays live as the adult-source layout, re-typed to the neutral row. `BrowseSourceScreen.kt` in `eu.kanade.presentation.browse` is partially collapsed rather than manifested, since `MissingSourceScreen` is still live there.

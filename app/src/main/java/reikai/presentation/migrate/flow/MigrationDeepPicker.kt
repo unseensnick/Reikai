@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.Icon
@@ -14,15 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
-import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -33,6 +33,12 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import mihon.app.di.appGraph
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
+import reikai.presentation.browse.BulkFavoriteViewModel
+import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
+import reikai.presentation.browse.catalogue.EntryBrowseRowStyle
+import reikai.presentation.browse.catalogue.EntryBrowseScreenState
+import reikai.presentation.browse.catalogue.MangaBrowseAdapter
+import reikai.presentation.browse.catalogue.manga
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
@@ -88,6 +94,11 @@ class MigrationDeepPickerScreen(
             create(sourceId = sourceId, listingQuery = query)
         }
         val state by viewModel.state.collectAsState()
+        // The picker never bulk-selects, but the adapter reads a selection off this model.
+        val bulk = metroViewModel<BulkFavoriteViewModel>()
+        val adapter = remember(viewModel, bulk) { MangaBrowseAdapter(viewModel, bulk) }
+        val entries = adapter.rows.collectAsLazyPagingItems()
+        val browseState by adapter.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
 
         Scaffold(
@@ -113,13 +124,16 @@ class MigrationDeepPickerScreen(
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
-            BrowseSourceContent(
-                source = viewModel.source,
-                mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
-                columns = viewModel.getColumnsPreference(LocalConfiguration.current.orientation),
-                displayMode = viewModel.displayMode,
+            val loaded = browseState as? EntryBrowseScreenState.Loaded
+            if (loaded == null) {
+                LoadingScreen(Modifier.padding(contentPadding))
+                return@Scaffold
+            }
+            EntryBrowseCatalogue(
+                rows = entries,
                 // The target picker keeps the plain grid; the enhanced rows are a browse-only surface.
-                useEhentaiView = false,
+                rowStyle = EntryBrowseRowStyle.Standard(viewModel.displayMode),
+                selectedKeys = emptySet(),
                 snackbarHostState = snackbarHostState,
                 contentPadding = contentPadding,
                 // Live, not an empty lambda: this is the error screen's only way out of a source that
@@ -131,13 +145,14 @@ class MigrationDeepPickerScreen(
                     )
                 },
                 onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
-                onLocalSourceHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) },
-                onMangaClick = {
-                    pickHandoff.offer(EntryId.Manga(entryRawId), it.id)
+                onLocalSourceHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) }
+                    .takeIf { viewModel.source is LocalSource },
+                onClick = { row ->
+                    pickHandoff.offer(EntryId.Manga(entryRawId), row.manga.id)
                     navigator.pop()
                 },
                 // Long-press opens the entry, so a candidate can be checked before choosing it.
-                onMangaLongClick = { navigator.push(MangaScreen(it.id, true)) },
+                onLongClick = { row -> navigator.push(MangaScreen(row.manga.id, true)) },
             )
         }
 

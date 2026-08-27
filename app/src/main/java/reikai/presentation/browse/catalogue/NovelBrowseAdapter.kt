@@ -222,5 +222,5 @@ class NovelBrowseAdapter(
 private fun rowKey(sourceId: String, item: NovelItem) = "novel:$sourceId:${item.path}"
 
 /** The row's payload is this adapter's own result, so unwrapping it is sound only here. */
-private val EntryBrowseRow.item: NovelItem
+internal val EntryBrowseRow.item: NovelItem
     get() = content.value.payload as NovelItem
