@@ -123,7 +123,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Browse**
 
-- **The Sources list now shows manga and light-novel sources in one list, grouped by language.** Each row says which kind it is while both are showing, and the content-type chips filter that one list rather than switching between two.
+- **The Sources list now shows manga and light-novel sources in one list, grouped by language.** Each row says which kind it is while both are showing, the chips filter that one list instead of switching between two, and the language groups run in the same order as on Extensions.
 - **The Sources list now remembers one "Last used" source across manga and light novels.** Opening either kind updates it from any screen that opens a catalogue, and it starts empty after this update until you next open one.
 
 **Details**

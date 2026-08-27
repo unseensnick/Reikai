@@ -25,6 +25,22 @@ class SectionSourcesTest {
     }
 
     @Test
+    fun `multi-language sources come before every single language`() {
+        // Sorting the raw codes would bury "all" among them, which is where it used to land.
+        val items = sectionSources(listOf(manga("Anna", lang = "af"), manga("Bea", lang = "all")))
+
+        items.headers() shouldBe listOf("all", "af")
+    }
+
+    @Test
+    fun `languages are ordered by their own name for themselves, not by their code`() {
+        // ar reads as the Arabic endonym, so it follows Deutsch even though the code precedes de.
+        val items = sectionSources(listOf(manga("Anna", lang = "ar"), manga("Bea", lang = "de")))
+
+        items.headers() shouldBe listOf("de", "ar")
+    }
+
+    @Test
     fun `a manga source and a novel source share their language section`() {
         val items = sectionSources(listOf(novel("Novel Fire", lang = "en"), manga("Asura", lang = "en")))
 

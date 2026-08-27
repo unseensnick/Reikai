@@ -187,6 +187,13 @@ Nine steps, each independently shippable and device-verified before the next.
 - **Novel browse adopts manga's display mode and column preferences.** This is one screen serving two
   content types rather than two surfaces, so the surface-scoped-settings rule does not apply, and
   novels currently ignore the column setting entirely.
+- **Every Browse list orders its language sections the same way, and it is upstream's extension order
+  (owner, 2026-08-27).** The two upstream surfaces disagreed: `SourcesViewModel` sorted the raw codes
+  while `ExtensionsViewModel` used `LocaleHelper.comparator`, so the same two languages could swap
+  places between the Sources and Extensions tabs. `compareBrowseLanguages` is now the one definition
+  both sectioners call: multi-language first, then each language by its own name for itself, then
+  sources declaring none. The section *sequence* is unchanged (Last used, Pinned, languages, empty
+  last), so this narrows the earlier order ruling rather than reversing it.
 
 ### What is deleted and manifested
 

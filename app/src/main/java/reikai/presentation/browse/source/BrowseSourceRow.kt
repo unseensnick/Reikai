@@ -3,6 +3,7 @@ package reikai.presentation.browse.source
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import reikai.domain.source.SourceKey
+import reikai.presentation.browse.compareBrowseLanguages
 import java.util.TreeMap
 
 /**
@@ -34,8 +35,8 @@ private val PINNED_SECTION = SourcesViewModel.PINNED_KEY
 
 /**
  * Groups every enabled source into the one sectioned list the Sources tab draws, whichever chip is
- * active: Last used, then Pinned, then one section per language, with sources without a language
- * last. Mihon's order, adopted for both content types so the two chips cannot drift.
+ * active: Last used, then Pinned, then one section per language, ordered by
+ * [compareBrowseLanguages]. One order for both content types and for every Browse list.
  *
  * A row flagged [BrowseSourceRow.isUsedLast] is a *copy* the provider added, so the source appears
  * both under Last used and in its own section, which is what the manga list has always done.
@@ -63,8 +64,6 @@ private val SECTION_ORDER = Comparator<String> { a, b ->
         b == LAST_USED_SECTION -> 1
         a == PINNED_SECTION -> -1
         b == PINNED_SECTION -> 1
-        a == "" -> 1
-        b == "" -> -1
-        else -> a.compareTo(b)
+        else -> compareBrowseLanguages(a, b)
     }
 }

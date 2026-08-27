@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test
  */
 class SectionExtensionsTest {
 
-    private val byCode = Comparator<String> { a, b -> a.compareTo(b) }
-
     @Test
     fun `sections run updates, then installed, then what is available`() {
         val items = section(
@@ -27,13 +25,19 @@ class SectionExtensionsTest {
     }
 
     @Test
-    fun `available splits by language, in the order the list is given`() {
+    fun `available splits by language, multi first and the rest by their own name`() {
+        // ar reads as the Arabic endonym, so it follows Deutsch even though the code precedes de.
         val items = section(
-            row("Zed", ExtensionSection.Available("fr")),
+            row("Zed", ExtensionSection.Available("ar")),
             row("Anna", ExtensionSection.Available("de")),
+            row("Cy", ExtensionSection.Available("all")),
         )
 
-        items.headers() shouldBe listOf(ExtensionSection.Available("de"), ExtensionSection.Available("fr"))
+        items.headers() shouldBe listOf(
+            ExtensionSection.Available("all"),
+            ExtensionSection.Available("de"),
+            ExtensionSection.Available("ar"),
+        )
     }
 
     @Test
@@ -86,7 +90,7 @@ class SectionExtensionsTest {
         matchesExtensionQuery(row, "123") shouldBe false
     }
 
-    private fun section(vararg rows: BrowseExtensionRow) = sectionExtensions(rows.toList(), byCode)
+    private fun section(vararg rows: BrowseExtensionRow) = sectionExtensions(rows.toList())
 
     private fun row(name: String, section: ExtensionSection, ids: List<String> = emptyList()) =
         BrowseExtensionRow(

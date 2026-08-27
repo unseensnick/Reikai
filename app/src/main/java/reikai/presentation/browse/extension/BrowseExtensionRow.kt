@@ -2,6 +2,7 @@ package reikai.presentation.browse.extension
 
 import androidx.compose.runtime.Immutable
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.compareBrowseLanguages
 
 /** Identity for an installable source, whichever kind it is: a package name or a plugin's URL. */
 sealed interface ExtensionKey {
@@ -54,14 +55,11 @@ sealed interface ExtensionsListItem {
  * is installed, then what is available, a section per language. Mihon's order, for both content
  * types, so the chips cannot drift.
  */
-fun sectionExtensions(
-    rows: List<BrowseExtensionRow>,
-    languageOrder: Comparator<String>,
-): List<ExtensionsListItem> {
+fun sectionExtensions(rows: List<BrowseExtensionRow>): List<ExtensionsListItem> {
     val sections = rows
         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         .groupBy { it.section }
-        .toSortedMap(sectionOrder(languageOrder))
+        .toSortedMap(SECTION_ORDER)
     return sections.flatMap { (section, rows) ->
         listOf(ExtensionsListItem.Header(section)) + rows.map { ExtensionsListItem.Row(it) }
     }
@@ -79,12 +77,12 @@ fun matchesExtensionQuery(row: BrowseExtensionRow, query: String?): Boolean {
     }
 }
 
-private fun sectionOrder(languageOrder: Comparator<String>) = Comparator<ExtensionSection> { a, b ->
+private val SECTION_ORDER = Comparator<ExtensionSection> { a, b ->
     val byRank = a.rank().compareTo(b.rank())
     when {
         byRank != 0 -> byRank
         a is ExtensionSection.Available && b is ExtensionSection.Available ->
-            languageOrder.compare(a.lang, b.lang)
+            compareBrowseLanguages(a.lang, b.lang)
         else -> 0
     }
 }
