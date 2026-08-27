@@ -251,17 +251,27 @@ For the takeover:
 step 3 `cadf22edb`, step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fold-verified on both
 content types (the add / remove round trips, the hide-in-library toggle, the language switch).
 
-**The takeover is under way**: steps 1 to 5 are in, so the Sources and Extensions lists are each
-assembled once for both content types and the chip is a predicate over them. Step 5 closed the five
+**The takeover is under way**: steps 1 to 6 are in, so the Sources, Extensions and Migrate lists are
+each assembled once for both content types and the chip is a predicate over them. Step 5 closed the
+five
 known drops by construction (section headers and Update all, pull-to-refresh, the install-permission
 banner, the loading and empty states, the back-clears-search handler) and turned up two defects
 neither list showed before: an lnreader repo names a language in that language, so every non-English
 plugin section was headed by nothing at all, and a plugin installed from one address while a repo
 offers it at another was listed twice, which one shared list turns from a cosmetic duplicate into a
-duplicate-key crash. Both are fixed and mutation-verified. Steps 6 to 9 are unstarted. It lands in
-the 0.4.0 cycle but does not join the cut gate, which stays the tsundoku reader migration and Road B;
-if it is not finished when those two are, it slips rather than holding the release. `ROADMAP.md`
-carries the forward item.
+duplicate-key crash. Both are fixed and mutation-verified.
+
+**Step 6 found the two sorts disagreeing rather than merely being written twice.** Upstream's manga
+sort lifts a stub above everything, in either mode, and orders names through a collator;
+`sortNovelMigrateSources` did neither, so the same two rules produced different lists. One
+`compareMigrateRows` now orders both types, taking upstream's rules, which is also what gives the All
+view a sort header at all. Two more novel-side gaps closed with it: a gone plugin now says "Not
+installed" like a manga stub, and the manga list's fetch-error snackbar, which had no listener left
+after `MigrateSourceTab.kt` was deleted, is wired again.
+
+Steps 7 to 9 are unstarted. It lands in the 0.4.0 cycle but does not join the cut gate, which stays
+the tsundoku reader migration and Road B; if it is not finished when those two are, it slips rather
+than holding the release. `ROADMAP.md` carries the forward item.
 
 ## Decisions & tradeoffs
 
