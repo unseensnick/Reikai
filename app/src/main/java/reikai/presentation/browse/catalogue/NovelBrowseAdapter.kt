@@ -51,18 +51,23 @@ class NovelBrowseAdapter(
         },
     )
 
-    /** The in-toolbar text, which the model has no field for: its own `query` is the committed one. */
-    private val toolbarQuery = MutableStateFlow<String?>(null)
+    /**
+     * The in-toolbar text, which the model has no field for: its own `query` is the committed one.
+     * Until the screen types, that committed query stands in, so a source opened with one shows the
+     * field holding it. Seeding at construction would read too early: the model applies its initial
+     * query only once the plugin has resolved.
+     */
+    private val toolbarText = MutableStateFlow<ToolbarText>(ToolbarText.Untouched)
 
     override val state: StateFlow<EntryBrowseScreenState> =
-        combine(model.state, bulk.state, toolbarQuery, ::toNeutral)
+        combine(model.state, bulk.state, toolbarText, ::toNeutral)
             // WhileSubscribed, not Eagerly: the adapter is rebuilt per composition entry while its
             // sharing coroutine lives in the model's scope, so an eager start leaves one orphaned
             // mapper running per re-entry.
             .stateIn(
                 model.viewModelScope,
                 SharingStarted.WhileSubscribed(),
-                toNeutral(model.state.value, bulk.state.value, toolbarQuery.value),
+                toNeutral(model.state.value, bulk.state.value, toolbarText.value),
             )
 
     override val rows: StateFlow<Flow<PagingData<EntryBrowseRow>>> = model.novelPagerFlowFlow
@@ -94,7 +99,7 @@ class NovelBrowseAdapter(
     private fun toNeutral(
         state: NovelBrowseState,
         bulkState: EntryBulkFavoriteViewModel.State<SelectedNovel>,
-        query: String?,
+        toolbar: ToolbarText,
     ): EntryBrowseScreenState {
         val source = state.source
             ?: return state.sourceError
@@ -108,7 +113,10 @@ class NovelBrowseAdapter(
                 state.listing == NovelBrowseState.Listing.Latest -> EntryBrowseListing.Latest
                 else -> EntryBrowseListing.Popular
             },
-            query = query,
+            query = when (toolbar) {
+                ToolbarText.Untouched -> state.query.takeIf { it.isNotBlank() }
+                is ToolbarText.Typed -> toolbar.value
+            },
             isUserQuery = searching,
             supportsLatest = source.supportsLatest,
             hasFilters = source.filters?.isNotEmpty() == true,
@@ -151,7 +159,7 @@ class NovelBrowseAdapter(
     }
 
     override fun setListing(listing: EntryBrowseListing) {
-        toolbarQuery.value = null
+        toolbarText.value = ToolbarText.Typed(null)
         model.resetFilters()
         when (listing) {
             EntryBrowseListing.Latest -> model.setListing(NovelBrowseState.Listing.Latest)
@@ -161,10 +169,14 @@ class NovelBrowseAdapter(
     }
 
     override fun setQuery(query: String?) {
-        toolbarQuery.value = query
+        toolbarText.value = ToolbarText.Typed(query)
     }
 
-    override fun search(query: String?) = model.search(query.orEmpty())
+    override fun search(query: String?) {
+        // A search the screen did not type (a details page handing one over) still has to show.
+        if (query != null) toolbarText.value = ToolbarText.Typed(query)
+        model.search(query.orEmpty())
+    }
 
     override fun setDisplayMode(mode: LibraryDisplayMode) {
         model.displayMode = mode
@@ -232,3 +244,9 @@ private fun rowKey(sourceId: String, item: NovelItem) = "novel:$sourceId:${item.
 /** The row's payload is this adapter's own result, so unwrapping it is sound only here. */
 internal val EntryBrowseRow.item: NovelItem
     get() = content.value.payload as NovelItem
+
+/** Whether the catalogue's search field is still showing the query it was opened with. */
+private sealed interface ToolbarText {
+    data object Untouched : ToolbarText
+    data class Typed(val value: String?) : ToolbarText
+}

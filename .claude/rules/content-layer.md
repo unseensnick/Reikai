@@ -1,4 +1,4 @@
----
+| Browse | Full takeover | One engine assembles each of the four multi-source lists over two providers with the content-type chip as a predicate, and one catalogue screen serves both per-source grids over two Paging 3 pagers. Nine Mihon files deleted and manifested. Only the filter dispatch stays per-type, as a slot the screen fills | content-layer-browse-surface, content-layer-add-flow |---
 alwaysApply: true
 ---
 
@@ -25,7 +25,7 @@ common way to mis-plan work here.
 | Details | Deep | Neutral state and behavior contract, two adapters; Mihon composables deleted and manifested | content-layer-details-surface |
 | Library | Takeover of orchestration | Shared engine owns assembly, selection and the action verbs. `LibraryViewModel` stays **live** at 884 lines behind its adapter, still the manga provider: it has real callers, so it is an engine file and is never manifested (owner, 2026-08-22, settling the amendment that said otherwise). Dead members inside it are deleted, not marked | content-layer-library-surface |
 | Migrate | Full takeover | The whole flow, screens and orchestration; seventeen Mihon files deleted and manifested | content-layer-migrate-surface |
-| Browse | Behavior-partial, takeover ruled | Today: shared bulk-favorite generic, shared dialogs and the default-category kernel, with verbs per-type. **A behaviour-seam takeover is ruled and planned (owner, 2026-08-27)**, so treat the current shape as what is being replaced: the four multi-source lists become one All-first engine and the per-source grid one shared screen over two Paging 3 pagers. Only the filter dispatch stays declined; the pager decline expired | content-layer-browse-surface, content-layer-add-flow |
+| Browse | Full takeover | One engine assembles each of the four multi-source lists over two providers with the content-type chip as a predicate, and one catalogue screen serves both per-source grids over two Paging 3 pagers. Fifteen Mihon files deleted and manifested. Only the filter dispatch stays per-type, as a slot the screen fills | content-layer-browse-surface, content-layer-add-flow |
 | History, Updates | Takeover of the screen | Both tabs render one shared screen over the recents engine, which owns assembly, search, selection, the dialogs and the action verbs; the four feed models stay live behind adapters. The two tabs keep only what needs the host: the badge reset, the splash gate, the bottom nav and reselect. The filter sheet is shared too, drawing what the mode can answer for and editing the surface's own selection | content-layer-recents-surface |
 | Downloads | Not started | Nothing. Road B; `DownloadQueueViewModel` is still `// RK: inert` | download-queue-unification |
 | Reader | Chrome only | Top and bottom bars; the two engines are separate by design | unified-reader |

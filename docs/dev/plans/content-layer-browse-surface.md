@@ -326,10 +326,38 @@ The pin needed a fourth case to be worth anything. Three tests left the marker u
 truncating it to `showLatest` still matched every positive fixture; a plugin naming a same-prefix
 option is what makes the full lnreader name load-bearing.
 
-Step 9, the behaviour inventory, is what is left. It lands in the 0.4.0 cycle but does not join
-the cut gate, which stays the tsundoku reader migration and Road B; if it is not finished when those
-two are, it slips rather than holding the release. `ROADMAP.md`
-carries the forward item.
+The takeover is complete: all nine steps are in, and the CHANGELOG carries what a reader sees. Three
+things it deliberately left standing are forward work rather than part of it, and `ROADMAP.md` carries
+them: the follows screen keeping its own chrome, the manga migration picker still being its own
+screen, and the search-field X behaving as manga does on a light-novel source.
+
+## The behaviour inventory (step 9)
+
+Cutting a surface over and checking it on device finds what you thought to test, so each replaced
+file was walked instead: every model call and every effect it made was extracted from its
+pre-takeover blob and checked off against the code that replaced it. Sources, Extensions, Migrate and
+global search came through with everything accounted for, including the two things this method exists
+to catch, a `Channel` nobody collects any more (the Sources fetch-error snackbar is still wired) and
+an action that lost its call site (the extension trust, uninstall, install, update and WebView
+actions are all still reachable). Every item not simply present is below.
+
+**Missing, and fixed here.** The catalogue's top bar lost the empty `pointerInput` Mihon puts on it.
+The grid scrolls under that bar, so without a pointer consumer a drag starting on the toolbar or the
+chip row grabs the list behind them; novels never had it, and both have it now. And the light-novel
+toolbar never showed the query a source was opened with: opening one from global search or from a
+novel's source name searched correctly but drew the source name where the field should have been,
+which the old novel screen did right and manga still did. Seeding at construction reads too early,
+because the model applies its initial query only once the plugin resolves, so the adapter models the
+field as untouched-or-typed and the committed query stands in until the screen types.
+
+**Deliberately dropped, and worth a ruling.** Tapping the search field's X on a light-novel source
+used to clear the query and stay; it now leaves the screen, because that is what manga and upstream
+do with a query the reader typed. One of the two had to win and the takeover took manga's, but
+clearing is arguably the better behaviour and both types can do it, so levelling manga up instead is
+open.
+
+**Dead, and deleted.** `BrowseSourceViewModel.getColumnsPreference` lost its last caller when the
+shared body started reading the column preference itself.
 
 ## Decisions & tradeoffs
 

@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -264,7 +265,13 @@ class EntryCatalogueScreen(
 
         Scaffold(
             topBar = { scrollBehavior ->
-                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                Column(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        // The grid scrolls under this bar, so without a pointer consumer here a
+                        // drag starting on the toolbar or the chips grabs the list behind them.
+                        .pointerInput(Unit) {},
+                ) {
                     if (loaded.selectionMode) {
                         BulkSelectionToolbar(
                             selectedCount = loaded.selectedKeys.size,

@@ -1,11 +1,8 @@
 package eu.kanade.tachiyomi.ui.browse.source.browse
 
-import android.content.res.Configuration
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -177,16 +174,6 @@ open class BrowseSourceViewModel(
         return getRemoteManga(sourceId, query, filters)
     }
     // RK <--
-
-    fun getColumnsPreference(orientation: Int): GridCells {
-        val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
-        val columns = if (isLandscape) {
-            libraryPreferences.landscapeColumns
-        } else {
-            libraryPreferences.portraitColumns
-        }.get()
-        return if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns)
-    }
 
     fun resetFilters() {
         state.update { it.copy(filters = source.getFilterList()) }
