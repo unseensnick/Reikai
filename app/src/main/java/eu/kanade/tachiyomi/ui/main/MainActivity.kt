@@ -76,7 +76,6 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.extension.api.ExtensionApi
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
-import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -101,6 +100,7 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.novel.details.NovelScreen
@@ -225,7 +225,7 @@ class MainActivity :
                     }
                 }
                 LaunchedEffect(navigator.lastItem) {
-                    (navigator.lastItem as? BrowseSourceScreen)?.sourceId
+                    (navigator.lastItem as? EntryCatalogueScreen)?.mangaSourceId
                         .let(getIncognitoState::subscribe)
                         .collectLatest { incognito = it }
                 }
@@ -273,7 +273,7 @@ class MainActivity :
                         .filter { !it }
                         .onEach {
                             val currentScreen = navigator.lastItem
-                            if (currentScreen is BrowseSourceScreen ||
+                            if (currentScreen is EntryCatalogueScreen ||
                                 (currentScreen is MangaScreen && currentScreen.fromSource)
                             ) {
                                 navigator.popUntilRoot()

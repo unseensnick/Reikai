@@ -27,6 +27,8 @@ import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
+import reikai.domain.source.SourceKey
+import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
@@ -39,7 +41,6 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -128,7 +129,7 @@ class NovelScreen(
                                 if (global) {
                                     navigator.push(EntryGlobalSearchScreen(query))
                                 } else {
-                                    navigator.push(NovelBrowseScreen(s.displayNovel.source, query))
+                                    navigator.push(EntryCatalogueScreen(SourceKey.Novel(s.displayNovel.source), query))
                                 }
                             },
                             onTagSearch = { navigator.push(EntryGlobalSearchScreen(it)) },

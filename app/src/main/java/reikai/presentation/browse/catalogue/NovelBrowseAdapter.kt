@@ -116,13 +116,22 @@ class NovelBrowseAdapter(
             hasFilters = source.filters?.isNotEmpty() == true,
             filtersActive = searching || state.hasActiveFilters,
             hasSettings = source.pluginSettings != null,
+            webUrl = source.site.takeIf { it.isNotBlank() },
             rowStyle = EntryBrowseRowStyle.Standard(model.displayMode),
             selectionMode = bulkState.selectionMode,
             selectedKeys = bulkState.selection.mapTo(mutableSetOf()) { rowKey(it.sourceId, it.item) },
             capabilities = capabilities,
-            dialog = state.toNeutralDialog(),
+            // One dialog channel: the bulk category picker only ever opens while an entry dialog is
+            // closed, so it rides the same slot rather than needing a second one in the state.
+            dialog = state.toNeutralDialog() ?: bulkState.dialog?.toNeutral(),
         )
     }
+
+    private fun EntryBulkFavoriteViewModel.Dialog<SelectedNovel>.toNeutral(): EntryBrowseDialog =
+        when (this) {
+            is EntryBulkFavoriteViewModel.Dialog.ChangeCategory ->
+                EntryBrowseDialog.SelectionCategories(initialSelection)
+        }
 
     private fun NovelBrowseState.toNeutralDialog(): EntryBrowseDialog? = when {
         filterSheetOpen -> EntryBrowseDialog.Filter
@@ -191,6 +200,7 @@ class NovelBrowseAdapter(
     override fun dismissDialog() {
         model.closeFilterSheet()
         model.dismissDialog()
+        bulk.setDialog(null)
     }
 
     override fun confirmRemove() {

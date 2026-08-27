@@ -1,7 +1,6 @@
 package reikai.presentation.browse.globalsearch
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,7 +28,6 @@ import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -43,6 +41,7 @@ import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
+import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -50,7 +49,6 @@ import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.components.ContentTypeTabs
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelBrowseDialog
-import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
@@ -182,9 +180,9 @@ class EntryGlobalSearchScreen(
                             // the manga half holds the extension-facing Source, not the domain one.
                             when (val key = row.key) {
                                 is SourceKey.Manga ->
-                                    navigator.push(BrowseSourceScreen(key.id, state.query))
+                                    navigator.push(EntryCatalogueScreen(key, state.query))
                                 is SourceKey.Novel ->
-                                    navigator.push(NovelBrowseScreen(key.id, state.query))
+                                    navigator.push(EntryCatalogueScreen(key, state.query))
                             }
                         },
                         onClickManga = { manga ->

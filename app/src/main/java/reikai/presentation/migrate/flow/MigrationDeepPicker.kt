@@ -33,13 +33,14 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import mihon.app.di.appGraph
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
+import reikai.domain.source.SourceKey
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
 import reikai.presentation.browse.catalogue.EntryBrowseRowStyle
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
+import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
 import reikai.presentation.browse.catalogue.manga
-import reikai.presentation.novel.browse.NovelBrowseScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -67,7 +68,7 @@ internal fun openDeepPicker(
             navigator.push(MigrationDeepPickerScreen(entry.id.rawId, sourceId, query))
         }
         is EntryId.Novel -> navigator.push(
-            NovelBrowseScreen(sourceKey, query, migratePickFor = entry.id.rawId),
+            EntryCatalogueScreen(SourceKey.Novel(sourceKey), query, migrateForId = entry.id.rawId),
         )
     }
     return true

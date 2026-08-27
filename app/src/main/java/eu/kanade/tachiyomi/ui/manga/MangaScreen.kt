@@ -33,7 +33,6 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
-import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
@@ -50,6 +49,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
@@ -397,7 +397,7 @@ class MangaScreen(
                 navigator.pop()
                 previousController.search(query)
             }
-            is BrowseSourceScreen -> {
+            is EntryCatalogueScreen -> {
                 navigator.pop()
                 previousController.search(query)
             }
@@ -415,7 +415,7 @@ class MangaScreen(
         }
 
         val previousController = navigator.items[navigator.size - 2]
-        if (previousController is BrowseSourceScreen && source is HttpSource) {
+        if (previousController is EntryCatalogueScreen && source is HttpSource) {
             navigator.pop()
             previousController.searchGenre(genreName)
         } else {

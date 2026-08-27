@@ -294,9 +294,25 @@ carrying its neutral data and payload in separate flows, which doubled the colle
 list. Novels pick up the column preference and the empty state's Help action by construction. There
 are four hosts rather than two: `MangaDexFollowsScreen` and `MigrationDeepPicker` render the body too.
 
-Step 8 has 8d (the shared screen) and 8e (the Latest capability) left, then step 9. It lands in the
-0.4.0 cycle but does not join the cut gate, which stays the tsundoku reader migration and Road B; if
-it is not finished when those two are, it slips rather than holding the release. `ROADMAP.md`
+**Step 8d put both catalogues on one screen.** `EntryCatalogueScreen` owns the toolbar, the listing
+chips, the body, the selection bar and every dialog the neutral state can describe; each per-type
+branch supplies only what nothing neutral can hold, which is the filter sheet, the source settings
+and where a tap goes. `BrowseSourceToolbar` moved with it, re-typed off the manga `Source` it read
+three booleans from. Both Mihon `BrowseSourceScreen.kt` files and the toolbar are deleted and
+manifested; `NovelBrowseScreen.kt` is Reikai's own and just goes. The chip row now reads the same
+rule on both sides: `listing == Popular` decides the highlight, where the novel screen also had to
+test whether a search was running because it folded search into the same listing enum.
+
+Two things were left alone deliberately. `MangaDexFollowsScreen` keeps its own screen rather than
+folding into this one (reversing the plan's recommendation): it already shares the body, and what is
+left is a toolbar with no chips and no search, so folding it would mean two flags in shared chrome
+whose only job is to blank that chrome. And the manga migration target picker is still
+`MigrationDeepPicker` while the novel one is this screen's `migrateForId` mode, so the pick flow is
+the one fork this step leaves standing.
+
+Step 8e (the Latest capability) is left, then step 9. It lands in the 0.4.0 cycle but does not join
+the cut gate, which stays the tsundoku reader migration and Road B; if it is not finished when those
+two are, it slips rather than holding the release. `ROADMAP.md`
 carries the forward item.
 
 ## Decisions & tradeoffs

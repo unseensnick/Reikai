@@ -24,7 +24,6 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
-import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
@@ -33,13 +32,13 @@ import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntrySourceOptionsDialog
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
+import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.novel.browse.NovelBrowseScreen
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -115,9 +114,9 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                         onClickItem = { row, query ->
                             when (row.key) {
                                 is SourceKey.Manga ->
-                                    navigator.push(BrowseSourceScreen((row.source as Source).id, query))
+                                    navigator.push(EntryCatalogueScreen(row.key, query))
                                 is SourceKey.Novel ->
-                                    navigator.push(NovelBrowseScreen((row.source as NovelSource).id))
+                                    navigator.push(EntryCatalogueScreen(row.key))
                             }
                         },
                         onClickPin = engine::togglePin,

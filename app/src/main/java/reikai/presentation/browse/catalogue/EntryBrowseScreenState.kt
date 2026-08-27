@@ -40,6 +40,9 @@ sealed interface EntryBrowseScreenState {
         val filtersActive: Boolean,
         /** This source has settings of its own, so the Settings action is offered. */
         val hasSettings: Boolean,
+        /** The source's own page, or null when it has none (a local source, a plugin with no site).
+         *  Non-null offers Open in WebView and is what the assist action reports. */
+        val webUrl: String?,
         /** How result rows are drawn, which also carries the display mode when there is one. */
         val rowStyle: EntryBrowseRowStyle,
         /** Bulk-selection is on. True with an empty [selectedKeys] right after Select is tapped. */
@@ -76,13 +79,9 @@ sealed interface EntryBrowseRowStyle {
  */
 @Immutable
 data class EntryBrowseCapabilities(
-    /** Manga only: the MangaDex Follows and Random entries the filter sheet offers. */
-    val mangaDex: MangaDexBrowseCapability? = null,
     /** Novels only: browsing to choose a migration target. */
     val migrationPick: MigrationPickCapability? = null,
 )
-
-data class MangaDexBrowseCapability(val sourceId: Long)
 
 /**
  * Browsing to choose what [migrateForId] moves to, so a tap reports the pick back and pops instead of
@@ -116,4 +115,11 @@ sealed interface EntryBrowseDialog {
     ) : EntryBrowseDialog
 
     data class Migrate(val currentId: Long, val targetId: Long) : EntryBrowseDialog
+
+    /** The one category choice a bulk selection applies to every entry in it. Raised by the bulk
+     *  model rather than by an entry, so it arrives through the same channel but confirms its own
+     *  way, through `setSelectionCategories`. */
+    data class SelectionCategories(
+        val initialSelection: List<CheckboxState.State<Category>>,
+    ) : EntryBrowseDialog
 }

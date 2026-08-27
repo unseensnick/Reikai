@@ -1,4 +1,4 @@
-package eu.kanade.presentation.browse.components
+package reikai.presentation.browse.catalogue
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -17,34 +17,29 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
-import eu.kanade.tachiyomi.source.ConfigurableSource
-import eu.kanade.tachiyomi.source.Source
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.source.local.LocalSource
 
 @Composable
-fun BrowseSourceToolbar(
+fun EntryCatalogueToolbar(
+    title: String,
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
-    source: Source?,
-    displayMode: LibraryDisplayMode,
+    /** Null hides the display-mode menu: the layout in play has no modes to choose between. */
+    displayMode: LibraryDisplayMode?,
     onDisplayModeChange: (LibraryDisplayMode) -> Unit,
+    /** The source has a page of its own; false offers Help in its place, as a local source needs. */
+    hasWebView: Boolean,
+    hasSettings: Boolean,
     navigateUp: () -> Unit,
     onWebViewClick: () -> Unit,
     onHelpClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    // RK: enters bulk-selection mode when provided
     onToggleSelectionMode: (() -> Unit)? = null,
 ) {
-    // Avoid capturing unstable source in actions lambda
-    val title = source?.name
-    val isLocalSource = source is LocalSource
-    val isConfigurableSource = source is ConfigurableSource
-
     var selectingDisplayMode by remember { mutableStateOf(false) }
 
     SearchToolbar(
@@ -57,18 +52,20 @@ fun BrowseSourceToolbar(
         actions = {
             AppBarActions(
                 actions = buildList {
-                    add(
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_display_mode),
-                            icon = if (displayMode == LibraryDisplayMode.List) {
-                                Icons.AutoMirrored.Filled.ViewList
-                            } else {
-                                Icons.Filled.ViewModule
-                            },
-                            onClick = { selectingDisplayMode = true },
-                        ),
-                    )
-                    // RK: bulk-select entry
+                    if (displayMode != null) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_display_mode),
+                                icon = if (displayMode == LibraryDisplayMode.List) {
+                                    Icons.AutoMirrored.Filled.ViewList
+                                } else {
+                                    Icons.Filled.ViewModule
+                                },
+                                onClick = { selectingDisplayMode = true },
+                            ),
+                        )
+                    }
+                    // Bulk-select entry
                     if (onToggleSelectionMode != null) {
                         add(
                             AppBar.Action(
@@ -78,22 +75,22 @@ fun BrowseSourceToolbar(
                             ),
                         )
                     }
-                    if (isLocalSource) {
-                        add(
-                            AppBar.OverflowAction(
-                                title = stringResource(MR.strings.label_help),
-                                onClick = onHelpClick,
-                            ),
-                        )
-                    } else {
+                    if (hasWebView) {
                         add(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_open_in_web_view),
                                 onClick = onWebViewClick,
                             ),
                         )
+                    } else {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.label_help),
+                                onClick = onHelpClick,
+                            ),
+                        )
                     }
-                    if (isConfigurableSource) {
+                    if (hasSettings) {
                         add(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_settings),
@@ -105,7 +102,7 @@ fun BrowseSourceToolbar(
             )
 
             DropdownMenu(
-                expanded = selectingDisplayMode,
+                expanded = selectingDisplayMode && displayMode != null,
                 onDismissRequest = { selectingDisplayMode = false },
             ) {
                 RadioMenuItem(
