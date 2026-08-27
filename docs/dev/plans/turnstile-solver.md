@@ -145,8 +145,15 @@ Each of these was built and run against a live challenge before being dropped. D
 
 ## Open
 
-- **Breadth.** Six hosts, one device, one VPN, one afternoon. Nothing says how this behaves on a
-  host with a different challenge configuration.
+- **Breadth.** Six hosts, one device, one VPN. Forty-four solves say the mechanism is reliable on
+  those; nothing says how it behaves on a host with a different challenge configuration, or on a
+  second device. The switch stays off by default until both are answered.
+- **Upstream is carrying its own version of this** (mihonapp/mihon#3858, open, credited to
+  `14d3d54c1`). It uses key events like ours, adds a per-host lock in `WebViewInterceptor`, and moves
+  the challenge-event listener into an isolated world, which we declined. If it merges, the next sync
+  collides in two places: the `// RK` island in `CloudflareInterceptor`, and `ForegroundActivity.kt`,
+  which upstream adds at the same path with the same contents. Take theirs and fold ours in rather
+  than porting around it.
 - **Global search is capped at five concurrent sources** (`SearchViewModel`'s fixed thread pool), and
   a solve holds one of those threads for its duration. At three seconds a solve this is not painful;
   it was when a solve took thirty.
