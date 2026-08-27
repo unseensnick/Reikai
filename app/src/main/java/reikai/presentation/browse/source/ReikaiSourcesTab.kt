@@ -73,9 +73,8 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
                 icon = Icons.Outlined.TravelExplore,
-                // Content-type-aware: the Novels chip searches LN sources; Manga / All use Mihon's.
                 onClick = {
-                    // One screen for both types now; it opens on whatever the chip holds.
+                    // One screen for both types; from Browse it opens on whatever the chip holds.
                     navigator.push(EntryGlobalSearchScreen())
                 },
             ),

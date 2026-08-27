@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 import reikai.presentation.browse.EntryBrowseItemUi
 
 /**
- * One paged result in a source's catalogue, neutral over content type. [key] is the selection
- * identity, so nothing below this compares a manga id against a novel path.
+ * One paged result in a source's catalogue, neutral over content type. [key] is both the lazy-list
+ * key and the selection identity, so nothing below this compares a manga id against a novel path.
  */
 data class EntryBrowseRow(
     val key: String,

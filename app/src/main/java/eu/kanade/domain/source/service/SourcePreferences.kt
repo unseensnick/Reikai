@@ -36,11 +36,6 @@ class SourcePreferences(
 
     val pinnedSources: Preference<Set<String>> = preferenceStore.getStringSet("pinned_catalogues", emptySet())
 
-    val lastUsedSource: Preference<Long> = preferenceStore.getLong(
-        Preference.appStateKey("last_catalogue_source"),
-        -1,
-    )
-
     val showNsfwSource: Preference<Boolean> = preferenceStore.getBoolean("show_nsfw_source", true)
 
     val migrationSortingMode: Preference<SetMigrateSorting.Mode> = preferenceStore.getEnum(

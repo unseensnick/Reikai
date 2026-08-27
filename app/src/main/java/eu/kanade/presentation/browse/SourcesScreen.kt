@@ -14,17 +14,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
-import reikai.presentation.browse.EntrySourceOptionsDialog
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.source.local.isLocal
 
 // RK --> the list itself moved to reikai.presentation.browse.source, which draws one sectioned list
 //     of manga and light-novel sources together; the sectioning it used to do lives there too. What
-//     stays here is the manga row and its dialog, which that list still draws.
+//     stays here is the manga row, which that list still draws.
 // RK <--
 
 @Composable
@@ -83,24 +81,4 @@ private fun SourcePinButton(
             contentDescription = stringResource(description),
         )
     }
-}
-
-@Composable
-fun SourceOptionsDialog(
-    source: Source,
-    onClickPin: () -> Unit,
-    onClickDisable: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    // RK: delegate to the shared manga/novel source options dialog. The manga list only ever disables
-    // (a disabled source drops out of the list), so isDisabled is always false here.
-    EntrySourceOptionsDialog(
-        title = source.visualName,
-        isPinned = Pin.Pinned in source.pin,
-        showToggleDisable = !source.isLocal(),
-        isDisabled = false,
-        onClickPin = onClickPin,
-        onClickToggleDisable = onClickDisable,
-        onDismiss = onDismiss,
-    )
 }

@@ -44,11 +44,10 @@ fun ContentTypeFilterChips(
 }
 
 /**
- * The same chips without a row of their own, for a caller that already has one. Global search puts
- * them beside its source filters, so one scrolling row holds every chip rather than stacking two.
+ * The same chips without a row of their own, for a caller that already has one.
  */
 @Composable
-fun RowScope.ContentTypeChips(
+private fun RowScope.ContentTypeChips(
     selected: ContentType,
     onSelect: (ContentType) -> Unit,
     types: List<ContentType> = ContentType.entries,

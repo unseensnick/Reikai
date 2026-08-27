@@ -36,7 +36,9 @@ sealed interface EntryBrowseScreenState {
         val supportsLatest: Boolean,
         /** This source declares filters, so the Filter chip is drawn at all. */
         val hasFilters: Boolean,
-        /** A filter differs from the source's own defaults, so the Filter chip reads as active. */
+        /** The Filter chip reads as active. Manga lights it for any committed search, novels only
+         *  for a filter that differs from the defaults: the two engines fold search and filters
+         *  together differently, and each matches what its own screen did before. */
         val filtersActive: Boolean,
         /** This source has settings of its own, so the Settings action is offered. */
         val hasSettings: Boolean,
