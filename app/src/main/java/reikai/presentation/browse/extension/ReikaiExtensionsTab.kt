@@ -17,7 +17,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -420,8 +419,12 @@ private fun NovelExtensionRow(
                 badge = badge,
                 action = {
                     NovelRowAction(inProgress = key in state.inProgress) {
-                        TextButton(onClick = { model.install(payload) }) {
-                            Text(text = stringResource(MR.strings.action_install))
+                        // The same icon button the manga rows use, so one list reads as one list.
+                        IconButton(onClick = { model.install(payload) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.GetApp,
+                                contentDescription = stringResource(MR.strings.ext_install),
+                            )
                         }
                     }
                 },
