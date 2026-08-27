@@ -233,7 +233,9 @@ step 3 `cadf22edb`, step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fol
 content types (the add / remove round trips, the hide-in-library toggle, the language switch).
 
 **The takeover is under way**: steps 1 to 4 are in, so the Sources list is assembled once for both
-content types and the chip is a predicate over it. Steps 5 to 9 are unstarted. It lands in the 0.4.0 cycle
+content types and the chip is a predicate over it. Step 5 has its pure core in (the neutral row, the
+sectioning and the search rule, tested) but nothing draws it yet; the provider seam, the engine and
+the tab cutover that closes the five known drops are still to come. Steps 6 to 9 are unstarted. It lands in the 0.4.0 cycle
 but does not join the cut gate, which stays the tsundoku reader migration and Road B; if it is not
 finished when those two are, it slips rather than holding the release. `ROADMAP.md` carries the
 forward item.
