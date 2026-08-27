@@ -10,11 +10,14 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
@@ -40,7 +43,9 @@ class ExtensionsEngine(
     val state: StateFlow<State> = combine(
         combine(providers.map { it.snapshot() }) { it.toList() },
         sourcePreferences.browseContentType.changes(),
-        query,
+        // Debounced because the available list runs to thousands of rows and every keystroke
+        // re-filters and re-sorts all of them; the search field itself stays live either way.
+        query.debounce(SEARCH_DEBOUNCE),
     ) { snapshots, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         val rows = active.flatMap { snapshots[it].rows.orEmpty() }
@@ -56,6 +61,12 @@ class ExtensionsEngine(
             items = sectionExtensions(rows.filter { matchesExtensionQuery(it, query) }),
         )
     }
+        // Off the main thread: building, filtering and sorting the list is proportional to every
+        // extension the repos offer, which is thousands once a few languages are enabled.
+        .flowOn(Dispatchers.IO)
+        // The typed query itself is not debounced, so the back gesture and the empty-state message
+        // answer to what is in the field rather than to what the list last filtered on.
+        .combine(query) { state, typed -> state.copy(query = typed) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     fun setContentType(contentType: ContentType) {
@@ -112,5 +123,9 @@ class ExtensionsEngine(
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
         fun create(providers: List<ExtensionsProvider>, query: StateFlow<String?>): ExtensionsEngine
+    }
+
+    private companion object {
+        val SEARCH_DEBOUNCE = 0.25.seconds
     }
 }

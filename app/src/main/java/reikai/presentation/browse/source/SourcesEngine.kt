@@ -10,11 +10,13 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
@@ -40,8 +42,7 @@ class SourcesEngine(
     val state: StateFlow<State> = combine(
         combine(providers.map { it.rows }) { it.toList() },
         sourcePreferences.browseContentType.changes(),
-        dialog,
-    ) { rowsPerProvider, contentType, dialog ->
+    ) { rowsPerProvider, contentType ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         State(
             contentType = contentType,
@@ -49,9 +50,13 @@ class SourcesEngine(
             // is not showing, which is what two per-type flags let happen.
             isLoading = active.any { rowsPerProvider[it] == null },
             items = sectionSources(active.flatMap { rowsPerProvider[it].orEmpty() }),
-            dialog = dialog,
         )
     }
+        // Off the main thread: sectioning sorts and groups every enabled source of both types.
+        .flowOn(Dispatchers.IO)
+        // The sheet is combined in afterwards rather than being an input above, so opening or
+        // closing it does not re-section the list it is opened over.
+        .combine(dialog) { state, dialog -> state.copy(dialog = dialog) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     fun setContentType(contentType: ContentType) {

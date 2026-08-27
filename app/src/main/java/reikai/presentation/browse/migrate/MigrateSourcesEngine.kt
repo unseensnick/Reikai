@@ -12,10 +12,12 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.domain.source.service.SourcePreferences
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
@@ -56,6 +58,9 @@ class MigrateSourcesEngine(
             sortingDirection = direction,
         )
     }
+        // Off the main thread: the sort runs over every source of both types, and re-runs whenever
+        // the chip or either sort preference changes.
+        .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     fun setContentType(contentType: ContentType) {
