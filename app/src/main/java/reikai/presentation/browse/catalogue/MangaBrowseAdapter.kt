@@ -54,11 +54,11 @@ class MangaBrowseAdapter(
                     EntryBrowseRow(
                         key = mangaRowKey(entryFlow.value.first),
                         // The model already keeps one flow per entry so a favourite toggle re-renders
-                        // that cell alone; this maps it rather than opening a second collector. The
+                        // that cell alone; this is a view of it rather than a second collector. The
                         // payload stays the live pair, which the gallery rows read the metadata from.
-                        content = entryFlow
-                            .map { pair -> EntryBrowseRowContent(pair.first.toEntryBrowseUi(), pair) }
-                            .stateIn(model.viewModelScope),
+                        content = entryFlow.mapState { pair ->
+                            EntryBrowseRowContent(pair.first.toEntryBrowseUi(), pair)
+                        },
                     )
                 }
             }

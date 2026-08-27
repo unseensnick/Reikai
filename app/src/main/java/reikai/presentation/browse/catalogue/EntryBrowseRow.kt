@@ -1,16 +1,35 @@
 package reikai.presentation.browse.catalogue
 
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.StateFlow
 import reikai.presentation.browse.EntryBrowseItemUi
 
 /**
- * One paged result in a source's catalogue, neutral over content type. [key] is both the lazy-list
- * key and the selection identity, so nothing below this compares a manga id against a novel path.
+ * One paged result in a source's catalogue, neutral over content type. [key] is the selection
+ * identity, so nothing below this compares a manga id against a novel path.
  */
 data class EntryBrowseRow(
     val key: String,
     val content: StateFlow<EntryBrowseRowContent>,
 )
+
+/**
+ * A [StateFlow] view of this one, with [transform] applied on read and on emission.
+ *
+ * Deliberately not `map { }.stateIn(scope)`: an adapter has no scope that ends when a row scrolls
+ * away, so that piles up collectors for the life of the screen. Nothing is launched here, so the
+ * only collector is the cell drawing the row. [transform] runs on every read, so keep it cheap and
+ * free of side effects.
+ */
+@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+fun <T, R> StateFlow<T>.mapState(transform: (T) -> R): StateFlow<R> = object : StateFlow<R> {
+    override val value: R get() = transform(this@mapState.value)
+    override val replayCache: List<R> get() = listOf(value)
+    override suspend fun collect(collector: FlowCollector<R>): Nothing {
+        this@mapState.collect { collector.emit(transform(it)) }
+    }
+}
 
 /**
  * What a row currently shows. This is a flow on the row because a favourite toggle has to re-render

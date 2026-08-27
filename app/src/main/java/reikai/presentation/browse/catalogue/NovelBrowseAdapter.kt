@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -78,10 +77,7 @@ class NovelBrowseAdapter(
                         key = rowKey(sourceId, item),
                         // A browse result carries no library state of its own, so the cell reads it
                         // off the model, which is what re-renders the badge when the entry is added.
-                        content = model.state
-                            .map { it.rowContent(item) }
-                            .distinctUntilChanged()
-                            .stateIn(model.viewModelScope),
+                        content = model.state.mapState { it.rowContent(item) },
                     )
                 }
             }
