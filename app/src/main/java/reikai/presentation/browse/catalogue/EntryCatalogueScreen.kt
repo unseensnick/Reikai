@@ -315,6 +315,8 @@ class EntryCatalogueScreen(
                 rows = rows,
                 rowStyle = loaded.rowStyle,
                 selectedKeys = loaded.selectedKeys,
+                // Both modes make a long press preview the entry rather than grab it.
+                longPressOpensEntry = loaded.selectionMode || loaded.capabilities.migrationPick != null,
                 snackbarHostState = snackbarHostState,
                 contentPadding = contentPadding,
                 onWebViewClick = onWebViewClick,
@@ -440,7 +442,12 @@ class EntryCatalogueScreen(
         }
         Scaffold(
             topBar = { scrollBehavior ->
-                AppBar(title = null, navigateUp = navigateUp, scrollBehavior = scrollBehavior)
+                AppBar(
+                    // Named even when it cannot load, so the reader can tell which source this was.
+                    title = (state as? EntryBrowseScreenState.SourceMissing)?.label,
+                    navigateUp = navigateUp,
+                    scrollBehavior = scrollBehavior,
+                )
             },
         ) { contentPadding ->
             when (state) {

@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.itemKey
 import eu.kanade.presentation.browse.components.BrowseSourceEHentaiList
 import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
@@ -62,6 +63,8 @@ fun EntryBrowseCatalogue(
     onHelpClick: () -> Unit,
     onClick: (EntryBrowseRow) -> Unit,
     onLongClick: (EntryBrowseRow) -> Unit,
+    /** Whether a long press opens the entry instead of grabbing it, which is when it does not buzz. */
+    longPressOpensEntry: Boolean = false,
     onLocalSourceHelpClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -113,6 +116,14 @@ fun EntryBrowseCatalogue(
         return
     }
 
+    // Buzzed here rather than in each layout, so the gallery rows get it too. Only when the press
+    // grabs the row: while selecting, a long press opens the entry, which upstream does not buzz for.
+    val haptic = LocalHapticFeedback.current
+    val onLongPress: (EntryBrowseRow) -> Unit = { row ->
+        if (!longPressOpensEntry) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onLongClick(row)
+    }
+
     when (rowStyle) {
         // The adult-source layout brings its own rows and reads the gallery metadata off the payload,
         // which only the manga adapter puts there. Reached only when that adapter asks for it.
@@ -121,7 +132,7 @@ fun EntryBrowseCatalogue(
             contentPadding = contentPadding,
             selectedKeys = selectedKeys,
             onClick = onClick,
-            onLongClick = onLongClick,
+            onLongClick = onLongPress,
         )
         is EntryBrowseRowStyle.Standard -> StandardRows(
             rows = rows,
@@ -129,7 +140,7 @@ fun EntryBrowseCatalogue(
             selectedKeys = selectedKeys,
             contentPadding = contentPadding,
             onClick = onClick,
-            onLongClick = onLongClick,
+            onLongClick = onLongPress,
         )
     }
 }
@@ -147,15 +158,11 @@ private fun StandardRows(
         val row = rows[index]
         if (row != null) {
             val content by row.content.collectAsState()
-            val haptic = LocalHapticFeedback.current
             EntryBrowseGridCell(
                 ui = content.ui,
                 displayMode = displayMode,
                 onClick = { onClick(row) },
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongClick(row)
-                },
+                onLongClick = { onLongClick(row) },
                 isSelected = row.key in selectedKeys,
             )
         }
@@ -164,7 +171,7 @@ private fun StandardRows(
     if (displayMode == LibraryDisplayMode.List) {
         LazyColumn(contentPadding = contentPadding + PaddingValues(vertical = 8.dp)) {
             if (rows.loadState.prepend is LoadState.Loading) item { BrowseSourceLoadingItem() }
-            items(count = rows.itemCount) { cell(it) }
+            items(count = rows.itemCount, key = rows.itemKey { it.key }) { cell(it) }
             if (rows.isAppending) item { BrowseSourceLoadingItem() }
         }
         return
@@ -179,7 +186,7 @@ private fun StandardRows(
         if (rows.loadState.prepend is LoadState.Loading) {
             item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }
         }
-        items(count = rows.itemCount) { cell(it) }
+        items(count = rows.itemCount, key = rows.itemKey { it.key }) { cell(it) }
         if (rows.isAppending) {
             item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }
         }

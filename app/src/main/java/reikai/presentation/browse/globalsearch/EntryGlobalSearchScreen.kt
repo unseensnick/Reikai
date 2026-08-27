@@ -24,6 +24,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.util.ifSourcesLoaded
+import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -184,6 +185,8 @@ class EntryGlobalSearchScreen(
             LazyColumn(contentPadding = contentPadding) {
                 items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
                     SearchResultSection(
+                        // Sections re-sort as each source lands, so they slide rather than jump.
+                        modifier = Modifier.animateItem(),
                         row = state.visibleRows[index],
                         favoritedKeys = novelState.favoritedKeys,
                         mangaSelection = mangaBulkState.selection,
@@ -272,6 +275,7 @@ private fun SearchResultSection(
     onLongClickManga: (Manga) -> Unit,
     onClickNovel: (String, NovelItem) -> Unit,
     onLongClickNovel: (String, NovelItem) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     EntrySearchSection(
@@ -279,16 +283,13 @@ private fun SearchResultSection(
         subtitle = row.lang.takeIf { it.isNotBlank() }
             ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty(),
         onClick = { onClickSource(row) },
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
     ) {
         when (val result = row.state) {
             is EntrySearchState.Loading -> GlobalSearchLoadingResultItem()
-            is EntrySearchState.Error -> Text(
-                text = result.message.orEmpty(),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
+            // Falls back to a generic message: plenty of source failures carry none, and an empty
+            // row under a source heading is indistinguishable from one that has not started.
+            is EntrySearchState.Error -> GlobalSearchErrorResultItem(result.message)
             is EntrySearchState.Success -> when (row.key) {
                 is SourceKey.Manga -> EntrySearchCardRow(
                     entries = result.entries.filterIsInstance<Manga>(),

@@ -153,6 +153,7 @@ class MigrationDeepPickerScreen(
                     navigator.pop()
                 },
                 // Long-press opens the entry, so a candidate can be checked before choosing it.
+                longPressOpensEntry = true,
                 onLongClick = { row -> navigator.push(MangaScreen(row.manga.id, true)) },
             )
         }

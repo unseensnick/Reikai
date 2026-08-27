@@ -41,7 +41,8 @@ data class BrowseSearchRow(
 val searchRowComparator: Comparator<BrowseSearchRow> = compareBy(
     { (it.state as? EntrySearchState.Success)?.entries?.isEmpty() ?: true },
     { !it.isPinned },
-    { it.name.lowercase() },
+    // Language included, so two sources sharing a name keep a stable order between runs.
+    { "${it.name.lowercase()} (${it.lang})" },
 )
 
 /**

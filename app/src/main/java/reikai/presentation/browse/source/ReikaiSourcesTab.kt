@@ -186,8 +186,10 @@ private fun SourcesList(
             when (item) {
                 is SourcesListItem.Header -> BrowseSectionHeader(
                     title = browseLanguageLabel(item.key, context),
+                    modifier = Modifier.animateItem(),
                 )
                 is SourcesListItem.Row -> SourceRow(
+                    modifier = Modifier.animateItem(),
                     row = item.row,
                     showContentType = showContentType,
                     onClickItem = onClickItem,
@@ -207,12 +209,14 @@ private fun SourceRow(
     onClickItem: (BrowseSourceRow, String?) -> Unit,
     onClickPin: (BrowseSourceRow) -> Unit,
     onLongClickItem: (BrowseSourceRow) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val badge: @Composable () -> Unit = {
         if (showContentType) ContentTypeBadge(row.key.contentType)
     }
     when (row.key) {
         is SourceKey.Manga -> SourceItem(
+            modifier = modifier,
             source = row.source as Source,
             onClickItem = { _, listing -> onClickItem(row, listing.query) },
             onLongClickItem = { onLongClickItem(row) },
@@ -220,6 +224,7 @@ private fun SourceRow(
             badge = badge,
         )
         is SourceKey.Novel -> NovelSourceRow(
+            modifier = modifier,
             name = row.name,
             lang = row.lang,
             iconUrl = (row.source as NovelSource).iconUrl,

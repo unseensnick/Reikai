@@ -11,7 +11,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -58,7 +57,6 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         }
 
         val navigator = LocalNavigator.currentOrThrow
-        val haptic = LocalHapticFeedback.current
         val viewModel = assistedMetroViewModel<MangaDexFollowsViewModel, MangaDexFollowsViewModel.Factory> {
             create(sourceId = sourceId)
         }
@@ -121,6 +119,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                 rows = entries,
                 rowStyle = loaded.rowStyle,
                 selectedKeys = loaded.selectedKeys,
+                longPressOpensEntry = bulkFavoriteState.selectionMode,
                 snackbarHostState = snackbarHostState,
                 contentPadding = paddingValues,
                 onWebViewClick = {},

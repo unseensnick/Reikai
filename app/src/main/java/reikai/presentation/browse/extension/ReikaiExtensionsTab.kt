@@ -255,20 +255,23 @@ private fun ExtensionsList(
             },
         ) { item ->
             when (item) {
-                is ExtensionsListItem.Header -> ExtensionsSectionHeader(item.section, onUpdateAll)
+                is ExtensionsListItem.Header ->
+                    ExtensionsSectionHeader(item.section, onUpdateAll, Modifier.animateItem())
                 is ExtensionsListItem.Row -> {
                     val badge: @Composable () -> Unit = {
                         if (showContentType) ContentTypeBadge(item.row.key.contentType)
                     }
                     when (item.row.key) {
                         is ExtensionKey.Manga -> MangaExtensionRow(
+                            modifier = Modifier.animateItem(),
                             item = item.row.payload as ExtensionUiModel.Item,
                             model = extensionsViewModel,
                             badge = badge,
                             onUntrusted = { trustState = it },
                             onConfirmPrivateUninstall = { privateExtensionToUninstall = it },
                         )
-                        is ExtensionKey.Novel -> NovelExtensionRow(item.row, lnState, lnModel, badge)
+                        is ExtensionKey.Novel ->
+                            NovelExtensionRow(item.row, lnState, lnModel, badge, Modifier.animateItem())
                     }
                 }
             }
@@ -299,8 +302,13 @@ private fun ExtensionsList(
 }
 
 @Composable
-private fun ExtensionsSectionHeader(section: ExtensionSection, onUpdateAll: () -> Unit) {
+private fun ExtensionsSectionHeader(
+    section: ExtensionSection,
+    onUpdateAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     BrowseSectionHeader(
+        modifier = modifier,
         title = when (section) {
             ExtensionSection.Updates -> stringResource(MR.strings.ext_updates_pending)
             ExtensionSection.Installed -> stringResource(MR.strings.ext_installed)
@@ -324,11 +332,13 @@ private fun MangaExtensionRow(
     badge: @Composable () -> Unit,
     onUntrusted: (Extension.Untrusted) -> Unit,
     onConfirmPrivateUninstall: (Extension) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
 
     ExtensionItem(
+        modifier = modifier,
         item = item,
         badge = badge,
         onClickItem = {
@@ -382,10 +392,12 @@ private fun NovelExtensionRow(
     state: LnPluginManagerViewModel.State,
     model: LnPluginManagerViewModel,
     badge: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     when (val payload = row.payload) {
         is LnPluginUpdate -> NovelSourceRow(
+            modifier = modifier,
             name = payload.entry.name,
             lang = payload.entry.lang,
             iconUrl = payload.entry.iconUrl,
@@ -403,6 +415,7 @@ private fun NovelExtensionRow(
             },
         )
         is NovelSource -> NovelSourceRow(
+            modifier = modifier,
             name = payload.name,
             lang = payload.lang,
             iconUrl = payload.iconUrl,
@@ -419,6 +432,7 @@ private fun NovelExtensionRow(
         is LnRegistryEntry -> {
             val key = canonicalizePluginUrl(payload.url)
             NovelSourceRow(
+                modifier = modifier,
                 name = payload.name,
                 lang = payload.lang,
                 iconUrl = payload.iconUrl,
