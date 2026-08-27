@@ -127,12 +127,16 @@ class NovelScreen(
                             // like manga's browse-scoped search; global goes cross-source.
                             onSearch = { query, global ->
                                 if (global) {
-                                    navigator.push(EntryGlobalSearchScreen(query))
+                                    navigator.push(
+                                        EntryGlobalSearchScreen(query, scopedContentType = ContentType.NOVELS),
+                                    )
                                 } else {
                                     navigator.push(EntryCatalogueScreen(SourceKey.Novel(s.displayNovel.source), query))
                                 }
                             },
-                            onTagSearch = { navigator.push(EntryGlobalSearchScreen(it)) },
+                            onTagSearch = {
+                                navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
+                            },
                             onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {
                                 if (viewModel.hasLoggedInTrackers()) {

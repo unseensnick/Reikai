@@ -27,6 +27,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.launch
+import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import tachiyomi.i18n.MR
@@ -133,7 +134,12 @@ class RelatedMangasBrowseScreen(
                                 if (id != null) {
                                     navigator.push(MangaScreen(id))
                                 } else {
-                                    navigator.push(EntryGlobalSearchScreen(item.candidate.manga.title))
+                                    navigator.push(
+                                        EntryGlobalSearchScreen(
+                                            item.candidate.manga.title,
+                                            scopedContentType = ContentType.MANGA,
+                                        ),
+                                    )
                                 }
                             }
                         }

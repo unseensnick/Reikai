@@ -70,6 +70,11 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 class EntryGlobalSearchScreen(
     val searchQuery: String = "",
     private val extensionFilter: String? = null,
+    /**
+     * The content type to search, when the caller already knows it: searching from a manga or a
+     * novel searches that kind. Null opens on the Browse chip, which is what Browse itself wants.
+     */
+    private val scopedContentType: ContentType? = null,
 ) : Screen() {
 
     @Composable
@@ -89,7 +94,12 @@ class EntryGlobalSearchScreen(
             listOf(MangaGlobalSearchProvider(mangaModel), NovelGlobalSearchProvider(novelModel))
         }
         val engine = assistedMetroViewModel<GlobalSearchEngine, GlobalSearchEngine.Factory> {
-            create(providers, searchQuery)
+            create(providers, searchQuery, scopedContentType)
+        }
+        // A deep link names one extension, so every source of it is in scope whether or not it is
+        // pinned; the chip is moved to match what is actually being searched.
+        LaunchedEffect(Unit) {
+            if (!extensionFilter.isNullOrEmpty()) engine.setSourceFilter(SearchSourceFilter.All)
         }
         val state by engine.state.collectAsStateWithLifecycle()
         val mangaState by mangaModel.state.collectAsStateWithLifecycle()
@@ -117,10 +127,14 @@ class EntryGlobalSearchScreen(
         }
         if (showSingleLoadingScreen) {
             LoadingScreen()
-            LaunchedEffect(state.rows) {
+            // Waits on the search itself, never on the rows being non-empty: a filter naming an
+            // extension that is not installed matches no source at all, and treating that as
+            // "still loading" left this spinning with no way back but the system gesture.
+            LaunchedEffect(state.rows, state.searched) {
+                if (!state.searched) return@LaunchedEffect
                 val only = state.rows.singleOrNull()?.state
                 when {
-                    state.rows.isEmpty() || only is EntrySearchState.Loading -> return@LaunchedEffect
+                    only is EntrySearchState.Loading -> return@LaunchedEffect
                     only is EntrySearchState.Success ->
                         (only.entries.singleOrNull() as? Manga)
                             ?.let { navigator.replace(MangaScreen(it.id, true)) }

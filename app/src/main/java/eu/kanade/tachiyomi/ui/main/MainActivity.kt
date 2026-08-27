@@ -491,7 +491,15 @@ class MainActivity :
                 if (!query.isNullOrEmpty()) {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
                     navigator.popUntilRoot()
-                    navigator.push(EntryGlobalSearchScreen(query, filter))
+                    // An extension filter names a manga extension, so that search is a manga one.
+                    // A bare search intent says nothing, and opens on whatever Browse is set to.
+                    navigator.push(
+                        EntryGlobalSearchScreen(
+                            query,
+                            filter,
+                            scopedContentType = ContentType.MANGA.takeIf { !filter.isNullOrEmpty() },
+                        ),
+                    )
                 }
                 null
             }

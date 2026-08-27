@@ -14,6 +14,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import reikai.domain.library.ContentType
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -47,7 +48,7 @@ class DeepLinkScreen(
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
                 is DeepLinkViewModel.State.NoResults -> {
-                    navigator.replace(EntryGlobalSearchScreen(query))
+                    navigator.replace(EntryGlobalSearchScreen(query, scopedContentType = ContentType.MANGA))
                 }
                 is DeepLinkViewModel.State.Result -> {
                     val resultState = state as DeepLinkViewModel.State.Result

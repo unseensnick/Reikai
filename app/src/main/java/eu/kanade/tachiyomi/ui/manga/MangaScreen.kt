@@ -202,7 +202,12 @@ class MangaScreen(
                                 if (id != null) {
                                     navigator.push(MangaScreen(id))
                                 } else {
-                                    navigator.push(EntryGlobalSearchScreen(candidate.manga.title))
+                                    navigator.push(
+                                        EntryGlobalSearchScreen(
+                                            candidate.manga.title,
+                                            scopedContentType = ContentType.MANGA,
+                                        ),
+                                    )
                                 }
                             }
                         },
@@ -384,7 +389,7 @@ class MangaScreen(
      */
     private suspend fun performSearch(navigator: Navigator, query: String, global: Boolean) {
         if (global) {
-            navigator.push(EntryGlobalSearchScreen(query))
+            navigator.push(EntryGlobalSearchScreen(query, scopedContentType = ContentType.MANGA))
             return
         }
 

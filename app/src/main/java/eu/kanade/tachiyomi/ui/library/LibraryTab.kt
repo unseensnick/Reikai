@@ -596,7 +596,11 @@ data object LibraryTab : Tab {
                                 EmptyScreenAction(
                                     stringRes = MR.strings.action_global_search,
                                     icon = Icons.Outlined.TravelExplore,
-                                    onClick = { navigator.push(EntryGlobalSearchScreen(query)) },
+                                    onClick = {
+                                        navigator.push(
+                                            EntryGlobalSearchScreen(query, scopedContentType = libraryContentType),
+                                        )
+                                    },
                                 ),
                             )
                         },
@@ -647,7 +651,12 @@ data object LibraryTab : Tab {
                                 onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
                                 onToggleDynamicCollapse = engine::toggleDynamicCategoryCollapse,
                                 onGlobalSearchClicked = {
-                                    navigator.push(EntryGlobalSearchScreen(activeSearchQuery ?: ""))
+                                    navigator.push(
+                                        EntryGlobalSearchScreen(
+                                            activeSearchQuery ?: "",
+                                            scopedContentType = libraryContentType,
+                                        ),
+                                    )
                                 },
                                 // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
                                 onRefresh = { onClickRefresh(null) },
@@ -686,7 +695,12 @@ data object LibraryTab : Tab {
                                 },
                                 onRefresh = { onClickRefresh(currentRealCategory()) },
                                 onGlobalSearchClicked = {
-                                    navigator.push(EntryGlobalSearchScreen(activeSearchQuery ?: ""))
+                                    navigator.push(
+                                        EntryGlobalSearchScreen(
+                                            activeSearchQuery ?: "",
+                                            scopedContentType = libraryContentType,
+                                        ),
+                                    )
                                 },
                                 getItemCountForCategory = activeGetItemCount,
                                 getDisplayMode = { engine.displayMode() },
