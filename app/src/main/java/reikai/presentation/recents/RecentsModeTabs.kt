@@ -24,6 +24,9 @@ internal fun RecentsModeTabs(
     PrimaryTabRow(
         selectedTabIndex = modes.indexOf(selected).coerceAtLeast(0),
         modifier = modifier,
+        // The tab strip and the filter row below it are one header block, so the rule that closes it
+        // belongs under the whole block. Drawn by the caller, after the chips.
+        divider = {},
     ) {
         modes.forEach { mode ->
             Tab(

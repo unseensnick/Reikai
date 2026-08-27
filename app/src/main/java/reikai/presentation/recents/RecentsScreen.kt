@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -244,6 +245,7 @@ fun Screen.RecentsScreen(
                 RecentsModeTabs(modes = modes, selected = mode, onSelect = engine::setMode)
             }
             ContentTypeFilterChips(selected = contentType, onSelect = engine::setContentType)
+            HorizontalDivider()
             val bodyPadding = PaddingValues(
                 start = contentPadding.calculateStartPadding(layoutDirection),
                 end = contentPadding.calculateEndPadding(layoutDirection),

@@ -24,11 +24,11 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.launch
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -133,7 +133,7 @@ class RelatedMangasBrowseScreen(
                                 if (id != null) {
                                     navigator.push(MangaScreen(id))
                                 } else {
-                                    navigator.push(GlobalSearchScreen(item.candidate.manga.title))
+                                    navigator.push(EntryGlobalSearchScreen(item.candidate.manga.title))
                                 }
                             }
                         }

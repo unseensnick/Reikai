@@ -64,7 +64,7 @@ fun EntrySearchSourceFilterChips(
                     leadingIcon = {
                         Icon(Icons.Outlined.DoneAll, null, Modifier.size(FilterChipDefaults.IconSize))
                     },
-                    label = { Text(stringResource(MR.strings.all)) },
+                    label = { Text(stringResource(MR.strings.all_sources)) },
                 )
 
                 VerticalDivider(modifier = Modifier.height(FilterChipDefaults.Height))

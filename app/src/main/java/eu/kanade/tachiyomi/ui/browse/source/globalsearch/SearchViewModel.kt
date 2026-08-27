@@ -54,39 +54,14 @@ abstract class SearchViewModel(
     val state: StateFlow<State>
         field = MutableStateFlow<State>(initialState)
 
-    // Subclasses can't touch the backing field (Kotlin forbids a visibility modifier on one),
-    // so state writes from them go through here.
-    protected fun updateState(function: (State) -> State) {
-        state.update(function)
-    }
-
+    // A pool of its own, so blocking source calls never crowd out the shared IO dispatcher.
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
-    private var searchJob: Job? = null
 
     private val enabledLanguages = sourcePreferences.enabledLanguages.get()
     private val disabledSources = sourcePreferences.disabledSources.get()
-    protected val pinnedSources = sourcePreferences.pinnedSources.get()
-
-    private var lastQuery: String? = null
-    private var lastSourceFilter: SourceFilter? = null
+    private val pinnedSources = sourcePreferences.pinnedSources.get()
 
     protected var extensionFilter: String? = null
-
-    open val sortComparator = { map: Map<Source, SearchItemResult> ->
-        compareBy<Source>(
-            { (map[it] as? SearchItemResult.Success)?.isEmpty ?: true },
-            { "${it.id}" !in pinnedSources },
-            { "${it.name.lowercase()} (${it.lang})" },
-        )
-    }
-
-    init {
-        viewModelScope.launch {
-            preferences.globalSearchFilterState.changes().collectLatest { onlyShowHasResults ->
-                state.update { it.copy(onlyShowHasResults = onlyShowHasResults) }
-            }
-        }
-    }
 
     @Composable
     fun getManga(initialManga: Manga): androidx.compose.runtime.State<Manga> {
@@ -99,124 +74,41 @@ abstract class SearchViewModel(
         }
     }
 
-    open fun getEnabledSources(): List<Source> {
-        return sourceManager.getAll()
-            .filter { it.lang in enabledLanguages && "${it.id}" !in disabledSources }
-            .sortedWith(
-                compareBy(
-                    { "${it.id}" !in pinnedSources },
-                    { "${it.name.lowercase()} (${it.lang})" },
-                ),
-            )
-    }
+    // RK -->
+    // Stripped to a provider for the shared global search, which owns the query, the order, how many
+    // sources run at once and when a search is worth re-running. What is left is the manga sources,
+    // the one-source call, and the long-press half below, which is per content type.
+    fun isPinned(source: Source): Boolean = "${source.id}" in pinnedSources
 
-    private suspend fun getSelectedSources(): List<Source> {
-        val enabledSources = getEnabledSources()
+    /**
+     * The manga sources a search covers. An extension filter names one installed extension, which is
+     * the deep-link case, and it overrides [pinnedOnly] because the named sources are the whole point.
+     */
+    suspend fun searchableSources(pinnedOnly: Boolean): List<Source> {
+        val enabled = sourceManager.getAll()
+            .filter { it.lang in enabledLanguages && "${it.id}" !in disabledSources }
 
         val filter = extensionFilter
-        if (filter.isNullOrEmpty()) {
-            return enabledSources
+        if (!filter.isNullOrEmpty()) {
+            return extensionManager.installedExtensionsFlow.first()
+                .filter { it.pkgName == filter }
+                .flatMap { it.sources }
+                .filter { it in enabled }
         }
-
-        return extensionManager.installedExtensionsFlow.first()
-            .filter { it.pkgName == filter }
-            .flatMap { it.sources }
-            .filter { it in enabledSources }
+        return enabled.filter { !pinnedOnly || isPinned(it) }
     }
 
-    fun updateSearchQuery(query: String?) {
-        state.update { it.copy(searchQuery = query) }
-    }
-
-    fun setSourceFilter(filter: SourceFilter) {
-        state.update { it.copy(sourceFilter = filter) }
-        search()
-    }
-
-    fun toggleFilterResults() {
-        preferences.globalSearchFilterState.toggle()
-    }
-
-    fun search() {
-        val query = state.value.searchQuery
-        val sourceFilter = state.value.sourceFilter
-
-        if (query.isNullOrBlank()) return
-
-        val sameQuery = this.lastQuery == query
-        if (sameQuery && this.lastSourceFilter == sourceFilter) return
-
-        this.lastQuery = query
-        this.lastSourceFilter = sourceFilter
-
-        searchJob?.cancel()
-
-        searchJob = viewModelScope.launchIO {
-            val sources = getSelectedSources()
-
-            // Reuse previous results if possible
-            if (sameQuery) {
-                val existingResults = state.value.items
-                updateItems(
-                    sources
-                        .associateWith { existingResults[it] ?: SearchItemResult.Loading },
-                )
-            } else {
-                updateItems(
-                    sources
-                        .associateWith { SearchItemResult.Loading },
-                )
-            }
-
-            sources.map { source ->
-                async {
-                    if (state.value.items[source] !is SearchItemResult.Loading) {
-                        return@async
-                    }
-
-                    try {
-                        val page = withContext(coroutineDispatcher) {
-                            source.getSearchManga(1, query, source.getFilterList())
-                        }
-
-                        val titles = page.mangas
-                            .map { it.toDomainManga(source.id) }
-                            .distinctBy { it.url }
-                            .let { networkToLocalManga(it) }
-
-                        if (isActive) {
-                            updateItem(source, SearchItemResult.Success(titles))
-                        }
-                    } catch (e: Exception) {
-                        if (isActive) {
-                            updateItem(source, SearchItemResult.Error(e))
-                        }
-                    }
-                }
-            }
-                .awaitAll()
+    /** One source's results, already local so the in-library badge can resolve against them. */
+    suspend fun searchSource(source: Source, query: String): List<Manga> {
+        val page = withContext(coroutineDispatcher) {
+            source.getSearchManga(1, query, source.getFilterList())
         }
+        return page.mangas
+            .map { it.toDomainManga(source.id) }
+            .distinctBy { it.url }
+            .let { networkToLocalManga(it) }
     }
-
-    private fun updateItems(items: Map<Source, SearchItemResult>) {
-        state.update {
-            it.copy(
-                items = items
-                    .toSortedMap(sortComparator(items)),
-            )
-        }
-    }
-
-    private fun updateItem(source: Source, result: SearchItemResult) {
-        // RK: read and write in one update. Sources finish concurrently, often within the same few
-        //     milliseconds, and reading `state.value` outside meant two of them could each add only
-        //     their own result to the same snapshot, so whichever wrote last erased the other. The
-        //     erased source kept whatever it held, which is Loading, and its row spins forever.
-        state.update {
-            val items = it.items + (source to result)
-            it.copy(items = items.toSortedMap(sortComparator(items)))
-        }
-    }
+    // RK <--
 
     fun setMigrateDialog(currentId: Long, target: Manga) {
         viewModelScope.launchIO {
@@ -324,19 +216,12 @@ abstract class SearchViewModel(
         state.update { it.copy(dialog = null) }
     }
 
+    // RK: the results and everything describing them moved to the shared global-search engine; what
+    //     is left is this content type's own long-press dialog.
     @Immutable
     data class State(
-        val from: Manga? = null,
-        val searchQuery: String? = null,
-        val sourceFilter: SourceFilter = SourceFilter.PinnedOnly,
-        val onlyShowHasResults: Boolean = false,
-        val items: Map<Source, SearchItemResult> = mapOf(),
         val dialog: Dialog? = null,
-    ) {
-        val progress: Int = items.count { it.value !is SearchItemResult.Loading }
-        val total: Int = items.size
-        val filteredItems = items.filter { (_, result) -> result.isVisible(onlyShowHasResults) }
-    }
+    )
 
     sealed interface Dialog {
         data class Migrate(val target: Manga, val current: Manga) : Dialog
@@ -358,29 +243,5 @@ abstract class SearchViewModel(
             val alreadyFavorited: Boolean = false,
         ) : Dialog
         // RK <--
-    }
-}
-
-enum class SourceFilter {
-    All,
-    PinnedOnly,
-}
-
-sealed interface SearchItemResult {
-    data object Loading : SearchItemResult
-
-    data class Error(
-        val throwable: Throwable,
-    ) : SearchItemResult
-
-    data class Success(
-        val result: List<Manga>,
-    ) : SearchItemResult {
-        val isEmpty: Boolean
-            get() = result.isEmpty()
-    }
-
-    fun isVisible(onlyShowHasResults: Boolean): Boolean {
-        return !onlyShowHasResults || (this is Success && !this.isEmpty)
     }
 }

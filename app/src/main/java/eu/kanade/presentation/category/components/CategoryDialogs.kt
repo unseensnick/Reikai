@@ -283,6 +283,8 @@ fun ChangeCategoryDialog(
     onDismissRequest: () -> Unit,
     onEditCategories: () -> Unit,
     onConfirm: (List<Long>, List<Long>) -> Unit,
+    // RK: names what the batch is filing when two prompts run back to back, one per content type.
+    title: String? = null,
 ) {
     if (initialSelection.isEmpty()) {
         AlertDialog(
@@ -298,7 +300,7 @@ fun ChangeCategoryDialog(
                 }
             },
             title = {
-                Text(text = stringResource(MR.strings.action_move_category))
+                Text(text = title ?: stringResource(MR.strings.action_move_category))
             },
             text = {
                 Text(text = stringResource(MR.strings.information_empty_category_dialog))
@@ -339,7 +341,7 @@ fun ChangeCategoryDialog(
             }
         },
         title = {
-            Text(text = stringResource(MR.strings.action_move_category))
+            Text(text = title ?: stringResource(MR.strings.action_move_category))
         },
         text = {
             Column(

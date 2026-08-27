@@ -25,7 +25,6 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
@@ -38,9 +37,9 @@ import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.browse.NovelBrowseScreen
-import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -77,13 +76,8 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                 icon = Icons.Outlined.TravelExplore,
                 // Content-type-aware: the Novels chip searches LN sources; Manga / All use Mihon's.
                 onClick = {
-                    navigator.push(
-                        if (state.contentType == ContentType.NOVELS) {
-                            NovelGlobalSearchScreen()
-                        } else {
-                            GlobalSearchScreen()
-                        },
-                    )
+                    // One screen for both types now; it opens on whatever the chip holds.
+                    navigator.push(EntryGlobalSearchScreen())
                 },
             ),
             // Content-type-aware filter: the Novels chip opens the LN per-source filter, Manga / All

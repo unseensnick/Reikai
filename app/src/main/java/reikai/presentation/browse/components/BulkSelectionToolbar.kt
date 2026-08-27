@@ -18,13 +18,15 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun BulkSelectionToolbar(
     selectedCount: Int,
+    // Overrides the plain count, so a mixed selection can say how much of each kind it holds.
+    title: String? = null,
     onClickClearSelection: () -> Unit,
     onChangeCategoryClick: () -> Unit,
     onSelectAll: (() -> Unit)? = null,
     onReverseSelection: (() -> Unit)? = null,
 ) {
     AppBar(
-        titleContent = { Text(text = "$selectedCount") },
+        titleContent = { Text(text = title ?: "$selectedCount") },
         actions = {
             AppBarActions(
                 actions = buildList {

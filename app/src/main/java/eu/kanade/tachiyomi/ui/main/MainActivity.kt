@@ -77,7 +77,6 @@ import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.extension.api.ExtensionApi
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -102,6 +101,7 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.domain.library.ContentType
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelVolumeKeyHost
@@ -491,7 +491,7 @@ class MainActivity :
                 if (!query.isNullOrEmpty()) {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
                     navigator.popUntilRoot()
-                    navigator.push(GlobalSearchScreen(query, filter))
+                    navigator.push(EntryGlobalSearchScreen(query, filter))
                 }
                 null
             }

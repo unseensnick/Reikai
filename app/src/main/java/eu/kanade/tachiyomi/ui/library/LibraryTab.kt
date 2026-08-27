@@ -61,7 +61,6 @@ import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -76,6 +75,7 @@ import reikai.data.track.TrackerRefreshJob
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
@@ -596,7 +596,7 @@ data object LibraryTab : Tab {
                                 EmptyScreenAction(
                                     stringRes = MR.strings.action_global_search,
                                     icon = Icons.Outlined.TravelExplore,
-                                    onClick = { navigator.push(GlobalSearchScreen(query)) },
+                                    onClick = { navigator.push(EntryGlobalSearchScreen(query)) },
                                 ),
                             )
                         },
@@ -647,7 +647,7 @@ data object LibraryTab : Tab {
                                 onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
                                 onToggleDynamicCollapse = engine::toggleDynamicCategoryCollapse,
                                 onGlobalSearchClicked = {
-                                    navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
+                                    navigator.push(EntryGlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
                                 // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
                                 onRefresh = { onClickRefresh(null) },
@@ -686,7 +686,7 @@ data object LibraryTab : Tab {
                                 },
                                 onRefresh = { onClickRefresh(currentRealCategory()) },
                                 onGlobalSearchClicked = {
-                                    navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
+                                    navigator.push(EntryGlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
                                 getItemCountForCategory = activeGetItemCount,
                                 getDisplayMode = { engine.displayMode() },

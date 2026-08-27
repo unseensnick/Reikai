@@ -127,6 +127,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Sources list now remembers one "Last used" source across manga and light novels.** Opening either kind updates it from any screen that opens a catalogue, and it starts empty after this update until you next open one.
 - **The Extensions list now shows manga extensions and light-novel plugins in one list, sectioned the same way.** Pending updates share one section with a single Update all, searching filters both halves at once, and each row says which kind it is.
 - **The Migrate list now shows manga and light-novel sources in one list, sorted together.** The sort controls cover the whole list instead of vanishing when both kinds are showing.
+- **Global search now searches manga and light-novel sources in one run, with All / Manga / Novels tabs at the top.** Sources are ordered together, so whichever kind found something rises above the ones still working.
+- **A global search selection can now add manga and novels to your library together.** Categories are asked for once per kind, because the two libraries keep their own.
 
 **Details**
 

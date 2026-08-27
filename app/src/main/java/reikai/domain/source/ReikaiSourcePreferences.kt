@@ -91,11 +91,6 @@ class ReikaiSourcePreferences(
         { if (it.isEmpty()) emptyList() else it.split("\n") },
     )
 
-    /** "Has results" toggle on the novel global search (hide sources that returned nothing). Persisted,
-     *  mirroring the manga global search's globalSearchFilterState. */
-    val novelGlobalSearchHasResults: Preference<Boolean> =
-        preferenceStore.getBoolean("ln_global_search_has_results", false)
-
     /** Sticky content-type filter on the Updates tab (manga + novels), its own key. */
     val updatesContentType: Preference<ContentType> =
         preferenceStore.getEnum("updates_content_type", ContentType.ALL)

@@ -32,7 +32,7 @@ Remaining manga/novel parity work, smaller enhancements and polish. The write-on
 
 Opportunistic polish:
 - Browse: Latest shortcut, hide-in-library, per-row language, genre-tap-search.
-- Novel global search: opening on Pinned-only with nothing pinned shows a bare empty screen. Default novels to All, or say the list is empty because nothing is pinned.
+- Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Updates / history: fast-scroll animation.
 - Details: per-source scanlator filter for merged novels, novel tag-tap global search.

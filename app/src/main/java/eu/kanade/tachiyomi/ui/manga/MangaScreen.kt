@@ -34,7 +34,6 @@ import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
@@ -53,6 +52,7 @@ import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -202,7 +202,7 @@ class MangaScreen(
                                 if (id != null) {
                                     navigator.push(MangaScreen(id))
                                 } else {
-                                    navigator.push(GlobalSearchScreen(candidate.manga.title))
+                                    navigator.push(EntryGlobalSearchScreen(candidate.manga.title))
                                 }
                             }
                         },
@@ -384,7 +384,7 @@ class MangaScreen(
      */
     private suspend fun performSearch(navigator: Navigator, query: String, global: Boolean) {
         if (global) {
-            navigator.push(GlobalSearchScreen(query))
+            navigator.push(EntryGlobalSearchScreen(query))
             return
         }
 

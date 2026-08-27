@@ -29,6 +29,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -39,7 +40,6 @@ import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelBrowseScreen
-import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -126,12 +126,12 @@ class NovelScreen(
                             // like manga's browse-scoped search; global goes cross-source.
                             onSearch = { query, global ->
                                 if (global) {
-                                    navigator.push(NovelGlobalSearchScreen(query))
+                                    navigator.push(EntryGlobalSearchScreen(query))
                                 } else {
                                     navigator.push(NovelBrowseScreen(s.displayNovel.source, query))
                                 }
                             },
-                            onTagSearch = { navigator.push(NovelGlobalSearchScreen(it)) },
+                            onTagSearch = { navigator.push(EntryGlobalSearchScreen(it)) },
                             onCopyTag = { context.copyToClipboard(it, it) },
                             onTracking = {
                                 if (viewModel.hasLoggedInTrackers()) {

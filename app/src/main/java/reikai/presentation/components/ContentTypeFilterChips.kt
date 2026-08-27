@@ -3,6 +3,7 @@ package reikai.presentation.components
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -38,23 +39,37 @@ fun ContentTypeFilterChips(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        types.forEach { type ->
-            val count = badges[type] ?: 0
-            FilterChip(
-                selected = selected == type,
-                onClick = { onSelect(type) },
-                label = { Text(stringResource(type.labelRes)) },
-                trailingIcon = if (count > 0) {
-                    { Badge { Text(text = "$count") } }
-                } else {
-                    null
-                },
-            )
-        }
+        ContentTypeChips(selected, onSelect, types, badges)
     }
 }
 
-private val ContentType.labelRes
+/**
+ * The same chips without a row of their own, for a caller that already has one. Global search puts
+ * them beside its source filters, so one scrolling row holds every chip rather than stacking two.
+ */
+@Composable
+fun RowScope.ContentTypeChips(
+    selected: ContentType,
+    onSelect: (ContentType) -> Unit,
+    types: List<ContentType> = ContentType.entries,
+    badges: Map<ContentType, Int> = emptyMap(),
+) {
+    types.forEach { type ->
+        val count = badges[type] ?: 0
+        FilterChip(
+            selected = selected == type,
+            onClick = { onSelect(type) },
+            label = { Text(stringResource(type.labelRes)) },
+            trailingIcon = if (count > 0) {
+                { Badge { Text(text = "$count") } }
+            } else {
+                null
+            },
+        )
+    }
+}
+
+internal val ContentType.labelRes
     get() = when (this) {
         ContentType.ALL -> MR.strings.content_type_all
         ContentType.MANGA -> MR.strings.content_type_manga

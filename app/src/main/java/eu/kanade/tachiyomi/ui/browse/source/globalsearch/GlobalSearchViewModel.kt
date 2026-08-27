@@ -26,7 +26,7 @@ class GlobalSearchViewModel(
     getManga: GetManga,
     mangaLibraryAdder: MangaLibraryAdder,
 ) : SearchViewModel(
-    initialState = State(searchQuery = initialQuery),
+    initialState = State(),
     sourcePreferences = sourcePreferences,
     sourceManager = sourceManager,
     extensionManager = extensionManager,
@@ -44,18 +44,8 @@ class GlobalSearchViewModel(
     }
 
     init {
+        // RK: the query and the pinned-only filter belong to the shared engine now; the extension
+        //     filter stays here because only the manga sources have one.
         extensionFilter = initialExtensionFilter
-        if (initialQuery.isNotBlank() || !initialExtensionFilter.isNullOrBlank()) {
-            if (extensionFilter != null) {
-                // we're going to use custom extension filter instead
-                setSourceFilter(SourceFilter.All)
-            }
-            search()
-        }
-    }
-
-    override fun getEnabledSources(): List<Source> {
-        return super.getEnabledSources()
-            .filter { state.value.sourceFilter != SourceFilter.PinnedOnly || "${it.id}" in pinnedSources }
     }
 }

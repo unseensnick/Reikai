@@ -12,9 +12,9 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -47,7 +47,7 @@ class DeepLinkScreen(
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
                 is DeepLinkViewModel.State.NoResults -> {
-                    navigator.replace(GlobalSearchScreen(query))
+                    navigator.replace(EntryGlobalSearchScreen(query))
                 }
                 is DeepLinkViewModel.State.Result -> {
                     val resultState = state as DeepLinkViewModel.State.Result

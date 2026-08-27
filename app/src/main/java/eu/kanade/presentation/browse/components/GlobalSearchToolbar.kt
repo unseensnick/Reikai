@@ -28,9 +28,9 @@ import androidx.compose.ui.Modifier
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.globalsearch.SearchSourceFilter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -44,17 +44,25 @@ fun GlobalSearchToolbar(
     onChangeSearchQuery: (String?) -> Unit,
     onSearch: (String) -> Unit,
     hideSourceFilter: Boolean,
-    sourceFilter: SourceFilter,
-    onChangeSearchFilter: (SourceFilter) -> Unit,
+    sourceFilter: SearchSourceFilter,
+    onChangeSearchFilter: (SearchSourceFilter) -> Unit,
     onlyShowHasResults: Boolean,
     onToggleResults: () -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior,
+    // RK: null keeps the bar on plain `surface` instead of lerping to the scrolled container tint,
+    //      so the bar, the tab strip and the chip row read as one header block.
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     // RK: bulk-selection. onToggleSelectionMode present -> show the Select action.
     onToggleSelectionMode: (() -> Unit)? = null,
     selectionMode: Boolean = false,
     selectedCount: Int = 0,
+    // RK: overrides the plain count, so a selection spanning both content types can say how much of
+    //      each kind it holds.
+    selectionTitle: String? = null,
     onClickClearSelection: () -> Unit = {},
     onChangeCategoryClick: () -> Unit = {},
+    // RK: the shared screen puts its content-type tab strip here, above the source-filter chips, so
+    //      the two controls read as different things rather than as two rows of chips.
+    tabs: @Composable () -> Unit = {},
 ) {
     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
         Box {
@@ -63,6 +71,7 @@ fun GlobalSearchToolbar(
             if (selectionMode) {
                 BulkSelectionToolbar(
                     selectedCount = selectedCount,
+                    title = selectionTitle,
                     onClickClearSelection = onClickClearSelection,
                     onChangeCategoryClick = onChangeCategoryClick,
                 )
@@ -102,14 +111,16 @@ fun GlobalSearchToolbar(
             }
         }
 
+        tabs()
+
         // RK: the filter chips moved to the shared reikai.presentation.browse.EntrySearchSourceFilterChips
-        // (manga + novel global search share them). Driven by primitives, not the SourceFilter enum.
+        // (manga + novel global search share them). Driven by primitives, not the SearchSourceFilter enum.
         EntrySearchSourceFilterChips(
-            isPinnedOnly = sourceFilter == SourceFilter.PinnedOnly,
+            isPinnedOnly = sourceFilter == SearchSourceFilter.PinnedOnly,
             onlyShowHasResults = onlyShowHasResults,
             showSourceFilter = !hideSourceFilter,
-            onSelectPinnedOnly = { onChangeSearchFilter(SourceFilter.PinnedOnly) },
-            onSelectAll = { onChangeSearchFilter(SourceFilter.All) },
+            onSelectPinnedOnly = { onChangeSearchFilter(SearchSourceFilter.PinnedOnly) },
+            onSelectAll = { onChangeSearchFilter(SearchSourceFilter.All) },
             onToggleResults = onToggleResults,
         )
     }

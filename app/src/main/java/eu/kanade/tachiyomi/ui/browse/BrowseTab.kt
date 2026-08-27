@@ -17,7 +17,6 @@ import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
-import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
@@ -25,6 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
 import tachiyomi.i18n.MR
@@ -45,7 +45,7 @@ data object BrowseTab : Tab {
         }
 
     override suspend fun onReselect(navigator: Navigator) {
-        navigator.push(GlobalSearchScreen())
+        navigator.push(EntryGlobalSearchScreen())
     }
 
     private val switchToExtensionTabChannel = Channel<Unit>(1, BufferOverflow.DROP_OLDEST)
