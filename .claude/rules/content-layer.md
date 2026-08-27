@@ -1,4 +1,4 @@
-| Browse | Full takeover | One engine assembles each of the four multi-source lists over two providers with the content-type chip as a predicate, and one catalogue screen serves both per-source grids over two Paging 3 pagers. Nine Mihon files deleted and manifested. Only the filter dispatch stays per-type, as a slot the screen fills | content-layer-browse-surface, content-layer-add-flow |---
+---
 alwaysApply: true
 ---
 
