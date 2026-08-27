@@ -2,9 +2,11 @@
 
 ## Goal
 
-Collapse the remaining manga/novel behavior twins on the browse surface (bulk add-to-library, the
-library-adder contract and its dialogs) and close two ruled parity gaps (hide-in-library, source
-languages), so a browse behavior change is written once and reaches both content types.
+Redo the browse surface at the behaviour seam. The four multi-source lists (Sources, Extensions,
+Migrate-sources and global search) become one Reikai-owned All-first engine serving both content
+types, and the per-source grid becomes one shared screen over two live pagers. A browse change is
+then written once, and the All chip stops being a hand-wired third rendering of lists it does not
+own.
 
 ## Why
 
@@ -14,12 +16,28 @@ deliberately declined (see [content-parity-drift-and-collapse.md](content-parity
 2c and Phase 3, both marked do-not-re-flag). What remained forked was behavior: the two
 bulk-favorite ScreenModels were line-for-line twins, the two library adders expose the same
 favorite/duplicate/categories flow with per-type signatures, and their Remove dialogs are unshared
-twins. The spine rule of [content-layer-architecture.md](content-layer-architecture.md) holds
-unamended here: no library-style takeover, verbs stay in per-type code, Mihon files stay live.
+twins. The spine rule of [content-layer-architecture.md](content-layer-architecture.md) held
+unamended for that work: no library-style takeover, verbs stay in per-type code, Mihon files stay
+live.
 
-## Approach
+**That verb collapse shipped and did not stop the drift, so the no-takeover ruling is overruled
+(owner, 2026-08-27).** It shared what the two stacks had in common and left the All chip assembling
+its own lists by hand, which is exactly the behaviour-partial shape the 2026-08-06 redo ruling was
+written against. The bill came in as upstream behaviour that nothing catches going missing.
+`ReikaiExtensionsTab`'s combined list flattens `ExtensionsViewModel.State.items` past its headers, so
+under the All chip the manga extensions lose every section header and with it the Update all button,
+pull-to-refresh, the install-permission banner and the loading and empty states; the
+back-clears-search handler upstream added in mihonapp/mihon#2906 sits inside the tab content only the
+Manga chip reaches. `CombinedSourcesContent` renders manga's pseudo-groups and then appends the novel
+stream whole, and both providers emit their own Last used and Pinned headers, so that list shows each
+of those twice. `browseContentType` defaults to `ContentType.ALL`, so the broken view is the one that
+opens. The trust bug fixed in `c5c5bc0ea` was the sixth defect of this class, and like the others it
+was found by accident rather than by any check.
 
-Five steps, each independently shippable and device-verified before the next.
+## What shipped first: the verb collapse
+
+Six steps, each independently shippable and device-verified before the next. This is the record of
+the work that preceded the takeover, not the forward plan; the takeover section below is.
 
 - **Step 1, the shared bulk-favorite engine (shipped `1392f58c9`).** The whole selection and
   category state machine (toggle / select-all / invert, the default-category-or-prompt decision,
@@ -74,6 +92,104 @@ Five steps, each independently shippable and device-verified before the next.
   case for case against its novel twin at the same time, which turned up the `dateAdded` gap below.
   Both adders now carry the same seven cases, each mutation-verified.
 
+## The takeover (ruled 2026-08-27)
+
+**Browse is two surfaces, not one, and they take opposite shapes.** The four multi-source lists
+(Sources, Extensions, Migrate-sources, global search) are All-first surfaces in the library's and
+recents' sense: many rows from both providers on one screen, with the chips as predicates over one
+assembled list. The per-source grid is not one of them. A source is either a manga source or a novel
+source, so the content type is fixed before that screen opens and All means nothing there; it takes
+the details surface's shape instead, a neutral state and behaviour contract over two adapters.
+Treating the grid as All-first, or the four lists as UI leaves, are the two ways to mis-plan this.
+
+**The pager decline has expired; the filter decline holds.** Paging 3 is upstream's own mechanism
+rather than a Reikai introduction: `BrowseSourceViewModel` in `refs/mihon` builds its own `Pager`,
+upstream's `SourcePagingSource` is a bare typealias over androidx `PagingSource`, and the paging
+artifacts are in Mihon's version catalog. Reikai only widened the element type to carry gallery
+metadata. So putting novels on Paging 3 reimplements nothing of Mihon's spine, it adopts the base's
+mechanism, and it deletes the hand-rolled pager that exists only because the novel side rolled one.
+The filter dispatch stays split on mechanism, a typed `FilterList` against a plugin JSON schema, and
+is pinned by a typed capability rather than left as a decline.
+
+Nine steps, each independently shippable and device-verified before the next.
+
+- **Step 1, record the ruling.** This file, the depth table in
+  [content-layer.md](../../../.claude/rules/content-layer.md), and the sequencing line plus a new
+  amendment in [content-layer-architecture.md](content-layer-architecture.md). The three state the
+  same ruling and must not disagree, so they move together.
+- **Step 2, novels onto Paging 3.** A Reikai `PagingSource` over `NovelSource.popularNovels` and
+  `searchNovels`, folding the eager next-page probe into the paging key and hide-in-library into a
+  paging filter, retiring the continuation loop in `NovelBrowseViewModel.loadMore`. Independent of
+  every other step, and it de-risks step 8. Device-verify a short page and a first page that
+  hide-in-library empties, because that loop exists for a real failure.
+- **Step 3, `SourceKey` and one last used.** A sealed `SourceKey` (`Manga(Long)` / `Novel(String)`),
+  the browse analogue of `EntryId`, keying every section and map on this surface. One shared
+  last-used preference written by both browse entry points, replacing `lastUsedSource` and
+  `lastUsedNovelSource`. No migration: each has one reader and one writer today, and the section
+  refills the first time a source is opened. `GetEnabledSources` stays unpatched and the manga
+  adapter drops the `isUsedLast` row it duplicates, so the assembler owns the flag.
+- **Step 4, the list engine, on Sources.** One assembler over both providers' source rows, doing the
+  sectioning once: Last used, Pinned, per-language across both content types, then Other. The chips
+  become predicates; loading, emptiness and every value describing the list derive in the engine over
+  the active providers, which is what stops them being branch-specific again. `SourcesViewModel` and
+  `NovelSourcesViewModel` stay live as providers, the way `LibraryViewModel` does.
+- **Step 5, Extensions onto the engine.** One Updates-pending section with one Update all spanning
+  both content types, one Installed, one Available, plus pull-to-refresh, the install-permission
+  banner, the loading and empty states and the back-clears-search handler, each derived once. Five of
+  the six known drops close by construction rather than by being re-added by hand.
+- **Step 6, Migrate-sources onto the engine**, with one sort header sorting across both types, which
+  retires the recorded no-sort-under-All carve-out rather than living with it.
+- **Step 7, global search as one screen.** The engine owns the query and fans it to the providers
+  (the recents departure from the library template, taken for the same reason), with one result list,
+  one has-results filter, one comparator, one concurrency limiter and one same-query guard.
+  `SearchViewModel` and `NovelGlobalSearchViewModel` stay live as providers. The novel entry points
+  redirect; the manga ones are unchanged.
+- **Step 8, the shared per-source grid.** Neutral state, a behaviour contract, and two adapters over
+  the two Paging 3 pagers. Typed capability slots for filter dispatch, source settings, the enhanced
+  adult view, the MangaDex extras and the Latest listing. Columns and display mode read once from the
+  manga preferences.
+- **Step 9, the behaviour inventory.** Every replaced surface walked end to end, each item marked
+  present, deliberately dropped with its reason, or missing. Not optional here: six drops of this
+  class were already found by accident rather than by a check.
+
+### Rulings settled before starting (owner, 2026-08-27)
+
+- **Language is the outer grouping under All, not content type.** Manga and novel sources share one
+  language section, and the row carries a content-type badge to say which it is. The moment content
+  type becomes the outer grouping the chips stop being predicates and become navigation again, which
+  is the thing being removed. The badge is drawn only under All; under a single-type chip it is noise.
+- **One last-used source across both content types**, in upstream's duplicate form: the source shows
+  in the Last used section and again in its language group, as manga does today. The two forms
+  disagreed (upstream duplicates the row, the novel provider pulls it out) and the manga form wins,
+  the same way cosmetic differences were settled on the library settings sheet.
+- **Global search is one screen**, not two sharing an engine. The three novel entry points land on
+  whatever the sticky chip holds rather than forcing the Novels chip.
+- **Global search is in scope**, reversing the earlier exclusion. `SearchViewModel` and everything
+  under `migrate/` were excluded when browse was not being taken over; the surface holds the clearest
+  duplicate-implementation evidence on this stack, so it comes in as a provider. Migration's own use
+  of the smart-search engines stays out.
+- **A novel source's Latest listing is a derived capability, not a gated one.** The LNReader plugin
+  format declares no latest flag, only a `showLatestNovels` option, and 75 of the registry's 146
+  plugins reference it at all, so an ungated chip silently returns the Popular list on roughly half
+  of them. Tsundoku takes the other branch, hardcoding `supportsLatest = true` on every JS plugin and
+  mapping latest onto the same call with the flag flipped, which is why their Latest tab has the same
+  defect. Reikai answers instead: the installer already holds the plugin's source text when it loads
+  it, so the capability is decided there. Absent means it cannot honour the option and the chip
+  hides; present means assume supported. The error is asymmetric in the safe direction, since
+  `showLatestNovels` is an external contract name a minifier will not rename.
+- **Novel browse adopts manga's display mode and column preferences.** This is one screen serving two
+  content types rather than two surfaces, so the surface-scoped-settings rule does not apply, and
+  novels currently ignore the column setting entirely.
+
+### What is deleted and manifested
+
+Fully replaced pure-UI Mihon files: `SourcesScreen.kt`, `ExtensionsScreen.kt`, `ExtensionsTab.kt`,
+both `GlobalSearchScreen.kt`, `MigrateSourceScreen.kt`, and both `BrowseSourceScreen.kt`. Per-file
+upstream churn over twelve months is 1 to 5 commits each, well inside what the migrate takeover was
+ruled affordable at. The row leaves stay live and synced (`SourceItem`, `BaseSourceItem`,
+`ExtensionItem`, `ExtensionHeader`, `ExtensionUiModel`, the four browse grid variants), as do every
+ViewModel and interactor below them.
+
 ## Key files
 
 - Shared engine: `reikai/presentation/browse/EntryBulkFavoriteViewModel.kt`, facades in
@@ -85,22 +201,58 @@ Five steps, each independently shippable and device-verified before the next.
   `reikai/presentation/novel/browse/NovelBrowseScreen.kt`, both global-search screens, and
   `exh/md/follows/MangaDexFollowsScreen.kt`.
 
+For the takeover:
+
+- The list engine and its assembler land in `reikai/presentation/browse/`, beside the shared chip
+  holder `ReikaiBrowseViewModel` and the three tab wrappers being replaced (`ReikaiSourcesTab`,
+  `ReikaiExtensionsTab`, `ReikaiMigrateSourceTab`).
+- Providers that stay live and synced: `SourcesViewModel`, `ExtensionsViewModel`,
+  `MigrateSourceViewModel`, `SearchViewModel`, and their novel counterparts `NovelSourcesViewModel`,
+  `LnPluginManagerViewModel`, `MigrateNovelSourcesViewModel`, `NovelGlobalSearchViewModel`.
+- Identity: `reikai/domain/entry/EntryId.kt` is the template for the new `SourceKey`.
+- The last-used keys being replaced: `SourcePreferences.lastUsedSource` (read only by
+  `GetEnabledSources`, written only by `BrowseSourceViewModel`) and
+  `NovelPreferences.lastUsedNovelSource` (read only by `NovelSourcesViewModel`, written only by
+  `ReikaiBrowseViewModel`).
+- The pagers: `BaseSourcePagingSource` in `data/.../source/SourcePagingSource.kt` is the shape the
+  novel one copies, over `NovelSource` in `reikai/novel/source/`.
+- The latest-capability check reads the plugin source text `LnPluginInstaller` already holds when it
+  calls `LnPluginHost.loadPlugin`.
+
 ## Status
 
-Shipped in full on `feat/0.4.0`: step 1 `1392f58c9`, step 2 `66dd5d007`, step 3 `cadf22edb`,
-step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fold-verified on both content types (the
-add / remove round trips, the hide-in-library toggle, the language switch). Step 6 closes the
-surface; the remaining content-layer surfaces are history and updates, then downloads, then the
-reader.
+**The verb collapse shipped in full on `feat/0.4.0`**: step 1 `1392f58c9`, step 2 `66dd5d007`,
+step 3 `cadf22edb`, step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fold-verified on both
+content types (the add / remove round trips, the hide-in-library toggle, the language switch).
+
+**The takeover is planned, not started** (scouted and ruled 2026-08-27). It lands in the 0.4.0 cycle
+but does not join the cut gate, which stays the tsundoku reader migration and Road B; if it is not
+finished when those two are, it slips rather than holding the release. `ROADMAP.md` carries the
+forward item.
 
 ## Decisions & tradeoffs
 
-- **No takeover, no reopened parks.** The 2c body/toolbar shell and the generic search orchestrator
-  stay declined; pagination (Paging 3 vs the manual probe pager), the filter dispatch (typed
-  `FilterList` vs plugin JSON schema), `SearchViewModel` and everything under `migrate/` are out
-  of scope. `SearchViewModel` belongs to the migrate/global-search surface.
-- **The behaviour-seam takeover is ruled out while the two pagers stay apart; the adder half of
-  that ruling has expired (2026-08-09).** A later plan proposed redoing browse the way migrate,
+- **Superseded 2026-08-27: "No takeover, no reopened parks."** It read: the 2c body/toolbar shell
+  and the generic search orchestrator stay declined; pagination (Paging 3 vs the manual probe pager),
+  the filter dispatch (typed `FilterList` vs plugin JSON schema), `SearchViewModel` and everything
+  under `migrate/` are out of scope. Of that list only the filter dispatch and migration's own use of
+  the smart-search engines survive; the takeover section above carries what replaced the rest.
+- **Superseded 2026-08-27, in full: the behaviour-seam takeover is ruled out while the two pagers
+  stay apart.** Both halves have now expired. The adder half went in 2026-08-09 when the recents
+  engine became the shared caller it said did not exist. The pager half went when the premise was
+  re-read against current code: Paging 3 is upstream's mechanism, not Reikai's, so adopting it for
+  novels reimplements no Mihon code and the spine rule never reached it. What the decline got right
+  and keeps is the filter dispatch, which is a genuine contract difference. What it got wrong is
+  treating low churn as making a takeover merely affordable rather than necessary: the cost of not
+  doing it was six upstream behaviours silently dropped under the default chip, none of them caught
+  by a check. The original text follows, kept as the record.
+
+  Its churn figure was also wrong, and re-measuring is what showed how little the cost argument
+  weighed: twelve months against the synced base is 12 commits on the source-browse paths (ten
+  cross-cutting mechanical, two small UI fixes) and 16 on extensions, spread thinly enough that no
+  single file exceeds 5. The original text follows, kept as the record.
+
+  The original ruling (2026-08-09). A later plan proposed redoing browse the way migrate,
   details and library were
   redone, on the grounds that upstream churn is near zero (measured: five commits in twelve months
   across the eleven upstream browse paths, one behavioural, all already below the synced base). Low
