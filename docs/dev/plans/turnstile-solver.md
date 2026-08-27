@@ -26,11 +26,11 @@ cloaked, never a headless one, for the reason its own dependency states, that he
 browser onto a code path with no widget tree that anti-bot systems can spot.
 
 While attached, an isolated-world script reports twice a second what the page shows: whether the
-challenge markup is present, the response token, the widget's rect and the page HTML. It runs in a
-world the challenge's own scripts cannot see, because Byparr measured that scripts in the page's own
-world against a live challenge make Cloudflare reissue it. Kotlin decides from those reports and
-presses the widget with a real `MotionEvent`, which carries a true `isTrusted` and needs no DOM
-patching at all.
+challenge markup is present, the response token and the page HTML. It runs in a world the challenge's
+own scripts cannot see, because Byparr measured that scripts in the page's own world against a live
+challenge make Cloudflare reissue it. Kotlin decides from those reports and presses the checkbox by
+dispatching Tab then Space at the WebView: real key events that carry a true `isTrusted`, and that
+need no DOM patching and no coordinate.
 
 Requests to one host dedupe onto a single solve, and the challenge is only considered over once the
 page has stopped looking like an interstitial across two readings and a fresh `cf_clearance` is in
@@ -57,10 +57,10 @@ unchanged.
 Prototype, shipped off by default in `14d3d54c1`. Device-verified on the Fold over a VPN across
 repeated cold starts with cookies and WebView data cleared between runs.
 
-Six challenged hosts in one global search clear in **under four seconds**, in parallel, with no
-failures and no keyboard disruption: `aquareader.org`, `comix.to`, `comick.live`, `mangafire.to`,
-`www.natomanga.com`, `toonily.com`. A single source on its own clears in about two and a half
-seconds from the challenge turning interactive.
+Four or five challenged hosts in one global search clear in **2.9 to 3.5 seconds**, in parallel,
+with no failures and no keyboard disruption: `aquareader.org`, `comix.to`, `comick.live`,
+`mangafire.to`, `www.natomanga.com`, `toonily.com`. A single host takes 2.2 to 3.1 seconds from the
+challenge turning interactive to the page being past it.
 
 The shape of the numbers, run over the same test as the design changed:
 
@@ -69,7 +69,8 @@ The shape of the numbers, run over the same test as the design changed:
 | concurrent, pressing before the challenge turned interactive | 0 of 6 | n/a | all |
 | serialized, one solve at a time | 3 of 6 | ~35s | 3 |
 | serialized, press gated on interactive, per-host dedup | 5 of 6 | ~33s | 1 |
-| parallel, dedup, undetected-solve fallback | **6 of 6** | **3.4s** | **0** |
+| parallel, dedup, undetected-solve fallback | 6 of 6 | 3.4s | 0 |
+| pressing with Tab and Space instead of a tap | **29 of 29** | **2.9-3.5s** | **0** |
 
 Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
 Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
@@ -83,11 +84,19 @@ challenge, neither of which is reachable from a unit test.
   reports `300x65`, the checkbox appears, and an ordinary tap clears it in about two seconds. A
   pointer-event counter also read zero throughout, but it ran in an isolated world and was never
   shown able to read anything else, so the behaviour above is the load-bearing evidence, not it.
+- **The press is Tab then Space, not a tap at a computed point.** Suggested by the person who
+  proposed the solver, and used by their upstream port (mihonapp/mihon#3858). Twenty-nine interactive
+  challenges over six VPN rounds cleared on keys alone, at 2.2 to 3.1 seconds each, the range the
+  tap measured. The four rounds run before the tap came out carried it as a fallback and never
+  reached it.
+  Keys need no coordinate, so the checkbox inset, the widget-rect walk in the probe and the viewport
+  scaling are gone: that arithmetic was the part most exposed to Cloudflare restyling its widget.
 - **Focus turned out not to matter, and taking it was a bug.** An early design spoofed
-  `document.hasFocus()` because the synthetic-event press needed it. With a real `MotionEvent` it is
-  irrelevant: across three runs all 28 presses ran with `document.hasFocus()` already false and the
-  hosts solved anyway. Worse, holding focus reopened the soft keyboard over whatever the user was
-  typing in, once per solve, so the view is now non-focusable.
+  `document.hasFocus()` because the synthetic-event press needed it. Neither real input needs it, and
+  holding focus reopened the soft keyboard over whatever the user was typing in, once per solve, so
+  the view is non-focusable. Every key press measured reported `hasFocus()` true, including with the
+  keyboard up and the app's search field focused, so the IME does not take focus from an attached
+  WebView; the `false` readings the tap runs recorded have not been reproduced since.
 - **Press only once the challenge turns interactive.** The response token exists from the first
   paint, so a rect is measurable before there is any checkbox behind it. Pressing then does nothing
   except start the cooldown that delays the press which counts, costing about two seconds a solve.

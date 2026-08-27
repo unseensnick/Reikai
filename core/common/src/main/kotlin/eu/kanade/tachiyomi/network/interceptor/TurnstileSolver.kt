@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import android.os.SystemClock
-import android.view.MotionEvent
+import android.view.KeyEvent
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.webkit.WebViewCompat
@@ -18,26 +18,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Presses the checkbox of an interactive Cloudflare Turnstile challenge in the bypass WebView.
  *
- * The WebView is attached to the foreground activity's window and pushed off screen, which is the
- * Android form of what Solverr does on the desktop: a headed browser whose window is cloaked, never
- * a headless one. Attachment is what makes the solve possible at all, measured three ways. Detached
- * the widget has no viewport and never renders a checkbox; no synthesized touch reaches the renderer
- * (zero pointer events across a full solve); and the DOM patching that stands in for real input gets
- * the challenge reissued instead of cleared.
- *
- * Attached, the press is an ordinary [MotionEvent] that carries a true `isTrusted`, so none of that
- * patching is needed. Page state is read from an isolated JS world the challenge cannot see, because
- * Byparr measured that scripts running in the page's own world against a live challenge make
- * Cloudflare reissue it.
+ * The WebView has to be attached to a window: detached it renders no checkbox and takes no input.
+ * The press is an ordinary [KeyEvent] pair, Tab then Space, so no DOM patching and no coordinate is
+ * needed, and page state is read from an isolated JS world, because a script in the page's own world
+ * gets the challenge reissued. What else was tried, and failed, is in docs/dev/plans/turnstile-solver.md.
  */
 object TurnstileSolver {
 
     /** Byparr and Solverr both measured that pressing again mid-verification restarts it. */
     private const val PRESS_COOLDOWN_MS = 4000L
-    private const val PRESS_HOLD_MS = 80L
-
-    /** Horizontal inset of the checkbox inside the widget, measured by both reference solvers. */
-    private const val CHECKBOX_INSET_CSS = 28
+    private const val KEY_GAP_MS = 100L
 
     private const val BRIDGE = "reikaiTurnstileWatch"
     private const val SIBLING_WAIT_SECONDS = 60L
@@ -103,9 +93,9 @@ object TurnstileSolver {
         webView.translationX = width.toFloat()
 
         // It must never hold focus. Taking it on attach and handing it back on detach is what
-        // reopens the soft keyboard over whatever the user was typing in, once per solve. The press
-        // is a MotionEvent dispatched straight at the view, which needs none: every solve measured
-        // so far pressed with `document.hasFocus()` already false.
+        // reopens the soft keyboard over whatever the user was typing in, once per solve. The keys
+        // are dispatched straight at the view rather than through the focus system, and they land
+        // even while the soft keyboard is up and an app text field holds focus.
         webView.isFocusable = false
         webView.isFocusableInTouchMode = false
         webView.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
@@ -117,22 +107,18 @@ object TurnstileSolver {
         var solved = false
 
         val pressWhenDue = press@{ probe: JSONObject ->
-            // The token input exists from the first paint, so a box is measurable well before there
-            // is a checkbox behind it. Pressing then does nothing except start the cooldown, which
-            // delayed the press that counts by two seconds on every measured solve.
+            // The widget is present from the first paint, well before there is a checkbox behind it.
+            // Pressing then does nothing except start the cooldown, which delayed the press that
+            // counts by two seconds on every measured solve.
             if (!interactive.get()) return@press
             val now = SystemClock.uptimeMillis()
-            val box = probe.optJSONObject("box") ?: return@press
-            // Never press over a box that already carries a token: that restarts the verification
+            // Never press a widget that already carries a token: that restarts the verification
             // Cloudflare is in the middle of rather than completing it.
             if (probe.optString("token").isNotEmpty() || now - lastPress < PRESS_COOLDOWN_MS) return@press
 
-            val scale = width / probe.optDouble("width", width.toDouble())
-            val x = ((box.optDouble("x") + CHECKBOX_INSET_CSS) * scale).toFloat()
-            val y = ((box.optDouble("y") + box.optDouble("height") / 2) * scale).toFloat()
             lastPress = now
-            logcat { "Turnstile[$host]: pressing at $x, $y (focus ${probe.optBoolean("focus")})" }
-            webView.press(x, y)
+            val delivered = webView.pressKeys()
+            logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
         }
 
         val onWatch = watch@{ json: String ->
@@ -203,22 +189,22 @@ object TurnstileSolver {
         return "just a moment" in title || CHALLENGE_MARKERS.any { it in low }
     }
 
-    /** A real tap, so the page sees a trusted event that no DOM patching has to fake. */
-    private fun WebView.press(x: Float, y: Float) {
-        val down = SystemClock.uptimeMillis()
-        MotionEvent.obtain(down, down, MotionEvent.ACTION_DOWN, x, y, 0).use(::dispatchTouchEvent)
-        postDelayed({
-            MotionEvent.obtain(down, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0)
-                .use(::dispatchTouchEvent)
-        }, PRESS_HOLD_MS)
+    /**
+     * Tabs onto the checkbox and hits Space, so no coordinate has to be estimated. The cadence is
+     * mihonapp/mihon#3858's, a tenth of a second between every event, dispatched from the main
+     * thread rather than a sleeping one because a WebView takes calls from nowhere else. Returns
+     * whether the first key was accepted, the only signal that the view took them at all.
+     */
+    private fun WebView.pressKeys(): Boolean {
+        val delivered = dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB))
+        key(KEY_GAP_MS, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB)
+        key(KEY_GAP_MS * 2, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)
+        key(KEY_GAP_MS * 3, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE)
+        return delivered
     }
 
-    private inline fun MotionEvent.use(block: (MotionEvent) -> Unit) {
-        try {
-            block(this)
-        } finally {
-            recycle()
-        }
+    private fun WebView.key(delay: Long, action: Int, code: Int) {
+        postDelayed({ dispatchKeyEvent(KeyEvent(action, code)) }, delay)
     }
 
     private const val DEFAULT_WIDTH = 1080
@@ -237,10 +223,8 @@ private val CHALLENGE_MARKERS = listOf(
 /**
  * Reports what the challenge page shows, twice a second, from a world its scripts cannot read.
  *
- * The widget's own iframe cannot be measured from the page (Cloudflare's interstitial builds it
- * itself and its frame reports an empty URL), so the rect comes from the light-DOM container around
- * the response token, walking up until one is checkbox-shaped rather than page-shaped. Depths and
- * bounds are Byparr's, measured against live interstitials.
+ * The response token doubles as the challenge marker. Cloudflare's interstitial builds the widget
+ * itself and that frame reports an empty URL, so the input is the only part of it the page can see.
  */
 private val WATCH = """
 (() => {
@@ -249,17 +233,6 @@ private val WATCH = """
   const TOKEN = 'input[name="cf-turnstile-response"]';
   const CHALLENGE = '#challenge-form,#challenge-stage,#cf-challenge-running,#cf-please-wait,#challenge-spinner';
   const MAX_BODY = 4000000;
-
-  const widgetBox = (input) => {
-    let node = input.parentElement;
-    for (let depth = 0; depth < 4 && node; depth++, node = node.parentElement) {
-      const box = node.getBoundingClientRect();
-      if (box.width > 40 && box.height > 20 && box.height < 120) {
-        return { x: box.left, y: box.top, height: box.height };
-      }
-    }
-    return null;
-  };
 
   setInterval(() => {
     try {
@@ -272,9 +245,6 @@ private val WATCH = """
       window.reikaiTurnstileWatch.postMessage(JSON.stringify({
         challenged: challenged,
         token: input ? input.value : '',
-        box: input ? widgetBox(input) : null,
-        width: window.innerWidth,
-        focus: document.hasFocus(),
         html: html.length > MAX_BODY ? '' : html,
       }));
     } catch (e) {}
