@@ -32,9 +32,21 @@ import tachiyomi.domain.source.model.StubSource
 class MangaBrowseAdapter(
     private val model: BrowseSourceViewModel,
     private val bulk: BulkFavoriteViewModel,
+    migrateForId: Long? = null,
+    /** Report the picked target back, which the screen turns into a handoff and a pop. */
+    onPickTarget: (targetId: Long) -> Unit = {},
 ) : EntryBrowseBehavior {
 
-    private val capabilities = EntryBrowseCapabilities()
+    private val capabilities = EntryBrowseCapabilities(
+        migrationPick = migrateForId?.let { id ->
+            // A browsed manga row is already a stored row, so unlike the novel twin there is
+            // nothing to materialize before the pick can name it.
+            MigrationPickCapability(id) { row, onPicked ->
+                onPickTarget(row.manga.id)
+                onPicked()
+            }
+        },
+    )
 
     override val state: StateFlow<EntryBrowseScreenState> =
         combine(model.state, bulk.state, ::toNeutral)
@@ -132,7 +144,11 @@ class MangaBrowseAdapter(
 
     override fun setQuery(query: String?) = model.setToolbarQuery(query)
 
-    override fun search(query: String?) = model.search(query)
+    override fun search(query: String?) {
+        // Clearing means the listing back, per the contract. Upstream's own `search(null)` keeps the
+        // query it already had, which would leave an empty field standing over its results.
+        if (query.isNullOrBlank()) setListing(EntryBrowseListing.Popular) else model.search(query)
+    }
 
     override fun setDisplayMode(mode: LibraryDisplayMode) = model.setDisplayMode(mode)
 

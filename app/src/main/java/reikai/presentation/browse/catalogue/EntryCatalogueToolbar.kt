@@ -37,6 +37,8 @@ fun EntryCatalogueToolbar(
     onHelpClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
+    /** The search field's X: clears the search rather than leaving the source. */
+    onCloseSearch: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     onToggleSelectionMode: (() -> Unit)? = null,
 ) {
@@ -48,7 +50,7 @@ fun EntryCatalogueToolbar(
         searchQuery = searchQuery,
         onChangeSearchQuery = onSearchQueryChange,
         onSearch = onSearch,
-        onClickCloseSearch = navigateUp,
+        onClickCloseSearch = onCloseSearch,
         actions = {
             AppBarActions(
                 actions = buildList {

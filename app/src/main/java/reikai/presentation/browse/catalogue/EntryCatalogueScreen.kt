@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -57,7 +58,9 @@ import exh.source.getMainSource
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import mihon.app.di.appGraph
 import mihon.presentation.core.util.collectAsLazyPagingItems
+import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkSelectionToolbar
@@ -118,11 +121,19 @@ class EntryCatalogueScreen(
         }
         val navigator = LocalNavigator.currentOrThrow
         val uriHandler = LocalUriHandler.current
+        val context = LocalContext.current
         val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
             create(sourceId = sourceId, listingQuery = initialQuery)
         }
         val bulk = metroViewModel<BulkFavoriteViewModel>()
-        val adapter = remember(viewModel, bulk) { MangaBrowseAdapter(viewModel, bulk) }
+        // The graph's app-scoped binding, so the pick lands in the same handoff the models read.
+        val pickHandoff = remember { context.appGraph.migrationPickHandoff }
+        val adapter = remember(viewModel, bulk) {
+            MangaBrowseAdapter(viewModel, bulk, migrateForId) { targetId ->
+                migrateForId?.let { pickHandoff.offer(EntryId.Manga(it), targetId) }
+                navigator.pop()
+            }
+        }
         val modelState by viewModel.state.collectAsState()
         val isLocal = viewModel.source is LocalSource
         val isMangaDex = remember(viewModel) { viewModel.source.getMainSource<MangaDex>() != null }
@@ -301,6 +312,7 @@ class EntryCatalogueScreen(
                             onHelpClick = onHelpClick,
                             onSettingsClick = onOpenSettings,
                             onSearch = behavior::search,
+                            onCloseSearch = { behavior.search(null) },
                             scrollBehavior = scrollBehavior,
                             onToggleSelectionMode = { behavior.setSelectionMode(true) },
                         )
