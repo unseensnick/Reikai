@@ -4,6 +4,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.filter
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -13,11 +18,15 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -25,11 +34,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.source.NovelListingPagingSource
+import reikai.novel.source.NovelSearchPagingSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.EntrySourceLabel
@@ -42,9 +52,9 @@ import tachiyomi.domain.category.model.Category
 /**
  * Per-source light-novel browse state holder. The source is pre-picked (the Browse Sources tab is the
  * picker), so this jumps straight to a catalog and mirrors the manga browse's listing model: a
- * Popular / Latest toggle plus a filters draft and a search query, paged manually (lnreader plugins
- * return a bare page list with no `hasNextPage`, so an empty page marks the end). The screen is a pure
- * renderer over [NovelBrowseState].
+ * Popular / Latest toggle plus a filters draft and a search query, paged through Paging 3 over a
+ * [reikai.novel.source.BaseNovelPagingSource]. The screen is a pure renderer over [NovelBrowseState]
+ * plus the pager flow.
  */
 @AssistedInject
 class NovelBrowseViewModel(
@@ -69,13 +79,33 @@ class NovelBrowseViewModel(
     // Same preference and same load-time snapshot as manga browse (BrowseSourceViewModel).
     private val hideInLibraryItems = sourcePreferences.hideInLibraryItems.get()
 
-    /** Drop already-favorited results when Hide-entries-already-in-library is on, against the live
-     *  favorited-key set (the same check the in-library badge uses). */
-    private fun List<NovelItem>.dropInLibrary(): List<NovelItem> {
-        if (!hideInLibraryItems) return this
-        val keys = state.value.favoritedKeys
-        return filterNot { (sourceId to it.path) in keys }
-    }
+    /**
+     * Flow of Pager flow tied to what the state says is being paged. Rebuilt only when those inputs
+     * change, so editing the filter draft refetches nothing until Apply writes it.
+     */
+    val novelPagerFlowFlow: StateFlow<Flow<PagingData<NovelItem>>> = state
+        .map { it.pagerInput }
+        .distinctUntilChanged()
+        .map { input ->
+            if (input == null) {
+                emptyFlow()
+            } else {
+                Pager(PagingConfig(pageSize = PAGE_SIZE)) {
+                    if (input.query.isBlank()) {
+                        NovelListingPagingSource(input.source, input.optionsJson)
+                    } else {
+                        NovelSearchPagingSource(input.source, input.query)
+                    }
+                }.flow
+                    // Drop already-favorited results when Hide-entries-already-in-library is on,
+                    // against the live favorited-key set (the same check the in-library badge uses).
+                    .map { data ->
+                        data.filter { !hideInLibraryItems || (sourceId to it.path) !in state.value.favoritedKeys }
+                    }
+                    .cachedIn(viewModelScope)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyFlow())
 
     init {
         // In-library marking: favorited (source, url) keys so results already saved are dimmed +
@@ -85,61 +115,62 @@ class NovelBrowseViewModel(
                 state.update { it.copy(favoritedKeys = keys) }
             }
         }
-        viewModelScope.launchIO {
-            try {
-                installer.ensureLoaded()
-            } catch (_: Throwable) {}
-            val source = manager.get(sourceId)
-            if (source == null) {
-                state.update { it.copy(error = "Source not installed: $sourceId", challengeUrl = null) }
-                return@launchIO
-            }
-            state.update {
-                it.copy(source = source, filterValues = defaultFilterValues(source.filters))
-            }
-            // Opened from global search with a query: jump straight to those results; else the listing.
-            if (initialQuery.isNotBlank()) search(initialQuery) else fetchFirstPage(source)
+        viewModelScope.launchIO { loadSource() }
+    }
+
+    /** Resolve the plugin and seed the first listing. Opened from global search with a query, it
+     *  jumps straight to those results instead. */
+    private suspend fun loadSource() {
+        try {
+            installer.ensureLoaded()
+        } catch (_: Throwable) {}
+        val source = manager.get(sourceId)
+        if (source == null) {
+            state.update { it.copy(sourceError = "Source not installed: $sourceId") }
+            return
+        }
+        val filterValues = defaultFilterValues(source.filters)
+        state.update {
+            it.copy(
+                source = source,
+                sourceError = null,
+                filterValues = filterValues,
+                query = initialQuery,
+                appliedOptions = buildOptions(source.filters, filterValues, showLatest = false),
+            )
         }
     }
 
-    /** Switch the Popular / Latest listing, clearing any active search, and refetch from page 1. */
+    /** Switch the Popular / Latest listing, clearing any active search, and page from the start. */
     fun setListing(listing: NovelBrowseState.Listing) {
         val source = state.value.source ?: return
-        if (state.value.loading) return
-        state.update { it.copy(listing = listing, query = "") }
-        fetchFirstPage(source)
+        state.update {
+            it.copy(
+                listing = listing,
+                query = "",
+                appliedOptions = buildOptions(
+                    source.filters,
+                    it.filterValues,
+                    listing == NovelBrowseState.Listing.Latest,
+                ),
+            )
+        }
     }
 
     /** Run a search; a blank query falls back to the current Popular / Latest listing. */
     fun search(query: String) {
-        val source = state.value.source ?: return
-        if (state.value.loading) return
-        if (query.isBlank()) {
-            state.update { it.copy(query = "") }
-            fetchFirstPage(source)
-            return
-        }
-        state.update { it.copy(loading = true, error = null, challengeUrl = null, query = query) }
-        viewModelScope.launchIO {
-            runFetch(error = { e ->
-                state.update { it.copy(loading = false, error = errorText(e), challengeUrl = e.cloudflareBlockedUrl()) }
-            }) {
-                val novels = source.searchNovels(query, 1)
-                val more = hasMore(novels, 1) { p -> source.searchNovels(query, p) }
-                state.update {
-                    it.copy(loading = false, novels = novels.dropInLibrary(), page = 1, endReached = !more)
-                }
-                continuePastHiddenFirstPage()
-            }
-        }
+        state.update { it.copy(query = query) }
     }
 
-    /** Re-fetch the current Popular / Latest listing with the filter draft applied. */
+    /** Re-page the current Popular / Latest listing with the filter draft applied. */
     fun applyFilters() {
-        if (state.value.query.isNotBlank()) {
-            state.update { it.copy(query = "") }
+        val source = state.value.source ?: return
+        state.update {
+            it.copy(
+                query = "",
+                appliedOptions = buildOptions(source.filters, it.filterValues, it.showLatest),
+            )
         }
-        state.value.source?.let { fetchFirstPage(it) }
     }
 
     fun setFilterValue(key: String, value: JsonElement) =
@@ -152,6 +183,13 @@ class NovelBrowseViewModel(
     fun closeFilterSheet() = state.update { it.copy(filterSheetOpen = false) }
     fun openSettingsSheet() = state.update { it.copy(settingsSheetOpen = true) }
     fun closeSettingsSheet() = state.update { it.copy(settingsSheetOpen = false) }
+
+    /** Re-attempt the plugin resolution that never completed. A fetch that failed is retried through
+     *  the pager instead, which owns that error. */
+    fun retryLoadSource() {
+        if (state.value.source != null) return
+        viewModelScope.launchIO { loadSource() }
+    }
 
     // --- Favorite from browse (long-press), via the shared [NovelLibraryAdder] ---
 
@@ -221,159 +259,6 @@ class NovelBrowseViewModel(
 
     fun dismissDialog() = state.update { it.copy(dialog = null) }
 
-    /** Re-run the current listing (popular/latest) or search after an error. */
-    fun retry() {
-        val source = state.value.source ?: run {
-            // Source never resolved: re-attempt the whole init path.
-            viewModelScope.launchIO {
-                try {
-                    installer.ensureLoaded()
-                } catch (_: Throwable) {}
-                manager.get(sourceId)?.let { s ->
-                    state.update {
-                        it.copy(
-                            source = s,
-                            error = null,
-                            challengeUrl = null,
-                            filterValues = defaultFilterValues(s.filters),
-                        )
-                    }
-                    fetchFirstPage(s)
-                }
-            }
-            return
-        }
-        if (state.value.query.isBlank()) fetchFirstPage(source) else search(state.value.query)
-    }
-
-    // Cached result of an eager next-page probe (see [hasMore]), reused by the matching [loadMore].
-    private data class ProbeEntry(val page: Int, val novels: List<NovelItem>, val at: Long)
-    private var probe: ProbeEntry? = null
-
-    /**
-     * Whether more pages likely follow [fetched] (page [page]). lnreader plugins report no
-     * hasNextPage, so a full page assumes more without a network hit; a short page is confirmed by
-     * eagerly probing the next page, whose result is cached so the matching [loadMore] reuses it
-     * instead of re-fetching. A failed probe stays optimistic, so a transient error doesn't wrongly
-     * end the list. Ported from tsundoku's inferHasNextPage.
-     */
-    private suspend fun hasMore(
-        fetched: List<NovelItem>,
-        page: Int,
-        fetchPage: suspend (Int) -> List<NovelItem>,
-    ): Boolean {
-        probe = null
-        if (fetched.isEmpty()) return false
-        if (fetched.size >= PAGE_SIZE) return true
-        val next = page + 1
-        val probed = try {
-            fetchPage(next)
-        } catch (_: Throwable) {
-            return true
-        }
-        if (probed.isEmpty()) return false
-        probe = ProbeEntry(next, probed, System.currentTimeMillis())
-        return true
-    }
-
-    /** Fetch and append the next page of the active listing. An empty page exhausts it; an error leaves
-     *  the page retryable (the error snackbar offers a retry, and scrolling re-triggers it) rather than
-     *  killing pagination for good, and never wipes the results already shown. */
-    fun loadMore() {
-        val source = state.value.source ?: return
-        val current = state.value
-        if (current.loading || current.loadingMore || current.endReached) return
-        state.update { it.copy(loadingMore = true) }
-        viewModelScope.launchIO {
-            try {
-                val fetchPage: suspend (Int) -> List<NovelItem> = if (current.query.isBlank()) {
-                    { p ->
-                        source.popularNovels(p, buildOptions(source.filters, current.filterValues, current.showLatest))
-                    }
-                } else {
-                    { p -> source.searchNovels(current.query, p) }
-                }
-                // Loop: a page that hide-in-library filters down to nothing must not stall paging (the
-                // scroll trigger only re-arms when the visible list changes), so keep fetching until
-                // something visible lands or the catalog ends. One pass when nothing is hidden.
-                var next = current.page + 1
-                while (true) {
-                    // Reuse the eager probe fetched for this page, if still fresh, instead of re-fetching.
-                    val cached = probe
-                        ?.takeIf { it.page == next && System.currentTimeMillis() - it.at < PROBE_TTL_MS }
-                        ?.novels
-                    val more = cached ?: fetchPage(next)
-                    if (more.isEmpty()) {
-                        probe = null
-                        state.update { it.copy(loadingMore = false, endReached = true) }
-                        break
-                    }
-                    val end = !hasMore(more, next, fetchPage)
-                    var appended = false
-                    state.update {
-                        // Dedupe by path so a source repeating entries across a page boundary doesn't
-                        // produce duplicate LazyGrid keys.
-                        val seen = it.novels.mapTo(HashSet()) { n -> n.path }
-                        val fresh = more.filter { n -> seen.add(n.path) }.dropInLibrary()
-                        appended = fresh.isNotEmpty()
-                        it.copy(
-                            loadingMore = !(appended || end),
-                            novels = it.novels + fresh,
-                            page = next,
-                            endReached = end,
-                        )
-                    }
-                    if (appended || end) break
-                    next++
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                // Don't latch endReached on a transient error: a single network hiccup mid-scroll must
-                // not permanently kill paging. Keep the page retryable and surface the error instead.
-                state.update {
-                    it.copy(loadingMore = false, error = errorText(e), challengeUrl = e.cloudflareBlockedUrl())
-                }
-            }
-        }
-    }
-
-    private fun fetchFirstPage(source: NovelSource) {
-        state.update { it.copy(loading = true, error = null, challengeUrl = null) }
-        viewModelScope.launchIO {
-            runFetch(error = { e ->
-                state.update { it.copy(loading = false, error = errorText(e), challengeUrl = e.cloudflareBlockedUrl()) }
-            }) {
-                val opts = buildOptions(source.filters, state.value.filterValues, state.value.showLatest)
-                val novels = source.popularNovels(1, opts)
-                val more = hasMore(novels, 1) { p -> source.popularNovels(p, opts) }
-                state.update {
-                    it.copy(loading = false, novels = novels.dropInLibrary(), page = 1, endReached = !more)
-                }
-                continuePastHiddenFirstPage()
-            }
-        }
-    }
-
-    /** A first page that hide-in-library filtered down to nothing leaves the grid empty with more
-     *  pages available, and the scroll trigger never fires on an empty grid; hand off to [loadMore],
-     *  whose loop keeps paging until something visible lands or the catalog ends. */
-    private fun continuePastHiddenFirstPage() {
-        if (state.value.novels.isEmpty() && !state.value.endReached) loadMore()
-    }
-
-    private inline fun runFetch(error: (Throwable) -> Unit, block: () -> Unit) {
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            error(e)
-        }
-    }
-
-    private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"
-
     // A novel source id is the plugin's String id, not the Long the manga side uses.
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
@@ -383,39 +268,27 @@ class NovelBrowseViewModel(
     }
 
     companion object {
-
-        // lnreader plugins don't report hasNextPage, so a full page (this many items or more) is taken
-        // as "more may follow"; a shorter page is confirmed by probing the next one. 20 is the common
-        // lnreader page size.
+        // 20 is the common lnreader page size, so this keeps Paging's prefetch aligned with what a
+        // plugin actually returns per request.
         private const val PAGE_SIZE = 20
-
-        // How long a cached eager-probe stays usable before loadMore re-fetches instead, since the
-        // source's listing may have shifted in the meantime.
-        private const val PROBE_TTL_MS = 60_000L
     }
 }
 
 /**
- * Per-source browse state. The source is always pre-picked; [novels] is the current listing
- * (popular/latest or search results). [filterValues] is the filter-sheet draft, seeded from the
- * plugin's declared defaults and applied on demand.
+ * Per-source browse state. The source is always pre-picked; the results themselves live in the
+ * pager rather than here. [filterValues] is the filter-sheet draft, seeded from the plugin's declared
+ * defaults and applied on demand.
  */
 data class NovelBrowseState(
     val source: NovelSource? = null,
     val listing: Listing = Listing.Popular,
-    val novels: List<NovelItem> = emptyList(),
     /** Empty for the popular/latest listing, non-empty when a search is active. */
     val query: String = "",
     val filterValues: Map<String, JsonElement> = emptyMap(),
-    /** Highest page fetched so far; [NovelBrowseViewModel.loadMore] requests page+1. */
-    val page: Int = 1,
-    val endReached: Boolean = false,
-    val loading: Boolean = false,
-    /** Next-page fetch in flight (footer spinner), distinct from the first-page [loading]. */
-    val loadingMore: Boolean = false,
-    val error: String? = null,
-    /** RK: the URL a Cloudflare challenge blocked, so the WebView opens a page with something to solve. */
-    val challengeUrl: String? = null,
+    /** The filter draft as the pager last received it, written by Apply and by a listing switch. */
+    val appliedOptions: String = "",
+    /** Set when the plugin itself never resolved, which the pager cannot report on. */
+    val sourceError: String? = null,
     /** (source, url) pairs in the library, for in-library marking of results. */
     val favoritedKeys: Set<Pair<String, String>> = emptySet(),
     val filterSheetOpen: Boolean = false,
@@ -425,6 +298,11 @@ data class NovelBrowseState(
 ) {
     val showLatest: Boolean get() = listing == Listing.Latest
 
+    /** What the pager pages, or null until the plugin resolves. The filter draft is deliberately
+     *  absent: only [appliedOptions] reaches the pager, so editing filters refetches nothing. */
+    internal val pagerInput: NovelPagerInput?
+        get() = source?.let { NovelPagerInput(it, query, appliedOptions) }
+
     /** The filter draft differs from the source's declared defaults, i.e. a filter is applied.
      *  Drives the Filter chip's active highlight, mirroring manga's `listing is Listing.Search`
      *  (novels fold filters into the Popular/Latest listing, so there is no Search listing to test). */
@@ -433,6 +311,14 @@ data class NovelBrowseState(
 
     enum class Listing { Popular, Latest }
 }
+
+/** The pager's inputs. Equality decides when paging restarts, so a [NovelSource] compares by identity,
+ *  which is what we want: it is resolved once per screen. */
+internal data class NovelPagerInput(
+    val source: NovelSource,
+    val query: String,
+    val optionsJson: String,
+)
 
 /** Long-press dialogs for the novel browse grid, the novel twin of `BrowseSourceViewModel.Dialog`. */
 sealed interface NovelBrowseDialog {
