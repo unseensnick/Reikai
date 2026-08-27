@@ -169,8 +169,10 @@ class NovelBrowseAdapter(
     }
 
     override fun search(query: String?) {
-        // A search the screen did not type (a details page handing one over) still has to show.
-        if (query != null) toolbarText.value = ToolbarText.Typed(query)
+        // A search the screen did not type (a details page handing one over) still has to show, and
+        // clearing empties the field, so the toolbar cannot stand open over the listing it went
+        // back to. The manga twin gets the second half from `setListing` nulling its toolbar query.
+        toolbarText.value = ToolbarText.Typed(query)
         model.search(query.orEmpty())
     }
 
