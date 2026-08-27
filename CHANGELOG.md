@@ -65,7 +65,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Light novels can now be tracked on RanobeDB, NovelList and NovelUpdates, three services built for novels.** Sign in through a browser window on any of them, or paste a personal access token on RanobeDB; what each keeps in sync differs, because not all of them store a score, reading dates or an on-hold state.
 - **NovelUpdates tracking can use your own reading lists, not just the five it starts with.** Turn on list matching in the tracking settings and pick which list each status moves a novel to.
 - **Filling a novel's details from a tracker now works with RanobeDB, NovelList and NovelUpdates, which know novels better than the manga services do.** It fills the description, author, artist and genres.
-- **A tracker search can now take an id, written as `id:12345` (synced from Mihon, mihonapp/mihon#3776).** AniList, Bangumi, Hikka, Kitsu, MangaUpdates and Shikimori join MyAnimeList and MangaBaka, on manga and novels alike.
+- **A tracker search can now take an id, written as `id:12345` (synced from Mihon, mihonapp/mihon#3776).** AniList, Bangumi, Hikka, Kitsu, MangaUpdates and Shikimori join MyAnimeList and MangaBaka, and RanobeDB and NovelList take one too; NovelUpdates is the only tracker that does not.
 - **A Kitsu search can now take a title's web-address name too, written as `id:shadow-slave` (synced from Mihon, mihonapp/mihon#3792).** Handy when you have the Kitsu link but not the number, and it works on manga and novels alike.
 
 **Reader**
@@ -92,13 +92,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Empty categories are now always hidden, and the "Show number of items" setting is obeyed on novels too.** A category with nothing to show never renders a bare header, on any chip.
 - **A category that only applies to one library now says so in the filter picker.** Each row carries "Manga only" or "Novels only" under its name, so picking one while looking at the other library is no longer a silent surprise.
 - **A failed library update now takes you straight to the list of what failed.** Tapping the notification used to open a log file on manga, and the library on novels.
-- **Failed updates are now recorded by default, for manga and light novels alike.** Switch it off under Settings -> Advanced and the notification opens a log file instead, one file covering both libraries rather than one each.
+- **Failed updates are now recorded by default, for manga and light novels alike; switch it off under Settings -> Advanced.** The notification then opens a log file instead, one file covering both libraries rather than one each.
 
 **Merged series**
 
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **On a merged series, your library, its page and History open the whole group, while Updates, source chips and new-chapter notifications open just that one source.** The reader follows whichever you came from.
-- **Reading a chapter now marks it read on the series' other sources too, by default; switch it off under Settings -> Reader.**
+- **Reading a chapter now marks it read on a merged series' other sources too, by default; change it under Settings -> Library.** The setting is "Mark duplicate read chapter as read".
 - **Removing a merged series from your library now ticks "All grouped sources" by default.** Untick it to remove only the source shown on the cover.
 - **Settings -> Advanced now has one "Clear all merges" action per content type instead of two.** The two did the same thing.
 
@@ -134,18 +134,15 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **MangaUpdates results now show each entry's rating and creators while you pick one to bind (synced from Mihon, mihonapp/mihon#3795).** Covers manga and novels alike.
 - **Kitsu scores now use whichever rating scale your Kitsu account is set to, smileys, stars or the 10 point decimal (synced from Mihon, mihonapp/mihon#3818).** Existing scores are converted on upgrade, for manga and novels alike.
+- **Light-novel trackers no longer appear when you track a manga.** They could be bound to one, and the search answered with light novels.
+- **"Share trackers across merged sources" now covers showing and removing a tracker, not just copying it.** Turn it off and every source of a merged series tracks on its own again.
+- **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
 
 **Reader**
 
 - **The reader's quick reading-mode menu now highlights the mode you are actually reading in.** A series following your default used to show an empty grid, and opening the menu for a look no longer pins that mode to the series.
 - **Manhwa, manhua and webtoons now open in webtoon mode on their own, and can be switched off under Settings -> Reader.** It reads each source's own genre tags, so a series none of your sources tags keeps using your default reading mode.
-- **Some image options under Settings -> Advanced are gone, now that manga pages decode through one modern decoder (synced from Mihon, mihonapp/mihon#3786).** The hardware bitmap threshold, legacy long strip decoding and custom display profile settings configured the legacy decoder, which went with it.
-
-**Tracking**
-
-- **Light-novel trackers no longer appear when you track a manga.** They could be bound to one, and the search answered with light novels.
-- **"Share trackers across merged sources" now covers showing and removing a tracker, not just copying it.** Turn it off and every source of a merged series tracks on its own again.
-- **Marking a chapter read now updates the tracker status on the entry straight away, on manga and novels.** It kept showing the status from before the push, so an entry could sit on "plan to read" while the service already said reading.
+- **The hardware bitmap threshold, legacy long strip decoding and custom display profile settings are gone from Settings -> Advanced (synced from Mihon, mihonapp/mihon#3786).** All three configured the legacy decoder, which manga pages no longer use.
 
 **App**
 
@@ -209,7 +206,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**
 - **Adding a manga to an existing merged group now updates its details page right away, like novels.**
 - **Saving Edit info on a merged novel with a source chip selected no longer stores that source's details as your edits.** Opening the editor from a selected source and saving untouched used to keep its differing title, tags and cover as permanent overrides.
-- **A merged series' source chips now act consistently on manga and novels.** Share and WebView follow the selected source on both types; migrating and cover edits always target the series itself, and a custom title stays visible with a chip selected.
+- **Share and Open in WebView now follow the source chip you have selected, on novels as well as manga.**
+- **Migrating and cover edits now always act on the whole merged series, whichever source chip is selected.** A custom title also stays visible while a chip is selected.
 
 **Migration**
 
@@ -248,6 +246,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Opening a title from Browse no longer shows it pre-grouped with same-named titles in your library.**
 - **A global search run moments after opening the app now waits for your sources instead of quietly searching fewer.** Manga and novels alike, and the searched source list no longer depends on how fast the app finished starting up.
 - **Testing FlareSolverr no longer leaves sources looping on a Cloudflare challenge, and resetting your user agent under Settings -> Advanced fixes one that already is.** The test used to store FlareSolverr's browser as your app-wide agent, which the in-app bypass could never get past.
+- **With the interactive solver off, a Cloudflare challenge the site abandons now fails in seconds rather than after half a minute.**
+- **The Cloudflare bypass no longer risks taking the app down when its browser process dies.** It ends the request instead of waiting out the timeout.
 - **Open in WebView now opens the page a Cloudflare challenge blocked, so there is something to solve.** It opened the source's front page, which often carries no challenge at all, so nothing cleared and Retry kept failing. Works on manga and novels.
 - **Manga browse now reloads by itself when you come back from the WebView.** Novels already did.
 
@@ -286,7 +286,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Grouping the library by tracking status now looks at every source of a merged series, not only the one it leads with.**
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**
 - **Sorting the library by tracker score no longer floats signed-out trackers above your rated entries.** A merged series also counts each tracker once instead of doubling it across sources.
-- **The tracker refresh notification now carries the Reikai icon.** It was showing a generic Android sync glyph.
+- **The tracker refresh notification now uses the app's own refresh icon.** It was showing a generic Android sync glyph.
 - **A MyAnimeList entry dated with only a year, or a year and month, no longer errors out (synced from Mihon, mihonapp/mihon#3573).**
 - **A score you pick on MangaBaka is now saved as that score, at every step size (synced from Mihon, mihonapp/mihon#3740).** With steps larger than 1 it was sending the score's position in the list instead.
 - **A MangaBaka score no longer skews your library's tracker-score sort and your statistics.** Its 0 to 100 scale was being read as if it were out of 10, so one scored entry floated to the top and pulled the average with it.
@@ -303,7 +303,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **One bad entry in a restore no longer takes a hundred others down with it (synced from Mihon, mihonapp/mihon#3667).** The rest of the batch is retried one at a time, so only the entry that actually failed is reported.
 - **A backup holding the same series twice under one source now restores instead of failing (synced from Mihon, mihonapp/mihon#3667).**
 - **Restoring a backup now keeps your novel category filters and default category instead of quietly dropping them.**
-- **A backup made with Categories on but Library entries off now includes your novel categories.** Restoring also no longer assigns novels to categories when the Categories restore option is unticked; both matched manga behavior already.
+- **A backup made with Categories on but Library entries off now includes your novel categories.** Manga backups already did.
+- **Restoring with the Categories option unticked no longer files your novels into categories anyway.** Manga restores already left them alone.
 - **A backup with the read-entries option on now includes novels you have read but removed from your library, like manga.** Their read history used to drop out of the backup, including after migrating a novel to a new source.
 - **The warning before a restore no longer claims your light-novel sources are missing.** It read the source list before the plugins had loaded, so a restore begun from a fresh launch listed every one of them.
 
