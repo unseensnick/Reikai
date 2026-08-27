@@ -1,4 +1,4 @@
-package reikai.presentation.browse.source
+package reikai.presentation.browse.catalogue
 
 import androidx.compose.runtime.Immutable
 import reikai.presentation.browse.components.EntryDuplicateCardUi
@@ -7,20 +7,21 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
- * The neutral per-source browse state both content types produce, so one screen can render a manga
- * catalogue and a novel catalogue without branching on type. Each adapter maps its own model into
- * [Loaded]; the two failure cases are separate because they recover differently.
+ * The neutral catalogue state both content types produce, so one screen can render a manga source and
+ * a light-novel source without branching on type. Each adapter maps its own model into [Loaded]; the
+ * two failure cases are separate because they recover differently.
  */
 sealed interface EntryBrowseScreenState {
     data object Loading : EntryBrowseScreenState
 
-    /** The source cannot be reached at all and nothing will bring it back here: an extension that is
-     *  not installed. Refresh is not offered, because there is nothing to retry. */
+    /** The source cannot be reached and nothing here will bring it back: an extension that is not
+     *  installed. No retry is offered, because there is nothing to retry. */
     data class SourceMissing(val label: String) : EntryBrowseScreenState
 
-    /** The source failed to load but can be re-resolved, which `refresh()` does. Only the novel
-     *  adapter produces this: a plugin that threw while loading has no pager to report through. */
-    data class SourceFailed(val message: String) : EntryBrowseScreenState
+    /** The source failed to load but can be re-resolved, which [reload] does. Only the novel adapter
+     *  produces this: a plugin that threw while loading has no pager to report through. [reload] is
+     *  held once by that adapter, so an emission carrying it does not break this state's equality. */
+    data class SourceFailed(val message: String, val reload: () -> Unit) : EntryBrowseScreenState
 
     @Immutable
     data class Loaded(
@@ -69,33 +70,38 @@ sealed interface EntryBrowseRowStyle {
 }
 
 /**
- * Per-type slots for the browse screen. Each adapter fills only what its type supports, and an absent
- * slot hides its affordance rather than showing it disabled. Adding one later is additive rather than
- * a change to the shared spine.
+ * Per-type slots for the catalogue screen. Each adapter fills only what its type supports, and an
+ * absent slot hides its affordance rather than showing it disabled. Adding one later is additive
+ * rather than a change to the shared spine.
  */
 @Immutable
 data class EntryBrowseCapabilities(
     /** Manga only: the MangaDex Follows and Random entries the filter sheet offers. */
     val mangaDex: MangaDexBrowseCapability? = null,
-    /** Novels only: browsing to choose a migration target, so a tap reports the pick back instead of
-     *  opening the entry. Carries the entry being migrated away from. */
+    /** Novels only: browsing to choose a migration target. */
     val migrationPick: MigrationPickCapability? = null,
 )
 
 data class MangaDexBrowseCapability(val sourceId: Long)
 
-data class MigrationPickCapability(val migrateForId: Long)
+/**
+ * Browsing to choose what [migrateForId] moves to, so a tap reports the pick back and pops instead of
+ * opening the entry. A plain class held once by its adapter, not a data class: it carries an action,
+ * and re-creating it per state emission would break the enclosing state's equality.
+ */
+class MigrationPickCapability(
+    val migrateForId: Long,
+    val pick: (EntryBrowseRow, onPicked: () -> Unit) -> Unit,
+)
 
 /**
- * The dialogs the browse screen raises. Payloads are neutral, so every action keys on an id the
- * adapter fans back out to its own model.
+ * The dialogs the catalogue screen raises. Payloads are neutral, so every action keys on an id the
+ * adapter fans back out to its own model, or on the entry its own state already remembers.
  */
 sealed interface EntryBrowseDialog {
     /** The source's own filter sheet, dispatched per type because the filter shapes have nothing in
      *  common: a typed `FilterList` on one side, a plugin JSON schema on the other. */
     data object Filter : EntryBrowseDialog
-
-    data object SourceSettings : EntryBrowseDialog
 
     data class Remove(val title: String) : EntryBrowseDialog
 
