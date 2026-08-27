@@ -43,6 +43,7 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -188,6 +189,9 @@ class EntryGlobalSearchScreen(
                         // Sections re-sort as each source lands, so they slide rather than jump.
                         modifier = Modifier.animateItem(),
                         row = state.visibleRows[index],
+                        // Only on All, where the rows are interleaved and nothing else says which
+                        // kind a source is. The Browse lists badge their rows on the same rule.
+                        showContentType = state.contentType == ContentType.ALL,
                         favoritedKeys = novelState.favoritedKeys,
                         mangaSelection = mangaBulkState.selection,
                         novelSelection = novelBulkState.selection,
@@ -275,6 +279,7 @@ private fun SearchResultSection(
     onLongClickManga: (Manga) -> Unit,
     onClickNovel: (String, NovelItem) -> Unit,
     onLongClickNovel: (String, NovelItem) -> Unit,
+    showContentType: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -283,6 +288,7 @@ private fun SearchResultSection(
         subtitle = row.lang.takeIf { it.isNotBlank() }
             ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty(),
         onClick = { onClickSource(row) },
+        badge = { if (showContentType) ContentTypeBadge(row.key.contentType) },
         modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
     ) {
         when (val result = row.state) {

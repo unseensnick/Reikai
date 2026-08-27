@@ -29,6 +29,8 @@ fun EntrySearchSection(
     subtitle: String,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** Drawn beside the title, for a list holding both content types. */
+    badge: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier) {
@@ -41,7 +43,13 @@ fun EntrySearchSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium)
+                    badge()
+                }
                 Text(text = subtitle)
             }
             if (onClick != null) {
