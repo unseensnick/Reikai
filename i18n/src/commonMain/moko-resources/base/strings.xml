@@ -301,7 +301,7 @@
     <!-- RK: light-novel browse (P5 S3a) -->
     <string name="repos">Repos</string>
     <string name="ln_repos">Light novel repos</string>
-    <string name="bulk_selected_types">%1$d %2$s, %3$d %4$s</string>
+    <string name="bulk_selected_types">%1$s, %2$s</string>
     <string name="categories_for_type">Categories for %1$s</string>
     <string name="all_sources">All sources</string>
     <string name="ext_no_repos">No repos yet. Add one to install extensions.</string>

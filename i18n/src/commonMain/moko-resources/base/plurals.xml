@@ -181,4 +181,12 @@
         <item quantity="one">%1$d second ago</item>
         <item quantity="other">%1$d seconds ago</item>
     </plurals>
+    <plurals name="bulk_selected_manga">
+        <item quantity="one">%1$d Manga</item>
+        <item quantity="other">%1$d Manga</item>
+    </plurals>
+    <plurals name="bulk_selected_novels">
+        <item quantity="one">%1$d Novel</item>
+        <item quantity="other">%1$d Novels</item>
+    </plurals>
 </resources>

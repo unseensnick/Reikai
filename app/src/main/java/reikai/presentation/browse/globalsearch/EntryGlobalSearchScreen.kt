@@ -57,6 +57,7 @@ import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -234,16 +235,14 @@ class EntryGlobalSearchScreen(
     }
 }
 
-/** "3 Manga, 2 Novels" while the selection holds both, otherwise the plain count the bar shows. */
+/** "3 Manga, 1 Novel" while the selection holds both, otherwise the plain count the bar shows. */
 @Composable
 private fun selectionTitle(mangaCount: Int, novelCount: Int): String? =
     if (mangaCount > 0 && novelCount > 0) {
         stringResource(
             MR.strings.bulk_selected_types,
-            mangaCount,
-            stringResource(MR.strings.content_type_manga),
-            novelCount,
-            stringResource(MR.strings.content_type_novels),
+            pluralStringResource(MR.plurals.bulk_selected_manga, mangaCount, mangaCount),
+            pluralStringResource(MR.plurals.bulk_selected_novels, novelCount, novelCount),
         )
     } else {
         null
