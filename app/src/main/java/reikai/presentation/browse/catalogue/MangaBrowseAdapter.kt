@@ -37,6 +37,17 @@ class MangaBrowseAdapter(
     onPickTarget: (targetId: Long) -> Unit = {},
 ) : EntryBrowseBehavior {
 
+    /**
+     * The dialog each verb acts on, kept as it is mapped rather than read back off the model.
+     *
+     * The shared dialogs dismiss before they call back, and dismissing clears the model's own
+     * dialog, so a verb reading it there finds nothing and silently does nothing. Never stale: a
+     * dialog cannot reach the screen without being mapped here first.
+     */
+    @Volatile private var raisedDialog: BrowseSourceViewModel.Dialog? = null
+
+    @Volatile private var raisedBulkDialog: EntryBulkFavoriteViewModel.Dialog<Manga>? = null
+
     private val capabilities = EntryBrowseCapabilities(
         migrationPick = migrateForId?.let { id ->
             // A browsed manga row is already a stored row, so unlike the novel twin there is
@@ -81,6 +92,8 @@ class MangaBrowseAdapter(
         state: BrowseSourceViewModel.State,
         bulkState: EntryBulkFavoriteViewModel.State<Manga>,
     ): EntryBrowseScreenState {
+        state.dialog?.let { raisedDialog = it }
+        bulkState.dialog?.let { raisedBulkDialog = it }
         val source = model.source
         if (source is StubSource) return EntryBrowseScreenState.SourceMissing(source.toString())
         return EntryBrowseScreenState.Loaded(
@@ -170,8 +183,7 @@ class MangaBrowseAdapter(
     override fun addSelectionToLibrary() = bulk.addFavorite()
 
     override fun setSelectionCategories(categoryIds: List<Long>) {
-        val dialog = bulk.state.value.dialog as? EntryBulkFavoriteViewModel.Dialog.ChangeCategory
-            ?: return
+        val dialog = raisedBulkDialog as? EntryBulkFavoriteViewModel.Dialog.ChangeCategory ?: return
         bulk.setCategories(dialog.items, categoryIds)
     }
 
@@ -181,31 +193,27 @@ class MangaBrowseAdapter(
     }
 
     override fun confirmRemove() {
-        val dialog = model.state.value.dialog as? BrowseSourceViewModel.Dialog.RemoveManga ?: return
+        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.RemoveManga ?: return
         model.changeMangaFavorite(dialog.manga)
     }
 
     override fun confirmCategories(categoryIds: List<Long>) {
-        val dialog = model.state.value.dialog as? BrowseSourceViewModel.Dialog.ChangeMangaCategory
-            ?: return
+        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.ChangeMangaCategory ?: return
         model.confirmCategories(dialog.manga, categoryIds, dialog.alreadyFavorited)
     }
 
     override fun confirmAddDuplicate() {
-        val dialog = model.state.value.dialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga
-            ?: return
+        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga ?: return
         model.addFavorite(dialog.manga)
     }
 
     override fun addToGroup(entryIds: List<Long>) {
-        val dialog = model.state.value.dialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga
-            ?: return
+        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga ?: return
         model.addToExistingGroup(dialog.manga, entryIds)
     }
 
     override fun startMigrate(duplicateId: Long) {
-        val dialog = model.state.value.dialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga
-            ?: return
+        val dialog = raisedDialog as? BrowseSourceViewModel.Dialog.AddDuplicateManga ?: return
         val target = dialog.duplicates.firstOrNull { it.manga.id == duplicateId }?.manga ?: return
         model.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, target))
     }
