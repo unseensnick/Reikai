@@ -1,5 +1,7 @@
 package reikai.domain.source
 
+import reikai.domain.library.ContentType
+
 /**
  * Neutral identity for a source of either content type, the browse analogue of
  * [reikai.domain.entry.EntryId]: sealed, so a mismatched (type, id) cannot be constructed.
@@ -10,9 +12,15 @@ package reikai.domain.source
  */
 sealed interface SourceKey {
 
-    data class Manga(val id: Long) : SourceKey
+    val contentType: ContentType
 
-    data class Novel(val id: String) : SourceKey
+    data class Manga(val id: Long) : SourceKey {
+        override val contentType: ContentType get() = ContentType.MANGA
+    }
+
+    data class Novel(val id: String) : SourceKey {
+        override val contentType: ContentType get() = ContentType.NOVELS
+    }
 
     /**
      * On-disk form, used by anything that persists a source across restarts. Both branches carry a

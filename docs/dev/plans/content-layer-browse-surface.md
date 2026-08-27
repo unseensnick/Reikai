@@ -177,6 +177,13 @@ Nine steps, each independently shippable and device-verified before the next.
   it, so the capability is decided there. Absent means it cannot honour the option and the chip
   hides; present means assume supported. The error is asymmetric in the safe direction, since
   `showLatestNovels` is an external contract name a minifier will not rename.
+- **A plugin's language is normalised to an ISO code (step 4).** The lnreader registry declares it
+  both ways, most plugins in English ("Spanish") and four by code ("es"), so the Novels chip was
+  already splitting one language into two sections before either type shared a list. The novel
+  provider maps the ten known names to codes and passes anything else through; the deny-list behind
+  the Sources filter screen still keys on the raw value, so hiding a language there still hides only
+  the plugins declaring it that way. That is a smaller pre-existing gap, left for the filter screen's
+  own step rather than widened into this one.
 - **Novel browse adopts manga's display mode and column preferences.** This is one screen serving two
   content types rather than two surfaces, so the surface-scoped-settings rule does not apply, and
   novels currently ignore the column setting entirely.
@@ -225,7 +232,8 @@ For the takeover:
 step 3 `cadf22edb`, step 4 `09cb80e27`, step 5 `df4d6e752`. Steps 1 to 5 are Fold-verified on both
 content types (the add / remove round trips, the hide-in-library toggle, the language switch).
 
-**The takeover is planned, not started** (scouted and ruled 2026-08-27). It lands in the 0.4.0 cycle
+**The takeover is under way**: steps 1 to 4 are in, so the Sources list is assembled once for both
+content types and the chip is a predicate over it. Steps 5 to 9 are unstarted. It lands in the 0.4.0 cycle
 but does not join the cut gate, which stays the tsundoku reader migration and Road B; if it is not
 finished when those two are, it slips rather than holding the release. `ROADMAP.md` carries the
 forward item.
