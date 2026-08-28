@@ -129,7 +129,7 @@ class NovelBrowseAdapter(
             isUserQuery = searching,
             supportsLatest = source.supportsLatest,
             hasFilters = source.filters?.isNotEmpty() == true,
-            filtersActive = searching || state.hasActiveFilters,
+            filtersActive = searching || state.filtersApplied,
             hasSettings = source.pluginSettings != null,
             webUrl = source.site.takeIf { it.isNotBlank() },
             rowStyle = EntryBrowseRowStyle.Standard(state.displayMode),

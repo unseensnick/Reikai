@@ -226,6 +226,7 @@ private fun ExtensionsList(
     // row scrolls out of the list.
     var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
     var privateExtensionToUninstall by remember { mutableStateOf<Extension?>(null) }
+    var pluginToUninstall by remember { mutableStateOf<NovelSource?>(null) }
 
     FastScrollLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
         if (!installGranted && state.needsInstallPermission) {
@@ -270,8 +271,14 @@ private fun ExtensionsList(
                             onUntrusted = { trustState = it },
                             onConfirmPrivateUninstall = { privateExtensionToUninstall = it },
                         )
-                        is ExtensionKey.Novel ->
-                            NovelExtensionRow(item.row, lnState, lnModel, badge, Modifier.animateItem())
+                        is ExtensionKey.Novel -> NovelExtensionRow(
+                            row = item.row,
+                            state = lnState,
+                            model = lnModel,
+                            badge = badge,
+                            onConfirmUninstall = { pluginToUninstall = it },
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
             }
@@ -297,6 +304,16 @@ private fun ExtensionsList(
             extensionName = extension.name,
             onClickConfirm = { extensionsViewModel.uninstallExtension(extension) },
             onDismissRequest = { privateExtensionToUninstall = null },
+        )
+    }
+
+    // A plugin is not a package the system can remove, so its long press is confirmed here, the
+    // way a privately installed manga extension is.
+    pluginToUninstall?.let { plugin ->
+        ExtensionUninstallConfirmation(
+            extensionName = plugin.name,
+            onClickConfirm = { lnModel.uninstall(plugin) },
+            onDismissRequest = { pluginToUninstall = null },
         )
     }
 }
@@ -392,6 +409,7 @@ private fun NovelExtensionRow(
     state: LnPluginManagerViewModel.State,
     model: LnPluginManagerViewModel,
     badge: @Composable () -> Unit,
+    onConfirmUninstall: (NovelSource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -419,6 +437,8 @@ private fun NovelExtensionRow(
             name = payload.name,
             lang = row.lang,
             iconUrl = payload.iconUrl,
+            version = state.installedVersions[payload.id],
+            onLongClickItem = { onConfirmUninstall(payload) },
             badge = badge,
             action = {
                 IconButton(onClick = { model.uninstall(payload) }) {

@@ -97,8 +97,17 @@ class LnPluginManagerViewModel(
 
             // Keep the Browse badge in sync with what the user is looking at.
             prefs.pluginUpdatesCount().set(updates.size)
+            val versions = metadata.values
+                .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
+                .toMap()
             state.update {
-                it.copy(isRefreshing = false, hasLoaded = true, available = available, updates = updates)
+                it.copy(
+                    isRefreshing = false,
+                    hasLoaded = true,
+                    available = available,
+                    updates = updates,
+                    installedVersions = versions,
+                )
             }
         }
     }
@@ -159,6 +168,9 @@ class LnPluginManagerViewModel(
          *  added but returned nothing" (e.g. unreachable). */
         val hasRepos: Boolean = false,
         val installed: List<NovelSource> = emptyList(),
+        /** Plugin id -> installed version. A manga row reads its version off the package;
+         *  a plugin's only record of one is the metadata written at install. */
+        val installedVersions: Map<String, String> = emptyMap(),
         val available: List<LnRegistryEntry> = emptyList(),
         val updates: List<LnPluginUpdate> = emptyList(),
         /** Canonical URLs with an install/update in flight. */

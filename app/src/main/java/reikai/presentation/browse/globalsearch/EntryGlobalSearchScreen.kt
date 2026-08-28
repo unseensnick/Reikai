@@ -52,6 +52,7 @@ import reikai.presentation.components.ContentTypeTabs
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
+import reikai.presentation.novel.browse.SelectedNovel
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.domain.manga.model.Manga
@@ -118,6 +119,23 @@ class EntryGlobalSearchScreen(
             novelBulk.toggleSelectionMode(false)
         }
         BackHandler(enabled = selectionMode) { clearSelection() }
+
+        // Every result currently listed, split back into the two halves each bulk model owns.
+        // Unwrapped with filterIsInstance rather than a cast: the entries are typed Any, so a
+        // wrong cast would compile and only fail once a source returned rows.
+        fun listedEntries(): Pair<List<Manga>, List<SelectedNovel>> {
+            val manga = mutableListOf<Manga>()
+            val novels = mutableListOf<SelectedNovel>()
+            state.visibleRows.forEach { row ->
+                val entries = (row.state as? EntrySearchState.Success)?.entries.orEmpty()
+                when (val key = row.key) {
+                    is SourceKey.Manga -> manga += entries.filterIsInstance<Manga>()
+                    is SourceKey.Novel ->
+                        novels += entries.filterIsInstance<NovelItem>().map { SelectedNovel(key.id, it) }
+                }
+            }
+            return manga to novels
+        }
         // Decided when the batch is dispatched, not while the prompts run: the first one resolving
         // empties its own selection, and re-reading that would leave the second prompt unlabelled.
         var namePrompts by remember { mutableStateOf(false) }
@@ -168,6 +186,18 @@ class EntryGlobalSearchScreen(
                     selectedCount = mangaBulkState.selection.size + novelBulkState.selection.size,
                     selectionTitle = selectionTitle(mangaBulkState.selection.size, novelBulkState.selection.size),
                     onClickClearSelection = clearSelection,
+                    onSelectAll = {
+                        val (manga, novels) = listedEntries()
+                        manga.forEach { mangaBulk.select(it) }
+                        // Spelled out: NovelBulkFavoriteViewModel also has a (sourceId, item)
+                        // select, so a callable reference here picks between overloads.
+                        novels.forEach { novelBulk.select(it) }
+                    },
+                    onReverseSelection = {
+                        val (manga, novels) = listedEntries()
+                        mangaBulk.reverseSelection(manga)
+                        novelBulk.reverseSelection(novels)
+                    },
                     onChangeCategoryClick = {
                         namePrompts = mangaBulkState.selection.isNotEmpty() &&
                             novelBulkState.selection.isNotEmpty()

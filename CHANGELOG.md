@@ -59,6 +59,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Clear database now also removes novels that aren't in your library.** Novel sources get their own rows on the screen, and the keep-read toggle protects novels with reading progress, like manga.
 - **A novel's update notification now names the chapters it found and offers Mark as read and Download.** It only ever said how many there were, and gave you nothing to do about them.
 - **Updating your novel library now shows how far along it is, as a percentage.** Manga already did.
+- **Installed light-novel plugins now show their version in Browse -> Extensions.** Until now the version only appeared once an update was waiting.
+- **Long-pressing an installed light-novel plugin in Browse -> Extensions now offers to remove it.** It asks first, since Android has no uninstall prompt of its own for a plugin.
 
 **Tracking**
 

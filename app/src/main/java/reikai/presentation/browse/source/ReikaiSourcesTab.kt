@@ -24,6 +24,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
+import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
@@ -35,6 +36,7 @@ import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.ContentTypeBadge
+import reikai.presentation.browse.components.NovelSourceLatestButton
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
@@ -110,13 +112,8 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                         items = state.items,
                         showContentType = state.contentType == ContentType.ALL,
                         contentPadding = contentPadding,
-                        onClickItem = { row, query ->
-                            when (row.key) {
-                                is SourceKey.Manga ->
-                                    navigator.push(EntryCatalogueScreen(row.key, query))
-                                is SourceKey.Novel ->
-                                    navigator.push(EntryCatalogueScreen(row.key))
-                            }
+                        onClickItem = { row, latest ->
+                            navigator.push(EntryCatalogueScreen(row.key, startLatest = latest))
                         },
                         onClickPin = engine::togglePin,
                         onLongClickItem = engine::showDialog,
@@ -161,7 +158,8 @@ private fun SourcesList(
     items: List<SourcesListItem>,
     showContentType: Boolean,
     contentPadding: PaddingValues,
-    onClickItem: (BrowseSourceRow, String?) -> Unit,
+    /** The row that was tapped, and whether it was its Latest button rather than the row. */
+    onClickItem: (BrowseSourceRow, Boolean) -> Unit,
     onClickPin: (BrowseSourceRow) -> Unit,
     onLongClickItem: (BrowseSourceRow) -> Unit,
 ) {
@@ -205,7 +203,8 @@ private fun SourcesList(
 private fun SourceRow(
     row: BrowseSourceRow,
     showContentType: Boolean,
-    onClickItem: (BrowseSourceRow, String?) -> Unit,
+    /** The row that was tapped, and whether it was its Latest button rather than the row. */
+    onClickItem: (BrowseSourceRow, Boolean) -> Unit,
     onClickPin: (BrowseSourceRow) -> Unit,
     onLongClickItem: (BrowseSourceRow) -> Unit,
     modifier: Modifier = Modifier,
@@ -217,25 +216,31 @@ private fun SourceRow(
         is SourceKey.Manga -> SourceItem(
             modifier = modifier,
             source = row.source as Source,
-            onClickItem = { _, listing -> onClickItem(row, listing.query) },
+            onClickItem = { _, listing -> onClickItem(row, listing == Listing.Latest) },
             onLongClickItem = { onLongClickItem(row) },
             onClickPin = { onClickPin(row) },
             badge = badge,
         )
-        is SourceKey.Novel -> NovelSourceRow(
-            modifier = modifier,
-            name = row.name,
-            lang = row.lang,
-            iconUrl = (row.source as NovelSource).iconUrl,
-            onClickItem = { onClickItem(row, null) },
-            onLongClickItem = { onLongClickItem(row) },
-            badge = badge,
-            action = {
-                NovelSourcePinButton(
-                    isPinned = row.isPinned,
-                    onClick = { onClickPin(row) },
-                )
-            },
-        )
+        is SourceKey.Novel -> {
+            val source = row.source as NovelSource
+            NovelSourceRow(
+                modifier = modifier,
+                name = row.name,
+                lang = row.lang,
+                iconUrl = source.iconUrl,
+                onClickItem = { onClickItem(row, false) },
+                onLongClickItem = { onLongClickItem(row) },
+                badge = badge,
+                action = {
+                    if (source.supportsLatest) {
+                        NovelSourceLatestButton(onClick = { onClickItem(row, true) })
+                    }
+                    NovelSourcePinButton(
+                        isPinned = row.isPinned,
+                        onClick = { onClickPin(row) },
+                    )
+                },
+            )
+        }
     }
 }

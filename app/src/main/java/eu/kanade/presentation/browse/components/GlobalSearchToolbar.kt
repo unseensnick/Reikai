@@ -60,6 +60,10 @@ fun GlobalSearchToolbar(
     selectionTitle: String? = null,
     onClickClearSelection: () -> Unit = {},
     onChangeCategoryClick: () -> Unit = {},
+    // RK: select-all / invert over every result currently listed, as the per-source catalogue
+    //      offers over its grid. Null hides the action, which is how the bar already treats them.
+    onSelectAll: (() -> Unit)? = null,
+    onReverseSelection: (() -> Unit)? = null,
     // RK: the shared screen puts its content-type tab strip here, above the source-filter chips, so
     //      the two controls read as different things rather than as two rows of chips.
     tabs: @Composable () -> Unit = {},
@@ -74,6 +78,8 @@ fun GlobalSearchToolbar(
                     title = selectionTitle,
                     onClickClearSelection = onClickClearSelection,
                     onChangeCategoryClick = onChangeCategoryClick,
+                    onSelectAll = onSelectAll,
+                    onReverseSelection = onReverseSelection,
                 )
             } else {
                 SearchToolbar(

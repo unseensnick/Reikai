@@ -61,6 +61,7 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 class NovelBrowseViewModel(
     @Assisted private val sourceId: String,
     @Assisted private val initialQuery: String,
+    @Assisted private val startLatest: Boolean,
     private val installer: LnPluginInstaller,
     private val manager: NovelSourceManager,
     private val novelRepository: NovelRepository,
@@ -146,13 +147,25 @@ class NovelBrowseViewModel(
             reikaiSourcePreferences.lastUsedSource.set(SourceKey.Novel(sourceId))
         }
         val filterValues = defaultFilterValues(source.filters)
+        // Seeded here rather than switched once the screen is up: the Sources row's Latest button
+        // would otherwise page Popular first and throw that fetch away.
+        val listing = if (startLatest && source.supportsLatest) {
+            NovelBrowseState.Listing.Latest
+        } else {
+            NovelBrowseState.Listing.Popular
+        }
         state.update {
             it.copy(
                 source = source,
                 sourceError = null,
                 filterValues = filterValues,
                 query = initialQuery,
-                appliedOptions = buildOptions(source.filters, filterValues, showLatest = false),
+                listing = listing,
+                appliedOptions = buildOptions(
+                    source.filters,
+                    filterValues,
+                    showLatest = listing == NovelBrowseState.Listing.Latest,
+                ),
             )
         }
     }
@@ -169,6 +182,7 @@ class NovelBrowseViewModel(
                     it.filterValues,
                     listing == NovelBrowseState.Listing.Latest,
                 ),
+                filtersApplied = false,
             )
         }
     }
@@ -185,6 +199,7 @@ class NovelBrowseViewModel(
             it.copy(
                 query = "",
                 appliedOptions = buildOptions(source.filters, it.filterValues, it.showLatest),
+                filtersApplied = true,
             )
         }
     }
@@ -280,7 +295,7 @@ class NovelBrowseViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(sourceId: String, initialQuery: String): NovelBrowseViewModel
+        fun create(sourceId: String, initialQuery: String, startLatest: Boolean): NovelBrowseViewModel
     }
 
     companion object {
@@ -303,6 +318,11 @@ data class NovelBrowseState(
     val filterValues: Map<String, JsonElement> = emptyMap(),
     /** The filter draft as the pager last received it, written by Apply and by a listing switch. */
     val appliedOptions: String = "",
+    /** Whether Apply has run since the last listing switch, which drives the Filter chip.
+     *  Deliberately on upstream's terms rather than on whether the values differ from the
+     *  defaults: manga lights the chip for any search-shaped listing, so a reset-then-apply keeps
+     *  it lit there, and this keeps the two types answering alike. */
+    val filtersApplied: Boolean = false,
     /** Set when the plugin itself never resolved, which the pager cannot report on. */
     val sourceError: String? = null,
     /** (source, url) pairs in the library, for in-library marking of results. */
@@ -321,12 +341,6 @@ data class NovelBrowseState(
      *  absent: only [appliedOptions] reaches the pager, so editing filters refetches nothing. */
     internal val pagerInput: NovelPagerInput?
         get() = source?.let { NovelPagerInput(it, query, appliedOptions) }
-
-    /** The filter draft differs from the source's declared defaults, i.e. a filter is applied.
-     *  Drives the Filter chip's active highlight, mirroring manga's `listing is Listing.Search`
-     *  (novels fold filters into the Popular/Latest listing, so there is no Search listing to test). */
-    val hasActiveFilters: Boolean
-        get() = source?.let { filterValues != defaultFilterValues(it.filters) } ?: false
 
     enum class Listing { Popular, Latest }
 }

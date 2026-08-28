@@ -94,6 +94,8 @@ import tachiyomi.source.local.LocalSource
 class EntryCatalogueScreen(
     val sourceKey: SourceKey,
     private val initialQuery: String? = null,
+    /** Open on the source's Latest listing rather than Popular, for the Sources row's button. */
+    private val startLatest: Boolean = false,
     /** Set when the screen was opened to choose what an entry migrates to. */
     private val migrateForId: Long? = null,
 ) : Screen(), AssistContentScreen {
@@ -123,7 +125,10 @@ class EntryCatalogueScreen(
         val uriHandler = LocalUriHandler.current
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
-            create(sourceId = sourceId, listingQuery = initialQuery)
+            create(
+                sourceId = sourceId,
+                listingQuery = if (startLatest) BrowseSourceViewModel.Listing.Latest.query else initialQuery,
+            )
         }
         val bulk = metroViewModel<BulkFavoriteViewModel>()
         // The graph's app-scoped binding, so the pick lands in the same handoff the models read.
@@ -178,7 +183,7 @@ class EntryCatalogueScreen(
         val navigator = LocalNavigator.currentOrThrow
         val uriHandler = LocalUriHandler.current
         val viewModel = assistedMetroViewModel<NovelBrowseViewModel, NovelBrowseViewModel.Factory> {
-            create(sourceId = sourceId, initialQuery = initialQuery.orEmpty())
+            create(sourceId = sourceId, initialQuery = initialQuery.orEmpty(), startLatest = startLatest)
         }
         val bulk = metroViewModel<NovelBulkFavoriteViewModel>()
         val adapter = remember(viewModel, bulk) {

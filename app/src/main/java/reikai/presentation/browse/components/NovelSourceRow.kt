@@ -13,8 +13,10 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +47,8 @@ fun NovelSourceRow(
     iconUrl: String?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    /** Shown after the language, the way a manga extension row shows its own. */
+    version: String? = null,
     onClickItem: () -> Unit = {},
     onLongClickItem: () -> Unit = {},
     /** Content-type badge, beside the name, drawn by a shared list that holds both types. */
@@ -76,8 +80,11 @@ fun NovelSourceRow(
                     )
                     badge()
                 }
-                val secondary = subtitle ?: lang.takeIf { it.isNotEmpty() }
-                    ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) }
+                val secondary = subtitle ?: listOfNotNull(
+                    lang.takeIf { it.isNotEmpty() }
+                        ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) },
+                    version,
+                ).joinToString(" • ").takeIf { it.isNotEmpty() }
                 if (secondary != null) {
                     Text(
                         modifier = Modifier.secondaryItemAlpha(),
@@ -90,6 +97,21 @@ fun NovelSourceRow(
             }
         },
     )
+}
+
+/**
+ * Jump straight to a light-novel source's Latest listing, the novel twin of the button Mihon's
+ * [eu.kanade.presentation.browse.SourceItem] puts on a manga row. Only drawn for a plugin that
+ * declares latest support.
+ */
+@Composable
+fun NovelSourceLatestButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text(
+            text = stringResource(MR.strings.latest),
+            style = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.primary),
+        )
+    }
 }
 
 /**

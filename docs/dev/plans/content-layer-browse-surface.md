@@ -485,3 +485,25 @@ shared body started reading the column preference itself.
   review agents and the step 9 inventory both walked those five verbs and marked them present; the
   call chains exist and read correctly, and the break was ordering between a UI leaf and an adapter.
   A surface whose verbs route through an adapter needs a device pass, not a reading pass.
+- **The Filter chip means "a search-shaped listing is showing", and novels answer on upstream's
+  terms (owner, 2026-08-28).** Upstream lights it for any `Listing.Search`, so it is lit by a plain
+  text search that set no filters, and it stays lit after a Reset that was re-applied, because
+  applying default filters is still a Search. The novel half had been computing something
+  truthfully different, whether the sheet draft differed from the plugin's declared defaults, which
+  cleared on a reset-then-apply where manga did not. Novels now track whether Apply has run since
+  the last listing switch, which reproduces upstream's answer in every case rather than only most.
+  Rejected: redefining the chip on both sides as "the applied filters differ from the source
+  defaults". It reads more honestly, but it needs the defaults snapshotted when the screen opens,
+  since `getFilterList()` builds a fresh list per call and some sources build theirs from
+  preferences, so a preference changed while a catalogue is open would leave the chip wrong until
+  the screen is reopened. Filtering the Latest listing stays impossible for manga under any of
+  these: `getLatestUpdates(page)` takes no filters where `getSearchManga(page, query, filters)`
+  does, so that divergence sits in the source contract, not in this layer.
+- **Round two of the audit was driven on a minified build and found four parity gaps a reading pass
+  had not (2026-08-28).** A novel source row offered no Latest button though the plugin declared
+  the capability and its catalogue drew the chip; installed plugin rows showed no version though
+  the installer records one; a plugin row had no long-press where a manga row uninstalls from one;
+  and global search offered no select-all or invert where the per-source catalogue offers both. All
+  four are the same shape: a capability that exists on one side of a leaf that dispatches by
+  content type, where nothing forces the other side to answer. None is visible from the neutral
+  contract, because each is decided below it.
