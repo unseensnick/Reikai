@@ -43,7 +43,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.updatePadding
-import ca.mpreg.webgpuviewer.renderer.WebGpuRenderer
+import ca.mpreg.webgpuviewer.renderer.Image
+import ca.mpreg.webgpuviewer.renderer.Image.Companion.invoke
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewer
 import ca.mpreg.webgpuviewer.viewer.ImageViewerState
@@ -59,6 +60,7 @@ import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.tachiyomi.data.coil.ImageDecoder
 import eu.kanade.tachiyomi.data.coil.newDecoder
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
@@ -181,8 +183,6 @@ fun EntryCoverDialog(
                 var page by remember { mutableStateOf<ImagePage?>(null) }
                 var boxSize by remember { mutableStateOf(IntSize.Zero) }
 
-                state.dpi = view.resources.displayMetrics.densityDpi / 100f
-
                 LaunchedEffect(cover) {
                     ImageRequest.Builder(view.context)
                         .data(cover)
@@ -191,9 +191,17 @@ fun EntryCoverDialog(
                         .newDecoder(true)
                         .target { result ->
                             val res = (result as ImageDecoder.DecodeResultImage).res
-                            page = runBlocking(WebGpuRenderer.dispatcher) {
-                                ImagePage(res.image, res.width, res.height)
-                            }.apply { image?.backgroundColor = 0 }
+                            page = runBlocking(Dispatchers.Default) {
+                                ImagePage.ImageSingle(
+                                    Image(
+                                        res.image,
+                                        res.width,
+                                        res.height,
+                                        createMipMaps = true,
+                                        backgroundColor = 0,
+                                    ),
+                                )
+                            }
                         }
                         .build()
                         .let(view.context.imageLoader::enqueue)
@@ -208,7 +216,11 @@ fun EntryCoverDialog(
                             boxSize.width.toFloat() / loaded.trimWidth,
                             boxSize.height.toFloat() / loaded.trimHeight,
                         )
-                        loaded.homeScaleOverride = fit
+                        // webgpuviewer 38 dropped the nullable homeScaleOverride that used to
+                        // suppress the library's own fit, so the current scale is applied here
+                        // too, the way the reader's viewer pairs the two.
+                        loaded.homeScale = fit
+                        loaded.scale = fit
                         loaded.minScale = minOf(loaded.minScale, fit)
                     }
                     state.fetchPage = { index -> loaded.takeIf { index == 0 } }
