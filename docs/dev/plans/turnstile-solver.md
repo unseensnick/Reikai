@@ -220,12 +220,12 @@ Each of these was built and run against a live challenge before being dropped. D
   to 2.9 seconds before against 2.5 to 3.2 after. The advantage is confined to the failure path, when
   a solve fails and the sibling would otherwise retry into a 403, and that case was never induced.
   It cost one regression on the way in, below.
-  - **How to remove it, if it is ever judged not worth the divergence.** Not with `git revert`, since
-    work will have landed on top. Delete `locksByHost` and the read/write wrapping in
-    `WebViewInterceptor.intercept`, drop `getNonce` / `isBypassed` and the `nonce` parameter, return
-    `Response` instead of `Response?`, and restore `TurnstileSolver.onlyOncePerHost` (a
-    `ConcurrentHashMap` of `CompletableFuture` guarding one solve per host) around the
-    `resolveWithWebView` call. The commit that added it names these same steps.
+  - **How to remove it, if it is ever judged not worth the divergence.** It landed in `fde007a24`,
+    whose message carries these same steps. Not with `git revert`, since work will have landed on
+    top: delete `locksByHost` and the read/write wrapping in `WebViewInterceptor.intercept`, drop
+    `getNonce` / `isBypassed` and the `nonce` parameter, return `Response` instead of `Response?`,
+    and restore `TurnstileSolver.onlyOncePerHost` (a `ConcurrentHashMap` of `CompletableFuture`
+    guarding one solve per host) around the `resolveWithWebView` call.
   - **The regression it caused, since it will recur if this is re-derived.** The sibling shortcut
     returns from the base class without reaching the subclass, and the subclass is what closed the
     challenge response. Left unclosed, OkHttp refuses the retry on the same call with
