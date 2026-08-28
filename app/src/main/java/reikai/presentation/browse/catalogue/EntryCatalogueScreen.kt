@@ -84,6 +84,15 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalSource
 
 /**
+ * Which listing a manga catalogue opens on. Absent a query this has to name Popular out loud:
+ * `Listing.valueOf(null)` is a Search, so a plain row tap would open on getSearchManga("").
+ */
+internal fun mangaListingQuery(startLatest: Boolean, initialQuery: String?): String? = when {
+    startLatest -> BrowseSourceViewModel.Listing.Latest.query
+    else -> initialQuery ?: BrowseSourceViewModel.Listing.Popular.query
+}
+
+/**
  * One source's catalogue, for a manga source and a light-novel source alike. [sourceKey] fixes the
  * content type before the screen opens, so this is the details surface's shape rather than the All-
  * first lists': a neutral state and behaviour with two adapters, and one chrome over both.
@@ -125,10 +134,7 @@ class EntryCatalogueScreen(
         val uriHandler = LocalUriHandler.current
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
-            create(
-                sourceId = sourceId,
-                listingQuery = if (startLatest) BrowseSourceViewModel.Listing.Latest.query else initialQuery,
-            )
+            create(sourceId = sourceId, listingQuery = mangaListingQuery(startLatest, initialQuery))
         }
         val bulk = metroViewModel<BulkFavoriteViewModel>()
         // The graph's app-scoped binding, so the pick lands in the same handoff the models read.

@@ -103,7 +103,7 @@ class MangaBrowseAdapter(
             isUserQuery = state.isUserQuery,
             supportsLatest = source.supportsLatest,
             hasFilters = state.filters.isNotEmpty(),
-            filtersActive = state.listing is Listing.Search,
+            filtersActive = state.filterChipActive(),
             hasSettings = source is ConfigurableSource,
             webUrl = (source as? HttpSource)?.getHomeUrl(),
             rowStyle = if (model.useEhentaiView) {
@@ -218,6 +218,13 @@ class MangaBrowseAdapter(
         model.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, target))
     }
 }
+
+/**
+ * Whether the Filter chip reads as active. Upstream's rule: any search-shaped listing, so a
+ * plain text search lights it and so does a reset that was re-applied. The novel twin answers
+ * the same question off its own state; FilterChipConformanceTest runs both.
+ */
+internal fun BrowseSourceViewModel.State.filterChipActive(): Boolean = listing is Listing.Search
 
 internal fun mangaRowKey(manga: Manga) = "manga:${manga.id}"
 

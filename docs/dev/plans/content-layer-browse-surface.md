@@ -515,3 +515,13 @@ shared body started reading the column preference itself.
   types. It matches the Sources tab's idiom, but manga stores an enabled-language set while
   novels store a deny-list, so a single switch would have to write both and change what
   disabling a language means. That is a preference-semantics ruling rather than a layout one.
+- **The chip rule is pinned by a conformance test, and writing it found a regression
+  (2026-08-28).** Replacing the Sources row's listing sentinel with a boolean left a plain manga
+  row tap passing no query at all, and `Listing.valueOf(null)` is a Search rather than Popular, so
+  the catalogue opened on `getSearchManga("")` with the Filter chip lit. Confirmed on device before
+  fixing. The screen's choice is now `mangaListingQuery`, tested directly, and
+  `FilterChipConformanceTest` drives both real models through five scenarios (fresh open, text
+  search, filters applied, reset then re-applied, listing switched) against each type's own
+  `filterChipActive`. Mutation-verified three ways: reintroducing the regression fails exactly the
+  manga fresh-open case and the listing-query case, and blanking either type's rule fails only that
+  type's rows. This is the pin the option-2 ruling above was left owing.

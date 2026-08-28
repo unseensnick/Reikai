@@ -129,7 +129,7 @@ class NovelBrowseAdapter(
             isUserQuery = searching,
             supportsLatest = source.supportsLatest,
             hasFilters = source.filters?.isNotEmpty() == true,
-            filtersActive = searching || state.filtersApplied,
+            filtersActive = state.filterChipActive(),
             hasSettings = source.pluginSettings != null,
             webUrl = source.site.takeIf { it.isNotBlank() },
             rowStyle = EntryBrowseRowStyle.Standard(state.displayMode),
@@ -252,6 +252,13 @@ private fun rowKey(sourceId: String, item: NovelItem) = "novel:$sourceId:${item.
 /** The row's payload is this adapter's own result, so unwrapping it is sound only here. */
 internal val EntryBrowseRow.item: NovelItem
     get() = content.value.payload as NovelItem
+
+/**
+ * The novel half of the Filter chip rule. No Search listing exists here, because a text search
+ * and a filtered listing go through different pagers, so the two halves of upstream's single
+ * condition are read separately. FilterChipConformanceTest runs this against the manga twin.
+ */
+internal fun NovelBrowseState.filterChipActive(): Boolean = query.isNotBlank() || filtersApplied
 
 /** Whether the catalogue's search field is still showing the query it was opened with. */
 private sealed interface ToolbarText {
