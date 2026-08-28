@@ -268,6 +268,14 @@ are each assembled once over two providers with the chip as a predicate, both pe
 render through one screen, and the CHANGELOG carries what a reader sees. What follows records what
 each step decided or turned up, because those are the parts a later reader cannot re-derive.
 
+**Round two, the driven audit, is done (2026-08-28).** Every affordance of the four multi-source
+lists, both catalogues and global search was pressed on a minified build rather than read. It found
+four parity gaps the code-read round had not, all fixed in `04ac69639`, and the sources-filter
+reachability gap fixed in `17e2f18c9`. It also produced one regression of its own: swapping the
+Sources row's listing sentinel for a boolean left a plain manga row tap opening on a Search listing,
+fixed in `033c6406c` and now pinned by `FilterChipConformanceTest`. The Filter chip divergence was
+ruled rather than coded. Each of those is recorded under Decisions below.
+
 Step 5 closed the five known drops by construction (section headers and Update all, pull-to-refresh,
 the install-permission banner, the loading and empty states, the back-clears-search handler) and
 turned up two defects neither list showed before: an lnreader repo names a language in that
@@ -511,10 +519,12 @@ shared body started reading the column preference itself.
   filter action routed All and Manga to Mihon's manga screen and only Novels to the plugin one, so
   from the default chip no plugin could be enabled, disabled or language-filtered at all. Both
   Mihon files are deleted and manifested; the shared screen owns the chrome and each half renders
-  from its own ViewModel. Rejected for now: one merged list where a language switch covers both
-  types. It matches the Sources tab's idiom, but manga stores an enabled-language set while
-  novels store a deny-list, so a single switch would have to write both and change what
-  disabling a language means. That is a preference-semantics ruling rather than a layout one.
+  from its own ViewModel. **This screen is the answer, not a step toward one (owner,
+  2026-08-28).** The alternative considered and closed is one merged list where a single language
+  switch covers both types: it matches the Sources tab's idiom more closely, but manga stores an
+  enabled-language set while novels store a deny-list, so one switch would have to write both and
+  change what disabling a language means. Nothing is scheduled to replace the chip screen, so a
+  later reader should treat this as settled rather than pending.
 - **The chip rule is pinned by a conformance test, and writing it found a regression
   (2026-08-28).** Replacing the Sources row's listing sentinel with a boolean left a plain manga
   row tap passing no query at all, and `Listing.valueOf(null)` is a Search rather than Popular, so
