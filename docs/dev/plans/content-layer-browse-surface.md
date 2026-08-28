@@ -507,3 +507,11 @@ shared body started reading the column preference itself.
   four are the same shape: a capability that exists on one side of a leaf that dispatches by
   content type, where nothing forces the other side to answer. None is visible from the neutral
   contract, because each is decided below it.
+- **The sources filter is one screen with a Manga / Novels chip (owner, 2026-08-28).** The Browse
+  filter action routed All and Manga to Mihon's manga screen and only Novels to the plugin one, so
+  from the default chip no plugin could be enabled, disabled or language-filtered at all. Both
+  Mihon files are deleted and manifested; the shared screen owns the chrome and each half renders
+  from its own ViewModel. Rejected for now: one merged list where a language switch covers both
+  types. It matches the Sources tab's idiom, but manga stores an enabled-language set while
+  novels store a deny-list, so a single switch would have to write both and change what
+  disabling a language means. That is a preference-semantics ruling rather than a layout one.

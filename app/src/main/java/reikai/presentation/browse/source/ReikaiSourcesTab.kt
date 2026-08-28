@@ -22,7 +22,6 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.SourceItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
-import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import kotlinx.coroutines.flow.collectLatest
@@ -80,20 +79,12 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                     navigator.push(EntryGlobalSearchScreen())
                 },
             ),
-            // Content-type-aware filter: the Novels chip opens the LN per-source filter, Manga / All
-            // open Mihon's manga sources filter (per-language + per-source).
+            // One filter screen for both types, opening on the chip it was reached from. Routing
+            // All and Manga to the manga screen left every plugin unreachable from the default chip.
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
                 icon = Icons.Outlined.FilterList,
-                onClick = {
-                    navigator.push(
-                        if (state.contentType == ContentType.NOVELS) {
-                            NovelSourcesFilterScreen()
-                        } else {
-                            SourcesFilterScreen()
-                        },
-                    )
-                },
+                onClick = { navigator.push(EntrySourcesFilterScreen(state.contentType)) },
             ),
         ),
         content = { contentPadding, snackbarHostState ->
