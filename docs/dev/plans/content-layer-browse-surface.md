@@ -348,7 +348,11 @@ manga migration target picker now uses the catalogue's own pick mode, and leavin
 clears the search on both types rather than leaving the source, restoring what the novel screen did.
 The control is the back arrow while searching, not the X beside the field, which is upstream's own
 reset and only empties the text.
-The follows screen keeping its own chrome is the one still open, and `ROADMAP.md` carries it.
+The follows screen keeping its own chrome was settled the same way (owner, 2026-08-28): not folding.
+The cost accepted with it is that its dialogs dispatch off `BrowseSourceViewModel.Dialog` rather than
+the neutral `EntryBrowseDialog` the shared catalogue reads, so a case added to the shared set does
+not reach it. That is the trigger to revisit, along with any parity gap it visibly grows;
+`ROADMAP.md` carries it under Parked with both.
 
 ## The behaviour inventory (step 9)
 
