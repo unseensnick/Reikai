@@ -39,6 +39,11 @@ class CloudflareInterceptor(
 
     private val executor = ContextCompat.getMainExecutor(context)
 
+    // RK: read lazily, since only a challenge raised with no window on screen ever needs it.
+    private val fallbackSolverScript by lazy {
+        context.assets.open("CloudflareSolverIframeScript.js").bufferedReader().use { it.readText() }
+    }
+
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
         // Checking the cf-mitigated header is the official way to detect a Cloudflare challenge:
@@ -127,8 +132,9 @@ class CloudflareInterceptor(
         val origRequestUrl = originalRequest.url.toString()
         val headers = parseHeaders(originalRequest.headers)
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
-        //     armed that challenge is no longer a reason to give up. Off by default, and it only
-        //     arms once the WebView is in a window, which needs an activity on screen.
+        //     armed that challenge is no longer a reason to give up. Off by default. It arms whether
+        //     or not an activity is on screen, pressing keys in a window and injecting a script
+        //     into the challenge frame without one.
         val solverArmed = AtomicBoolean(false)
         val interactive = AtomicBoolean(false)
         val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
@@ -172,7 +178,16 @@ class CloudflareInterceptor(
             // RK: arming has to precede the load, since an injected script only reaches documents
             //     created after it is registered.
             if (solverWanted) {
-                val armed = TurnstileSolver.attach(webview, originalRequest.url.host, interactive) {
+                val armed = TurnstileSolver.attach(
+                    webView = webview,
+                    host = originalRequest.url.host,
+                    interactive = interactive,
+                    fallbackScript = { fallbackSolverScript },
+                    reload = { webview.loadUrl(origRequestUrl, headers) },
+                    // Arming suppresses the interactive and failed aborts below, so the fallback owns
+                    // giving up on its own path; without this the request waits out the full latch.
+                    onGiveUp = { latch.countDown() },
+                ) {
                     // The retry needs the clearance cookie, and it lands after the challenge page
                     // goes, so a solve is only accepted once both have happened.
                     val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
@@ -185,7 +200,7 @@ class CloudflareInterceptor(
                     }
                 }
                 solverArmed.set(armed)
-                if (!armed) logcat { "Turnstile[${originalRequest.url.host}]: no window, not armed" }
+                if (!armed) logcat { "Turnstile[${originalRequest.url.host}]: webview too old, not armed" }
             }
 
             webview.webViewClient = object : WebViewClient() {

@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.network.interceptor
 
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.ViewGroup
@@ -14,14 +16,17 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.random.Random
 
 /**
  * Presses the checkbox of an interactive Cloudflare Turnstile challenge in the bypass WebView.
  *
- * The WebView has to be attached to a window: detached it renders no checkbox and takes no input.
- * The press is an ordinary [KeyEvent] pair, Tab then Space, so no DOM patching and no coordinate is
- * needed, and page state is read from an isolated JS world, because a script in the page's own world
- * gets the challenge reissued. What else was tried, and failed, is in docs/dev/plans/turnstile-solver.md.
+ * With a window, the WebView is attached to it and the press is an ordinary [KeyEvent] pair, Tab then
+ * Space, so no DOM patching and no coordinate is needed. Detached the widget takes no input at all,
+ * so a background update instead injects a borrowed script into the Cloudflare frame, which clicks
+ * for itself. Page state is read from an isolated JS world either way, because a script in the
+ * source page's own world gets the challenge reissued. What else was tried, and failed, is in
+ * docs/dev/plans/turnstile-solver.md.
  */
 object TurnstileSolver {
 
@@ -29,9 +34,25 @@ object TurnstileSolver {
     private const val PRESS_COOLDOWN_MS = 4000L
     private const val KEY_GAP_MS = 100L
 
+    /**
+     * How long the in-frame fallback gets before the request is failed. Eleven measured solves landed
+     * in 10.9 to 13.9 seconds, the slowest of them with five hosts solving at once, and the caller's
+     * own wait is 30, so this fails a hopeless one sooner without threatening a slow working solve.
+     */
+    private const val FALLBACK_BUDGET_MS = 20_000L
+
     private const val BRIDGE = "reikaiTurnstileWatch"
     private const val SIBLING_WAIT_SECONDS = 60L
     private const val WORLD = "reikai-turnstile"
+
+    /**
+     * Where the widget actually lives. Measured on a managed-challenge interstitial: the frame holding
+     * the checkbox reports this origin, so the fallback can be scoped to it rather than to every frame.
+     */
+    private const val CHALLENGE_ORIGIN = "https://challenges.cloudflare.com"
+
+    /** The placeholder the borrowed script names its own functions with, so it can hide their frames. */
+    private const val SOLVER_TOKEN = "__SOLVER__"
 
     val isSupported: Boolean
         get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
@@ -70,9 +91,16 @@ object TurnstileSolver {
     }
 
     /**
-     * Attaches [webView] to the foreground window and starts pressing any Turnstile checkbox it
-     * finds, calling [onSolved] once the challenge is really gone. Returns whether it armed: with no
-     * activity on screen there is no window to attach to, so the caller keeps its usual behaviour.
+     * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
+     * really gone. Returns whether it armed at all.
+     *
+     * How it presses depends on whether an activity is on screen. With a window, [webView] is
+     * attached to it off screen and pressed with real key events, which is the path that needs no
+     * script in the challenge's own world. With none, a background library update being the case that
+     * matters, it falls back to [fallbackScript] inside the Cloudflare frame and [reload]s so that
+     * document-start script takes, since a detached WebView takes no input at all. That path calls
+     * [onGiveUp] rather than leaving the caller to wait out its own timeout, since the key path's
+     * upstream give-up signals are suppressed while this is armed.
      *
      * Must run before `loadUrl`, since an injected script only reaches documents created after it is
      * registered. [detach] must run when the solve ends, however it ends.
@@ -81,31 +109,52 @@ object TurnstileSolver {
         webView: WebView,
         host: String,
         interactive: AtomicBoolean,
+        fallbackScript: () -> String,
+        reload: () -> Unit,
+        onGiveUp: () -> Unit,
         onSolved: () -> Boolean,
     ): Boolean {
         if (!isSupported) return false
-        val container = ForegroundActivity.current?.window?.decorView as? ViewGroup ?: return false
-
-        // Off screen rather than invisible: Chromium stops rendering a view it considers hidden, and
-        // a widget that does not render is one that cannot be pressed. Shifted left by its own width
-        // rather than right, so it stays off screen if the window grows under it.
-        val width = container.width.takeIf { it > 0 } ?: DEFAULT_WIDTH
-        val height = container.height.takeIf { it > 0 } ?: DEFAULT_HEIGHT
-        webView.translationX = -width.toFloat()
-
-        // It must never hold focus. Taking it on attach and handing it back on detach is what
-        // reopens the soft keyboard over whatever the user was typing in, once per solve. The keys
-        // are dispatched straight at the view rather than through the focus system, and they land
-        // even while the soft keyboard is up and an app text field holds focus.
-        webView.isFocusable = false
-        webView.isFocusableInTouchMode = false
-        webView.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-
-        container.addView(webView, ViewGroup.LayoutParams(width, height))
+        val container = ForegroundActivity.current?.window?.decorView as? ViewGroup
+        if (container != null) attachToWindow(webView, container)
 
         var lastPress = 0L
         var clearReadings = 0
         var solved = false
+        val injected = AtomicBoolean(false)
+
+        val press = if (container != null) {
+            {
+                val delivered = webView.pressKeys()
+                logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
+            }
+        } else {
+            {
+                // Once only: the script clicks on its own timer from then on, and re-registering it
+                // would just reload the page out from under a solve already in progress.
+                if (injected.compareAndSet(false, true)) {
+                    logcat { "Turnstile[$host]: no window, injecting the in-frame solver" }
+                    if (injectFallback(webView, host, fallbackScript())) {
+                        reload()
+                        // Nothing else reports a fallback that is never going to land, and without a
+                        // budget it costs the caller's whole 30 second wait.
+                        //
+                        // Handler, not View.postDelayed: a detached view queues its posts until it is
+                        // attached, and this path only runs when there is no window to attach to, so
+                        // that timer would never have fired.
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (!solved) {
+                                logcat { "Turnstile[$host]: in-frame solver gave up after $FALLBACK_BUDGET_MS ms" }
+                                onGiveUp()
+                            }
+                        }, FALLBACK_BUDGET_MS)
+                    } else {
+                        // A script that never registered will never press, so there is nothing to wait for.
+                        onGiveUp()
+                    }
+                }
+            }
+        }
 
         val pressWhenDue = press@{ probe: JSONObject ->
             // The widget is present from the first paint, well before there is a checkbox behind it.
@@ -118,8 +167,7 @@ object TurnstileSolver {
             if (probe.optString("token").isNotEmpty() || now - lastPress < PRESS_COOLDOWN_MS) return@press
 
             lastPress = now
-            val delivered = webView.pressKeys()
-            logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
+            press()
         }
 
         val onWatch = watch@{ json: String ->
@@ -170,6 +218,49 @@ object TurnstileSolver {
             logcat(LogPriority.ERROR, e) { "Failed to arm the Turnstile solver" }
         }
         return true
+    }
+
+    /**
+     * Puts [webView] in the window off screen, which is what makes the widget render a checkbox and
+     * take input at all.
+     */
+    private fun attachToWindow(webView: WebView, container: ViewGroup) {
+        // Off screen rather than invisible: Chromium stops rendering a view it considers hidden, and
+        // a widget that does not render is one that cannot be pressed. Shifted left by its own width
+        // rather than right, so it stays off screen if the window grows under it.
+        val width = container.width.takeIf { it > 0 } ?: DEFAULT_WIDTH
+        val height = container.height.takeIf { it > 0 } ?: DEFAULT_HEIGHT
+        webView.translationX = -width.toFloat()
+
+        // It must never hold focus. Taking it on attach and handing it back on detach is what
+        // reopens the soft keyboard over whatever the user was typing in, once per solve. The keys
+        // are dispatched straight at the view rather than through the focus system, and they land
+        // even while the soft keyboard is up and an app text field holds focus.
+        webView.isFocusable = false
+        webView.isFocusableInTouchMode = false
+        webView.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        container.addView(webView, ViewGroup.LayoutParams(width, height))
+    }
+
+    /**
+     * Registers the borrowed in-frame solver, scoped to the Cloudflare frame so it never reaches the
+     * source's own page: a script in the page's own world is what makes Cloudflare reissue the
+     * challenge. It runs in that frame's own world by necessity, since it patches the frame's
+     * `Error` and `EventTarget` to hide itself.
+     *
+     * The script names every function it defines with one token so it can filter itself out of stack
+     * traces, and that token is renamed per injection so the name itself cannot be matched on.
+     */
+    private fun injectFallback(webView: WebView, host: String, script: String): Boolean {
+        val named = script.replace(SOLVER_TOKEN, "${SOLVER_TOKEN}_${Random.nextLong().toULong().toString(16)}")
+        return runCatching {
+            WebViewCompat.addDocumentStartJavaScript(webView, named, setOf(CHALLENGE_ORIGIN))
+            true
+        }.getOrElse {
+            logcat(LogPriority.ERROR, it) { "Turnstile[$host]: failed to inject the in-frame solver" }
+            false
+        }
     }
 
     /** Takes the WebView back out of the window. Safe to call whether or not [attach] armed. */

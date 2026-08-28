@@ -80,7 +80,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Every release now also has a `-foss` APK with no crash reporting or analytics in it at all.** It installs as a separate app, so it can sit alongside your normal one.
 - **A new Tokyo Night app theme, selectable under Settings -> Appearance.**
 - **Settings -> About now links Reikai's website and privacy policy.** Both open reikai.app, which is where the documentation lives.
-- **Settings -> Advanced has a new experimental switch, "Solve interactive Cloudflare challenges", that ticks the verification box instead of giving up on it.** It needs the app open, so a background library update cannot use it.
+- **Settings -> Advanced has a new experimental switch, "Solve interactive Cloudflare challenges", that ticks the verification box instead of giving up on it.** It works while you are using the app and during a library update.
 
 ### Changes
 
