@@ -16,14 +16,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 /**
- * Presses the checkbox of an interactive Cloudflare Turnstile challenge in the bypass WebView.
+ * Presses the checkbox an interactive Cloudflare Turnstile challenge waits on.
  *
- * With a window, the WebView is attached to it and the press is an ordinary [KeyEvent] pair, Tab then
- * Space, so no DOM patching and no coordinate is needed. Detached the widget takes no input at all,
- * so a background update instead injects a borrowed script into the Cloudflare frame, which clicks
- * for itself. Page state is read from an isolated JS world either way, because a script in the
- * source page's own world gets the challenge reissued. What else was tried, and failed, is in
- * docs/dev/plans/turnstile-solver.md.
+ * With a window it attaches the WebView and sends Tab then Space. With none it injects a borrowed
+ * script into the Cloudflare frame instead, since a detached widget takes no input. Never into the
+ * source's own page: a script there gets the challenge reissued, which is also why the page is read
+ * from an isolated world. What was tried and failed: docs/dev/plans/turnstile-solver.md.
  */
 object TurnstileSolver {
 
@@ -55,16 +53,9 @@ object TurnstileSolver {
             WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
 
     /**
-     * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
-     * really gone. Returns whether it armed at all.
-     *
-     * How it presses depends on whether an activity is on screen. With a window, [webView] is
-     * attached to it off screen and pressed with real key events, which is the path that needs no
-     * script in the challenge's own world. With none, a background library update being the case that
-     * matters, it falls back to [fallbackScript] inside the Cloudflare frame and [reload]s so that
-     * document-start script takes, since a detached WebView takes no input at all. That path calls
-     * [onGiveUp] rather than leaving the caller to wait out its own timeout, since the key path's
-     * upstream give-up signals are suppressed while this is armed.
+     * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge
+     * is really gone, or [onGiveUp] when the no-window path runs out of budget. Arming suppresses
+     * the caller's own give-up signals, which is why it owes one. Returns whether it armed at all.
      *
      * Must run before `loadUrl`, since an injected script only reaches documents created after it is
      * registered. [detach] must run when the solve ends, however it ends.
@@ -208,13 +199,12 @@ object TurnstileSolver {
     }
 
     /**
-     * Registers the borrowed in-frame solver, scoped to the Cloudflare frame so it never reaches the
-     * source's own page: a script in the page's own world is what makes Cloudflare reissue the
-     * challenge. It runs in that frame's own world by necessity, since it patches the frame's
-     * `Error` and `EventTarget` to hide itself.
+     * Registers the borrowed in-frame solver, scoped to the Cloudflare frame: a script in the source
+     * page's own world is what makes Cloudflare reissue the challenge. It runs in that frame's own
+     * world by necessity, since it patches the frame's `Error` and `EventTarget`.
      *
      * The script names every function it defines with one token so it can filter itself out of stack
-     * traces, and that token is renamed per injection so the name itself cannot be matched on.
+     * traces, and that token is renamed per injection so the name cannot be matched on.
      */
     private fun injectFallback(webView: WebView, host: String, script: String): Boolean {
         val named = script.replace(SOLVER_TOKEN, "${SOLVER_TOKEN}_${Random.nextLong().toULong().toString(16)}")
