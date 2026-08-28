@@ -12,9 +12,6 @@ import eu.kanade.tachiyomi.util.system.ForegroundActivity
 import logcat.LogPriority
 import org.json.JSONObject
 import tachiyomi.core.common.util.system.logcat
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
@@ -42,7 +39,6 @@ object TurnstileSolver {
     private const val FALLBACK_BUDGET_MS = 20_000L
 
     private const val BRIDGE = "reikaiTurnstileWatch"
-    private const val SIBLING_WAIT_SECONDS = 60L
     private const val WORLD = "reikai-turnstile"
 
     /**
@@ -57,38 +53,6 @@ object TurnstileSolver {
     val isSupported: Boolean
         get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
-
-    private val pendingByHost = ConcurrentHashMap<String, CompletableFuture<Unit>>()
-
-    /**
-     * Runs [solve] once per host, returning null when another thread was already solving that host.
-     * A null tells the caller to retry with whatever the cookie jar now holds instead of queueing
-     * for a window it does not need: a page that fires two challenged requests only has to be
-     * solved once, and the second was costing a turn another host was waiting for.
-     *
-     * Mirrors `FlareSolverrClient.resolveWithFlareSolverrDedup`, which dedupes the same way.
-     */
-    fun <T> onlyOncePerHost(host: String, solve: () -> T): T? {
-        while (true) {
-            pendingByHost[host]?.let { inFlight ->
-                logcat { "Turnstile[$host]: another request is solving this host, waiting" }
-                runCatching { inFlight.get(SIBLING_WAIT_SECONDS, TimeUnit.SECONDS) }
-                return null
-            }
-            val mine = CompletableFuture<Unit>()
-            if (pendingByHost.putIfAbsent(host, mine) == null) {
-                try {
-                    return solve().also { mine.complete(Unit) }
-                } catch (e: Exception) {
-                    mine.completeExceptionally(e)
-                    throw e
-                } finally {
-                    pendingByHost.remove(host)
-                }
-            }
-            // Another thread won the race between the read and the claim; look again.
-        }
-    }
 
     /**
      * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is

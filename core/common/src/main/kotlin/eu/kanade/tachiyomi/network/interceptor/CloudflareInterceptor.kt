@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.Cookie
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.Request
@@ -51,11 +52,16 @@ class CloudflareInterceptor(
         return response.header("cf-mitigated") == "challenge" && response.header("Server") in SERVER_CHECK
     }
 
+    override fun getNonce(url: HttpUrl): String? = cookieManager.get(url)
+        .firstOrNull { it.name == "cf_clearance" }
+        ?.value
+
     override fun intercept(
         chain: Interceptor.Chain,
         request: Request,
         response: Response,
-    ): Response {
+        nonce: String?,
+    ): Response? {
         try {
             response.close()
             cookieManager.remove(request.url, COOKIE_NAMES, 0)
@@ -76,13 +82,9 @@ class CloudflareInterceptor(
                 flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
             } else {
                 try {
-                    // One solve per host: a page that fires two challenged requests only needs one,
-                    // and the second falls through to the retry below with what the solve left.
-                    if (networkPreferences.enableTurnstileSolver.get()) {
-                        TurnstileSolver.onlyOncePerHost(host) { resolveWithWebView(request, oldCookie) }
-                    } else {
-                        resolveWithWebView(request, oldCookie)
-                    }
+                    // One solve per host is the base class's job now; a sibling that queued behind
+                    // this one re-checks the jar and never reaches here.
+                    resolveWithWebView(request, oldCookie)
                 } catch (e: CloudflareBypassException) {
                     if (!fsActive) throw e
                     // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
@@ -92,14 +94,13 @@ class CloudflareInterceptor(
                 }
             }
 
-            // WebView path (or sibling-solve fallback): retry the request normally. The
-            // application interceptor chain doesn't re-run on chain.proceed() from inside an
-            // interceptor, so apply any FS-pinned UA directly here.
-            val retryRequest = flareSolverr.pinnedUserAgentFor(host)?.let { pinnedUa ->
-                request.newBuilder().header("User-Agent", pinnedUa).build()
-            } ?: request
-
-            return chain.proceed(retryRequest)
+            // WebView path: retry the request normally. Returning null lets the base class do that
+            // outside the per-host write lock, so the next challenged request is not queued behind
+            // this one's retry. A FlareSolverr-pinned host is the exception: the application
+            // interceptor chain doesn't re-run on chain.proceed() from inside an interceptor, so the
+            // pinned UA has to be applied here, and that retry does hold the lock.
+            val pinnedUa = flareSolverr.pinnedUserAgentFor(host) ?: return null
+            return chain.proceed(request.newBuilder().header("User-Agent", pinnedUa).build())
             // RK <--
         }
         // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that

@@ -213,10 +213,25 @@ Each of these was built and run against a live challenge before being dropped. D
   `cf_clearance` as proof. Cloudflare hands one out on a challenge it has not accepted, which is not
   a corner case: in the backgrounded run above all five hosts emitted `fail`, carried a clearance
   anyway, and took a 403 on the retry. Keep the two-clear-readings test when folding.
-- **His per-host lock is better than ours and is the piece worth taking.** A sibling of an in-flight
-  solve blocks on the write lock and then re-checks, where `onlyOncePerHost` waits up to 60 seconds
-  on a future and then retries blind. Not yet taken, since it rewrites a Mihon abstract class that is
-  still being revised.
+- **His per-host lock is taken, and it is the one piece here on an unmeasured benefit.** A sibling of
+  an in-flight solve now blocks on the write lock and re-checks, where `onlyOncePerHost` waited on a
+  future and then retried blind. Measured against the old path back to back on the same hosts, the
+  two are indistinguishable: every challenged request resolved either way, and solve times were 2.4
+  to 2.9 seconds before against 2.5 to 3.2 after. The advantage is confined to the failure path, when
+  a solve fails and the sibling would otherwise retry into a 403, and that case was never induced.
+  It cost one regression on the way in, below.
+  - **How to remove it, if it is ever judged not worth the divergence.** Not with `git revert`, since
+    work will have landed on top. Delete `locksByHost` and the read/write wrapping in
+    `WebViewInterceptor.intercept`, drop `getNonce` / `isBypassed` and the `nonce` parameter, return
+    `Response` instead of `Response?`, and restore `TurnstileSolver.onlyOncePerHost` (a
+    `ConcurrentHashMap` of `CompletableFuture` guarding one solve per host) around the
+    `resolveWithWebView` call. The commit that added it names these same steps.
+  - **The regression it caused, since it will recur if this is re-derived.** The sibling shortcut
+    returns from the base class without reaching the subclass, and the subclass is what closed the
+    challenge response. Left unclosed, OkHttp refuses the retry on the same call with
+    `cannot make a new request because the previous response is still open`. It compiled, passed the
+    whole suite and solved every host; only looking at the screen showed the two hosts with
+    concurrent requests were rendering an exception. The base class closes on that path now.
 - **Global search is capped at five concurrent sources** (`SearchViewModel`'s fixed thread pool), and
   a solve holds one of those threads for its duration. At three seconds a solve this is not painful;
   it was when a solve took thirty.
