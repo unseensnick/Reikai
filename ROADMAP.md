@@ -58,7 +58,7 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 
 From the same audit.
 
-- **Decide whether the interactive Cloudflare solver graduates from experimental** `[S]` - the switch cannot default on until it is verified beyond one device and a handful of hosts, and it can never run while the app is closed. [Plan](docs/dev/plans/turnstile-solver.md).
+- **Decide whether the interactive Cloudflare solver graduates from experimental** `[S]` - the switch cannot default on until it is verified beyond one device and a handful of hosts, and a backgrounded app with no foreground service clears none, so the ruling has to settle what "works in the background" is allowed to mean. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
