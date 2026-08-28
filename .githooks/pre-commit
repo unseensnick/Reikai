@@ -8,8 +8,8 @@
 #     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
 #   .kt comments - no plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, plan-style
 #     Step N) in newly added lines; they rot. State the durable fact instead (R8 and M3 are spared).
-#   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped; write to
-#     8, over 10 is rejected. See .claude/rules/code-quality.md "Comments".
+#   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped at 8; a
+#     9th is rejected. See .claude/rules/code-quality.md "Comments".
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
