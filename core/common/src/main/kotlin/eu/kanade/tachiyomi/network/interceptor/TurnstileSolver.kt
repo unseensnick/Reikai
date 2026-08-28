@@ -237,9 +237,9 @@ object TurnstileSolver {
 
     /**
      * Tabs onto the checkbox and hits Space, so no coordinate has to be estimated. The cadence is
-     * mihonapp/mihon#3858's, a tenth of a second between every event, dispatched from the main
-     * thread rather than a sleeping one because a WebView takes calls from nowhere else. Returns
-     * whether the first key was accepted, the only signal that the view took them at all.
+     * mihonapp/mihon#3858's, a tenth of a second between every event, posted rather than slept
+     * through so the gaps hold no thread. Returns whether the first key was accepted, the only
+     * signal that the view took them at all.
      */
     private fun WebView.pressKeys(): Boolean {
         val delivered = dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB))
