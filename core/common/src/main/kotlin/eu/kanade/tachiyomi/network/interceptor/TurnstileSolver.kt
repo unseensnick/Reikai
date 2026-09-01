@@ -347,7 +347,8 @@ private val CHALLENGE_MARKERS = listOf(
 )
 
 /**
- * Reports what the challenge page shows, twice a second, from a world its scripts cannot read.
+ * Reports what the challenge page shows, twice a second and the moment Cloudflare says anything the
+ * solver acts on, from a world its scripts cannot read.
  *
  * The response token doubles as the challenge marker. Cloudflare's interstitial builds the widget
  * itself and that frame reports an empty URL, so the input is the only part of it the page can see.
@@ -359,17 +360,10 @@ private val WATCH = """
   const TOKEN = 'input[name="cf-turnstile-response"]';
   const CHALLENGE = '#challenge-form,#challenge-stage,#cf-challenge-running,#cf-please-wait,#challenge-spinner';
   const MAX_BODY = 4000000;
+  const DECIDING = ['interactiveBegin', 'complete'];
 
-  // Cloudflare posts its own progress to the page, and it is readable from here, so the events that
-  // decide anything need no script in the page's own world. Collected between reports rather than
-  // forwarded one at a time, since the report is already on a timer.
   let events = [];
-  addEventListener('message', (e) => {
-    const d = e.data;
-    if (d && d.source === 'cloudflare-challenge') events.push(d.event);
-  }, true);
-
-  setInterval(() => {
+  const report = () => {
     try {
       const input = document.querySelector(TOKEN);
       const challenged = !!document.querySelector(CHALLENGE) || !!input;
@@ -386,6 +380,20 @@ private val WATCH = """
         cf: seen,
       }));
     } catch (e) {}
-  }, 500);
+  };
+
+  // Cloudflare posts its own progress to the page, and it is readable from here, so the events that
+  // decide anything need no script in the page's own world. The two that do decide something are
+  // reported at once rather than held for the next tick: the page navigates away as soon as the
+  // challenge passes, and a `complete` batched into a report that never fires dies with the
+  // document, which cost a measured solve its fast accept. The per-second heartbeat still waits.
+  addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.source !== 'cloudflare-challenge') return;
+    events.push(d.event);
+    if (DECIDING.indexOf(d.event) !== -1) report();
+  }, true);
+
+  setInterval(report, 500);
 })();
 """.trimIndent()

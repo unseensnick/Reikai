@@ -120,14 +120,28 @@ calls it exist only for this. Also ruled out on the way: `cmd jobscheduler run -
 job, which WorkManager refuses with "executed before schedule"; a `BOOT_COMPLETED` broadcast, which
 shell may not send; a provider query, which is not exported; and a reinstall, which never woke it.
 
-**That run also caught the `complete` fast path missing.** Cloudflare posted `complete` at 34.762 and
-the solver accepted at 36.023, through the markup path, with no "cloudflare reports the challenge
-complete" line: its probe never reported the event. The probe collects events and ships them on its
-next 500ms tick, and the page navigates away once the challenge passes, so an event arriving in that
-window dies with the document. The two-clear-readings fallback caught it, which is the argument for
-keeping that fallback. It also means the measured 289ms accept is the good case rather than the rule,
-and the fix, if it is wanted, is to post the deciding events the moment they arrive instead of
-batching them.
+**That run also caught the `complete` fast path missing, and it has since been fixed.** Cloudflare
+posted `complete` at 34.762 and the solver accepted at 36.023 through the markup path, with no
+"cloudflare reports the challenge complete" line: the probe collected the event and shipped nothing,
+because it batched to a 500ms tick that never came, the page having navigated away once the challenge
+passed. The two-clear-readings fallback caught it, which is the argument for keeping that fallback.
+
+`interactiveBegin` and `complete` are now reported the moment they arrive; the per-second heartbeat
+still waits for the tick. Measured over one global search on a fresh exit, four hosts challenged at
+once, all four reporting `complete` from the isolated world **before** the page-world bridge saw it:
+
+| host | `complete` reported | accepted | lag |
+|---|---|---|---|
+| `aquareader.org` | 53.698 | 53.885 | 187ms |
+| `comick.live` | 55.345 | 55.759 | 414ms |
+| `www.natomanga.com` | 56.232 | 56.537 | 305ms |
+| `toonily.com` | 57.306 | 57.682 | cleared without a report, retried |
+
+Against the 1684ms this started at. **`toonily.com` is the case the whole `complete` change was for**,
+and it took the other branch: it reached `Verified` on the event, the clearance had not yet differed
+when the wait ended, and the post-latch jar check accepted it on the phase. That is the gate working
+as designed on the one host whose pages always read challenged, which before this could only ever
+fail. A shape-selecting captcha on a fifth host was correctly not attempted.
 
 **Accepting on `complete` measured, one before-and-after pair on `aquareader.org`**, same device,
 same VPN exit, cookies and WebView data cleared between them:
