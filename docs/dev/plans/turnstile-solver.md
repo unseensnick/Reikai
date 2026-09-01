@@ -382,11 +382,25 @@ seconds. 30 On failure FlareSolverr is tried when configured and the host is mar
 WebView. 31 Without FlareSolverr the failure carries the blocked URL so the UI can offer Open in
 WebView. 32 The WebView is detached, stopped and destroyed on the main thread when the wait ends.
 
+**A page that redirects is already unsupported, upstream included.** `onPageFinished` injects the
+interactive listener only when the finished URL equals the one requested, so anything that redirects,
+even from apex to www, never gets the listener, never reports `interactiveBegin`, and therefore never
+gets pressed: it polls until the caller's wait runs out. Worth knowing before reading a redirecting
+host's failure as something the solver did. The rework's state machine should key off the challenge
+being seen rather than a URL match, which retires the gap rather than carrying it forward.
+
 ### What lands first, and why the order matters
 
 **The arming fix and the clearance deletion**, together with scoping the probe's origin rules to the
 request's own origin instead of every frame. All three are correct under any architecture here, and
 the first is a stall-level defect on any device whose WebView lacks the isolated-world feature.
+Landed: `isSupported` now also requires `JS_INJECTION_IN_FRAME_AND_WORLD`, since
+`WebViewCompat.getExecutionWorld` throws without it and the old code called it before its own guard,
+swallowed the throw and still reported armed; arming failure now returns false rather than
+suppressing the caller's aborts with nothing left to release the wait; the dead page-world fallback
+branch is gone rather than made reachable, because a probe in the page's own world is the measured
+dead end above; a failed solve deletes `cf_clearance`, taken from mihonapp/mihon#3858; and the probe
+is scoped to the page being solved.
 
 **Then an observation pass, changing no behaviour**: forward every `cloudflare-challenge` event rather
 than the two currently filtered for, and log each with a timestamp. That answers whether `complete`

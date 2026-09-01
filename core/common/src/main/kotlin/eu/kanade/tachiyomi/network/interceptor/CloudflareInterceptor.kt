@@ -132,6 +132,11 @@ class CloudflareInterceptor(
 
         val origRequestUrl = originalRequest.url.toString()
         val headers = parseHeaders(originalRequest.headers)
+        // RK: an origin rule without a port matches only the scheme's default, so a source on a
+        //     custom one has to spell it out or the solver's probe would never run on its page.
+        val origin = with(originalRequest.url) {
+            if (port == HttpUrl.defaultPort(scheme)) "$scheme://$host" else "$scheme://$host:$port"
+        }
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
         //     armed that challenge is no longer a reason to give up. Off by default. It presses keys
         //     in a window; with none it arms only when the separate background switch is on, since
@@ -182,6 +187,7 @@ class CloudflareInterceptor(
                 val armed = TurnstileSolver.attach(
                     webView = webview,
                     host = originalRequest.url.host,
+                    origin = origin,
                     interactive = interactive,
                     backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
                     fallbackScript = { fallbackSolverScript },
@@ -313,6 +319,10 @@ class CloudflareInterceptor(
 
         // Throw exception if we failed to bypass Cloudflare
         if (!cloudflareBypassed) {
+            // RK: Cloudflare hands out a clearance on a round it refused, so leaving one behind makes
+            //     a sibling queued on this host skip its own solve and retry straight into a 403. A
+            //     failed solve leaves nothing behind. Taken from mihonapp/mihon#3858.
+            cookieManager.remove(originalRequest.url, COOKIE_NAMES, 0)
             // Prompt user to update WebView if it seems too outdated
             if (isWebViewOutdated) {
                 context.toast(MR.strings.information_webview_outdated, Toast.LENGTH_LONG)

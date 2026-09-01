@@ -49,21 +49,29 @@ object TurnstileSolver {
     /** The placeholder the borrowed script names its own functions with, so it can hide their frames. */
     private const val SOLVER_TOKEN = "__SOLVER__"
 
+    /**
+     * The isolated world is as required as the other two: a probe in the page's own world is what
+     * makes Cloudflare reissue the challenge, so without one there is nothing safe to watch from and
+     * the solver declines rather than falling back into the page. Also keeps the switch off the
+     * settings screen on a WebView that could never work.
+     */
     val isSupported: Boolean
         get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
-            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
+            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
+            WebViewFeature.isFeatureSupported(WebViewFeature.JS_INJECTION_IN_FRAME_AND_WORLD)
 
     /**
-     * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge
-     * is gone, or [onGiveUp], which reports whether a wait was still open, when the budget runs out.
-     * Arming suppresses the caller's own give-up signals, so it owes one. Returns whether it armed.
+     * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
+     * gone or [onGiveUp], which reports whether a wait was still open, when the budget runs out.
+     * Arming suppresses the caller's own aborts, so it owes one. Returns whether it armed.
      *
-     * Must run before `loadUrl`, since an injected script only reaches documents created after it is
-     * registered. [detach] must run when the solve ends, however it ends.
+     * [origin] must read `scheme://host[:port]`, port only when not the scheme default. A script only
+     * reaches later documents, so this runs before `loadUrl`; [detach] runs when the solve ends.
      */
     fun attach(
         webView: WebView,
         host: String,
+        origin: String,
         interactive: AtomicBoolean,
         backgroundEnabled: Boolean,
         fallbackScript: () -> String,
@@ -150,33 +158,31 @@ object TurnstileSolver {
             }
         }
 
-        try {
-            val anyOrigin = setOf("*")
+        return try {
+            // Only the page being solved. A wildcard ran the probe in every frame on the page,
+            // including third-party ones, and every report but the main frame's was discarded here
+            // anyway. The feature check for the world belongs in [isSupported], not around this
+            // call, which throws when it is missing.
+            val pageOnly = setOf(origin)
             val world = WebViewCompat.getExecutionWorld(webView, WORLD)
-                .takeIf { WebViewFeature.isFeatureSupported(WebViewFeature.JS_INJECTION_IN_FRAME_AND_WORLD) }
 
-            if (world != null) {
-                WebViewCompat.addWebMessageListener(webView, BRIDGE, anyOrigin, world) { _, m, _, main, _ ->
-                    if (main) m.data?.let(onWatch)
-                }
-                WebViewCompat.addJavaScriptOnEvent(
-                    webView,
-                    WATCH,
-                    WebViewCompat.INJECTION_EVENT_DOCUMENT_START,
-                    anyOrigin,
-                    world,
-                )
-            } else {
-                logcat { "Turnstile[$host]: no isolated world, watching from the page's own" }
-                WebViewCompat.addWebMessageListener(webView, BRIDGE, anyOrigin) { _, m, _, main, _ ->
-                    if (main) m.data?.let(onWatch)
-                }
-                WebViewCompat.addDocumentStartJavaScript(webView, WATCH, anyOrigin)
+            WebViewCompat.addWebMessageListener(webView, BRIDGE, pageOnly, world) { _, m, _, main, _ ->
+                if (main) m.data?.let(onWatch)
             }
+            WebViewCompat.addJavaScriptOnEvent(
+                webView,
+                WATCH,
+                WebViewCompat.INJECTION_EVENT_DOCUMENT_START,
+                pageOnly,
+                world,
+            )
+            true
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to arm the Turnstile solver" }
+            // Reporting armed here would suppress the caller's own aborts while nothing was left to
+            // release the wait, costing the request its whole timeout rather than failing it.
+            logcat(LogPriority.ERROR, e) { "Turnstile[$host]: failed to arm, leaving the caller in charge" }
+            false
         }
-        return true
     }
 
     /**
