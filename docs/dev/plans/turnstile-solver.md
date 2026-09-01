@@ -281,6 +281,14 @@ Each of these was built and run against a live challenge before being dropped. D
     that the renderer did anything with it. Every one of those thirty seconds of dead presses reported
     `delivered true`. Any design that treats that boolean as evidence a press landed, including the
     parked idea of falling back when a key is refused, is reading a signal that is not there.
+  - **This measures the outcome, not the mechanism.** Two causes fit it equally: the keys never
+    reaching the renderer, or the keys landing on a frame with no focusable checkbox to tab onto.
+    Both mean the key path needs a window, so nothing above depends on telling them apart, but the
+    run did not.
+  - **It does not contradict the PR author's finding that an unattached WebView runs the challenge
+    fine.** That is true and this run reproduced it: `interactiveBegin` fired on all four hosts while
+    detached. Loading and running is not pressing, and his own code draws the same line, injecting the
+    script whenever no view group is available and dispatching keys only after `addView`.
 
 ## Planned rework
 
