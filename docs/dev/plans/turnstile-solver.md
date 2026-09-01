@@ -269,38 +269,6 @@ Each of these was built and run against a live challenge before being dropped. D
 - **Waiting for `document.readyState === 'complete'`** before judging the page. Left over from the
   body-serving design. An image-heavy source cleared its challenge and then kept loading, so the
   solve was never reported and the request failed despite having succeeded.
-- **Key events on a detached WebView laid out by hand.** The cheapest possible answer to the headless
-  case, since it would need no window, no service and no permission, and the record already said a
-  hand-laid-out view renders the checkbox. Measured across four hosts: `measure` and `layout` gave it
-  1080x1920, `dispatchKeyEvent` returned true on every press, presses repeated on the cooldown for
-  the full thirty seconds, and not one challenge cleared. The same hosts on the same exit cleared in
-  about 1.4 seconds when the view was attached. So the earlier finding that layout is not attachment
-  holds for keys exactly as it did for touch, and every remaining way to press headlessly needs a real
-  window.
-  - **`dispatchKeyEvent` returning true means nothing.** It only says the view accepted the event, not
-    that the renderer did anything with it. Every one of those thirty seconds of dead presses reported
-    `delivered true`. Any design that treats that boolean as evidence a press landed, including the
-    parked idea of falling back when a key is refused, is reading a signal that is not there.
-  - **Three further runs narrowed why, and it is none of the obvious answers.** With a `keydown`
-    counter and a focus, visibility and viewport report inside the isolated-world probe, measured
-    against an attached control that cleared four of four: keys **do** reach the renderer detached
-    (`keys=1` after every press, and `activeElement` moves from `BODY` to the same `DIV` the working
-    run moves to, so Tab is landing). `document.hasFocus()` was the only field that differed, and it
-    is fakeable: `dispatchWindowVisibilityChanged`, `dispatchWindowFocusChanged(true)` and
-    `requestFocus()` on the detached view turn it true. Page visibility was never the problem, since
-    a detached WebView already reports `visible` with `hidden=false`, and the viewport becomes real
-    once the view is laid out by hand. With every one of those matching the working control at press
-    time, Cloudflare still sent no `interactiveEnd` and no `complete`, on four hosts.
-  - **So Tab lands and Space does not activate, for a reason nothing in the document exposes.** The
-    remaining candidate is below the DOM: a detached view has no surface, so the WebView never
-    composites a frame, and the widget appears to want one before it will accept an activation. That
-    is not reachable from the main document, and it is not something a View callback can fake, which
-    is what makes the window load-bearing rather than the attachment, focus or visibility semantics
-    that stand in for it.
-  - **It does not contradict the PR author's finding that an unattached WebView runs the challenge
-    fine.** That is true and this run reproduced it: `interactiveBegin` fired on all four hosts while
-    detached. Loading and running is not pressing, and his own code draws the same line, injecting the
-    script whenever no view group is available and dispatching keys only after `addView`.
 
 ## Planned rework
 
@@ -480,28 +448,33 @@ one wrong rule: a clearance from a refused round, and a genuine solve the probe 
 Gating it on the probe fixed the first and left the second, which is what `toonily.com` hit here.
 `complete` is the signal that separates them, and until it is wired in that host fails a solve it won.
 
-**The floating-window spike ran, and it does not pay for itself.** The hope was that a headless press
-could use the low-risk key path and let the in-frame script be deleted. Two findings close it.
+**A headless press works, and the blocker is our own instrumentation.** The idea behind the spike was
+that a headless solve could use the low-risk key path instead of the injected script. It can. A
+WebView that is never attached to a window, laid out by hand and handed the focus callbacks a window
+would normally deliver, solved a real managed challenge on a live host in four seconds:
+`interactiveBegin`, press, `interactiveEnd|complete`, then the real page title. The same setup solves
+the dummy sitekey in about 200 milliseconds. No window, no foreground service, no permission.
 
-Keys need a real window, not just a layout. That is the dead end recorded above: hand-laid-out but
-detached, presses were accepted and did nothing across four hosts for thirty seconds each, where the
-same hosts attached cleared in about 1.4 seconds. So a window is required, and with no activity alive
-the only ways to get one are an overlay window, a `Presentation` on a virtual display, or an activity
-launched from the background. All three route through the same place: Android's permissions guide
-classes drawing over other apps as a **special permission**, the kind granted by a user toggle on the
-Special app access settings screen rather than at install or by a runtime prompt.
+That reverses the earlier reading of this question. Every run before it exercised the headless path
+*through the solver*, which carries confounds the harness does not, and every one of those failed. So
+what Cloudflare refuses is something the solver does and the harness does not. Four candidates, none
+fatal alone since the solver works attached with all four present: the `mihon` bridge object
+`addJavascriptInterface` puts on every frame, the forced User-Agent claiming a Chrome version this
+WebView is not, the page-world listener `evaluateJavascript` injects on page finish, and the probe
+serialising up to 4MB of `documentElement.outerHTML` twice a second.
 
-That is the whole trade. Deleting the in-frame script would cost a "Display over other apps" grant, on
-top of two switches that are already off by default, for a feature that only runs during headless
-library updates. Cloudflare's own documented worst case for the script is a session-scoped clearance
-reduction, not anything durable. Asking a manga reader for the permission that powers overlay malware,
-to retire a bounded risk behind two opt-ins, is the worse deal.
+**Bisecting those is the next step**, and the harness makes it free. The first suspect is the bridge,
+because the rework already deletes it and moves all three challenge events to the isolated world,
+which is exactly what the harness does. If the bridge is the cause, the rework fixes the headless case
+as a side effect and the in-frame script can be retired rather than gated.
 
-**The cheaper answer to the same problem is to gate the script rather than replace it.** Its concrete
-defect is that it clicks every 100ms for the life of the frame with none of the token check or
-cooldown the key path has, which is the behaviour Cloudflare's Precursor is built to notice. Giving it
-those guards cuts the detection surface with no permission and no new window, and it is a change to a
-file we already own.
+**The harness is the instrument.** `TurnstileHarness`, debug builds only, two rows at the bottom of
+Settings -> Advanced -> Networking. It runs a target detached and then attached, reading everything
+from an isolated world including Cloudflare's own challenge events, so it needs no page-world script.
+`Target.Dummy` uses sitekey `3x00000000000000000000FF`, which forces an interactive widget on any
+domain and costs nothing to repeat. `Target.Live` loads a real URL. It must set a `WebViewClient`: a
+WebView without one hands navigation to the system and the load leaves for whatever browser is
+installed, which silently wasted one run.
 
 **Risk, stated plainly.** This feature has no automated tests and cannot usefully get them: it lives
 in a WebView against a live challenge. Its gates pass on broken code, repeatedly, and the record above

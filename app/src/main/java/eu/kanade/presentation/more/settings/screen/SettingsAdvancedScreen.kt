@@ -26,6 +26,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.PREF_DOH_360
@@ -366,6 +367,32 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_enable_turnstile_background_solver),
                     subtitle = stringResource(MR.strings.pref_enable_turnstile_background_solver_summary),
                     enabled = turnstileSolverEnabled && TurnstileSolver.isSupported,
+                ),
+                // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
+                //     entirely in this DSL, so a release build never shows either of these.
+                Preference.PreferenceItem.TextPreference(
+                    title = "Turnstile harness: dummy sitekey (spike)",
+                    subtitle = "Detached then attached, no live challenge needed",
+                    enabled = BuildConfig.DEBUG,
+                    onClick = {
+                        eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.run(
+                            context,
+                            eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.Target.Dummy,
+                        )
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Turnstile harness: live site (spike)",
+                    subtitle = "Detached then attached against a real managed challenge",
+                    enabled = BuildConfig.DEBUG,
+                    onClick = {
+                        eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.run(
+                            context,
+                            eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.Target.Live(
+                                "https://toonily.com/?s=knight",
+                            ),
+                        )
+                    },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = networkPreferences.enableFlareSolverr,
