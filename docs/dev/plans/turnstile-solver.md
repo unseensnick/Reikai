@@ -420,6 +420,34 @@ the script's ungated click loop fighting itself or the probe being slow to notic
 happened. The comparison point is the sub-second `interactiveBegin` to `complete` measured on the
 Keiyoushi implementation linked from discussion 64.
 
+### What the observation pass measured
+
+Run of four hosts on a fresh exit, key path, every event Cloudflare posted logged alongside the
+probe's own transitions.
+
+**`complete` does arrive on the managed-challenge interstitial.** That was the pivotal unknown and the
+answer is yes. The full vocabulary seen is `init`, `requestExtraParams`, `translationInit`, `food`
+(a roughly per-second heartbeat), `interactiveBegin`, `interactiveEnd`, `complete`.
+
+**Our accept lags Cloudflare's own `complete` by 1.25 to 1.79 seconds, every time.** Four for four:
+1.27s, 1.79s, 1.25s, and the fourth never accepted at all. That is time spent after Cloudflare has
+already said it is done, and it is the probe's two-readings-at-500ms design showing up as latency
+rather than any part of the solve.
+
+**One host received `complete` and was reported as a failure anyway.** `toonily.com` went interactive,
+was pressed, and Cloudflare posted `complete`. The probe never once read the page as clear, so nothing
+accepted, and the user saw "Failed to bypass Cloudflare" for a challenge that had actually been
+solved. The likely mechanism is in the probe's own test: a page counts as challenged when
+`input[name="cf-turnstile-response"]` is present or a marker matches, and `turnstile-wrapper` is one
+of those markers, so **a site that embeds Turnstile on its own pages can never read as clear.** That
+turns moving to `complete` from an optimisation into a correctness fix, and it is the strongest
+argument yet for the single acceptance rule.
+
+It also sharpens the gate added above. The post-latch jar check was catching two different cases with
+one wrong rule: a clearance from a refused round, and a genuine solve the probe failed to notice.
+Gating it on the probe fixed the first and left the second, which is what `toonily.com` hit here.
+`complete` is the signal that separates them, and until it is wired in that host fails a solve it won.
+
 **Then the floating-window spike.** If a foreground service can hold a one-pixel window and take key
 events, the in-frame script is deleted outright: one press mechanism, the low-risk one, in every case,
 with no second preference and no borrowed asset maintained on a divergent copy. That is a materially

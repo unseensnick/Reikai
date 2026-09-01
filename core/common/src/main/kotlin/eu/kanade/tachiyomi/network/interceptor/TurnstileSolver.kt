@@ -91,6 +91,7 @@ object TurnstileSolver {
         var lastPress = 0L
         var clearReadings = 0
         var solved = false
+        var tokenSeen = false
         val injected = AtomicBoolean(false)
 
         val press = if (container != null) {
@@ -142,6 +143,14 @@ object TurnstileSolver {
             if (solved) return@watch
             val probe = runCatching { JSONObject(json) }.getOrNull() ?: return@watch
 
+            // Cloudflare fills the response token the moment it accepts, so this splits a solve into
+            // the part Cloudflare spent and the part spent noticing. Without it a slow solve cannot
+            // be told from a fast one this was slow to see.
+            if (!tokenSeen && probe.optString("token").isNotEmpty()) {
+                tokenSeen = true
+                logcat { "Turnstile[$host]: response token issued" }
+            }
+
             // Cloudflare strips the challenge markup out of the interstitial before it navigates
             // away, so a page carrying none of it can still be the interstitial. Judge the document
             // itself, the way Solverr judges a body it is about to hand back.
@@ -153,7 +162,10 @@ object TurnstileSolver {
 
             // One clear reading is not the end of it: the markup goes while the next round is issued
             // (measured by Byparr, and by Solverr's own confirm delay).
-            if (++clearReadings >= 2) {
+            if (++clearReadings == 1) {
+                logcat { "Turnstile[$host]: page reads clear, confirming" }
+            }
+            if (clearReadings >= 2) {
                 // Records that the page really did get past the interstitial, which is what the
                 // caller needs before it may read anything into a clearance arriving late.
                 interstitialGone.set(true)

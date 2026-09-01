@@ -178,6 +178,18 @@ class CloudflareInterceptor(
                         logcat { "Turnstile[${originalRequest.url.host}]: challenge failed" }
                         if (!solverArmed.get()) latch.countDown()
                     }
+
+                    // RK: every event Cloudflare posts, acted on by nothing. The two handlers above
+                    //     cover the only ones this decides anything from, so a solve that stalls
+                    //     leaves no trace of what the challenge was actually doing. `complete` in
+                    //     particular is Cloudflare reporting a solve it accepted, which is a better
+                    //     signal than watching the markup go, and this is how we learn whether it
+                    //     reaches an interstitial at all. See the rework design in the plan doc.
+                    @Suppress("unused")
+                    @JavascriptInterface
+                    fun challengeEvent(event: String) {
+                        logcat { "Turnstile[${originalRequest.url.host}]: cf event $event" }
+                    }
                 },
                 "mihon",
             )
@@ -254,6 +266,9 @@ class CloudflareInterceptor(
                                             mihon.interactiveDetected();
                                         }
                                         // RK -->
+                                        if (data?.source === "cloudflare-challenge") {
+                                            mihon.challengeEvent(String(data?.event));
+                                        }
                                         if (data?.source === "cloudflare-challenge" && data?.event === "fail") {
                                             mihon.challengeFailed();
                                         }
