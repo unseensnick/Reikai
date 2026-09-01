@@ -239,6 +239,20 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   device throughout, which it could not off the main thread. Only `Solve.phase` is `@Volatile`, since
   the OkHttp thread reads it after a wait that may have ended on a timeout rather than a `countDown`,
   leaving no happens-before to lean on.
+- **A WebView with no isolated world gets a degraded solve rather than none.** `addJavaScriptOnEvent`
+  and `JS_INJECTION_IN_FRAME_AND_WORLD` arrived in androidx.webkit 1.16.0-alpha03, and the feature is
+  negotiated against the installed WebView, so requiring it greyed the switch out with no explanation
+  on anything older than a few months. The reason recorded for that refusal covered the *probe*, not
+  the events: a poll in the page's own world is what makes Cloudflare reissue, while the two events a
+  solve turns on already reach the caller's bridge on every challenged page. So without a world the
+  solve runs on those events alone, adding nothing to the page, and loses only the markup fallback.
+  Taken from mihonapp/mihon#3858, which degrades where we declined. Measured against three hosts with
+  the branch forced: `complete` to accept in 252, 259 and 261ms, against 165 to 802ms with the probe.
+- **A solve with no probe has to poll for the clearance itself.** The clearance lands with the
+  navigation after `complete`, not with the event, so the one acceptance attempt made on the event is
+  always too early. With a probe the next tick asks again; without one nothing does, and the first
+  build of the degraded path spent every solve's full 20 second budget before the caller's jar check
+  rescued it. It now asks every 250ms for five seconds.
 - **No timer on this feature may use `View.postDelayed`. It must be a `Handler` on the main looper.**
   A detached view parks its posts in a `RunQueue` that only drains on attach, so on the no-window
   path a `View.postDelayed` timer can never fire. This cost twice. First the budget timer, written

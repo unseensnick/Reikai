@@ -281,6 +281,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
         // Spike state, debug only: mirrors the solver's own flag so the row can show it.
         var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
+        var forceNoWatchSolver by remember { mutableStateOf(TurnstileSolver.forceNoWatch) }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
@@ -363,13 +364,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                     preference = networkPreferences.enableTurnstileSolver,
                     title = stringResource(MR.strings.pref_enable_turnstile_solver),
                     subtitle = stringResource(MR.strings.pref_enable_turnstile_solver_summary),
-                    enabled = TurnstileSolver.isSupported,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = networkPreferences.enableTurnstileBackgroundSolver,
                     title = stringResource(MR.strings.pref_enable_turnstile_background_solver),
                     subtitle = stringResource(MR.strings.pref_enable_turnstile_background_solver_summary),
-                    enabled = turnstileSolverEnabled && TurnstileSolver.isSupported,
+                    enabled = turnstileSolverEnabled,
                 ),
                 // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
                 //     entirely in this DSL, so a release build never shows either of these.
@@ -381,6 +381,16 @@ object SettingsAdvancedScreen : SearchableSettings {
                     onClick = {
                         LibraryUpdateJob.startDelayed(context.workManager, delaySeconds = 60)
                         context.toast("Library update queued for 60s, kill the app now")
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Turnstile: force the no-isolated-world path (spike)",
+                    subtitle = "Currently ${if (forceNoWatchSolver) "on" else "off"}. Solves as if the " +
+                        "WebView were too old for an isolated world, on events alone with no probe. Resets on restart",
+                    enabled = BuildConfig.DEBUG,
+                    onClick = {
+                        forceNoWatchSolver = !forceNoWatchSolver
+                        TurnstileSolver.forceNoWatch = forceNoWatchSolver
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(

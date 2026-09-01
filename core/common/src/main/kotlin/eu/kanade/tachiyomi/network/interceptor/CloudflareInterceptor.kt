@@ -137,7 +137,7 @@ class CloudflareInterceptor(
         //     window it arms only when the separate background switch is on.
         //     It is null until the solver arms, and is the only thing the outcome is read from.
         val solve = AtomicReference<TurnstileSolver.Solve?>()
-        val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
+        val solverWanted = networkPreferences.enableTurnstileSolver.get()
 
         executor.execute {
             webview = createWebView(originalRequest)
@@ -148,8 +148,9 @@ class CloudflareInterceptor(
                     @JavascriptInterface
                     fun interactiveDetected() {
                         // The challenge cannot be solved non-interactively, abort.
-                        // RK: only while the solver is off. Armed, it reads this event out of its own
-                        //     isolated world instead, so nothing it decides comes through this bridge.
+                        // RK: only while the solver is off. Armed, it takes this event from its own
+                        //     probe where it has one, and through challengeEvent below where it does
+                        //     not, so an armed solve never gives up here.
                         if (solve.get() == null) latch.countDown()
                     }
 
@@ -174,6 +175,10 @@ class CloudflareInterceptor(
                     @JavascriptInterface
                     fun challengeEvent(event: String) {
                         logcat { "Turnstile[${originalRequest.url.host}]: cf event $event" }
+                        // RK: the solve's only input on a WebView with no isolated world to poll
+                        //     from. It ignores this while a probe is watching, so the two never
+                        //     both drive it.
+                        solve.get()?.report(event)
                     }
                 },
                 "mihon",

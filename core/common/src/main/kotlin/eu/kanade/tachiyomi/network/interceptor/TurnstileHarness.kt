@@ -259,7 +259,7 @@ object TurnstileHarness {
         onDone: (Outcome) -> Unit,
     ) {
         val label = variant.label
-        if (!TurnstileSolver.isSupported) {
+        if (!TurnstileSolver.canWatch) {
             logcat(LogPriority.ERROR) { "Harness[$label]: webview lacks the required features" }
             return
         }
