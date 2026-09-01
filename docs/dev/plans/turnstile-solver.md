@@ -124,10 +124,19 @@ cleared-without-a-report jar check at 10.4 seconds rather than by the solver's o
 console output was Cloudflare's own opaque `Error` strings and a WOFF parse warning, both of which
 also appear on runs where the script never injects.
 
-One cosmetic leftover seen there: the fallback budget is a bare main-looper `Handler`, so on
-`toonily.com` it still logged `in-frame solver gave up after 20000 ms` ten seconds after the request
-had already been served from the jar. The `onGiveUp` lands on a spent latch and changes nothing.
-Predates this work.
+That run also exposed a false give-up, since fixed: the budget is a bare main-looper `Handler` that
+fires whether or not the request is still waiting, so `toonily.com` logged `in-frame solver gave up
+after 20000 ms` ten seconds after being served from the jar. `onGiveUp` now returns whether it had a
+wait to release, and the line is printed only when it did. Cancelling the timer instead was weighed
+and dropped: `detach` would have to hold the `Handler` and `Runnable` per solve in a singleton,
+because a second `Handler` cannot remove another's messages, and the token overload that would avoid
+that map is API 28 against a minSdk of 26.
+
+Both halves were then measured on the device. With the budget cut to 3 seconds so no solve could
+finish, six give-ups fired at 3.00 seconds each and every source failed fast with "Failed to bypass
+Cloudflare" instead of sitting out the 30 second wait, which is what proves the release still
+happens. Back at 20 seconds, `toonily.com` was again served by the jar check, at 9.5 seconds, and its
+timer stayed silent, while the other three cleared in 11.3 to 12.0 seconds.
 
 Two notes for whoever repeats this. `always_finish_activities` does **not** destroy `MainActivity`
 on One UI, so it cannot reach the no-window path on this device; force the branch in code instead.

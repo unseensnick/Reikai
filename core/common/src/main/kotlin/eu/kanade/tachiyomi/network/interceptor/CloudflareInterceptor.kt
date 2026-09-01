@@ -188,7 +188,13 @@ class CloudflareInterceptor(
                     reload = { webview.loadUrl(origRequestUrl, headers) },
                     // Arming suppresses the interactive and failed aborts below, so the fallback owns
                     // giving up on its own path; without this the request waits out the full latch.
-                    onGiveUp = { latch.countDown() },
+                    // Reports whether there was still a wait to release, so a timer that fires after
+                    // the request was served some other way stays quiet.
+                    onGiveUp = {
+                        val waiting = latch.count > 0L
+                        if (waiting) latch.countDown()
+                        waiting
+                    },
                 ) {
                     // The retry needs the clearance cookie, and it lands after the challenge page
                     // goes, so a solve is only accepted once both have happened.

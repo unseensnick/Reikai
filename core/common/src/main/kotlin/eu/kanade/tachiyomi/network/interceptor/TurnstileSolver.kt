@@ -55,8 +55,8 @@ object TurnstileSolver {
 
     /**
      * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge
-     * is really gone, or [onGiveUp] when the no-window path runs out of budget. Arming suppresses
-     * the caller's own give-up signals, which is why it owes one. Returns whether it armed at all.
+     * is gone, or [onGiveUp], which reports whether a wait was still open, when the budget runs out.
+     * Arming suppresses the caller's own give-up signals, so it owes one. Returns whether it armed.
      *
      * Must run before `loadUrl`, since an injected script only reaches documents created after it is
      * registered. [detach] must run when the solve ends, however it ends.
@@ -68,7 +68,7 @@ object TurnstileSolver {
         backgroundEnabled: Boolean,
         fallbackScript: () -> String,
         reload: () -> Unit,
-        onGiveUp: () -> Unit,
+        onGiveUp: () -> Boolean,
         onSolved: () -> Boolean,
     ): Boolean {
         if (!isSupported) return false
@@ -97,16 +97,14 @@ object TurnstileSolver {
                     logcat { "Turnstile[$host]: no window, injecting the in-frame solver" }
                     if (injectFallback(webView, host, fallbackScript())) {
                         reload()
-                        // Nothing else reports a fallback that is never going to land, and without a
-                        // budget it costs the caller's whole 30 second wait.
-                        //
-                        // Handler, not View.postDelayed: a detached view queues its posts until it is
-                        // attached, and this path only runs when there is no window to attach to, so
-                        // that timer would never have fired.
+                        // Handler, not View.postDelayed: a detached view queues its posts until it
+                        // attaches, and this path runs only when there is no window, so that timer
+                        // never fired. Report only a give-up that released something: a request the
+                        // caller already served from the jar leaves this to fire into nothing, and a
+                        // give-up line beside a success sends the next reader hunting.
                         Handler(Looper.getMainLooper()).postDelayed({
-                            if (!solved) {
+                            if (!solved && onGiveUp()) {
                                 logcat { "Turnstile[$host]: in-frame solver gave up after $FALLBACK_BUDGET_MS ms" }
-                                onGiveUp()
                             }
                         }, FALLBACK_BUDGET_MS)
                     } else {
