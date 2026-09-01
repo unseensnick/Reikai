@@ -26,7 +26,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class CloudflareInterceptor(
     private val context: Context,
@@ -135,8 +135,8 @@ class CloudflareInterceptor(
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
         //     armed that challenge is no longer a reason to give up. Off by default, and with no
         //     window it arms only when the separate background switch is on.
-        val solverArmed = AtomicBoolean(false)
-        val interstitialGone = AtomicBoolean(false)
+        //     It is null until the solver arms, and is the only thing the outcome is read from.
+        val solve = AtomicReference<TurnstileSolver.Solve?>()
         val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
 
         executor.execute {
@@ -150,7 +150,7 @@ class CloudflareInterceptor(
                         // The challenge cannot be solved non-interactively, abort.
                         // RK: only while the solver is off. Armed, it reads this event out of its own
                         //     isolated world instead, so nothing it decides comes through this bridge.
-                        if (!solverArmed.get()) latch.countDown()
+                        if (solve.get() == null) latch.countDown()
                     }
 
                     // RK: Cloudflare reports a challenge it has given up on. Without this the
@@ -161,7 +161,7 @@ class CloudflareInterceptor(
                     @JavascriptInterface
                     fun challengeFailed() {
                         logcat { "Turnstile[${originalRequest.url.host}]: challenge failed" }
-                        if (!solverArmed.get()) latch.countDown()
+                        if (solve.get() == null) latch.countDown()
                     }
 
                     // RK: every event Cloudflare posts, acted on by nothing. The two handlers above
@@ -186,11 +186,9 @@ class CloudflareInterceptor(
                     webView = webview,
                     host = originalRequest.url.host,
                     origin = origin,
-                    interstitialGone = interstitialGone,
                     backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
-                    // Arming suppresses the interactive and failed aborts below, so a solve with no
-                    // window owns giving up on its own path; without this the request waits out the
-                    // full latch.
+                    // Arming suppresses the interactive and failed aborts below, so the solve owns
+                    // giving up on its own path; without this the request waits out the full latch.
                     // Reports whether there was still a wait to release, so a timer that fires after
                     // the request was served some other way stays quiet.
                     onGiveUp = {
@@ -210,8 +208,8 @@ class CloudflareInterceptor(
                         }
                     }
                 }
-                solverArmed.set(armed)
-                if (!armed) {
+                solve.set(armed)
+                if (armed == null) {
                     logcat {
                         "Turnstile[${originalRequest.url.host}]: not armed; the webview is too old, " +
                             "or there is no window and the background switch is off"
@@ -231,7 +229,7 @@ class CloudflareInterceptor(
                     //     Cloudflare hands one out on a challenge it has not accepted, which ended
                     //     three test solves early with a 403 on the retry; the solver reports when
                     //     the challenge markup is actually gone instead.
-                    if (!solverArmed.get() && isCloudFlareBypassed()) {
+                    if (solve.get() == null && isCloudFlareBypassed()) {
                         cloudflareBypassed = true
                         latch.countDown()
                     }
@@ -299,7 +297,7 @@ class CloudflareInterceptor(
         //     Gated on the solver having watched the interstitial go, because a clearance on its own
         //     proves nothing: Cloudflare issues one on a round it refused, and trusting that turned
         //     three honest failures into 403s with no Open in WebView offered.
-        if (!cloudflareBypassed && solverWanted && interstitialGone.get()) {
+        if (!cloudflareBypassed && solverWanted && solve.get()?.phase == TurnstileSolver.Solve.Phase.Verified) {
             val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
                 .firstOrNull { it.name == "cf_clearance" }
             if (cleared != null && cleared != oldCookie) {

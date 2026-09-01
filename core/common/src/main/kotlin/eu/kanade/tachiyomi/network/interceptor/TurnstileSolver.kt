@@ -43,6 +43,26 @@ object TurnstileSolver {
     private const val INTERACTIVE_BEGIN = "interactiveBegin"
     private const val COMPLETE = "complete"
 
+    /**
+     * One solve, and everything the caller may know about it. Returned by [attach], `null` there
+     * meaning it did not arm.
+     *
+     * Phases only ever move forward. [Verified] is the one the caller reads: it says the challenge
+     * really was passed, either because Cloudflare said so or because the interstitial was watched
+     * going, which is what a clearance arriving late may be trusted against. There is deliberately no
+     * gave-up phase, because a solve can run out its budget after reaching [Verified] and overwriting
+     * it would throw away the only thing the caller needs.
+     */
+    class Solve internal constructor() {
+        enum class Phase { Watching, Interactive, Verified, Accepted }
+
+        // Written on the main thread, read from the OkHttp thread after a wait that may have ended
+        // on a timeout rather than a countDown, so there is no happens-before to lean on.
+        @Volatile
+        var phase: Phase = Phase.Watching
+            internal set
+    }
+
     private const val BRIDGE = "reikaiTurnstileWatch"
     private const val WORLD = "reikai-turnstile"
 
@@ -67,9 +87,9 @@ object TurnstileSolver {
 
     /**
      * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
-     * gone or [onGiveUp], which reports whether a wait was still open, when a solve with no window
-     * runs out its budget. Arming suppresses the caller's own aborts, so it owes one. Returns
-     * whether it armed.
+     * gone or [onGiveUp], which reports whether a wait was still open, when the solve runs out its
+     * budget. Arming suppresses the caller's own aborts, so it owes one. Returns the [Solve] to read
+     * the outcome from, or `null` when it did not arm.
      *
      * [origin] must read `scheme://host[:port]`, port only when not the scheme default. A script only
      * reaches later documents, so this runs before `loadUrl`; [detach] runs when the solve ends.
@@ -78,27 +98,24 @@ object TurnstileSolver {
         webView: WebView,
         host: String,
         origin: String,
-        interstitialGone: AtomicBoolean,
         backgroundEnabled: Boolean,
         onGiveUp: () -> Boolean,
         onSolved: () -> Boolean,
-    ): Boolean {
-        if (!isSupported) return false
+    ): Solve? {
+        if (!isSupported) return null
         val container = ForegroundActivity.current?.window?.decorView.takeUnless { forceHeadless } as? ViewGroup
         // Solving with no app screen open is still the user's choice, since it means reaching a
         // challenged host while nothing is on screen to show for it. Not arming leaves the caller's
         // own aborts in charge.
-        if (container == null && !backgroundEnabled) return false
+        if (container == null && !backgroundEnabled) return null
         if (container != null) attachToWindow(webView, container) else layOutHeadless(webView)
         // Which press path ran is otherwise invisible in a log, and the two fail differently.
         logcat { "Turnstile[$host]: arming with${if (container == null) "out" else ""} a window" }
 
+        val solve = Solve()
         var lastPress = 0L
         var clearReadings = 0
-        var solved = false
         var tokenSeen = false
-        var completeSeen = false
-        var interactiveSeen = false
         val budgetArmed = AtomicBoolean(false)
 
         val press = {
@@ -112,7 +129,7 @@ object TurnstileSolver {
             // hunting.
             if (budgetArmed.compareAndSet(false, true)) {
                 Handler(Looper.getMainLooper()).postDelayed({
-                    if (!solved && onGiveUp()) {
+                    if (solve.phase != Solve.Phase.Accepted && onGiveUp()) {
                         logcat { "Turnstile[$host]: gave up $PRESS_BUDGET_MS ms after the first press" }
                     }
                 }, PRESS_BUDGET_MS)
@@ -120,10 +137,11 @@ object TurnstileSolver {
         }
 
         val pressWhenDue = press@{ probe: JSONObject ->
-            // The widget is present from the first paint, well before there is a checkbox behind it.
-            // Pressing then does nothing except start the cooldown, which delayed the press that
-            // counts by two seconds on every measured solve.
-            if (!interactiveSeen) return@press
+            // Pressing belongs to exactly one phase. The widget is present from the first paint, well
+            // before there is a checkbox behind it, and pressing then only starts the cooldown that
+            // delays the press that counts; pressing after Cloudflare has said `complete` restarts
+            // the verification it just finished. Both are unreachable from here rather than guarded.
+            if (solve.phase != Solve.Phase.Interactive) return@press
             val now = SystemClock.uptimeMillis()
             // Never press a widget that already carries a token: that restarts the verification
             // Cloudflare is in the middle of rather than completing it.
@@ -134,7 +152,7 @@ object TurnstileSolver {
         }
 
         val onWatch = watch@{ json: String ->
-            if (solved) return@watch
+            if (solve.phase == Solve.Phase.Accepted) return@watch
             val probe = runCatching { JSONObject(json) }.getOrNull() ?: return@watch
 
             // Cloudflare fills the response token the moment it accepts, so this splits a solve into
@@ -151,27 +169,26 @@ object TurnstileSolver {
             // and needs the bridge to report anything. `fail` is deliberately not acted on while
             // armed: Cloudflare reissues after a failed round often enough that pressing through one
             // is the better bet, which is why the bridge only counts it down when the solver is off.
-            if (!interactiveSeen && INTERACTIVE_BEGIN in events) {
-                interactiveSeen = true
+            if (solve.phase == Solve.Phase.Watching && INTERACTIVE_BEGIN in events) {
+                solve.phase = Solve.Phase.Interactive
                 logcat { "Turnstile[$host]: interactive began" }
             }
 
             // Cloudflare saying it accepted beats inferring it from the markup, and on a site that
             // embeds Turnstile on its own pages it is the only signal that can ever arrive: the
             // probe counts the response-token input as a challenge, so such a page never reads
-            // clear and the solve below never fires however many times it really succeeded.
-            if (!completeSeen && COMPLETE in events) {
-                completeSeen = true
+            // clear and the markup path below never fires however many times it really succeeded.
+            if (solve.phase != Solve.Phase.Verified && COMPLETE in events) {
+                solve.phase = Solve.Phase.Verified
                 logcat { "Turnstile[$host]: cloudflare reports the challenge complete" }
             }
-            if (completeSeen) {
-                interstitialGone.set(true)
-                solved = onSolved()
+            if (solve.phase == Solve.Phase.Verified) {
                 // Only the acceptance is logged, since this runs twice a second until the clearance
                 // lands and the caller takes it.
-                if (solved) logcat { "Turnstile[$host]: challenge complete, accepted" }
-                // Cloudflare is done either way, and pressing again restarts the verification it
-                // has just finished, so this never falls through to the press below.
+                if (onSolved()) {
+                    solve.phase = Solve.Phase.Accepted
+                    logcat { "Turnstile[$host]: challenge complete, accepted" }
+                }
                 return@watch
             }
 
@@ -190,11 +207,13 @@ object TurnstileSolver {
                 logcat { "Turnstile[$host]: page reads clear, confirming" }
             }
             if (clearReadings >= 2) {
-                // Records that the page really did get past the interstitial, which is what the
-                // caller needs before it may read anything into a clearance arriving late.
-                interstitialGone.set(true)
-                solved = onSolved()
-                logcat { "Turnstile[$host]: challenge cleared, accepted $solved" }
+                // Verified without Cloudflare having said so: the page really did get past the
+                // interstitial, which is what the caller needs before it may read anything into a
+                // clearance arriving late.
+                solve.phase = Solve.Phase.Verified
+                val accepted = onSolved()
+                if (accepted) solve.phase = Solve.Phase.Accepted
+                logcat { "Turnstile[$host]: challenge cleared, accepted $accepted" }
             }
         }
 
@@ -216,12 +235,12 @@ object TurnstileSolver {
                 pageOnly,
                 world,
             )
-            true
+            solve
         } catch (e: Exception) {
             // Reporting armed here would suppress the caller's own aborts while nothing was left to
             // release the wait, costing the request its whole timeout rather than failing it.
             logcat(LogPriority.ERROR, e) { "Turnstile[$host]: failed to arm, leaving the caller in charge" }
-            false
+            null
         }
     }
 

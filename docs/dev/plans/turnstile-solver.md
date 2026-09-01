@@ -190,6 +190,23 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   It was recorded from a probe reading the frame from the parent, where a cross-origin frame's URL is
   simply unreadable. Read as a claim about the frame's own origin it points the wrong way, and it
   cost a round of planning here before the measurement above settled it.
+- **The state machine landed narrower than this doc's design, deliberately.** The design called for
+  nine states spanning the solver and the interceptor. Four of the five things it was meant to fix
+  had already landed separately by the time it was built: `complete` as the acceptance signal, one
+  press path instead of two, one press deadline instead of three unrelated terminators, and both
+  solver triggers calling one predicate. What shipped is a four-phase `Solve` (`Watching`,
+  `Interactive`, `Verified`, `Accepted`) replacing six locals, and one `AtomicReference<Solve?>`
+  replacing `solverArmed` and `interstitialGone` at the seam. Two exclusions, both measured against
+  where the known bugs actually lived: the eight `countDown` sites in the `WebViewClient` stay,
+  because six are upstream's aborts for the solver-off path and rewriting them risks the default
+  configuration for no gain to the armed one; and there is no gave-up phase, because a solve can run
+  out its budget after reaching `Verified` and overwriting it would discard the one fact the caller
+  needs to trust a late clearance.
+- **`onWatch` runs on the main thread**, which is why the solve's own locals never needed atomics.
+  Not a documentation claim: it calls `webView.pressKeys()` with no posting, and that has worked on
+  device throughout, which it could not off the main thread. Only `Solve.phase` is `@Volatile`, since
+  the OkHttp thread reads it after a wait that may have ended on a timeout rather than a `countDown`,
+  leaving no happens-before to lean on.
 - **No timer on this feature may use `View.postDelayed`. It must be a `Handler` on the main looper.**
   A detached view parks its posts in a `RunQueue` that only drains on attach, so on the no-window
   path a `View.postDelayed` timer can never fire. This cost twice. First the budget timer, written
