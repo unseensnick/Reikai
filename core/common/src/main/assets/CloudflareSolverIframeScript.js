@@ -1,4 +1,6 @@
 (function __SOLVER__() {
+  "use strict";
+
   const stackFilter = function __SOLVER__(site) {
     return !site.toString().includes("__SOLVER__");
   };
@@ -96,7 +98,7 @@
     // Gecko, i.e. FireFox
 
     const stackDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, "stack");
-    const stacks = WeakMap();
+    const stacks = new WeakMap();
 
     Object.defineProperty(Error.prototype, "stack", Object.assign({}, stackDescriptor, {
       get: createProxy(stackDescriptor.get, {
@@ -145,6 +147,11 @@
     }
   }
 
+  // Registers a receiver-unwrapping proxy for every member of the event prototype chain, so a native
+  // method reached through a patched event does not throw "Illegal invocation" on the proxy `this`.
+  // The registration is the whole product: redefining the prototypes themselves is deliberately not
+  // done, because a Proxy of a native stringifies without its name, which would anonymise 48 members
+  // of MouseEvent/UIEvent/Event for every script on the page.
   const fixIllegalInvocation = function __SOLVER__(obj) {
     try {
       while (obj && obj !== Object.prototype) {
@@ -166,9 +173,6 @@
           if (typeof descriptor.value === "function") {
             descriptor.value = createProxy(descriptor.value, redirectFunctionHandler);
           }
-          try {
-            Object.definePropery(obj, prop, descriptor);
-          } catch {}
         }
         obj = Object.getPrototypeOf(obj);
       }
@@ -204,7 +208,6 @@
   const proxyEventHandler = getRedirectPropertyHandler({ isTrusted: isTrustedObj });
 
   const patchedEvents = new WeakMap();
-  const original = new WeakMap();
   const modified = new WeakMap();
 
   Object.assign(EventTarget.prototype, {
@@ -221,7 +224,6 @@
               return listener.handleEvent(patchedEvents.has(e) ? patchedEvents.get(e) : e);
             };
             modified.set(listener, newListener);
-            original.set(newListener, listener);
           }
           args[1] = modified.get(listener);
         }
@@ -234,7 +236,9 @@
         args = args.map(toObject);
         const [type, listener, options] = args;
         if (listener instanceof Object) {
-          args[1] = original.get(listener) ?? listener;
+          // The wrapper is what actually got registered, so removal has to map the passed listener
+          // forward to it. Reading the reverse map never matched, and removal silently did nothing.
+          args[1] = modified.get(listener) ?? listener;
         }
         return Reflect.apply(target, thisArg, args);
       }

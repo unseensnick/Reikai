@@ -27,7 +27,8 @@ object TurnstileSolver {
 
     /** Byparr and Solverr both measured that pressing again mid-verification restarts it. */
     private const val PRESS_COOLDOWN_MS = 4000L
-    private const val KEY_GAP_MS = 100L
+    private const val KEY_GAP_MIN_MS = 70L
+    private const val KEY_GAP_MAX_MS = 160L
 
     /**
      * How long the in-frame fallback gets before the request is failed. Eleven measured solves landed
@@ -64,6 +65,7 @@ object TurnstileSolver {
         webView: WebView,
         host: String,
         interactive: AtomicBoolean,
+        backgroundEnabled: Boolean,
         fallbackScript: () -> String,
         reload: () -> Unit,
         onGiveUp: () -> Unit,
@@ -71,6 +73,10 @@ object TurnstileSolver {
     ): Boolean {
         if (!isSupported) return false
         val container = ForegroundActivity.current?.window?.decorView as? ViewGroup
+        // The in-frame script patches the challenge frame and fires synthetic events, where the key
+        // path only types, so it carries its own switch. With that off and no window there is
+        // nothing left to press with, and not arming leaves the caller's own aborts in charge.
+        if (container == null && !backgroundEnabled) return false
         if (container != null) attachToWindow(webView, container)
 
         var lastPress = 0L
@@ -236,18 +242,24 @@ object TurnstileSolver {
     }
 
     /**
-     * Tabs onto the checkbox and hits Space, so no coordinate has to be estimated. The cadence is
-     * mihonapp/mihon#3858's, a tenth of a second between every event, posted rather than slept
-     * through so the gaps hold no thread. Returns whether the first key was accepted, the only
-     * signal that the view took them at all.
+     * Tabs onto the checkbox and hits Space, so no coordinate has to be estimated. Gaps are drawn
+     * per event rather than held at mihonapp/mihon#3858's flat tenth of a second, since identical
+     * timing across solves running at once is the one behavioural tell left on a key path that is
+     * otherwise just typing. Posted rather than slept through so the gaps hold no thread. Returns
+     * whether the first key was accepted, the only signal that the view took them at all.
      */
     private fun WebView.pressKeys(): Boolean {
         val delivered = dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB))
-        key(KEY_GAP_MS, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB)
-        key(KEY_GAP_MS * 2, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)
-        key(KEY_GAP_MS * 3, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE)
+        var at = nextGap()
+        key(at, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB)
+        at += nextGap()
+        key(at, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)
+        at += nextGap()
+        key(at, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE)
         return delivered
     }
+
+    private fun nextGap() = Random.nextLong(KEY_GAP_MIN_MS, KEY_GAP_MAX_MS)
 
     private fun WebView.key(delay: Long, action: Int, code: Int) {
         postDelayed({ dispatchKeyEvent(KeyEvent(action, code)) }, delay)

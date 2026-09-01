@@ -843,7 +843,9 @@
     <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
     <!-- RK: in-WebView solver for interactive Cloudflare challenges -->
     <string name="pref_enable_turnstile_solver">Solve interactive Cloudflare challenges</string>
-    <string name="pref_enable_turnstile_solver_summary">Tick the verification box in the background instead of giving up on it. Experimental</string>
+    <string name="pref_enable_turnstile_solver_summary">Tick the verification box for you instead of giving up on the challenge. Experimental</string>
+    <string name="pref_enable_turnstile_background_solver">Solve with the app in the background</string>
+    <string name="pref_enable_turnstile_background_solver_summary">Inject a script into the challenge to click it when no app screen is open. Only helps during library updates, and is easier for Cloudflare to spot than the normal key press</string>
     <string name="pref_test_flaresolverr">Test FlareSolverr</string>
     <string name="pref_test_flaresolverr_summary">Fetch a test page through the server to check it is reachable and solving</string>
     <string name="flaresolverr_test_success">FlareSolverr is working.</string>

@@ -32,5 +32,8 @@ class NetworkPreferences(
     val flareSolverrUrl: Preference<String> = preferenceStore.getString("flaresolverr_url", "")
 
     val enableTurnstileSolver: Preference<Boolean> = preferenceStore.getBoolean("enable_turnstile_solver", false)
+
+    val enableTurnstileBackgroundSolver: Preference<Boolean> =
+        preferenceStore.getBoolean("enable_turnstile_background_solver", false)
     // RK <--
 }

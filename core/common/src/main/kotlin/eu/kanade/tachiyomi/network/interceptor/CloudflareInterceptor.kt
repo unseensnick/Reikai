@@ -133,9 +133,9 @@ class CloudflareInterceptor(
         val origRequestUrl = originalRequest.url.toString()
         val headers = parseHeaders(originalRequest.headers)
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
-        //     armed that challenge is no longer a reason to give up. Off by default. It arms whether
-        //     or not an activity is on screen, pressing keys in a window and injecting a script
-        //     into the challenge frame without one.
+        //     armed that challenge is no longer a reason to give up. Off by default. It presses keys
+        //     in a window; with none it arms only when the separate background switch is on, since
+        //     that path injects a script into the challenge frame instead.
         val solverArmed = AtomicBoolean(false)
         val interactive = AtomicBoolean(false)
         val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
@@ -183,6 +183,7 @@ class CloudflareInterceptor(
                     webView = webview,
                     host = originalRequest.url.host,
                     interactive = interactive,
+                    backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
                     fallbackScript = { fallbackSolverScript },
                     reload = { webview.loadUrl(origRequestUrl, headers) },
                     // Arming suppresses the interactive and failed aborts below, so the fallback owns
@@ -201,7 +202,12 @@ class CloudflareInterceptor(
                     }
                 }
                 solverArmed.set(armed)
-                if (!armed) logcat { "Turnstile[${originalRequest.url.host}]: webview too old, not armed" }
+                if (!armed) {
+                    logcat {
+                        "Turnstile[${originalRequest.url.host}]: not armed; the webview is too old, " +
+                            "or there is no window and the background switch is off"
+                    }
+                }
             }
 
             webview.webViewClient = object : WebViewClient() {

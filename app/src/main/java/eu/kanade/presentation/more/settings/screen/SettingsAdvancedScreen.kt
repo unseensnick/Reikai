@@ -276,6 +276,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
+        val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
@@ -359,6 +360,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_enable_turnstile_solver),
                     subtitle = stringResource(MR.strings.pref_enable_turnstile_solver_summary),
                     enabled = TurnstileSolver.isSupported,
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = networkPreferences.enableTurnstileBackgroundSolver,
+                    title = stringResource(MR.strings.pref_enable_turnstile_background_solver),
+                    subtitle = stringResource(MR.strings.pref_enable_turnstile_background_solver_summary),
+                    enabled = turnstileSolverEnabled && TurnstileSolver.isSupported,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = networkPreferences.enableFlareSolverr,

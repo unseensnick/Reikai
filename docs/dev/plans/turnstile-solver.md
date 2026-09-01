@@ -52,15 +52,20 @@ unchanged.
   the press cadence, the interstitial test, per-host dedup, and the no-window fallback with its
   budget (net-new).
 - `core/common/src/main/assets/CloudflareSolverIframeScript.js`: the borrowed in-frame clicker, taken
-  from mihonapp/mihon#3858 at `e6de3a7a1`, verbatim apart from three `console.log` debug lines that
-  were stripped. It names every function it defines with one token so it can filter itself out of
-  stack traces, and `injectFallback` renames that token per injection.
+  from mihonapp/mihon#3858 at `e6de3a7a1`. It names every function it defines with one token so it
+  can filter itself out of stack traces, and `injectFallback` renames that token per injection. It
+  diverges from the borrow in five places, each recorded under Decisions: three stripped
+  `console.log` lines, `"use strict"` (which the borrow gained after we took it, and which closes a
+  caller-chain read its own author flagged), the corrected `removeEventListener`, the corrected
+  `WeakMap` construction, and the removal of a dead redefine whose failure is load-bearing.
 - `core/common/.../util/system/ForegroundActivity.kt`: the activity tracker the solver needs to find
   a window, registered from `App.onCreate` (net-new).
 - `CloudflareInterceptor`: arm, detach, do not trust a bare clearance while armed, and the
   cleared-without-a-report fallback. A `// RK` island on Mihon's file.
-- `NetworkPreferences.enableTurnstileSolver`, `SettingsAdvancedScreen`, `strings.xml`
-  (`pref_enable_turnstile_solver`): the switch and its wording.
+- `NetworkPreferences.enableTurnstileSolver` and `enableTurnstileBackgroundSolver`,
+  `SettingsAdvancedScreen`, `strings.xml`: the two switches and their wording. The second is nested
+  under the first, which in this settings DSL means it is absent from the screen rather than greyed
+  out while the parent is off, since `StatusWrapper` wraps every row in `AnimatedVisibility`.
 - `SearchViewModel.updateItem`: not part of this feature, but the global search defect below
   was found through it and fixed alongside.
 
@@ -98,6 +103,36 @@ when the app is away; the third row is. Do not quote the first on its own.
 Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
 Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
 challenge, neither of which is reachable from a unit test.
+
+Every number above predates the script hardening and the press jitter. The script changes were
+measured equivalent in headless Blink, which is the same engine the device runs: same click count,
+same spoofed `isTrusted`, same method calls on the patched event, prototype names still intact, and
+listener removal now matching a control page.
+
+On the Fold the hardened build cleared twenty-two challenges across nine search rounds with no
+crash, the only console errors coming from a source's own ad script. The one host that turned
+interactive was pressed and cleared in 2.2 seconds, inside the single-host band above. The new gate
+was confirmed by forcing the no-window branch in a throwaway build: with the background switch off,
+every challenged host logged `not armed` and the solver stayed out of the way.
+
+**The in-frame click was then verified too**, on a fresh VPN exit with cookies and WebView data
+cleared, which is what finally drew interactive challenges. Four hosts turned interactive, all four
+injected, and three reported cleared and accepted in 12.2, 13.4 and 13.5 seconds, inside the 10.9 to
+13.9 band the eleven pre-hardening solves set. The fourth, `toonily.com`, was resolved by the
+cleared-without-a-report jar check at 10.4 seconds rather than by the solver's own test. No
+`Uncaught`, no `TypeError` and no `Illegal invocation` came out of the challenge frame: its only
+console output was Cloudflare's own opaque `Error` strings and a WOFF parse warning, both of which
+also appear on runs where the script never injects.
+
+One cosmetic leftover seen there: the fallback budget is a bare main-looper `Handler`, so on
+`toonily.com` it still logged `in-frame solver gave up after 20000 ms` ten seconds after the request
+had already been served from the jar. The `onGiveUp` lands on a spent latch and changes nothing.
+Predates this work.
+
+Two notes for whoever repeats this. `always_finish_activities` does **not** destroy `MainActivity`
+on One UI, so it cannot reach the no-window path on this device; force the branch in code instead.
+And the challenge type is Cloudflare's call: clearing cookies and WebView data gets you challenged at
+all, but interactive rounds only started arriving after the VPN exit changed.
 
 ## Decisions & tradeoffs
 
@@ -172,6 +207,36 @@ challenge, neither of which is reachable from a unit test.
   outcome across those runs is whether a foreground service is keeping the renderer at normal
   priority, which the update worker has and a backgrounded search does not. Timer throttling in a
   demoted renderer is the likely mechanism, and it is not proven.
+- **The two press paths now have a switch each, and the in-frame one defaults off.** They are not
+  equally exposed: the key path dispatches real `KeyEvent`s into an attached WebView and patches
+  nothing, while the in-frame path rewrites `Error`, `EventTarget`, `window.event` and `attachShadow`
+  inside the challenge frame and fires synthetic events with a spoofed `isTrusted`. A user who wants
+  global search to work should not have to take the second to get the first. `attach` returns false
+  when there is no window and the background switch is off, so nothing arms and the caller keeps its
+  own aborts, which is the path that ran before the fallback existed.
+- **The borrowed script's `Object.definePropery` typo is load-bearing. Do not correct it.** Measured
+  in Blink four ways. `createProxy` runs on every prototype member before the misspelled call throws,
+  so the walk's real product is the `objectToProxy` registrations, and those are what make a method
+  reached through the patched event unwrap its receiver instead of throwing `Illegal invocation`.
+  Correcting the spelling changes nothing a listener can observe and anonymises 48 members of
+  `MouseEvent` / `UIEvent` / `Event`, since a `Proxy` of a native stringifies without its name.
+  Deleting the function instead breaks `preventDefault`, `getModifierState` and `defaultPrevented` on
+  the patched event. The dead call is gone and the walk is commented, so the trap cannot be re-set.
+- **`removeEventListener` never removed anything, and now does.** The script registers a wrapper in
+  place of the caller's listener, but removal looked the listener up in the wrapper-keyed map, which
+  never matched, so removed listeners kept firing and every wrapper leaked. Measured against a
+  control page: two deliveries after removal where a plain browser gives one, for both function and
+  `handleEvent` listeners. Inherited from the borrow at `e6de3a7a1`; upstream carries it too.
+- **The Gecko and Safari branches stay, with the broken line corrected.** `Error.prepareStackTrace`
+  yields a `CallSite` in Blink, so the V8 branch always wins and neither of the other two can run on
+  Android. `const stacks = WeakMap()` was missing its `new` and would have thrown; that is fixed
+  rather than deleted, because inherited dead code is not this change to remove and the frozen
+  upstream blob stays the provenance reference.
+- **Press gaps are drawn per event, not held at a flat 100ms.** Upstream's cadence is identical on
+  every press and across solves running at once, which is the one behavioural tell left on a path
+  that is otherwise just typing. Gaps are now 70 to 160ms, accumulated so ordering cannot invert.
+  The benefit is unmeasurable from outside and the change is cheap; it rode along with work already
+  in this file rather than being sought on its own.
 
 ## Dead ends
 
@@ -201,10 +266,41 @@ Each of these was built and run against a live challenge before being dropped. D
 - **Breadth.** Six hosts, one device, one VPN. Forty-four solves say the mechanism is reliable on
   those; nothing says how it behaves on a host with a different challenge configuration, or on a
   second device. The switch stays off by default until both are answered.
-- **Upstream is carrying its own version of this** (mihonapp/mihon#3858, open, credited to
-  `14d3d54c1`), and Reikai now carries its solver script ahead of that merge. It touches five files:
-  `CloudflareInterceptor`, `WebViewInterceptor`, `ForegroundActivity.kt`, `App.kt` and the script
-  asset. `ForegroundActivity.kt` arrives byte-identical to ours and `App.kt` adds the same
+- **Upstream declined the solver, and the script is permanently ours.** mihonapp/mihon#3858 is still
+  open, but the solver has been stripped out of it (`0a1f07d`, `0885493`, `a80aaaa`, all titled
+  "remove solver"). `AntsyLich` gave the reason in
+  [comment 5463601310](https://github.com/mihonapp/mihon/pull/3858#issuecomment-5463601310): "i'm not
+  sure about the auto solver. it might get us blocked permanently by cloudflare. the other changes
+  seems to be useful." Asked whether that covered the key events or only the script, he answered
+  "both" ([comment 5467217824](https://github.com/mihonapp/mihon/pull/3858#issuecomment-5467217824)).
+  That is the whole exchange; no mechanism was given and none was asked for. The relay into
+  unseensnick/Reikai discussion 64 hardened the hedged "might" into a settled risk, and its author
+  confirmed there that it was his own guess.
+- **The ban claim was checked against Cloudflare's own documentation and does not hold.** Their
+  enforcement is per request and short lived: the bot score is a 1 to 99 likelihood per request on
+  Enterprise Bot Management only, the mitigation is chosen by the site owner in a rule rather than by
+  Cloudflare globally, the threat score that used to carry IP reputation now always reads 0, JS
+  Detections expire after 15 minutes, and Turnstile ephemeral IDs are documented as deliberately not
+  unique across customers. Reikai has no Cloudflare account, no declared ASN, no Verified Bots
+  listing and no server-side infrastructure; every request comes from a user device and IP, so there
+  is no identity to ban. The Perplexity de-listing is structurally inapplicable, since it turned on
+  being on the Verified Bots list with declared ranges. The applicable precedent is FlareSolverr,
+  advertised as a Cloudflare bypass since 2020 and never banned: detection updates degrade a
+  technique until it is patched. The realistic worst case is failed solves and a raised per-request
+  score for that user on that host. Confidence: about 97% that no mechanism exists to ban the app,
+  95% that the key path is no more detectable than the user tapping the box in a WebView, 85% that
+  the in-frame script is detectable in principle and degrades over time.
+- **Four places Reikai is ahead of that PR. Do not regress them on a sync.** It ships no preference at
+  all, so it would have been on for every user; ours is off by default behind two switches. Its
+  `isBypassed` accepts a changed `cf_clearance` alone, which is wrong for the reason below. It
+  presses on `interactiveBegin` where we gate on `interactive`, skip a widget that already holds a
+  token and hold a 4 second cooldown. And it uses a fixed `__SOLVER__` token where we randomize it
+  per injection.
+- **Verify upstream comments by fetching the rendered PR page, not the REST API.** Unauthenticated
+  `api.github.com` rate-limited from two egress IPs; the page gave exact comment text.
+- **The rest of that PR is still expected to land.** With the solver stripped it touches four files:
+  `CloudflareInterceptor`, `WebViewInterceptor`, `ForegroundActivity.kt` and `App.kt`; the script
+  asset is gone from it. `ForegroundActivity.kt` arrives byte-identical to ours and `App.kt` adds the same
   registration our `// RK` island holds, so both reconcile trivially. The real collisions are the
   `CloudflareInterceptor` island and `WebViewInterceptor`, which that PR rewrites at the abstract
   class: `intercept` gains a nonce parameter and returns `Response?`, plus a new `getNonce` and
