@@ -372,7 +372,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 //     entirely in this DSL, so a release build never shows either of these.
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile harness: dummy sitekey (spike)",
-                    subtitle = "Detached then attached, no live challenge needed",
+                    subtitle = "Bisect sweep, no live challenge needed",
                     enabled = BuildConfig.DEBUG,
                     onClick = {
                         eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.run(
@@ -383,13 +383,21 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile harness: live site (spike)",
-                    subtitle = "Detached then attached against a real managed challenge",
+                    subtitle = "Bisect sweep against the first host that challenges interactively",
                     enabled = BuildConfig.DEBUG,
                     onClick = {
                         eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.run(
                             context,
                             eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.Target.Live(
-                                "https://toonily.com/?s=knight",
+                                listOf(
+                                    "https://comix.to/",
+                                    "https://comix.ws/",
+                                    "https://aquareader.org/",
+                                    "https://mangafire.to/",
+                                    "https://toonily.com/",
+                                    "https://www.natomanga.com/",
+                                    "https://comick.live/",
+                                ),
                             ),
                         )
                     },

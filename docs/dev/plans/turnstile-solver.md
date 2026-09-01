@@ -249,7 +249,28 @@ all, but interactive rounds only started arriving after the VPN exit changed.
 
 ## Dead ends
 
-Each of these was built and run against a live challenge before being dropped. Do not re-tread them.
+Each of these was built and run against a live challenge before being dropped.
+
+**Treat the list as leads, not settled facts.** Every entry rests on a spike build that was reverted
+and never committed, so none of them is reproducible and each is a single unrepeated run. The
+headless-press entry was recorded exactly this way and it was wrong: the harness solved in four
+seconds what the spike had called impossible across four hosts. The same failure mode is available to
+every bullet below. Before designing around one, re-test it in the harness, which is cheap and, unlike
+a spike build, still exists.
+
+Two are already narrowed by the bisect runs:
+
+- **Keys without attaching are not a dead end.** The touch half below was measured with
+  `dispatchTouchEvent` and stands untested since; the keys half was an extension of it and is
+  contradicted, five phases out of five.
+- **A page-world *listener* does not trigger a reissue.** The `detached-pageworld` phase injected the
+  interceptor's own `evaluateJavascript` listener into the page's own world and the challenge solved
+  normally, no second round. The dead end below covers a script that *manipulates* the challenge, and
+  the evidence never reached further than that. The broader wording, that a probe in the page's own
+  world is what makes Cloudflare reissue, is repeated in `TurnstileSolver`'s `isSupported` and
+  `injectFallback` comments and in three places in this doc, and it is not supported by that run. The
+  isolated world is still right for a probe that polls twice a second; the reason stated for it is
+  overstated.
 
 - **Porting the Tampermonkey script into the source's own page.** Synthetic DOM events plus an
   `isTrusted` proxy, an `attachShadow` capture and a `hasFocus` spoof. It genuinely pressed the
@@ -455,26 +476,70 @@ would normally deliver, solved a real managed challenge on a live host in four s
 `interactiveBegin`, press, `interactiveEnd|complete`, then the real page title. The same setup solves
 the dummy sitekey in about 200 milliseconds. No window, no foreground service, no permission.
 
-That reverses the earlier reading of this question. Every run before it exercised the headless path
-*through the solver*, which carries confounds the harness does not, and every one of those failed. So
-what Cloudflare refuses is something the solver does and the harness does not. Four candidates, none
-fatal alone since the solver works attached with all four present: the `mihon` bridge object
-`addJavascriptInterface` puts on every frame, the forced User-Agent claiming a Chrome version this
-WebView is not, the page-world listener `evaluateJavascript` injects on page finish, and the probe
-serialising up to 4MB of `documentElement.outerHTML` twice a second.
+That reverses the earlier reading of this question.
 
-**Bisecting those is the next step**, and the harness makes it free. The first suspect is the bridge,
-because the rework already deletes it and moves all three challenge events to the isolated world,
-which is exactly what the harness does. If the bridge is the cause, the rework fixes the headless case
-as a side effect and the in-frame script can be retired rather than gated.
+### The bisect ran, and its premise was wrong
+
+Four differences between the solver and the harness were named as suspects for why a headless press
+failed through one and worked in the other: the `mihon` bridge object `addJavascriptInterface` puts on
+every frame, the forced User-Agent claiming a Chrome version this WebView is not, the page-world
+listener `evaluateJavascript` injects on page finish, and the probe serialising up to 4MB of
+`documentElement.outerHTML` twice a second.
+
+**All four are eliminated, and the question they were asked about does not exist.** The harness was
+rebuilt to run a clean detached WebView and then the same one with each difference added, and with all
+four at once. Against a real interactive managed challenge on `aquareader.org`, five phases ran and
+every one of them solved headless: `interactiveBegin`, press, `interactiveEnd|complete`, the real page
+title. Clean, all-four-together, bridge alone, User-Agent alone, page-world listener alone. None of
+them suppresses a headless press.
+
+**The solver has no headless key-press path, so it was never the failing side of the comparison.**
+`attach` reads the window once, returns false when there is none and the background switch is off, and
+chooses keys only when a container exists; otherwise it injects the in-frame script. `pressKeys()` has
+exactly one call site, inside that window branch. So "the solver fails headless" has only ever meant
+the in-frame script path is slow, and the premise that Cloudflare refuses something the solver does
+was unfounded.
+
+**The real contradiction is between the reverted spike and the harness, and it cannot be settled.**
+The spike build those three commits describe was never committed, so the code that produced the
+failing result does not exist in history. What its own commit body records it doing (hand layout,
+`dispatchWindowVisibilityChanged`, `dispatchWindowFocusChanged`, `requestFocus`, `keydown` counted,
+`activeElement` moving to the same `DIV`) is what the harness does, and the harness gets
+`interactiveEnd|complete` where the spike got neither. One of the two runs is wrong and only one is
+still reproducible. Do not spend more on reconciling them.
+
+**The response token is never populated on a managed-challenge interstitial.** Measured across every
+phase: `input[name="cf-turnstile-response"]` stayed empty through `complete` and through the
+navigation to the real page, while the challenge was plainly solved. So on an interstitial the token
+is not a slow acceptance signal, it is an absent one, and any rule built on it reports a solve that
+happened as a failure. This is a second, independent route to the same conclusion the accept-lag and
+the `toonily.com` false failure reached, and it is the stronger one.
+
+**What it opens.** A headless key press works, which is what the dropped spike wanted. If that holds
+up in the solver rather than the harness, the no-window path can press keys like the windowed one, so
+the in-frame script, its separate switch and its ungated click loop are retired rather than gated. Not
+built, and it is a behaviour change rather than a harness run.
 
 **The harness is the instrument.** `TurnstileHarness`, debug builds only, two rows at the bottom of
-Settings -> Advanced -> Networking. It runs a target detached and then attached, reading everything
-from an isolated world including Cloudflare's own challenge events, so it needs no page-world script.
-`Target.Dummy` uses sitekey `3x00000000000000000000FF`, which forces an interactive widget on any
-domain and costs nothing to repeat. `Target.Live` loads a real URL. It must set a `WebViewClient`: a
-WebView without one hands navigation to the system and the load leaves for whatever browser is
-installed, which silently wasted one run.
+Settings -> Advanced -> Networking. It runs a sequence of phases, each a clean WebView carrying one
+named difference, reading everything from an isolated world including Cloudflare's own challenge
+events, so it needs no page-world script. `Target.Dummy` uses sitekey `3x00000000000000000000FF`,
+which forces an interactive widget on any domain and costs nothing to repeat. `Target.Live` takes
+candidate hosts and tries them in order until one challenges interactively.
+
+Four things it learned the hard way, all of which cost a run:
+
+- **It must set a `WebViewClient`.** A WebView without one hands navigation to the system and the
+  load leaves for whatever browser is installed.
+- **Acceptance is `complete` plus the interstitial going, never the token**, for the reason measured
+  above. Reading the token alone marked five successful solves as failures and left the harness
+  pressing Tab and Space into the real site for the rest of its budget.
+- **A phase that pressed nothing measured nothing**, so it aborts the sweep rather than reading as a
+  result. A host that is not challenging, and one that clears without turning interactive, both look
+  exactly like a failed press if only the end state is read.
+- **Whether a host challenges at all changes with the exit and the hour.** One fixed host makes a
+  sweep a coin flip: six hosts loaded straight through on one exit and `aquareader.org` challenged
+  interactively on the next, with nothing changed but the IP.
 
 **Risk, stated plainly.** This feature has no automated tests and cannot usefully get them: it lives
 in a WebView against a live challenge. Its gates pass on broken code, repeatedly, and the record above
