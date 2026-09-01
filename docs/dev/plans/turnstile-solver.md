@@ -26,15 +26,17 @@ cloaked, never a headless one, for the reason its own dependency states, that he
 browser onto a code path with no widget tree that anti-bot systems can spot.
 
 While attached, an isolated-world script reports twice a second what the page shows: whether the
-challenge markup is present, the response token and the page HTML. It runs in a world the challenge's
+challenge markup is present, the response token, the page HTML, and the progress events Cloudflare
+posts to the page, which are readable from that world too. It runs in a world the challenge's
 own scripts cannot see, because Byparr measured that scripts in the page's own world against a live
 challenge make Cloudflare reissue it. Kotlin decides from those reports and presses the checkbox by
 dispatching Tab then Space at the WebView: real key events that carry a true `isTrusted`, and that
 need no DOM patching and no coordinate.
 
-Requests to one host dedupe onto a single solve, and the challenge is only considered over once the
-page has stopped looking like an interstitial across two readings and a fresh `cf_clearance` is in
-the jar. The normal retry then runs, exactly as upstream's path does.
+Requests to one host dedupe onto a single solve. The challenge is over when Cloudflare posts
+`complete` and a fresh `cf_clearance` is in the jar; failing that event, the older rule still
+applies, that the page stopped looking like an interstitial across two readings. The normal retry
+then runs, exactly as upstream's path does.
 
 With no activity on screen there is no window to attach to, which is the case a background library
 update hits on a process that started without one. The solver presses keys there too: the WebView is
@@ -109,9 +111,24 @@ that the path works when the app is away. For the script, the third row was; for
 not been done yet, and the honest statement is that the code path is verified and its natural trigger
 is not.
 
+**Accepting on `complete` measured, one before-and-after pair on `aquareader.org`**, same device,
+same VPN exit, cookies and WebView data cleared between them:
+
+| acceptance rule | Cloudflare posts `complete` | solver accepts | gap |
+|---|---|---|---|
+| two clear probe readings | 19:34:14.126 | 19:34:15.810 | 1684ms |
+| `complete` | 19:38:29.610 | 19:38:29.899 | **289ms** |
+
+The remaining 289ms is the probe's own 500ms tick, which is the floor until the rework makes the
+machine event-driven. The second run logged no `page reads clear, confirming` at all, so the accept
+came through the `complete` branch and never the probe branch: that is the part that matters, because
+the probe branch is the one a site embedding Turnstile on its own pages can never reach.
+
 Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
 Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
-challenge, neither of which is reachable from a unit test.
+challenge, neither of which is reachable from a unit test. The `toonily.com` case that motivated
+`complete` has not been re-run against the fix, because it is not a source installed here; the branch
+evidence above is what stands in for it.
 
 Every number above predates the script hardening and the press jitter. The script changes were
 measured equivalent in headless Blink, which is the same engine the device runs: same click count,

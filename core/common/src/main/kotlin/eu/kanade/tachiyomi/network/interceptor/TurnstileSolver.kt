@@ -39,6 +39,9 @@ object TurnstileSolver {
      */
     private const val HEADLESS_BUDGET_MS = 20_000L
 
+    /** The event Cloudflare posts when it has accepted a challenge. */
+    private const val COMPLETE = "complete"
+
     private const val BRIDGE = "reikaiTurnstileWatch"
     private const val WORLD = "reikai-turnstile"
 
@@ -94,6 +97,7 @@ object TurnstileSolver {
         var clearReadings = 0
         var solved = false
         var tokenSeen = false
+        var completeSeen = false
         val budgetArmed = AtomicBoolean(false)
 
         val press = {
@@ -137,6 +141,25 @@ object TurnstileSolver {
             if (!tokenSeen && probe.optString("token").isNotEmpty()) {
                 tokenSeen = true
                 logcat { "Turnstile[$host]: response token issued" }
+            }
+
+            // Cloudflare saying it accepted beats inferring it from the markup, and on a site that
+            // embeds Turnstile on its own pages it is the only signal that can ever arrive: the
+            // probe counts the response-token input as a challenge, so such a page never reads
+            // clear and the solve below never fires however many times it really succeeded.
+            if (!completeSeen && COMPLETE in probe.optString("cf").split('|')) {
+                completeSeen = true
+                logcat { "Turnstile[$host]: cloudflare reports the challenge complete" }
+            }
+            if (completeSeen) {
+                interstitialGone.set(true)
+                solved = onSolved()
+                // Only the acceptance is logged, since this runs twice a second until the clearance
+                // lands and the caller takes it.
+                if (solved) logcat { "Turnstile[$host]: challenge complete, accepted" }
+                // Cloudflare is done either way, and pressing again restarts the verification it
+                // has just finished, so this never falls through to the press below.
+                return@watch
             }
 
             // Cloudflare strips the challenge markup out of the interstitial before it navigates
@@ -305,10 +328,21 @@ private val WATCH = """
   const CHALLENGE = '#challenge-form,#challenge-stage,#cf-challenge-running,#cf-please-wait,#challenge-spinner';
   const MAX_BODY = 4000000;
 
+  // Cloudflare posts its own progress to the page, and it is readable from here, so the events that
+  // decide anything need no script in the page's own world. Collected between reports rather than
+  // forwarded one at a time, since the report is already on a timer.
+  let events = [];
+  addEventListener('message', (e) => {
+    const d = e.data;
+    if (d && d.source === 'cloudflare-challenge') events.push(d.event);
+  }, true);
+
   setInterval(() => {
     try {
       const input = document.querySelector(TOKEN);
       const challenged = !!document.querySelector(CHALLENGE) || !!input;
+      const seen = events.join('|');
+      events = [];
       // Enough of the document to tell an interstitial from the page behind it, which its markers
       // give away from the first paint. Waiting for readyState to reach complete instead cost a
       // whole solve on an image-heavy page that cleared its challenge and then kept loading.
@@ -317,6 +351,7 @@ private val WATCH = """
         challenged: challenged,
         token: input ? input.value : '',
         html: html.length > MAX_BODY ? '' : html,
+        cf: seen,
       }));
     } catch (e) {}
   }, 500);
