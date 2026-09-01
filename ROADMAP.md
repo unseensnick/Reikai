@@ -58,7 +58,6 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 
 From the same audit.
 
-- **Rework the interactive Cloudflare solver onto one acceptance rule** `[M]` - it decides "solved" in four places using three rules, has unrelated ways to end a solve and none at all on the key path when a window is open, and infers success from a probe while ignoring the `complete` event Cloudflare posts, which costs about 1.5 seconds a solve and fails outright on a site that embeds Turnstile on its own pages. Design, state machine and a 32-behaviour inventory are written. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Decide whether the interactive Cloudflare solver graduates from experimental** `[S]` - the switch cannot default on until it is verified beyond one device and a handful of hosts, and the ruling has to settle what "works in the background" is allowed to mean. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
