@@ -270,6 +270,143 @@ Each of these was built and run against a live challenge before being dropped. D
   body-serving design. An image-heavy source cleared its challenge and then kept loading, so the
   solve was never reported and the request failed despite having succeeded.
 
+## Planned rework
+
+**Not built.** This is the design the next substantial change to this feature follows, written before
+any code moved so the shape is argued once rather than discovered halfway through. Three pieces land
+ahead of it and two of them decide its final form.
+
+### Why the current shape needs replacing
+
+Five problems, none of which is a bug on its own, and between them they account for every defect this
+feature has produced.
+
+**The authoritative signal is ignored and inferred instead.** Cloudflare posts `interactiveBegin`,
+`complete` and `fail`. The listener `CloudflareInterceptor` injects on page finish forwards two of
+them and drops `complete`, so success is inferred from a 500ms probe needing two consecutive clear
+readings plus a cookie change. That costs up to a second of latency on every solve and serializes the
+whole document twice a second to do it.
+
+**The isolation is one-sided.** `TurnstileSolver`'s `WATCH` probe runs in an isolated world because a
+page-world script is what makes Cloudflare reissue a challenge, but the event listener feeding it is
+injected with `evaluateJavascript` into the page's own world, and the `mihon` bridge it calls is added
+to every frame with no origin check.
+
+**The press mechanism is chosen once and can be wrong for the rest of the solve.** `attach` reads the
+container a single time. Backgrounding mid-solve leaves the key path pressing into a window that is
+gone; foregrounding mid-solve leaves the in-frame script clicking when the safe path has just become
+available.
+
+**Four places decide whether it is solved, using three rules**: the two-clear-readings gate in
+`onWatch`, the fresh-cookie lambda in `resolveWithWebView`, the post-latch jar check, and
+`WebViewInterceptor.isBypassed`. The silent success, the sibling 403 and the false give-up all lived
+in the gaps between them.
+
+**Nothing owns the lifetime of a solve.** Three unrelated terminators exist and none knows about the
+others: the in-frame budget, the caller's 30 second latch, and four `countDown` sites in the
+`WebViewClient`. The key path has none at all, so a press that goes nowhere, whether refused outright
+or simply ineffective, costs the caller the full 30 seconds.
+
+### The shape
+
+One event stream, one state machine, one terminator, all on the main looper. The OkHttp thread only
+waits for a terminal state and reads the outcome, which removes the eight captured booleans currently
+shared across two threads and coordinated by luck.
+
+| State | Entered when | Leaves to |
+|---|---|---|
+| `Armed` | the probe and bridge are registered, before `loadUrl` | `Challenged`, `NotChallenged`, `TimedOut` |
+| `Challenged` | the probe or the HTTP error reports an interstitial | `Interactive`, `Cleared`, `Failed` |
+| `Interactive` | Cloudflare posts `interactiveBegin` | `Pressed`, `Failed` |
+| `Pressed` | a press strategy has been dispatched | `Verifying`, `Failed` |
+| `Verifying` | Cloudflare posts `complete`, or the probe reports the interstitial gone | `Cleared`, `Failed` |
+| `Cleared` | terminal: verified, and the clearance differs from the pre-solve one | retry the request |
+| `Failed` | terminal: `fail`, a dead renderer, no press path, or a deadline | give up, hand to FlareSolverr |
+| `NotChallenged` | terminal: the original URL finished and no challenge was found | return what the page gave |
+| `TimedOut` | terminal: the whole-solve budget expired | give up, hand to FlareSolverr |
+
+Two timers, both owned by the machine and both cancelled on any terminal transition: a whole-solve
+budget armed at `Armed`, and a shorter press deadline armed at `Pressed`. That single pair replaces
+the in-frame budget, the absent key-path deadline and the caller's latch as a de facto timeout.
+
+**The press strategy is chosen at the `Interactive` edge, not at arm time.** A window means keys; no
+window with the background switch on means the in-frame script; no window with it off is a terminal
+`Failed` carrying that reason. A refused key is then not a special case but an ordinary transition to
+`Failed`, which is what makes the fix proper rather than a fourth timer.
+
+**Acceptance is one predicate, read by everyone.** `Cleared` requires that Cloudflare said `complete`
+or the probe saw the interstitial go, *and* that a `cf_clearance` exists differing from the one held
+before the solve. Every other reader calls it or is deleted. On any non-`Cleared` terminal the jar is
+checked once more, preserving the cleared-without-a-report case as an explicit branch rather than a
+bolt-on, and then `cf_clearance` is deleted so a queued sibling cannot mistake a refused round for a
+solve.
+
+**What the rework deletes**: the page-world `evaluateJavascript` listener and the `mihon`
+`@JavascriptInterface` with it, once all three events arrive over the isolated-world bridge, which is
+strictly better isolation than today; and the document serialization in the probe, if the observation
+pass shows `complete` reaches the managed-challenge interstitial.
+
+### Behaviour inventory
+
+The bar a takeover has to clear is that every behaviour of the replaced code is walked and marked
+present, deliberately dropped with a reason, or missing. Device verification finds what you thought
+to test; this is what catches the rest. Thirty-two behaviours, as the code stands.
+
+*Arming.* 1 Runs only with the switch on and the WebView feature set present. 2 With no window and the
+background switch off it does not arm, leaving the caller's aborts in charge. 3 With a window the
+WebView is attached to the foreground decor view, sized to it, shifted off screen by its own width,
+non-focusable, descendants blocked. 4 Arming precedes `loadUrl`. 5 An arming failure currently still
+reports armed, which is the bug the first fix closes.
+
+*Detection.* 6 A probe reports every 500ms. 7 Challenged means a challenge selector matches or the
+response-token input exists. 8 The document is omitted while challenged, when there is no body, and
+above 4MB. 9 Only main-frame reports are handled. 10 A page still counts as challenged if its title
+says "just a moment" or one of six markers appears. 11 `interactiveBegin` sets the interactive flag.
+12 `fail` ends the wait only while the solver is not armed.
+
+*Pressing.* 13 No press before interactive. 14 No press while the token input already holds a value.
+15 No press within four seconds of the last. 16 Keys are Tab down immediately, then three events at
+cumulative random 70 to 160ms gaps. 17 Whether the first key was accepted is logged and nothing else.
+18 The in-frame script registers once per solve, scoped to the challenge origin, with its token
+renamed per injection, then reloads. 19 A registration failure gives up at once. 20 A 20 second budget
+gives up afterwards, and logs only when it released a wait.
+
+*Accepting.* 21 Two consecutive clear readings are required before asking. 22 The caller accepts only
+a clearance that differs from the pre-solve one. 23 Once accepted the solver stops reacting. 24 After
+the wait, a changed clearance is accepted even if nothing reported it. 25 A sibling queued on the same
+host skips its own solve when the clearance changed while it waited.
+
+*Ending.* 26 A dead renderer ends the wait. 27 A main-frame HTTP error that is not a challenge ends
+it. 28 The original URL finishing with no challenge found ends it. 29 Otherwise the caller waits 30
+seconds. 30 On failure FlareSolverr is tried when configured and the host is marked unsolvable by
+WebView. 31 Without FlareSolverr the failure carries the blocked URL so the UI can offer Open in
+WebView. 32 The WebView is detached, stopped and destroyed on the main thread when the wait ends.
+
+### What lands first, and why the order matters
+
+**The arming fix and the clearance deletion**, together with scoping the probe's origin rules to the
+request's own origin instead of every frame. All three are correct under any architecture here, and
+the first is a stall-level defect on any device whose WebView lacks the isolated-world feature.
+
+**Then an observation pass, changing no behaviour**: forward every `cloudflare-challenge` event rather
+than the two currently filtered for, and log each with a timestamp. That answers whether `complete`
+reaches the managed-challenge interstitial at all, and whether the in-frame path's 10 to 14 seconds is
+the script's ungated click loop fighting itself or the probe being slow to notice a solve that already
+happened. The comparison point is the sub-second `interactiveBegin` to `complete` measured on the
+Keiyoushi implementation linked from discussion 64.
+
+**Then the floating-window spike.** If a foreground service can hold a one-pixel window and take key
+events, the in-frame script is deleted outright: one press mechanism, the low-risk one, in every case,
+with no second preference and no borrowed asset maintained on a divergent copy. That is a materially
+better end state than a well-built two-strategy system, so the rework is not designed to its final
+shape until the spike answers.
+
+**Risk, stated plainly.** This feature has no automated tests and cannot usefully get them: it lives
+in a WebView against a live challenge. Its gates pass on broken code, repeatedly, and the record above
+lists three separate cases. A state-machine rewrite is where that pattern bites hardest, so it lands
+as one reviewed change against the inventory above rather than as an incremental refactor left half
+done.
+
 ## Open
 
 - **Breadth.** Six hosts, one device, one VPN. Forty-four solves say the mechanism is reliable on
