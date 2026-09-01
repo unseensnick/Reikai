@@ -133,11 +133,9 @@ class CloudflareInterceptor(
             if (port == HttpUrl.defaultPort(scheme)) "$scheme://$host" else "$scheme://$host:$port"
         }
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
-        //     armed that challenge is no longer a reason to give up. Off by default. It presses keys
-        //     in a window; with none it arms only when the separate background switch is on, since
-        //     that path injects a script into the challenge frame instead.
+        //     armed that challenge is no longer a reason to give up. Off by default, and with no
+        //     window it arms only when the separate background switch is on.
         val solverArmed = AtomicBoolean(false)
-        val interactive = AtomicBoolean(false)
         val interstitialGone = AtomicBoolean(false)
         val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
 
@@ -150,17 +148,9 @@ class CloudflareInterceptor(
                     @JavascriptInterface
                     fun interactiveDetected() {
                         // The challenge cannot be solved non-interactively, abort.
-                        if (!solverArmed.get()) {
-                            latch.countDown()
-                        } else {
-                            // RK: the solver waits for this before pressing. A checkbox only exists
-                            //     once the challenge turns interactive, and an earlier press just
-                            //     starts the cooldown that then delays the one that counts.
-                            interactive.set(true)
-                            logcat {
-                                "Turnstile[${originalRequest.url.host}]: interactive began"
-                            }
-                        }
+                        // RK: only while the solver is off. Armed, it reads this event out of its own
+                        //     isolated world instead, so nothing it decides comes through this bridge.
+                        if (!solverArmed.get()) latch.countDown()
                     }
 
                     // RK: Cloudflare reports a challenge it has given up on. Without this the
@@ -196,7 +186,6 @@ class CloudflareInterceptor(
                     webView = webview,
                     host = originalRequest.url.host,
                     origin = origin,
-                    interactive = interactive,
                     interstitialGone = interstitialGone,
                     backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
                     // Arming suppresses the interactive and failed aborts below, so a solve with no

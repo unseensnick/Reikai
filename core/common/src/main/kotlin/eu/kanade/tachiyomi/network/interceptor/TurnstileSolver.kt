@@ -33,13 +33,14 @@ object TurnstileSolver {
     private const val KEY_GAP_MAX_MS = 160L
 
     /**
-     * How long a solve with no window gets before the request is failed. Eleven measured solves
-     * landed in 10.9 to 13.9 seconds, the slowest of them with five hosts solving at once, and the
-     * caller's own wait is 30, so this fails a hopeless one sooner without threatening a slow one.
+     * How long a solve gets after its first press before the request is failed. Key-path solves land
+     * in 2.2 to 3.9 seconds, several hosts at once included, and the caller's own wait is 30, so this
+     * fails a hopeless press sooner while leaving room for a challenge Cloudflare reissues once.
      */
-    private const val HEADLESS_BUDGET_MS = 20_000L
+    private const val PRESS_BUDGET_MS = 20_000L
 
-    /** The event Cloudflare posts when it has accepted a challenge. */
+    /** The events Cloudflare posts that this decides anything from. */
+    private const val INTERACTIVE_BEGIN = "interactiveBegin"
     private const val COMPLETE = "complete"
 
     private const val BRIDGE = "reikaiTurnstileWatch"
@@ -77,7 +78,6 @@ object TurnstileSolver {
         webView: WebView,
         host: String,
         origin: String,
-        interactive: AtomicBoolean,
         interstitialGone: AtomicBoolean,
         backgroundEnabled: Boolean,
         onGiveUp: () -> Boolean,
@@ -98,22 +98,24 @@ object TurnstileSolver {
         var solved = false
         var tokenSeen = false
         var completeSeen = false
+        var interactiveSeen = false
         val budgetArmed = AtomicBoolean(false)
 
         val press = {
             val delivered = webView.pressKeys()
             logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
-            // With a window the user is watching and the caller's own wait bounds the solve. With
-            // none, nothing does, so the first press starts a budget rather than letting a press
-            // that goes nowhere cost the caller its whole timeout. Report only a give-up that
-            // released something: a request the caller already served from the jar leaves this to
-            // fire into nothing, and a give-up line beside a success sends the next reader hunting.
-            if (container == null && budgetArmed.compareAndSet(false, true)) {
+            // The first press starts the only deadline this solve has. Arming suppresses the
+            // caller's own aborts, so without it a press that goes nowhere, refused outright or
+            // simply ineffective, costs the caller its whole 30 second wait. Report only a give-up
+            // that released something: a request the caller already served from the jar leaves this
+            // to fire into nothing, and a give-up line beside a success sends the next reader
+            // hunting.
+            if (budgetArmed.compareAndSet(false, true)) {
                 Handler(Looper.getMainLooper()).postDelayed({
                     if (!solved && onGiveUp()) {
-                        logcat { "Turnstile[$host]: gave up after $HEADLESS_BUDGET_MS ms with no window" }
+                        logcat { "Turnstile[$host]: gave up $PRESS_BUDGET_MS ms after the first press" }
                     }
-                }, HEADLESS_BUDGET_MS)
+                }, PRESS_BUDGET_MS)
             }
         }
 
@@ -121,7 +123,7 @@ object TurnstileSolver {
             // The widget is present from the first paint, well before there is a checkbox behind it.
             // Pressing then does nothing except start the cooldown, which delayed the press that
             // counts by two seconds on every measured solve.
-            if (!interactive.get()) return@press
+            if (!interactiveSeen) return@press
             val now = SystemClock.uptimeMillis()
             // Never press a widget that already carries a token: that restarts the verification
             // Cloudflare is in the middle of rather than completing it.
@@ -143,11 +145,22 @@ object TurnstileSolver {
                 logcat { "Turnstile[$host]: response token issued" }
             }
 
+            val events = probe.optString("cf").split('|')
+
+            // Read here rather than taken from the page-world listener, which cannot see this world
+            // and needs the bridge to report anything. `fail` is deliberately not acted on while
+            // armed: Cloudflare reissues after a failed round often enough that pressing through one
+            // is the better bet, which is why the bridge only counts it down when the solver is off.
+            if (!interactiveSeen && INTERACTIVE_BEGIN in events) {
+                interactiveSeen = true
+                logcat { "Turnstile[$host]: interactive began" }
+            }
+
             // Cloudflare saying it accepted beats inferring it from the markup, and on a site that
             // embeds Turnstile on its own pages it is the only signal that can ever arrive: the
             // probe counts the response-token input as a challenge, so such a page never reads
             // clear and the solve below never fires however many times it really succeeded.
-            if (!completeSeen && COMPLETE in probe.optString("cf").split('|')) {
+            if (!completeSeen && COMPLETE in events) {
                 completeSeen = true
                 logcat { "Turnstile[$host]: cloudflare reports the challenge complete" }
             }
