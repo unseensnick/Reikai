@@ -27,6 +27,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
 import eu.kanade.tachiyomi.BuildConfig
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.PREF_DOH_360
@@ -372,6 +373,16 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
                 //     entirely in this DSL, so a release build never shows either of these.
+                Preference.PreferenceItem.TextPreference(
+                    title = "Turnstile: library update in 60s (spike)",
+                    subtitle = "Queues a manual update after a delay. Kill the app during it, and the " +
+                        "job starts a process with no activity, which is the solver's real no-window trigger",
+                    enabled = BuildConfig.DEBUG,
+                    onClick = {
+                        LibraryUpdateJob.startDelayed(context.workManager, delaySeconds = 60)
+                        context.toast("Library update queued for 60s, kill the app now")
+                    },
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile: force the no-window path (spike)",
                     subtitle = "Currently ${if (forceHeadlessSolver) "on" else "off"}. Solves as if no " +

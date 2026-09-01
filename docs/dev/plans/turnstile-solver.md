@@ -105,11 +105,29 @@ the deleted in-frame script and are kept only as the record of what it did:
 | script, app backgrounded, global search | no | **0 of 5**, `fail` then 403 |
 | script, library update, activity destroyed | yes | 3 of 3, 9.4 to 12.2s |
 | keys, app in the foreground, branch forced | n/a | arm to accept in 3.3s |
+| keys, library update, no activity ever created | yes | solved, arm to accept in 6.3s |
 
 A forced-branch row measures the mechanism, not the environment, so it is not on its own evidence
-that the path works when the app is away. For the script, the third row was; for keys, that run has
-not been done yet, and the honest statement is that the code path is verified and its natural trigger
-is not.
+that the path works when the app is away. The last row is: a delayed one-time update was queued, the
+app killed during the delay, and the job then started a process with no activity at all, which met a
+real interactive challenge and pressed it headless.
+
+**Reaching that trigger by hand needs a delay, and the reason is worth keeping.** An update holds a
+foreground service, which makes the process unkillable, and force-stopping instead cancels every
+scheduled job that could restart it, so there is nothing left to fire. Nothing runs during an initial
+delay, so the app can be killed there. `LibraryUpdateJob.startDelayed` plus the Networking row that
+calls it exist only for this. Also ruled out on the way: `cmd jobscheduler run -f` on the periodic
+job, which WorkManager refuses with "executed before schedule"; a `BOOT_COMPLETED` broadcast, which
+shell may not send; a provider query, which is not exported; and a reinstall, which never woke it.
+
+**That run also caught the `complete` fast path missing.** Cloudflare posted `complete` at 34.762 and
+the solver accepted at 36.023, through the markup path, with no "cloudflare reports the challenge
+complete" line: its probe never reported the event. The probe collects events and ships them on its
+next 500ms tick, and the page navigates away once the challenge passes, so an event arriving in that
+window dies with the document. The two-clear-readings fallback caught it, which is the argument for
+keeping that fallback. It also means the measured 289ms accept is the good case rather than the rule,
+and the fix, if it is wanted, is to post the deciding events the moment they arrive instead of
+batching them.
 
 **Accepting on `complete` measured, one before-and-after pair on `aquareader.org`**, same device,
 same VPN exit, cookies and WebView data cleared between them:
