@@ -281,10 +281,22 @@ Each of these was built and run against a live challenge before being dropped. D
     that the renderer did anything with it. Every one of those thirty seconds of dead presses reported
     `delivered true`. Any design that treats that boolean as evidence a press landed, including the
     parked idea of falling back when a key is refused, is reading a signal that is not there.
-  - **This measures the outcome, not the mechanism.** Two causes fit it equally: the keys never
-    reaching the renderer, or the keys landing on a frame with no focusable checkbox to tab onto.
-    Both mean the key path needs a window, so nothing above depends on telling them apart, but the
-    run did not.
+  - **Three further runs narrowed why, and it is none of the obvious answers.** With a `keydown`
+    counter and a focus, visibility and viewport report inside the isolated-world probe, measured
+    against an attached control that cleared four of four: keys **do** reach the renderer detached
+    (`keys=1` after every press, and `activeElement` moves from `BODY` to the same `DIV` the working
+    run moves to, so Tab is landing). `document.hasFocus()` was the only field that differed, and it
+    is fakeable: `dispatchWindowVisibilityChanged`, `dispatchWindowFocusChanged(true)` and
+    `requestFocus()` on the detached view turn it true. Page visibility was never the problem, since
+    a detached WebView already reports `visible` with `hidden=false`, and the viewport becomes real
+    once the view is laid out by hand. With every one of those matching the working control at press
+    time, Cloudflare still sent no `interactiveEnd` and no `complete`, on four hosts.
+  - **So Tab lands and Space does not activate, for a reason nothing in the document exposes.** The
+    remaining candidate is below the DOM: a detached view has no surface, so the WebView never
+    composites a frame, and the widget appears to want one before it will accept an activation. That
+    is not reachable from the main document, and it is not something a View callback can fake, which
+    is what makes the window load-bearing rather than the attachment, focus or visibility semantics
+    that stand in for it.
   - **It does not contradict the PR author's finding that an unattached WebView runs the challenge
     fine.** That is true and this run reproduced it: `interactiveBegin` fired on all four hosts while
     detached. Loading and running is not pressing, and his own code draws the same line, injecting the
