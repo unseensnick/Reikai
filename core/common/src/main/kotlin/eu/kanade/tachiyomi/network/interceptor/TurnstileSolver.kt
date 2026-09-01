@@ -73,6 +73,7 @@ object TurnstileSolver {
         host: String,
         origin: String,
         interactive: AtomicBoolean,
+        interstitialGone: AtomicBoolean,
         backgroundEnabled: Boolean,
         fallbackScript: () -> String,
         reload: () -> Unit,
@@ -153,6 +154,9 @@ object TurnstileSolver {
             // One clear reading is not the end of it: the markup goes while the next round is issued
             // (measured by Byparr, and by Solverr's own confirm delay).
             if (++clearReadings >= 2) {
+                // Records that the page really did get past the interstitial, which is what the
+                // caller needs before it may read anything into a clearance arriving late.
+                interstitialGone.set(true)
                 solved = onSolved()
                 logcat { "Turnstile[$host]: challenge cleared, accepted $solved" }
             }

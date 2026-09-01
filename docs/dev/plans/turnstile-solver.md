@@ -382,6 +382,17 @@ seconds. 30 On failure FlareSolverr is tried when configured and the host is mar
 WebView. 31 Without FlareSolverr the failure carries the blocked URL so the UI can offer Open in
 WebView. 32 The WebView is detached, stopped and destroyed on the main thread when the wait ends.
 
+**The post-latch jar check was the fourth decider, and it was wrong.** Caught on a fresh VPN exit
+where three hosts issued a challenge that never turned interactive, never posted `fail` and never
+cleared. All three waited the full 30 seconds, and then the jar check saw a changed `cf_clearance`
+and declared the solve a success on that alone. Each retry took a 403, and because it reported
+success no `CloudflareBypassIOException` was thrown, so the failure surfaced as a bare HTTP error and
+the Open in WebView recovery was never offered. It also pre-empted the clearance deletion above,
+since that lives in the branch this one skips. It is now gated on the solver having actually watched
+the interstitial go, which is the same predicate the rework's single acceptance rule uses, arrived at
+early. Verified on the next fresh exit: a host that went interactive, was pressed and never cleared
+reported "Failed to bypass Cloudflare" rather than a 403, while three others cleared normally.
+
 **A page that redirects is already unsupported, upstream included.** `onPageFinished` injects the
 interactive listener only when the finished URL equals the one requested, so anything that redirects,
 even from apex to www, never gets the listener, never reports `interactiveBegin`, and therefore never

@@ -143,6 +143,7 @@ class CloudflareInterceptor(
         //     that path injects a script into the challenge frame instead.
         val solverArmed = AtomicBoolean(false)
         val interactive = AtomicBoolean(false)
+        val interstitialGone = AtomicBoolean(false)
         val solverWanted = networkPreferences.enableTurnstileSolver.get() && TurnstileSolver.isSupported
 
         executor.execute {
@@ -189,6 +190,7 @@ class CloudflareInterceptor(
                     host = originalRequest.url.host,
                     origin = origin,
                     interactive = interactive,
+                    interstitialGone = interstitialGone,
                     backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
                     fallbackScript = { fallbackSolverScript },
                     reload = { webview.loadUrl(origRequestUrl, headers) },
@@ -296,7 +298,10 @@ class CloudflareInterceptor(
         // RK: a solve the WebView performed but never reported still leaves its clearance in the
         //     jar, so ask the jar before giving up. Measured on a source whose two requests raced:
         //     one retried to a 200 while the other threw, having solved the challenge itself.
-        if (!cloudflareBypassed && solverWanted) {
+        //     Gated on the solver having watched the interstitial go, because a clearance on its own
+        //     proves nothing: Cloudflare issues one on a round it refused, and trusting that turned
+        //     three honest failures into 403s with no Open in WebView offered.
+        if (!cloudflareBypassed && solverWanted && interstitialGone.get()) {
             val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
                 .firstOrNull { it.name == "cf_clearance" }
             if (cleared != null && cleared != oldCookie) {
