@@ -278,6 +278,8 @@ object SettingsAdvancedScreen : SearchableSettings {
         val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
         val flareSolverrUrl by networkPreferences.flareSolverrUrl.collectAsState()
         val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()
+        // Spike state, debug only: mirrors the solver's own flag so the row can show it.
+        var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
@@ -370,6 +372,16 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
                 //     entirely in this DSL, so a release build never shows either of these.
+                Preference.PreferenceItem.TextPreference(
+                    title = "Turnstile: force the no-window path (spike)",
+                    subtitle = "Currently ${if (forceHeadlessSolver) "on" else "off"}. Solves as if no " +
+                        "app screen were open, which otherwise only a scheduled update reaches. Resets on restart",
+                    enabled = BuildConfig.DEBUG,
+                    onClick = {
+                        forceHeadlessSolver = !forceHeadlessSolver
+                        TurnstileSolver.forceHeadless = forceHeadlessSolver
+                    },
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile harness: dummy sitekey (spike)",
                     subtitle = "Bisect sweep, no live challenge needed",

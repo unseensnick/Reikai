@@ -40,11 +40,6 @@ class CloudflareInterceptor(
 
     private val executor = ContextCompat.getMainExecutor(context)
 
-    // RK: read lazily, since only a challenge raised with no window on screen ever needs it.
-    private val fallbackSolverScript by lazy {
-        context.assets.open("CloudflareSolverIframeScript.js").bufferedReader().use { it.readText() }
-    }
-
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
         // Checking the cf-mitigated header is the official way to detect a Cloudflare challenge:
@@ -204,10 +199,9 @@ class CloudflareInterceptor(
                     interactive = interactive,
                     interstitialGone = interstitialGone,
                     backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
-                    fallbackScript = { fallbackSolverScript },
-                    reload = { webview.loadUrl(origRequestUrl, headers) },
-                    // Arming suppresses the interactive and failed aborts below, so the fallback owns
-                    // giving up on its own path; without this the request waits out the full latch.
+                    // Arming suppresses the interactive and failed aborts below, so a solve with no
+                    // window owns giving up on its own path; without this the request waits out the
+                    // full latch.
                     // Reports whether there was still a wait to release, so a timer that fires after
                     // the request was served some other way stays quiet.
                     onGiveUp = {

@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.KeyEvent
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.webkit.WebViewCompat
@@ -18,10 +19,11 @@ import kotlin.random.Random
 /**
  * Presses the checkbox an interactive Cloudflare Turnstile challenge waits on.
  *
- * With a window it attaches the WebView and sends Tab then Space. With none it injects a borrowed
- * script into the Cloudflare frame instead, since a detached widget takes no input. Never into the
- * source's own page: a script there gets the challenge reissued, which is also why the page is read
- * from an isolated world. What was tried and failed: docs/dev/plans/turnstile-solver.md.
+ * Sends Tab then Space, with a window or without one. A WebView that was never attached takes the
+ * keys just as well once it has been laid out by hand and handed the focus callbacks; what used to
+ * make that look impossible was `View.postDelayed` silently queueing every event after the first.
+ * The page is read from an isolated world so nothing runs in the source's own. What was tried and
+ * failed: docs/dev/plans/turnstile-solver.md.
  */
 object TurnstileSolver {
 
@@ -31,23 +33,22 @@ object TurnstileSolver {
     private const val KEY_GAP_MAX_MS = 160L
 
     /**
-     * How long the in-frame fallback gets before the request is failed. Eleven measured solves landed
-     * in 10.9 to 13.9 seconds, the slowest of them with five hosts solving at once, and the caller's
-     * own wait is 30, so this fails a hopeless one sooner without threatening a slow working solve.
+     * How long a solve with no window gets before the request is failed. Eleven measured solves
+     * landed in 10.9 to 13.9 seconds, the slowest of them with five hosts solving at once, and the
+     * caller's own wait is 30, so this fails a hopeless one sooner without threatening a slow one.
      */
-    private const val FALLBACK_BUDGET_MS = 20_000L
+    private const val HEADLESS_BUDGET_MS = 20_000L
 
     private const val BRIDGE = "reikaiTurnstileWatch"
     private const val WORLD = "reikai-turnstile"
 
     /**
-     * Where the widget actually lives. Measured on a managed-challenge interstitial: the frame holding
-     * the checkbox reports this origin, so the fallback can be scoped to it rather than to every frame.
+     * Debug builds only, and not persisted. Makes the solver take the no-window path even with a
+     * window, since the real trigger is a process that starts with no activity ever created, which a
+     * scheduled update reaches and a person holding the phone cannot. Set from the Networking
+     * settings row of the same name.
      */
-    private const val CHALLENGE_ORIGIN = "https://challenges.cloudflare.com"
-
-    /** The placeholder the borrowed script names its own functions with, so it can hide their frames. */
-    private const val SOLVER_TOKEN = "__SOLVER__"
+    var forceHeadless: Boolean = false
 
     /**
      * The isolated world is as required as the other two: a probe in the page's own world is what
@@ -62,8 +63,9 @@ object TurnstileSolver {
 
     /**
      * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
-     * gone or [onGiveUp], which reports whether a wait was still open, when the budget runs out.
-     * Arming suppresses the caller's own aborts, so it owes one. Returns whether it armed.
+     * gone or [onGiveUp], which reports whether a wait was still open, when a solve with no window
+     * runs out its budget. Arming suppresses the caller's own aborts, so it owes one. Returns
+     * whether it armed.
      *
      * [origin] must read `scheme://host[:port]`, port only when not the scheme default. A script only
      * reaches later documents, so this runs before `loadUrl`; [detach] runs when the solve ends.
@@ -75,53 +77,39 @@ object TurnstileSolver {
         interactive: AtomicBoolean,
         interstitialGone: AtomicBoolean,
         backgroundEnabled: Boolean,
-        fallbackScript: () -> String,
-        reload: () -> Unit,
         onGiveUp: () -> Boolean,
         onSolved: () -> Boolean,
     ): Boolean {
         if (!isSupported) return false
-        val container = ForegroundActivity.current?.window?.decorView as? ViewGroup
-        // The in-frame script patches the challenge frame and fires synthetic events, where the key
-        // path only types, so it carries its own switch. With that off and no window there is
-        // nothing left to press with, and not arming leaves the caller's own aborts in charge.
+        val container = ForegroundActivity.current?.window?.decorView.takeUnless { forceHeadless } as? ViewGroup
+        // Solving with no app screen open is still the user's choice, since it means reaching a
+        // challenged host while nothing is on screen to show for it. Not arming leaves the caller's
+        // own aborts in charge.
         if (container == null && !backgroundEnabled) return false
-        if (container != null) attachToWindow(webView, container)
+        if (container != null) attachToWindow(webView, container) else layOutHeadless(webView)
+        // Which press path ran is otherwise invisible in a log, and the two fail differently.
+        logcat { "Turnstile[$host]: arming with${if (container == null) "out" else ""} a window" }
 
         var lastPress = 0L
         var clearReadings = 0
         var solved = false
         var tokenSeen = false
-        val injected = AtomicBoolean(false)
+        val budgetArmed = AtomicBoolean(false)
 
-        val press = if (container != null) {
-            {
-                val delivered = webView.pressKeys()
-                logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
-            }
-        } else {
-            {
-                // Once only: the script clicks on its own timer from then on, and re-registering it
-                // would just reload the page out from under a solve already in progress.
-                if (injected.compareAndSet(false, true)) {
-                    logcat { "Turnstile[$host]: no window, injecting the in-frame solver" }
-                    if (injectFallback(webView, host, fallbackScript())) {
-                        reload()
-                        // Handler, not View.postDelayed: a detached view queues its posts until it
-                        // attaches, and this path runs only when there is no window, so that timer
-                        // never fired. Report only a give-up that released something: a request the
-                        // caller already served from the jar leaves this to fire into nothing, and a
-                        // give-up line beside a success sends the next reader hunting.
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            if (!solved && onGiveUp()) {
-                                logcat { "Turnstile[$host]: in-frame solver gave up after $FALLBACK_BUDGET_MS ms" }
-                            }
-                        }, FALLBACK_BUDGET_MS)
-                    } else {
-                        // A script that never registered will never press, so there is nothing to wait for.
-                        onGiveUp()
+        val press = {
+            val delivered = webView.pressKeys()
+            logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
+            // With a window the user is watching and the caller's own wait bounds the solve. With
+            // none, nothing does, so the first press starts a budget rather than letting a press
+            // that goes nowhere cost the caller its whole timeout. Report only a give-up that
+            // released something: a request the caller already served from the jar leaves this to
+            // fire into nothing, and a give-up line beside a success sends the next reader hunting.
+            if (container == null && budgetArmed.compareAndSet(false, true)) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (!solved && onGiveUp()) {
+                        logcat { "Turnstile[$host]: gave up after $HEADLESS_BUDGET_MS ms with no window" }
                     }
-                }
+                }, HEADLESS_BUDGET_MS)
             }
         }
 
@@ -225,22 +213,21 @@ object TurnstileSolver {
     }
 
     /**
-     * Registers the borrowed in-frame solver, scoped to the Cloudflare frame: a script in the source
-     * page's own world is what makes Cloudflare reissue the challenge. It runs in that frame's own
-     * world by necessity, since it patches the frame's `Error` and `EventTarget`.
+     * Gives [webView] everything a window would, short of the window: a viewport, the visibility and
+     * focus callbacks the view would otherwise be handed on attach, and focus itself.
      *
-     * The script names every function it defines with one token so it can filter itself out of stack
-     * traces, and that token is renamed per injection so the name cannot be matched on.
+     * Focus is taken here where [attachToWindow] refuses it. In a window that would reopen the soft
+     * keyboard over whatever the user was typing in; with no window there is nothing to take it from.
      */
-    private fun injectFallback(webView: WebView, host: String, script: String): Boolean {
-        val named = script.replace(SOLVER_TOKEN, "${SOLVER_TOKEN}_${Random.nextLong().toULong().toString(16)}")
-        return runCatching {
-            WebViewCompat.addDocumentStartJavaScript(webView, named, setOf(CHALLENGE_ORIGIN))
-            true
-        }.getOrElse {
-            logcat(LogPriority.ERROR, it) { "Turnstile[$host]: failed to inject the in-frame solver" }
-            false
-        }
+    private fun layOutHeadless(webView: WebView) {
+        val spec = { n: Int -> View.MeasureSpec.makeMeasureSpec(n, View.MeasureSpec.EXACTLY) }
+        webView.measure(spec(DEFAULT_WIDTH), spec(DEFAULT_HEIGHT))
+        webView.layout(0, 0, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
+        webView.dispatchWindowVisibilityChanged(View.VISIBLE)
+        webView.dispatchWindowFocusChanged(true)
+        webView.requestFocus()
     }
 
     /** Takes the WebView back out of the window. Safe to call whether or not [attach] armed. */
@@ -281,8 +268,14 @@ object TurnstileSolver {
 
     private fun nextGap() = Random.nextLong(KEY_GAP_MIN_MS, KEY_GAP_MAX_MS)
 
+    /**
+     * Handler, not `View.postDelayed`: a view that was never attached to a window queues its posts
+     * into its own run queue and only runs them on attach, so with no window every event after the
+     * first Tab silently never fired. That is what made a headless press look like a press Cloudflare
+     * refused, when Space had simply never been sent.
+     */
     private fun WebView.key(delay: Long, action: Int, code: Int) {
-        postDelayed({ dispatchKeyEvent(KeyEvent(action, code)) }, delay)
+        Handler(Looper.getMainLooper()).postDelayed({ dispatchKeyEvent(KeyEvent(action, code)) }, delay)
     }
 
     private const val DEFAULT_WIDTH = 1080

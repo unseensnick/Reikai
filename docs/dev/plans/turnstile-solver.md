@@ -36,12 +36,19 @@ Requests to one host dedupe onto a single solve, and the challenge is only consi
 page has stopped looking like an interstitial across two readings and a fresh `cf_clearance` is in
 the jar. The normal retry then runs, exactly as upstream's path does.
 
-With no activity on screen there is no window to attach to and no input reaches the widget, which is
-the case a background library update hits. There the solver instead registers a borrowed script into
-the challenge frame and reloads, and the script clicks the checkbox for itself. That script is scoped
-to `https://challenges.cloudflare.com` so it never runs in the source's own page, where a script is
-what makes Cloudflare reissue the challenge. It gets a budget, after which the request is failed
-rather than left to sit out the caller's whole wait.
+With no activity on screen there is no window to attach to, which is the case a background library
+update hits on a process that started without one. The solver presses keys there too: the WebView is
+laid out by hand and handed the visibility and focus callbacks a window would have delivered, and the
+same Tab and Space follow. That path gets a budget, after which the request is failed rather than
+left to sit out the caller's whole wait, because with no window nothing else bounds it.
+
+**A borrowed in-frame click script used to serve that case and has been deleted.** It was there
+because a headless press was measured as impossible, and that measurement was wrong: the press had
+been scheduled with `View.postDelayed`, which on a view that was never attached queues into the
+view's own run queue and runs on attach, so every event after the first Tab silently never fired.
+With a main-looper `Handler` the same press solves a real managed challenge headless. Deleting the
+script also retires its ungated click loop, its separate injection origin, and the extra detection
+surface it carried.
 
 Off by default, behind `Settings -> Advanced -> Networking`. With it off, the code path is upstream's
 unchanged.
@@ -49,17 +56,15 @@ unchanged.
 ## Key files
 
 - `core/common/.../network/interceptor/TurnstileSolver.kt`: attach/detach, the isolated-world probe,
-  the press cadence, the interstitial test, per-host dedup, and the no-window fallback with its
-  budget (net-new).
-- `core/common/src/main/assets/CloudflareSolverIframeScript.js`: the borrowed in-frame clicker, taken
-  from mihonapp/mihon#3858 at `e6de3a7a1`. It names every function it defines with one token so it
-  can filter itself out of stack traces, and `injectFallback` renames that token per injection. It
-  diverges from the borrow in five places, each recorded under Decisions: three stripped
-  `console.log` lines, `"use strict"` (which the borrow gained after we took it, and which closes a
-  caller-chain read its own author flagged), the corrected `removeEventListener`, the corrected
-  `WeakMap` construction, and the removal of a dead redefine whose failure is load-bearing.
+  the press cadence, the interstitial test, per-host dedup, the headless layout, and the no-window
+  budget (net-new). Also `forceHeadless`, a debug-only flag that makes the no-window path run with a
+  window, since the real trigger is a process that starts with no activity and a person holding the
+  phone cannot reach it.
 - `core/common/.../util/system/ForegroundActivity.kt`: the activity tracker the solver needs to find
-  a window, registered from `App.onCreate` (net-new).
+  a window, registered from `App.onCreate` (net-new). Note it holds the last *resumed* activity and
+  clears only when that one is finishing or destroyed, so backgrounding the app does not reach the
+  no-window path; the activity is still alive and the windowed path runs against an off-screen decor
+  view.
 - `CloudflareInterceptor`: arm, detach, do not trust a bare clearance while armed, and the
   cleared-without-a-report fallback. A `// RK` island on Mihon's file.
 - `NetworkPreferences.enableTurnstileSolver` and `enableTurnstileBackgroundSolver`,
@@ -89,16 +94,20 @@ The shape of the numbers, run over the same test as the design changed:
 | parallel, dedup, undetected-solve fallback | 6 of 6 | 3.4s | 0 |
 | pressing with Tab and Space instead of a tap | **44 of 44** | **2.9-3.9s** | **0** |
 
-The no-window fallback, measured separately, all on the Fold over the same VPN:
+The no-window path, measured separately, all on the Fold over the same VPN. The first three rows are
+the deleted in-frame script and are kept only as the record of what it did:
 
 | condition | foreground service | cleared |
 |---|---|---|
-| app in the foreground, branch forced | n/a | 5 of 5 |
-| app backgrounded, global search | no | **0 of 5**, `fail` then 403 |
-| library update, activity destroyed | yes | 3 of 3, 9.4 to 12.2s |
+| script, app in the foreground, branch forced | n/a | 5 of 5 |
+| script, app backgrounded, global search | no | **0 of 5**, `fail` then 403 |
+| script, library update, activity destroyed | yes | 3 of 3, 9.4 to 12.2s |
+| keys, app in the foreground, branch forced | n/a | arm to accept in 3.3s |
 
-The first row measures the mechanism, not the environment, so it is not evidence the fallback works
-when the app is away; the third row is. Do not quote the first on its own.
+A forced-branch row measures the mechanism, not the environment, so it is not on its own evidence
+that the path works when the app is away. For the script, the third row was; for keys, that run has
+not been done yet, and the honest statement is that the code path is verified and its natural trigger
+is not.
 
 Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
 Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
@@ -164,11 +173,15 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   It was recorded from a probe reading the frame from the parent, where a cross-origin frame's URL is
   simply unreadable. Read as a claim about the frame's own origin it points the wrong way, and it
   cost a round of planning here before the measurement above settled it.
-- **The fallback budget is 20 seconds, and the timer must not be `View.postDelayed`.** A detached
-  view parks its posts in a `RunQueue` that only drains on attach, so a `View.postDelayed` timer on
-  this path can never fire. It was written that way first, compiled, ran, and was only caught by
-  shrinking the budget below the known solve time and watching for the give-up that never came. Use a
-  `Handler` on the main looper.
+- **No timer on this feature may use `View.postDelayed`. It must be a `Handler` on the main looper.**
+  A detached view parks its posts in a `RunQueue` that only drains on attach, so on the no-window
+  path a `View.postDelayed` timer can never fire. This cost twice. First the budget timer, written
+  that way, compiled and run, caught only by shrinking the budget below the known solve time and
+  watching for a give-up that never came. Then the key press itself, which scheduled its Tab release
+  and both Space events the same way: the first Tab went out synchronously and the rest were queued
+  forever, so a press that was never fully sent read as a press Cloudflare had refused. That false
+  negative is what put "keys need a real window" in the record for months and sent a whole bisect
+  after four innocent suspects.
 - **`ForegroundActivity` deliberately still returns a backgrounded activity.** It records on resume
   and never clears on pause, so `current` goes null only once no activity is alive. Clearing it on
   pause was considered and rejected on measurement: that would route the app-backgrounded case from
@@ -216,13 +229,15 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   outcome across those runs is whether a foreground service is keeping the renderer at normal
   priority, which the update worker has and a backgrounded search does not. Timer throttling in a
   demoted renderer is the likely mechanism, and it is not proven.
-- **The two press paths now have a switch each, and the in-frame one defaults off.** They are not
-  equally exposed: the key path dispatches real `KeyEvent`s into an attached WebView and patches
-  nothing, while the in-frame path rewrites `Error`, `EventTarget`, `window.event` and `attachShadow`
-  inside the challenge frame and fires synthetic events with a spoofed `isTrusted`. A user who wants
-  global search to work should not have to take the second to get the first. `attach` returns false
-  when there is no window and the background switch is off, so nothing arms and the caller keeps its
-  own aborts, which is the path that ran before the fallback existed.
+- **There is now one press path, and the background switch stays anyway.** The two paths used to be
+  unequally exposed, which is why the second one carried its own switch: the key path dispatches real
+  `KeyEvent`s and patches nothing, while the in-frame path rewrote `Error`, `EventTarget`,
+  `window.event` and `attachShadow` inside the challenge frame and fired synthetic events with a
+  spoofed `isTrusted`. With the script deleted that asymmetry is gone, and the switch was kept on a
+  different ground: solving with no app screen open means reaching a challenged host with nothing on
+  screen to show for it, which is a choice worth leaving to the user. Its wording changed to match.
+  `attach` still returns false when there is no window and the switch is off, so nothing arms and the
+  caller keeps its own aborts.
 - **The borrowed script's `Object.definePropery` typo is load-bearing. Do not correct it.** Measured
   in Blink four ways. `createProxy` runs on every prototype member before the misspelled call throws,
   so the walk's real product is the `objectToProxy` registrations, and those are what make a method
@@ -376,7 +391,9 @@ to test; this is what catches the rest. Thirty-two behaviours, as the code stand
 *Arming.* 1 Runs only with the switch on and the WebView feature set present. 2 With no window and the
 background switch off it does not arm, leaving the caller's aborts in charge. 3 With a window the
 WebView is attached to the foreground decor view, sized to it, shifted off screen by its own width,
-non-focusable, descendants blocked. 4 Arming precedes `loadUrl`. 5 An arming failure currently still
+non-focusable, descendants blocked. 3a With none it is measured and laid out at a default size, given
+the visibility and focus callbacks, and takes focus, which is safe only because there is no window to
+take it from. 4 Arming precedes `loadUrl`. 5 An arming failure currently still
 reports armed, which is the bug the first fix closes.
 
 *Detection.* 6 A probe reports every 500ms. 7 Challenged means a challenge selector matches or the
@@ -388,9 +405,9 @@ says "just a moment" or one of six markers appears. 11 `interactiveBegin` sets t
 *Pressing.* 13 No press before interactive. 14 No press while the token input already holds a value.
 15 No press within four seconds of the last. 16 Keys are Tab down immediately, then three events at
 cumulative random 70 to 160ms gaps. 17 Whether the first key was accepted is logged and nothing else.
-18 The in-frame script registers once per solve, scoped to the challenge origin, with its token
-renamed per injection, then reloads. 19 A registration failure gives up at once. 20 A 20 second budget
-gives up afterwards, and logs only when it released a wait.
+18 The same keys are sent with or without a window, every event after the first Tab posted through a
+main-looper Handler rather than the view. 19 Which path armed is logged. 20 With no window the first
+press starts a 20 second budget, which gives up afterwards and logs only when it released a wait.
 
 *Accepting.* 21 Two consecutive clear readings are required before asking. 22 The caller accepts only
 a clearance that differs from the pre-solve one. 23 Once accepted the solver stops reacting. 24 After
