@@ -269,6 +269,18 @@ Each of these was built and run against a live challenge before being dropped. D
 - **Waiting for `document.readyState === 'complete'`** before judging the page. Left over from the
   body-serving design. An image-heavy source cleared its challenge and then kept loading, so the
   solve was never reported and the request failed despite having succeeded.
+- **Key events on a detached WebView laid out by hand.** The cheapest possible answer to the headless
+  case, since it would need no window, no service and no permission, and the record already said a
+  hand-laid-out view renders the checkbox. Measured across four hosts: `measure` and `layout` gave it
+  1080x1920, `dispatchKeyEvent` returned true on every press, presses repeated on the cooldown for
+  the full thirty seconds, and not one challenge cleared. The same hosts on the same exit cleared in
+  about 1.4 seconds when the view was attached. So the earlier finding that layout is not attachment
+  holds for keys exactly as it did for touch, and every remaining way to press headlessly needs a real
+  window.
+  - **`dispatchKeyEvent` returning true means nothing.** It only says the view accepted the event, not
+    that the renderer did anything with it. Every one of those thirty seconds of dead presses reported
+    `delivered true`. Any design that treats that boolean as evidence a press landed, including the
+    parked idea of falling back when a key is refused, is reading a signal that is not there.
 
 ## Planned rework
 
@@ -448,11 +460,28 @@ one wrong rule: a clearance from a refused round, and a genuine solve the probe 
 Gating it on the probe fixed the first and left the second, which is what `toonily.com` hit here.
 `complete` is the signal that separates them, and until it is wired in that host fails a solve it won.
 
-**Then the floating-window spike.** If a foreground service can hold a one-pixel window and take key
-events, the in-frame script is deleted outright: one press mechanism, the low-risk one, in every case,
-with no second preference and no borrowed asset maintained on a divergent copy. That is a materially
-better end state than a well-built two-strategy system, so the rework is not designed to its final
-shape until the spike answers.
+**The floating-window spike ran, and it does not pay for itself.** The hope was that a headless press
+could use the low-risk key path and let the in-frame script be deleted. Two findings close it.
+
+Keys need a real window, not just a layout. That is the dead end recorded above: hand-laid-out but
+detached, presses were accepted and did nothing across four hosts for thirty seconds each, where the
+same hosts attached cleared in about 1.4 seconds. So a window is required, and with no activity alive
+the only ways to get one are an overlay window, a `Presentation` on a virtual display, or an activity
+launched from the background. All three route through the same place: Android's permissions guide
+classes drawing over other apps as a **special permission**, the kind granted by a user toggle on the
+Special app access settings screen rather than at install or by a runtime prompt.
+
+That is the whole trade. Deleting the in-frame script would cost a "Display over other apps" grant, on
+top of two switches that are already off by default, for a feature that only runs during headless
+library updates. Cloudflare's own documented worst case for the script is a session-scoped clearance
+reduction, not anything durable. Asking a manga reader for the permission that powers overlay malware,
+to retire a bounded risk behind two opt-ins, is the worse deal.
+
+**The cheaper answer to the same problem is to gate the script rather than replace it.** Its concrete
+defect is that it clicks every 100ms for the life of the frame with none of the token check or
+cooldown the key path has, which is the behaviour Cloudflare's Precursor is built to notice. Giving it
+those guards cuts the detection surface with no permission and no new window, and it is a change to a
+file we already own.
 
 **Risk, stated plainly.** This feature has no automated tests and cannot usefully get them: it lives
 in a WebView against a live challenge. Its gates pass on broken code, repeatedly, and the record above
