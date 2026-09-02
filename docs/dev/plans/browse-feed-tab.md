@@ -305,6 +305,13 @@ adult-source saved-search specialization.
 - **`selectionTitle` and the category prompts are shared with the global search.** Both surfaces list
   the two content types over the same row component, so how a mixed batch is named and how it is filed
   is one rule with two callers rather than a twin.
+- **A row heading stays tappable while selecting, rather than going inert.** Long-pressing it no longer
+  removes the row, and with no long-press handler the gesture falls through to the tap, so the heading
+  opens its source. Inert was considered and declined: the arrow is still drawn, and a drawn control
+  that does nothing is the silent no-op the content-layer rules forbid, so it would have to be hidden,
+  which reshuffles the row on entering the mode. Nothing is lost by navigating either, since the bulk
+  models sit on the Browse tab's store and the selection is still there on the way back. The global
+  search behaves the same over the same component.
 - **The Sources row keeps its Latest button** (owner, 2026-09-02). Komikku hides it when the feed is
   on, but only because their per-source feed replaces the catalogue and always leads with Latest for
   that source. With no per-source feed, the button is the only one-tap route to Latest for a source
