@@ -71,6 +71,9 @@ deletion and the per-host lock all run either way.
 
 ## Key files
 
+- `core/common/.../network/interceptor/SolveMachine.kt`: the phase, the press cadence, the
+  clearance poll and the deadline, behind an injected clock and scheduler so they can be tested
+  without a WebView. `SolveMachineTest` pins them.
 - `core/common/.../network/interceptor/TurnstileSolver.kt`: attach/detach, the isolated-world probe,
   the press cadence, the headless layout, the solve deadline and the
   clearance poll (net-new). `Solve` carries the phase, owns the solve's timers and cancels them.
@@ -133,6 +136,7 @@ WebView data cleared between each.** The same global search over the same four h
 | 8 | A57, Android 16, WebView 151 | 4 of 4 solved on a third physical device |
 | 9, 11 | fold-to-unfold mid-solve | 8 of 8 solved across two runs; a ninth stalled in an earlier one |
 | 10 | forced never-verify | 4 of 4 gave up at first press plus 20.00s, after five presses each |
+| 12-15 | re-run after the extraction | 4 of 4 on each of the normal, events-only, never-verify and no-window paths |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
 killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
@@ -340,6 +344,17 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   nothing and cost the caller its whole thirty seconds, where the solver-off path fails in about two.
   Gated on the phase now. The decision is read on the solve's own thread rather than the bridge
   thread that delivers the event, so an `interactiveBegin` already in flight cannot be overtaken.
+- **The solve's timing decisions live in `SolveMachine` and are unit-tested.** Every bug this feature
+  has produced lived in the same twenty lines, and only a device run could catch any of them:
+  `View.postDelayed` never firing on a detached view, a phase that could fall back, an acceptance
+  asked for twice, and a deadline a pressing solve could outrun. Measured before moving anything,
+  `attach` was 188 lines of which five touched Android, so the decisions came out behind a clock and
+  a scheduler passed as lambdas and `attach` kept the wiring. `Solve` keeps its public shape, so
+  `CloudflareInterceptor` did not move at all. Thirteen tests, each verified by mutation; three of
+  the four defects above would now be caught by them, and the fourth is platform behaviour that
+  stays device-only. Writing them found one more: the press cooldown measured against a zero
+  `lastPress`, which would have swallowed a first press on a clock reading under four seconds,
+  unreachable with `uptimeMillis` and wrong regardless.
 - **Only a solve's first press extends its deadline, and the reason is a bug that shipped for a few
   hours.** The audit moved the deadline from the first press to arming, so a solve that never
   presses is bounded too, and let every press push it out again on the argument that Cloudflare may
