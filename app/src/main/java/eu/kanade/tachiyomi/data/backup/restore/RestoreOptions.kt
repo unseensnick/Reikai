@@ -66,7 +66,8 @@ data class RestoreOptions(
             appSettings = array[2],
             extensionStores = array[3],
             sourceSettings = array[4],
-            savedSearches = array[5],
+            // RK: see BackupOptions.fromBooleanArray.
+            savedSearches = array.getOrElse(5) { true },
         )
     }
 

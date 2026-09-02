@@ -145,7 +145,10 @@ data class BackupOptions(
             extensionStores = array[10],
             sourceSettings = array[11],
             privateSettings = array[12],
-            savedSearches = array[13],
+            // RK: a job queued before this option existed carries a shorter array and would throw on
+            //     the index when it finally runs. Every option added after this one reads the same way.
+            //     The array is positional by upstream's design, which is what makes that possible.
+            savedSearches = array.getOrElse(13) { true },
         )
     }
 
