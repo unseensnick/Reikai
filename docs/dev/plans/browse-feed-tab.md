@@ -2,77 +2,255 @@
 
 ## Goal
 
-Give Browse a Feed surface: rows of recent entries pulled straight from your sources, so you can see what a source has just added without opening each one. Requires saved searches, which Reikai does not have at all, so the two ship together.
+Give Browse an opt-in Feed tab: one row per source showing what that source has right now, either its
+Latest listing or a saved search you attached to it, for manga sources and light-novel plugins alike.
+Saved searches ship with it, because a feed row is defined in terms of one: a saved search is a named,
+re-applyable query plus filter set for a single source, which Reikai has never had in any form.
 
 ## Why
 
-Requested in `unseensnick/Reikai#54`, asking for Komikku's Feed tab. The issue text was AI-expanded and named details Komikku does not actually have (a 20-item-per-row list, a quick NSFW toggle in search filters); the requester confirmed the intent is a straight port of Komikku's feature.
+Requested in `unseensnick/Reikai#54`, asking for Komikku's Feed tab. The issue text was AI-expanded and
+named details Komikku does not have (a 20-item-per-row list, a quick NSFW toggle in search filters);
+the requester confirmed the intent is a straight port of the feature as Komikku ships it.
 
-Reikai's Browse today is source list + global search only. The nearest things to a feed are Updates (chapters of library entries) and History, both library-scoped, so there is no way to watch a source you have not committed to. Saved searches are the same shape of gap: every browse filter set is thrown away when you leave the screen.
+Reikai's Browse is Sources, Extensions and Migrate plus global search, so there is no way to watch a
+source you have not committed to. Updates and History are both library-scoped, and they answer "what
+got a new chapter", not "what has this source got". Saved searches are the same gap from the other
+side: every browse filter set is discarded when the screen closes. The 2026-07-04 Komikku parity audit
+rates saved searches the top browse gap.
 
-Both items were previously parked in `ROADMAP.md` (saved searches as "low value", Feed as depending on it). The 2026-07-04 Komikku parity audit rates saved searches the top browse gap.
+Saved search is a TachiyomiSY feature Komikku inherited rather than wrote. Stock Mihon has none of it,
+no table, no model, no UI, confirmed by grep over `refs/mihon`, so this is a full port with no upstream
+diff to lean on. `refs/tachiyomisy` is cloned as the ancestor to compare against when deciding whether
+a behaviour is Komikku's own.
 
 ## Approach
 
-### What a feed actually is
+### What a feed row is
 
-Not a chapter feed. Each feed row is one source's listing, shown as a horizontal card row of page one of the results:
+Not a chapter feed. Each row is one source's listing, rendered as a horizontal card row of page one:
 
-- No saved search attached: the source's Latest, falling back to Popular when the source does not support latest.
+- No saved search attached: the source's Latest, falling back to Popular where the source has no
+  latest listing.
 - Saved search attached: that search's results.
 
-So a row answers "what has this source got right now", and the Updates tab keeps owning "what got a new chapter". Komikku surfaces this in two places: a global Feed tab in Browse (mixing rows from any source) and a per-source Feed screen used as that source's landing page.
+A row answers "what has this source got right now", and Updates keeps owning "what got a new chapter".
+The feature has two surfaces, as in Komikku: a global Feed tab in Browse mixing rows from any source,
+and a per-source Feed screen that can optionally become that source's landing page.
 
-### Saved searches come first
+### The feed reuses the global-search engine rather than copying it
 
-A saved search is a name plus a query plus the serialized filter state for one source (`saved_search`); a feed row is a source plus an optional pointer to one of those (`feed_saved_search`). Nothing in the feature works without the first table, and the filter serialization is the fiddly part: filters are source-defined objects, so they are stored as JSON and re-applied against a freshly built `FilterList` from that source.
+This is the decision that shapes everything else. Reikai already has the machinery a feed needs.
+`GlobalSearchEngine` fans work across both content types with a per-provider concurrency limiter,
+holds each row as `Loading`, `Success` or `Error`, writes each result under a single state update and
+re-sorts as results land. `BrowseSearchRow` is already the neutral per-source row, carrying a
+`SourceKey`, the source object opaquely, and that tri-state. `SearchResultSection` already renders such
+a row as a heading over `EntrySearchCardRow`, per content type, which is exactly a Komikku feed row.
 
-Saved search is a TachiyomiSY feature that Komikku inherited, not a Komikku original. Stock Mihon has none of it (no table, no model, no UI), so this is a full port rather than a diff against upstream. Reikai also once had this layer on the Yōkai side; `design/library-compose` still carries a DB + serializer implementation worth reading before writing a new one.
+A feed differs from a global search in two ways only: the rows come from a table instead of the source
+list, and the per-row verb fetches a listing instead of running a query. Komikku duplicates its search
+fan-out inside `FeedScreenModel`; Reikai must not, because both halves would be Reikai-owned and the
+engine-twin exemption in `.claude/rules/content-layer.md` covers only a Reikai-to-Mihon twin. The
+fan-out is therefore extracted from `GlobalSearchEngine` into a kernel both callers use, and
+`SearchResultSection` moves out of the global-search screen into a shared file.
 
-Komikku's own additions on top of SY: saved-search chips on the browse toolbar (with the selected chip tracking the active listing), feed row ordering (a `feed_order` column plus a reorder screen), and dedup on insert so re-saving an identical search returns the existing row.
+### Saved searches: one table, keyed by the neutral source identity
 
-### Suggested staging
+Komikku's `saved_search.source` is an `INTEGER`, which cannot hold a light-novel plugin's slug id.
+Reikai already has the answer: `SourceKey.serialize` produces a prefixed on-disk form (`manga:123`,
+`novel:novelbin`) with a matching `parse`, and it is already the format the last-used-source preference
+persists. The saved-search table therefore keys on a `TEXT` serialized `SourceKey`, which gives both
+content types one table with no twin to keep in step. This is the first time a `SourceKey` is persisted
+to SQL rather than to preferences.
 
-Each stage is useful on its own, so the work can stop at any of them:
+`feed_saved_search` follows Komikku's shape: a source, a nullable saved-search reference with a
+cascading delete, a global flag separating the Browse tab's rows from a source's own, and Komikku's
+`feed_order` column.
 
-1. **Saved searches on browse.** `saved_search` table + mapper + repository + the get/insert/delete interactors, save/apply/delete from the filter sheet, chips on the browse toolbar. No feed anywhere. This alone closes the audit's top browse gap.
-2. **Per-source Feed screen.** `feed_saved_search`, the source-scoped feed as a source landing surface, add-to-feed from a saved-search long-press.
-3. **Global Feed tab.** The Browse-level tab, the add-source/add-search dialogs, the row cap, optional row reordering.
-4. **Backup + sync.** Saved searches and feed rows in the backup proto and the restore path, so they survive a reinstall. Skipping this means a restore silently drops the whole feed.
+### The filter payload is one column and two typed readers
 
-### Reikai-specific considerations
+The stored filter state is an opaque `TEXT` column as far as the table is concerned; what it contains
+is a typed capability each adapter answers for, never a branch inside shared code.
 
-- **Novels.** Reikai's Browse is unified across content types via the content-type chips, so a feed that only understands manga `CatalogueSource` will look broken next to them. Open question: whether LN plugins expose enough of a filter contract for a saved search to round-trip, and whether a novel feed row can fall back to Popular the same way. Decide before Stage 1 lands, since it shapes the table's source key (manga sources are `Long` ids, novel sources are `String`).
-- **Merged entries.** Feed rows show raw source results, so a title already in a merge group will appear per source. Komikku only offers a hide-entries-already-in-library filter; whether that is enough here is untested.
-- **Tab placement.** Komikku hangs Feed off Browse alongside Sources / Extensions / Migrate. Reikai's Browse tab is Reikai-owned, so the feed tab is an addition to that surface rather than a `// RK` island in a Mihon file.
-- **Adult sources.** SY's `EXHSavedSearch` model exists because EH tag searches are the heaviest saved-search user. If the EH browse path is meant to benefit, check that its filter state serializes like a normal source's.
+- **Manga** uses the reflective serializer ported from Komikku (`FilterSerializer` plus its per-type
+  serializers). It writes a JSON array positionally parallel to the source's `FilterList`, with each
+  filter's values stringified alongside a class-name map so they can be re-parsed.
+- **Novels** need almost nothing. The filter draft is already a `Map<String, JsonElement>` in
+  `NovelBrowseState.filterValues`, and `buildOptions` already turns it into the JSON the plugin reads.
+  A novel saved search stores that map.
 
-### Adjacent gaps from the same issue
+The two degrade differently under drift, which is worth knowing before debugging one. The manga
+deserializer zips the stored array against the live `FilterList` **by position**, so a source that adds,
+removes or reorders a filter can apply saved values to the wrong filter. Komikku's one meaningful
+safety addition over TachiyomiSY is a try/catch around each element, turning a single unrecognised
+filter into a skipped one instead of a lost search; port that, it is the difference between partial and
+total failure. The novel side has no such hazard by construction: values are looked up by filter key
+and fall back to the plugin's declared default, so an unknown key is ignored and a missing one is
+defaulted.
 
-Neither is part of the feed, both surfaced while checking it:
+The old Yokai implementation on `design/library-compose` (`FilterSerializer`, `FilterTypeSerializer`)
+is **not** the one to port despite being ours. It has the same positional zip, plus two hazards
+Komikku's lacks: it mutates the caller's `FilterList` in place, and a type mismatch throws and degrades
+the whole entry to no filters at all.
 
-- **Migration source-list search.** Komikku has a debounced comma-separated search over the migrate source list (name, source name, source id); Reikai's migrate tab has content-type chips and sort toggles but no search field. Independent of everything above.
-- **Quick NSFW toggle in browse.** Not a Komikku feature (they only have the Settings > Browse switch that needs a restart), so it would be net-new. `ROADMAP.md` already carries an NSFW-only filter under source-list & row polish; fold it there rather than here.
+### Applying a saved search
+
+Opening a saved search means opening the catalogue with its query and filters already set, which the
+catalogue cannot do today: `BrowseSourceViewModel`'s init overwrites its filters with a fresh
+`source.getFilterList()` even when the incoming listing carried some, and its assisted factory takes
+only a listing query string. Komikku threads a `savedSearch` id through its browse screen's constructor
+and resolves it in the model. Reikai does the same, adding a nullable saved-search id to
+`EntryCatalogueScreen` (Voyager-serializable) and to both models' assisted factories, with a `// RK`
+fence on the manga model so a supplied search survives init.
+
+### The four preferences
+
+Komikku ships four, all defaulting to the feature being on. Reikai ships the feature **opt-in**, so the
+first is inverted in both name and default:
+
+| Reikai | Komikku | Reikai default | Effect |
+|---|---|---|---|
+| Show Feed tab | `hide_latest_tab`, inverted | off | Whether the tab exists at all |
+| Feed tab position | `latest_tab_position` | off | Move Feed first, making it Browse's landing tab |
+| Hide in-library entries in the feed | `feed_hide_in_library_items` | off | Feed-scoped twin of the browse setting Reikai has |
+| Open sources on their feed | `use_new_source_navigation` | off | Whether a source tap opens its feed or the catalogue |
+
+Naming the switch "Show Feed tab" rather than "Hide Feed tab" is deliberate: the summary then describes
+what enabling it does, and no preference key has a default of `true` that means "off".
+
+The last one is the largest behavioural switch in the feature, and defaulting it off is what keeps this
+port from changing anything a current user sees. With it off, tapping a source row or a details screen's
+source name keeps opening `EntryCatalogueScreen` exactly as today, and the Sources row's Latest button
+keeps its existing capability gate. With it on, the per-source feed becomes the front door and the
+Latest button hides, because the feed already leads with latest; Komikku expresses that same rule as
+`GetShowLatest` returning the negation of the preference.
+
+### Tab order
+
+Sources, Feed, Extensions, Migrate, which is Komikku's own default order, plus the position toggle that
+moves Feed first. `BrowseTab` currently hardcodes `scrollToPage(1)` for the switch-to-extensions
+channel, so that index moves with Extensions, and it has to be derived from the built tab list rather
+than written as a second literal, because the position toggle can shift it again at runtime.
+
+### Build order
+
+Nine steps, in order, each landing both content types in the same commit per the write-once rule, and
+each ending at a check that can fail.
+
+1. **The data layer.** `41.sqm` plus `saved_search.sq` and `feed_saved_search.sq`, both keyed by a
+   serialized `SourceKey`; repositories and interactors under `reikai.data` and `reikai.domain`
+   following the `merge_group` stack; Metro annotations only, nothing added to `AppGraph`. Depends on
+   nothing, unblocks everything. **Check:** a repository test on an in-memory database copying
+   `MergeGroupRepositoryTest`, inserting and reading back one manga-keyed and one novel-keyed row, and
+   proving the cascade removes a feed row when its saved search goes.
+2. **The filter payload.** Port Komikku's serializer for manga with its per-element try/catch, add the
+   novel codec, both behind one typed slot per adapter. **Check:** one test parameterized over both
+   content types round-tripping a filter set, plus drift cases (a filter added, removed and reordered)
+   asserting partial application rather than a throw. Verified by mutation.
+3. **Save, apply and delete on the catalogue.** Toolbar chips, the create and delete dialogs, and the
+   saved-search id threaded into `EntryCatalogueScreen` and both models. Depends on 1 and 2. This is
+   the point saved searches ship as a feature, with no feed anywhere. **Check:** on device, save a
+   filtered search on a manga source and on a novel source, leave, reopen from the chip, and confirm the
+   results match the pre-save set.
+4. **The preferences and their settings group.** The four switches above, in Browse settings. Depends
+   on nothing; sequenced here so the feed steps have their gates to hang on. **Check:** each switch read
+   from a screenshot rather than inferred from a row being present, since this settings DSL exposes no
+   checked state to a UI dump.
+5. **Extract the fan-out kernel.** Lift the row-filling loop out of `GlobalSearchEngine` and make
+   `SearchResultSection` shared. Global search behaviour must not change. **Check:** global search's
+   existing tests plus a device pass over a multi-source search, before any feed code exists.
+6. **The global Feed tab.** One screen over the kernel, rows from the table, the per-row verb being
+   latest-else-popular or a saved search, Komikku's cap of 20 rows, add and remove, and the tab wired
+   into `BrowseTab` behind its preference with the page index derived rather than hardcoded. Depends on
+   1 through 5. **Check:** on device, a feed mixing manga and novel rows, one row on a source without
+   latest showing Popular rather than an empty row, and one erroring row leaving its neighbours intact.
+7. **The per-source feed and source navigation.** The per-source Feed screen, the source-navigation
+   preference, and the conditional hiding of the Sources row's Latest button. Depends on 6. **Check:**
+   with the preference off, a source tap still opens the catalogue; with it on, it opens the feed and
+   the Latest button is gone, on both content types.
+8. **Backup and restore.** Proto fields 715 and 716, a creator and a restorer following Reikai's
+   streamed backup shape, and a `BackupOptions` gate. Re-link by value, never by id. Depends on 1.
+   **Check:** back up, wipe app data, restore, and confirm a manga and a novel saved search plus their
+   feed rows return; separately confirm a feed row whose source is not installed restores without
+   crashing.
+9. **Docs.** This doc's Status, the CHANGELOG entries, the ROADMAP moves, and the two stale
+   `NovelSource` KDocs corrected in passing.
 
 ## Key files
 
-Reference implementation in `refs/komikku`:
+Reference implementations:
 
-- Data: `data/src/main/sqldelight/tachiyomi/data/saved_search.sq`, `feed_saved_search.sq`, migrations `12.sqm` / `13.sqm` / `33.sqm`; `data/.../source/SavedSearchMapper.kt`, `SavedSearchRepositoryImpl.kt`, `FeedSavedSearchMapper.kt`, `FeedSavedSearchRepositoryImpl.kt`.
-- Domain: `domain/.../source/model/SavedSearch.kt`, `EXHSavedSearch.kt`, `FeedSavedSearch.kt`, `FeedSavedSearchUpdate.kt`; the matching repositories; thirteen interactors under `domain/.../source/interactor/` (`GetSavedSearchBySourceId`, `InsertFeedSavedSearch`, `ReorderFeed`, and so on). DI in `SYDomainModule.kt`.
-- UI: `ui/browse/feed/FeedTab.kt` + `FeedScreenModel.kt` (holds the `MaxFeedItems` cap), `ui/browse/source/feed/SourceFeedScreenModel.kt`, `presentation/browse/FeedScreen.kt`, `FeedOrderScreen.kt`, `ui/browse/source/browse/SavedSearchItem.kt`, plus the chip block in `BrowseSourceScreen.kt`.
-- Backup/sync touch-points: `Backup.kt`, `BackupCreator.kt`, `BackupRestorer.kt`, `BackupOptions.kt`, `SyncService.kt`.
+- `refs/komikku`, the port source. Data in `data/src/main/sqldelight/tachiyomi/data/saved_search.sq`
+  and `feed_saved_search.sq`; domain models and interactors under `domain/.../source/`; the serializer
+  at `source-api/src/commonMain/kotlin/xyz/nulldev/ts/api/http/serializer/FilterSerializer.kt` (Reikai's
+  `source-api` is no longer multiplatform, so it lands under `src/main/kotlin`); UI in
+  `ui/browse/feed/FeedScreenModel.kt`, `ui/browse/source/feed/SourceFeedScreenModel.kt` and the matching
+  screens under `presentation/browse/`; backup in `FeedBackupCreator.kt`, `FeedRestorer.kt` and
+  `BackupFeed.kt`; preferences in `UiPreferences.kt` and `SourcePreferences.kt`.
+- `refs/tachiyomisy`, the ancestor. Compare against it to tell a Komikku addition from an inherited
+  behaviour; `feed_order`, the reorder screens, the insert dedup and the per-element try/catch are all
+  Komikku's own.
+- `design/library-compose` carries the old Yokai saved-search layer. Read it for context, do not port
+  it; see the filter-payload note above.
 
-Reikai side: `ui/home/HomeScreen.kt` (tab list), the Reikai-owned browse tabs under `reikai/presentation/browse/`, `reikai/presentation/components/ContentTypeFilterChips.kt`. Prior Reikai implementation of the data layer: branch `design/library-compose`.
+Reikai side, the files this touches:
+
+- Identity and persistence: `reikai/domain/source/SourceKey.kt` (`serialize`, `parse`).
+- The engine being extended: `reikai/presentation/browse/globalsearch/GlobalSearchEngine.kt`,
+  `GlobalSearchProvider.kt`, `BrowseSearchRow.kt`, and `EntryGlobalSearchScreen.kt`'s
+  `SearchResultSection`.
+- The rendering leaves, already shared: `reikai/presentation/browse/EntrySearchSection.kt` and
+  `EntrySearchCardRow.kt`.
+- The catalogue: `reikai/presentation/browse/catalogue/EntryCatalogueScreen.kt`,
+  `EntryBrowseBehavior.kt`, and the two models `BrowseSourceViewModel` (Mihon's, live and synced, needs
+  an `// RK` fence) and `reikai/presentation/novel/browse/NovelBrowseViewModel.kt` (`buildOptions`,
+  `filterValues`).
+- The tab host: `eu/kanade/tachiyomi/ui/browse/BrowseTab.kt` (Mihon's, already `// RK` fenced).
+- Backup: `data/backup/models/Backup.kt`, `create/BackupCreator.kt`, `restore/BackupRestorer.kt` and
+  `create/BackupOptions.kt`, all Mihon's and all already fenced.
+- The test template: `app/src/test/java/reikai/data/merge/MergeGroupRepositoryTest.kt`.
 
 ## Status
 
-Not started, no committed timeline. Roughly 2,800 lines in the reference across ~35 files, weighted heavily toward UI: the data + domain core is ~700 lines of near-verbatim boilerplate, the feed screens are the real cost. Stage 1 alone is closer to 400-500 lines.
+Not started. Scouted and planned 2026-09-02 against current code, replacing an earlier plan written
+before the browse takeover, which had gone stale in most of its specifics.
+
+Sized at roughly 2,000 lines plus tests, against about 2,460 in the Komikku reference, the difference
+being the fan-out and row rendering Reikai already owns. Committed to 0.4.0 as a ride-along: it does
+not displace either gate item (the tsundoku reader migration and Road B) and does not move the cut.
+
+The schema version is 41 with migrations numbered through 40, so the next migration file is `41.sqm`
+and the schema becomes 42. No `versionCode` bump is needed: this adds a SQLDelight migration, not a
+preference migration. Komikku's `MoveLatestToFeedMigration` is deliberately not ported, since it exists
+only to bridge legacy TachiyomiSY preference keys that Reikai never had.
 
 ## Decisions & tradeoffs
 
-- **Saved searches are not optional.** They were parked as low value on their own, but a feed row is defined in terms of one, so the port order is forced. Stage 1 exists so the saved-search half can ship and be judged before committing to the feed screens.
-- **No per-row item cap.** Komikku's 20 is a cap on how many feed rows you may add (counted separately for the global feed and each source's feed), not items per row; rows just render whatever page one returns. Keep that shape unless there is a reason not to.
-- **All sources, not just latest-capable ones.** Komikku deliberately dropped SY's `supportsLatest` filter and falls back to Popular. Worth keeping: the alternative silently hides sources from the add dialog.
-- **Feed ordering is deferrable.** The `feed_order` column and reorder screen are a Komikku addition, not part of the core feature; adding the column up front is cheaper than migrating for it later, but the reorder UI can wait.
-- **Backup integration is not optional in the long run.** A feed that a restore wipes is worse than no feed, so Stage 4 is a requirement of "done", not a nice-to-have.
+- **The feed is a second consumer of the search fan-out, not a second engine.** Copying Komikku's
+  structure would put the same concurrency, error and ordering rules in two Reikai-owned files, which
+  the content-layer rules treat as ordinary duplication with no exemption available.
+- **One saved-search table for both content types, keyed by a serialized `SourceKey`.** The
+  alternative, Komikku's integer source column, forces either a second novel table or a lossy id
+  encoding.
+- **The filter payload is a typed capability, not a nullable column pair.** Each type reads the same
+  column its own way, and neither can read the other's.
+- **Port Komikku's serializer, not Reikai's own older one.** Ours is on a branch and would need no
+  translation, but it is strictly worse: same positional fragility, plus in-place mutation of the
+  caller's filter list and total rather than partial failure on a type mismatch.
+- **Opt-in, against Komikku's opt-out.** All four of Komikku's switches default to the feature being on,
+  including making the per-source feed every source's landing page. Reikai ships the tab hidden and the
+  source navigation unchanged, so installing this build changes nothing until the user asks for it.
+- **"Feed" stays the name on both Browse and Recents.** Both surfaces are opt-in and default off, they
+  live in different bottom-nav tabs and can never be on screen together, and the word means the same
+  thing in both. They are kept apart in code by package and preference-key prefix rather than by name.
+- **`feed_order` ships as a column, the reorder screen does not.** Adding the column up front is
+  cheaper than migrating for it later, and the reorder UI is a Komikku addition rather than part of the
+  feature. Komikku does not back that column up, so a restore flattens row order there; including it in
+  the backup avoids repeating that.
+- **The per-source feed is built.** It was a candidate cut, since the shared catalogue already opens on
+  Latest or Popular with saved-search chips, but the request was for the feature as Komikku ships it.
+- **The adult-source saved-search specialization is not ported.** Komikku's `EXHSavedSearch` exists to
+  hold a deserialized filter list for the heaviest saved-search user; revisit if the adult browse path
+  turns out to need it.
+
+Part of the broader [unified-content-ui](unified-content-ui.md) initiative.
