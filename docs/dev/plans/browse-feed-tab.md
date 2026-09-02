@@ -258,7 +258,8 @@ taken on the phone restored onto a wiped emulator install brought back the saved
 feed rows, re-linked to the ids the restore produced, and restoring the same file twice changed
 nothing. The reorder, multi-select, the mixed-batch prompts and a config change holding a live
 selection were then re-run on the foldable's wide layout, where the navigation rail sits outside the
-scaffold the selection toolbar replaces.
+scaffold the selection toolbar replaces. Unfolding mid-selection was watched on the device itself: the
+bar reflows from the bottom navigation to the rail, and the batch comes through it whole.
 
 **Two fixes rest on reading rather than a run**, both for want of a source that provokes them: a feed
 row whose source is uninstalled rendering as unavailable, and a saved dropdown whose option list has
