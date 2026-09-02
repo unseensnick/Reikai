@@ -106,7 +106,7 @@ deletion and the per-host lock all run either way.
 
 Shipped off by default, first in `14d3d54c1` and since through two preview builds. Device-verified on
 the Fold over a VPN across repeated cold starts with cookies and WebView data cleared between runs.
-Still labelled experimental in the switch's own summary; the graduation ruling is a roadmap item.
+No longer labelled experimental, and still off by default; whether it defaults on is a roadmap item.
 
 **A whole-feature audit found four cases where turning the solver on was worse than leaving it off,
 and all four are fixed.** A challenge served after a redirect was watched at the wrong origin and
@@ -118,6 +118,45 @@ the jar wrote a host-only expiry against a cookie Cloudflare stores on the paren
 path, which let a queued sibling trust a refused round and retry into a 403. The audit also moved the
 interstitial test into the probe script, gave a solve ownership of its own timers and deadline, and
 scoped the challenge events it trusts to Cloudflare's own frame and the page.
+
+**The audit's fixes were verified on the Fold across five rounds, on one VPN exit, cookies and
+WebView data cleared between each.** The same global search over the same four hosts every time.
+
+| round | configuration | result |
+|---|---|---|
+| 1 | solver on, window | 4 of 4 solved, 179 to 260ms from `complete` to accept |
+| 2 | solver off | 4 of 4 failed in about 6 seconds, at `interactiveBegin` |
+| 3 | no isolated world forced | 4 of 4 solved, 251 to 253ms |
+| 4 | no window forced | 4 of 4 solved, 251 to 254ms |
+| 5 | real background update | 1 of 1 solved, 124ms, in a process with no activity |
+
+Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
+killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
+12:12:32. The solver logged `arming without a window` 1.5 seconds later with both spike overrides
+off, which can only mean `ForegroundActivity.current` was null, and `aquareader.org` went
+interactive, was pressed and was accepted 1.2 seconds later.
+
+**Interactive to accepted is now 1.29 to 1.47 seconds**, against the 2.2 to 3.1 measured before this
+work. No `gave up`, no `not armed`, no `page reads clear`, no crash and no WebView-thread violation in
+any round.
+
+Three of those rounds settle a specific fix rather than the feature:
+
+- **`toonily.com` accepted through `complete` in round 1, in 1.29 seconds.** It is the host that
+  embeds `turnstile-wrapper` on its own pages, so its markup can never read clear, and it used to be
+  rescued by the post-latch jar check at around ten seconds. Running the clearance poll on both paths
+  is what changed that.
+- **Round 3 accepted at 251 to 253ms on every host, which is exactly one 250ms poll tick.** So the
+  single acceptance attempt made on the event failed four times out of four, and the poll alone
+  carried that path. "Always too early" is now measured rather than argued.
+- **Round 3 also produced no WebView-thread violation.** On that path the press is driven straight
+  off the `mihon` bridge, which Android delivers on its JavaBridge thread; before the fix that
+  dispatched key events off the main thread and survived only because Chromium bounces them.
+
+**The experimental label came off after this.** What it was communicating, that the feature had four
+cases where arming it was worse than leaving it off, is no longer true. The switch still ships off by
+default, and the remaining gap is breadth rather than correctness: one device, one WebView build, one
+exit. That is a better thing for the default to carry than for the wording to.
 
 Four or five challenged hosts in one global search clear in **2.9 to 3.9 seconds**, in parallel,
 with no failures and no keyboard disruption: `aquareader.org`, `comix.to`, `comick.live`,
@@ -668,9 +707,10 @@ done.
 
 ## Open
 
-- **Breadth.** Six hosts, one device, one VPN. Forty-four solves say the mechanism is reliable on
-  those; nothing says how it behaves on a host with a different challenge configuration, or on a
-  second device. The switch stays off by default until both are answered.
+- **Breadth.** Six hosts, one device, one VPN. Forty-four solves before the audit and seventeen
+  after say the mechanism is reliable on those; nothing says how it behaves on a host with a
+  different challenge configuration, or on a second device. The switch stays off by default until
+  both are answered, which is what the default now carries instead of the experimental wording.
 - **Upstream declined the solver, and the script is permanently ours.** mihonapp/mihon#3858 is still
   open, but the solver has been stripped out of it (`0a1f07d`, `0885493`, `a80aaaa`, all titled
   "remove solver"). `AntsyLich` gave the reason in

@@ -843,7 +843,7 @@
     <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
     <!-- RK: in-WebView solver for interactive Cloudflare challenges -->
     <string name="pref_enable_turnstile_solver">Solve interactive Cloudflare challenges</string>
-    <string name="pref_enable_turnstile_solver_summary">Tick the verification box for you instead of giving up on the challenge. Experimental</string>
+    <string name="pref_enable_turnstile_solver_summary">Tick the verification box for you instead of giving up on the challenge</string>
     <string name="pref_enable_turnstile_background_solver">Solve with the app closed</string>
     <string name="pref_enable_turnstile_background_solver_summary">Lets library updates get past a challenge when the app is not open</string>
     <string name="pref_test_flaresolverr">Test FlareSolverr</string>
