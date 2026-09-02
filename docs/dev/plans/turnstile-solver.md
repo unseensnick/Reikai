@@ -131,6 +131,7 @@ WebView data cleared between each.** The same global search over the same four h
 | 5 | real background update | 1 of 1 solved, 124ms, in a process with no activity |
 | 6 | emulator, WebView 124 | 4 of 4 solved on a genuinely absent isolated world |
 | 7 | A22, Android 13, WebView 150 | 2 of 2 solved on a second physical device |
+| 8 | A57, Android 16, WebView 151 | 4 of 4 solved on a third physical device |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
 killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
@@ -156,22 +157,28 @@ retroactively makes the forced round worth what it claimed.
 
 What breadth still lacks is a second *physical* device and hosts beyond the six.
 
-**A seventh round ran on a second physical device**, a Galaxy A22 (SM-A226B) on Android 13 with
-WebView **150.0.7871.124**, restored from the same backup and on its own VPN. Two hosts challenged
-and both solved, at 254 and 257ms from `complete` to accepted. No give-up, no failure, no crash. The
-isolated world is present there, so this is the probe path on hardware and an Android version the
-feature had never run on.
+**An eighth round ran on a third physical device**, a Galaxy A57 (SM-A576B) on Android 16 with
+WebView **151.0.7922.199**, restored from the same backup. Four hosts challenged and all four solved,
+at 235 to 272ms from `complete` to accepted. No give-up, no failure, no crash.
 
-That gives the feature three WebView builds across three machines:
+That gives the feature four WebView builds across four machines:
 
-| where | WebView | path exercised | result |
-|---|---|---|---|
-| Fold | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
-| emulator, Android 15 | 124.0.6367.219 | no isolated world, genuinely absent | 4 of 4 |
-| A22, Android 13 | 150.0.7871.124 | probe | 2 of 2 |
+| where | Android | WebView | path exercised | result |
+|---|---|---|---|---|
+| Fold | | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
+| emulator | 15 | 124.0.6367.219 | no isolated world, genuinely absent | 4 of 4 |
+| A22 | 13 | 150.0.7871.124 | probe | 2 of 2 |
+| A57 | 16 | 151.0.7922.199 | probe | 4 of 4 |
 
-The accept lag holds across all three at roughly a quarter of a second, and the only run that differs
-is the one with no probe, which needs a second poll tick about half the time.
+The accept lag holds at roughly a quarter of a second on every one of them, and the only run that
+differs is the one with no probe, which needs a second poll tick about half the time.
+
+**A pinned user agent invalidates a solver test, so check it before every run.** The A57's
+first attempt had a FlareSolverr browser string still set as the app-wide agent, which makes
+Cloudflare re-challenge everything, and every host reported a failure. Resetting the agent and
+re-running gave the four-of-four above on the same device and the same exit. Read
+`Settings -> Advanced -> Default user agent string` before trusting a round: it should be the
+Chrome/149 default, and anything else means the run measures the agent rather than the solver.
 
 **Interactive to accepted is now 1.29 to 1.47 seconds**, against the 2.2 to 3.1 measured before this
 work. No `gave up`, no `not armed`, no `page reads clear`, no crash and no WebView-thread violation in
@@ -744,8 +751,8 @@ done.
 
 ## Open
 
-- **Breadth.** Six hosts, three WebView builds, two physical devices and an emulator. Forty-four
-  solves before the audit and twenty-three after, including four on a WebView with no isolated world
+- **Breadth.** Six hosts, four WebView builds, three physical devices and an emulator. Forty-four
+  solves before the audit and twenty-seven after, including four on a WebView with no isolated world
   at all, say the mechanism is reliable on those. What is still unanswered is a host with a
   challenge configuration none of the six use. The switch stays off by default until it is, which is
   what the default now carries instead of the experimental wording.
