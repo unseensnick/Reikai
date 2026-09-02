@@ -207,6 +207,10 @@ class NovelBrowseViewModel(
     fun setFilterValue(key: String, value: JsonElement) =
         state.update { it.copy(filterValues = it.filterValues + (key to value)) }
 
+    /** Replace the whole draft at once, which restoring a saved search does before applying it. */
+    fun setFilterValues(values: Map<String, JsonElement>) =
+        state.update { it.copy(filterValues = values) }
+
     fun resetFilters() =
         state.update { it.copy(filterValues = defaultFilterValues(it.source?.filters)) }
 

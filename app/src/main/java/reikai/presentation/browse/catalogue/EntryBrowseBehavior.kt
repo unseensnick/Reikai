@@ -34,6 +34,12 @@ interface EntryBrowseBehavior {
     fun openFilterSheet()
     fun resetFilters()
 
+    /** The listing as it stands, in the form a saved search stores. */
+    fun captureSearch(): SavedSearchDraft
+
+    /** Show what a saved search held. Both parts are applied together where the source takes both. */
+    fun applySearch(query: String?, filtersJson: String?)
+
     // Rows and bulk selection. A row is passed whole so each adapter unwraps its own payload rather
     // than the shared layer keeping a key-to-entry table beside the pager.
     fun onRowLongClick(row: EntryBrowseRow)
@@ -65,4 +71,15 @@ interface EntryBrowseBehavior {
 
     /** Migrate the duplicate at [duplicateId] onto the entry the dialog was raised for. */
     fun startMigrate(duplicateId: Long)
+}
+
+/**
+ * What a saved search records: the committed query, and the source's filters in whatever form its own
+ * content type encodes them. Either may be null, and a draft with neither is not worth saving.
+ *
+ * A light-novel source takes a query or filters but never both, because its search entry point carries
+ * no options; a manga source takes both at once. So both fields are kept, and applying decides.
+ */
+data class SavedSearchDraft(val query: String?, val filtersJson: String?) {
+    val isEmpty: Boolean get() = query.isNullOrBlank() && filtersJson == null
 }

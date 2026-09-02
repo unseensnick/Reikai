@@ -42,6 +42,8 @@ fun EntryCatalogueToolbar(
     onCloseSearch: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     onToggleSelectionMode: (() -> Unit)? = null,
+    /** Null when the listing on screen holds nothing worth saving, which hides the action. */
+    onSaveSearchClick: (() -> Unit)? = null,
 ) {
     var selectingDisplayMode by remember { mutableStateOf(false) }
 
@@ -75,6 +77,14 @@ fun EntryCatalogueToolbar(
                                 title = stringResource(MR.strings.action_bulk_select),
                                 icon = Icons.Outlined.Checklist,
                                 onClick = onToggleSelectionMode,
+                            ),
+                        )
+                    }
+                    if (onSaveSearchClick != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_save_search),
+                                onClick = onSaveSearchClick,
                             ),
                         )
                     }

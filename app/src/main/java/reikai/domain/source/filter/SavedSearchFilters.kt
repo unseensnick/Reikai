@@ -1,8 +1,5 @@
 package reikai.domain.source.filter
 
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -37,8 +34,6 @@ interface SavedSearchFilters<S> {
  * [decode] mutates [current] and returns it, because a `Filter` carries its value in a `var` and the
  * list cannot be copied. Hand it a list built for this call, never one a caller still holds.
  */
-@Inject
-@SingleIn(AppScope::class)
 class MangaSavedSearchFilters : SavedSearchFilters<FilterList> {
 
     // Stateless and not a boundary worth substituting, so it is built here rather than bound.
@@ -64,8 +59,6 @@ class MangaSavedSearchFilters : SavedSearchFilters<FilterList> {
  * saved one the way the positional manga encoding can. A value whose filter is gone stays in the map
  * and is dropped downstream, where the options are built from the schema rather than from this.
  */
-@Inject
-@SingleIn(AppScope::class)
 class NovelSavedSearchFilters : SavedSearchFilters<Map<String, JsonElement>> {
 
     override fun encode(state: Map<String, JsonElement>): String? =

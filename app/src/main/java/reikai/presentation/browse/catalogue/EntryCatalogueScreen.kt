@@ -2,6 +2,7 @@ package reikai.presentation.browse.catalogue
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
@@ -62,6 +64,7 @@ import mihon.app.di.appGraph
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
+import reikai.domain.source.model.SavedSearch
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -249,6 +252,16 @@ class EntryCatalogueScreen(
         val rows = behavior.rows.collectAsLazyPagingItems()
         val snackbarHostState = remember { SnackbarHostState() }
 
+        // Saved searches are the same feature on both content types, so they are held here rather than
+        // in either model: the source is a key, and what a search holds is a string this never reads.
+        val savedSearchModel = assistedMetroViewModel<SavedSearchViewModel, SavedSearchViewModel.Factory> {
+            create(sourceKey = sourceKey)
+        }
+        val savedSearches by savedSearchModel.state.collectAsState()
+        var savedSearchDialog by remember { mutableStateOf<SavedSearchDialog?>(null) }
+        // Which chip reads as applied. Cleared by anything that replaces what it put on screen.
+        var appliedSavedSearchId by remember { mutableStateOf<Long?>(null) }
+
         LaunchedEffect(Unit) {
             queryEvent.receiveAsFlow().collectLatest {
                 when (it) {
@@ -322,13 +335,38 @@ class EntryCatalogueScreen(
                             onWebViewClick = { onWebViewClick(null) },
                             onHelpClick = onHelpClick,
                             onSettingsClick = onOpenSettings,
-                            onSearch = behavior::search,
-                            onCloseSearch = { behavior.search(null) },
+                            onSearch = {
+                                appliedSavedSearchId = null
+                                behavior.search(it)
+                            },
+                            onCloseSearch = {
+                                appliedSavedSearchId = null
+                                behavior.search(null)
+                            },
                             scrollBehavior = scrollBehavior,
                             onToggleSelectionMode = { behavior.setSelectionMode(true) },
+                            // Only offered when there is something to save: a committed search, or
+                            // filters the reader has changed from the source's own defaults.
+                            onSaveSearchClick = { savedSearchDialog = SavedSearchDialog.Create }
+                                .takeIf {
+                                    loaded.filtersActive || loaded.listing is EntryBrowseListing.Search
+                                },
                         )
                     }
-                    ListingChips(loaded, behavior)
+                    ListingChips(
+                        loaded = loaded,
+                        behavior = behavior,
+                        savedSearches = savedSearches,
+                        appliedSavedSearchId = appliedSavedSearchId,
+                        onApplySavedSearch = { search ->
+                            appliedSavedSearchId = search.id
+                            behavior.applySearch(search.query, search.filtersJson)
+                        },
+                        onLongClickSavedSearch = { search ->
+                            savedSearchDialog = SavedSearchDialog.Delete(search.id, search.name)
+                        },
+                        onClearSavedSearch = { appliedSavedSearchId = null },
+                    )
                     HorizontalDivider()
                 }
             },
@@ -404,11 +442,33 @@ class EntryCatalogueScreen(
             )
         }
 
+        when (val dialog = savedSearchDialog) {
+            null -> Unit
+            SavedSearchDialog.Create -> SavedSearchCreateDialog(
+                onDismissRequest = { savedSearchDialog = null },
+                onCreate = { name -> savedSearchModel.save(name, behavior.captureSearch()) },
+                existingNames = savedSearches.map { it.name },
+            )
+            is SavedSearchDialog.Delete -> SavedSearchDeleteDialog(
+                name = dialog.name,
+                onDismissRequest = { savedSearchDialog = null },
+                onDelete = { savedSearchModel.delete(dialog.id) },
+            )
+        }
+
         extraSheets()
     }
 
     @Composable
-    private fun ListingChips(loaded: EntryBrowseScreenState.Loaded, behavior: EntryBrowseBehavior) {
+    private fun ListingChips(
+        loaded: EntryBrowseScreenState.Loaded,
+        behavior: EntryBrowseBehavior,
+        savedSearches: List<SavedSearch>,
+        appliedSavedSearchId: Long?,
+        onApplySavedSearch: (SavedSearch) -> Unit,
+        onLongClickSavedSearch: (SavedSearch) -> Unit,
+        onClearSavedSearch: () -> Unit,
+    ) {
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
@@ -419,14 +479,20 @@ class EntryCatalogueScreen(
                 selected = loaded.listing == EntryBrowseListing.Popular,
                 icon = Icons.Outlined.Favorite,
                 label = stringResource(MR.strings.popular),
-                onClick = { behavior.setListing(EntryBrowseListing.Popular) },
+                onClick = {
+                    onClearSavedSearch()
+                    behavior.setListing(EntryBrowseListing.Popular)
+                },
             )
             if (loaded.supportsLatest) {
                 ListingChip(
                     selected = loaded.listing == EntryBrowseListing.Latest,
                     icon = Icons.Outlined.NewReleases,
                     label = stringResource(MR.strings.latest),
-                    onClick = { behavior.setListing(EntryBrowseListing.Latest) },
+                    onClick = {
+                        onClearSavedSearch()
+                        behavior.setListing(EntryBrowseListing.Latest)
+                    },
                 )
             }
             if (loaded.hasFilters) {
@@ -434,7 +500,23 @@ class EntryCatalogueScreen(
                     selected = loaded.filtersActive,
                     icon = Icons.Outlined.FilterList,
                     label = stringResource(MR.strings.action_filter),
-                    onClick = behavior::openFilterSheet,
+                    onClick = {
+                        // Opening the sheet, not only applying from it: whatever the reader does next
+                        // is theirs, and a chip still lit would claim results that are no longer its.
+                        onClearSavedSearch()
+                        behavior.openFilterSheet()
+                    },
+                )
+            }
+            savedSearches.forEach { search ->
+                SavedSearchChip(
+                    // Lit only until something replaces what it put on screen. Not derived from the
+                    // listing: a filter-only search leaves a novel source on Popular, showing its
+                    // own results, where the manga twin lands on a search.
+                    selected = search.id == appliedSavedSearchId,
+                    label = search.name,
+                    onClick = { onApplySavedSearch(search) },
+                    onLongClick = { onLongClickSavedSearch(search) },
                 )
             }
         }
@@ -452,6 +534,35 @@ class EntryCatalogueScreen(
             onClick = onClick,
             leadingIcon = { Icon(icon, null, Modifier.size(FilterChipDefaults.IconSize)) },
             label = { Text(text = label) },
+        )
+    }
+
+    /**
+     * A saved search: tap to apply, long-press to delete.
+     *
+     * The gesture rides the label rather than the chip's own modifier, because a chip applies its
+     * clickable inside whatever modifier it is given. That makes the chip's handler the deeper node,
+     * so a long press on the outside is swallowed before it can be seen.
+     */
+    @Composable
+    private fun SavedSearchChip(
+        selected: Boolean,
+        label: String,
+        onClick: () -> Unit,
+        onLongClick: () -> Unit,
+    ) {
+        FilterChip(
+            selected = selected,
+            onClick = onClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.BookmarkBorder, null, Modifier.size(FilterChipDefaults.IconSize))
+            },
+            label = {
+                Text(
+                    text = label,
+                    modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+                )
+            },
         )
     }
 
@@ -503,4 +614,10 @@ class EntryCatalogueScreen(
         class Text(txt: String) : SearchType(txt)
         class Genre(txt: String) : SearchType(txt)
     }
+}
+
+/** The two saved-search dialogs the catalogue raises itself, neither of which any model owns. */
+private sealed interface SavedSearchDialog {
+    data object Create : SavedSearchDialog
+    data class Delete(val id: Long, val name: String) : SavedSearchDialog
 }

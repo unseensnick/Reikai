@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.source.filter.MangaSavedSearchFilters
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.components.toDuplicateCard
@@ -47,6 +48,8 @@ class MangaBrowseAdapter(
     @Volatile private var raisedDialog: BrowseSourceViewModel.Dialog? = null
 
     @Volatile private var raisedBulkDialog: EntryBulkFavoriteViewModel.Dialog<Manga>? = null
+
+    private val savedSearchFilters = MangaSavedSearchFilters()
 
     private val capabilities = EntryBrowseCapabilities(
         migrationPick = migrateForId?.let { id ->
@@ -168,6 +171,22 @@ class MangaBrowseAdapter(
     override fun openFilterSheet() = model.openFilterSheet()
 
     override fun resetFilters() = model.resetFilters()
+
+    override fun captureSearch(): SavedSearchDraft {
+        val state = model.state.value
+        return SavedSearchDraft(
+            query = (state.listing as? Listing.Search)?.query?.takeIf { it.isNotBlank() },
+            filtersJson = savedSearchFilters.encode(state.filters),
+        )
+    }
+
+    override fun applySearch(query: String?, filtersJson: String?) {
+        // Onto a list the source builds now rather than the one on screen, so a saved search reads the
+        // source's current defaults for anything it does not carry a value for.
+        val filters = model.source.getFilterList()
+        filtersJson?.let { savedSearchFilters.decode(it, filters) }
+        model.search(query = query, filters = filters)
+    }
 
     override fun onRowLongClick(row: EntryBrowseRow) = model.onLongClick(row.manga)
 

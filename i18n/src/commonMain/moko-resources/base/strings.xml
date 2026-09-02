@@ -1576,4 +1576,9 @@
     <string name="launching_app">Launching app…</string>
     <string name="error_with_reason">Error: %1$s</string>
     <string name="could_not_open_entry">Could not open this entry:\n\n%1$s</string>
+
+    <!-- RK: saved browse searches, on the catalogue's chip row -->
+    <string name="action_save_search">Save search</string>
+    <string name="error_saved_search_exists">A saved search with this name already exists</string>
+    <string name="saved_search_delete_confirmation">Delete the saved search \"%1$s\"?</string>
 </resources>

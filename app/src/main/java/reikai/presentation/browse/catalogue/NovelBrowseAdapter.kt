@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.source.filter.NovelSavedSearchFilters
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.components.toDuplicateCard
@@ -20,6 +21,7 @@ import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
+import reikai.presentation.novel.browse.defaultFilterValues
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
@@ -35,6 +37,8 @@ class NovelBrowseAdapter(
     migrateForId: Long? = null,
     private val onMigrationPicked: () -> Unit = {},
 ) : EntryBrowseBehavior {
+
+    private val savedSearchFilters = NovelSavedSearchFilters()
 
     // Held once so an emission carrying either does not break the state's equality.
     private val reloadSource: () -> Unit = { model.retryLoadSource() }
@@ -194,6 +198,26 @@ class NovelBrowseAdapter(
     override fun openFilterSheet() = model.openFilterSheet()
 
     override fun resetFilters() = model.resetFilters()
+
+    override fun captureSearch(): SavedSearchDraft {
+        val state = model.state.value
+        return SavedSearchDraft(
+            query = state.query.takeIf { it.isNotBlank() },
+            filtersJson = savedSearchFilters.encode(state.filterValues),
+        )
+    }
+
+    override fun applySearch(query: String?, filtersJson: String?) {
+        val defaults = defaultFilterValues(model.state.value.source?.filters)
+        model.setFilterValues(filtersJson?.let { savedSearchFilters.decode(it, defaults) } ?: defaults)
+        // A plugin's search endpoint takes no options, so a query and filters cannot both reach one
+        // request. A saved search carrying a query is a search; otherwise the filters are what runs.
+        if (query.isNullOrBlank()) {
+            model.applyFilters()
+        } else {
+            search(query)
+        }
+    }
 
     override fun onRowLongClick(row: EntryBrowseRow) = model.onLongClickItem(row.item)
 
