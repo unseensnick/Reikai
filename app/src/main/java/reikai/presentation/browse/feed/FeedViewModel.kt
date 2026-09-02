@@ -380,11 +380,13 @@ class FeedViewModel(
             ?.firstOrNull { it.novel.id == entryId }
             ?.let { it.novel.source to it.novel.url }
 
-    fun dismissAddDialog() {
-        raisedManga = null
-        raisedNovel = null
-        state.update { it.copy(addDialog = null) }
-    }
+    /**
+     * Only the dialog goes. What raised it stays until the next long press replaces it, because every
+     * one of these dialogs calls its dismiss before its confirm, so clearing here left each confirm
+     * verb below reading null and doing nothing. The catalogue's adapter keeps its raised dialog for
+     * the same reason.
+     */
+    fun dismissAddDialog() = state.update { it.copy(addDialog = null) }
 
     fun dismissDialog() = state.update { it.copy(dialog = null) }
 }
