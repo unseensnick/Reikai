@@ -33,6 +33,9 @@ interface FeedProvider {
     /** The source behind [key], or null when it is no longer installed. */
     fun source(key: SourceKey): BrowseSearchRow?
 
+    /** Whether the source behind [row] can serve a Latest listing, which decides where a tap lands. */
+    fun supportsLatest(row: BrowseSearchRow): Boolean
+
     /**
      * Page one of what the row shows: [savedSearch] when it carries one, else the source's Latest,
      * falling back to Popular where it has no latest listing.
@@ -62,6 +65,8 @@ class MangaFeedProvider(
 
     override fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Manga)?.let { sourceManager.get(it.id) as? CatalogueSource }?.let(::toRow)
+
+    override fun supportsLatest(row: BrowseSearchRow) = (row.source as CatalogueSource).supportsLatest
 
     override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any> {
         val source = row.source as CatalogueSource
@@ -107,6 +112,8 @@ class NovelFeedProvider(
 
     override fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Novel)?.let { sourceManager.get(it.id) }?.let(::toRow)
+
+    override fun supportsLatest(row: BrowseSearchRow) = (row.source as NovelSource).supportsLatest
 
     override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any> {
         val source = row.source as NovelSource

@@ -101,10 +101,16 @@ class FeedViewModel(
                 savedSearch = search,
                 row = row.copy(id = feed.id.toString(), name = search?.name ?: row.name),
                 sourceName = row.name,
+                supportsLatest = provider.supportsLatest(row),
             )
         }
         state.update { it.copy(entries = entries, loaded = true) }
+        startFilling(entries)
+    }
 
+    /** Runs every waiting row of [entries], replacing whatever pass was already going. */
+    private fun startFilling(entries: List<FeedEntry>) {
+        loadJob?.cancel()
         loadJob = viewModelScope.launchIO {
             fillEntryRows(
                 rows = entries.map { it.row },
@@ -177,6 +183,15 @@ class FeedViewModel(
         getManga.subscribe(initial.url, initial.source).filterNotNull().collectLatest { value = it }
     }
 
+    /** Asks every row again. Nothing else does: a feed left open would otherwise go stale. */
+    fun refresh() {
+        val entries = state.value.entries
+        state.update { current ->
+            current.copy(entries = current.entries.map { it.copy(row = it.row.copy(state = EntrySearchState.Loading)) })
+        }
+        startFilling(entries.map { it.copy(row = it.row.copy(state = EntrySearchState.Loading)) })
+    }
+
     fun dismissDialog() = state.update { it.copy(dialog = null) }
 }
 
@@ -188,6 +203,8 @@ data class FeedEntry(
     val row: BrowseSearchRow,
     /** Named separately because a saved-search row is titled by the search, not by its source. */
     val sourceName: String,
+    /** Where opening this row lands: its Latest, or Popular where the source has no latest. */
+    val supportsLatest: Boolean,
 )
 
 @Immutable

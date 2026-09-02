@@ -1,15 +1,21 @@
 package reikai.presentation.browse.feed
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import reikai.domain.source.model.SavedSearch
@@ -18,18 +24,35 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
-/** Step one of adding a row: which source it watches. */
+/**
+ * Step one of adding a row: which source it watches. Filterable, because every installed source of
+ * both content types is in here and the list runs past a screenful long before that is unusual.
+ */
 @Composable
 fun FeedSourcePickerDialog(
     sources: List<BrowseSearchRow>,
     onDismissRequest: () -> Unit,
     onPick: (BrowseSearchRow) -> Unit,
 ) {
+    var query by remember { mutableStateOf("") }
+    val matching = remember(query, sources) {
+        if (query.isBlank()) sources else sources.filter { it.name.contains(query.trim(), true) }
+    }
+
     PickerDialog(
         title = stringResource(MR.strings.action_add_to_feed),
         onDismissRequest = onDismissRequest,
-        options = sources.map { it.name },
-        onPick = { index -> onPick(sources[index]) },
+        options = matching.map { it.name },
+        onPick = { index -> onPick(matching[index]) },
+        header = {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(text = stringResource(MR.strings.action_search)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
     )
 }
 
@@ -101,6 +124,7 @@ private fun PickerDialog(
     onDismissRequest: () -> Unit,
     options: List<String>,
     onPick: (Int) -> Unit,
+    header: @Composable () -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -111,16 +135,19 @@ private fun PickerDialog(
         },
         title = { Text(text = title) },
         text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                items(options.size) { index ->
-                    Text(
-                        text = options[index],
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(index) }
-                            .padding(vertical = MaterialTheme.padding.medium),
-                    )
+            Column {
+                header()
+                LazyColumn(modifier = Modifier.heightIn(max = 380.dp)) {
+                    items(options.size) { index ->
+                        Text(
+                            text = options[index],
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(index) }
+                                .padding(vertical = MaterialTheme.padding.medium),
+                        )
+                    }
                 }
             }
         },

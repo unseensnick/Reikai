@@ -110,6 +110,8 @@ class EntryCatalogueScreen(
     private val startLatest: Boolean = false,
     /** Set when the screen was opened to choose what an entry migrates to. */
     private val migrateForId: Long? = null,
+    /** Open showing this saved search, for a feed row built on one. */
+    private val savedSearchId: Long? = null,
 ) : Screen(), AssistContentScreen {
 
     private var assistUrl: String? = null
@@ -261,6 +263,15 @@ class EntryCatalogueScreen(
         var savedSearchDialog by remember { mutableStateOf<SavedSearchDialog?>(null) }
         // Which chip reads as applied. Cleared by anything that replaces what it put on screen.
         var appliedSavedSearchId by remember { mutableStateOf<Long?>(null) }
+
+        // Applied once the screen is up rather than before the model is built, which costs one
+        // discarded page of the default listing and keeps the models free of a saved-search read.
+        LaunchedEffect(savedSearchId, savedSearches) {
+            val search = savedSearchId?.let { id -> savedSearches.firstOrNull { it.id == id } } ?: return@LaunchedEffect
+            if (appliedSavedSearchId == search.id) return@LaunchedEffect
+            appliedSavedSearchId = search.id
+            behavior.applySearch(search.query, search.filtersJson)
+        }
 
         LaunchedEffect(Unit) {
             queryEvent.receiveAsFlow().collectLatest {
