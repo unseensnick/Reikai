@@ -198,6 +198,11 @@ class FeedViewModel(
         }
     }
 
+    /** Commits a drag. The table re-emits, which rebuilds and refetches every row once. */
+    fun reorder(orderedFeedIds: List<Long>) {
+        viewModelScope.launchIO { feedRepository.updateOrders(orderedFeedIds) }
+    }
+
     fun confirmRemove(entry: FeedEntry) {
         state.update { it.copy(dialog = FeedDialog.Remove(entry)) }
     }

@@ -1,17 +1,22 @@
 package reikai.presentation.browse.feed
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.core.screen.Screen
@@ -43,17 +48,50 @@ fun Screen.reikaiFeedTab(): TabContent {
     val model = metroViewModel<FeedViewModel>()
     val state by model.state.collectAsState()
 
+    // Reordering is a mode over the same rows rather than a screen of its own, because the resolved
+    // rows live on this model and a pushed screen gets its own store, so it would resolve them again.
+    var reordering by rememberSaveable { mutableStateOf(false) }
+    // Nothing left to arrange, so nothing to keep the mode open for. In an effect rather than inline:
+    // writing state during composition that the same composition reads is what loops it.
+    LaunchedEffect(state.entries.size) { if (state.entries.size < 2) reordering = false }
+
     return TabContent(
         titleRes = MR.strings.label_feed,
-        actions = listOf(
-            AppBar.Action(
-                title = stringResource(MR.strings.action_add_to_feed),
-                icon = Icons.Outlined.Add,
-                onClick = model::openAddDialog,
-            ),
-        ),
+        actions = if (reordering) {
+            listOf(
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_done_reordering),
+                    icon = Icons.Outlined.Close,
+                    onClick = { reordering = false },
+                ),
+            )
+        } else {
+            listOfNotNull(
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_add_to_feed),
+                    icon = Icons.Outlined.Add,
+                    onClick = model::openAddDialog,
+                ),
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_reorder_feed),
+                    icon = Icons.Outlined.SwapVert,
+                    onClick = { reordering = true },
+                ).takeIf { state.entries.size > 1 },
+            )
+        },
         content = { contentPadding, _ ->
-            FeedContent(state, model, contentPadding)
+            BackHandler(enabled = reordering) { reordering = false }
+            Crossfade(targetState = reordering, label = "feed_reorder") { showOrder ->
+                if (showOrder) {
+                    FeedOrderList(
+                        entries = state.entries,
+                        onReorder = model::reorder,
+                        contentPadding = contentPadding,
+                    )
+                } else {
+                    FeedContent(state, model, contentPadding)
+                }
+            }
         },
     )
 }

@@ -197,6 +197,12 @@ private class FakeFeed : FeedSavedSearchRepository {
         return id
     }
 
+    override suspend fun updateOrders(orderedIds: List<Long>) {
+        rows.value = rows.value.map { row ->
+            orderedIds.indexOf(row.id).takeIf { it >= 0 }?.let { row.copy(feedOrder = it.toLong()) } ?: row
+        }
+    }
+
     override suspend fun delete(id: Long) {
         rows.value = rows.value.filterNot { it.id == id }
     }

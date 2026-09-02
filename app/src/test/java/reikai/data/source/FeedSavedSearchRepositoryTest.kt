@@ -125,6 +125,30 @@ class FeedSavedSearchRepositoryTest {
     }
 
     @Test
+    fun `reordering moves a row and keeps the rest in their relative order`() = runTest {
+        val first = repository.insert(mangaSource, savedSearchId = null, global = true)
+        val second = repository.insert(novelSource, savedSearchId = null, global = true)
+        val third = repository.insert(SourceKey.Manga(42L), savedSearchId = null, global = true)
+
+        repository.updateOrders(listOf(third, first, second))
+
+        repository.subscribeGlobal().first().map { it.id } shouldBe listOf(third, first, second)
+    }
+
+    @Test
+    fun `reordering leaves a row it was not given alone`() = runTest {
+        // A row of the other scope is never listed beside these, so a renumber must not move it. It
+        // would be renumbered to a position in this list, which is not a position it has.
+        val untouched = repository.insert(mangaSource, savedSearchId = null, global = false)
+        val first = repository.insert(novelSource, savedSearchId = null, global = true)
+        val second = repository.insert(SourceKey.Manga(42L), savedSearchId = null, global = true)
+
+        repository.updateOrders(listOf(second, first))
+
+        repository.getAll().single { it.id == untouched }.feedOrder shouldBe 1L
+    }
+
+    @Test
     fun `deleting a saved search removes the feed row built on it`() = runTest {
         val searchId = savedSearches.insert(novelSource, "Completed", null, null)
         repository.insert(novelSource, savedSearchId = searchId, global = true)

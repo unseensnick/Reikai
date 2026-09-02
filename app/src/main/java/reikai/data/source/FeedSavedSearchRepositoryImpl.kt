@@ -57,6 +57,14 @@ class FeedSavedSearchRepositoryImpl(
             }
         }
 
+    override suspend fun updateOrders(orderedIds: List<Long>) {
+        database.transaction {
+            orderedIds.forEachIndexed { index, id ->
+                queries.updateOrder(feedOrder = index.toLong(), id = id)
+            }
+        }
+    }
+
     override suspend fun delete(id: Long) {
         queries.deleteById(id)
     }

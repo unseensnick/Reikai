@@ -53,6 +53,11 @@ VALUES (
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
 
+updateOrder:
+UPDATE feed_saved_search
+SET feed_order = :feedOrder
+WHERE _id = :id;
+
 deleteById:
 DELETE FROM feed_saved_search
 WHERE _id = :id;

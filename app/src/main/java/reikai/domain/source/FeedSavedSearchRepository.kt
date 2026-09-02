@@ -31,5 +31,12 @@ interface FeedSavedSearchRepository {
      */
     suspend fun insert(sourceKey: SourceKey, savedSearchId: Long?, global: Boolean): Long
 
+    /**
+     * Renumbers [orderedIds] to their position in the list, in one transaction. A row outside the list
+     * keeps the number it had: it belongs to the other scope and is never read beside these, so a
+     * position in this list would not mean anything for it.
+     */
+    suspend fun updateOrders(orderedIds: List<Long>)
+
     suspend fun delete(id: Long)
 }

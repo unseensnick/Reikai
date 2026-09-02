@@ -1586,6 +1586,8 @@
     <string name="action_add_to_feed">Add to feed</string>
     <string name="feed_empty">Nothing in your feed yet. Add a source to see what it has.</string>
     <string name="backup_feed_and_saved_searches">Feed and saved searches</string>
+    <string name="action_reorder_feed">Reorder feed</string>
+    <string name="action_done_reordering">Done reordering</string>
     <string name="feed_source_unavailable">This source is not installed. Remove the row, or install the source again.</string>
     <string name="feed_remove_confirmation">Remove \"%1$s\" from your feed?</string>
     <string name="feed_full">A feed holds up to %1$d rows. Remove one to add another.</string>
