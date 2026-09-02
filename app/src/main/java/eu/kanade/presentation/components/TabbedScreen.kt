@@ -43,13 +43,23 @@ fun TabbedScreen(
             val tab = tabs[state.currentPage]
             val searchEnabled = tab.searchEnabled
 
-            SearchToolbar(
-                titleContent = { AppBarTitle(stringResource(titleRes)) },
-                searchEnabled = searchEnabled,
-                searchQuery = if (searchEnabled) searchQuery else null,
-                onChangeSearchQuery = onChangeSearchQuery,
-                actions = { AppBarActions(tab.actions) },
-            )
+            // RK --> a tab with its own selection mode supplies the bar for it, and it is read off
+            //        the tab on screen, so a live selection cannot leave its toolbar over a sibling.
+            val actionMode = tab.actionModeToolbar
+            if (actionMode != null) {
+                actionMode()
+            } else {
+                // RK <--
+                SearchToolbar(
+                    titleContent = { AppBarTitle(stringResource(titleRes)) },
+                    searchEnabled = searchEnabled,
+                    searchQuery = if (searchEnabled) searchQuery else null,
+                    onChangeSearchQuery = onChangeSearchQuery,
+                    actions = { AppBarActions(tab.actions) },
+                )
+                // RK -->
+            }
+            // RK <--
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { contentPadding ->
@@ -93,5 +103,8 @@ data class TabContent(
     val badgeNumber: Int? = null,
     val searchEnabled: Boolean = false,
     val actions: List<AppBar.AppBarAction> = listOf(),
+    // RK: non-null replaces the shared toolbar while this tab is showing, for a tab that has a
+    //     selection mode of its own. A slot rather than the state, so the host stays generic.
+    val actionModeToolbar: (@Composable () -> Unit)? = null,
     val content: @Composable (contentPadding: PaddingValues, snackbarHostState: SnackbarHostState) -> Unit,
 )

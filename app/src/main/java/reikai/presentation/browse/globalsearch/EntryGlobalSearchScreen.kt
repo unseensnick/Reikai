@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
+import reikai.presentation.browse.BulkCategoryDialogs
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.SearchResultSection
@@ -34,6 +35,7 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.browse.components.toDuplicateCard
+import reikai.presentation.browse.selectionTitle
 import reikai.presentation.components.ContentTypeTabs
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelBrowseDialog
@@ -270,19 +272,6 @@ class EntryGlobalSearchScreen(
     }
 }
 
-/** "3 Manga, 1 Novel" while the selection holds both, otherwise the plain count the bar shows. */
-@Composable
-private fun selectionTitle(mangaCount: Int, novelCount: Int): String? =
-    if (mangaCount > 0 && novelCount > 0) {
-        stringResource(
-            MR.strings.bulk_selected_types,
-            pluralStringResource(MR.plurals.bulk_selected_manga, mangaCount, mangaCount),
-            pluralStringResource(MR.plurals.bulk_selected_novels, novelCount, novelCount),
-        )
-    } else {
-        null
-    }
-
 @Composable
 private fun Screen.MangaLongPressDialogs(model: GlobalSearchViewModel, dialog: SearchViewModel.Dialog?) {
     val navigator = LocalNavigator.currentOrThrow
@@ -357,39 +346,5 @@ private fun Screen.NovelLongPressDialogs(model: NovelGlobalSearchViewModel, dial
             onDismissRequest = model::dismissDialog,
         )
         null -> {}
-    }
-}
-
-/**
- * The batch category prompts. Each content type files into its own categories, so a mixed batch is
- * asked once per type rather than offered a merged list where half the choices would not apply.
- */
-@Composable
-private fun BulkCategoryDialogs(
-    mangaBulk: BulkFavoriteViewModel,
-    novelBulk: NovelBulkFavoriteViewModel,
-    mangaDialog: EntryBulkFavoriteViewModel.Dialog<Manga>?,
-    novelDialog: EntryBulkFavoriteViewModel.Dialog<reikai.presentation.novel.browse.SelectedNovel>?,
-    /** Whether the batch spans both types, so each prompt says which one it is filing. */
-    namePrompts: Boolean,
-) {
-    val navigator = LocalNavigator.currentOrThrow
-    when {
-        mangaDialog is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
-            initialSelection = mangaDialog.initialSelection,
-            onDismissRequest = { mangaBulk.setDialog(null) },
-            onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> mangaBulk.setCategories(mangaDialog.items, include) },
-            title = stringResource(MR.strings.categories_for_type, stringResource(MR.strings.content_type_manga))
-                .takeIf { namePrompts },
-        )
-        novelDialog is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
-            initialSelection = novelDialog.initialSelection,
-            onDismissRequest = { novelBulk.setDialog(null) },
-            onEditCategories = { navigator.push(CategoryScreen()) },
-            onConfirm = { include, _ -> novelBulk.setCategories(novelDialog.items, include) },
-            title = stringResource(MR.strings.categories_for_type, stringResource(MR.strings.content_type_novels))
-                .takeIf { namePrompts },
-        )
     }
 }

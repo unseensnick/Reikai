@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.runtime.Composable
@@ -28,11 +29,20 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import reikai.domain.source.SourceKey
+import reikai.novel.host.NovelItem
+import reikai.presentation.browse.BulkCategoryDialogs
+import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.EntrySearchState
+import reikai.presentation.browse.selectionTitle
+import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
+import reikai.presentation.novel.browse.SelectedNovel
 import reikai.presentation.novel.details.NovelScreen
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.i18n.stringResource
@@ -55,8 +65,52 @@ fun Screen.reikaiFeedTab(): TabContent {
     // writing state during composition that the same composition reads is what loops it.
     LaunchedEffect(state.entries.size) { if (state.entries.size < 2) reordering = false }
 
+    // One selection spanning both halves, held as each type's own so the add verbs stay per-type.
+    // Same shape the global search uses over the same rows.
+    val mangaBulk = metroViewModel<BulkFavoriteViewModel>()
+    val novelBulk = metroViewModel<NovelBulkFavoriteViewModel>()
+    val mangaBulkState by mangaBulk.state.collectAsState()
+    val novelBulkState by novelBulk.state.collectAsState()
+    val selectionMode = mangaBulkState.selectionMode || novelBulkState.selectionMode
+    val clearSelection = {
+        mangaBulk.toggleSelectionMode(false)
+        novelBulk.toggleSelectionMode(false)
+    }
+    // Decided when the batch is dispatched, not while the prompts run: the first one resolving
+    // empties its own selection, and re-reading that would leave the second prompt unlabelled.
+    var namePrompts by remember { mutableStateOf(false) }
+
     return TabContent(
         titleRes = MR.strings.label_feed,
+        actionModeToolbar = if (!selectionMode) {
+            null
+        } else {
+            {
+                BulkSelectionToolbar(
+                    selectedCount = mangaBulkState.selection.size + novelBulkState.selection.size,
+                    title = selectionTitle(mangaBulkState.selection.size, novelBulkState.selection.size),
+                    onClickClearSelection = clearSelection,
+                    onChangeCategoryClick = {
+                        namePrompts = mangaBulkState.selection.isNotEmpty() &&
+                            novelBulkState.selection.isNotEmpty()
+                        mangaBulk.addFavorite()
+                        novelBulk.addFavorite(state.favoritedKeys)
+                    },
+                    onSelectAll = {
+                        val (manga, novels) = state.listedEntries()
+                        manga.forEach { mangaBulk.select(it) }
+                        // Spelled out: NovelBulkFavoriteViewModel also has a (sourceId, item)
+                        // select, so a callable reference here picks between overloads.
+                        novels.forEach { novelBulk.select(it) }
+                    },
+                    onReverseSelection = {
+                        val (manga, novels) = state.listedEntries()
+                        mangaBulk.reverseSelection(manga)
+                        novelBulk.reverseSelection(novels)
+                    },
+                )
+            }
+        },
         actions = if (reordering) {
             listOf(
                 AppBar.Action(
@@ -77,10 +131,17 @@ fun Screen.reikaiFeedTab(): TabContent {
                     icon = Icons.Outlined.SwapVert,
                     onClick = { reordering = true },
                 ).takeIf { state.entries.size > 1 },
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_bulk_select),
+                    icon = Icons.Outlined.Checklist,
+                    onClick = { mangaBulk.toggleSelectionMode(true) },
+                ).takeIf { state.entries.isNotEmpty() },
             )
         },
         content = { contentPadding, _ ->
-            BackHandler(enabled = reordering) { reordering = false }
+            BackHandler(enabled = reordering || selectionMode) {
+                if (selectionMode) clearSelection() else reordering = false
+            }
             Crossfade(targetState = reordering, label = "feed_reorder") { showOrder ->
                 if (showOrder) {
                     FeedOrderList(
@@ -89,11 +150,46 @@ fun Screen.reikaiFeedTab(): TabContent {
                         contentPadding = contentPadding,
                     )
                 } else {
-                    FeedContent(state, model, contentPadding)
+                    FeedContent(
+                        state = state,
+                        model = model,
+                        contentPadding = contentPadding,
+                        selectionMode = selectionMode,
+                        mangaSelection = mangaBulkState.selection,
+                        novelSelection = novelBulkState.selection,
+                        onToggleManga = mangaBulk::toggleSelection,
+                        onToggleNovel = { sourceId, item -> novelBulk.toggleSelection(sourceId, item) },
+                    )
                 }
             }
+            BulkCategoryDialogs(
+                mangaBulk,
+                novelBulk,
+                mangaBulkState.dialog,
+                novelBulkState.dialog,
+                namePrompts,
+            )
         },
     )
+}
+
+/**
+ * Every result the feed is currently showing, split back into the two halves each bulk model owns.
+ * Unwrapped with filterIsInstance rather than a cast: the entries are typed Any, so a wrong cast
+ * would compile and only fail once a source returned rows.
+ */
+internal fun FeedState.listedEntries(): Pair<List<Manga>, List<SelectedNovel>> {
+    val manga = mutableListOf<Manga>()
+    val novels = mutableListOf<SelectedNovel>()
+    entries.forEach { entry ->
+        val results = (entry.row.state as? EntrySearchState.Success)?.entries.orEmpty()
+        when (val key = entry.row.key) {
+            is SourceKey.Manga -> manga += results.filterIsInstance<Manga>()
+            is SourceKey.Novel ->
+                novels += results.filterIsInstance<NovelItem>().map { SelectedNovel(key.id, it) }
+        }
+    }
+    return manga to novels
 }
 
 @Composable
@@ -101,6 +197,11 @@ private fun Screen.FeedContent(
     state: FeedState,
     model: FeedViewModel,
     contentPadding: PaddingValues,
+    selectionMode: Boolean,
+    mangaSelection: List<Manga>,
+    novelSelection: List<SelectedNovel>,
+    onToggleManga: (Manga) -> Unit,
+    onToggleNovel: (String, NovelItem) -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -141,8 +242,8 @@ private fun Screen.FeedContent(
                         subtitle = entry.sourceName.takeIf { entry.savedSearch != null },
                         showContentType = true,
                         favoritedKeys = state.favoritedKeys,
-                        mangaSelection = emptyList(),
-                        novelSelection = emptyList(),
+                        mangaSelection = mangaSelection,
+                        novelSelection = novelSelection,
                         getManga = { model.mangaState(it) },
                         onClickSource = {
                             navigator.push(
@@ -155,14 +256,34 @@ private fun Screen.FeedContent(
                                 ),
                             )
                         },
-                        onLongClickSource = { model.confirmRemove(entry) },
-                        onClickManga = { navigator.push(MangaScreen(it.id, true)) },
-                        onLongClickManga = model::onLongPressManga,
+                        // Removing a row mid-selection would take entries out from under it, so
+                        // while selecting the heading does nothing.
+                        onLongClickSource = { model.confirmRemove(entry) }.takeIf { !selectionMode },
+                        // Both gestures invert while selecting, the way every other browse grid
+                        // here does it: a tap picks, a long press previews.
+                        onClickManga = { manga ->
+                            if (selectionMode) onToggleManga(manga) else navigator.push(MangaScreen(manga.id, true))
+                        },
+                        onLongClickManga = { manga ->
+                            if (selectionMode) {
+                                navigator.push(MangaScreen(manga.id, true))
+                            } else {
+                                model.onLongPressManga(manga)
+                            }
+                        },
                         onClickNovel = { sourceId, item ->
-                            navigator.push(NovelScreen(sourceId, item.path))
+                            if (selectionMode) {
+                                onToggleNovel(sourceId, item)
+                            } else {
+                                navigator.push(NovelScreen(sourceId, item.path))
+                            }
                         },
                         onLongClickNovel = { sourceId, item ->
-                            model.onLongPressNovel(item, sourceId)
+                            if (selectionMode) {
+                                navigator.push(NovelScreen(sourceId, item.path))
+                            } else {
+                                model.onLongPressNovel(item, sourceId)
+                            }
                         },
                     )
                 }

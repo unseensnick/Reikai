@@ -114,6 +114,15 @@ on the chip state instead, saving a new search on that screen re-emits the list 
 lands back on top of what the reader was looking at, and held in a plain `remember`, any config change
 (a rotation, a fold) does the same.
 
+### Arranging the feed, and adding several at once
+
+The tab has two modes over the same rows. **Reorder** crossfades to a compact drag list, one line per
+row titled the way the feed titles it, committing the whole order when the drag settles. **Select**
+swaps the shared Browse toolbar for a selection bar through `TabContent.actionModeToolbar`, and from
+there a tap picks a cover and a long press previews it, which is the inversion every other browse grid
+here uses. A batch spanning both content types is filed one type at a time, since each files into its
+own categories.
+
 ### A row whose source is not there
 
 A feed row outlives the source it names: an extension can be uninstalled, and a light-novel plugin is
@@ -243,8 +252,8 @@ The schema is version 42 after `41.sqm`. No `versionCode` bump was needed: this 
 migration, not a preference migration. Komikku's `MoveLatestToFeedMigration` is deliberately not
 ported, since it exists only to bridge legacy TachiyomiSY preference keys that Reikai never had.
 
-**Not built, and each recorded below:** the per-source feed and its source-navigation switch, feed
-row reordering, bulk selection on the feed, and the adult-source saved-search specialization.
+**Not built, and each recorded below:** the per-source feed and its source-navigation switch, and the
+adult-source saved-search specialization.
 
 ## Decisions & tradeoffs
 
@@ -282,11 +291,20 @@ row reordering, bulk selection on the feed, and the adult-source saved-search sp
 - **The adult-source saved-search specialization is not ported.** Komikku's `EXHSavedSearch` exists to
   hold a deserialized filter list for the heaviest saved-search user; revisit if the adult browse path
   turns out to need it.
-- **Feed row reordering is not built**, only its column. Rows read in the order they were added, which
-  is enough while the cap is twenty.
-- **Bulk selection on the feed is not built.** A long press adds one entry, which is the affordance
-  that was missing; selecting many is its own mode with a toolbar and a suppressed bottom nav, and
-  nothing about adding from a cover needs it.
+- **Reordering is a mode inside the tab, not a screen of its own.** The resolved rows live on the feed
+  model, and a pushed screen gets its own `ViewModelStore`, so it would resolve every source a second
+  time just to draw a list of names. The drag commits when it settles rather than per frame, because
+  a write re-reads the table and that rebuild asks every source again.
+- **The selection toolbar arrives through a slot on `TabContent`, not through the models.** Komikku
+  passes its feed and bulk-favorite models into the shared `TabbedScreen` and branches the top bar on
+  the selection alone, which leaves the bulk toolbar sitting over the sibling tabs. A nullable
+  composable slot, read off the tab that is on screen, keeps the host generic and cannot leak.
+- **The bottom nav stays put during a selection**, where Komikku hides it. Tied to the selection alone
+  it stays hidden once you swipe to another Browse tab, which is the same leak as their toolbar, and
+  nothing at the bottom of the screen conflicts with a toolbar at the top.
+- **`selectionTitle` and the category prompts are shared with the global search.** Both surfaces list
+  the two content types over the same row component, so how a mixed batch is named and how it is filed
+  is one rule with two callers rather than a twin.
 - **The Sources row keeps its Latest button** (owner, 2026-09-02). Komikku hides it when the feed is
   on, but only because their per-source feed replaces the catalogue and always leads with Latest for
   that source. With no per-source feed, the button is the only one-tap route to Latest for a source
