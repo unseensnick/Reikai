@@ -185,7 +185,10 @@ class MangaBrowseAdapter(
         // source's current defaults for anything it does not carry a value for.
         val filters = model.source.getFilterList()
         filtersJson?.let { savedSearchFilters.decode(it, filters) }
-        model.search(query = query, filters = filters)
+        // Empty rather than null for a search that carries none: Mihon's search() reads null as "keep
+        // what is there", so a filters-only search would otherwise run against whatever the reader had
+        // typed and show results the saved search never described. The novel half already clears it.
+        model.search(query = query.orEmpty(), filters = filters)
     }
 
     override fun onRowLongClick(row: EntryBrowseRow) = model.onLongClick(row.manga)

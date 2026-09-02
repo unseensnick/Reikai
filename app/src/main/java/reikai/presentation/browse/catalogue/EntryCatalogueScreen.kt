@@ -68,9 +68,6 @@ import reikai.domain.source.model.SavedSearch
 import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
-import reikai.presentation.browse.components.EntryDuplicateDialog
-import reikai.presentation.browse.components.EntryRemoveDialog
-import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
@@ -265,11 +262,17 @@ class EntryCatalogueScreen(
         // Which chip reads as applied. Cleared by anything that replaces what it put on screen.
         var appliedSavedSearchId by remember { mutableStateOf<Long?>(null) }
 
+        // Whether the screen's own saved search has been put on once. Separate from the chip state
+        // above, which the reader clears by tapping anything else: keyed on that, re-applying became
+        // a matter of the list re-emitting, which saving a new search on this very screen does.
+        var openedWithSearch by rememberSaveable { mutableStateOf(false) }
+
         // Applied once the screen is up rather than before the model is built, which costs one
         // discarded page of the default listing and keeps the models free of a saved-search read.
-        LaunchedEffect(savedSearchId, savedSearches) {
+        LaunchedEffect(savedSearches) {
+            if (openedWithSearch) return@LaunchedEffect
             val search = savedSearchId?.let { id -> savedSearches.firstOrNull { it.id == id } } ?: return@LaunchedEffect
-            if (appliedSavedSearchId == search.id) return@LaunchedEffect
+            openedWithSearch = true
             appliedSavedSearchId = search.id
             behavior.applySearch(search.query, search.filtersJson)
         }
