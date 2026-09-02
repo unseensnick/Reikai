@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.util.system.ForegroundActivity
 import logcat.LogPriority
 import org.json.JSONObject
 import tachiyomi.core.common.util.system.logcat
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 /**
@@ -34,15 +33,19 @@ object TurnstileSolver {
     private const val KEY_GAP_MAX_MS = 160L
 
     /**
-     * How long a solve gets after its first press before the request is failed. Key-path solves land
-     * in 2.2 to 3.9 seconds, several hosts at once included, and the caller's own wait is 30, so this
-     * fails a hopeless press sooner while leaving room for a challenge Cloudflare reissues once.
+     * How long a solve gets before the request is failed, measured from arming and pushed out again
+     * by every press. Key-path solves land in 2.2 to 3.9 seconds and the caller's own wait is 30, so
+     * this fails a hopeless solve sooner while leaving room for a challenge Cloudflare reissues once.
+     * It runs from arming rather than from the first press because a solve that never presses is
+     * exactly the case with nothing else to bound it: arming suppresses the caller's own aborts.
      */
-    private const val PRESS_BUDGET_MS = 20_000L
+    private const val SOLVE_BUDGET_MS = 20_000L
 
     /**
-     * How often, and how many times, a solve with no probe asks for the clearance after Cloudflare
-     * says complete. Five seconds covers a navigation; the caller's wait covers anything longer.
+     * How often, and how many times, a verified solve asks for the clearance. It lands with the
+     * navigation after Cloudflare says complete, not with the event, so the attempt made on the
+     * event is always too early and something has to ask again. Five seconds covers a navigation;
+     * the caller's wait covers anything longer.
      */
     private const val ACCEPT_POLL_MS = 250L
     private const val ACCEPT_POLL_ATTEMPTS = 20
@@ -76,8 +79,46 @@ object TurnstileSolver {
          */
         internal var onEvent: ((String) -> Unit)? = null
 
-        /** Feeds one Cloudflare challenge event in. Does nothing while a probe is watching. */
-        fun report(event: String) = onEvent?.invoke(event)
+        private val main = Handler(Looper.getMainLooper())
+        private val timers = mutableListOf<Runnable>()
+
+        @Volatile
+        private var running = true
+
+        /**
+         * Runs [action] on the main thread after [delay], unless the solve has been cancelled by
+         * then. Never `View.postDelayed`: a view that was never attached to a window queues its
+         * posts into its own run queue and only drains them on attach, so with no window every key
+         * event after the first silently never fired.
+         */
+        internal fun post(delay: Long, action: () -> Unit) {
+            if (!running) return
+            val timer = Runnable { if (running) action() }
+            synchronized(timers) { timers += timer }
+            main.postDelayed(timer, delay)
+        }
+
+        /**
+         * Feeds one Cloudflare challenge event in. Does nothing while a probe is watching. Hops to
+         * the main thread because the caller's bridge delivers this on WebView's JavaBridge thread,
+         * and the solve presses keys at the WebView.
+         */
+        fun report(event: String) {
+            if (onEvent != null) post(0) { onEvent?.invoke(event) }
+        }
+
+        /**
+         * Stops every timer this solve armed. The caller destroys the WebView as soon as its wait
+         * ends, and an undelayed destroy sorts ahead of a delayed key event, so without this a press
+         * lands on a destroyed WebView and the give-up and clearance timers outlive the request.
+         */
+        fun cancel() {
+            running = false
+            synchronized(timers) {
+                timers.forEach(main::removeCallbacks)
+                timers.clear()
+            }
+        }
     }
 
     private const val BRIDGE = "reikaiTurnstileWatch"
@@ -99,18 +140,23 @@ object TurnstileSolver {
     var forceNoWatch: Boolean = false
 
     /**
-     * Whether the page can be watched from a world its own scripts cannot read. A probe in the
-     * page's own world is what makes Cloudflare reissue the challenge, so without this there is
-     * nothing safe to poll from and the solve runs on Cloudflare's events alone.
+     * Whether the installed WebView can run a script in a world the page's own scripts cannot read.
      *
      * `addJavaScriptOnEvent` and this feature arrived in androidx.webkit 1.16.0-alpha03, so it is
      * the recency of the installed WebView that decides, not the Android version.
      */
-    val canWatch: Boolean
-        get() = !forceNoWatch &&
-            WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
+    val hasIsolatedWorld: Boolean
+        get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.JS_INJECTION_IN_FRAME_AND_WORLD)
+
+    /**
+     * Whether this solve gets a probe. A poll in the page's own world is what makes Cloudflare
+     * reissue the challenge, so without an isolated world there is nothing safe to poll from and the
+     * solve runs on Cloudflare's events alone. Read once per solve, never mid-solve: the debug
+     * override can flip under a running one, which used to leave it unable to press.
+     */
+    private val canWatch: Boolean get() = hasIsolatedWorld && !forceNoWatch
 
     /**
      * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
@@ -118,8 +164,9 @@ object TurnstileSolver {
      * budget. Arming suppresses the caller's own aborts, so it owes one. Returns the [Solve] to read
      * the outcome from, or `null` when it did not arm.
      *
-     * [origin] must read `scheme://host[:port]`, port only when not the scheme default. A script only
-     * reaches later documents, so this runs before `loadUrl`; [detach] runs when the solve ends.
+     * [origin] must read `scheme://host[:port]`, port only when not the scheme default, and must be
+     * the origin the challenge is actually served from rather than the one first requested. A script
+     * only reaches later documents, so this runs before `loadUrl`; [detach] runs when the solve ends.
      */
     fun attach(
         webView: WebView,
@@ -139,27 +186,18 @@ object TurnstileSolver {
         logcat { "Turnstile[$host]: arming with${if (container == null) "out" else ""} a window" }
 
         val solve = Solve()
+        val watching = canWatch
         var lastPress = 0L
         var clearReadings = 0
-        var tokenSeen = false
-        val budgetArmed = AtomicBoolean(false)
+        var deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
 
         val press = {
-            val delivered = webView.pressKeys()
+            val delivered = pressKeys(webView, solve)
             logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
-            // The first press starts the only deadline this solve has. Arming suppresses the
-            // caller's own aborts, so without it a press that goes nowhere, refused outright or
-            // simply ineffective, costs the caller its whole 30 second wait. Report only a give-up
-            // that released something: a request the caller already served from the jar leaves this
-            // to fire into nothing, and a give-up line beside a success sends the next reader
-            // hunting.
-            if (budgetArmed.compareAndSet(false, true)) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (solve.phase != Solve.Phase.Accepted && onGiveUp()) {
-                        logcat { "Turnstile[$host]: gave up $PRESS_BUDGET_MS ms after the first press" }
-                    }
-                }, PRESS_BUDGET_MS)
-            }
+            // A landed press earns the solve another budget, since Cloudflare may still be verifying
+            // it. The deadline itself is armed below, at arming rather than here, because a solve
+            // that never presses is the one with nothing else to bound it.
+            deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
         }
 
         // [probe] is null with no probe to read, which is the one-press case: nothing reports the
@@ -171,16 +209,19 @@ object TurnstileSolver {
             // the verification it just finished. Both are unreachable from here rather than guarded.
             if (solve.phase != Solve.Phase.Interactive) return@press
             val now = SystemClock.uptimeMillis()
-            // Never press a widget that already carries a token: that restarts the verification
-            // Cloudflare is in the middle of rather than completing it.
+            // A widget that already carries a token is mid-verification, and pressing restarts it.
+            // Ported from Byparr and Solverr, which agree on the rule; an interstitial never fills
+            // the token in the main frame, so on the pages this feature sees it is the cooldown
+            // beside it that does the work.
             if (probe?.optString("token")?.isNotEmpty() == true || now - lastPress < PRESS_COOLDOWN_MS) return@press
 
             lastPress = now
             press()
         }
 
-        // Asks the caller again for the clearance a verified solve is still waiting on, since with
-        // no probe nothing else will.
+        // Asks the caller again for the clearance a verified solve is still waiting on. A probe
+        // retries on its own ticks too, but only while the page it watches is still there: the
+        // navigation that carries the clearance is also the one that ends the probe's reports.
         lateinit var pollForClearance: (Int) -> Unit
         pollForClearance = { attemptsLeft ->
             if (solve.phase == Solve.Phase.Verified && attemptsLeft > 0) {
@@ -188,41 +229,35 @@ object TurnstileSolver {
                     solve.phase = Solve.Phase.Accepted
                     logcat { "Turnstile[$host]: challenge complete, accepted" }
                 } else {
-                    Handler(Looper.getMainLooper())
-                        .postDelayed({ pollForClearance(attemptsLeft - 1) }, ACCEPT_POLL_MS)
+                    solve.post(ACCEPT_POLL_MS) { pollForClearance(attemptsLeft - 1) }
                 }
             }
         }
 
         // The two events the solve turns on, wherever they came from: the isolated-world probe when
         // there is one, the caller's page-world bridge when there is not. `fail` is deliberately not
-        // acted on while armed, because Cloudflare reissues after a failed round often enough that
-        // pressing through one is the better bet, which is why the bridge only counts it down when
-        // the solver is off.
-        val handleEvent = event@{ event: String ->
+        // acted on once the challenge has turned interactive, because Cloudflare reissues after a
+        // failed round often enough that pressing through pays; the caller aborts on it up to then.
+        val handleEvent = { event: String ->
             if (solve.phase == Solve.Phase.Watching && event == INTERACTIVE_BEGIN) {
                 solve.phase = Solve.Phase.Interactive
                 logcat { "Turnstile[$host]: interactive began" }
                 // With no probe there are no ticks to press on, so the transition is the trigger.
-                if (!canWatch) pressWhenDue(null)
+                if (!watching) pressWhenDue(null)
             }
 
             // Cloudflare saying it accepted beats inferring it from the markup, and on a site that
             // embeds Turnstile on its own pages it is the only signal that can ever arrive: the
             // probe counts the response-token input as a challenge, so such a page never reads clear
             // and the markup path never fires however many times it really succeeded.
-            if (solve.phase != Solve.Phase.Verified && event == COMPLETE) {
+            if (solve.phase < Solve.Phase.Verified && event == COMPLETE) {
                 solve.phase = Solve.Phase.Verified
                 logcat { "Turnstile[$host]: cloudflare reports the challenge complete" }
-                // The clearance lands with the navigation that follows, not with the event, so one
-                // attempt here is always too early. A probe retries on its own ticks; without one
-                // this is the only thing that will ask again, and skipping it cost every solve its
-                // whole budget before the caller's jar check rescued it.
-                if (!canWatch) pollForClearance(ACCEPT_POLL_ATTEMPTS)
-            }
-            if (solve.phase == Solve.Phase.Verified) {
-                // Only the acceptance is logged, since with a probe this runs twice a second until
-                // the clearance lands and the caller takes it.
+                pollForClearance(ACCEPT_POLL_ATTEMPTS)
+            } else if (solve.phase == Solve.Phase.Verified) {
+                // A probe tick while the clearance is still landing, and the only thing left asking
+                // once the poll above runs out. Only the acceptance is logged, since with a probe
+                // this runs twice a second until the caller takes it.
                 if (onSolved()) {
                     solve.phase = Solve.Phase.Accepted
                     logcat { "Turnstile[$host]: challenge complete, accepted" }
@@ -234,14 +269,6 @@ object TurnstileSolver {
             if (solve.phase == Solve.Phase.Accepted) return@watch
             val probe = runCatching { JSONObject(json) }.getOrNull() ?: return@watch
 
-            // Cloudflare fills the response token the moment it accepts, so this splits a solve into
-            // the part Cloudflare spent and the part spent noticing. Without it a slow solve cannot
-            // be told from a fast one this was slow to see.
-            if (!tokenSeen && probe.optString("token").isNotEmpty()) {
-                tokenSeen = true
-                logcat { "Turnstile[$host]: response token issued" }
-            }
-
             probe.optString("cf").split('|').forEach(handleEvent)
             if (solve.phase == Solve.Phase.Verified || solve.phase == Solve.Phase.Accepted) {
                 // Cloudflare is done either way, and pressing again restarts the verification it has
@@ -249,10 +276,7 @@ object TurnstileSolver {
                 return@watch
             }
 
-            // Cloudflare strips the challenge markup out of the interstitial before it navigates
-            // away, so a page carrying none of it can still be the interstitial. Judge the document
-            // itself, the way Solverr judges a body it is about to hand back.
-            if (probe.optBoolean("challenged", true) || looksLikeChallenge(probe.optString("html"))) {
+            if (probe.optBoolean("challenged", true)) {
                 clearReadings = 0
                 pressWhenDue(probe)
                 return@watch
@@ -274,11 +298,26 @@ object TurnstileSolver {
             }
         }
 
-        if (!canWatch) {
+        // The only deadline this solve has, armed here rather than on the first press. Report only a
+        // give-up that released something: a request the caller already served from the jar leaves
+        // this to fire into nothing, and a give-up line beside a success sends the next reader
+        // hunting.
+        lateinit var watchDeadline: () -> Unit
+        watchDeadline = {
+            val left = deadline - SystemClock.uptimeMillis()
+            when {
+                left > 0 -> solve.post(left, watchDeadline)
+                solve.phase != Solve.Phase.Accepted && onGiveUp() ->
+                    logcat { "Turnstile[$host]: gave up, $SOLVE_BUDGET_MS ms with no progress" }
+            }
+        }
+        solve.post(SOLVE_BUDGET_MS, watchDeadline)
+
+        if (!watching) {
             // No isolated world to poll from, so the solve runs on Cloudflare's own events, which
             // the caller's bridge already receives on every challenged page. Nothing new is put in
             // the page's world, and nothing is lost but the markup fallback: a challenge that never
-            // says `complete` is left to the caller's wait rather than watched out.
+            // says `complete` is left to the deadline above rather than watched out.
             solve.onEvent = handleEvent
             logcat { "Turnstile[$host]: no isolated world, running on challenge events alone" }
             return solve
@@ -306,6 +345,7 @@ object TurnstileSolver {
         } catch (e: Exception) {
             // Reporting armed here would suppress the caller's own aborts while nothing was left to
             // release the wait, costing the request its whole timeout rather than failing it.
+            solve.cancel()
             logcat(LogPriority.ERROR, e) { "Turnstile[$host]: failed to arm, leaving the caller in charge" }
             null
         }
@@ -358,67 +398,36 @@ object TurnstileSolver {
     }
 
     /**
-     * Whether [html] is still a challenge page rather than the content behind it.
-     *
-     * Ported from Solverr, including what it deliberately leaves out: Cloudflare leaves a
-     * `/cdn-cgi/challenge-platform/` beacon on solved pages too, so that string is not a marker.
-     */
-    private fun looksLikeChallenge(html: String): Boolean {
-        if (html.isEmpty()) return false
-        val low = html.lowercase()
-        val title = low.substringAfter("<title>", "").substringBefore("</title>")
-        return "just a moment" in title || CHALLENGE_MARKERS.any { it in low }
-    }
-
-    /**
      * Tabs onto the checkbox and hits Space, so no coordinate has to be estimated. Gaps are drawn
      * per event rather than held at mihonapp/mihon#3858's flat tenth of a second, since identical
      * timing across solves running at once is the one behavioural tell left on a key path that is
      * otherwise just typing. Posted rather than slept through so the gaps hold no thread. Returns
      * whether the first key was accepted, the only signal that the view took them at all.
      */
-    private fun WebView.pressKeys(): Boolean {
-        val delivered = dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB))
+    private fun pressKeys(webView: WebView, solve: Solve): Boolean {
+        val delivered = webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB))
         var at = nextGap()
-        key(at, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB)
+        solve.post(at) { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB)) }
         at += nextGap()
-        key(at, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)
+        solve.post(at) { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)) }
         at += nextGap()
-        key(at, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE)
+        solve.post(at) { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE)) }
         return delivered
     }
 
     private fun nextGap() = Random.nextLong(KEY_GAP_MIN_MS, KEY_GAP_MAX_MS)
 
-    /**
-     * Handler, not `View.postDelayed`: a view that was never attached to a window queues its posts
-     * into its own run queue and only runs them on attach, so with no window every event after the
-     * first Tab silently never fired. That is what made a headless press look like a press Cloudflare
-     * refused, when Space had simply never been sent.
-     */
-    private fun WebView.key(delay: Long, action: Int, code: Int) {
-        Handler(Looper.getMainLooper()).postDelayed({ dispatchKeyEvent(KeyEvent(action, code)) }, delay)
-    }
-
     private const val DEFAULT_WIDTH = 1080
     private const val DEFAULT_HEIGHT = 1920
 }
-
-private val CHALLENGE_MARKERS = listOf(
-    "window._cf_chl_opt",
-    "cf-challenge-running",
-    "id=\"challenge-form\"",
-    "id=\"challenge-stage\"",
-    "id=\"challenge-error",
-    "turnstile-wrapper",
-)
 
 /**
  * Reports what the challenge page shows, twice a second and the moment Cloudflare says anything the
  * solver acts on, from a world its scripts cannot read.
  *
- * The response token doubles as the challenge marker. Cloudflare's interstitial builds the widget
- * itself and that frame reports an empty URL, so the input is the only part of it the page can see.
+ * The interstitial keeps its response-token input even on a page that has passed, so the markup test
+ * Solverr uses runs here rather than on the Kotlin side: sending the document across the bridge put a
+ * parse and two full copies of it on the main thread twice a second, for one boolean.
  */
 private val WATCH = """
 (() => {
@@ -426,24 +435,39 @@ private val WATCH = """
 
   const TOKEN = 'input[name="cf-turnstile-response"]';
   const CHALLENGE = '#challenge-form,#challenge-stage,#cf-challenge-running,#cf-please-wait,#challenge-spinner';
-  const MAX_BODY = 4000000;
+  const CHALLENGE_ORIGIN = 'https://challenges.cloudflare.com';
   const DECIDING = ['interactiveBegin', 'complete'];
+  // Ported from Solverr, including what it deliberately leaves out: Cloudflare leaves a
+  // /cdn-cgi/challenge-platform/ beacon on solved pages too, so that string is not a marker.
+  const MARKERS = [
+    'window._cf_chl_opt', 'cf-challenge-running', 'id="challenge-form"',
+    'id="challenge-stage"', 'id="challenge-error', 'turnstile-wrapper',
+  ];
+
+  // Cloudflare strips the challenge markup out of the interstitial before it navigates away, so a
+  // page carrying none of it can still be the interstitial. Judge the document itself, the way
+  // Solverr judges a body it is about to hand back.
+  const looksLikeChallenge = () => {
+    const low = document.documentElement.outerHTML.toLowerCase();
+    const title = (low.split('<title>')[1] || '').split('</title>')[0];
+    if (title.indexOf('just a moment') !== -1) return true;
+    return MARKERS.some((m) => low.indexOf(m) !== -1);
+  };
 
   let events = [];
   const report = () => {
     try {
       const input = document.querySelector(TOKEN);
-      const challenged = !!document.querySelector(CHALLENGE) || !!input;
+      const markup = !!document.querySelector(CHALLENGE) || !!input;
+      // A document with no body yet is mid-load, not a page that has cleared. Reading it as clear
+      // twice was enough to reach Verified without a solve, which the caller trusts a late
+      // clearance against.
+      const challenged = markup || !document.body || looksLikeChallenge();
       const seen = events.join('|');
       events = [];
-      // Enough of the document to tell an interstitial from the page behind it, which its markers
-      // give away from the first paint. Waiting for readyState to reach complete instead cost a
-      // whole solve on an image-heavy page that cleared its challenge and then kept loading.
-      const html = challenged || !document.body ? '' : document.documentElement.outerHTML;
       window.reikaiTurnstileWatch.postMessage(JSON.stringify({
         challenged: challenged,
         token: input ? input.value : '',
-        html: html.length > MAX_BODY ? '' : html,
         cf: seen,
       }));
     } catch (e) {}
@@ -455,6 +479,10 @@ private val WATCH = """
   // challenge passes, and a `complete` batched into a report that never fires dies with the
   // document, which cost a measured solve its fast accept. The per-second heartbeat still waits.
   addEventListener('message', (e) => {
+    // The challenge posts from its own frame, which reports this origin on a live managed
+    // challenge. Anything else on the page can forge the vocabulary, and a solve is the one thing
+    // the caller trusts a clearance against.
+    if (e.origin !== CHALLENGE_ORIGIN && e.origin !== location.origin) return;
     const d = e.data;
     if (!d || d.source !== 'cloudflare-challenge') return;
     // Only what the solve turns on. The rest of Cloudflare's vocabulary was collected, shipped

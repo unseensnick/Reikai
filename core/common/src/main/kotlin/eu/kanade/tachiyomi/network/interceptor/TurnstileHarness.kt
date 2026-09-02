@@ -12,10 +12,12 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
+import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.util.system.ForegroundActivity
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.setUserAgent
 import logcat.LogPriority
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
 import tachiyomi.core.common.util.system.logcat
 
@@ -153,9 +155,9 @@ object TurnstileHarness {
               const seen = events.join('|');
               events = [];
               const challenged = !!document.querySelector(CHALLENGE) || !!input;
-              // The solver's WATCH serialises the whole document and posts it across the bridge
-              // twice a second. On the dummy page that document is a few hundred bytes, so this
-              // reproduces the call and not the 4MB payload it costs on a real interstitial.
+              // Serialises the whole document and posts it across the bridge twice a second, which
+              // is what the solver's WATCH used to do before that test moved into the script. Kept
+              // as the control for the sweep that eliminated it as a suspect.
               let html = '';
               if (BIG) {
                 html = challenged || !document.body ? '' : document.documentElement.outerHTML;
@@ -259,14 +261,18 @@ object TurnstileHarness {
         onDone: (Outcome) -> Unit,
     ) {
         val label = variant.label
-        if (!TurnstileSolver.canWatch) {
-            logcat(LogPriority.ERROR) { "Harness[$label]: webview lacks the required features" }
+        // The feature set itself, never the solver's debug override: reading that made leaving the
+        // force-the-no-isolated-world row on abort every phase as an unsupported WebView. A device
+        // that lacks it lacks it for every phase, so this ends the sweep rather than handing it on.
+        if (!TurnstileSolver.hasIsolatedWorld) {
+            logcat(LogPriority.ERROR) { "Harness[$label]: webview lacks the required features, sweep over" }
             return
         }
         val origin = when (target) {
             Target.Dummy -> DUMMY_ORIGIN
             is Target.Live -> target.urls.first().toHttpOriginOrNull() ?: run {
                 logcat(LogPriority.ERROR) { "Harness[$label]: cannot derive an origin from ${target.urls.first()}" }
+                onDone(Outcome.NoPress)
                 return
             }
         }
@@ -369,7 +375,7 @@ object TurnstileHarness {
                 val now = SystemClock.uptimeMillis()
                 if (ready && now - lastPress > PRESS_COOLDOWN_MS) {
                     lastPress = now
-                    main.post { press(webView, main, label) }
+                    main.post { press(webView, main, label) { !done } }
                 }
             }
             WebViewCompat.addJavaScriptOnEvent(
@@ -452,30 +458,23 @@ object TurnstileHarness {
         }
     }
 
-    /**
-     * Expires every cookie [origin] currently holds. `CookieManager` has no per-host clear, and an
-     * expiry only matches a cookie of the same domain, so a `cf_clearance` set on `.example.com`
-     * survives a host-only expiry. Every dotted parent of the host is therefore expired too.
-     */
+    /** Expires every cookie [origin] holds, so each phase faces its own challenge. */
     private fun clearCookies(origin: String) {
-        val manager = CookieManager.getInstance()
-        val held = manager.getCookie(origin) ?: return
-        val host = runCatching { java.net.URI(origin).host }.getOrNull().orEmpty()
-        val labels = host.split('.')
-        val domains = listOf("") + (0..labels.size - 2).map { ("; Domain=." + labels.drop(it).joinToString(".")) }
-        held.split(';')
-            .mapNotNull { it.substringBefore('=').trim().takeIf(String::isNotEmpty) }
-            .forEach { name -> domains.forEach { manager.setCookie(origin, "$name=; Max-Age=0; Path=/$it") } }
-        manager.flush()
-        logcat { "Harness: cleared ${held.split(';').size} cookies on $host" }
+        val cleared = AndroidCookieJar().remove(origin.toHttpUrl(), maxAge = 0)
+        CookieManager.getInstance().flush()
+        logcat { "Harness: cleared $cleared cookies on $origin" }
     }
 
-    private fun press(webView: WebView, main: Handler, label: String) {
-        webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB))
-        main.postDelayed({ webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB)) }, 100)
-        main.postDelayed({ webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)) }, 200)
+    /** [alive] is false once the phase has torn its WebView down, since a key on a destroyed one is not a press. */
+    private fun press(webView: WebView, main: Handler, label: String, alive: () -> Boolean) {
+        fun send(action: Int, code: Int) {
+            if (alive()) webView.dispatchKeyEvent(KeyEvent(action, code))
+        }
+        send(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TAB)
+        main.postDelayed({ send(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_TAB) }, 100)
+        main.postDelayed({ send(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE) }, 200)
         main.postDelayed({
-            webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE))
+            send(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE)
             logcat { "Harness[$label]: pressed tab+space" }
         }, 300)
     }

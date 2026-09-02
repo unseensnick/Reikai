@@ -16,11 +16,9 @@ import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.Cookie
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.Jsoup
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -58,9 +56,14 @@ class CloudflareInterceptor(
         nonce: String?,
     ): Response? {
         try {
+            // RK: the challenge may be served after a redirect, and this is an application
+            //     interceptor, so chain.request() holds the URL from before it. Everything the
+            //     WebView does has to key off the page the challenge is actually on, or the probe
+            //     is scoped to an origin the document never has and the solve watches nothing.
+            val challengeUrl = response.request.url
             response.close()
-            cookieManager.remove(request.url, COOKIE_NAMES, 0)
-            val oldCookie = cookieManager.get(request.url)
+            clearClearance(request.url, challengeUrl)
+            val oldCookie = cookieManager.get(challengeUrl)
                 .firstOrNull { it.name == "cf_clearance" }
 
             // RK -->
@@ -79,7 +82,7 @@ class CloudflareInterceptor(
                 try {
                     // One solve per host is the base class's job now; a sibling that queued behind
                     // this one re-checks the jar and never reaches here.
-                    resolveWithWebView(request, oldCookie)
+                    resolveWithWebView(request, challengeUrl, oldCookie)
                 } catch (e: CloudflareBypassException) {
                     if (!fsActive) throw e
                     // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
@@ -113,8 +116,13 @@ class CloudflareInterceptor(
         }
     }
 
+    // RK: a redirect can put the challenge on a different host than the one asked for, so both are
+    //     cleared. Removal expands to the parent domains, which is where Cloudflare stores this.
+    private fun clearClearance(vararg urls: HttpUrl) =
+        urls.distinctBy { it.host }.forEach { cookieManager.remove(it, COOKIE_NAMES, 0) }
+
     @SuppressLint("SetJavaScriptEnabled")
-    private fun resolveWithWebView(originalRequest: Request, oldCookie: Cookie?) {
+    private fun resolveWithWebView(originalRequest: Request, challengeUrl: HttpUrl, oldCookie: Cookie?) {
         // We need to lock this thread until the WebView finds the challenge solution url, because
         // OkHttp doesn't support asynchronous interceptors.
         val latch = CountDownLatch(1)
@@ -125,11 +133,12 @@ class CloudflareInterceptor(
         var cloudflareBypassed = false
         var isWebViewOutdated = false
 
-        val origRequestUrl = originalRequest.url.toString()
+        val origRequestUrl = challengeUrl.toString()
+        val challengeHost = challengeUrl.host
         val headers = parseHeaders(originalRequest.headers)
         // RK: an origin rule without a port matches only the scheme's default, so a source on a
         //     custom one has to spell it out or the solver's probe would never run on its page.
-        val origin = with(originalRequest.url) {
+        val origin = with(challengeUrl) {
             if (port == HttpUrl.defaultPort(scheme)) "$scheme://$host" else "$scheme://$host:$port"
         }
         // RK: the solver presses the checkbox an interactive challenge is waiting on, so with it
@@ -156,13 +165,25 @@ class CloudflareInterceptor(
 
                     // RK: Cloudflare reports a challenge it has given up on. Without this the
                     //     request sits out the full latch timeout for a result already decided.
-                    //     Only trusted while the solver is off: it keeps pressing through a failed
-                    //     round, and Cloudflare reissues after one often enough to matter.
+                    //     An armed solve that has gone interactive keeps going, because Cloudflare
+                    //     reissues after a failed round often enough that pressing through pays.
+                    //     One still watching has pressed nothing, so there is nothing to press
+                    //     through and the wait would buy a round already lost.
                     @Suppress("unused")
                     @JavascriptInterface
                     fun challengeFailed() {
-                        logcat { "Turnstile[${originalRequest.url.host}]: challenge failed" }
-                        if (solve.get() == null) latch.countDown()
+                        logcat { "Turnstile[$challengeHost]: challenge failed" }
+                        val armed = solve.get()
+                        if (armed == null) {
+                            latch.countDown()
+                        } else {
+                            // Queued behind the solve rather than read here: this arrives on the
+                            // bridge thread and the solve runs on the main one, so an
+                            // interactiveBegin already in flight is what decides the phase.
+                            armed.post(0L) {
+                                if (armed.phase == TurnstileSolver.Solve.Phase.Watching) latch.countDown()
+                            }
+                        }
                     }
 
                     // RK: every event Cloudflare posts, acted on by nothing. The two handlers above
@@ -174,7 +195,8 @@ class CloudflareInterceptor(
                     @Suppress("unused")
                     @JavascriptInterface
                     fun challengeEvent(event: String) {
-                        logcat { "Turnstile[${originalRequest.url.host}]: cf event $event" }
+                        // Truncated: any script on the page can call this with anything.
+                        logcat { "Turnstile[$challengeHost]: cf event ${event.take(32)}" }
                         // RK: the solve's only input on a WebView with no isolated world to poll
                         //     from. It ignores this while a probe is watching, so the two never
                         //     both drive it.
@@ -189,7 +211,7 @@ class CloudflareInterceptor(
             if (solverWanted) {
                 val armed = TurnstileSolver.attach(
                     webView = webview,
-                    host = originalRequest.url.host,
+                    host = challengeHost,
                     origin = origin,
                     backgroundEnabled = networkPreferences.enableTurnstileBackgroundSolver.get(),
                     // Arming suppresses the interactive and failed aborts below, so the solve owns
@@ -204,7 +226,7 @@ class CloudflareInterceptor(
                 ) {
                     // The retry needs the clearance cookie, and it lands after the challenge page
                     // goes, so a solve is only accepted once both have happened.
-                    val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
+                    val cleared = cookieManager.get(challengeUrl)
                         .firstOrNull { it.name == "cf_clearance" }
                     (cleared != null && cleared != oldCookie).also { accepted ->
                         if (accepted) {
@@ -216,8 +238,8 @@ class CloudflareInterceptor(
                 solve.set(armed)
                 if (armed == null) {
                     logcat {
-                        "Turnstile[${originalRequest.url.host}]: not armed; the webview is too old, " +
-                            "or there is no window and the background switch is off"
+                        "Turnstile[$challengeHost]: not armed; there is no window and the " +
+                            "background switch is off"
                     }
                 }
             }
@@ -225,7 +247,7 @@ class CloudflareInterceptor(
             webview.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
                     fun isCloudFlareBypassed(): Boolean {
-                        return cookieManager.get(origRequestUrl.toHttpUrl())
+                        return cookieManager.get(challengeUrl)
                             .firstOrNull { it.name == "cf_clearance" }
                             .let { it != null && it != oldCookie }
                     }
@@ -294,32 +316,40 @@ class CloudflareInterceptor(
             webview.loadUrl(origRequestUrl, headers)
         }
 
-        latch.awaitFor30Seconds()
+        // RK: the wait is wrapped so the WebView is torn down even if this thread is interrupted
+        //     out of it, since an attached WebView left running keeps a probe ticking on the page.
+        try {
+            latch.awaitFor30Seconds()
 
-        // RK: a solve the WebView performed but never reported still leaves its clearance in the
-        //     jar, so ask the jar before giving up. Measured on a source whose two requests raced:
-        //     one retried to a 200 while the other threw, having solved the challenge itself.
-        //     Gated on the solver having watched the interstitial go, because a clearance on its own
-        //     proves nothing: Cloudflare issues one on a round it refused, and trusting that turned
-        //     three honest failures into 403s with no Open in WebView offered.
-        if (!cloudflareBypassed && solverWanted && solve.get()?.phase == TurnstileSolver.Solve.Phase.Verified) {
-            val cleared = cookieManager.get(origRequestUrl.toHttpUrl())
-                .firstOrNull { it.name == "cf_clearance" }
-            if (cleared != null && cleared != oldCookie) {
-                cloudflareBypassed = true
-                logcat { "Turnstile[${originalRequest.url.host}]: cleared without a report, retrying" }
+            // RK: a solve the WebView performed but never reported still leaves its clearance in
+            //     the jar, so ask the jar before giving up. Measured on a source whose two requests
+            //     raced: one retried to a 200 while the other threw, having solved the challenge
+            //     itself. Gated on the solver having watched the interstitial go, because a
+            //     clearance on its own proves nothing: Cloudflare issues one on a round it refused,
+            //     and trusting that turned three honest failures into 403s with no Open in WebView.
+            if (!cloudflareBypassed && solverWanted && solve.get()?.phase == TurnstileSolver.Solve.Phase.Verified) {
+                val cleared = cookieManager.get(challengeUrl)
+                    .firstOrNull { it.name == "cf_clearance" }
+                if (cleared != null && cleared != oldCookie) {
+                    cloudflareBypassed = true
+                    logcat { "Turnstile[$challengeHost]: cleared without a report, retrying" }
+                }
             }
-        }
+        } finally {
+            val bypassed = cloudflareBypassed
+            executor.execute {
+                if (!bypassed) {
+                    isWebViewOutdated = webview?.isOutdated() == true
+                }
 
-        executor.execute {
-            if (!cloudflareBypassed) {
-                isWebViewOutdated = webview?.isOutdated() == true
-            }
-
-            webview?.run {
-                TurnstileSolver.detach(this) // RK
-                stopLoading()
-                destroy()
+                webview?.run {
+                    // RK: the solve's timers first. Destroying under them lands a key press on a
+                    //     destroyed WebView, since an undelayed destroy sorts ahead of a delayed key.
+                    solve.get()?.cancel()
+                    TurnstileSolver.detach(this)
+                    stopLoading()
+                    destroy()
+                }
             }
         }
 
@@ -328,7 +358,7 @@ class CloudflareInterceptor(
             // RK: Cloudflare hands out a clearance on a round it refused, so leaving one behind makes
             //     a sibling queued on this host skip its own solve and retry straight into a 403. A
             //     failed solve leaves nothing behind. Taken from mihonapp/mihon#3858.
-            cookieManager.remove(originalRequest.url, COOKIE_NAMES, 0)
+            clearClearance(originalRequest.url, challengeUrl)
             // Prompt user to update WebView if it seems too outdated
             if (isWebViewOutdated) {
                 context.toast(MR.strings.information_webview_outdated, Toast.LENGTH_LONG)
