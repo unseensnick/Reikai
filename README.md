@@ -67,6 +67,7 @@ Ported from [Komikku](https://github.com/komikku-app/komikku) (a Mihon fork), re
 - `Enhanced source support`: sign in to one of the most-used manga sources for source-native details, follows browse, two-way library sync, and its built-in `MDList` tracker.
 - `Edit info` (manga + novels): edit an entry's title, author, cover, description, tags and status, with `Fill from tracker` to autofill them. Reikai unifies it across both types and keeps the source's own values intact.
 - `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by tags and source name. On by default. ([FAQ](https://reikai.app/docs/faq/reader#i-turned-on-auto-webtoon-mode-but-a-manhwa-still-opens-paged-why))
+- `Saved searches` and the `Feed tab`: save any source's filters as a named search, then build a Browse tab of one row per source or saved search showing what it has right now. Off by default.
 
 </details>
 

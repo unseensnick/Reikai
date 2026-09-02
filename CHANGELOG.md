@@ -34,8 +34,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Browse**
 
-- **Any source's filters can now be saved as a named search and re-applied from a chip.** Long-press the chip to delete it.
-- **Browse can show a Feed tab: a row per source, with what it has right now.** Turn it on in Settings -> Browse, add sources or saved searches to it, and long-press a row to remove it.
+- **Any source's filters can now be saved as a named search and re-applied from a chip while you browse that source (ported from Komikku).** Long-press the chip to delete the search.
+- **Browse can now show a Feed tab, turned on under Settings -> Browse, with one row of covers for every source or saved search you add to it (ported from Komikku).** A row holds that source's latest, or what the saved search returns; the tab takes twenty, and a long press removes a row.
 
 **Migration**
 
