@@ -45,12 +45,24 @@ class AndroidCookieJar : CookieJar {
             // RK: trim so non-first cookies (" b=2") match the name filter
             .map { it.substringBefore("=").trim() }
             .filterNames()
-            .onEach { manager.setCookie(urlString, "$it=;Max-Age=$maxAge") }
+            // RK: expire every scope the cookie could be stored under, not just the host at the
+            //     request's own directory. The store keys on (name, domain, path), so a bare
+            //     "name=" removes nothing when the cookie was set on a parent domain or at "/",
+            //     which is how Cloudflare sets cf_clearance.
+            .onEach { name -> scopesOf(url.host).forEach { manager.setCookie(urlString, expiry(name, maxAge, it)) } }
             .count()
     }
 
     // RK -->
     fun saveCookieString(url: HttpUrl, cookieString: String) = manager.setCookie(url.toString(), cookieString)
+
+    /** The host itself, then every dotted parent short of the public suffix. */
+    private fun scopesOf(host: String): List<String> {
+        val labels = host.split('.')
+        return listOf("") + (0..labels.size - 2).map { "; Domain=.${labels.drop(it).joinToString(".")}" }
+    }
+
+    private fun expiry(name: String, maxAge: Int, domain: String) = "$name=; Max-Age=$maxAge; Path=/$domain"
     // RK <--
 
     fun removeAll() {
