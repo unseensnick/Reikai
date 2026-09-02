@@ -137,6 +137,7 @@ WebView data cleared between each.** The same global search over the same four h
 | 9, 11 | fold-to-unfold mid-solve | 8 of 8 solved across two runs; a ninth stalled in an earlier one |
 | 10 | forced never-verify | 4 of 4 gave up at first press plus 20.00s, after five presses each |
 | 12-15 | re-run after the extraction | 4 of 4 on each of the normal, events-only, never-verify and no-window paths |
+| 16 | real background update, after the extraction | 1 of 1 solved in 226ms, in a process with no activity |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
 killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
