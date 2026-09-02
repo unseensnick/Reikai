@@ -42,7 +42,6 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
-import eu.kanade.tachiyomi.network.interceptor.TurnstileHarness
 import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
@@ -373,7 +372,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     enabled = turnstileSolverEnabled,
                 ),
                 // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
-                //     entirely in this DSL, so a release build shows none of the five.
+                //     entirely in this DSL, so a release build shows none of the three.
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile: library update in 60s (spike)",
                     subtitle = "Queues a manual update after a delay. Kill the app during it, and the " +
@@ -402,38 +401,6 @@ object SettingsAdvancedScreen : SearchableSettings {
                     onClick = {
                         forceHeadlessSolver = !forceHeadlessSolver
                         TurnstileSolver.forceHeadless = forceHeadlessSolver
-                    },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = "Turnstile harness: dummy sitekey (spike)",
-                    subtitle = "Bisect sweep, no live challenge needed",
-                    enabled = BuildConfig.DEBUG,
-                    onClick = {
-                        TurnstileHarness.run(
-                            context,
-                            TurnstileHarness.Target.Dummy,
-                        )
-                    },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = "Turnstile harness: live site (spike)",
-                    subtitle = "Bisect sweep against the first host that challenges interactively",
-                    enabled = BuildConfig.DEBUG,
-                    onClick = {
-                        TurnstileHarness.run(
-                            context,
-                            TurnstileHarness.Target.Live(
-                                listOf(
-                                    "https://comix.to/",
-                                    "https://comix.ws/",
-                                    "https://aquareader.org/",
-                                    "https://mangafire.to/",
-                                    "https://toonily.com/",
-                                    "https://www.natomanga.com/",
-                                    "https://comick.live/",
-                                ),
-                            ),
-                        )
                     },
                 ),
                 Preference.PreferenceItem.SwitchPreference(

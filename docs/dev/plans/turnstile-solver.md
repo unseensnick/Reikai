@@ -83,8 +83,6 @@ deletion and the per-host lock all run either way.
 - `core/common/.../network/interceptor/WebViewInterceptor.kt`: the per-host read/write lock,
   `getNonce` and `isBypassed`, taken from mihonapp/mihon#3858. A sibling that queued behind a solve
   re-checks the jar rather than opening its own WebView.
-- `core/common/.../network/interceptor/TurnstileHarness.kt`: the debug-only bisect rig. Phase
-  sequencing, host cycling, per-phase cookie clearing, `complete`-based acceptance.
 - `core/common/.../network/AndroidCookieJar.kt`: `remove` expires a cookie on every parent domain and
   at the root path. Cloudflare stores `cf_clearance` as both, so the host-only form this had could
   not delete it, which is what the failed-solve deletion depends on.
@@ -748,12 +746,14 @@ up in the solver rather than the harness, the no-window path can press keys like
 the in-frame script, its separate switch and its ungated click loop are retired rather than gated. Not
 built, and it is a behaviour change rather than a harness run.
 
-**The harness is the instrument.** `TurnstileHarness`, debug builds only, two rows at the bottom of
-Settings -> Advanced -> Networking. It runs a sequence of phases, each a clean WebView carrying one
-named difference, reading everything from an isolated world including Cloudflare's own challenge
-events, so it needs no page-world script. `Target.Dummy` uses sitekey `3x00000000000000000000FF`,
-which forces an interactive widget on any domain and costs nothing to repeat. `Target.Live` takes
-candidate hosts and tries them in order until one challenges interactively.
+**The harness was the instrument, and it has since been deleted.** `TurnstileHarness` ran a sequence
+of phases, each a clean WebView carrying one named difference, reading everything from an isolated
+world including Cloudflare's own challenge events, so it needed no page-world script. `Target.Dummy`
+used sitekey `3x00000000000000000000FF`, which forces an interactive widget on any domain, and
+`Target.Live` tried candidate hosts in order until one challenged interactively. It went once the
+question it was built for was settled and it had started rotting instead: an audit found three
+defects in it, none of them noticed by using it. Rebuild it from this description if another mystery
+needs one.
 
 Four things it learned the hard way, all of which cost a run:
 

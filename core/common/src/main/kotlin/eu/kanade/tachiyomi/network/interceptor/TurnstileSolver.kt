@@ -145,7 +145,7 @@ object TurnstileSolver {
      * `addJavaScriptOnEvent` and this feature arrived in androidx.webkit 1.16.0-alpha03, so it is
      * the recency of the installed WebView that decides, not the Android version.
      */
-    val hasIsolatedWorld: Boolean
+    private val hasIsolatedWorld: Boolean
         get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.JS_INJECTION_IN_FRAME_AND_WORLD)
