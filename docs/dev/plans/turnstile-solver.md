@@ -133,7 +133,7 @@ WebView data cleared between each.** The same global search over the same four h
 | 6 | emulator, WebView 124 | 4 of 4 solved on a genuinely absent isolated world |
 | 7 | A22, Android 13, WebView 150 | 2 of 2 solved on a second physical device |
 | 8 | A57, Android 16, WebView 151 | 4 of 4 solved on a third physical device |
-| 9 | fold-to-unfold mid-solve | 4 of 4 solved across the config change |
+| 9, 11 | fold-to-unfold mid-solve | 8 of 8 solved across two runs; a ninth stalled in an earlier one |
 | 10 | forced never-verify | 4 of 4 gave up at first press plus 20.00s, after five presses each |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
@@ -357,10 +357,13 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   and 20.009 seconds. A first run of the same shape, where each solve pressed only once, was thrown
   out: with one press the fixed and the broken code behave identically, so it discriminated nothing.
 
-  **A fold-to-unfold config change does not break an in-flight solve.** Three solves have spanned
-  one across two runs, two of them armed before the unfold, and all three completed normally. Worth
-  knowing because the windowed path attaches the WebView to the decor view of an activity that a
-  configuration change destroys, which looks like it should be fatal and is not.
+  **A fold-to-unfold config change is probably harmless to an in-flight solve, but that is not
+  established.** Across three runs, five solves were armed before the unfold and carried through it:
+  four completed normally and one stalled. One stall in five is not enough to convict the config
+  change, and not enough to clear it either, so treat it as open. What matters more is that the
+  deadline bounds the damage whatever the cause, which is what the stalled one proved by not being
+  bounded. Worth knowing because the windowed path attaches the WebView to the decor view of an
+  activity a configuration change destroys, which looks like it should be reliably fatal and is not.
 - **A solve owns its deadline and its timers, and the deadline starts at arming.** It used to start
   at the first press, which left a solve that never pressed with no bound at all, and it used to be a
   bare `Handler` post that nothing cancelled. The caller destroys the WebView as soon as its wait
