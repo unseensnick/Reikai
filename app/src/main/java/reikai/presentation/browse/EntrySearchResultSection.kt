@@ -68,11 +68,13 @@ fun SearchResultSection(
                 is SourceKey.Manga -> EntrySearchCardRow(
                     entries = result.entries.filterIsInstance<Manga>(),
                     key = { it.id },
-                    // A @Composable mapper, so the in-library badge tracks the live entry.
-                    toUi = {
+                    // Resolved here rather than in the mapper, so the badge and the long press read
+                    // one value: the row's own copy is whatever the source returned when it loaded.
+                    resolve = {
                         val manga by getManga(it)
-                        manga.toEntryBrowseUi()
+                        manga
                     },
+                    toUi = { it.toEntryBrowseUi() },
                     onClick = onClickManga,
                     onLongClick = onLongClickManga,
                     isSelected = { manga -> mangaSelection.fastAny { it.id == manga.id } },
