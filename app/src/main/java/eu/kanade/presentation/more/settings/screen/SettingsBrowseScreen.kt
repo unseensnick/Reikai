@@ -32,6 +32,11 @@ object SettingsBrowseScreen : SearchableSettings {
         val getExtensionStoreCountAsFlow = remember { context.appGraph.getExtensionStoreCountAsFlow }
         // RK: the Repos screen is unified (manga + light novel), so count both.
         val novelPreferences = remember { context.appGraph.novelPreferences }
+        // RK --> the Feed tab's own switches, which the rest of its group hangs off
+        val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
+        val showFeedTab by reikaiSourcePreferences.showFeedTab.changes()
+            .collectAsState(reikaiSourcePreferences.showFeedTab.get())
+        // RK <--
 
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
         val novelRepoUrls by novelPreferences.addedRepoUrls().changes()
@@ -59,6 +64,34 @@ object SettingsBrowseScreen : SearchableSettings {
                     ),
                 ),
             ),
+            // RK --> the Feed tab is Reikai's, and every switch here is off by default
+            Preference.PreferenceGroup(
+                title = stringResource(MR.strings.label_feed),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = reikaiSourcePreferences.showFeedTab,
+                        title = stringResource(MR.strings.pref_show_feed_tab),
+                        subtitle = stringResource(MR.strings.pref_show_feed_tab_summary),
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = reikaiSourcePreferences.feedTabInFront,
+                        title = stringResource(MR.strings.pref_feed_tab_first),
+                        subtitle = stringResource(MR.strings.pref_feed_tab_first_summary),
+                        enabled = showFeedTab,
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = reikaiSourcePreferences.hideInLibraryFeedItems,
+                        title = stringResource(MR.strings.pref_hide_in_library_items),
+                        enabled = showFeedTab,
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = reikaiSourcePreferences.openSourcesOnFeed,
+                        title = stringResource(MR.strings.pref_open_sources_on_feed),
+                        subtitle = stringResource(MR.strings.pref_open_sources_on_feed_summary),
+                    ),
+                ),
+            ),
+            // RK <--
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.pref_category_nsfw_content),
                 preferenceItems = listOf(

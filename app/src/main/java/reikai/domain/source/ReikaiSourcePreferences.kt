@@ -32,6 +32,35 @@ class ReikaiSourcePreferences(
     val downloadContentType: Preference<ContentType> =
         preferenceStore.getEnum("download_content_type", ContentType.ALL)
 
+    // region Feed
+
+    /**
+     * Whether Browse carries a Feed tab at all. Off, so the feature is opt-in: the references this was
+     * ported from ship it on, which changes what Browse looks like for everyone who updates.
+     */
+    val showFeedTab: Preference<Boolean> = preferenceStore.getBoolean("reikai_show_feed_tab", false)
+
+    /** Feed sits first in Browse, which also makes it the tab Browse opens on. */
+    val feedTabInFront: Preference<Boolean> =
+        preferenceStore.getBoolean("reikai_feed_tab_in_front", false)
+
+    /**
+     * Leave entries already in the library out of feed rows. Feed-scoped on purpose: the same choice
+     * on a catalogue is Mihon's `hideInLibraryItems`, and a reader who hides them while browsing may
+     * still want to see at a glance that a feed row is nothing new.
+     */
+    val hideInLibraryFeedItems: Preference<Boolean> =
+        preferenceStore.getBoolean("reikai_feed_hide_in_library_items", false)
+
+    /**
+     * Tapping a source opens its own feed rather than its catalogue. Off, so a source keeps opening
+     * where it does today; turning it on is what makes the per-source feed that source's front door.
+     */
+    val openSourcesOnFeed: Preference<Boolean> =
+        preferenceStore.getBoolean("reikai_open_sources_on_feed", false)
+
+    // endregion
+
     /** User pause on the novel downloader, persisted so a paused queue stays paused across restart
      *  (the manga side gets this free from WorkManager; the novel job auto-starts on init, so it needs
      *  an explicit flag). */
