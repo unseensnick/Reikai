@@ -27,32 +27,8 @@ import kotlin.random.Random
  */
 object TurnstileSolver {
 
-    /** Byparr and Solverr both measured that pressing again mid-verification restarts it. */
-    private const val PRESS_COOLDOWN_MS = 4000L
     private const val KEY_GAP_MIN_MS = 70L
     private const val KEY_GAP_MAX_MS = 160L
-
-    /**
-     * How long a solve gets before the request is failed, measured from arming and pushed out once
-     * by its first press. Key-path solves land in 2.2 to 3.9 seconds and the caller's own wait is 30,
-     * so this fails a hopeless solve sooner while leaving room for a challenge Cloudflare reissues.
-     * It runs from arming because a solve that never presses is the case with nothing else to bound
-     * it: arming suppresses the caller's own aborts.
-     */
-    private const val SOLVE_BUDGET_MS = 20_000L
-
-    /**
-     * How often, and how many times, a verified solve asks for the clearance. It lands with the
-     * navigation after Cloudflare says complete, not with the event, so the attempt made on the
-     * event is always too early and something has to ask again. Five seconds covers a navigation;
-     * the caller's wait covers anything longer.
-     */
-    private const val ACCEPT_POLL_MS = 250L
-    private const val ACCEPT_POLL_ATTEMPTS = 20
-
-    /** The events Cloudflare posts that this decides anything from. */
-    private const val INTERACTIVE_BEGIN = "interactiveBegin"
-    private const val COMPLETE = "complete"
 
     /**
      * One solve, and everything the caller may know about it. Returned by [attach], `null` there
@@ -67,11 +43,10 @@ object TurnstileSolver {
     class Solve internal constructor() {
         enum class Phase { Watching, Interactive, Verified, Accepted }
 
-        // Written on the main thread, read from the OkHttp thread after a wait that may have ended
-        // on a timeout rather than a countDown, so there is no happens-before to lean on.
-        @Volatile
-        var phase: Phase = Phase.Watching
-            internal set
+        /** The decisions live in [SolveMachine]; this is only the caller's window onto them. */
+        internal var machine: SolveMachine? = null
+
+        val phase: Phase get() = machine?.phase ?: Phase.Watching
 
         /**
          * Set only when there is no isolated world to watch from, and then the solve's only input.
@@ -187,144 +162,41 @@ object TurnstileSolver {
 
         val solve = Solve()
         val watching = canWatch
-        var lastPress = 0L
-        var clearReadings = 0
-        var deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
-        var deadlineExtended = false
-
-        val press = {
-            val delivered = pressKeys(webView, solve)
-            logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
-            // The first press earns a fresh budget, so a challenge that turns interactive late gets
-            // the same window to verify as one that turns early. Only the first: the cooldown is
-            // shorter than the budget, so extending on every press lets a solve that keeps pressing
-            // outrun its own give-up forever, which is the one case the deadline exists for. Watched
-            // that happen for 23 seconds and six presses with no give-up line.
-            if (!deadlineExtended) {
-                deadlineExtended = true
-                deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
-            }
-        }
-
-        // [probe] is null with no probe to read, which is the one-press case: nothing reports the
-        // page again, so there is no second chance and no token to check before taking it.
-        val pressWhenDue = press@{ probe: JSONObject? ->
-            // Pressing belongs to exactly one phase. The widget is present from the first paint, well
-            // before there is a checkbox behind it, and pressing then only starts the cooldown that
-            // delays the press that counts; pressing after Cloudflare has said `complete` restarts
-            // the verification it just finished. Both are unreachable from here rather than guarded.
-            if (solve.phase != Solve.Phase.Interactive) return@press
-            val now = SystemClock.uptimeMillis()
-            // A widget that already carries a token is mid-verification, and pressing restarts it.
-            // Ported from Byparr and Solverr, which agree on the rule; an interstitial never fills
-            // the token in the main frame, so on the pages this feature sees it is the cooldown
-            // beside it that does the work.
-            if (probe?.optString("token")?.isNotEmpty() == true || now - lastPress < PRESS_COOLDOWN_MS) return@press
-
-            lastPress = now
-            press()
-        }
-
-        // Asks the caller again for the clearance a verified solve is still waiting on. A probe
-        // retries on its own ticks too, but only while the page it watches is still there: the
-        // navigation that carries the clearance is also the one that ends the probe's reports.
-        lateinit var pollForClearance: (Int) -> Unit
-        pollForClearance = { attemptsLeft ->
-            if (solve.phase == Solve.Phase.Verified && attemptsLeft > 0) {
-                if (onSolved()) {
-                    solve.phase = Solve.Phase.Accepted
-                    logcat { "Turnstile[$host]: challenge complete, accepted" }
-                } else {
-                    solve.post(ACCEPT_POLL_MS) { pollForClearance(attemptsLeft - 1) }
-                }
-            }
-        }
-
-        // The two events the solve turns on, wherever they came from: the isolated-world probe when
-        // there is one, the caller's page-world bridge when there is not. `fail` is deliberately not
-        // acted on once the challenge has turned interactive, because Cloudflare reissues after a
-        // failed round often enough that pressing through pays; the caller aborts on it up to then.
-        val handleEvent = { event: String ->
-            if (solve.phase == Solve.Phase.Watching && event == INTERACTIVE_BEGIN) {
-                solve.phase = Solve.Phase.Interactive
-                logcat { "Turnstile[$host]: interactive began" }
-                // With no probe there are no ticks to press on, so the transition is the trigger.
-                if (!watching) pressWhenDue(null)
-            }
-
-            // Cloudflare saying it accepted beats inferring it from the markup, and on a site that
-            // embeds Turnstile on its own pages it is the only signal that can ever arrive: the
-            // probe counts the response-token input as a challenge, so such a page never reads clear
-            // and the markup path never fires however many times it really succeeded.
-            if (solve.phase < Solve.Phase.Verified && event == COMPLETE) {
-                solve.phase = Solve.Phase.Verified
-                logcat { "Turnstile[$host]: cloudflare reports the challenge complete" }
-                pollForClearance(ACCEPT_POLL_ATTEMPTS)
-            } else if (solve.phase == Solve.Phase.Verified) {
-                // A probe tick while the clearance is still landing, and the only thing left asking
-                // once the poll above runs out. Only the acceptance is logged, since with a probe
-                // this runs twice a second until the caller takes it.
-                if (onSolved()) {
-                    solve.phase = Solve.Phase.Accepted
-                    logcat { "Turnstile[$host]: challenge complete, accepted" }
-                }
-            }
-        }
+        val machine = SolveMachine(
+            watching = watching,
+            now = SystemClock::uptimeMillis,
+            schedule = solve::post,
+            press = {
+                val delivered = pressKeys(webView, solve)
+                logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
+            },
+            askClearance = onSolved,
+            giveUp = onGiveUp,
+            log = { line -> logcat { "Turnstile[$host]: $line" } },
+        )
+        solve.machine = machine
+        machine.arm()
 
         val onWatch = watch@{ json: String ->
+            // The accepted check is here rather than in the machine so a solve the caller has
+            // already taken stops paying for the parse on every remaining tick.
             if (solve.phase == Solve.Phase.Accepted) return@watch
             val probe = runCatching { JSONObject(json) }.getOrNull() ?: return@watch
-
-            probe.optString("cf").split('|').forEach(handleEvent)
-            if (solve.phase == Solve.Phase.Verified || solve.phase == Solve.Phase.Accepted) {
-                // Cloudflare is done either way, and pressing again restarts the verification it has
-                // just finished, so this never falls through to the press below.
-                return@watch
-            }
-
-            if (probe.optBoolean("challenged", true)) {
-                clearReadings = 0
-                pressWhenDue(probe)
-                return@watch
-            }
-
-            // One clear reading is not the end of it: the markup goes while the next round is issued
-            // (measured by Byparr, and by Solverr's own confirm delay).
-            if (++clearReadings == 1) {
-                logcat { "Turnstile[$host]: page reads clear, confirming" }
-            }
-            if (clearReadings >= 2) {
-                // Verified without Cloudflare having said so: the page really did get past the
-                // interstitial, which is what the caller needs before it may read anything into a
-                // clearance arriving late.
-                solve.phase = Solve.Phase.Verified
-                val accepted = onSolved()
-                if (accepted) solve.phase = Solve.Phase.Accepted
-                logcat { "Turnstile[$host]: challenge cleared, accepted $accepted" }
-            }
+            machine.onProbe(
+                events = probe.optString("cf").split('|'),
+                // Cloudflare strips the challenge markup before it navigates away, so the script
+                // judges the document itself rather than reporting the selectors alone.
+                challenged = probe.optBoolean("challenged", true),
+                hasToken = probe.optString("token").isNotEmpty(),
+            )
         }
-
-        // The only deadline this solve has, armed here rather than on the first press. Report only a
-        // give-up that released something: a request the caller already served from the jar leaves
-        // this to fire into nothing, and a give-up line beside a success sends the next reader
-        // hunting.
-        lateinit var watchDeadline: () -> Unit
-        watchDeadline = {
-            val left = deadline - SystemClock.uptimeMillis()
-            when {
-                left > 0 -> solve.post(left, watchDeadline)
-                solve.phase != Solve.Phase.Accepted && onGiveUp() ->
-                    logcat { "Turnstile[$host]: gave up, $SOLVE_BUDGET_MS ms with no progress" }
-            }
-        }
-        solve.post(SOLVE_BUDGET_MS, watchDeadline)
 
         if (!watching) {
             // No isolated world to poll from, so the solve runs on Cloudflare's own events, which
             // the caller's bridge already receives on every challenged page. Nothing new is put in
             // the page's world, and nothing is lost but the markup fallback: a challenge that never
-            // says `complete` is left to the deadline above rather than watched out.
-            solve.onEvent = handleEvent
+            // says `complete` is left to the deadline rather than watched out.
+            solve.onEvent = machine::onEvent
             logcat { "Turnstile[$host]: no isolated world, running on challenge events alone" }
             return solve
         }
