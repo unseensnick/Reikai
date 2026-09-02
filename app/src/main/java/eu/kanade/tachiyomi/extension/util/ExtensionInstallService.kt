@@ -71,6 +71,26 @@ class ExtensionInstallService : Service() {
         return START_NOT_STICKY
     }
 
+    // RK -->
+
+    /**
+     * Android gives a dataSync service a few hours a day, then calls this and kills the process if
+     * the service is still up moments later. Getting here means an install is parked on a confirm
+     * dialog nobody answered, so give the queue up rather than be killed holding it.
+     *
+     * Both overloads, because which one the platform calls depends on the version and either way the
+     * answer is to stop. Stopping runs onDestroy, which marks whatever was unfinished as failed.
+     */
+    override fun onTimeout(startId: Int) = stopOnTimeout()
+
+    override fun onTimeout(startId: Int, fgsType: Int) = stopOnTimeout()
+
+    private fun stopOnTimeout() {
+        logcat(LogPriority.WARN) { "Foreground time ran out with installs unfinished; stopping" }
+        stopSelf()
+    }
+    // RK <--
+
     override fun onDestroy() {
         installer?.onDestroy()
         installer = null
