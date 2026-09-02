@@ -103,6 +103,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
   - `refs/komikku/`: **Komikku**, a healthy Mihon fork; the source of borrowed **feature ports** into Reikai (the EXH/adult subsystem, the MD enhanced source, the native edit-info dialog, library tag search, and more). Compare implementation, not surface; credit like the other ports.
   - `refs/lnreader-main/` (+ `refs/lnreader-2.0.3-Pre-release/`, `refs/lnreader-plugins/`): **LNReader**; the origin of the current **novel reader** engine (the vendored `core.js`) and the LN plugin ecosystem.
   - `refs/tsundoku/`: **Tsundoku**, an Apache-2.0 Mihon fork built for novels; the reference for **novel-reader features and the future native-reader migration** (alongside LNReader). See [docs/dev/plans/novel-reader-tsundoku.md](docs/dev/plans/novel-reader-tsundoku.md).
+  - `refs/tachiyomisy/`: **TachiyomiSY**, the Mihon/Tachiyomi fork Komikku itself forked from, and the origin of features Komikku inherited rather than wrote (saved searches and the feed being the clearest). Read it when a Komikku port has an upstream ancestor worth comparing; Komikku stays the primary reference, since it is the maintained one.
   - Other clones are mostly self-evident from their names. Non-obvious: `refs/tachiyomi-extension/` is the **Suwayomi** extension repo (`Suwayomi/tachiyomi-extension`, for connecting Reikai to a self-hosted Suwayomi server as an in-app source), NOT the archived `tachiyomiorg/tachiyomi-extensions`.
 
 ## Skills for common flows

@@ -19,7 +19,8 @@
       "E:\\Code\\yokai-y2k\\refs\\lnreader-2.0.3-Pre-release",
       "E:\\Code\\yokai-y2k\\refs\\lnreader-plugins",
       "E:\\Code\\yokai-y2k\\refs\\tsundoku",
-      "E:\\Code\\yokai-y2k\\refs\\IReader"
+      "E:\\Code\\yokai-y2k\\refs\\IReader",
+      "E:\\Code\\yokai-y2k\\refs\\tachiyomisy"
     ],
     "allow": [
       "Bash(./gradlew :domain:test)",
