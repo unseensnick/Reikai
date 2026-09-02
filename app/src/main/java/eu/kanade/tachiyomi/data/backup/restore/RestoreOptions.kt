@@ -54,7 +54,7 @@ data class RestoreOptions(
             ),
             // RK: the feed and the searches saved on a source.
             Entry(
-                label = MR.strings.label_feed,
+                label = MR.strings.backup_feed_and_saved_searches,
                 getter = RestoreOptions::savedSearches,
                 setter = { options, enabled -> options.copy(savedSearches = enabled) },
             ),

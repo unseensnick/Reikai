@@ -74,7 +74,9 @@ data object BrowseTab : Tab {
         val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
         val showFeed by reikaiSourcePreferences.showFeedTab.collectAsState()
         val feedFirst by reikaiSourcePreferences.feedTabInFront.collectAsState()
-        val feedTab = reikaiFeedTab().takeIf { showFeed }
+        // Built only when it is shown. Resolving the model is what starts the feed loading, so the
+        // call has to sit inside the condition rather than have its result filtered afterwards.
+        val feedTab = if (showFeed) reikaiFeedTab() else null
         // RK <--
 
         val tabs = listOfNotNull(

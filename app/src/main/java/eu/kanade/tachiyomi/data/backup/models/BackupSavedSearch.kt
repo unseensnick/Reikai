@@ -23,4 +23,11 @@ class BackupFeedRow(
     @ProtoNumber(1) var sourceKey: String,
     @ProtoNumber(2) var global: Boolean = true,
     @ProtoNumber(3) var savedSearch: BackupSavedSearch? = null,
+    /**
+     * The row's place in the feed. Carried because the reference this was ported from does not, so a
+     * restore there flattens whatever order the reader arranged. Restored as a sort key rather than a
+     * value: the column is dense and assigned on insert, so the numbers themselves cannot be kept
+     * when the rows land beside a feed that already has some.
+     */
+    @ProtoNumber(4) var feedOrder: Long = 0,
 )

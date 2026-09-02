@@ -1585,7 +1585,8 @@
     <string name="pref_feed_tab_first_summary">Puts Feed first, so Browse opens on it. It loads from every source in the feed, which is worth knowing on a metered connection.</string>
     <string name="action_add_to_feed">Add to feed</string>
     <string name="feed_empty">Nothing in your feed yet. Add a source to see what it has.</string>
-    <string name="feed_latest_row">Latest</string>
+    <string name="backup_feed_and_saved_searches">Feed and saved searches</string>
+    <string name="feed_source_unavailable">This source is not installed. Remove the row, or install the source again.</string>
     <string name="feed_remove_confirmation">Remove \"%1$s\" from your feed?</string>
     <string name="feed_full">A feed holds up to %1$d rows. Remove one to add another.</string>
 

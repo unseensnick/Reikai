@@ -20,6 +20,8 @@ import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.SelectedNovel
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * One source's row: its name and language as a heading, and under it either a spinner, a failure, or
@@ -60,6 +62,8 @@ fun SearchResultSection(
             // Falls back to a generic message: plenty of source failures carry none, and an empty
             // row under a source heading is indistinguishable from one that has not started.
             is EntrySearchState.Error -> GlobalSearchErrorResultItem(result.message)
+            is EntrySearchState.Unavailable ->
+                GlobalSearchErrorResultItem(stringResource(MR.strings.feed_source_unavailable))
             is EntrySearchState.Success -> when (row.key) {
                 is SourceKey.Manga -> EntrySearchCardRow(
                     entries = result.entries.filterIsInstance<Manga>(),

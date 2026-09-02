@@ -71,7 +71,7 @@ class SavedSearchRepositoryTest {
     fun `a manga search round-trips with its query and filters`() = runTest {
         val id = repository.insert(mangaSource, "Ongoing action", "action", """[{"_type":"CHECKBOX"}]""")
 
-        repository.getById(id) shouldBe SavedSearch(
+        repository.getBySource(mangaSource).single() shouldBe SavedSearch(
             id = id,
             sourceKey = mangaSource,
             name = "Ongoing action",
@@ -82,16 +82,18 @@ class SavedSearchRepositoryTest {
 
     @Test
     fun `a novel search keeps its plugin slug`() = runTest {
-        val id = repository.insert(novelSource, "Completed", null, """{"status":{"value":"1"}}""")
+        repository.insert(novelSource, "Completed", null, """{"status":{"value":"1"}}""")
 
-        repository.getById(id)!!.sourceKey shouldBe novelSource
+        repository.getAll().single().sourceKey shouldBe novelSource
     }
 
     @Test
     fun `a search with no query or filters round-trips as nulls`() = runTest {
-        val id = repository.insert(mangaSource, "Everything", null, null)
+        repository.insert(mangaSource, "Everything", null, null)
 
-        repository.getById(id)!!.query.shouldBeNull()
+        val stored = repository.getAll().single()
+        stored.query.shouldBeNull()
+        stored.filtersJson.shouldBeNull()
     }
 
     @Test
@@ -118,15 +120,17 @@ class SavedSearchRepositoryTest {
 
         repository.delete(id)
 
-        repository.getById(id).shouldBeNull()
+        repository.getAll().shouldBeEmpty()
     }
 
     @Test
     fun `a row whose stored source no longer parses is left out`() = runTest {
-        // Corruption must cost that one chip, not the whole list, so the mapper drops the row.
+        // Beside a good row on purpose: corruption must cost that one chip and leave the rest, which
+        // a list holding only the broken row cannot tell apart from failing whole.
+        repository.insert(mangaSource, "Fine", null, null)
         database.saved_searchQueries.insert("not a source key", "Broken", null, null)
 
-        repository.getAll().shouldBeEmpty()
+        repository.getAll().map { it.name } shouldBe listOf("Fine")
     }
 
     @Test

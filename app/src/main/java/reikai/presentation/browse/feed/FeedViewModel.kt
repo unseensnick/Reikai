@@ -16,12 +16,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.FeedSavedSearchRepository
 import reikai.domain.source.GetEnabledNovelSources
+import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SavedSearchRepository
 import reikai.domain.source.SourceKey
@@ -46,9 +48,6 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-
-/** How many rows one feed may hold. Komikku's number, kept so a feed stays a glance. */
-const val MAX_FEED_ROWS = 20
 
 /**
  * The Browse feed: a row per source the reader added, showing what it has right now.
@@ -87,7 +86,16 @@ class FeedViewModel(
 
     init {
         viewModelScope.launchIO {
-            feedRepository.subscribeGlobal().collectLatest(::onFeedChanged)
+            // Before the first read, never after: the plugin registry answers "missing" for every
+            // source until this returns, so a feed built earlier resolves none of its novel rows.
+            // Then follow the registry, because a plugin installed or removed later changes which
+            // rows can be shown and the feed table itself does not emit for that.
+            runCatching { novelSourceManager.ensureLoaded() }
+            combine(
+                feedRepository.subscribeGlobal(),
+                novelSourceManager.sources,
+            ) { feeds, _ -> feeds }
+                .collectLatest(::onFeedChanged)
         }
         viewModelScope.launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
@@ -99,26 +107,41 @@ class FeedViewModel(
     /**
      * Rebuilds the feed whenever its rows change. Every row refetches: adding or removing one is rare
      * and deliberate, so keeping results across a rebuild would buy little for the bookkeeping it
-     * costs. A row a source no longer backs is dropped rather than shown as broken.
+     * costs. A row whose source is gone is kept and marked unavailable, never dropped: dropping it
+     * hid the row from the list while it still counted against the cap, so it could not be removed.
      */
     private suspend fun onFeedChanged(feeds: List<FeedSavedSearch>) {
         loadJob?.cancel()
         val searches = savedSearchRepository.getAll().associateBy { it.id }
-        val entries = feeds.mapNotNull { feed ->
+        val entries = feeds.map { feed ->
             val provider = providers.firstOrNull { it.contentType == feed.sourceKey.contentType }
-            val row = provider?.source(feed.sourceKey) ?: return@mapNotNull null
+            val row = provider?.source(feed.sourceKey)
             val search = feed.savedSearchId?.let { searches[it] }
             FeedEntry(
                 feedId = feed.id,
                 savedSearch = search,
-                row = row.copy(id = feed.id.toString(), name = search?.name ?: row.name),
-                sourceName = row.name,
-                supportsLatest = provider.supportsLatest(row),
+                row = row?.copy(id = feed.id.toString(), name = search?.name ?: row.name)
+                    ?: unavailableRow(feed, search),
+                // The stored key, when there is no source left to name it: it is what the reader
+                // added, and it is enough to tell two dead rows apart.
+                sourceName = row?.name ?: feed.sourceKey.serialize(),
+                supportsLatest = row != null && provider.supportsLatest(row),
             )
         }
         state.update { it.copy(entries = entries, loaded = true) }
         startFilling(entries)
     }
+
+    private fun unavailableRow(feed: FeedSavedSearch, search: SavedSearch?) = BrowseSearchRow(
+        key = feed.sourceKey,
+        name = search?.name ?: feed.sourceKey.serialize(),
+        lang = "",
+        isPinned = false,
+        state = EntrySearchState.Unavailable,
+        // Never read: only a filled row unwraps this, and an unavailable one is never filled.
+        source = Unit,
+        id = feed.id.toString(),
+    )
 
     /** Runs every waiting row of [entries], replacing whatever pass was already going. */
     private fun startFilling(entries: List<FeedEntry>) {
@@ -133,23 +156,17 @@ class FeedViewModel(
                 load = { row ->
                     val entry = entries.first { it.row.id == row.id }
                     val provider = providers.first { it.contentType == row.key.contentType }
-                    provider.load(row, entry.savedSearch).filterInLibrary()
+                    provider.load(row, entry.savedSearch).filterInLibrary(row, provider)
                 },
             )
         }
     }
 
     /** Hides what is already in the library, when the reader asked for that. */
-    private fun List<Any>.filterInLibrary(): List<Any> {
+    private fun List<Any>.filterInLibrary(row: BrowseSearchRow, provider: FeedProvider): List<Any> {
         if (!preferences.hideInLibraryFeedItems.get()) return this
         val favorited = state.value.favoritedKeys
-        return filterNot { entry ->
-            when (entry) {
-                is Manga -> entry.favorite
-                is NovelItem -> favorited.any { it.second == entry.path }
-                else -> false
-            }
-        }
+        return filterNot { provider.isInLibrary(row, it, favorited) }
     }
 
     fun openAddDialog() {
@@ -167,7 +184,10 @@ class FeedViewModel(
     fun pickSource(source: BrowseSearchRow) {
         viewModelScope.launchIO {
             val searches = savedSearchRepository.getBySource(source.key)
-            state.update { it.copy(dialog = FeedDialog.PickSearch(source, searches)) }
+            val provider = providers.first { it.contentType == source.key.contentType }
+            state.update {
+                it.copy(dialog = FeedDialog.PickSearch(source, searches, provider.supportsLatest(source)))
+            }
         }
     }
 
@@ -195,13 +215,25 @@ class FeedViewModel(
         getManga.subscribe(initial.url, initial.source).filterNotNull().collectLatest { value = it }
     }
 
-    /** Asks every row again. Nothing else does: a feed left open would otherwise go stale. */
+    /**
+     * Asks every row again. Nothing else does: a feed left open would otherwise go stale. An
+     * unavailable row is left as it is, because there is no source behind it to ask.
+     */
     fun refresh() {
-        val entries = state.value.entries
+        // Read and written in one update, so a row list arriving from the table between the two
+        // cannot be filled from the stale snapshot and left showing a spinner that never clears.
+        lateinit var entries: List<FeedEntry>
         state.update { current ->
-            current.copy(entries = current.entries.map { it.copy(row = it.row.copy(state = EntrySearchState.Loading)) })
+            entries = current.entries.map {
+                if (it.row.state is EntrySearchState.Unavailable) {
+                    it
+                } else {
+                    it.copy(row = it.row.copy(state = EntrySearchState.Loading))
+                }
+            }
+            current.copy(entries = entries)
         }
-        startFilling(entries.map { it.copy(row = it.row.copy(state = EntrySearchState.Loading)) })
+        startFilling(entries)
     }
 
     // --- Adding from a cover, the same rule every browse surface follows (decideAdd). The raised
@@ -285,7 +317,13 @@ class FeedViewModel(
         val novel = raisedNovel as? NovelBrowseDialog.AddDuplicate
         viewModelScope.launchIO {
             when {
-                manga != null -> state.update { it.copy(addDialog = addMangaFavorite(manga)) }
+                // Resolved before the write: `update` re-runs its block whenever it loses the
+                // compare-and-set, and a row landing behind it is enough to make that happen, so
+                // adding inside one would add twice.
+                manga != null -> {
+                    val dialog = addMangaFavorite(manga)
+                    state.update { it.copy(addDialog = dialog) }
+                }
                 novel != null -> raiseNovel(novelAdder.addToLibrary(novel.item, novel.sourceId))
                 else -> dismissAddDialog()
             }
@@ -373,7 +411,12 @@ data class FeedState(
 
 sealed interface FeedDialog {
     data class PickSource(val sources: List<BrowseSearchRow>) : FeedDialog
-    data class PickSearch(val source: BrowseSearchRow, val searches: List<SavedSearch>) : FeedDialog
+    data class PickSearch(
+        val source: BrowseSearchRow,
+        val searches: List<SavedSearch>,
+        /** Names the plain-listing option for what it will show, Latest or Popular. */
+        val supportsLatest: Boolean,
+    ) : FeedDialog
     data class Remove(val entry: FeedEntry) : FeedDialog
     data object TooManyRows : FeedDialog
 }

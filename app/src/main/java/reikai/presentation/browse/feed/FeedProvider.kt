@@ -9,6 +9,7 @@ import reikai.domain.source.SourceKey
 import reikai.domain.source.filter.MangaSavedSearchFilters
 import reikai.domain.source.filter.NovelSavedSearchFilters
 import reikai.domain.source.model.SavedSearch
+import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.langCode
@@ -17,7 +18,9 @@ import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.buildOptions
 import reikai.presentation.novel.browse.defaultFilterValues
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.isLocal
 
 /**
  * One content type's half of the feed: which of its sources a row can be built on, how to resolve one
@@ -41,6 +44,13 @@ interface FeedProvider {
      * falling back to Popular where it has no latest listing.
      */
     suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<Any>
+
+    /**
+     * Whether [entry], as [row] returned it, is already in the library. On the provider because only
+     * it knows how its own type is identified: a manga carries the answer, a novel is a source plus a
+     * path and needs both halves, so a shared branch on the payload type gets the novel case wrong.
+     */
+    fun isInLibrary(row: BrowseSearchRow, entry: Any, favoritedKeys: Set<Pair<String, String>>): Boolean
 }
 
 /** The manga half, over Mihon's source manager. */
@@ -59,7 +69,9 @@ class MangaFeedProvider(
         val disabled = sourcePreferences.disabledSources.get()
         return sourceManager.getAll()
             .filterIsInstance<CatalogueSource>()
-            .filter { it.lang in enabledLanguages && "${it.id}" !in disabled }
+            // Same predicate as GetEnabledSources, local source included: it has no language to
+            // enable, so filtering on language alone is what hides it from its own lists.
+            .filter { (it.lang in enabledLanguages || it.isLocal()) && "${it.id}" !in disabled }
             .map(::toRow)
     }
 
@@ -87,6 +99,12 @@ class MangaFeedProvider(
             .distinctBy { it.url }
             .let { networkToLocalManga(it) }
     }
+
+    override fun isInLibrary(
+        row: BrowseSearchRow,
+        entry: Any,
+        favoritedKeys: Set<Pair<String, String>>,
+    ): Boolean = (entry as? Manga)?.favorite == true
 
     private fun toRow(source: CatalogueSource) = BrowseSearchRow(
         key = SourceKey.Manga(source.id),
@@ -128,6 +146,15 @@ class NovelFeedProvider(
             page = 1,
             optionsJson = buildOptions(source.filters, values, showLatest = source.supportsLatest),
         )
+    }
+
+    override fun isInLibrary(
+        row: BrowseSearchRow,
+        entry: Any,
+        favoritedKeys: Set<Pair<String, String>>,
+    ): Boolean {
+        val item = entry as? NovelItem ?: return false
+        return ((row.source as NovelSource).id to item.path) in favoritedKeys
     }
 
     private fun toRow(source: NovelSource) = BrowseSearchRow(

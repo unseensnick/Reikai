@@ -24,12 +24,6 @@ FROM feed_saved_search
 WHERE global = 1
 ORDER BY feed_order;
 
-selectBySource:
-SELECT *
-FROM feed_saved_search
-WHERE global = 0 AND source_key = :sourceKey
-ORDER BY feed_order;
-
 selectAll:
 SELECT *
 FROM feed_saved_search
@@ -40,10 +34,12 @@ SELECT count(*)
 FROM feed_saved_search
 WHERE global = 1;
 
-countBySource:
-SELECT count(*)
+-- `IS` rather than `=` so a row carrying no saved search matches another that carries none;
+-- `= NULL` is never true, which would let the plain listing row be added over and over.
+selectMatching:
+SELECT _id
 FROM feed_saved_search
-WHERE global = 0 AND source_key = :sourceKey;
+WHERE source_key = :sourceKey AND global = :global AND saved_search IS :savedSearch;
 
 insert:
 INSERT INTO feed_saved_search(source_key, saved_search, global, feed_order)

@@ -17,7 +17,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import eu.kanade.tachiyomi.util.system.LocaleHelper
+import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.model.SavedSearch
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import tachiyomi.i18n.MR
@@ -34,15 +37,25 @@ fun FeedSourcePickerDialog(
     onDismissRequest: () -> Unit,
     onPick: (BrowseSearchRow) -> Unit,
 ) {
+    val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     val matching = remember(query, sources) {
         if (query.isBlank()) sources else sources.filter { it.name.contains(query.trim(), true) }
+    }
+    // Language included, because two sources sharing a name are otherwise the same entry twice, and
+    // picking the wrong one is only visible once the row is added and fetching.
+    val labels = remember(matching, context) {
+        matching.map { row ->
+            val lang = row.lang.takeIf { it.isNotBlank() }
+                ?.let { LocaleHelper.getSourceDisplayName(it, context) }
+            if (lang.isNullOrBlank()) row.name else "${row.name} ($lang)"
+        }
     }
 
     PickerDialog(
         title = stringResource(MR.strings.action_add_to_feed),
         onDismissRequest = onDismissRequest,
-        options = matching.map { it.name },
+        options = labels,
         onPick = { index -> onPick(matching[index]) },
         header = {
             OutlinedTextField(
@@ -64,13 +77,17 @@ fun FeedSourcePickerDialog(
 fun FeedSearchPickerDialog(
     source: BrowseSearchRow,
     searches: List<SavedSearch>,
+    supportsLatest: Boolean,
     onDismissRequest: () -> Unit,
     onPick: (SavedSearch?) -> Unit,
 ) {
+    // Named for what the row will actually show, since a source with no latest listing falls back to
+    // Popular. Offering "Latest" and then rendering Popular is a promise the row does not keep.
+    val listing = if (supportsLatest) MR.strings.latest else MR.strings.popular
     PickerDialog(
         title = source.name,
         onDismissRequest = onDismissRequest,
-        options = listOf(stringResource(MR.strings.feed_latest_row)) + searches.map { it.name },
+        options = listOf(stringResource(listing)) + searches.map { it.name },
         onPick = { index -> onPick(searches.getOrNull(index - 1)) },
     )
 }

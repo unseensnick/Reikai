@@ -47,7 +47,15 @@ class SavedSearchViewModelTest {
 
         model.awaitingSave { save("Completed", SavedSearchDraft("sword", """{"a":1}""")) }
 
-        repository.rows.value.single().name shouldBe "Completed"
+        // The whole row, not just its name: what the reader had on screen is the payload, and a save
+        // that stored the name and dropped the draft would read as working right up until it is used.
+        repository.rows.value.single() shouldBe SavedSearch(
+            id = 1L,
+            sourceKey = sourceKey,
+            name = "Completed",
+            query = "sword",
+            filtersJson = """{"a":1}""",
+        )
     }
 
     @Test
@@ -104,8 +112,6 @@ private suspend fun SavedSearchViewModel.awaitingSave(block: SavedSearchViewMode
 private class FakeSavedSearchRepository : SavedSearchRepository {
 
     val rows = MutableStateFlow(emptyList<SavedSearch>())
-
-    override suspend fun getById(id: Long): SavedSearch? = rows.value.firstOrNull { it.id == id }
 
     override suspend fun getBySource(sourceKey: SourceKey): List<SavedSearch> =
         rows.value.filter { it.sourceKey == sourceKey }

@@ -15,16 +15,13 @@ CREATE TABLE saved_search(
 
 CREATE INDEX idx_saved_search_source_key ON saved_search(source_key);
 
-selectById:
-SELECT *
-FROM saved_search
-WHERE _id = :id;
-
+-- NOCASE because the chips are read as words: binary collation files every capitalised name
+-- ahead of every lower-case one, which reads as an arbitrary order to anyone naming searches.
 selectBySource:
 SELECT *
 FROM saved_search
 WHERE source_key = :sourceKey
-ORDER BY name;
+ORDER BY name COLLATE NOCASE;
 
 selectAll:
 SELECT *

@@ -12,8 +12,6 @@ import reikai.domain.source.model.SavedSearch
  */
 interface SavedSearchRepository {
 
-    suspend fun getById(id: Long): SavedSearch?
-
     suspend fun getBySource(sourceKey: SourceKey): List<SavedSearch>
 
     /** [getBySource] as a live list, for the chips that must appear the moment a search is saved. */

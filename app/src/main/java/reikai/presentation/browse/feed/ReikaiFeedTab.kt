@@ -167,6 +167,7 @@ private fun FeedDialogs(dialog: FeedDialog?, model: FeedViewModel) {
         is FeedDialog.PickSearch -> FeedSearchPickerDialog(
             source = dialog.source,
             searches = dialog.searches,
+            supportsLatest = dialog.supportsLatest,
             onDismissRequest = model::dismissDialog,
             onPick = { search -> model.add(dialog.source, search) },
         )

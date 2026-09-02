@@ -27,6 +27,7 @@ class FeedBackupCreator(
                 sourceKey = row.sourceKey.serialize(),
                 global = row.global,
                 savedSearch = row.savedSearchId?.let { searches[it] }?.let(::toBackup),
+                feedOrder = row.feedOrder,
             )
         }
     }

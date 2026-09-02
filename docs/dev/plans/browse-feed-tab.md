@@ -103,9 +103,29 @@ Opening a saved search means opening the catalogue with its query and filters al
 catalogue cannot do today: `BrowseSourceViewModel`'s init overwrites its filters with a fresh
 `source.getFilterList()` even when the incoming listing carried some, and its assisted factory takes
 only a listing query string. Komikku threads a `savedSearch` id through its browse screen's constructor
-and resolves it in the model. Reikai does the same, adding a nullable saved-search id to
-`EntryCatalogueScreen` (Voyager-serializable) and to both models' assisted factories, with a `// RK`
-fence on the manga model so a supplied search survives init.
+and resolves it in the model. Reikai takes a nullable saved-search id on `EntryCatalogueScreen`
+(Voyager-serializable) but stops there: it is applied from a `LaunchedEffect` once the screen is up,
+through the adapter's `applySearch`, so neither model needs a saved-search read and neither needed a
+`// RK` fence. The cost is one discarded page of the default listing.
+
+That effect is keyed on the saved-search list rather than on the id, because the search is not there on
+the first pass, and it holds its own "already applied" flag in `rememberSaveable`. Both matter: keyed
+on the chip state instead, saving a new search on that screen re-emits the list and the old search
+lands back on top of what the reader was looking at, and held in a plain `remember`, any config change
+(a rotation, a fold) does the same.
+
+### A row whose source is not there
+
+A feed row outlives the source it names: an extension can be uninstalled, and a light-novel plugin is
+not in the registry at all until `LnPluginInstaller.ensureLoaded` has run once. Such a row keeps its
+place and renders as `EntrySearchState.Unavailable`, a state the row fill never fills, so it stays
+long-pressable and removable. Dropping it instead hides a row that still counts against the cap, which
+leaves the reader unable to remove it and unable to add another.
+
+The novel half needs more than that, because "not there yet" is the common case rather than the rare
+one: the model loads the plugins before its first read of the table, then follows
+`NovelSourceManager.sources`, so a plugin that arrives (or leaves) later rebuilds the list. The manga
+registry fills itself, so it needs neither.
 
 ### The preferences
 
@@ -250,8 +270,10 @@ row reordering, bulk selection on the feed, and the adult-source saved-search sp
   thing in both. They are kept apart in code by package and preference-key prefix rather than by name.
 - **`feed_order` ships as a column, the reorder screen does not.** Adding the column up front is
   cheaper than migrating for it later, and the reorder UI is a Komikku addition rather than part of the
-  feature. Komikku does not back that column up, so a restore flattens row order there; including it in
-  the backup avoids repeating that.
+  feature. Komikku does not back that column up, so a restore flattens row order there; `BackupFeedRow`
+  carries it as field 4 to avoid repeating that. It restores as a sort key rather than as a value,
+  because `insert` assigns the next number: the sequence is what carries the order, not the number.
+  (The first cut of this shipped the decision without the field, which the audit below found.)
 - **The per-source feed is not built** (owner, 2026-09-02, after seeing it running). Komikku's version
   leads with a Latest row and a Popular row, which is what the catalogue's own chips already give you,
   and the saved searches under them are already reachable as chips on that catalogue. A source opens on
@@ -269,5 +291,35 @@ row reordering, bulk selection on the feed, and the adult-source saved-search sp
   on, but only because their per-source feed replaces the catalogue and always leads with Latest for
   that source. With no per-source feed, the button is the only one-tap route to Latest for a source
   the reader never added to their feed, and the feed ships off.
+
+- **A feed row is deduplicated at the repository, not at the caller.** Komikku dedupes on insert and
+  the same rule has two callers here, the picker and a restore, so it lives inside the insert
+  transaction. That is also what makes restoring a file twice a no-op on the feed rows.
+- **A restore honours the row cap; `MAX_FEED_ROWS` therefore lives in the domain.** A backup is
+  untrusted input and each row costs a source round trip on every open, so an over-long feed is cut
+  rather than rendered. Our own backups can never exceed it, so only a hand-edited or foreign file is
+  affected.
+- **A saved `Select` or `Sort` is re-resolved through the option text, not the stored index.** The
+  index is a position in `values`, so a source that reorders its options applies the wrong one and one
+  that shortens them crashes the filter sheet, which indexes `values` unguarded. Same reasoning as the
+  kind-and-name matching above, one level down. It needs an `afterDeserialize` hook on `Serializer`,
+  because the reflective mapping pass writes `state` blindly after the type-specific pass runs.
+- **The in-library test is a `FeedProvider` slot.** A manga carries the answer; a novel is a source
+  plus a path and needs both halves. A branch on the payload type inside the shared model is what let
+  the two sides disagree, so the question is asked of the provider instead.
+- **The saved query is not sanitized before a feed fetch**, where Komikku calls `query.sanitize()`.
+  The catalogue does not sanitize a typed query either, so sanitizing only the feed would make one
+  saved search return different results in two places. Revisit only by doing both at once.
+- **The add-source picker names the source language, and stops there.** Two same-named sources are
+  otherwise the same entry twice. Komikku also shows an icon and sorts pinned sources first; the icon
+  needs the picker to stop being a list of strings and pinned-first needs both providers to carry
+  pinned state, neither worth it for a dialog opened once per added row.
+- **A saved search whose filters cannot be read applies what it can, silently.** Komikku toasts and
+  aborts. Ours degrades per element by design, so there is nothing to abort, and warning would mean
+  threading an error channel through `applySearch` for a case only a corrupt payload reaches.
+- **A novel saved search carrying a query cannot also carry filters.** A plugin's search endpoint takes
+  no options, so the two cannot reach one request; a query wins and the filters stay in the draft.
+  Recorded here rather than only in a code comment because the write-once rule requires the mechanism
+  named in the plan doc. The catalogue and the feed apply the same rule, so the surfaces agree.
 
 Part of the broader [unified-content-ui](unified-content-ui.md) initiative.

@@ -61,7 +61,7 @@ From the same audit, apart from the Cloudflare solver item.
 - **Decide whether the interactive Cloudflare solver defaults on** `[S]` - the experimental label is gone, the switch still ships off. Likely a judgement call rather than a further test; the coverage so far and the one gap left are in the plan. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
-- **Feed polish** `[S]` - two things the Feed tab was shipped without, both deliberate: reordering its rows (the `feed_order` column exists and is backed up, only the drag screen is missing), and selecting several covers at once to add them together (a long press already adds one). [Plan](docs/dev/plans/browse-feed-tab.md).
+- **Feed polish** `[S]` - two things the Feed tab was shipped without, both deliberate: reordering its rows (the `feed_order` column exists and is carried in a backup, only the drag screen is missing), and selecting several covers at once to add them together (a long press already adds one). [Plan](docs/dev/plans/browse-feed-tab.md).
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
 
 ### Reader

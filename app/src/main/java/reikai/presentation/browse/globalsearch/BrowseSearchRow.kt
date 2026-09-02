@@ -14,6 +14,13 @@ sealed interface EntrySearchState {
     data class Success(val entries: List<Any>) : EntrySearchState
 
     data class Error(val message: String?) : EntrySearchState
+
+    /**
+     * The source behind the row is not there: uninstalled, or a plugin that would not load. Distinct
+     * from [Error], which is a source that answered badly. Never filled, so the row keeps its place
+     * and stays removable instead of vanishing from a list the reader still owns.
+     */
+    data object Unavailable : EntrySearchState
 }
 
 /**

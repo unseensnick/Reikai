@@ -119,7 +119,7 @@ data class BackupOptions(
             // RK: the feed and the searches saved on a source, which are data rather than settings but
             // belong beside the source options a reader thinks of them with.
             Entry(
-                label = MR.strings.label_feed,
+                label = MR.strings.backup_feed_and_saved_searches,
                 getter = BackupOptions::savedSearches,
                 setter = { options, enabled -> options.copy(savedSearches = enabled) },
             ),

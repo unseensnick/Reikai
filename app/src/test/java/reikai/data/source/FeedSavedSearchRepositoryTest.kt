@@ -2,6 +2,7 @@ package reikai.data.source
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -92,24 +93,6 @@ class FeedSavedSearchRepositoryTest {
     }
 
     @Test
-    fun `a source's feed holds only that source's rows`() = runTest {
-        repository.insert(mangaSource, savedSearchId = null, global = false)
-        repository.insert(novelSource, savedSearchId = null, global = false)
-
-        repository.subscribeBySource(novelSource).first().map { it.sourceKey } shouldBe listOf(novelSource)
-    }
-
-    @Test
-    fun `a source's feed leaves out its own row in the Browse feed`() = runTest {
-        // Adding a source to the Browse feed must not also populate that source's own feed, which is
-        // the half of the scope rule that reading by source alone cannot catch.
-        repository.insert(novelSource, savedSearchId = null, global = true)
-        repository.insert(novelSource, savedSearchId = null, global = false)
-
-        repository.subscribeBySource(novelSource).first().map { it.global } shouldBe listOf(false)
-    }
-
-    @Test
     fun `each added row takes the next feed order`() = runTest {
         repository.insert(novelSource, savedSearchId = null, global = true)
 
@@ -137,18 +120,8 @@ class FeedSavedSearchRepositoryTest {
     fun `counting a feed ignores the other scope`() = runTest {
         repository.insert(mangaSource, savedSearchId = null, global = true)
         repository.insert(mangaSource, savedSearchId = null, global = false)
-        repository.insert(mangaSource, savedSearchId = null, global = false)
 
         repository.countGlobal() shouldBe 1L
-    }
-
-    @Test
-    fun `counting a source's feed ignores other sources and the Browse feed`() = runTest {
-        repository.insert(mangaSource, savedSearchId = null, global = false)
-        repository.insert(novelSource, savedSearchId = null, global = true)
-        repository.insert(novelSource, savedSearchId = null, global = false)
-
-        repository.countBySource(novelSource) shouldBe 1L
     }
 
     @Test
@@ -173,12 +146,60 @@ class FeedSavedSearchRepositoryTest {
     }
 
     @Test
+    fun `adding a row that is already there returns it rather than doubling it`() = runTest {
+        val searchId = savedSearches.insert(mangaSource, "Ongoing", null, null)
+        val first = repository.insert(mangaSource, savedSearchId = searchId, global = true)
+
+        val second = repository.insert(mangaSource, savedSearchId = searchId, global = true)
+
+        second shouldBe first
+        repository.getAll() shouldHaveSize 1
+    }
+
+    @Test
+    fun `a plain listing row is deduped too`() = runTest {
+        // The null saved search is the case a `saved_search = :value` comparison gets wrong: NULL is
+        // never equal to NULL, so the plain row would be addable again and again.
+        val first = repository.insert(novelSource, savedSearchId = null, global = true)
+
+        val second = repository.insert(novelSource, savedSearchId = null, global = true)
+
+        second shouldBe first
+        repository.getAll() shouldHaveSize 1
+    }
+
+    @Test
+    fun `two rows on one source stay apart when they carry different searches`() = runTest {
+        val ongoing = savedSearches.insert(mangaSource, "Ongoing", null, null)
+        val done = savedSearches.insert(mangaSource, "Done", null, null)
+
+        repository.insert(mangaSource, savedSearchId = ongoing, global = true)
+        repository.insert(mangaSource, savedSearchId = done, global = true)
+
+        repository.getAll() shouldHaveSize 2
+    }
+
+    @Test
+    fun `a row whose stored source no longer parses is left out`() = runTest {
+        // Beside a good row: one unreadable row must cost its own place in the feed and no other.
+        repository.insert(mangaSource, savedSearchId = null, global = true)
+        driver.execute(
+            null,
+            "INSERT INTO feed_saved_search(source_key, saved_search, global, feed_order) " +
+                "VALUES ('not a source key', NULL, 1, 9)",
+            0,
+        ).await()
+
+        repository.getAll().map { it.sourceKey } shouldBe listOf(mangaSource)
+    }
+
+    @Test
     fun `deleting a row leaves the saved search it pointed at`() = runTest {
         val searchId = savedSearches.insert(mangaSource, "Ongoing", null, null)
         val rowId = repository.insert(mangaSource, savedSearchId = searchId, global = true)
 
         repository.delete(rowId)
 
-        savedSearches.getById(searchId)!!.name shouldBe "Ongoing"
+        savedSearches.getBySource(mangaSource).map { it.name } shouldBe listOf("Ongoing")
     }
 }

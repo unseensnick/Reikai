@@ -2,7 +2,6 @@ package reikai.data.source
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
-import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -24,9 +23,6 @@ class SavedSearchRepositoryImpl(
 ) : SavedSearchRepository {
 
     private val queries = database.saved_searchQueries
-
-    override suspend fun getById(id: Long): SavedSearch? =
-        queries.selectById(id).awaitAsOneOrNull()?.toDomain()
 
     override suspend fun getBySource(sourceKey: SourceKey): List<SavedSearch> =
         queries.selectBySource(sourceKey.serialize()).awaitAsList().mapNotNull(Saved_search::toDomain)

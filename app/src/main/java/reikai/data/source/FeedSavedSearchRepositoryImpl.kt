@@ -2,6 +2,7 @@ package reikai.data.source
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -29,27 +30,31 @@ class FeedSavedSearchRepositoryImpl(
             .subscribeToList()
             .map { rows -> rows.mapNotNull(Feed_saved_search::toDomain) }
 
-    override fun subscribeBySource(sourceKey: SourceKey): Flow<List<FeedSavedSearch>> =
-        queries.selectBySource(sourceKey.serialize())
-            .subscribeToList()
-            .map { rows -> rows.mapNotNull(Feed_saved_search::toDomain) }
-
     override suspend fun getAll(): List<FeedSavedSearch> =
         queries.selectAll().awaitAsList().mapNotNull(Feed_saved_search::toDomain)
 
     override suspend fun countGlobal(): Long = queries.countGlobal().awaitAsOne()
 
-    override suspend fun countBySource(sourceKey: SourceKey): Long =
-        queries.countBySource(sourceKey.serialize()).awaitAsOne()
-
+    /**
+     * Returns the existing row's id rather than adding a second one just like it. In the transaction
+     * so a restore cannot insert a duplicate it read the table before, and because two rows the
+     * reader cannot tell apart would both fetch and both spend a slot of the cap.
+     */
     override suspend fun insert(sourceKey: SourceKey, savedSearchId: Long?, global: Boolean): Long =
         database.transactionWithResult {
-            queries.insert(
+            val existing = queries.selectMatching(
                 sourceKey = sourceKey.serialize(),
-                savedSearch = savedSearchId,
                 global = global,
-            )
-            queries.selectLastInsertedRowId().awaitAsOne()
+                savedSearch = savedSearchId,
+            ).awaitAsOneOrNull()
+            existing ?: run {
+                queries.insert(
+                    sourceKey = sourceKey.serialize(),
+                    savedSearch = savedSearchId,
+                    global = global,
+                )
+                queries.selectLastInsertedRowId().awaitAsOne()
+            }
         }
 
     override suspend fun delete(id: Long) {
@@ -57,7 +62,9 @@ class FeedSavedSearchRepositoryImpl(
     }
 }
 
-/** Null when the stored source key no longer parses; see the twin in SavedSearchRepositoryImpl. */
+/** Null when the stored source key no longer parses, the twin of the rule in SavedSearchRepositoryImpl.
+ *  Both halves are pinned by their own "a row whose stored source no longer parses is left out" case,
+ *  each asserting the good rows beside it survive. */
 private fun Feed_saved_search.toDomain(): FeedSavedSearch? =
     SourceKey.parse(source_key)?.let {
         FeedSavedSearch(
