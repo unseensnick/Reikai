@@ -9,6 +9,8 @@ data class RestoreOptions(
     val appSettings: Boolean = true,
     val extensionStores: Boolean = true,
     val sourceSettings: Boolean = true,
+    // RK: saved browse searches and the Browse feed built on them.
+    val savedSearches: Boolean = true,
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -17,9 +19,11 @@ data class RestoreOptions(
         appSettings,
         extensionStores,
         sourceSettings,
+        savedSearches,
     )
 
-    fun canRestore() = libraryEntries || categories || appSettings || extensionStores || sourceSettings
+    fun canRestore() =
+        libraryEntries || categories || appSettings || extensionStores || sourceSettings || savedSearches
 
     companion object {
         val options = listOf(
@@ -48,6 +52,12 @@ data class RestoreOptions(
                 getter = RestoreOptions::sourceSettings,
                 setter = { options, enabled -> options.copy(sourceSettings = enabled) },
             ),
+            // RK: the feed and the searches saved on a source.
+            Entry(
+                label = MR.strings.label_feed,
+                getter = RestoreOptions::savedSearches,
+                setter = { options, enabled -> options.copy(savedSearches = enabled) },
+            ),
         )
 
         fun fromBooleanArray(array: BooleanArray) = RestoreOptions(
@@ -56,6 +66,7 @@ data class RestoreOptions(
             appSettings = array[2],
             extensionStores = array[3],
             sourceSettings = array[4],
+            savedSearches = array[5],
         )
     }
 

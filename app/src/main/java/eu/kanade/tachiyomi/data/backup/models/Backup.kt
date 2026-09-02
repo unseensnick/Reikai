@@ -30,4 +30,8 @@ data class Backup(
     @ProtoNumber(713) var backupCustomMangaInfo: List<BackupCustomMangaInfo> = emptyList(),
     // RK: novel custom-info (non-destructive edits), the novel twin of backupCustomMangaInfo.
     @ProtoNumber(714) var backupCustomNovelInfo: List<BackupCustomNovelInfo> = emptyList(),
+    // RK: saved browse searches and the feed rows built on them, keyed by serialized SourceKey rather
+    // than by row id, which is what lets a restore match them against what is already here.
+    @ProtoNumber(715) var backupSavedSearches: List<BackupSavedSearch> = emptyList(),
+    @ProtoNumber(716) var backupFeedRows: List<BackupFeedRow> = emptyList(),
 )

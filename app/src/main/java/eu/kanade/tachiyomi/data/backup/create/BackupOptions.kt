@@ -18,6 +18,8 @@ data class BackupOptions(
     val extensionStores: Boolean = true,
     val sourceSettings: Boolean = true,
     val privateSettings: Boolean = false,
+    // RK: saved browse searches and the Browse feed built on them.
+    val savedSearches: Boolean = true,
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -34,9 +36,11 @@ data class BackupOptions(
         extensionStores,
         sourceSettings,
         privateSettings,
+        savedSearches,
     )
 
-    fun canCreate() = libraryEntries || categories || appSettings || extensionStores || sourceSettings
+    fun canCreate() =
+        libraryEntries || categories || appSettings || extensionStores || sourceSettings || savedSearches
 
     companion object {
         val libraryOptions = listOf(
@@ -112,6 +116,13 @@ data class BackupOptions(
                 getter = BackupOptions::sourceSettings,
                 setter = { options, enabled -> options.copy(sourceSettings = enabled) },
             ),
+            // RK: the feed and the searches saved on a source, which are data rather than settings but
+            // belong beside the source options a reader thinks of them with.
+            Entry(
+                label = MR.strings.label_feed,
+                getter = BackupOptions::savedSearches,
+                setter = { options, enabled -> options.copy(savedSearches = enabled) },
+            ),
             Entry(
                 label = MR.strings.private_settings,
                 getter = BackupOptions::privateSettings,
@@ -134,6 +145,7 @@ data class BackupOptions(
             extensionStores = array[10],
             sourceSettings = array[11],
             privateSettings = array[12],
+            savedSearches = array[13],
         )
     }
 

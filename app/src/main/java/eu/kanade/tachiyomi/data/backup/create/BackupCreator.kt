@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.data.backup.BackupFileValidator
 import eu.kanade.tachiyomi.data.backup.create.creators.CategoriesBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.ExtensionBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.ExtensionStoresBackupCreator
+import eu.kanade.tachiyomi.data.backup.create.creators.FeedBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
@@ -20,6 +21,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
+import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
@@ -27,6 +29,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import kotlinx.coroutines.CancellationException
@@ -77,6 +80,7 @@ class BackupCreator(
     // RK -->
     private val novelBackupCreator: NovelBackupCreator,
     private val extensionBackupCreator: ExtensionBackupCreator,
+    private val feedBackupCreator: FeedBackupCreator,
     // RK <--
 ) {
 
@@ -204,6 +208,10 @@ class BackupCreator(
                     if (options.customInfo) {
                         writeEach(out, 714, BackupCustomNovelInfo.serializer(), novelBackupCreator.novelCustomInfo())
                     }
+                }
+                if (options.savedSearches) {
+                    writeEach(out, 715, BackupSavedSearch.serializer(), feedBackupCreator.savedSearches())
+                    writeEach(out, 716, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
                 }
                 // RK <--
 

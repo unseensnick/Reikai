@@ -12,17 +12,20 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
+import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
@@ -65,6 +68,7 @@ class BackupRestorer(
     // RK -->
     private val novelRestorer: NovelRestorer,
     private val extensionRestorer: ExtensionRestorer,
+    private val feedRestorer: FeedRestorer,
     // RK <--
 ) {
 
@@ -163,6 +167,11 @@ class BackupRestorer(
                 restoreExtensionStores(summary.backupExtensionStores, summary.backupExtensions)
             }
             // RK -->
+            if (options.savedSearches) {
+                restoreIsolated("saved searches") {
+                    feedRestorer(summary.backupSavedSearches, summary.backupFeedRows)
+                }
+            }
             restoreNovelsStream(uri, summary, options)
             // RK: novel plugins are NOT reinstalled here. Their install state (URLs + metadata) rides
             // the preference backup, so the normal lazy loader re-downloads them on the next novel-
@@ -195,6 +204,8 @@ class BackupRestorer(
         val backupNovelCategories = mutableListOf<BackupNovelCategory>()
         val backupNovelMerges = mutableListOf<BackupNovelMergeGroup>()
         val backupCustomNovelInfo = mutableListOf<BackupCustomNovelInfo>()
+        val backupSavedSearches = mutableListOf<BackupSavedSearch>()
+        val backupFeedRows = mutableListOf<BackupFeedRow>()
         var mangaCount = 0
         var novelCount = 0
 
@@ -215,6 +226,8 @@ class BackupRestorer(
                 701 -> backupNovelCategories.add(parser.decodeFromByteArray(BackupNovelCategory.serializer(), data))
                 702 -> backupNovelMerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
                 714 -> backupCustomNovelInfo.add(parser.decodeFromByteArray(BackupCustomNovelInfo.serializer(), data))
+                715 -> backupSavedSearches.add(parser.decodeFromByteArray(BackupSavedSearch.serializer(), data))
+                716 -> backupFeedRows.add(parser.decodeFromByteArray(BackupFeedRow.serializer(), data))
             }
         }
 
@@ -232,6 +245,8 @@ class BackupRestorer(
             backupNovelCategories = backupNovelCategories,
             backupNovelMerges = backupNovelMerges,
             backupCustomNovelInfo = backupCustomNovelInfo,
+            backupSavedSearches = backupSavedSearches,
+            backupFeedRows = backupFeedRows,
         )
     }
 
@@ -249,6 +264,8 @@ class BackupRestorer(
         val backupNovelCategories: List<BackupNovelCategory>,
         val backupNovelMerges: List<BackupNovelMergeGroup>,
         val backupCustomNovelInfo: List<BackupCustomNovelInfo>,
+        val backupSavedSearches: List<BackupSavedSearch>,
+        val backupFeedRows: List<BackupFeedRow>,
     )
 
     // RK: restore the light-novel library, streamed. Categories first, then each novel in bounded
