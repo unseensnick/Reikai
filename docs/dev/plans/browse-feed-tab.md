@@ -207,17 +207,24 @@ Reikai side, the files this touches:
 
 ## Status
 
-Not started. Scouted and planned 2026-09-02 against current code, replacing an earlier plan written
-before the browse takeover, which had gone stale in most of its specifics.
+Shipped on `feat/0.4.0`, scouted and built 2026-09-02. Saved searches: `117863ce6` the tables,
+`40a794b11` the per-type filter encoding, `abc5347cc` the matching fix, `a021fcf7e` save, apply and
+delete on the catalogue. The feed: `274df4eb8` the shared row fill, `aaf5827ed` the settings,
+`6448ed960` the tab, `fc564f39c` three gaps a walk through Komikku's own feed turned up,
+`5adf0340e` adding to the library from a cover, `90dbe8350` the per-source feed dropped,
+`e68e1202e` backup and restore, `4a4f7c11b` the tab badge.
 
-Sized at roughly 2,000 lines plus tests, against about 2,460 in the Komikku reference, the difference
-being the fan-out and row rendering Reikai already owns. Committed to 0.4.0 as a ride-along: it does
-not displace either gate item (the tsundoku reader migration and Road B) and does not move the cut.
+Every behavioural step was verified on device before it landed, and the backup end to end: a backup
+taken on the phone restored onto a wiped emulator install brought back the saved search and all three
+feed rows, re-linked to the ids the restore produced, and restoring the same file twice changed
+nothing.
 
-The schema version is 41 with migrations numbered through 40, so the next migration file is `41.sqm`
-and the schema becomes 42. No `versionCode` bump is needed: this adds a SQLDelight migration, not a
-preference migration. Komikku's `MoveLatestToFeedMigration` is deliberately not ported, since it exists
-only to bridge legacy TachiyomiSY preference keys that Reikai never had.
+The schema is version 42 after `41.sqm`. No `versionCode` bump was needed: this adds a SQLDelight
+migration, not a preference migration. Komikku's `MoveLatestToFeedMigration` is deliberately not
+ported, since it exists only to bridge legacy TachiyomiSY preference keys that Reikai never had.
+
+**Not built, and each recorded below:** the per-source feed and its source-navigation switch, feed
+row reordering, bulk selection on the feed, and the adult-source saved-search specialization.
 
 ## Decisions & tradeoffs
 
@@ -253,5 +260,14 @@ only to bridge legacy TachiyomiSY preference keys that Reikai never had.
 - **The adult-source saved-search specialization is not ported.** Komikku's `EXHSavedSearch` exists to
   hold a deserialized filter list for the heaviest saved-search user; revisit if the adult browse path
   turns out to need it.
+- **Feed row reordering is not built**, only its column. Rows read in the order they were added, which
+  is enough while the cap is twenty.
+- **Bulk selection on the feed is not built.** A long press adds one entry, which is the affordance
+  that was missing; selecting many is its own mode with a toolbar and a suppressed bottom nav, and
+  nothing about adding from a cover needs it.
+- **The Sources row keeps its Latest button** (owner, 2026-09-02). Komikku hides it when the feed is
+  on, but only because their per-source feed replaces the catalogue and always leads with Latest for
+  that source. With no per-source feed, the button is the only one-tap route to Latest for a source
+  the reader never added to their feed, and the feed ships off.
 
 Part of the broader [unified-content-ui](unified-content-ui.md) initiative.

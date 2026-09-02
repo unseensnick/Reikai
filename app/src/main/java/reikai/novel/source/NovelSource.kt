@@ -34,9 +34,9 @@ interface NovelSource {
     val iconUrl: String?
 
     /**
-     * Raw `plugin.filters` schema. The host does not interpret this; a future filter renderer reads
-     * the shape (Picker / Switch / CheckboxGroup / ExcludableCheckboxGroup / TextInput) and emits
-     * values into [popularNovels]'s `optionsJson`.
+     * Raw `plugin.filters` schema. The host does not interpret this; `NovelSourceFilterSheet` reads
+     * the shape (Picker, Switch, XCheckbox, Checkbox, ExcludableCheckboxGroup, TextInput, Text) and
+     * `buildOptions` turns the reader's choices into [popularNovels]'s `optionsJson`.
      */
     val filters: JsonObject?
 
@@ -49,8 +49,9 @@ interface NovelSource {
 
     /**
      * This source can serve a Latest listing, which is why browse offers the chip. The lnreader
-     * format declares no such flag, so it is derived rather than read: a plugin that never mentions
-     * the option would answer a Latest request with the Popular list.
+     * format declares no such flag, so it is derived rather than read, by looking for
+     * `showLatestNovels` in the plugin's own source text. A plugin that never mentions it would
+     * answer a Latest request with the Popular list, so browse hides the chip instead.
      */
     val supportsLatest: Boolean get() = false
 
@@ -61,9 +62,9 @@ interface NovelSource {
     fun setSetting(key: String, value: JsonElement?) {}
 
     /**
-     * @param optionsJson lnreader `PopularNovelsOptions` shape, JSON-encoded. Callers either pass
-     * `"{}"` (sources whose `popularNovels` falls back to `this.filters`) or hand-build a JSON string
-     * matching the plugin's filter defaults.
+     * @param optionsJson lnreader `PopularNovelsOptions` shape, JSON-encoded. Built by
+     * `buildOptions` from the plugin's declared filters and whatever the reader has chosen; the
+     * `"{}"` default is for a caller with no schema to build from.
      */
     suspend fun popularNovels(page: Int, optionsJson: String = "{}"): List<NovelItem>
 
