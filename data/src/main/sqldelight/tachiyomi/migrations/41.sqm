@@ -1,0 +1,25 @@
+-- RK: saved browse searches and the feed rows built on them. See data/saved_search.sq and
+-- data/feed_saved_search.sq for the full rationale. These CREATE statements mirror those files
+-- exactly: fresh installs build from the .sq via Schema.create(), existing installs reach the same
+-- schema through this migration. The `AS Boolean` adapter lives only in the .sq, never here.
+CREATE TABLE saved_search(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    query TEXT,
+    filters_json TEXT
+);
+
+CREATE INDEX idx_saved_search_source_key ON saved_search(source_key);
+
+CREATE TABLE feed_saved_search(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source_key TEXT NOT NULL,
+    saved_search INTEGER,
+    global INTEGER NOT NULL,
+    feed_order INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(saved_search) REFERENCES saved_search (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_feed_saved_search_saved_search ON feed_saved_search(saved_search);

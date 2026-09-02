@@ -1,0 +1,43 @@
+-- RK: named browse filter presets, one row per saved search, shared by manga and novels. Ported from
+-- Komikku, whose own came from TachiyomiSY. The divergence is source_key: it holds a serialized
+-- SourceKey ("manga:123", "novel:novelbin") rather than upstream's INTEGER source id, because a
+-- light-novel plugin is keyed by a slug that will not fit one. Read it back with SourceKey.parse.
+-- filters_json is opaque here. The manga side stores an encoded FilterList, the novel side its
+-- filter-value map, and only the per-type reader interprets either. Duplicate names are not blocked
+-- by the schema; the save dialog is what refuses one, so a race cannot fail an insert.
+CREATE TABLE saved_search(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    query TEXT,
+    filters_json TEXT
+);
+
+CREATE INDEX idx_saved_search_source_key ON saved_search(source_key);
+
+selectById:
+SELECT *
+FROM saved_search
+WHERE _id = :id;
+
+selectBySource:
+SELECT *
+FROM saved_search
+WHERE source_key = :sourceKey
+ORDER BY name;
+
+selectAll:
+SELECT *
+FROM saved_search
+ORDER BY _id;
+
+insert:
+INSERT INTO saved_search(source_key, name, query, filters_json)
+VALUES (:sourceKey, :name, :query, :filtersJson);
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();
+
+deleteById:
+DELETE FROM saved_search
+WHERE _id = :id;

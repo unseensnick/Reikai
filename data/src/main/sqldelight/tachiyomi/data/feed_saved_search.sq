@@ -1,0 +1,62 @@
+import kotlin.Boolean;
+
+-- RK: one row per feed entry, for both content types. A row names a source and optionally a saved
+-- search; without one the feed shows that source's Latest, falling back to Popular. `global` splits
+-- the Browse feed's rows from a single source's own feed. source_key is the serialized SourceKey,
+-- for the reason saved_search.sq gives. feed_order is assigned table-wide on insert, so rows within
+-- either scope still read in insertion order; a reorder screen, if one is ever built, has to
+-- renumber consistently with that rather than per scope.
+CREATE TABLE feed_saved_search(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source_key TEXT NOT NULL,
+    saved_search INTEGER,
+    global INTEGER AS Boolean NOT NULL,
+    feed_order INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(saved_search) REFERENCES saved_search (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_feed_saved_search_saved_search ON feed_saved_search(saved_search);
+
+selectGlobal:
+SELECT *
+FROM feed_saved_search
+WHERE global = 1
+ORDER BY feed_order;
+
+selectBySource:
+SELECT *
+FROM feed_saved_search
+WHERE global = 0 AND source_key = :sourceKey
+ORDER BY feed_order;
+
+selectAll:
+SELECT *
+FROM feed_saved_search
+ORDER BY feed_order;
+
+countGlobal:
+SELECT count(*)
+FROM feed_saved_search
+WHERE global = 1;
+
+countBySource:
+SELECT count(*)
+FROM feed_saved_search
+WHERE global = 0 AND source_key = :sourceKey;
+
+insert:
+INSERT INTO feed_saved_search(source_key, saved_search, global, feed_order)
+VALUES (
+    :sourceKey,
+    :savedSearch,
+    :global,
+    (SELECT COALESCE(MAX(feed_order), 0) + 1 FROM feed_saved_search)
+);
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();
+
+deleteById:
+DELETE FROM feed_saved_search
+WHERE _id = :id;
