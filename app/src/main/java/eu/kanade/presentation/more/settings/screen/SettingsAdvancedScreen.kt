@@ -42,6 +42,7 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
+import eu.kanade.tachiyomi.network.interceptor.TurnstileHarness
 import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
@@ -372,7 +373,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     enabled = turnstileSolverEnabled,
                 ),
                 // RK: spike instrumentation, debug builds only. `enabled = false` removes the row
-                //     entirely in this DSL, so a release build never shows either of these.
+                //     entirely in this DSL, so a release build shows none of the five.
                 Preference.PreferenceItem.TextPreference(
                     title = "Turnstile: library update in 60s (spike)",
                     subtitle = "Queues a manual update after a delay. Kill the app during it, and the " +
@@ -408,9 +409,9 @@ object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = "Bisect sweep, no live challenge needed",
                     enabled = BuildConfig.DEBUG,
                     onClick = {
-                        eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.run(
+                        TurnstileHarness.run(
                             context,
-                            eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.Target.Dummy,
+                            TurnstileHarness.Target.Dummy,
                         )
                     },
                 ),
@@ -419,9 +420,9 @@ object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = "Bisect sweep against the first host that challenges interactively",
                     enabled = BuildConfig.DEBUG,
                     onClick = {
-                        eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.run(
+                        TurnstileHarness.run(
                             context,
-                            eu.kanade.tachiyomi.network.interceptor.TurnstileHarness.Target.Live(
+                            TurnstileHarness.Target.Live(
                                 listOf(
                                     "https://comix.to/",
                                     "https://comix.ws/",

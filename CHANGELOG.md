@@ -80,7 +80,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Every release now also has a `-foss` APK with no crash reporting or analytics in it at all.** It installs as a separate app, so it can sit alongside your normal one.
 - **A new Tokyo Night app theme, selectable under Settings -> Appearance.**
 - **Settings -> About now links Reikai's website and privacy policy.** Both open reikai.app, which is where the documentation lives.
-- **Settings -> Advanced has a new experimental switch, "Solve interactive Cloudflare challenges", that ticks the verification box instead of giving up on it.** It works while you are using the app, and a second switch beneath it extends that to library updates running in the background.
+- **Settings -> Advanced has a new experimental switch, "Solve interactive Cloudflare challenges", that ticks the verification box instead of giving up on it.** It works while you are using the app, and a second switch beneath it extends that to library updates that run when the app is not open.
 
 ### Changes
 
@@ -266,8 +266,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Opening a title from Browse no longer shows it pre-grouped with same-named titles in your library.**
 - **A global search run moments after opening the app now waits for your sources instead of quietly searching fewer.** Manga and novels alike, and the searched source list no longer depends on how fast the app finished starting up.
 - **Testing FlareSolverr no longer leaves sources looping on a Cloudflare challenge, and resetting your user agent under Settings -> Advanced fixes one that already is.** The test used to store FlareSolverr's browser as your app-wide agent, which the in-app bypass could never get past.
-- **With the interactive solver off, a Cloudflare challenge the site abandons now fails in seconds rather than after half a minute.**
+- **A Cloudflare challenge the site abandons now fails in seconds rather than after half a minute.** With the solver on, one it has already started pressing keeps going, since those are often reissued.
 - **The Cloudflare bypass no longer risks taking the app down when its browser process dies.** It ends the request instead of waiting out the timeout.
+- **A Cloudflare challenge that arrives after a redirect is now solved instead of waited out.** The bypass watched the address you asked for rather than the one the challenge was served on.
+- **A failed Cloudflare bypass no longer poisons the next request to that site.** It left the rejected clearance behind, so the retry hit a plain refusal with no offer to open the page yourself.
+- **Clearing a site's cookies in the WebView now removes the ones it shares with its subdomains.** Those were left behind, so a site could stay signed in or stay challenged after a clear that reported success.
 - **Open in WebView now opens the page a Cloudflare challenge blocked, so there is something to solve.** It opened the source's front page, which often carries no challenge at all, so nothing cleared and Retry kept failing. Works on manga and novels.
 - **Manga browse now reloads by itself when you come back from the WebView.** Novels already did.
 
