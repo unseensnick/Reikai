@@ -129,7 +129,8 @@ WebView data cleared between each.** The same global search over the same four h
 | 3 | no isolated world forced | 4 of 4 solved, 251 to 253ms |
 | 4 | no window forced | 4 of 4 solved, 251 to 254ms |
 | 5 | real background update | 1 of 1 solved, 124ms, in a process with no activity |
-| 6 | second device, WebView 124 | 4 of 4 solved on a genuinely absent isolated world |
+| 6 | emulator, WebView 124 | 4 of 4 solved on a genuinely absent isolated world |
+| 7 | A22, Android 13, WebView 150 | 2 of 2 solved on a second physical device |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
 killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
@@ -154,6 +155,23 @@ round here behave the same way, pressing on the event and accepting on a poll ti
 retroactively makes the forced round worth what it claimed.
 
 What breadth still lacks is a second *physical* device and hosts beyond the six.
+
+**A seventh round ran on a second physical device**, a Galaxy A22 (SM-A226B) on Android 13 with
+WebView **150.0.7871.124**, restored from the same backup and on its own VPN. Two hosts challenged
+and both solved, at 254 and 257ms from `complete` to accepted. No give-up, no failure, no crash. The
+isolated world is present there, so this is the probe path on hardware and an Android version the
+feature had never run on.
+
+That gives the feature three WebView builds across three machines:
+
+| where | WebView | path exercised | result |
+|---|---|---|---|
+| Fold | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
+| emulator, Android 15 | 124.0.6367.219 | no isolated world, genuinely absent | 4 of 4 |
+| A22, Android 13 | 150.0.7871.124 | probe | 2 of 2 |
+
+The accept lag holds across all three at roughly a quarter of a second, and the only run that differs
+is the one with no probe, which needs a second poll tick about half the time.
 
 **Interactive to accepted is now 1.29 to 1.47 seconds**, against the 2.2 to 3.1 measured before this
 work. No `gave up`, no `not armed`, no `page reads clear`, no crash and no WebView-thread violation in
@@ -726,11 +744,11 @@ done.
 
 ## Open
 
-- **Breadth.** Six hosts, two WebView builds, one physical device. Forty-four solves before the
-  audit and twenty-one after, including four on a WebView with no isolated world at all, say the
-  mechanism is reliable on those. What is still unanswered is a second *physical* device and a host
-  with a different challenge configuration. The switch stays off by default until those are, which
-  is what the default now carries instead of the experimental wording.
+- **Breadth.** Six hosts, three WebView builds, two physical devices and an emulator. Forty-four
+  solves before the audit and twenty-three after, including four on a WebView with no isolated world
+  at all, say the mechanism is reliable on those. What is still unanswered is a host with a
+  challenge configuration none of the six use. The switch stays off by default until it is, which is
+  what the default now carries instead of the experimental wording.
 - **Upstream declined the solver, and the script is permanently ours.** mihonapp/mihon#3858 is still
   open, but the solver has been stripped out of it (`0a1f07d`, `0885493`, `a80aaaa`, all titled
   "remove solver"). `AntsyLich` gave the reason in
