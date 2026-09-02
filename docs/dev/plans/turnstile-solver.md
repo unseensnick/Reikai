@@ -161,11 +161,11 @@ What breadth still lacks is a second *physical* device and hosts beyond the six.
 WebView **151.0.7922.199**, restored from the same backup. Four hosts challenged and all four solved,
 at 235 to 272ms from `complete` to accepted. No give-up, no failure, no crash.
 
-That gives the feature four WebView builds across four machines:
+That gives the feature four WebView builds and four Android versions across four machines:
 
 | where | Android | WebView | path exercised | result |
 |---|---|---|---|---|
-| Fold | | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
+| Fold | 17 | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
 | emulator | 15 | 124.0.6367.219 | no isolated world, genuinely absent | 4 of 4 |
 | A22 | 13 | 150.0.7871.124 | probe | 2 of 2 |
 | A57 | 16 | 151.0.7922.199 | probe | 4 of 4 |
@@ -751,11 +751,12 @@ done.
 
 ## Open
 
-- **Breadth.** Six hosts, four WebView builds, three physical devices and an emulator. Forty-four
-  solves before the audit and twenty-seven after, including four on a WebView with no isolated world
-  at all, say the mechanism is reliable on those. What is still unanswered is a host with a
-  challenge configuration none of the six use. The switch stays off by default until it is, which is
-  what the default now carries instead of the experimental wording.
+- **Breadth.** Six hosts, four WebView builds, four Android versions (13, 15, 16 and 17), three
+  physical devices and an emulator. Forty-four solves before the audit and twenty-seven after,
+  including four on a WebView with no isolated world at all, say the mechanism is reliable on those.
+  What is still unanswered is a host with a challenge configuration none of the six use. The switch
+  stays off by default until it is, which is what the default now carries instead of the
+  experimental wording.
 - **Upstream declined the solver, and the script is permanently ours.** mihonapp/mihon#3858 is still
   open, but the solver has been stripped out of it (`0a1f07d`, `0885493`, `a80aaaa`, all titled
   "remove solver"). `AntsyLich` gave the reason in
