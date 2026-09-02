@@ -105,7 +105,8 @@ deletion and the per-host lock all run either way.
 ## Status
 
 Shipped off by default, first in `14d3d54c1` and since through two preview builds. Device-verified on
-the Fold over a VPN across repeated cold starts with cookies and WebView data cleared between runs.
+a Fold8 Ultra (SM-F976B, Android 17), referred to below as the Fold, over a VPN across repeated cold
+starts with cookies and WebView data cleared between runs.
 No longer labelled experimental, and still off by default; whether it defaults on is a roadmap item.
 
 **A whole-feature audit found four cases where turning the solver on was worse than leaving it off,
@@ -165,7 +166,7 @@ That gives the feature four WebView builds and four Android versions across four
 
 | where | Android | WebView | path exercised | result |
 |---|---|---|---|---|
-| Fold | 17 | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
+| Fold8 Ultra | 17 | 153.0.8010.11 | probe, plus the real background update | 4 of 4, and 1 of 1 |
 | emulator | 15 | 124.0.6367.219 | no isolated world, genuinely absent | 4 of 4 |
 | A22 | 13 | 150.0.7871.124 | probe | 2 of 2 |
 | A57 | 16 | 151.0.7922.199 | probe | 4 of 4 |
@@ -277,8 +278,9 @@ machine event-driven. The second run logged no `page reads clear, confirming` at
 came through the `complete` branch and never the probe branch: that is the part that matters, because
 the probe branch is the one a site embedding Turnstile on its own pages can never reach.
 
-Not verified: any host beyond those six, any device beyond the Fold, and behaviour over time as
-Cloudflare changes. There is no automated test; the mechanism lives in a WebView and a live
+Not verified at the time this was written: any host beyond those six, any device beyond the Fold,
+and behaviour over time as Cloudflare changes. The device half has since been answered, in the
+coverage table above. There is no automated test; the mechanism lives in a WebView and a live
 challenge, neither of which is reachable from a unit test. The `toonily.com` case that motivated
 `complete` has not been re-run against the fix, because it is not a source installed here; the branch
 evidence above is what stands in for it.
