@@ -243,10 +243,26 @@ delete on the catalogue. The feed: `274df4eb8` the shared row fill, `aaf5827ed` 
 `5adf0340e` adding to the library from a cover, `90dbe8350` the per-source feed dropped,
 `e68e1202e` backup and restore, `4a4f7c11b` the tab badge.
 
+Then audited against `refs/komikku` and `refs/tachiyomisy` and completed. The audit's fixes:
+`e5b178252` a saved dropdown or sort followed by its option rather than its index, `f92284c36` a
+filters-only saved search applied onto a cleared query and no longer re-applying itself over the
+screen, `6aa59ceb5` a row kept when its source is not there, the plugins loaded before the first read,
+dedup at the repository, the cap honoured on restore, `feed_order` carried in the backup, the
+in-library test moved onto the provider, and the tab built only when shown. Running it on device then
+turned up two more: `0c0ef6249` the long-press dialogs acting at all, and `b6a696b63` a long press
+reading the row's live state rather than what the source returned. `c106b530c` and `123bc49cf` are the
+reorder mode and multi-select.
+
 Every behavioural step was verified on device before it landed, and the backup end to end: a backup
 taken on the phone restored onto a wiped emulator install brought back the saved search and all three
 feed rows, re-linked to the ids the restore produced, and restoring the same file twice changed
-nothing.
+nothing. The reorder, multi-select, the mixed-batch prompts and a config change holding a live
+selection were then re-run on the foldable's wide layout, where the navigation rail sits outside the
+scaffold the selection toolbar replaces.
+
+**Two fixes rest on reading rather than a run**, both for want of a source that provokes them: a feed
+row whose source is uninstalled rendering as unavailable, and a saved dropdown whose option list has
+since grown shorter. Neither is reachable on demand.
 
 The schema is version 42 after `41.sqm`. No `versionCode` bump was needed: this adds a SQLDelight
 migration, not a preference migration. Komikku's `MoveLatestToFeedMigration` is deliberately not
