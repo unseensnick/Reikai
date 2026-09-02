@@ -33,11 +33,11 @@ object TurnstileSolver {
     private const val KEY_GAP_MAX_MS = 160L
 
     /**
-     * How long a solve gets before the request is failed, measured from arming and pushed out again
-     * by every press. Key-path solves land in 2.2 to 3.9 seconds and the caller's own wait is 30, so
-     * this fails a hopeless solve sooner while leaving room for a challenge Cloudflare reissues once.
-     * It runs from arming rather than from the first press because a solve that never presses is
-     * exactly the case with nothing else to bound it: arming suppresses the caller's own aborts.
+     * How long a solve gets before the request is failed, measured from arming and pushed out once
+     * by its first press. Key-path solves land in 2.2 to 3.9 seconds and the caller's own wait is 30,
+     * so this fails a hopeless solve sooner while leaving room for a challenge Cloudflare reissues.
+     * It runs from arming because a solve that never presses is the case with nothing else to bound
+     * it: arming suppresses the caller's own aborts.
      */
     private const val SOLVE_BUDGET_MS = 20_000L
 
@@ -190,14 +190,20 @@ object TurnstileSolver {
         var lastPress = 0L
         var clearReadings = 0
         var deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
+        var deadlineExtended = false
 
         val press = {
             val delivered = pressKeys(webView, solve)
             logcat { "Turnstile[$host]: pressing tab+space (delivered $delivered)" }
-            // A landed press earns the solve another budget, since Cloudflare may still be verifying
-            // it. The deadline itself is armed below, at arming rather than here, because a solve
-            // that never presses is the one with nothing else to bound it.
-            deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
+            // The first press earns a fresh budget, so a challenge that turns interactive late gets
+            // the same window to verify as one that turns early. Only the first: the cooldown is
+            // shorter than the budget, so extending on every press lets a solve that keeps pressing
+            // outrun its own give-up forever, which is the one case the deadline exists for. Watched
+            // that happen for 23 seconds and six presses with no give-up line.
+            if (!deadlineExtended) {
+                deadlineExtended = true
+                deadline = SystemClock.uptimeMillis() + SOLVE_BUDGET_MS
+            }
         }
 
         // [probe] is null with no probe to read, which is the one-press case: nothing reports the

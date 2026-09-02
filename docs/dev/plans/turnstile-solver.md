@@ -133,6 +133,8 @@ WebView data cleared between each.** The same global search over the same four h
 | 6 | emulator, WebView 124 | 4 of 4 solved on a genuinely absent isolated world |
 | 7 | A22, Android 13, WebView 150 | 2 of 2 solved on a second physical device |
 | 8 | A57, Android 16, WebView 151 | 4 of 4 solved on a third physical device |
+| 9 | fold-to-unfold mid-solve | 4 of 4 solved across the config change |
+| 10 | forced never-verify | 4 of 4 gave up at first press plus 20.00s, after five presses each |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
 killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
@@ -340,6 +342,25 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   nothing and cost the caller its whole thirty seconds, where the solver-off path fails in about two.
   Gated on the phase now. The decision is read on the solve's own thread rather than the bridge
   thread that delivers the event, so an `interactiveBegin` already in flight cannot be overtaken.
+- **Only a solve's first press extends its deadline, and the reason is a bug that shipped for a few
+  hours.** The audit moved the deadline from the first press to arming, so a solve that never
+  presses is bounded too, and let every press push it out again on the argument that Cloudflare may
+  still be verifying. That is wrong: the press cooldown is four seconds and the budget is twenty, so
+  a solve that keeps pressing pushes its deadline forward faster than the deadline can arrive, and
+  the give-up never fires in the one case it exists for. Caught on device, on a host that pressed
+  six times over 23.5 seconds with no give-up line; the request was ended by the caller's 30 second
+  latch instead.
+
+  **Verified by forcing the condition rather than waiting for it.** A throwaway build kept every
+  solve in `Interactive` by making the page always read challenged, so presses recurred on the
+  cooldown. All four hosts pressed five times and gave up at first press plus 20.000, 20.000, 20.001
+  and 20.009 seconds. A first run of the same shape, where each solve pressed only once, was thrown
+  out: with one press the fixed and the broken code behave identically, so it discriminated nothing.
+
+  **A fold-to-unfold config change does not break an in-flight solve.** Three solves have spanned
+  one across two runs, two of them armed before the unfold, and all three completed normally. Worth
+  knowing because the windowed path attaches the WebView to the decor view of an activity that a
+  configuration change destroys, which looks like it should be fatal and is not.
 - **A solve owns its deadline and its timers, and the deadline starts at arming.** It used to start
   at the first press, which left a solve that never pressed with no bound at all, and it used to be a
   bare `Handler` post that nothing cancelled. The caller destroys the WebView as soon as its wait
