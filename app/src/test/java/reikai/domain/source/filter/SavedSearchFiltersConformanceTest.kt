@@ -19,12 +19,12 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
 /**
- * The rule both content types owe a saved search: what the user picked comes back, an unreadable
- * payload is ignored rather than thrown, and a filter added since the save leaves the rest applied.
- * Pinned once over both probes instead of as a twin pair.
+ * The rule both content types owe a saved search: what the reader picked comes back, an unreadable
+ * payload is ignored rather than thrown, and a source that has since added, removed or reordered a
+ * filter still applies the rest. Pinned once over both probes instead of as a twin pair.
  *
- * Where they genuinely differ, under a filter removed or reordered, each declares its own outcome
- * rather than the case being dropped. Background: docs/dev/plans/browse-feed-tab.md.
+ * The drift cases are shared because Reikai matches manga filters by kind and name, where the encoding
+ * it was ported from matched by position. Background: docs/dev/plans/browse-feed-tab.md.
  */
 class SavedSearchFiltersConformanceTest {
 
@@ -48,6 +48,30 @@ class SavedSearchFiltersConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a filter removed since the save leaves the others alone`(probe: SavedSearchFiltersProbe) {
+        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "B")!!
+
+        probe.restore(saved, names = listOf("A", "C")).shouldBeEmpty()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `filters reordered since the save still apply to the right one`(probe: SavedSearchFiltersProbe) {
+        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "A")!!
+
+        probe.restore(saved, names = listOf("C", "B", "A")) shouldBe listOf("A")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a renamed filter keeps its default rather than taking a stray value`(probe: SavedSearchFiltersProbe) {
+        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "B")!!
+
+        probe.restore(saved, names = listOf("A", "Z", "C")).shouldBeEmpty()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `an unreadable payload leaves the source's own filters alone`(probe: SavedSearchFiltersProbe) {
         probe.restore("not json at all", names = listOf("A", "B", "C"), preset = "A") shouldBe listOf("A")
     }
@@ -59,33 +83,17 @@ class SavedSearchFiltersConformanceTest {
     }
 
     @Test
-    fun `a manga filter removed since the save shifts the saved value onto its neighbour`() {
-        // The cost of matching by position, inherited from upstream and bounded rather than fixed:
-        // C comes back on though the user picked B. Filter names are not unique enough to key on.
-        val probe = MangaSavedSearchFiltersProbe()
-        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "B")!!
-
-        probe.restore(saved, names = listOf("A", "C")) shouldBe listOf("C")
-    }
-
-    @Test
-    fun `a novel filter removed since the save leaves the others alone`() {
-        val probe = NovelSavedSearchFiltersProbe()
-        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "B")!!
-
-        probe.restore(saved, names = listOf("A", "C")).shouldBeEmpty()
-    }
-
-    @Test
     fun `one unreadable filter in a saved manga search costs only that filter`() {
         // What the per-element catch buys: a source that changed one filter's kind loses that filter's
         // saved value, not the whole search. Without it the first bad element aborts the rest.
         val probe = MangaSavedSearchFiltersProbe()
         val saved = probe.save(names = listOf("A", "B", "C"), chosen = "B")!!
+        // A still matches its live filter, so it is attempted and throws, where an unknown kind would
+        // simply go unmatched and never reach the catch at all.
         val corrupted = JsonArray(
-            Json.parseToJsonElement(saved).jsonArray.mapIndexed { index, element ->
-                if (index == 0) {
-                    JsonObject(element.jsonObject + (FilterSerializer.TYPE to JsonPrimitive("NO SUCH TYPE")))
+            Json.parseToJsonElement(saved).jsonArray.map { element ->
+                if (element.jsonObject["name"]?.jsonPrimitive?.content == "A") {
+                    JsonObject(element.jsonObject + ("_cmaps" to JsonPrimitive("not an object")))
                 } else {
                     element
                 }
@@ -96,19 +104,28 @@ class SavedSearchFiltersConformanceTest {
     }
 
     @Test
-    fun `manga filters reordered since the save apply to whatever now sits there`() {
-        val probe = MangaSavedSearchFiltersProbe()
-        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "A")!!
+    fun `a manga filter is matched by kind as well as by name`() {
+        val serializer = FilterSerializer()
+        val saved = serializer.serialize(FilterList(TestText("Tag", "typed"), TestCheckBox("Tag", true)))
+        // Same name, opposite order, so matching on the name alone would hand each the other's value.
+        val fresh = FilterList(TestCheckBox("Tag", false), TestText("Tag", ""))
 
-        probe.restore(saved, names = listOf("C", "B", "A")) shouldBe listOf("C")
+        serializer.deserialize(fresh, saved)
+
+        fresh.filterIsInstance<Filter.CheckBox>().single().state shouldBe true
     }
 
     @Test
-    fun `novel filters reordered since the save still apply to the right one`() {
-        val probe = NovelSavedSearchFiltersProbe()
-        val saved = probe.save(names = listOf("A", "B", "C"), chosen = "A")!!
+    fun `two manga filters sharing a name and kind are matched in the order they appear`() {
+        // The one case a name cannot separate. Matching consumes in order, so these stay positional
+        // among themselves, which is what upstream did for every filter.
+        val serializer = FilterSerializer()
+        val saved = serializer.serialize(FilterList(TestCheckBox("Dup", true), TestCheckBox("Dup", false)))
+        val fresh = FilterList(TestCheckBox("Dup", false), TestCheckBox("Dup", false))
 
-        probe.restore(saved, names = listOf("C", "B", "A")) shouldBe listOf("A")
+        serializer.deserialize(fresh, saved)
+
+        fresh.filterIsInstance<Filter.CheckBox>().map { it.state } shouldBe listOf(true, false)
     }
 
     companion object {
@@ -145,8 +162,6 @@ class MangaSavedSearchFiltersProbe : SavedSearchFiltersProbe {
         FilterList(names.map { TestCheckBox(it, it == chosen) })
 
     override fun toString() = "manga"
-
-    private class TestCheckBox(name: String, state: Boolean) : Filter.CheckBox(name, state)
 }
 
 class NovelSavedSearchFiltersProbe : SavedSearchFiltersProbe {
@@ -167,3 +182,7 @@ class NovelSavedSearchFiltersProbe : SavedSearchFiltersProbe {
 
     override fun toString() = "novel"
 }
+
+private class TestCheckBox(name: String, state: Boolean) : Filter.CheckBox(name, state)
+
+private class TestText(name: String, state: String) : Filter.Text(name, state)

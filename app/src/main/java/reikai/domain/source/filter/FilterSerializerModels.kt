@@ -149,12 +149,13 @@ class GroupSerializer(override val serializer: FilterSerializer) : Serializer<Fi
     }
 
     override fun deserialize(json: JsonObject, filter: Filter.Group<Any?>) {
-        json[STATE]!!.jsonArray.forEachIndexed { index, jsonElement ->
-            if (jsonElement !is JsonNull) {
-                @Suppress("UNCHECKED_CAST")
-                serializer.deserialize(filter.state[index] as Filter<Any?>, jsonElement.jsonObject)
-            }
-        }
+        // Matched by kind and name like the top level, rather than by index as upstream does: a group's
+        // children drift the same way its parent list does.
+        @Suppress("UNCHECKED_CAST")
+        serializer.deserializeInto(
+            filter.state.filterIsInstance<Filter<*>>().map { it as Filter<Any?> },
+            json[STATE]!!.jsonArray,
+        )
     }
 
     override fun mappings() = listOf(

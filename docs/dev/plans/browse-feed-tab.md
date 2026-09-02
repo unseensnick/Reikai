@@ -79,14 +79,18 @@ is a typed capability each adapter answers for, never a branch inside shared cod
   `NovelBrowseState.filterValues`, and `buildOptions` already turns it into the JSON the plugin reads.
   A novel saved search stores that map.
 
-The two degrade differently under drift, which is worth knowing before debugging one. The manga
-deserializer zips the stored array against the live `FilterList` **by position**, so a source that adds,
-removes or reorders a filter can apply saved values to the wrong filter. Komikku's one meaningful
-safety addition over TachiyomiSY is a try/catch around each element, turning a single unrecognised
-filter into a skipped one instead of a lost search; port that, it is the difference between partial and
-total failure. The novel side has no such hazard by construction: values are looked up by filter key
-and fall back to the plugin's declared default, so an unknown key is ignored and a missing one is
-defaulted.
+**Both survive a source changing its filters, and getting there meant fixing the port rather than
+copying it.** TachiyomiSY and Komikku both match the stored array against the live `FilterList` by
+position, so a source that adds, removes or reorders a filter applies a saved value to the wrong one,
+silently and with no way for a reader to notice. Reikai matches on the filter's kind and name instead,
+consuming repeats in order, and leaves a filter with no match at the source's own default. The stored
+payload is unchanged, so it stays readable by the encoding it came from. Two things are kept from
+Komikku: the per-element catch, so one unreadable filter costs its own value rather than the search,
+and the encoding itself. The novel side needed none of this, being keyed already.
+
+The one case a name cannot separate is two filters of the same kind and name in one list, which stay
+positional among themselves. That is upstream's behaviour for every filter, narrowed to the only place
+it cannot be avoided.
 
 The old Yokai implementation on `design/library-compose` (`FilterSerializer`, `FilterTypeSerializer`)
 is **not** the one to port despite being ours. It has the same positional zip, plus two hazards
@@ -237,6 +241,10 @@ only to bridge legacy TachiyomiSY preference keys that Reikai never had.
 - **Port Komikku's serializer, not Reikai's own older one.** Ours is on a branch and would need no
   translation, but it is strictly worse: same positional fragility, plus in-place mutation of the
   caller's filter list and total rather than partial failure on a type mismatch.
+- **The positional match is fixed, not carried across** (owner, 2026-09-02: a known flaw in a feature
+  being ported gets fixed rather than ported). Matching by kind and name costs nothing in stored
+  format or compatibility, and it turns the two drift cases from a per-type divergence into shared
+  conformance cases both halves now pass.
 - **Opt-in, against Komikku's opt-out.** All four of Komikku's switches default to the feature being on,
   including making the per-source feed every source's landing page. Reikai ships the tab hidden and the
   source navigation unchanged, so installing this build changes nothing until the user asks for it.

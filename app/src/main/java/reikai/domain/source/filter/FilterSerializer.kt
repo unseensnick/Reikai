@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.int
@@ -23,11 +24,11 @@ import kotlin.reflect.full.isSubclassOf
 
 /**
  * Encodes a source's [FilterList] to JSON and applies it back onto a freshly built one, so a saved
- * search outlives the screen that made it. Ported from Komikku, whose own came from TachiyomiSY, and
- * kept character-close to both.
+ * search outlives the screen that made it. Encoding is Komikku's, whose own came from TachiyomiSY, so
+ * the stored payload stays compatible with both.
  *
- * [deserialize] matches by position, so a source that adds or removes a filter anywhere but the end
- * can apply a saved value to the wrong one. Why not by name: docs/dev/plans/browse-feed-tab.md.
+ * Matching on the way back is not theirs: both match by position, which applies a saved value to the
+ * wrong filter as soon as a source adds or removes one. See [deserializeInto].
  */
 class FilterSerializer {
     private val serializers = listOf<Serializer<*>>(
@@ -77,11 +78,29 @@ class FilterSerializer {
     }
 
     fun deserialize(filters: FilterList, json: JsonArray) {
-        filters.filterIsInstance<Filter<Any?>>().zip(json).forEach { (filter, obj) ->
+        deserializeInto(filters.filterIsInstance<Filter<Any?>>(), json)
+    }
+
+    /**
+     * Applies [json] onto [filters], pairing each live filter with the stored entry of the same kind
+     * and name and consuming matches in order, so repeated names still line up. A filter with no match
+     * keeps the source's own default: dropping a value the source no longer has a home for is safe,
+     * where guessing by position silently sets a filter the reader never chose.
+     */
+    internal fun deserializeInto(filters: List<Filter<Any?>>, json: JsonArray) {
+        val unmatched = mutableMapOf<String, ArrayDeque<JsonObject>>()
+        json.forEach { element ->
+            val stored = element as? JsonObject ?: return@forEach
+            val key = storedKey(stored) ?: return@forEach
+            unmatched.getOrPut(key) { ArrayDeque() }.addLast(stored)
+        }
+
+        filters.forEach { filter ->
+            val stored = liveKey(filter)?.let { unmatched[it]?.removeFirstOrNull() } ?: return@forEach
             // Per element, so one filter the source has since changed costs its own value rather than
             // the whole saved search. This catch is Komikku's addition over TachiyomiSY.
             try {
-                deserialize(filter, obj.jsonObject)
+                deserialize(filter, stored)
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { e.asLog() }
             }
@@ -119,8 +138,27 @@ class FilterSerializer {
         }
     }
 
+    private fun serializerFor(filter: Filter<Any?>): Serializer<Filter<Any?>>? =
+        serializers
+            .filterIsInstance<Serializer<Filter<Any?>>>()
+            .firstOrNull { filter::class.isSubclassOf(it.clazz) }
+
+    /** Identity of a live filter: its kind plus its name, which is what a stored entry carries too.
+     *  Joined on a NUL because a filter name may contain anything else, including a separator. */
+    private fun liveKey(filter: Filter<Any?>): String? =
+        serializerFor(filter)?.let { "${it.type}\u0000${filter.name}" }
+
+    private fun storedKey(stored: JsonObject): String? {
+        val type = stored[TYPE]?.jsonPrimitive?.contentOrNull ?: return null
+        val name = stored[NAME]?.jsonPrimitive?.contentOrNull ?: return null
+        return "$type\u0000$name"
+    }
+
     companion object {
         const val TYPE = "_type"
         const val CLASS_MAPPINGS = "_cmaps"
+
+        /** Every serializer maps the filter's name under this key, which is what makes it matchable. */
+        private const val NAME = "name"
     }
 }
