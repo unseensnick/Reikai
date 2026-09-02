@@ -58,7 +58,7 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 
 From the same audit, apart from the Cloudflare solver item.
 
-- **Decide whether the interactive Cloudflare solver defaults on** `[S]` - the experimental label is gone, but the switch still ships off. Turning it on for everyone needs breadth the evidence does not have yet: every measurement is one device, one WebView build and six hosts. A second device on a different WebView build is what would settle it. [Plan](docs/dev/plans/turnstile-solver.md).
+- **Decide whether the interactive Cloudflare solver defaults on** `[S]` - the experimental label is gone, but the switch still ships off. An Android 15 emulator on WebView 124 has since covered the second-WebView half, solving four of four on an isolated world that is genuinely absent rather than forced. What is left is a second physical device and a host with a different challenge configuration. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Strip the Cloudflare solver's spike instrumentation** `[S]` - five debug-only Networking rows (two bisect-harness rows, two force-the-branch toggles, a delayed library update), the flags they set, and `LibraryUpdateJob.startDelayed`. They exist because two of the solver's paths cannot otherwise be reached on a current device, so they go once the feature stops changing, not before. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.

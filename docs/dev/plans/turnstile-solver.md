@@ -129,12 +129,31 @@ WebView data cleared between each.** The same global search over the same four h
 | 3 | no isolated world forced | 4 of 4 solved, 251 to 253ms |
 | 4 | no window forced | 4 of 4 solved, 251 to 254ms |
 | 5 | real background update | 1 of 1 solved, 124ms, in a process with no activity |
+| 6 | second device, WebView 124 | 4 of 4 solved on a genuinely absent isolated world |
 
 Round 5 is the one that is not a forced branch. A delayed one-time update was queued, the app was
 killed during the delay, and `WM-WorkerWrapper` started `LibraryUpdateJob` in a fresh process at
 12:12:32. The solver logged `arming without a window` 1.5 seconds later with both spike overrides
 off, which can only mean `ForegroundActivity.current` was null, and `aquareader.org` went
 interactive, was pressed and was accepted 1.2 seconds later.
+
+**A sixth round ran on a second device with a genuinely older WebView, and it is the first time the
+degraded path has run for real rather than forced.** An Android 15 emulator on WebView
+**124.0.6367.219**, against the Fold's 153, routed through the same VPN (verified by reading the
+egress IP from inside the guest, not the host). A backup restored the library and the extension trust
+list; both spike overrides were off.
+
+All four hosts logged `no isolated world, running on challenge events alone` on real feature
+negotiation, then solved: 257, 515, 252 and 367ms from `complete` to accepted, which is one to two
+250ms poll ticks. No give-up, no failure, no crash and no WebView-thread violation.
+
+Two things follow from that. **`hasIsolatedWorld` returning false is now observed rather than
+simulated**, so the degraded path is no longer a branch that only a debug flag has ever entered. And
+**the `forceNoWatch` spike row is a faithful simulation**: the forced round on the Fold and the real
+round here behave the same way, pressing on the event and accepting on a poll tick, which
+retroactively makes the forced round worth what it claimed.
+
+What breadth still lacks is a second *physical* device and hosts beyond the six.
 
 **Interactive to accepted is now 1.29 to 1.47 seconds**, against the 2.2 to 3.1 measured before this
 work. No `gave up`, no `not armed`, no `page reads clear`, no crash and no WebView-thread violation in
@@ -707,10 +726,11 @@ done.
 
 ## Open
 
-- **Breadth.** Six hosts, one device, one VPN. Forty-four solves before the audit and seventeen
-  after say the mechanism is reliable on those; nothing says how it behaves on a host with a
-  different challenge configuration, or on a second device. The switch stays off by default until
-  both are answered, which is what the default now carries instead of the experimental wording.
+- **Breadth.** Six hosts, two WebView builds, one physical device. Forty-four solves before the
+  audit and twenty-one after, including four on a WebView with no isolated world at all, say the
+  mechanism is reliable on those. What is still unanswered is a second *physical* device and a host
+  with a different challenge configuration. The switch stays off by default until those are, which
+  is what the default now carries instead of the experimental wording.
 - **Upstream declined the solver, and the script is permanently ours.** mihonapp/mihon#3858 is still
   open, but the solver has been stripped out of it (`0a1f07d`, `0885493`, `a80aaaa`, all titled
   "remove solver"). `AntsyLich` gave the reason in
