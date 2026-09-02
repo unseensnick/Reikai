@@ -23,6 +23,7 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.globalsearch.EntrySearchState
@@ -58,7 +59,7 @@ fun Screen.reikaiFeedTab(): TabContent {
 }
 
 @Composable
-private fun FeedContent(
+private fun Screen.FeedContent(
     state: FeedState,
     model: FeedViewModel,
     contentPadding: PaddingValues,
@@ -118,12 +119,12 @@ private fun FeedContent(
                         },
                         onLongClickSource = { model.confirmRemove(entry) },
                         onClickManga = { navigator.push(MangaScreen(it.id, true)) },
-                        onLongClickManga = { navigator.push(MangaScreen(it.id, true)) },
+                        onLongClickManga = model::onLongPressManga,
                         onClickNovel = { sourceId, item ->
                             navigator.push(NovelScreen(sourceId, item.path))
                         },
                         onLongClickNovel = { sourceId, item ->
-                            navigator.push(NovelScreen(sourceId, item.path))
+                            model.onLongPressNovel(item, sourceId)
                         },
                     )
                 }
@@ -132,6 +133,26 @@ private fun FeedContent(
     }
 
     FeedDialogs(state.dialog, model)
+    EntryAddDialogs(
+        dialog = state.addDialog,
+        // Whatever the raised entry was; only the migrate dialog reads it, and it is raised from a
+        // duplicate of the same type as the row it came from.
+        contentType = state.addDialogContentType,
+        onDismissRequest = model::dismissAddDialog,
+        onConfirmRemove = model::confirmRemove,
+        onConfirmCategories = model::confirmCategories,
+        onConfirmAddDuplicate = model::confirmAddDuplicate,
+        onAddToGroup = model::addToGroup,
+        onStartMigrate = model::startMigrate,
+        onOpenEntryById = { id ->
+            val novel = model.duplicateNovelRoute(id)
+            if (novel == null) {
+                navigator.push(MangaScreen(id))
+            } else {
+                navigator.push(NovelScreen(novel.first, novel.second))
+            }
+        },
+    )
 }
 
 @Composable

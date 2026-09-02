@@ -22,6 +22,7 @@ import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.SelectedNovel
 import reikai.presentation.novel.browse.defaultFilterValues
+import reikai.presentation.novel.browse.toNeutral
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
@@ -154,21 +155,7 @@ class NovelBrowseAdapter(
 
     private fun NovelBrowseState.toNeutralDialog(): EntryBrowseDialog? = when {
         filterSheetOpen -> EntryBrowseDialog.Filter
-        else -> when (val dialog = dialog) {
-            null -> null
-            is NovelBrowseDialog.RemoveNovel -> EntryBrowseDialog.Remove(dialog.item.name)
-            is NovelBrowseDialog.ChangeCategory ->
-                EntryBrowseDialog.ChangeCategory(dialog.initialSelection)
-            is NovelBrowseDialog.AddDuplicate -> EntryBrowseDialog.AddDuplicate(
-                duplicates = dialog.duplicates.map {
-                    it.toDuplicateCard(dialog.sourceLabels, dialog.sourceSites)
-                },
-                groupIdByEntryId = dialog.groupIdByNovelId,
-                suggestGroup = dialog.suggestGroup,
-            )
-            is NovelBrowseDialog.Migrate ->
-                EntryBrowseDialog.Migrate(dialog.currentId, dialog.targetId)
-        }
+        else -> dialog?.toNeutral()
     }
 
     override fun setListing(listing: EntryBrowseListing) {

@@ -66,6 +66,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
 import reikai.presentation.browse.BulkFavoriteViewModel
+import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
@@ -414,44 +415,28 @@ class EntryCatalogueScreen(
             )
         }
 
+        // The two this surface owns alone; the four a long press can raise are shared.
         when (val dialog = loaded.dialog) {
-            null -> Unit
             EntryBrowseDialog.Filter -> filterSheet(behavior::dismissDialog)
-            is EntryBrowseDialog.Remove -> EntryRemoveDialog(
-                title = dialog.title,
-                onDismissRequest = behavior::dismissDialog,
-                onConfirm = behavior::confirmRemove,
-            )
-            is EntryBrowseDialog.ChangeCategory -> ChangeCategoryDialog(
-                initialSelection = dialog.initialSelection,
-                onDismissRequest = behavior::dismissDialog,
-                onEditCategories = { navigator.push(CategoryScreen()) },
-                onConfirm = { include, _ -> behavior.confirmCategories(include) },
-            )
             is EntryBrowseDialog.SelectionCategories -> ChangeCategoryDialog(
                 initialSelection = dialog.initialSelection,
                 onDismissRequest = behavior::dismissDialog,
                 onEditCategories = { navigator.push(CategoryScreen()) },
                 onConfirm = { include, _ -> behavior.setSelectionCategories(include) },
             )
-            is EntryBrowseDialog.AddDuplicate -> EntryDuplicateDialog(
-                duplicates = dialog.duplicates,
-                toUi = { it },
-                onDismissRequest = behavior::dismissDialog,
-                onConfirm = behavior::confirmAddDuplicate,
-                onOpen = { onOpenEntryById(it.id) },
-                onMigrate = { behavior.startMigrate(it.id) },
-                groupIdByEntryId = dialog.groupIdByEntryId,
-                onAddToGroup = { ids: List<Long> -> behavior.addToGroup(ids) }
-                    .takeIf { dialog.suggestGroup },
-            )
-            is EntryBrowseDialog.Migrate -> EntryMigrateFor(
-                contentType = sourceKey.contentType,
-                currentId = dialog.currentId,
-                targetId = dialog.targetId,
-                onDismissRequest = behavior::dismissDialog,
-            )
+            else -> Unit
         }
+        EntryAddDialogs(
+            dialog = loaded.dialog,
+            contentType = sourceKey.contentType,
+            onDismissRequest = behavior::dismissDialog,
+            onConfirmRemove = behavior::confirmRemove,
+            onConfirmCategories = behavior::confirmCategories,
+            onConfirmAddDuplicate = behavior::confirmAddDuplicate,
+            onAddToGroup = behavior::addToGroup,
+            onStartMigrate = behavior::startMigrate,
+            onOpenEntryById = onOpenEntryById,
+        )
 
         when (val dialog = savedSearchDialog) {
             null -> Unit
