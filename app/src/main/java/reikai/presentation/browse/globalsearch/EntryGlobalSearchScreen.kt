@@ -42,6 +42,7 @@ import reikai.presentation.browse.BulkFavoriteViewModel
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.EntrySearchCardRow
 import reikai.presentation.browse.EntrySearchSection
+import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.ContentTypeBadge
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -296,71 +297,6 @@ private fun selectionTitle(mangaCount: Int, novelCount: Int): String? =
     } else {
         null
     }
-
-@Composable
-private fun SearchResultSection(
-    row: BrowseSearchRow,
-    favoritedKeys: Set<Pair<String, String>>,
-    mangaSelection: List<Manga>,
-    novelSelection: List<reikai.presentation.novel.browse.SelectedNovel>,
-    getManga: @Composable (Manga) -> androidx.compose.runtime.State<Manga>,
-    onClickSource: (BrowseSearchRow) -> Unit,
-    onClickManga: (Manga) -> Unit,
-    onLongClickManga: (Manga) -> Unit,
-    onClickNovel: (String, NovelItem) -> Unit,
-    onLongClickNovel: (String, NovelItem) -> Unit,
-    showContentType: Boolean = false,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    EntrySearchSection(
-        title = row.name,
-        subtitle = row.lang.takeIf { it.isNotBlank() }
-            ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty(),
-        onClick = { onClickSource(row) },
-        badge = { if (showContentType) ContentTypeBadge(row.key.contentType) },
-        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
-    ) {
-        when (val result = row.state) {
-            is EntrySearchState.Loading -> GlobalSearchLoadingResultItem()
-            // Falls back to a generic message: plenty of source failures carry none, and an empty
-            // row under a source heading is indistinguishable from one that has not started.
-            is EntrySearchState.Error -> GlobalSearchErrorResultItem(result.message)
-            is EntrySearchState.Success -> when (row.key) {
-                is SourceKey.Manga -> EntrySearchCardRow(
-                    entries = result.entries.filterIsInstance<Manga>(),
-                    key = { it.id },
-                    // A @Composable mapper, so the in-library badge tracks the live entry.
-                    toUi = {
-                        val manga by getManga(it)
-                        manga.toEntryBrowseUi()
-                    },
-                    onClick = onClickManga,
-                    onLongClick = onLongClickManga,
-                    isSelected = { manga -> mangaSelection.fastAny { it.id == manga.id } },
-                )
-                is SourceKey.Novel -> {
-                    val source = row.source as NovelSource
-                    EntrySearchCardRow(
-                        entries = result.entries.filterIsInstance<NovelItem>(),
-                        key = { it.path },
-                        toUi = {
-                            it.toEntryBrowseUi(
-                                inLibrary = (source.id to it.path) in favoritedKeys,
-                                site = source.site,
-                            )
-                        },
-                        onClick = { onClickNovel(source.id, it) },
-                        onLongClick = { onLongClickNovel(source.id, it) },
-                        isSelected = { item ->
-                            novelSelection.fastAny { it.sourceId == source.id && it.item.path == item.path }
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun Screen.MangaLongPressDialogs(model: GlobalSearchViewModel, dialog: SearchViewModel.Dialog?) {

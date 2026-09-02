@@ -11,24 +11,16 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.source.service.SourcePreferences
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.fillEntryRows
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
-
-/** How many sources are searched at once, across both content types. */
-private const val SEARCH_CONCURRENCY = 5
 
 /**
  * Runs one global search across both content types.
@@ -134,34 +126,16 @@ class GlobalSearchEngine(
             // a screen waiting on the first result cannot otherwise tell apart.
             state.update { it.copy(query = query, rows = rows, searched = true) }
 
-            // One permit set per content type, so a slow half never starves the other of its slots.
-            val semaphores = active.associateWith { Semaphore(SEARCH_CONCURRENCY) }
-            rows.filter { it.state is EntrySearchState.Loading }.map { row ->
-                async {
-                    val provider = active.first { it.contentType == row.key.contentType }
-                    val result = semaphores.getValue(provider).withPermit {
-                        try {
-                            EntrySearchState.Success(provider.search(row, query))
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Throwable) {
-                            EntrySearchState.Error(e.message)
-                        }
-                    }
-                    // Read and write in one update: sources finish within milliseconds of each other,
-                    // and reading outside would let two of them each write their own result onto the
-                    // same snapshot, leaving whichever lost still spinning. Skipped once cancelled,
-                    // so a superseded search cannot write onto the one that replaced it.
-                    if (!isActive) return@async
-                    state.update { current ->
-                        current.copy(
-                            rows = current.rows
-                                .map { if (it.key == row.key) it.copy(state = result) else it }
-                                .sortedWith(searchRowComparator),
-                        )
-                    }
-                }
-            }.awaitAll()
+            // Grouped by content type, so a slow half never starves the other of its slots.
+            fillEntryRows(
+                rows = rows,
+                group = { it.key.contentType },
+                order = searchRowComparator,
+                updateRows = { transform -> state.update { it.copy(rows = transform(it.rows)) } },
+                load = { row ->
+                    active.first { it.contentType == row.key.contentType }.search(row, query)
+                },
+            )
         }
     }
 
