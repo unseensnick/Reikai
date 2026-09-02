@@ -356,6 +356,15 @@ all, but interactive rounds only started arriving after the VPN exit changed.
   stays device-only. Writing them found one more: the press cooldown measured against a zero
   `lastPress`, which would have swallowed a first press on a clock reading under four seconds,
   unreachable with `uptimeMillis` and wrong regardless.
+- **The three surviving spike rows are permanent, and the bisect harness was not.** The harness
+  answered its question and then rotted, so it went; an audit found three defects in it that nothing
+  had noticed because nothing used it. The other three stay: `forceHeadless` and `forceNoWatch`
+  reach branches a current device cannot otherwise enter, and `LibraryUpdateJob.startDelayed` is the
+  only route to an activity-less process, with four alternatives measured closed. `forceNoWatch`
+  earned its keep twice over when a real WebView 124 behaved identically to the forced branch, which
+  makes it a verified stand-in rather than an assumed one. This is a ruling, not a backlog item, so
+  it does not sit on the roadmap.
+
 - **Only a solve's first press extends its deadline, and the reason is a bug that shipped for a few
   hours.** The audit moved the deadline from the first press to arming, so a solve that never
   presses is bounded too, and let every press push it out again on the argument that Cloudflare may
