@@ -35,8 +35,8 @@ Not a chapter feed. Each row is one source's listing, rendered as a horizontal c
 - Saved search attached: that search's results.
 
 A row answers "what has this source got right now", and Updates keeps owning "what got a new chapter".
-The feature has two surfaces, as in Komikku: a global Feed tab in Browse mixing rows from any source,
-and a per-source Feed screen that can optionally become that source's landing page.
+One surface, the Feed tab in Browse, mixing rows from any source. Komikku also gives each source its
+own feed as a landing page; Reikai does not (owner, 2026-09-02), see Decisions.
 
 ### The feed reuses the global-search engine rather than copying it
 
@@ -107,27 +107,22 @@ and resolves it in the model. Reikai does the same, adding a nullable saved-sear
 `EntryCatalogueScreen` (Voyager-serializable) and to both models' assisted factories, with a `// RK`
 fence on the manga model so a supplied search survives init.
 
-### The four preferences
+### The preferences
 
-Komikku ships four, all defaulting to the feature being on. Reikai ships the feature **opt-in**, so the
-first is inverted in both name and default:
+Komikku ships four, all defaulting to the feature being on. Reikai ships three, the feature **opt-in**,
+with the first inverted in both name and default:
 
 | Reikai | Komikku | Reikai default | Effect |
 |---|---|---|---|
 | Show Feed tab | `hide_latest_tab`, inverted | off | Whether the tab exists at all |
 | Feed tab position | `latest_tab_position` | off | Move Feed first, making it Browse's landing tab |
 | Hide in-library entries in the feed | `feed_hide_in_library_items` | off | Feed-scoped twin of the browse setting Reikai has |
-| Open sources on their feed | `use_new_source_navigation` | off | Whether a source tap opens its feed or the catalogue |
 
 Naming the switch "Show Feed tab" rather than "Hide Feed tab" is deliberate: the summary then describes
 what enabling it does, and no preference key has a default of `true` that means "off".
 
-The last one is the largest behavioural switch in the feature, and defaulting it off is what keeps this
-port from changing anything a current user sees. With it off, tapping a source row or a details screen's
-source name keeps opening `EntryCatalogueScreen` exactly as today, and the Sources row's Latest button
-keeps its existing capability gate. With it on, the per-source feed becomes the front door and the
-Latest button hides, because the feed already leads with latest; Komikku expresses that same rule as
-`GetShowLatest` returning the negation of the preference.
+Komikku carries a fourth, which makes a source open on its own feed. Reikai has no per-source feed, so
+it has no switch either: a source opens on its catalogue, which is where Mihon opens it.
 
 ### Tab order
 
@@ -168,16 +163,12 @@ each ending at a check that can fail.
    into `BrowseTab` behind its preference with the page index derived rather than hardcoded. Depends on
    1 through 5. **Check:** on device, a feed mixing manga and novel rows, one row on a source without
    latest showing Popular rather than an empty row, and one erroring row leaving its neighbours intact.
-7. **The per-source feed and source navigation.** The per-source Feed screen, the source-navigation
-   preference, and the conditional hiding of the Sources row's Latest button. Depends on 6. **Check:**
-   with the preference off, a source tap still opens the catalogue; with it on, it opens the feed and
-   the Latest button is gone, on both content types.
-8. **Backup and restore.** Proto fields 715 and 716, a creator and a restorer following Reikai's
+7. **Backup and restore.** Proto fields 715 and 716, a creator and a restorer following Reikai's
    streamed backup shape, and a `BackupOptions` gate. Re-link by value, never by id. Depends on 1.
    **Check:** back up, wipe app data, restore, and confirm a manga and a novel saved search plus their
    feed rows return; separately confirm a feed row whose source is not installed restores without
    crashing.
-9. **Docs.** This doc's Status, the CHANGELOG entries, the ROADMAP moves, and the two stale
+8. **Docs.** This doc's Status, the CHANGELOG entries, the ROADMAP moves, and the two stale
    `NovelSource` KDocs corrected in passing.
 
 ## Key files
@@ -245,9 +236,8 @@ only to bridge legacy TachiyomiSY preference keys that Reikai never had.
   being ported gets fixed rather than ported). Matching by kind and name costs nothing in stored
   format or compatibility, and it turns the two drift cases from a per-type divergence into shared
   conformance cases both halves now pass.
-- **Opt-in, against Komikku's opt-out.** All four of Komikku's switches default to the feature being on,
-  including making the per-source feed every source's landing page. Reikai ships the tab hidden and the
-  source navigation unchanged, so installing this build changes nothing until the user asks for it.
+- **Opt-in, against Komikku's opt-out.** Every one of Komikku's switches defaults to the feature being
+  on. Reikai ships the tab hidden, so installing this build changes nothing until the user asks for it.
 - **"Feed" stays the name on both Browse and Recents.** Both surfaces are opt-in and default off, they
   live in different bottom-nav tabs and can never be on screen together, and the word means the same
   thing in both. They are kept apart in code by package and preference-key prefix rather than by name.
@@ -255,8 +245,11 @@ only to bridge legacy TachiyomiSY preference keys that Reikai never had.
   cheaper than migrating for it later, and the reorder UI is a Komikku addition rather than part of the
   feature. Komikku does not back that column up, so a restore flattens row order there; including it in
   the backup avoids repeating that.
-- **The per-source feed is built.** It was a candidate cut, since the shared catalogue already opens on
-  Latest or Popular with saved-search chips, but the request was for the feature as Komikku ships it.
+- **The per-source feed is not built** (owner, 2026-09-02, after seeing it running). Komikku's version
+  leads with a Latest row and a Popular row, which is what the catalogue's own chips already give you,
+  and the saved searches under them are already reachable as chips on that catalogue. A source opens on
+  its catalogue, as it does in Mihon. The switch that would have made a feed the front door is gone
+  with it, so nothing dead ships.
 - **The adult-source saved-search specialization is not ported.** Komikku's `EXHSavedSearch` exists to
   hold a deserialized filter list for the heaviest saved-search user; revisit if the adult browse path
   turns out to need it.

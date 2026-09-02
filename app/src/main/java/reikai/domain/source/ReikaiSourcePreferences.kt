@@ -52,13 +52,6 @@ class ReikaiSourcePreferences(
     val hideInLibraryFeedItems: Preference<Boolean> =
         preferenceStore.getBoolean("reikai_feed_hide_in_library_items", false)
 
-    /**
-     * Tapping a source opens its own feed rather than its catalogue. Off, so a source keeps opening
-     * where it does today; turning it on is what makes the per-source feed that source's front door.
-     */
-    val openSourcesOnFeed: Preference<Boolean> =
-        preferenceStore.getBoolean("reikai_open_sources_on_feed", false)
-
     // endregion
 
     /** User pause on the novel downloader, persisted so a paused queue stays paused across restart

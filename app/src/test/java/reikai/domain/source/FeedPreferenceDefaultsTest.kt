@@ -27,9 +27,4 @@ class FeedPreferenceDefaultsTest {
     fun `feed rows show entries already in the library`() {
         preferences.hideInLibraryFeedItems.get() shouldBe false
     }
-
-    @Test
-    fun `a source still opens on its catalogue`() {
-        preferences.openSourcesOnFeed.get() shouldBe false
-    }
 }

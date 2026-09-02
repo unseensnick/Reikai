@@ -84,11 +84,6 @@ object SettingsBrowseScreen : SearchableSettings {
                         title = stringResource(MR.strings.pref_hide_in_library_items),
                         enabled = showFeedTab,
                     ),
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = reikaiSourcePreferences.openSourcesOnFeed,
-                        title = stringResource(MR.strings.pref_open_sources_on_feed),
-                        subtitle = stringResource(MR.strings.pref_open_sources_on_feed_summary),
-                    ),
                 ),
             ),
             // RK <--
