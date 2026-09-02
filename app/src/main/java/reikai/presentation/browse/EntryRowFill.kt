@@ -50,7 +50,7 @@ suspend fun fillEntryRows(
                 if (!isActive) return@async
                 updateRows { current ->
                     current
-                        .map { if (it.key == row.key) it.copy(state = result) else it }
+                        .map { if (it.id == row.id) it.copy(state = result) else it }
                         .let { if (order == null) it else it.sortedWith(order) }
                 }
             }

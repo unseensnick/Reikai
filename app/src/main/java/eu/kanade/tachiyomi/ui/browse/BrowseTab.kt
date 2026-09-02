@@ -7,6 +7,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.Navigator
@@ -22,13 +23,16 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import mihon.app.di.appGraph
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
+import reikai.presentation.browse.feed.reikaiFeedTab
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 
 data object BrowseTab : Tab {
 
@@ -66,9 +70,18 @@ data object BrowseTab : Tab {
         // Hoisted for extensions tab's search bar
         val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
 
-        val tabs = listOf(
+        // RK --> the Feed tab is opt-in, and can be asked to lead
+        val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
+        val showFeed by reikaiSourcePreferences.showFeedTab.collectAsState()
+        val feedFirst by reikaiSourcePreferences.feedTabInFront.collectAsState()
+        val feedTab = reikaiFeedTab().takeIf { showFeed }
+        // RK <--
+
+        val tabs = listOfNotNull(
             // RK: chip-switched manga + light-novel sources / extensions.
+            feedTab.takeIf { feedFirst },
             reikaiSourcesTab(browseViewModel),
+            feedTab.takeUnless { feedFirst },
             reikaiExtensionsTab(extensionsViewModel, browseViewModel),
             // RK: chip-switched manga + light-novel migrate-source list.
             reikaiMigrateSourceTab(browseViewModel),
@@ -83,9 +96,12 @@ data object BrowseTab : Tab {
             searchQuery = searchQuery,
             onChangeSearchQuery = browseViewModel::search,
         )
-        LaunchedEffect(Unit) {
+        // RK: derived, not the literal 1 upstream uses: the Feed tab can sit ahead of Extensions,
+        //     and can be turned off again, so the index moves under this at runtime.
+        val extensionsPage = tabs.indexOfFirst { it.titleRes == MR.strings.label_extensions }
+        LaunchedEffect(extensionsPage) {
             switchToExtensionTabChannel.receiveAsFlow()
-                .collectLatest { state.scrollToPage(1) }
+                .collectLatest { state.scrollToPage(extensionsPage) }
         }
 
         LaunchedEffect(Unit) {

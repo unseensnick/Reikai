@@ -31,6 +31,12 @@ data class BrowseSearchRow(
     val isPinned: Boolean,
     val state: EntrySearchState,
     val source: Any,
+    /**
+     * What tells this row from the others in its own list. The source, for a search, which covers a
+     * source once. Not for a feed: one source can sit in it twice, once for its latest and again for
+     * a saved search, and both rows would then take each other's results.
+     */
+    val id: String = key.serialize(),
 )
 
 /**

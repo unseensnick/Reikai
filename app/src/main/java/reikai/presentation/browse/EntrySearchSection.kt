@@ -1,6 +1,6 @@
 package reikai.presentation.browse
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +29,8 @@ fun EntrySearchSection(
     subtitle: String,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** Long-pressing the header, where a surface offers something on it. */
+    onLongClick: (() -> Unit)? = null,
     /** Drawn beside the title, for a list holding both content types. */
     badge: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
@@ -38,7 +40,12 @@ fun EntrySearchSection(
             modifier = Modifier
                 .padding(start = MaterialTheme.padding.medium, end = MaterialTheme.padding.extraSmall)
                 .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+                .then(
+                    when {
+                        onClick == null -> Modifier
+                        else -> Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    },
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {

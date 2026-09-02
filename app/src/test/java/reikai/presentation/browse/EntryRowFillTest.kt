@@ -68,6 +68,19 @@ class EntryRowFillTest {
     }
 
     @Test
+    fun `two rows on one source are filled independently`() = runTest {
+        // A feed holds a source twice, once for its latest and again for a saved search. Matching on
+        // the source alone hands both rows whichever result lands last.
+        val rows = MutableStateFlow(
+            listOf(row("a").copy(id = "feed-1"), row("a").copy(id = "feed-2")),
+        )
+
+        fill(rows) { listOf(it.id) }
+
+        rows.value.map { it.entries() } shouldBe listOf(listOf("feed-1"), listOf("feed-2"))
+    }
+
+    @Test
     fun `one group's slots do not hold up another group`() = runTest {
         // One permit each, so within a group loads are serial. Across groups they must overlap, which
         // is the whole point of a limiter per group rather than one shared across all of them.

@@ -39,14 +39,19 @@ fun SearchResultSection(
     onClickNovel: (String, NovelItem) -> Unit,
     onLongClickNovel: (String, NovelItem) -> Unit,
     showContentType: Boolean = false,
+    /** Replaces the source language under the title, where a row is not titled by its source. */
+    subtitle: String? = null,
+    onLongClickSource: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     EntrySearchSection(
         title = row.name,
-        subtitle = row.lang.takeIf { it.isNotBlank() }
-            ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty(),
+        subtitle = subtitle
+            ?: row.lang.takeIf { it.isNotBlank() }
+                ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty(),
         onClick = { onClickSource(row) },
+        onLongClick = onLongClickSource,
         badge = { if (showContentType) ContentTypeBadge(row.key.contentType) },
         modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
     ) {
