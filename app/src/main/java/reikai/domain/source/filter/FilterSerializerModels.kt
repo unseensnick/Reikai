@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -27,6 +28,13 @@ interface Serializer<in T : Filter<out Any?>> {
      * Automatic two-way mappings between fields and JSON
      */
     fun mappings(): List<Pair<String, KProperty1<in T, *>>> = emptyList()
+
+    /**
+     * Runs after [mappings] has written its values, for a field whose stored form only means
+     * something against the source's current shape. Reikai's addition: the mapping pass is a blind
+     * reflective set, so a value that has to be re-resolved cannot be corrected before it.
+     */
+    fun afterDeserialize(json: JsonObject, filter: T) {}
 
     val serializer: FilterSerializer
     val type: String
@@ -76,6 +84,19 @@ class SelectSerializer(override val serializer: FilterSerializer) : Serializer<F
         Pair(NAME, Filter.Select<Any>::name),
         Pair(STATE, Filter.Select<Any>::state),
     )
+
+    /**
+     * Re-points the saved index at the option it was on, by text. `state` is a position in `values`,
+     * so a reordered list selects the wrong option and one past the end crashes the filter sheet,
+     * which reads `values[state]` unguarded. Falls back to the first option when the saved one is
+     * gone. Rationale: docs/dev/plans/browse-feed-tab.md.
+     */
+    override fun afterDeserialize(json: JsonObject, filter: Filter.Select<Any>) {
+        val saved = json[VALUES]?.jsonArray
+            ?.getOrNull(json[STATE]?.jsonPrimitive?.content?.toIntOrNull() ?: -1)
+            ?.jsonPrimitive?.contentOrNull
+        filter.state = filter.values.indexOfFirst { it.toString() == saved }.takeIf { it >= 0 } ?: 0
+    }
 
     companion object {
         const val NAME = "name"
@@ -189,14 +210,21 @@ class SortSerializer(override val serializer: FilterSerializer) : Serializer<Fil
         )
     }
 
+    /**
+     * Re-resolved through the option's text, for the reason [SelectSerializer] gives. Out of range
+     * does not crash here, the sheet walks `values` rather than indexing it; it sorts by the wrong
+     * column instead, which is the harder version to notice. A stored null still clears the sort,
+     * since that is a choice the search recorded; an option the source dropped leaves its default.
+     */
     override fun deserialize(json: JsonObject, filter: Filter.Sort) {
-        // Deserialize state
-        filter.state = (json[STATE] as? JsonObject)?.let {
-            Filter.Sort.Selection(
-                it[STATE_INDEX]!!.jsonPrimitive.int,
-                it[STATE_ASCENDING]!!.jsonPrimitive.boolean,
-            )
+        val stored = json[STATE] as? JsonObject ?: run {
+            filter.state = null
+            return
         }
+        val savedIndex = stored[STATE_INDEX]!!.jsonPrimitive.int
+        val savedLabel = json[VALUES]?.jsonArray?.getOrNull(savedIndex)?.jsonPrimitive?.contentOrNull
+        val index = filter.values.indexOfFirst { it == savedLabel }.takeIf { it >= 0 } ?: return
+        filter.state = Filter.Sort.Selection(index, stored[STATE_ASCENDING]!!.jsonPrimitive.boolean)
     }
 
     override fun mappings() = listOf(

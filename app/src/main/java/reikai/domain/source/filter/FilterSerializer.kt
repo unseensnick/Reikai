@@ -136,6 +136,8 @@ class FilterSerializer {
                 (it.second as KMutableProperty1<in Filter<Any?>, in Any?>).set(filter, res)
             }
         }
+
+        serializer.afterDeserialize(json, filter)
     }
 
     private fun serializerFor(filter: Filter<Any?>): Serializer<Filter<Any?>>? =

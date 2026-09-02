@@ -43,7 +43,10 @@ class SavedSearchFiltersConformanceTest {
     fun `a filter added since the save leaves the rest applied`(probe: SavedSearchFiltersProbe) {
         val saved = probe.save(names = listOf("A", "B", "C"), chosen = "A")!!
 
-        probe.restore(saved, names = listOf("A", "B", "C", "D")) shouldBe listOf("A")
+        // D is switched on before decoding and the payload has never heard of it, so it is the only
+        // thing here that can tell "apply what was saved" from "replace everything with what was
+        // saved". Without it the case passes under either.
+        probe.restore(saved, names = listOf("A", "B", "C", "D"), preset = "D") shouldBe listOf("A", "D")
     }
 
     @ParameterizedTest(name = "{0}")
@@ -113,6 +116,44 @@ class SavedSearchFiltersConformanceTest {
         serializer.deserialize(fresh, saved)
 
         fresh.filterIsInstance<Filter.CheckBox>().single().state shouldBe true
+    }
+
+    @Test
+    fun `a dropdown follows the option it was set to when the source reorders its list`() {
+        val serializer = FilterSerializer()
+        val saved = serializer.serialize(FilterList(TestSelect("Genre", arrayOf("Action", "Comedy", "Drama"), 2)))
+        // Same options, different order, so the saved index 2 now points at Action.
+        val fresh = FilterList(TestSelect("Genre", arrayOf("Drama", "Comedy", "Action"), 0))
+
+        serializer.deserialize(fresh, saved)
+
+        fresh.filterIsInstance<Filter.Select<*>>().single().state shouldBe 0
+    }
+
+    @Test
+    fun `a dropdown whose saved option is past the end of a shorter list does not keep the index`() {
+        // The index is what the filter sheet reads straight into `values`, so a stale one out of range
+        // takes the screen down rather than showing the wrong thing.
+        val serializer = FilterSerializer()
+        val saved = serializer.serialize(FilterList(TestSelect("Genre", arrayOf("A", "B", "C", "D"), 3)))
+        val fresh = FilterList(TestSelect("Genre", arrayOf("A", "B"), 0))
+
+        serializer.deserialize(fresh, saved)
+
+        fresh.filterIsInstance<Filter.Select<*>>().single().state shouldBe 0
+    }
+
+    @Test
+    fun `a sort follows the column it was set to when the source reorders its list`() {
+        val serializer = FilterSerializer()
+        val saved = serializer.serialize(
+            FilterList(TestSort("Order", arrayOf("Latest", "Popular"), Filter.Sort.Selection(1, false))),
+        )
+        val fresh = FilterList(TestSort("Order", arrayOf("Popular", "Latest"), Filter.Sort.Selection(0, true)))
+
+        serializer.deserialize(fresh, saved)
+
+        fresh.filterIsInstance<Filter.Sort>().single().state shouldBe Filter.Sort.Selection(0, false)
     }
 
     @Test
@@ -186,3 +227,9 @@ class NovelSavedSearchFiltersProbe : SavedSearchFiltersProbe {
 private class TestCheckBox(name: String, state: Boolean) : Filter.CheckBox(name, state)
 
 private class TestText(name: String, state: String) : Filter.Text(name, state)
+
+private class TestSelect(name: String, values: Array<String>, state: Int) :
+    Filter.Select<String>(name, values, state)
+
+private class TestSort(name: String, values: Array<String>, state: Selection?) :
+    Filter.Sort(name, values, state)
