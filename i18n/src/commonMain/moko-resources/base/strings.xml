@@ -367,6 +367,11 @@
     <string name="pref_category_appearance">Appearance</string>
     <string name="pref_category_library">Library</string>
     <string name="pref_category_reader">Reader</string>
+    <!-- RK: the two per-content-type reader settings screens, reached from the Reader screen. -->
+    <string name="pref_category_manga_reader">Manga reader</string>
+    <string name="pref_category_manga_reader_summary">Viewers, page layout, tap zones and E-Ink</string>
+    <string name="pref_category_novel_reader">Novel reader</string>
+    <string name="pref_category_novel_reader_summary">Text display, scrolling and accessibility</string>
     <string name="pref_category_downloads">Downloads</string>
     <string name="pref_category_tracking">Tracking</string>
     <string name="pref_category_advanced">Advanced</string>

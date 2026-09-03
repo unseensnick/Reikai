@@ -1,0 +1,140 @@
+package eu.kanade.presentation.more.settings.screen
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import mihon.app.di.appGraph
+import reikai.domain.novel.NovelPreferences
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
+import kotlin.math.roundToInt
+
+/**
+ * Light-novel reader settings, a top-level Settings entry beside [SettingsMangaReaderScreen]. Settings
+ * of the same name on the two screens are deliberately separate values; see that screen's note.
+ *
+ * The live-tuning display controls (font, size, theme, colours) stay in the in-reader gear sheet,
+ * which previews them as you change them.
+ */
+object SettingsNovelReaderScreen : SearchableSettings {
+
+    @ReadOnlyComposable
+    @Composable
+    override fun getTitleRes() = MR.strings.pref_category_novel_reader
+
+    @Composable
+    override fun getPreferences(): List<Preference> {
+        val context = LocalContext.current
+        val novelPref = remember { context.appGraph.novelPreferences }
+
+        return listOf(
+            getReadingGroup(novelPreferences = novelPref),
+            getNavigationGroup(novelPreferences = novelPref),
+            getAccessibilityGroup(novelPreferences = novelPref),
+        )
+    }
+
+    @Composable
+    private fun getReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_reading),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerDefaultOrientation(),
+                    entries = ReaderOrientation.entries
+                        .filter { it != ReaderOrientation.DEFAULT && it != ReaderOrientation.REVERSE_PORTRAIT }
+                        .associate { it.flagValue to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_rotation_type),
+                    subtitle = "%s",
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTapToScroll(),
+                    title = stringResource(MR.strings.pref_tap_to_scroll),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSwipeGestures(),
+                    title = stringResource(MR.strings.pref_swipe_between_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSkipDuplicateChapters(),
+                    title = stringResource(MR.strings.pref_skip_dupe_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerMarkReadOnSkip(),
+                    title = stringResource(MR.strings.pref_mark_read_on_skip),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerAutoScroll(),
+                    title = stringResource(MR.strings.pref_auto_scroll),
+                ),
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = novelPreferences.readerBottomButtons(),
+                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
+                        .associate { it.value to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_reader_bottom_buttons),
+                ),
+            ),
+        )
+
+    @Composable
+    private fun getNavigationGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
+        val useVolumeButtons by useVolumeButtonsPref.collectAsState()
+        val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
+        val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
+        val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_reader_navigation),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = useVolumeButtonsPref,
+                    title = stringResource(MR.strings.pref_read_with_volume_keys),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerVolumeButtonsInverted(),
+                    title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
+                    enabled = useVolumeButtons,
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = volumeButtonsPercent,
+                    valueRange = 25..100,
+                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
+                    valueString = "$volumeButtonsPercent%",
+                    enabled = useVolumeButtons,
+                    onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
+                ),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getAccessibilityGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_accessibility),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerKeepScreenOn(),
+                    title = stringResource(MR.strings.pref_keep_screen_on),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowProgressPercentage(),
+                    title = stringResource(MR.strings.pref_show_reading_progress),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerBionicReading(),
+                    title = stringResource(MR.strings.pref_bionic_reading),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerRemoveExtraSpacing(),
+                    title = stringResource(MR.strings.pref_remove_extra_spacing),
+                ),
+            ),
+        )
+}

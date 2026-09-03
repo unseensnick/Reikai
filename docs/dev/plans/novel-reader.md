@@ -55,7 +55,7 @@ A document is rebuilt only when the chapter HTML or the app theme colors change.
 
 Reader display settings persist through `NovelPreferences` (`reikai.domain.novel.NovelPreferences`), every key prefixed `ln_reader_`, preserving the Yokai-era strings (`ln_reader_font_size_sp`, `ln_reader_line_spacing`, `ln_reader_text_align`, `ln_reader_font_family`, `ln_reader_padding`, `ln_reader_follow_system_theme`, `ln_reader_bg_color`, `ln_reader_text_color`) so existing installs upgrade in place. The class has grown well past those: orientation and keep-screen-on, skip-duplicate and mark-read-on-skip, brightness and colour filter, the whole read-aloud block, bionic reading and extra-spacing, tap / swipe / auto-scroll, and the volume-button and bottom-button settings. Read the class rather than a list here, which rots.
 
-The ScreenModel reads these as a combined `StateFlow` and exposes them as `NovelReaderSettings` state (per the no-prefs-in-Composable convention). The settings sheet edits the display and read-aloud ones; the rest (progress percentage, volume buttons, bottom buttons, default orientation) are edited in Settings -> Reader. The WebView picks up display changes live.
+The ScreenModel reads these as a combined `StateFlow` and exposes them as `NovelReaderSettings` state (per the no-prefs-in-Composable convention). The settings sheet edits the display and read-aloud ones; the rest (progress percentage, volume buttons, bottom buttons, default orientation) are edited in Settings -> Novel reader. The WebView picks up display changes live.
 
 Two device-level settings are applied by the screen, not the WebView:
 

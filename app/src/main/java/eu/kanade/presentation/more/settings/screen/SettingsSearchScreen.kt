@@ -296,7 +296,11 @@ private fun getLocalizedBreadcrumb(path: String, node: String?, isLtr: Boolean):
 private val settingScreens = listOf(
     SettingsAppearanceScreen,
     SettingsLibraryScreen,
-    SettingsReaderScreen,
+    // RK: the two per-content-type reader screens, replacing the single Reader screen. A screen absent
+    // from this list is invisible to settings search, so splitting one without registering both halves
+    // silently loses their rows.
+    SettingsMangaReaderScreen,
+    SettingsNovelReaderScreen,
     SettingsDownloadScreen,
     SettingsTrackingScreen,
     SettingsBrowseScreen,

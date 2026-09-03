@@ -122,7 +122,8 @@ class NovelPreferences(
     fun readerFontFamily() = preferenceStore.getString("ln_reader_font_family", "")
     fun readerPadding() = preferenceStore.getInt("ln_reader_padding", 16)
 
-    /** Hold the screen awake while reading (Android FLAG_KEEP_SCREEN_ON). Mirrors the manga reader. */
+    /** Hold the screen awake while reading (Android FLAG_KEEP_SCREEN_ON). Separate from the manga
+     *  reader's key on purpose, not twin debt to unify: see docs/dev/plans/settings-restructure.md. */
     fun readerKeepScreenOn() = preferenceStore.getBoolean("ln_reader_keep_screen_on", false)
 
     /** Default reader orientation for novels with no per-novel override, the novel twin of the manga

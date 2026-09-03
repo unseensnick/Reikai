@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Explore
@@ -199,12 +200,22 @@ object SettingsMainScreen : Screen() {
             icon = Icons.Outlined.CollectionsBookmark,
             screen = SettingsLibraryScreen,
         ),
+        // RK --> one reader entry per content type, replacing the single Reader screen. Each is
+        // self-contained: every setting on it applies to that reader only, so neither screen has to
+        // explain a value shared with the other one.
         Item(
-            titleRes = MR.strings.pref_category_reader,
-            subtitleRes = MR.strings.pref_reader_summary,
+            titleRes = MR.strings.pref_category_manga_reader,
+            subtitleRes = MR.strings.pref_category_manga_reader_summary,
             icon = Icons.AutoMirrored.Outlined.ChromeReaderMode,
-            screen = SettingsReaderScreen,
+            screen = SettingsMangaReaderScreen,
         ),
+        Item(
+            titleRes = MR.strings.pref_category_novel_reader,
+            subtitleRes = MR.strings.pref_category_novel_reader_summary,
+            icon = Icons.AutoMirrored.Outlined.MenuBook,
+            screen = SettingsNovelReaderScreen,
+        ),
+        // RK <--
         Item(
             titleRes = MR.strings.pref_category_downloads,
             subtitleRes = MR.strings.pref_downloads_summary,
