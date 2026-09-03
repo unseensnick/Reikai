@@ -66,7 +66,7 @@ From the same audit, apart from the Cloudflare solver item.
 ### Reader
 
 - **Finish merged read state outside the library** `[M]` - the deduplicated "read on any source" rule drives the library count, the details chapter list and the reader's chapter sheet, but reader next-chapter and history resume are still per-source, download-next targets the leading source, bookmark plus downloaded state show whichever copy won the dedup, and a bulk action on a merged row acts on every source in the library while acting on one in Recents. Also excludes gallery sources from the cross-source match, which currently can spread a read mark between unrelated galleries. [Plan](docs/dev/plans/merged-read-state.md).
-- **Collapse the two reader settings sheets, and rework how the options are presented** `[M]` - manga and novels each carry their own sheet today, so every reader setting is added twice; collapsing them is also the moment to answer `unseensnick/Reikai#55` with grouping and progressive disclosure (the complaint is hunting for an option, not just sheet height). Runs after the reader takeover, which changes what the two sheets even are; the app-level Settings > Reader screen is a separate, earlier piece. [Plan](docs/dev/plans/content-layer-reader-surface.md).
+- **Collapse the two in-reader settings sheets, and rework how the options are presented** `[M]` - manga and novels each carry their own gear sheet, so every setting in one is added twice; collapsing them is also the moment to answer the in-reader half of `unseensnick/Reikai#55` with grouping and progressive disclosure (the complaint is hunting for an option, not just sheet height). Runs after the reader takeover, which changes what the two sheets even are. [Plan](docs/dev/plans/content-layer-reader-surface.md).
 - **Novel reader feature harvest from tsundoku** `[M]` - port tsundoku's viewer-agnostic reader extras: a content pipeline (user regex replacements, hide-chapter-title, force-lowercase, raw-HTML toggle), custom `file://` / `content://` fonts, and 4-way margins plus distinct paragraph spacing and indent. Portable to the current WebView reader now or a native reader later. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
 - **Native TTS with in-text highlight for novels** `[L]` - upgrade novel TTS to follow along in the text (per-chunk highlight) with clean cross-chapter handoff, matching tsundoku's `TtsController`; the current core.js TTS has no in-text follow. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
 
@@ -90,6 +90,9 @@ From the same audit, apart from the Cloudflare solver item.
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move Reikai's look off the stock Material 3 aesthetic (shape, typography, component styling, spacing, layout) across the shared `Entry*` surfaces, while keeping Mihon's existing theme system in Appearance settings intact: the user-selectable color themes, light/dark, AMOLED, and Theme-based-on-cover all stay, and the redesign renders under whichever the user picked. It owns component styling and layout, not the color-palette picker, and must preserve both the phone and tablet layouts Reikai inherited from Mihon. Exploratory, and it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
+
+Opportunistic polish:
+- Settings: Advanced opens on eight ungrouped rows with no header, mixing update-error tracking, debug entries and notification access; nothing says what they have in common.
 
 ### Build & CI
 
