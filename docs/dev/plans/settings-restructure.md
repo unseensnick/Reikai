@@ -61,7 +61,9 @@ Recommendations moves out of Library to its own top-level entry in the same pass
 
 Ruled 2026-09-03. **Pass 1 shipped**: two top-level reader entries, each self-contained, the suffix retired, both registered for settings search. Verified on the emulator: the root list shows both entries one tap deep, each screen carries its full set, the two same-named settings are independent (toggling the novel keep-screen-on left the manga key untouched), and search returns both volume-key rows with distinct breadcrumbs. Gates green at 1334 app, 75 domain and 35 core:common tests.
 
-**Pass 2 shipped**: About runs on the preference DSL and is registered for search. Verified on the emulator: the screen renders unchanged (logo, version with its build stamp, Legal, Links), searching "licenses" returns it as "About > Legal", and following that result lands on About. The two build-gated rows could not be exercised on a debug build, where both conditions are false by construction.
+**Pass 2 shipped**: About runs on the preference DSL and is registered for search. Verified on the emulator: the screen renders unchanged (logo, version with its build stamp, Legal, Links), searching "licenses" returns it as "About > Legal", and following that result lands on About.
+
+**Both passes were then re-verified on a minified `nightly` build**, which matters because `release`-type builds are minified and the dev build is not. The app launched with no `TypeReference` failure (the R8 hazard the surviving Injekt calls carry), both reader entries and their screens rendered, and settings search still resolved rows on the new screens. The two build-gated About rows only render there: "What's new" needs a non-debug build, and "Check for updates" additionally needs the `enable-updater` Gradle property, so the check was run with `:app:installNightly -Penable-updater`. Tapping it completed end to end and toasted "No new updates available". The spinner in its `widget` slot was not observed, because the check returned inside 350ms.
 
 Pass 3 is next. All of it runs before the reader takeover ([content-layer-reader-surface.md](content-layer-reader-surface.md) step 1).
 
