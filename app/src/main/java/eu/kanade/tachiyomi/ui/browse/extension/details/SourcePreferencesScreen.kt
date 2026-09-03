@@ -38,6 +38,7 @@ import eu.kanade.tachiyomi.data.preference.SharedPreferencesDataStore
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText.Companion.setIncognito
+import exh.source.EnhancedHttpSource
 import mihon.app.di.appGraph
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -54,6 +55,12 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
+        // RK: do NOT push another screen from here. This screen hosts a Fragment through AndroidView
+        // behind a one-time commit guarded by rememberSaveable, and on returning from a pushed screen
+        // the composition comes back with that flag already set, so it takes the reflection re-attach
+        // path and the fragment's view never returns, leaving an empty body. Upstream never pushes from
+        // here, so the path is untested; a cross-link to the app-owned source settings was tried and
+        // reverted for exactly this.
         Scaffold(
             topBar = {
                 AppBar(
@@ -130,7 +137,19 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
 
     private fun populateScreen(): PreferenceScreen {
         val sourceId = requireArguments().getLong(SOURCE_ID)
+        // RK --> a delegated source arrives wrapped, and the wrapper is not a ConfigurableSource, so
+        // without unwrapping it the check below fails and the screen renders empty. Unwrap to whichever
+        // half actually carries the preferences: the delegate when it is configurable, else the
+        // installed extension underneath. Ported from Komikku, which patched the same upstream file.
         val source = requireContext().appGraph.sourceManager.getOrStub(sourceId)
+            .let { source ->
+                if (source is EnhancedHttpSource) {
+                    if (source.enhancedSource is ConfigurableSource) source.source() else source.originalSource
+                } else {
+                    source
+                }
+            }
+        // RK <--
         val sourceScreen = preferenceManager.createPreferenceScreen(requireContext())
 
         if (source is ConfigurableSource) {
