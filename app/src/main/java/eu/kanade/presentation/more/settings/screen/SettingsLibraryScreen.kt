@@ -180,7 +180,9 @@ object SettingsLibraryScreen : SearchableSettings {
         reikaiLibraryPreferences: ReikaiLibraryPreferences,
     ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.label_sources),
+            // RK: named for what it holds. Every row here is about merging a series across its
+            // sources, including the preferred-sources ranking, which only the merge path reads.
+            title = stringResource(MR.strings.label_merged_series),
             preferenceItems = listOf(
                 // RK: master switch for source merging (also in the library display menu). Off resolves
                 // every series standalone and hides the merge UI, keeping the groups.
@@ -210,11 +212,6 @@ object SettingsLibraryScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_preferred_sources),
                     subtitle = stringResource(MR.strings.pref_preferred_sources_summary),
                     onClick = { navigator.push(PreferredSourcesScreen()) },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_recommendations),
-                    subtitle = stringResource(MR.strings.pref_recommendations_summary),
-                    onClick = { navigator.push(SettingsRecommendationsScreen) },
                 ),
             ),
         )

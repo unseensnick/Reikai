@@ -29,6 +29,8 @@
     <string name="label_upcoming">Upcoming</string>
     <string name="label_recent_manga">History</string>
     <string name="label_sources">Sources</string>
+    <!-- RK: the Library settings group holding the cross-source merge settings. -->
+    <string name="label_merged_series">Merged series</string>
     <string name="label_backup">Backup and restore</string>
     <string name="label_data_storage">Data and storage</string>
     <string name="label_stats">Statistics</string>
@@ -382,7 +384,10 @@
     <string name="pref_reader_summary">Reading mode, display, navigation</string>
     <string name="pref_downloads_summary">Automatic download, download ahead</string>
     <string name="pref_tracking_summary">One-way progress sync, enhanced sync</string>
-    <string name="pref_browse_summary">Sources, extensions, global search</string>
+    <!-- RK: the Browse settings entry, distinct from MR.strings.browse (the Browse tab's own label),
+         since this screen now also holds the per-source settings that used to sit at the Settings root. -->
+    <string name="pref_category_browse">Browse and sources</string>
+    <string name="pref_browse_summary">Sources, extensions, per-source settings</string>
     <string name="pref_backup_summary">Manual &amp; automatic backups, storage space</string>
     <string name="pref_security_summary">App lock, secure screen</string>
     <string name="pref_advanced_summary">Dump crash logs, battery optimizations</string>

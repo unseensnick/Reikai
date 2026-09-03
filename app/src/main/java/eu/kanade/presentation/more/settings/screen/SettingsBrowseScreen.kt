@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
@@ -21,7 +22,7 @@ object SettingsBrowseScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
-    override fun getTitleRes() = MR.strings.browse
+    override fun getTitleRes() = MR.strings.pref_category_browse
 
     @Composable
     override fun getPreferences(): List<Preference> {
@@ -29,6 +30,9 @@ object SettingsBrowseScreen : SearchableSettings {
         val navigator = LocalNavigator.currentOrThrow
 
         val sourcePreferences = remember { context.appGraph.sourcePreferences }
+        // RK: the adult-sources gate, moved here from Advanced so it sits above the settings group it
+        // reveals rather than making one appear on a screen the user is not looking at.
+        val exhPreferences = remember { context.appGraph.exhPreferences }
         val getExtensionStoreCountAsFlow = remember { context.appGraph.getExtensionStoreCountAsFlow }
         // RK: the Repos screen is unified (manga + light novel), so count both.
         val novelPreferences = remember { context.appGraph.novelPreferences }
@@ -38,11 +42,14 @@ object SettingsBrowseScreen : SearchableSettings {
             .collectAsState(reikaiSourcePreferences.showFeedTab.get())
         // RK <--
 
+        val adultSourcesEnabled by exhPreferences.isHentaiEnabled().changes()
+            .collectAsState(exhPreferences.isHentaiEnabled().get())
+
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
         val novelRepoUrls by novelPreferences.addedRepoUrls().changes()
             .collectAsState(novelPreferences.addedRepoUrls().get())
 
-        return listOf(
+        return listOfNotNull(
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.label_sources),
                 preferenceItems = listOf(
@@ -100,9 +107,50 @@ object SettingsBrowseScreen : SearchableSettings {
                             )
                         },
                     ),
+                    // RK: the built-in adult sources gate, next to the NSFW switch it belongs with.
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = exhPreferences.isHentaiEnabled(),
+                        title = stringResource(MR.strings.pref_enable_adult_sources),
+                        subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
+                    ),
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.parental_controls_info)),
                 ),
             ),
+            // RK --> settings owned by the app rather than by an installed extension, so they have
+            // nowhere to live on the source itself. Each row appears only while its source is on, and
+            // the group disappears entirely when neither is, which is why it is built conditionally.
+            getSourceSettingsGroup(navigator, adultSourcesEnabled),
+            // RK <--
         )
+    }
+
+    @Composable
+    private fun getSourceSettingsGroup(
+        navigator: Navigator,
+        adultSourcesEnabled: Boolean,
+    ): Preference.PreferenceGroup? {
+        val rows = listOfNotNull(
+            // The gate is passed in as observed state rather than read through isEnabled(), which is a
+            // plain pref read: without a snapshot dependency this row would not appear until the screen
+            // was recreated, even though the switch that reveals it is right above.
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_category_eh),
+                subtitle = stringResource(MR.strings.pref_ehentai_summary),
+                onClick = { navigator.push(SettingsEhScreen) },
+            ).takeIf { adultSourcesEnabled },
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_category_mangadex),
+                subtitle = stringResource(MR.strings.pref_mangadex_summary),
+                onClick = { navigator.push(SettingsMangaDexScreen) },
+            ).takeIf { SettingsMangaDexScreen.isEnabled() },
+        )
+        return if (rows.isEmpty()) {
+            null
+        } else {
+            Preference.PreferenceGroup(
+                title = stringResource(MR.strings.source_settings),
+                preferenceItems = rows,
+            )
+        }
     }
 }

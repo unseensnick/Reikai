@@ -172,6 +172,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **App**
 
 - **Settings search now finds what is on the About screen, like the licenses and the update check.** About is also sorted into Legal and Links sections instead of one flat list.
+- **Every source's settings now live in one place, under Settings -> Browse and sources.** The two that had their own entry at the top of Settings moved into a Source settings group there, and "Enable adult sources" joined them from Advanced.
+- **Recommendations is now its own entry in Settings instead of sitting inside Library.** One tap instead of three.
+- **Clearing all merges and repairing novel details moved into Advanced's Library section.** They sat in the unheaded block at the top of that screen before, with the rest of the maintenance actions below them.
 - **Nightly builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
 - **Updating the app now happens on the update screen itself, with the download progress on the button (synced from Mihon, mihonapp/mihon#3669 and mihonapp/mihon#3707).** Tap once more when it finishes to install.
 - **Reikai now checks for app and extension updates every time you open it from cold (synced from Mihon, mihonapp/mihon#3658).** It used to wait days between checks, so a fresh build could sit unoffered.
@@ -264,6 +267,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Browse & sources**
 
+- **A source whose metadata the app enhances now shows its settings instead of a blank screen.** It affected seven sources, including a large mainstream one and several adult ones; opening their settings from the extension list gave an empty page.
 - **Light-novel sources and plugins now group under their language, beside the manga sources of that language.** Plugin repos name a language in that language ("Español"), which the app read as a language of its own and could not put a heading on.
 - **An installed light-novel plugin is no longer listed a second time as available to install.** It happens when a repo offers the plugin at a second address.
 - **A light-novel source whose plugin is gone now says "Not installed" on the Migrate list and leads it.** Those hold the novels you can no longer open, and only manga sources were flagged before.

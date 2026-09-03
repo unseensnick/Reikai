@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Recommend
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Storage
@@ -47,10 +48,8 @@ import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
-import exh.assets.EhAssets
-import exh.assets.ehassets.EhLogo
-import exh.md.MangaDexLogo
 import mihon.app.di.appGraph
+import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -111,12 +110,10 @@ object SettingsMainScreen : Screen() {
             containerColor = containerColor,
             content = { contentPadding ->
                 val state = rememberLazyListState()
-                // RK: hide screens that opt out (E-Hentai stays hidden until adult sources are enabled).
-                //     isEnabled() is a plain pref read, so observe the gate here as state; without this
-                //     snapshot dependency the list stays stale until the screen is recreated (the bug:
-                //     toggling adult sources in Advanced didn't reveal the E-Hentai category live).
-                val adultEnabled by remember { context.appGraph.exhPreferences.isHentaiEnabled() }.collectAsState()
-                val items = remember(adultEnabled) {
+                // RK: hide screens that opt out. Nothing on this list gates itself today, since the two
+                //     that do (E-Hentai, MangaDex) are reached from Browse and sources now, but the
+                //     filter stays so a future gated entry does not have to remember to add it.
+                val items = remember {
                     items.filter { it.screen !is SearchableSettings || it.screen.isEnabled() }
                 }
                 val indexSelected = if (twoPane) {
@@ -229,10 +226,17 @@ object SettingsMainScreen : Screen() {
             screen = SettingsTrackingScreen,
         ),
         Item(
-            titleRes = MR.strings.browse,
+            titleRes = MR.strings.pref_category_browse,
             subtitleRes = MR.strings.pref_browse_summary,
             icon = Icons.Outlined.Explore,
             screen = SettingsBrowseScreen,
+        ),
+        // RK: recommendations, previously reachable only from inside Library's settings.
+        Item(
+            titleRes = MR.strings.pref_recommendations,
+            subtitleRes = MR.strings.pref_recommendations_summary,
+            icon = Icons.Outlined.Recommend,
+            screen = SettingsRecommendationsScreen,
         ),
         Item(
             titleRes = MR.strings.label_data_storage,
@@ -246,22 +250,8 @@ object SettingsMainScreen : Screen() {
             icon = Icons.Outlined.Security,
             screen = SettingsSecurityScreen,
         ),
-        // RK --> E-Hentai as its own top-level category (gated by SettingsEhScreen.isEnabled), matching
-        //     Komikku's placement between Security and Advanced.
-        Item(
-            titleRes = MR.strings.pref_category_eh,
-            subtitleRes = MR.strings.pref_ehentai_summary,
-            icon = EhAssets.EhLogo,
-            screen = SettingsEhScreen,
-        ),
-        // RK: MangaDex enhanced-source hub as its own top-level category (gated by isEnabled).
-        Item(
-            titleRes = MR.strings.pref_category_mangadex,
-            subtitleRes = MR.strings.pref_mangadex_summary,
-            icon = MangaDexLogo,
-            screen = SettingsMangaDexScreen,
-        ),
-        // RK <--
+        // RK: E-Hentai and MangaDex are reached from Browse and sources now, in its Source settings
+        // group, so every source's settings live in one place rather than two.
         Item(
             titleRes = MR.strings.pref_category_advanced,
             subtitleRes = MR.strings.pref_advanced_summary,

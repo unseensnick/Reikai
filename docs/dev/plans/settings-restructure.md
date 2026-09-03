@@ -43,7 +43,11 @@ The update-check spinner survives because `TextPreference` already takes a `widg
 
 ### Pass 3: Sources consolidation
 
-One top-level "Sources" settings screen, absorbing the extension-stores rows from Browse and preferred sources from Library, plus a section listing the sources that carry app-owned settings (MangaDex and E-Hentai today) as drill-downs. Per-source extension preferences stay reachable from the source itself, because that is where you already are when you want them, and `SourcePreferencesScreen` gains a row pointing at the app-owned section when a source has one, so the two routes meet instead of competing. Browse settings keeps only what is about the browse screen (the feed, NSFW display).
+**Scoped down from "one new Sources screen" once the code was read.** The Library screen's "Sources" group turned out to hold merge settings, not source configuration: the merge master switch, the two auto-merge toggles, and preferred sources, whose only readers are the merge path (`MergePrefs` in `LibraryViewModel` and the same structure in `NovelLibraryViewModel`). Moving those to a Sources screen would have separated them from the switches that give them meaning. And Browse already held the extension stores row and the NSFW switch, so a new screen would mostly have moved Browse's own rows to a sibling and left the user choosing between two. So the consolidation target was Browse all along, and only two strays needed collecting.
+
+**What shipped instead.** Browse is renamed "Browse and sources" (a new string, because `MR.strings.browse` is also the Browse tab's own label) and gains a Source settings group holding MangaDex and E-Hentai as drill-downs, so the Settings root loses both. The adult-sources gate moves there from Advanced, directly above the group it reveals: leaving it in Advanced meant flipping a switch made something appear on a screen the user was not looking at. **That gate is passed into the group as observed state rather than read through `isEnabled()`**, which is a plain preference read; without a snapshot dependency the row would not appear until the screen was recreated, which is the same defect an older `// RK` note records for the Settings root. Clearing merges and repairing novel details move into Advanced's Library group, since they are library maintenance, but they stay in Advanced rather than moving beside the everyday merge switches, because dissolving every merge group is destructive and belongs with the other destructive actions. **A cross-link from `SourcePreferencesScreen` to a source's app-owned settings was built and reverted.** That screen hosts a Fragment through `AndroidView` behind a one-time commit guarded by `rememberSaveable`; returning from a pushed screen brings the composition back with that flag already set, so it takes the reflection re-attach path and the fragment's view never returns, leaving an empty body. Plain re-entry is fine, because that builds a new screen instance. Upstream never pushes from there, so the path is untested, and debugging it was not worth a convenience. The file carries a comment saying not to push from it.
+
+**The Library group is renamed "Merged series"**, naming what it holds now that Recommendations has left it.
 
 Recommendations moves out of Library to its own top-level entry in the same pass (owner, 2026-09-03), which fixes both its depth and its truncated breadcrumb. It is already registered as a top-level search route, so search already treats it as a peer of Library.
 
@@ -55,7 +59,7 @@ Recommendations moves out of Library to its own top-level entry in the same pass
 - `eu/kanade/presentation/more/settings/screen/SettingsMainScreen.kt`, the root entry list.
 - `eu/kanade/presentation/more/settings/screen/about/AboutScreen.kt`, rebuilt on the DSL in pass 2.
 - `SettingsBrowseScreen.kt`, `SettingsLibraryScreen.kt`, `SettingsMangaDexScreen.kt`, `SettingsEhScreen.kt`, and `reikai/presentation/recommendation/SettingsRecommendationsScreen.kt` for pass 3.
-- `eu/kanade/tachiyomi/ui/browse/extension/details/SourcePreferencesScreen.kt`, gaining the cross-link in pass 3.
+- `eu/kanade/tachiyomi/ui/browse/extension/details/SourcePreferencesScreen.kt`, whose `populateScreen` gained the delegated-source unwrap in pass 3, and which carries a do-not-push-from-here note.
 
 ## Status
 
@@ -65,7 +69,11 @@ Ruled 2026-09-03. **Pass 1 shipped**: two top-level reader entries, each self-co
 
 **Both passes were then re-verified on a minified `nightly` build**, which matters because `release`-type builds are minified and the dev build is not. The app launched with no `TypeReference` failure (the R8 hazard the surviving Injekt calls carry), both reader entries and their screens rendered, and settings search still resolved rows on the new screens. The two build-gated About rows only render there: "What's new" needs a non-debug build, and "Check for updates" additionally needs the `enable-updater` Gradle property, so the check was run with `:app:installNightly -Penable-updater`. Tapping it completed end to end and toasted "No new updates available". The spinner in its `widget` slot was not observed, because the check returned inside 350ms.
 
-Pass 3 is next. All of it runs before the reader takeover ([content-layer-reader-surface.md](content-layer-reader-surface.md) step 1).
+**Pass 3 shipped**, completing the rewrite. Verified on the emulator: the root list dropped from twelve entries to eleven with both source screens gone and Recommendations added, the Source settings group holds both rows and appears and disappears live as the adult gate is toggled, Advanced's top block lost its three strays and its Library group gained them, the Library group reads "Merged series", and settings search resolves the adult switch to "Browse and sources > NSFW (18+) sources".
+
+**Pass 3 also surfaced a pre-existing bug and fixed it.** Reaching a delegated source's own preference screen rendered blank, for all seven delegated sources. Mihon resolves the source and tests `is ConfigurableSource` directly, which a wrapped source fails, and Reikai's EXH port never carried Komikku's unwrapping patch for that file. Recorded in [feature-ports.md](../feature-ports.md); unrelated to this rewrite beyond being what made it visible.
+
+The reader takeover ([content-layer-reader-surface.md](content-layer-reader-surface.md)) starts at its step 2 now that this is done.
 
 ## Decisions & tradeoffs
 

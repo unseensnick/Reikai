@@ -84,13 +84,6 @@ object SettingsAdvancedScreen : SearchableSettings {
         val libraryPreferences = remember { graph.libraryPreferences }
         // RK: opt-in for the library update-errors screen
         val reikaiLibraryPreferences = remember { graph.reikaiLibraryPreferences }
-        // RK: pref-based merge maintenance
-        val mergeManager = remember { graph.mangaMergeManager }
-        val novelMergeManager = remember { graph.novelMergeManager }
-        val repairNovelDetails = remember { graph.repairNovelDetails }
-        // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
-        val exhPreferences = remember { graph.exhPreferences }
-
         return listOfNotNull(
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_dump_crash_logs),
@@ -122,58 +115,9 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_novels),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
-            // RK: enable the built-in E-Hentai sources (anonymous browsing). Turning this on reveals
-            //     the dedicated E-Hentai settings as a top-level category (login, image quality, etc.).
-            Preference.PreferenceItem.SwitchPreference(
-                preference = exhPreferences.isHentaiEnabled(),
-                title = stringResource(MR.strings.pref_enable_adult_sources),
-                subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
-            ),
-            // RK --> dissolve every merge group. The old "clear manual" vs "separate auto" split
-            // collapsed after the rebuild (both now clear every group), so it is one action per type.
-            Preference.PreferenceItem.TextPreference(
-                title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_manga),
-                subtitle = stringResource(MR.strings.pref_clear_merges_summary),
-                onClick = {
-                    scope.launch {
-                        mergeManager.clearAllMergesIncludingAuto()
-                        context.toast(MR.strings.merges_cleared)
-                    }
-                },
-            ),
-            Preference.PreferenceItem.TextPreference(
-                title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_novels),
-                subtitle = stringResource(MR.strings.pref_clear_merges_summary),
-                onClick = {
-                    scope.launch {
-                        novelMergeManager.clearAllMergesIncludingAuto()
-                        context.toast(MR.strings.merges_cleared)
-                    }
-                },
-            ),
-            // Repair novels left wearing another novel's details by the plugin-host result mix-up
-            // (fixed, but rows written before the fix stay wrong until something re-fetches them).
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_repair_novel_details),
-                subtitle = stringResource(MR.strings.pref_repair_novel_details_summary),
-                onClick = {
-                    scope.launch {
-                        val result = repairNovelDetails.await()
-                        if (result.suspects == 0) {
-                            context.toast(MR.strings.novel_details_repair_none)
-                        } else {
-                            context.toast(
-                                context.stringResource(
-                                    MR.strings.novel_details_repair_done,
-                                    result.repaired,
-                                    result.suspects,
-                                ),
-                            )
-                        }
-                    }
-                },
-            ),
-            // RK <--
+            // RK: the adult-sources gate moved to Browse and sources, where it sits above the settings
+            // group it reveals. Clearing merges and repairing novel details moved into the Library
+            // group below, with the other library maintenance actions.
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_debug_info),
                 onClick = { navigator.push(DebugInfoScreen()) },
@@ -467,6 +411,16 @@ object SettingsAdvancedScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
 
+        // RK --> library maintenance that used to sit in the unheaded block at the top of this screen.
+        // These stay in Advanced rather than moving beside the everyday merge switches in Library
+        // settings, because dissolving every merge group is destructive and belongs with the other
+        // destructive actions, not one mis-tap from a toggle.
+        val graph = remember { context.appGraph }
+        val mergeManager = remember { graph.mangaMergeManager }
+        val novelMergeManager = remember { graph.novelMergeManager }
+        val repairNovelDetails = remember { graph.repairNovelDetails }
+        // RK <--
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_library),
             preferenceItems = listOf(
@@ -501,6 +455,51 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_disallow_non_ascii_filenames),
                     subtitle = stringResource(MR.strings.pref_disallow_non_ascii_filenames_details),
                 ),
+                // RK --> dissolve every merge group. The old "clear manual" vs "separate auto" split
+                // collapsed after the rebuild (both now clear every group), so it is one action per type.
+                Preference.PreferenceItem.TextPreference(
+                    title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_manga),
+                    subtitle = stringResource(MR.strings.pref_clear_merges_summary),
+                    onClick = {
+                        scope.launch {
+                            mergeManager.clearAllMergesIncludingAuto()
+                            context.toast(MR.strings.merges_cleared)
+                        }
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_novels),
+                    subtitle = stringResource(MR.strings.pref_clear_merges_summary),
+                    onClick = {
+                        scope.launch {
+                            novelMergeManager.clearAllMergesIncludingAuto()
+                            context.toast(MR.strings.merges_cleared)
+                        }
+                    },
+                ),
+                // Repair novels left wearing another novel's details by the plugin-host result mix-up
+                // (fixed, but rows written before the fix stay wrong until something re-fetches them).
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_repair_novel_details),
+                    subtitle = stringResource(MR.strings.pref_repair_novel_details_summary),
+                    onClick = {
+                        scope.launch {
+                            val result = repairNovelDetails.await()
+                            if (result.suspects == 0) {
+                                context.toast(MR.strings.novel_details_repair_none)
+                            } else {
+                                context.toast(
+                                    context.stringResource(
+                                        MR.strings.novel_details_repair_done,
+                                        result.repaired,
+                                        result.suspects,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                ),
+                // RK <--
             ),
         )
     }
