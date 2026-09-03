@@ -49,6 +49,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.UpIcon
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.util.Screen
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
@@ -312,6 +313,8 @@ private val settingScreens = listOf(
     // RK: recommendations settings, previously unreachable from settings search.
     SettingsRecommendationsScreen,
     SettingsAdvancedScreen,
+    // RK: About, rebuilt on the preference DSL so "licenses" and "check for updates" are findable.
+    AboutScreen,
 )
 
 private data class SettingsData(

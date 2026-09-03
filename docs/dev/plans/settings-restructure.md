@@ -35,7 +35,11 @@ Two further pairs were never twins and stay split regardless: bottom buttons off
 
 ### Pass 2: About
 
-Rebuilt as a normal `SearchableSettings` with three groups (version and updates, legal, links), which puts its rows into search. The link-icon row survives as a `CustomPreference`, the shape `SettingsDataScreen` already uses for its backup segmented buttons.
+Rebuilt as a normal `SearchableSettings` so its rows reach search, with the version and update actions ungrouped at the top and Legal and Links as groups below. The logo header and the link-icon row are `CustomPreference`s, the shape `SettingsDataScreen` already uses for its backup segmented buttons.
+
+Two mechanics made this cheap. `SearchableSettings` extends Voyager's `Screen`, so every existing `screen = AboutScreen` call site and both `AboutScreen.getVersionName` callers keep working untouched. And the search index filters on a non-blank title, so a `CustomPreference` carrying only a composable never becomes a junk search result; the logo and link rows pass a blank title deliberately for that reason.
+
+The update-check spinner survives because `TextPreference` already takes a `widget` composable. The two conditional rows (`updaterEnabled` for the update check, `!BuildConfig.DEBUG` for What's new) became `takeIf` on the same conditions, so they are unchanged in behaviour but cannot be exercised on a debug build, where both are false.
 
 ### Pass 3: Sources consolidation
 
@@ -57,7 +61,9 @@ Recommendations moves out of Library to its own top-level entry in the same pass
 
 Ruled 2026-09-03. **Pass 1 shipped**: two top-level reader entries, each self-contained, the suffix retired, both registered for settings search. Verified on the emulator: the root list shows both entries one tap deep, each screen carries its full set, the two same-named settings are independent (toggling the novel keep-screen-on left the manga key untouched), and search returns both volume-key rows with distinct breadcrumbs. Gates green at 1334 app, 75 domain and 35 core:common tests.
 
-Passes 2 and 3 are next, in that order. All of it runs before the reader takeover ([content-layer-reader-surface.md](content-layer-reader-surface.md) step 1).
+**Pass 2 shipped**: About runs on the preference DSL and is registered for search. Verified on the emulator: the screen renders unchanged (logo, version with its build stamp, Legal, Links), searching "licenses" returns it as "About > Legal", and following that result lands on About. The two build-gated rows could not be exercised on a debug build, where both conditions are false by construction.
+
+Pass 3 is next. All of it runs before the reader takeover ([content-layer-reader-surface.md](content-layer-reader-surface.md) step 1).
 
 ## Decisions & tradeoffs
 
