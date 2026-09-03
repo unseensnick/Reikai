@@ -1,5 +1,7 @@
 # Novel reader: tsundoku as the foundation
 
+> **The migration plan moved 2026-09-03 to [content-layer-reader-surface.md](content-layer-reader-surface.md).** The scout this doc asked for ran, and it changed the shape: novels do not fold into `ReaderActivity` the way tsundoku does, because that design rests on novels being manga rows (`Page.text`, `fetchPageText` on `Source`), which Reikai rejected at the data layer. What survives here is the evaluation and the case for tsundoku as the engine source; what is superseded is the "Option 3, folded into `ReaderActivity`" framing and the Option 1 comparison. The port is now scoped to the renderer, since tsundoku's `NovelViewer` calls twenty-one distinct members of their own forked `ReaderActivity`. The three feature-harvest items below (reader extras, TTS in-text highlight, the source-system work) are unaffected and still live in `ROADMAP.md`.
+
 Developer-facing record of evaluating [Tsundoku](https://github.com/tsundoku-otaku/tsundoku) (an actively-maintained, Apache-2.0 Mihon fork built for novels) as the basis for Reikai's novel reader, and the plan that came out of it. Two tracks were assessed: a near-term seamless-transitions port onto the current reader (Option 1) and a migration to tsundoku's native reader (Option 3). Option 3 is the one being built; Option 1 was dropped once the two landed in the same release. Investigated 2026-07-11 from the `refs/tsundoku` clone, rescoped 2026-08-07.
 
 ## Goal

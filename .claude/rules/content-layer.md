@@ -28,7 +28,7 @@ common way to mis-plan work here.
 | Browse | Full takeover | One engine assembles each of the four multi-source lists over two providers with the content-type chip as a predicate, and one catalogue screen serves both per-source grids over two Paging 3 pagers. Fifteen Mihon files deleted and manifested. Only the filter dispatch stays per-type, as a slot the screen fills | content-layer-browse-surface, content-layer-add-flow |
 | History, Updates | Takeover of the screen | Both tabs render one shared screen over the recents engine, which owns assembly, search, selection, the dialogs and the action verbs; the four feed models stay live behind adapters. The two tabs keep only what needs the host: the badge reset, the splash gate, the bottom nav and reselect. The filter sheet is shared too, drawing what the mode can answer for and editing the surface's own selection | content-layer-recents-surface |
 | Downloads | Not started | Nothing. Road B; `DownloadQueueViewModel` is still `// RK: inert` | download-queue-unification |
-| Reader | Chrome only | Top and bottom bars; the two engines are separate by design | unified-reader |
+| Reader | Takeover of orchestration, ruled not started | One host Activity keeps the window responsibilities, a shared engine owns navigation, position, chrome and the action verbs over two providers. `ReaderViewModel` stays **live** as the manga provider; the novel reader dissolves entirely, since its engine is being replaced. **The viewer classes are never modified**, and position is a typed capability, never an `Int` | content-layer-reader-surface |
 
 Everything below the behavior seam is scheduled to be redone at it. Sequencing is in the record, not
 here.

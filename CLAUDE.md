@@ -34,7 +34,7 @@ Mihon is **Compose + Voyager throughout**: there is no Conductor `*Controller` /
 
 Every Reikai screen ported onto or added to Mihon follows Mihon's conventions: a Voyager `Screen` / `Tab` backed by an AndroidX `ViewModel`, DI and preference reads out of `@Composable` bodies, `StateFlow` state, `viewModelScope` coroutines, `// RK` fencing on edits to Mihon's own files. The full list with rationale and a reference screen is [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md).
 
-**Watch item:** a model resolved by a bare `viewModel<T>()` must not be `private` (crashes on open, every build type, debug included). **The one screen still on `ScreenModel` is the novel reader**, held there on purpose because the tsundoku reader migration deletes it; `voyager-screenModel` stays in the build until then. Both: [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md).
+**Watch item:** a model resolved by a bare `viewModel<T>()` must not be `private` (crashes on open, every build type, debug included). **The one screen still on `ScreenModel` is the novel reader**, held there on purpose because the reader takeover deletes it; `voyager-screenModel` stays in the build until then. Both: [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md).
 
 ## Unified content UI (active initiative)
 

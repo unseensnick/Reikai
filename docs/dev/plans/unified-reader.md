@@ -1,5 +1,7 @@
 # Unified reader (shared chrome)
 
+> **Superseded 2026-09-03 by [content-layer-reader-surface.md](content-layer-reader-surface.md).** The reader became an orchestration takeover under the content-layer program's sixth amendment, which retires four rulings recorded below: chrome-only unification, "two content hosts maintained permanently", the open question of which track collapses the two settings sheets, and the Option A decline. That last one is routed around rather than reversed: Option A's cost was decoupling the image viewers, and the takeover leaves them untouched, which is now a hard line. This file stays as the record of what shipped (Phase 1, the novel reader on the Compose shell) and of why Option A was built and reverted, which is the most useful thing in it for anyone planning the takeover.
+
 Give the manga reader and the novel reader the same on-screen controls (top bar, bottom bar, page/chapter navigation, settings) by sharing one set of Compose chrome components between them, without rewriting either reader's content engine.
 
 This is the developer-facing record for the unified-reader initiative. For the novel reader on its own see [novel-reader.md](novel-reader.md); for the broader rebase context see [rebase-overview.md](rebase-overview.md).
