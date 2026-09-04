@@ -43,6 +43,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
@@ -435,7 +436,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         private const val WORK_NAME_AUTO = "LibraryUpdate-auto"
         private const val WORK_NAME_MANUAL = "LibraryUpdate-manual"
 
-        private const val ERROR_LOG_HELP_URL = "https://mihon.app/docs/guides/troubleshooting/"
+        private const val ERROR_LOG_HELP_URL = Constants.URL_HELP // RK: Reikai's docs
 
         private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60
 

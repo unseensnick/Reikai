@@ -60,6 +60,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
 import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.source.service.SourceManager
@@ -78,7 +79,7 @@ object SettingsTrackingScreen : SearchableSettings {
     @Composable
     override fun RowScope.AppBarAction() {
         val uriHandler = LocalUriHandler.current
-        IconButton(onClick = { uriHandler.openUri("https://mihon.app/docs/guides/tracking") }) {
+        IconButton(onClick = { uriHandler.openUri("${Constants.URL_DOCS}/guides/tracking") }) {
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
                 contentDescription = stringResource(MR.strings.tracking_guide),
