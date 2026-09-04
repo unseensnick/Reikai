@@ -47,7 +47,7 @@ class MergedChapterProvider(
      * one. Uses the same identity as the library's unread count, so the list and the badge agree. Empty
      * for an unmerged entry and for chapters with no cross-source identity.
      */
-    fun readInOtherSources(
+    suspend fun readInOtherSources(
         chaptersBySource: Map<Long, List<Chapter>>,
         sourceIdByManga: Map<Long, Long>,
         unified: List<Chapter>,

@@ -181,7 +181,7 @@ class LibraryEngine(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
     }
 
-    private fun assembleFor(
+    private suspend fun assembleFor(
         chip: ContentType,
         rowsPerProvider: List<List<LibraryItem>>,
         searchQueryPerProvider: List<String?>,
@@ -242,7 +242,7 @@ class LibraryEngine(
      * categories are not consulted (a synthetic group cannot be hidden), and the category-sort-order
      * preference goes to the kernel, which orders the groups itself.
      */
-    private fun assembleDynamicGroups(
+    private suspend fun assembleDynamicGroups(
         active: List<LibraryProvider>,
         rows: List<LibraryItem>,
         prefs: AssemblyPrefs,

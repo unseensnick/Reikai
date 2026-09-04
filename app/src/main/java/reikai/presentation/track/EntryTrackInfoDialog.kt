@@ -267,7 +267,7 @@ data class EntryTrackInfoDialogHomeScreen(
             }
         }
 
-        private fun List<Track>.mapToTrackItem(): List<TrackItem> {
+        private suspend fun List<Track>.mapToTrackItem(): List<TrackItem> {
             // Only trackers whose catalogue holds this type; the rest would silently bind the other's hit.
             val loggedInTrackers = trackerManager.loggedInTrackers().supportingContent(isNovel)
             return if (isNovel) {

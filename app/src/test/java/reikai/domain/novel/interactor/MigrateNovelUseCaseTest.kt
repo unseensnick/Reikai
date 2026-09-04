@@ -95,7 +95,7 @@ class MigrateNovelUseCaseTest {
     @Test
     fun `a missing target source fails the row instead of returning as if migrated`() = runTest {
         val sources = mockk<NovelSourceManager>()
-        every { sources.get(any<String>()) } returns null
+        coEvery { sources.get(any<String>()) } returns null
 
         shouldThrow<IllegalStateException> {
             useCase(sourceManager = sources)(
@@ -362,7 +362,7 @@ class MigrateNovelUseCaseTest {
         // manga getOrThrow contract applies and the row must fail rather than migrate onto nothing.
         // (Stubbed outside the mockk block: a bare get(any()) in there binds to MockKMatcherScope.)
         val sources = mockk<NovelSourceManager>()
-        every { sources.get(any()) } returns null
+        coEvery { sources.get(any()) } returns null
 
         shouldThrow<IllegalStateException> {
             useCase(sourceManager = sources)(novel(1), novel(2), emptySet(), replace = true)

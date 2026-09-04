@@ -141,7 +141,7 @@ class MangaLibraryAdder(
      * Each duplicate's source, resolved here so no dialog host needs a [SourceManager] of its own.
      * A stub source means the extension is not installed, which the duplicate card warns about.
      */
-    fun duplicateSourceLabels(duplicates: List<MangaWithChapterCount>): Map<Long, EntrySourceLabel> =
+    suspend fun duplicateSourceLabels(duplicates: List<MangaWithChapterCount>): Map<Long, EntrySourceLabel> =
         duplicates.associate { duplicate ->
             val source = sourceManager.getOrStub(duplicate.manga.source)
             duplicate.manga.source to when (source) {

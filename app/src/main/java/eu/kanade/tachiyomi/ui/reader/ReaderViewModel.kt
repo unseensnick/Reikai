@@ -38,6 +38,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
@@ -398,7 +399,7 @@ class ReaderViewModel(
             .map(::ReaderChapter)
     }
 
-    private val incognitoMode: Boolean by lazy { getIncognitoState.await(manga?.source) }
+    private var incognitoMode: Boolean = false
     private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
 
     init {
@@ -460,7 +461,6 @@ class ReaderViewModel(
         withIOContext {
             try {
                 val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
-                sourceManager.isInitialized.first { it }
                 // RK: resolve the Edit info overrides before the state update below builds the
                 // viewer, since auto-webtoon classifies off them.
                 customInfo = getCustomMangaInfo.subscribe(mangaId).first()
@@ -483,7 +483,14 @@ class ReaderViewModel(
                 )
                 // RK <--
 
-                mutableState.update { it.copy(manga = manga) }
+                memberSourceNames = group.mangaById.values
+                    .map { it.source }
+                    .distinct()
+                    .associateWith { sourceManager.getOrStub(it).name }
+
+                val source = sourceManager.getOrStub(manga.source)
+                incognitoMode = getIncognitoState.await(manga.source)
+                mutableState.update { it.copy(manga = manga, source = source) }
 
                 // RK: from the full list, so the reader pages within one instance space (prev/next
                 //     are resolved there too) rather than mixing it with the skip-filtered set.
@@ -597,13 +604,12 @@ class ReaderViewModel(
             val dbChapter = chapter.chapter
             // RK: probe the chapter's own source's download folder, not the opened manga's.
             val chapterManga = mangaForChapterId(dbChapter.manga_id)
-            val isDownloaded = downloadManager.isChapterDownloaded(
+            val isDownloaded = downloadManager.isChapterDownloadedOnDisk(
                 dbChapter.name,
                 dbChapter.scanlator,
                 dbChapter.url,
                 chapterManga.title,
-                chapterManga.source,
-                skipCache = true,
+                sourceManager.getOrStub(chapterManga.source),
             )
             if (isDownloaded) {
                 chapter.state = ReaderChapter.State.Wait
@@ -873,7 +879,7 @@ class ReaderViewModel(
         return state.value.currentChapter
     }
 
-    fun getSource() = manga?.source?.let { sourceManager.getOrStub(it) } as? HttpSource
+    fun getSource() = state.value.source as? HttpSource
 
     fun getChapterUrl(): String? {
         val sChapter = getCurrentChapter()?.chapter ?: return null
@@ -928,6 +934,11 @@ class ReaderViewModel(
     // RK -->
     private var autoWebtoonMemo: Pair<Set<Long>, Int?>? = null
 
+    // RK: source names for every merged member, resolved once in init. The classifier runs on every
+    // app-bar recomposition and resolving a source now suspends, so the names are read where the
+    // merge group already is rather than blocking the render path.
+    private var memberSourceNames: Map<Long, String> = emptyMap()
+
     /**
      * The user's Edit info overrides, snapshotted in [init]. Editing needs the details screen, so
      * these cannot change while the reader is open.
@@ -952,7 +963,7 @@ class ReaderViewModel(
         // Edited genres win over the source's, so a source that never tags its series type can be
         // fixed by hand in Edit info. They belong to the opened entry, not to its siblings.
         val entries = members.map { if (it.id == manga.id) it.withCustomInfo(customInfo) else it }
-        return defaultReaderType(entries) { sourceManager.get(it.source)?.name }
+        return defaultReaderType(entries) { memberSourceNames[it.source] }
             .also { autoWebtoonMemo = memberIds to it }
     }
     // RK <--
@@ -1159,21 +1170,24 @@ class ReaderViewModel(
     /** Start/cancel/delete a chapter download from the chapter dialog (Y10). */
     fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
         manga ?: return
-        // RK: act on the chapter's own source so download/delete hit the right folder for a merged chapter.
-        val chapterManga = mangaForChapterId(chapter.mangaId)
-        when (action) {
-            ChapterDownloadAction.START -> downloadManager.downloadChapters(chapterManga, listOf(chapter))
-            ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapter.id)
-            ChapterDownloadAction.CANCEL -> {
-                val download = downloadManager.getQueuedDownloadOrNull(chapter.id) ?: return
-                downloadManager.cancelQueuedDownloads(listOf(download))
-            }
-            ChapterDownloadAction.DELETE -> {
-                downloadManager.deleteChapters(
-                    listOf(chapter),
-                    chapterManga,
-                    sourceManager.getOrStub(chapterManga.source),
-                )
+        viewModelScope.launchIO {
+            // RK: act on the chapter's own source so download/delete hit the right folder for a
+            // merged chapter.
+            val chapterManga = mangaForChapterId(chapter.mangaId)
+            when (action) {
+                ChapterDownloadAction.START -> downloadManager.downloadChapters(chapterManga, listOf(chapter))
+                ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapter.id)
+                ChapterDownloadAction.CANCEL -> {
+                    val download = downloadManager.getQueuedDownloadOrNull(chapter.id) ?: return@launchIO
+                    downloadManager.cancelQueuedDownloads(listOf(download))
+                }
+                ChapterDownloadAction.DELETE -> {
+                    downloadManager.deleteChapters(
+                        listOf(chapter),
+                        chapterManga,
+                        sourceManager.getOrStub(chapterManga.source),
+                    )
+                }
             }
         }
     }
@@ -1345,6 +1359,7 @@ class ReaderViewModel(
     @Immutable
     data class State(
         val manga: Manga? = null,
+        val source: Source? = null,
         val initError: Throwable? = null,
         val viewerChapters: ViewerChapters? = null,
         val bookmarked: Boolean = false,

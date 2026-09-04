@@ -6,8 +6,6 @@ import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.novel.install.LnPluginInstaller
@@ -32,17 +30,10 @@ class NovelSourceManager(
 
     val sources: Flow<List<NovelSource>> = sourcesFlow.map { it.values.toList() }
 
-    private val _isInitialized = MutableStateFlow(false)
-
-    /** False until [ensureLoaded] has completed once. Reading the registry before then reports every
-     *  installed source as missing, which is a wrong answer rather than a slow one. */
-    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
-
     /** Load every installed plugin that is not registered yet, then return. Cheap and safe to call
      *  repeatedly: the installer holds its own mutex and retries only what failed. */
     suspend fun ensureLoaded() {
         installer().ensureLoaded()
-        _isInitialized.value = true
     }
 
     fun register(source: NovelSource) {
@@ -53,7 +44,18 @@ class NovelSourceManager(
         sourcesFlow.update { it - id }
     }
 
-    fun get(id: String): NovelSource? = sourcesFlow.value[id]
+    /**
+     * Loads the plugins before answering, so a read before the first [ensureLoaded] gets a slow
+     * answer rather than a wrong one. Suspending matches the manga registry, which upstream made
+     * suspend for the same reason (mihonapp/mihon#3869).
+     */
+    suspend fun get(id: String): NovelSource? {
+        ensureLoaded()
+        return sourcesFlow.value[id]
+    }
 
-    fun getAll(): List<NovelSource> = sourcesFlow.value.values.toList()
+    suspend fun getAll(): List<NovelSource> {
+        ensureLoaded()
+        return sourcesFlow.value.values.toList()
+    }
 }

@@ -206,7 +206,7 @@ class MdUtil {
 
         // Picks the MangaDex enhanced source that drives login and the MDList tracker. Uses the
         // first enabled one; a preferred-language picker lives in the settings hub.
-        fun getEnabledMangaDex(
+        suspend fun getEnabledMangaDex(
             sourcePreferences: SourcePreferences,
             sourceManager: SourceManager,
         ): MangaDex? {
@@ -214,10 +214,10 @@ class MdUtil {
         }
 
         /** The graph-reading overload, for the callers that hold only a [Context]. */
-        fun getEnabledMangaDex(context: Context): MangaDex? =
+        suspend fun getEnabledMangaDex(context: Context): MangaDex? =
             getEnabledMangaDex(context.appGraph.sourcePreferences, context.appGraph.sourceManager)
 
-        fun getEnabledMangaDexs(
+        suspend fun getEnabledMangaDexs(
             preferences: SourcePreferences,
             sourceManager: SourceManager,
         ): List<MangaDex> {

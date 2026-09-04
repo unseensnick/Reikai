@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap
  * uses the unioned merge-group tracks.
  */
 @Suppress("LongParameterList")
-fun novelDynamicGroupingFeed(
+suspend fun novelDynamicGroupingFeed(
     items: List<LibraryItem>,
     novelById: Map<Long, LibraryNovel>,
     tracksByRep: Map<Long, List<NovelTrack>>,

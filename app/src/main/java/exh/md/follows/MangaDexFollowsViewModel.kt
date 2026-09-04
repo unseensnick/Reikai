@@ -69,7 +69,7 @@ class MangaDexFollowsViewModel(
     }
 
     override fun createSourcePagingSource(query: String, filters: FilterList): SourcePagingSource {
-        return MangaDexFollowsPagingSource(source.getMainSource<MangaDex>()!!, networkToLocalManga)
+        return MangaDexFollowsPagingSource({ source!!.getMainSource<MangaDex>()!! }, networkToLocalManga)
     }
 
     // Follows results carry their metadata inline (follow status); pass it straight through rather

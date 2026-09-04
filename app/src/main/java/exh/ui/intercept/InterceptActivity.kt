@@ -126,8 +126,6 @@ class InterceptActivity : BaseActivity() {
         val url = intent.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
         if (url != null) {
             lifecycleScope.launchIO {
-                // wait for sources to load
-                sourceManager.isInitialized.first { it }
                 loadGallery(url)
             }
         }

@@ -40,7 +40,7 @@ class FakeMigrationFlowAdapter(
     override val contentType = ContentType.MANGA
     override val matchStrategy = MatchStrategy.BestTitleMatch
 
-    override fun enabledSources() = listOf(
+    override suspend fun enabledSources() = listOf(
         MigrationSourceUi("target", "Target", "en", MigrationSourceIcon.NovelUrl(null)),
     )
 
@@ -48,7 +48,7 @@ class FakeMigrationFlowAdapter(
     override fun persistSelection(keys: List<String>) = Unit
     override fun pinnedKeys(): Set<String> = emptySet()
     override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> = emptyList()
-    override fun sourceDisplayName(sourceKey: String) = sourceKey
+    override suspend fun sourceDisplayName(sourceKey: String) = sourceKey
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(emptyList())
     override fun readTuning() = tuning
     override fun persistTuning(tuning: MigrationTuning) = Unit

@@ -106,6 +106,11 @@ class EntryMigrationListViewModel(
     @Volatile
     private var everHadRows = false
 
+    /** The enabled target sources, resolved once by [drive]. Cached because the override picker seeds
+     *  its strips synchronously and resolving a source suspends. */
+    @Volatile
+    private var cachedSources: List<MigrationSourceUi> = emptyList()
+
     init {
         viewModelScope.launch(io) {
             adapter.prepare()
@@ -150,7 +155,7 @@ class EntryMigrationListViewModel(
      * restored row is picked up without a second driver.
      */
     private suspend fun drive() {
-        val sources = adapter.sourcesFor()
+        val sources = adapter.sourcesFor().also { cachedSources = it }
         val tuning = state.value.tuning
         while (currentCoroutineContext().isActive) {
             val row = nextSearchable() ?: break
@@ -352,10 +357,12 @@ class EntryMigrationListViewModel(
         if (query.isBlank()) return
         val row = rows.firstOrNull { it.entry.id == id } ?: return
         val fullQuery = query.withExtraQuery(state.value.tuning.extraQuery)
-        val sources = adapter.sourcesFor()
+        val sources = cachedSources
         val generation = ++row.overrideGeneration
 
         row.overrideJob?.cancel()
+        // Seeded before the launch, not inside it: publishing the strips from the search coroutine
+        // is what once left the picker spinning for good.
         row.overrides.value = MigratingEntryRow.OverrideState.Strips(
             sources.map {
                 MigratingEntryRow.OverrideStrip(
@@ -422,7 +429,7 @@ class EntryMigrationListViewModel(
     fun consumePickOutcome() = state.update { it.copy(pickOutcome = null) }
 
     /** Display name for a candidate's source, for the row status line. */
-    fun sourceDisplayName(sourceKey: String): String = adapter.sourceDisplayName(sourceKey)
+    suspend fun sourceDisplayName(sourceKey: String): String = adapter.sourceDisplayName(sourceKey)
 
     /**
      * Fill the chosen target's chapter counts in the background, so the count line stops reading

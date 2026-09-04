@@ -43,7 +43,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
-import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.AssistContentScreen
@@ -129,10 +128,6 @@ class EntryCatalogueScreen(
 
     @Composable
     private fun MangaCatalogue(sourceId: Long) {
-        if (!ifSourcesLoaded()) {
-            LoadingScreen()
-            return
-        }
         val navigator = LocalNavigator.currentOrThrow
         val uriHandler = LocalUriHandler.current
         val context = LocalContext.current
@@ -149,8 +144,13 @@ class EntryCatalogueScreen(
             }
         }
         val modelState by viewModel.state.collectAsState()
-        val isLocal = viewModel.source is LocalSource
-        val isMangaDex = remember(viewModel) { viewModel.source.getMainSource<MangaDex>() != null }
+        val source = modelState.source
+        if (source == null) {
+            LoadingScreen()
+            return
+        }
+        val isLocal = source is LocalSource
+        val isMangaDex = remember(source) { source.getMainSource<MangaDex>() != null }
 
         // The Random button only kicks off the fetch; the id arrives later, and opening it is a new
         // catalogue on the same source with an "id:<uuid>" search.

@@ -3,6 +3,7 @@ package reikai.presentation.library
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
@@ -48,7 +49,7 @@ class MangaMergeCollapseTest {
         )
     }
 
-    private fun collapse(
+    private suspend fun collapse(
         items: List<LibraryItem>,
         membership: Map<Long, Long> = emptyMap(),
         mergingEnabled: Boolean = true,
@@ -67,13 +68,13 @@ class MangaMergeCollapseTest {
     )
 
     @Test
-    fun `a single item is returned unchanged`() {
+    fun `a single item is returned unchanged`() = runTest {
         val items = listOf(item(1))
         collapse(items) shouldBe items
     }
 
     @Test
-    fun `with no ranking set the most-chapters source is the primary`() {
+    fun `with no ranking set the most-chapters source is the primary`() = runTest {
         // No per-group override and no preferred-source list: the primary falls back to the most-chapters
         // source (then lowest id), matching the details trunk's own fallback.
         val result = collapse(
@@ -92,7 +93,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `distinct chapter identities decide the primary, not the row count`() {
+    fun `distinct chapter identities decide the primary, not the row count`() = runTest {
         // Member 1 lists more chapter ROWS (its source repeats chapters under several scanlators) but
         // covers fewer distinct chapters. ChapterAggregation trunks the details list on the distinct
         // count, so the library row has to pick the same member or the two surfaces lead on different
@@ -109,7 +110,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `the row count stands in until the match keys are reconciled`() {
+    fun `the row count stands in until the match keys are reconciled`() = runTest {
         // An empty map is the backfill not having run, not "every member has zero": falling through to
         // zero would flatten the ranking onto the id tiebreak and move every merged cover at once.
         val result = collapse(
@@ -124,7 +125,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `a member with no identified chapter ranks last once the keys exist`() {
+    fun `a member with no identified chapter ranks last once the keys exist`() = runTest {
         // A populated map with no row for a member means it has no identifiable chapter, which the
         // schema's consumer contract reads as zero rather than as unknown.
         val result = collapse(
@@ -139,7 +140,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `a per-group override picks the primary over chapter count`() {
+    fun `a per-group override picks the primary over chapter count`() = runTest {
         // The override orders members [2, 1] (member 2 is the trunk) even though member 1 has more
         // chapters, so the library row leads on the same source the details chapter list trunks on.
         val result = collapse(
@@ -154,7 +155,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `the global preferred-source list picks the primary when no override is set`() {
+    fun `the global preferred-source list picks the primary when no override is set`() = runTest {
         // Source 200 outranks source 100 in the global list, so its member is the primary even with fewer
         // chapters. The override map is empty, so this is the fallback ranking.
         val result = collapse(
@@ -169,19 +170,19 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `ungrouped items stay separate`() {
+    fun `ungrouped items stay separate`() = runTest {
         val result = collapse(listOf(item(1), item(2)), membership = emptyMap())
         result.map { it.id } shouldContainExactlyInAnyOrder listOf(1L, 2L)
     }
 
     @Test
-    fun `merging disabled returns items unchanged`() {
+    fun `merging disabled returns items unchanged`() = runTest {
         val items = listOf(item(1), item(2))
         collapse(items, membership = mapOf(1L to 7L, 2L to 7L), mergingEnabled = false) shouldBe items
     }
 
     @Test
-    fun `the merged entry reports the most recent read across the whole group`() {
+    fun `the merged entry reports the most recent read across the whole group`() = runTest {
         // Manga 1 is the primary (more chapters), but manga 2's read is more recent: the merged entry
         // must sort by the group max so reading any source bubbles it up.
         val result = collapse(
@@ -198,7 +199,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `a local source chosen as the trunk keeps the collapsed entry local`() {
+    fun `a local source chosen as the trunk keeps the collapsed entry local`() = runTest {
         // The Local badge and whether Download is offered read the representative's own isLocal, so a
         // local source promoted to the trunk (via the override) must carry its local state onto the row.
         // Local member 1 has fewer chapters, so only the ranking, not the count, makes it the trunk.
@@ -216,7 +217,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `a remote source chosen as the trunk keeps the collapsed entry non-local`() {
+    fun `a remote source chosen as the trunk keeps the collapsed entry non-local`() = runTest {
         // The inverse: a remote source promoted to the trunk over a higher-chapter local member leaves the
         // row non-local, so Download stays available.
         val result = collapse(
@@ -233,7 +234,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `the lowest id wins the primary when counts tie and no ranking is set`() {
+    fun `the lowest id wins the primary when counts tie and no ranking is set`() = runTest {
         // Same chapters, no override, no preferred list: the tiebreak is the lowest id (the aggregation's
         // deterministic tiebreak), NOT date_added. Member 2 was added later but member 1 (lower id) wins.
         val result = collapse(

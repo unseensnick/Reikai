@@ -47,7 +47,7 @@ class MigrateMangaUseCaseTest {
 
     /** Stubbed outside the mockk block: a bare `get(any())` inside one binds to MockK's own get. */
     private fun sourceManagerReturning(source: Source?) = mockk<SourceManager>().also {
-        every { it.get(any()) } returns source
+        coEvery { it.get(any()) } returns source
     }
 
     private fun useCase(

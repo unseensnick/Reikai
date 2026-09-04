@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.NamespaceSource
 import exh.source.MANGADEX_IDS
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -40,7 +41,7 @@ class AdultContentCheckerTest {
         val extensionManager = mockk<ExtensionManager>()
         every { extensionManager.installedExtensionsFlow } returns MutableStateFlow(nsfwExtensions(nsfwSourceId))
         val sourceManager = mockk<SourceManager>()
-        every { sourceManager.get(any()) } answers { source }
+        coEvery { sourceManager.get(any()) } answers { source }
         return AdultContentChecker(extensionManager, sourceManager)
     }
 
@@ -49,7 +50,7 @@ class AdultContentCheckerTest {
         val extensionManager = mockk<ExtensionManager>()
         every { extensionManager.installedExtensionsFlow } returns MutableSharedFlow()
         val sourceManager = mockk<SourceManager>()
-        every { sourceManager.get(any()) } answers { source }
+        coEvery { sourceManager.get(any()) } answers { source }
         return AdultContentChecker(extensionManager, sourceManager)
     }
 

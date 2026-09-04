@@ -52,5 +52,5 @@ interface LibraryProvider : LibraryBehavior {
      * [DynamicGroupingFeed]). On-demand like [trackerMeans]: only a dynamically grouped view pays the
      * metadata resolution, and the engine concatenates the active feeds into one kernel call.
      */
-    fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed
+    suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed
 }

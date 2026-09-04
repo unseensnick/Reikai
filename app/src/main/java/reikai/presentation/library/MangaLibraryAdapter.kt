@@ -145,7 +145,7 @@ class MangaLibraryAdapter(
         return mangaTrackerMeans(data.favorites, data.tracksMap, trackers)
     }
 
-    override fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
+    override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
         val data = model.state.value.libraryData
         return mangaDynamicGroupingFeed(
             favorites = data.favorites,

@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.map
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
@@ -97,7 +98,7 @@ class MangaBrowseAdapter(
     ): EntryBrowseScreenState {
         state.dialog?.let { raisedDialog = it }
         bulkState.dialog?.let { raisedBulkDialog = it }
-        val source = model.source
+        val source = model.source ?: return EntryBrowseScreenState.Loading
         if (source is StubSource) return EntryBrowseScreenState.SourceMissing(source.toString())
         return EntryBrowseScreenState.Loaded(
             sourceName = source.name,
@@ -183,7 +184,7 @@ class MangaBrowseAdapter(
     override fun applySearch(query: String?, filtersJson: String?) {
         // Onto a list the source builds now rather than the one on screen, so a saved search reads the
         // source's current defaults for anything it does not carry a value for.
-        val filters = model.source.getFilterList()
+        val filters = model.source?.getFilterList() ?: FilterList()
         filtersJson?.let { savedSearchFilters.decode(it, filters) }
         // Empty rather than null for a search that carries none: Mihon's search() reads null as "keep
         // what is there", so a filters-only search would otherwise run against whatever the reader had

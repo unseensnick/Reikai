@@ -33,7 +33,7 @@ class MergedChapterLoader(
         loaderFor(chapter.chapter.manga_id!!).loadChapter(chapter)
     }
 
-    private fun loaderFor(mangaId: Long): ChapterLoader = loaders.getOrPut(mangaId) {
+    private suspend fun loaderFor(mangaId: Long): ChapterLoader = loaders.getOrPut(mangaId) {
         val manga = mangaById.getValue(mangaId)
         ChapterLoader(
             context,

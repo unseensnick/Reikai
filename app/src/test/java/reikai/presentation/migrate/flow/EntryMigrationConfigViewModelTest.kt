@@ -41,7 +41,7 @@ class EntryMigrationConfigViewModelTest {
         override val contentType = ContentType.MANGA
         override val matchStrategy = MatchStrategy.BestTitleMatch
 
-        override fun enabledSources() = sources.map {
+        override suspend fun enabledSources() = sources.map {
             MigrationSourceUi(it, it.uppercase(), "en", MigrationSourceIcon.NovelUrl(null))
         }
 
@@ -54,7 +54,7 @@ class EntryMigrationConfigViewModelTest {
 
         override fun pinnedKeys() = pinned
         override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> = emptyList()
-        override fun sourceDisplayName(sourceKey: String) = sourceKey
+        override suspend fun sourceDisplayName(sourceKey: String) = sourceKey
         override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(emptyList())
         override fun readTuning() = MigrationTuning()
         override fun persistTuning(tuning: MigrationTuning) = Unit

@@ -13,6 +13,7 @@ import exh.md.utils.MdUtil
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -26,8 +27,10 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
             .toImmutableList()
     }
 
+    // Blocking is fine here: only touched from tracker threads, and the source lookup awaits the
+    // extension scan rather than racing it.
     private val mdex by lazy {
-        MdUtil.getEnabledMangaDex(appGraph.sourcePreferences, appGraph.sourceManager)
+        runBlocking { MdUtil.getEnabledMangaDex(appGraph.sourcePreferences, appGraph.sourceManager) }
     }
 
     val interceptor = MangaDexAuthInterceptor(trackPreferences, this)

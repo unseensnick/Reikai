@@ -56,7 +56,7 @@ inline fun <T> List<T>.latestChapterNumber(number: (T) -> Double): Double? =
  * everything enabled: the same three tiers the config screen seeds from, so what it showed is what
  * gets searched.
  */
-fun MigrationFlowAdapter.sourcesFor(): List<MigrationSourceUi> {
+suspend fun MigrationFlowAdapter.sourcesFor(): List<MigrationSourceUi> {
     val enabled = enabledSources()
     val byKey = enabled.associateBy { it.key }
     return savedSelection().mapNotNull { byKey[it] }.ifEmpty {

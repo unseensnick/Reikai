@@ -76,7 +76,7 @@ class NovelMigrationFlowAdapter(
         runCatchingCancellable { installer.ensureLoaded() }
     }
 
-    override fun enabledSources(): List<MigrationSourceUi> {
+    override suspend fun enabledSources(): List<MigrationSourceUi> {
         return getEnabledNovelSources.get()
             .sortedBy { it.name.lowercase() }
             .map { source ->
@@ -129,15 +129,15 @@ class NovelMigrationFlowAdapter(
         novelPreferences.novelMigrationHideWithoutUpdates().set(tuning.hideWithoutUpdates)
     }
 
-    override fun sourceDisplayName(sourceKey: String): String {
+    override suspend fun sourceDisplayName(sourceKey: String): String {
         return sourceManager.get(sourceKey)?.name
             ?: novelPreferences.seenNovelSources().get()[sourceKey]?.name
             ?: sourceKey
     }
 
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
-        val site = sourceManager.get(sourceKey)?.site
         return novelRepository.getLibraryNovelAsFlow().map { list ->
+            val site = sourceManager.get(sourceKey)?.site
             list.asSequence()
                 .map { it.novel }
                 .filter { it.source == sourceKey }

@@ -16,7 +16,7 @@ class GetEnabledNovelSources(
     private val manager: NovelSourceManager,
     private val preferences: ReikaiSourcePreferences,
 ) {
-    fun get(): List<NovelSource> {
+    suspend fun get(): List<NovelSource> {
         val disabledSources = preferences.disabledNovelSources.get()
         val disabledLanguages = preferences.disabledNovelLanguages.get()
         return manager.getAll().filterNot { it.id in disabledSources || it.lang in disabledLanguages }

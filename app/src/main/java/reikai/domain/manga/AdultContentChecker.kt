@@ -41,7 +41,7 @@ class AdultContentChecker(
         return entries.filter { isAdult(it, nsfwSourceIds) }.mapTo(mutableSetOf()) { it.id }
     }
 
-    private fun isAdult(manga: Manga, nsfwSourceIds: Set<Long>): Boolean =
+    private suspend fun isAdult(manga: Manga, nsfwSourceIds: Set<Long>): Boolean =
         ChapterMatchKeys.isGallerySource(manga.source, sourceManager) ||
             manga.source in nsfwSourceIds ||
             manga.isLewd(sourceManager.get(manga.source)?.name)

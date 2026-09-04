@@ -130,7 +130,7 @@ class NovelLibraryAdapter(
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
-    override fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
+    override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
         val state = model.state.value
         return novelDynamicGroupingFeed(
             items = state.favorites,

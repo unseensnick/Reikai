@@ -168,7 +168,7 @@ interface MigrationFlowAdapter {
     suspend fun prepare() {}
 
     /** Enabled sources only: a disabled source or denied language is never offered as a target. */
-    fun enabledSources(): List<MigrationSourceUi>
+    suspend fun enabledSources(): List<MigrationSourceUi>
 
     fun savedSelection(): List<String>
 
@@ -185,7 +185,7 @@ interface MigrationFlowAdapter {
 
     /** The display name for one source key, falling back to the key when the source is gone (the
      *  favorites picker works for an uninstalled source; the stored rows still migrate). */
-    fun sourceDisplayName(sourceKey: String): String
+    suspend fun sourceDisplayName(sourceKey: String): String
 
     /** The library favorites belonging to one source, title-sorted, for the favorites picker. */
     fun favorites(sourceKey: String): Flow<List<MigrationFavorite>>

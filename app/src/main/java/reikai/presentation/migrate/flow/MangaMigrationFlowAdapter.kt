@@ -53,7 +53,7 @@ class MangaMigrationFlowAdapter(
     override val contentType = ContentType.MANGA
     override val matchStrategy = MatchStrategy.Smart
 
-    override fun enabledSources(): List<MigrationSourceUi> {
+    override suspend fun enabledSources(): List<MigrationSourceUi> {
         val languages = sourcePreferences.enabledLanguages.get()
         val disabled = sourcePreferences.disabledSources.get()
         return sourceManager.getAll()
@@ -126,7 +126,7 @@ class MangaMigrationFlowAdapter(
         sourcePreferences.migrationHideWithoutUpdates.set(tuning.hideWithoutUpdates)
     }
 
-    override fun sourceDisplayName(sourceKey: String): String {
+    override suspend fun sourceDisplayName(sourceKey: String): String {
         return sourceKey.toLongOrNull()?.let { sourceManager.getOrStub(it).name } ?: sourceKey
     }
 
@@ -311,7 +311,7 @@ class MangaMigrationFlowAdapter(
         )
     }
 
-    private fun catalogueSource(key: String): CatalogueSource? {
+    private suspend fun catalogueSource(key: String): CatalogueSource? {
         return key.toLongOrNull()?.let { sourceManager.get(it) } as? CatalogueSource
     }
 

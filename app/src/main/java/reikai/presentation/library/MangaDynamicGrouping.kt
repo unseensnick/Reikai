@@ -21,7 +21,7 @@ import java.util.Locale
  * resolution rules cannot fork.
  */
 @Suppress("LongParameterList")
-fun mangaDynamicGroupingFeed(
+suspend fun mangaDynamicGroupingFeed(
     favorites: List<LibraryItem>,
     tracksMap: Map<Long, List<Track>>,
     loggedInTrackerIds: Set<Long>,

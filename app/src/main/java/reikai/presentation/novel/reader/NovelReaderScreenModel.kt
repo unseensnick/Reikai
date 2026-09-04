@@ -119,7 +119,7 @@ class NovelReaderScreenModel(
 
     // Captured once at reader open (mirrors ReaderViewModel). Global-only: novel sources are
     // String-keyed with no installed extension, so per-source incognito (await(sourceId)) can't apply.
-    private val incognitoMode: Boolean by lazy { getIncognitoState.await(null) }
+    private var incognitoMode: Boolean = false
 
     private var currentId: Long = initialChapterId
 
@@ -736,6 +736,7 @@ class NovelReaderScreenModel(
     }
 
     private suspend fun loadCurrent() {
+        incognitoMode = getIncognitoState.await(null)
         mutableState.value = try {
             if (orderedIds.isEmpty()) {
                 // Source scope: just this novel's own chapters. Group scope (default): resolve the merge

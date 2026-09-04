@@ -382,6 +382,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).
 - The tracker sign-in browser now presents that same identity, so a Cloudflare clearance earned while signing in stays valid for the requests that follow.
 - Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
+- Looking up a source now waits for the extension scan instead of reading a half-built list, so a screen opened during startup gets a slow answer rather than a wrong one (synced from Mihon, mihonapp/mihon#3869). Novel sources changed the same way.
 - Translated strings refreshed across 56 locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677 and mihonapp/mihon#3701).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).

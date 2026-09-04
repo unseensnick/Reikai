@@ -12,6 +12,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.md.utils.MdUtil
+import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Request
 import okio.FileSystem
@@ -66,7 +67,7 @@ class MangaDexTrackCoverFetcher(
         override fun create(data: MangaDexTrackCover, options: Options, imageLoader: ImageLoader): Fetcher =
             MangaDexTrackCoverFetcher(
                 url = data.url,
-                sourceLazy = lazy { MdUtil.getEnabledMangaDex(sourcePreferences, sourceManager) },
+                sourceLazy = lazy { runBlocking { MdUtil.getEnabledMangaDex(sourcePreferences, sourceManager) } },
                 callFactoryLazy = callFactoryLazy,
             )
     }

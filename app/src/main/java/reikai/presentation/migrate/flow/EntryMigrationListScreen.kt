@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -375,7 +376,9 @@ private fun RowStatusLine(
         MigrationRowRules.RowStatus.NoMatch -> stringResource(MR.strings.migrationListScreen_noMatchFoundText)
         MigrationRowRules.RowStatus.SearchFailed -> stringResource(MR.strings.migrationFlow_searchFailed)
         is MigrationRowRules.RowStatus.Target ->
-            remember(status.sourceKey) { viewModel.sourceDisplayName(status.sourceKey) }
+            produceState(status.sourceKey, status.sourceKey) {
+                value = viewModel.sourceDisplayName(status.sourceKey)
+            }.value
         MigrationRowRules.RowStatus.Committing -> stringResource(MR.strings.loading)
         MigrationRowRules.RowStatus.CommitFailed -> stringResource(MR.strings.migrationFlow_commitFailed)
     }

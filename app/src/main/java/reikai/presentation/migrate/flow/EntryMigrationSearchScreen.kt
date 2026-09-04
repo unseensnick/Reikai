@@ -261,14 +261,14 @@ class EntryMigrationSearchViewModel(
     fun search(query: String) {
         val entry = state.value.entry ?: return
         if (query.isBlank()) return
-        val sources = adapter.sourcesFor()
         val fullQuery = query.withExtraQuery(extraQuery)
         searchJob?.cancel()
-        state.update { state ->
-            state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
-        }
         searchJob = viewModelScope.launch(io) {
             val myJob = coroutineContext[Job]
+            val sources = adapter.sourcesFor()
+            state.update { state ->
+                state.copy(sections = sources.map { Section(it.key, it.name, it.lang) })
+            }
             adapter.fanOutCandidates(
                 entry = entry,
                 query = fullQuery,

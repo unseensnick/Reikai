@@ -3,6 +3,8 @@ package eu.kanade.presentation.more.settings.screen
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -12,6 +14,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.MangaDexSyncJob
 import exh.md.utils.MdUtil
+import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -32,7 +35,9 @@ object SettingsMangaDexScreen : SearchableSettings {
 
     // Top-level category, hidden until a MangaDex language source is enabled. Not a composable, so
     // Injekt survives here purely as a Context locator, the same shape as SettingsEhScreen.
-    override fun isEnabled(): Boolean = MdUtil.getEnabledMangaDex(Injekt.get<Context>()) != null
+    // Blocking: the settings index builds off the main thread and the source lookup now awaits the
+    // extension scan rather than reading a half-built map.
+    override fun isEnabled(): Boolean = runBlocking { MdUtil.getEnabledMangaDex(Injekt.get<Context>()) } != null
 
     @Composable
     override fun getPreferences(): List<Preference> {
@@ -42,9 +47,12 @@ object SettingsMangaDexScreen : SearchableSettings {
         val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
         val trackerManager = remember { context.appGraph.trackerManager }
 
+        val enabledMangaDexs by produceState(initialValue = emptyList()) {
+            value = MdUtil.getEnabledMangaDexs(sourcePreferences, context.appGraph.sourceManager)
+        }
         val languageEntries = buildMap {
             put("0", stringResource(MR.strings.md_first_enabled_source))
-            MdUtil.getEnabledMangaDexs(sourcePreferences, context.appGraph.sourceManager).forEach { source ->
+            enabledMangaDexs.forEach { source ->
                 put(source.id.toString(), source.toString())
             }
         }

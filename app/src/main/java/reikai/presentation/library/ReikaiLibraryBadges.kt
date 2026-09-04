@@ -12,11 +12,13 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -85,7 +87,7 @@ fun NovelMergeBadge(relatedMangaIds: List<Long>, iconUrls: List<String>) {
 @Composable
 fun SourceIconBadge(source: Source?) {
     if (source == null) return
-    val icon = source.icon
+    val icon = produceState<ImageBitmap?>(initialValue = null, source.id) { value = source.icon() }.value
     when {
         source.isStub && icon == null -> Badge(
             imageVector = Icons.Filled.Warning,

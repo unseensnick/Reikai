@@ -620,7 +620,7 @@ class NovelLibraryViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     /** A novel's human-readable source name for search, or the raw slug when the plugin isn't installed. */
-    private fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source
+    private suspend fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source
 
     private data class BadgePrefs(
         val download: Boolean,

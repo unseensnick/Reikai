@@ -1352,7 +1352,7 @@ class MangaViewModel(
      * Downloads the given list of chapters with the manager.
      * @param chapters the list of chapters to download.
      */
-    private fun downloadChapters(chapters: List<Chapter>) {
+    private suspend fun downloadChapters(chapters: List<Chapter>) {
         val state = successState ?: return
         // RK --> in a merged group, download each chapter from its own source-manga
         if (state.mergedMangaById.isNotEmpty()) {

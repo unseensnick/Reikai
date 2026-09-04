@@ -321,7 +321,7 @@ class LibraryViewModel(
     // Manga library filter, routed through the shared reikai.presentation.library.libraryFilterMatches so
     // a filter behaviour change is written once for manga and novels. The per-type seams (downloaded's
     // local-source concept, lewd's source-name check, the merge-group tracker union) live in the accessors.
-    private fun List<LibraryItem>.applyFilters(
+    private suspend fun List<LibraryItem>.applyFilters(
         trackMap: Map<Long, List<Track>>,
         trackingFilter: Map<Long, TriState>,
         preferences: ItemPreferences,
@@ -348,8 +348,11 @@ class LibraryViewModel(
             categoriesInclude = includeCategories,
             categoriesExclude = excludeCategories,
         )
+        val sourceNames = map { it.libraryManga.manga.source }
+            .distinct()
+            .associateWith { sourceManager.getOrStub(it).name }
         val fields = libraryItemFilterFields(
-            lewdSourceName = { sourceManager.getOrStub(it.libraryManga.manga.source).name },
+            lewdSourceName = { sourceNames[it.libraryManga.manga.source] },
             // Union tracks across the merged group (relatedMangaIds), so a tracker on any grouped source
             // counts; empty relatedMangaIds falls back to the entry's own id.
             trackerIds = { item ->
@@ -551,7 +554,7 @@ class LibraryViewModel(
         MergePrefs(membership, mergingEnabled, showIcons, overrideRankings, preferredSources)
     }
 
-    private fun resolveMergeSource(sourceId: Long): DomainSource {
+    private suspend fun resolveMergeSource(sourceId: Long): DomainSource {
         val s = sourceManager.getOrStub(sourceId)
         return DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
     }

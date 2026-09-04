@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.util.system.toast
 import exh.source.BlacklistedSources
 import exh.source.ExhPreferences
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -69,18 +70,18 @@ class ExtensionManager(
 
     val scope = CoroutineScope(SupervisorJob())
 
-    private val isInitialized = MutableStateFlow(false)
+    private val initialized = CompletableDeferred<Unit>()
 
     private val iconMap = mutableMapOf<String, Drawable>()
 
     private val installedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Installed>())
-    val installedExtensionsFlow = installedExtensionMapFlow.mapExtensionsOnceInitialized()
+    val installedExtensionsFlow = installedExtensionMapFlow.mapExtensionsWhenInitialized()
 
     private val availableExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Available>())
     val availableExtensionsFlow = availableExtensionMapFlow.mapExtensions(scope)
 
     private val untrustedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Untrusted>())
-    val untrustedExtensionsFlow = untrustedExtensionMapFlow.mapExtensionsOnceInitialized()
+    val untrustedExtensionsFlow = untrustedExtensionMapFlow.mapExtensionsWhenInitialized()
 
     // RK --> one scan at a time. It now runs from three places on this scope, and each pass assigns
     // both maps wholesale from a store list it read when it started, so a slow startup scan landing
@@ -111,8 +112,13 @@ class ExtensionManager(
 
     private var subLanguagesEnabledOnFirstRun = preferences.enabledLanguages.isSet()
 
-    fun getExtensionPackage(sourceId: Long): String? {
-        return installedExtensionMapFlow.value.values.find { extension ->
+    suspend fun getInstalledExtensions(): List<Extension.Installed> {
+        initialized.await()
+        return installedExtensionMapFlow.value.values.toList()
+    }
+
+    suspend fun getExtensionPackage(sourceId: Long): String? {
+        return getInstalledExtensions().find { extension ->
             extension.sources.any { it.id == sourceId }
         }
             ?.pkgName
@@ -127,7 +133,7 @@ class ExtensionManager(
         }
     }
 
-    fun getAppIconForSource(sourceId: Long): Drawable? {
+    suspend fun getAppIconForSource(sourceId: Long): Drawable? {
         val pkgName = getExtensionPackage(sourceId) ?: return null
 
         return iconMap[pkgName] ?: iconMap.getOrPut(pkgName) {
@@ -151,17 +157,23 @@ class ExtensionManager(
      * Loads and registers the installed extensions.
      */
     private suspend fun initExtensions() = loadMutex.withLock {
-        val extensions = ExtensionLoader.loadExtensions(context)
+        try {
+            val extensions = ExtensionLoader.loadExtensions(context)
 
-        installedExtensionMapFlow.value = extensions
-            .filterIsInstance<LoadResult.Success>()
-            .associate { it.extension.pkgName to it.extension }
+            installedExtensionMapFlow.value = extensions
+                .filterIsInstance<LoadResult.Success>()
+                .associate { it.extension.pkgName to it.extension }
 
-        untrustedExtensionMapFlow.value = extensions
-            .filterIsInstance<LoadResult.Untrusted>()
-            .associate { it.extension.pkgName to it.extension }
+            untrustedExtensionMapFlow.value = extensions
+                .filterIsInstance<LoadResult.Untrusted>()
+                .associate { it.extension.pkgName to it.extension }
 
-        isInitialized.value = true
+            initialized.complete(Unit)
+        } catch (e: Throwable) {
+            // Release anything waiting on the extensions before the failure propagates
+            initialized.complete(Unit)
+            throw e
+        }
     }
 
     // RK -->
@@ -440,8 +452,8 @@ class ExtensionManager(
      * constructed with, so a reader before the scan finished got a wrong answer rather than a slow
      * one. Emits nothing until the scan completes; the EH gate is applied the same way.
      */
-    private fun <T : Extension> StateFlow<Map<String, T>>.mapExtensionsOnceInitialized(): Flow<List<T>> {
-        return onStart { isInitialized.first { it } }
+    private fun <T : Extension> StateFlow<Map<String, T>>.mapExtensionsWhenInitialized(): Flow<List<T>> {
+        return onStart { initialized.await() }
             .combine(exhPreferences.isHentaiEnabled().changes()) { map, hentaiEnabled ->
                 map.values.filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
             }

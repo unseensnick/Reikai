@@ -59,7 +59,7 @@ class BackupFileValidator(
 
         val sources = backupSources.associate { it.sourceId to it.name }
         val missingSources = sources
-            .filter { sourceManager.get(it.key) == null }
+            .filterKeys { sourceManager.get(it) == null }
             .values.map {
                 val id = it.toLongOrNull()
                 if (id == null) {

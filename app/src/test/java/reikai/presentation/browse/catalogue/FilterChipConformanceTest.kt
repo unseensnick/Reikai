@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -160,7 +161,7 @@ private class MangaFilterChipProbe : FilterChipProbe {
             sourceId = SOURCE_ID,
             // Opened the way the screen opens it, so the seeded listing is under test too.
             listingQuery = mangaListingQuery(startLatest = false, initialQuery = null),
-            sourceManager = mockk(relaxed = true) { every { getOrStub(SOURCE_ID) } returns source },
+            sourceManager = mockk(relaxed = true) { coEvery { getOrStub(SOURCE_ID) } returns source },
             sourcePreferences = SourcePreferences(store),
             libraryPreferences = mockk(relaxed = true),
             getRemoteManga = mockk(relaxed = true),
@@ -205,7 +206,7 @@ private class NovelFilterChipProbe : FilterChipProbe {
         // Stubbed off the mock rather than inside a mockk block: `get` in there resolves to
         // MockK's own dynamic-call helper instead of the manager's.
         val manager = mockk<NovelSourceManager>(relaxed = true)
-        every { manager.get(SOURCE_ID) } returns source
+        coEvery { manager.get(SOURCE_ID) } returns source
         model = NovelBrowseViewModel(
             sourceId = SOURCE_ID,
             initialQuery = "",

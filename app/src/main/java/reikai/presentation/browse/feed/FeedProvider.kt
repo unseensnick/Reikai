@@ -31,10 +31,10 @@ interface FeedProvider {
     val contentType: ContentType
 
     /** Sources a feed row can be added for, the ones a reader has left enabled. */
-    fun sources(): List<BrowseSearchRow>
+    suspend fun sources(): List<BrowseSearchRow>
 
     /** The source behind [key], or null when it is no longer installed. */
-    fun source(key: SourceKey): BrowseSearchRow?
+    suspend fun source(key: SourceKey): BrowseSearchRow?
 
     /** Whether the source behind [row] can serve a Latest listing, which decides where a tap lands. */
     fun supportsLatest(row: BrowseSearchRow): Boolean
@@ -64,7 +64,7 @@ class MangaFeedProvider(
 
     override val contentType = ContentType.MANGA
 
-    override fun sources(): List<BrowseSearchRow> {
+    override suspend fun sources(): List<BrowseSearchRow> {
         val enabledLanguages = sourcePreferences.enabledLanguages.get()
         val disabled = sourcePreferences.disabledSources.get()
         return sourceManager.getAll()
@@ -75,7 +75,7 @@ class MangaFeedProvider(
             .map(::toRow)
     }
 
-    override fun source(key: SourceKey): BrowseSearchRow? =
+    override suspend fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Manga)?.let { sourceManager.get(it.id) as? CatalogueSource }?.let(::toRow)
 
     override fun supportsLatest(row: BrowseSearchRow) = (row.source as CatalogueSource).supportsLatest
@@ -126,9 +126,9 @@ class NovelFeedProvider(
 
     override val contentType = ContentType.NOVELS
 
-    override fun sources(): List<BrowseSearchRow> = getEnabledSources.get().map(::toRow)
+    override suspend fun sources(): List<BrowseSearchRow> = getEnabledSources.get().map(::toRow)
 
-    override fun source(key: SourceKey): BrowseSearchRow? =
+    override suspend fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Novel)?.let { sourceManager.get(it.id) }?.let(::toRow)
 
     override fun supportsLatest(row: BrowseSearchRow) = (row.source as NovelSource).supportsLatest

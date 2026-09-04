@@ -13,14 +13,14 @@ import tachiyomi.domain.source.model.Source
  */
 object MangaMergeCollapse {
 
-    fun collapse(
+    suspend fun collapse(
         items: List<LibraryItem>,
         // Manga id -> group id for grouped items; absent for standalone.
         membership: Map<Long, Long>,
         mergingEnabled: Boolean,
         // When false, the group's sources are not resolved and the badge falls back to a count.
         showMergeSourceIcons: Boolean,
-        resolveSource: (Long) -> Source,
+        resolveSource: suspend (Long) -> Source,
         // Group id -> deduplicated unread count. A group is ABSENT when everything in it is read, so a
         // missing entry means zero, not "unknown". Empty until the match-key backfill has run, in which
         // case the group keeps the primary's own count rather than reporting a wrong one. Known edge:
@@ -109,12 +109,12 @@ object MangaMergeCollapse {
         }
         .thenBy { it.libraryManga.manga.id }
 
-    private fun mergePrimary(
+    private suspend fun mergePrimary(
         subGroup: List<LibraryItem>,
         overrideOrder: List<Long>,
         preferredSourceIds: List<Long>,
         showMergeSourceIcons: Boolean,
-        resolveSource: (Long) -> Source,
+        resolveSource: suspend (Long) -> Source,
         mergedUnread: Long?,
         showUnreadBadge: Boolean,
         distinctChapterCounts: Map<Long, Long>,

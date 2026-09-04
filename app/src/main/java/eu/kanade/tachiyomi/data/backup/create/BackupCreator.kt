@@ -336,7 +336,7 @@ class BackupCreator(
         return extensionBackupCreator()
     }
 
-    private fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {
+    private suspend fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {
         if (!options.sourceSettings) return emptyList()
 
         return preferenceBackupCreator.createSource(includePrivatePreferences = options.privateSettings)

@@ -17,6 +17,7 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.RandomMangaSource
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -101,36 +103,44 @@ open class BrowseSourceViewModel(
     fun setDisplayMode(mode: LibraryDisplayMode) = displayModePreference.set(mode)
     // RK <--
 
-    val source = sourceManager.getOrStub(sourceId)
+    // Null until the extension scan has finished and the source could be resolved.
+    val source: Source? get() = state.value.source
 
     // RK: gate the rich adult-source browse rows on the EH/ExH source set + the enhanced-view pref
-    val useEhentaiView = source.id in eHentaiSourceIds && sourcePreferences.enableEnhancedEhView.get()
+    private val enhancedEhView = sourcePreferences.enableEnhancedEhView.get()
+    val useEhentaiView: Boolean
+        get() = source?.id in eHentaiSourceIds && enhancedEhView
 
     init {
-        state.update {
-            var query: String? = null
-            var listing = it.listing
+        viewModelScope.launchIO {
+            val source = sourceManager.getOrStub(sourceId)
 
-            if (listing is Listing.Search) {
-                query = listing.query
-                listing = Listing.Search(query, source.getFilterList())
+            state.update {
+                var query: String? = null
+                var listing = it.listing
+
+                if (listing is Listing.Search) {
+                    query = listing.query
+                    listing = Listing.Search(query, source.getFilterList())
+                }
+
+                it.copy(
+                    source = source,
+                    listing = listing,
+                    filters = source.getFilterList(),
+                    toolbarQuery = query,
+                )
             }
 
-            it.copy(
-                listing = listing,
-                filters = source.getFilterList(),
-                toolbarQuery = query,
-            )
+            if (!getIncognitoState.await(source.id)) {
+                // RK: one key for both content types (see ReikaiSourcePreferences.lastUsedSource).
+                reikaiSourcePreferences.lastUsedSource.set(SourceKey.Manga(source.id))
+            }
         }
 
         // RK: shared with the novel catalogue, which owes the same invariant.
         displayModePreference.trackDisplayMode(viewModelScope) { mode ->
             state.update { it.copy(displayMode = mode) }
-        }
-
-        if (!getIncognitoState.await(source.id)) {
-            // RK: one key for both content types (see ReikaiSourcePreferences.lastUsedSource).
-            reikaiSourcePreferences.lastUsedSource.set(SourceKey.Manga(source.id))
         }
     }
 
@@ -138,7 +148,9 @@ open class BrowseSourceViewModel(
      * Flow of Pager flow tied to [State.listing]
      */
     private val hideInLibraryItems = sourcePreferences.hideInLibraryItems.get()
-    val mangaPagerFlowFlow = state.map { it.listing }
+    val mangaPagerFlowFlow = state.map { it.source to it.listing }
+        .filter { (source, _) -> source != null }
+        .map { (_, listing) -> listing }
         .distinctUntilChanged()
         .map { listing ->
             Pager(PagingConfig(pageSize = 25)) {
@@ -166,7 +178,7 @@ open class BrowseSourceViewModel(
     open fun Flow<Manga>.combineMetadata(
         metadata: RaisedSearchMetadata?,
     ): Flow<Pair<Manga, RaisedSearchMetadata?>> {
-        val metadataSource = source.getMainSource<MetadataSource<*, *>>()
+        val metadataSource = source?.getMainSource<MetadataSource<*, *>>()
         return flatMapLatest { manga ->
             if (metadataSource != null) {
                 getFlatMetadataById.subscribe(manga.id).map { flat ->
@@ -186,6 +198,7 @@ open class BrowseSourceViewModel(
     // RK <--
 
     fun resetFilters() {
+        val source = source ?: return
         state.update { it.copy(filters = source.getFilterList()) }
     }
 
@@ -203,7 +216,7 @@ open class BrowseSourceViewModel(
 
     fun search(query: String? = null, filters: FilterList? = null) {
         val input = state.value.listing as? Listing.Search
-            ?: Listing.Search(query = null, filters = source.getFilterList())
+            ?: Listing.Search(query = null, filters = source?.getFilterList() ?: FilterList())
 
         state.update {
             it.copy(
@@ -217,7 +230,7 @@ open class BrowseSourceViewModel(
     }
 
     fun searchGenre(genreName: String) {
-        val defaultFilters = source.getFilterList()
+        val defaultFilters = source?.getFilterList() ?: return
         var genreExists = false
 
         filter@ for (sourceFilter in defaultFilters) {
@@ -368,7 +381,7 @@ open class BrowseSourceViewModel(
         viewModelScope.launchIO {
             // A random-endpoint error (rate limit, transient 5xx, dropped connection) must not crash
             // the app; the button just does nothing on failure.
-            val id = runCatching { source.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }
+            val id = runCatching { source?.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }
                 .onFailure { if (it is CancellationException) throw it }
                 .getOrNull()
                 ?: return@launchIO
@@ -423,6 +436,7 @@ open class BrowseSourceViewModel(
     @Immutable
     data class State(
         val listing: Listing,
+        val source: Source? = null,
         val filters: FilterList = FilterList(),
         val toolbarQuery: String? = null,
         val dialog: Dialog? = null,

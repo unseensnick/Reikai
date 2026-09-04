@@ -36,6 +36,6 @@ object ChapterMatchKeys {
      * has normal sequential chapters that must dedup like any other source, so it is excluded by id.
      * There is no clean positive id-set for every gallery, since installed extensions vary.
      */
-    fun isGallerySource(sourceId: Long, sourceManager: SourceManager): Boolean =
+    suspend fun isGallerySource(sourceId: Long, sourceManager: SourceManager): Boolean =
         sourceId !in MANGADEX_IDS && sourceManager.get(sourceId)?.getMainSource<NamespaceSource>() != null
 }

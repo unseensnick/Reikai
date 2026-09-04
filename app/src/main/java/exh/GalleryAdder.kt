@@ -41,7 +41,7 @@ class GalleryAdder(
     private val enabledLangs: Set<String> = sourcePreferences.enabledLanguages.get()
     private val disabledSources: Set<String> = sourcePreferences.disabledSources.get()
 
-    fun pickSource(url: String): List<UrlImportableSource> {
+    suspend fun pickSource(url: String): List<UrlImportableSource> {
         val uri = url.toUri()
         val matches = sourceManager.getOnlineSources()
             .mapNotNull { it.getMainSource<UrlImportableSource>() }

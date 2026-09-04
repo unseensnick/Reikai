@@ -92,7 +92,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `a chapter already in the list leaves the source order untouched`() {
+    fun `a chapter already in the list leaves the source order untouched`() = runTest {
         val single = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
 
         val chapters = provider().withOpenedChapter(single, single.first())
@@ -101,7 +101,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `a chapter read on another source is reported as read for the group`() {
+    fun `a chapter read on another source is reported as read for the group`() = runTest {
         // Source 1 leads and its chapter 2 is unread; source 2's copy of chapter 2 is read.
         val leadUnread = chapter(1, 2.0)
         val chaptersBySource = mapOf(
@@ -120,7 +120,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `a chapter nobody has read is not reported`() {
+    fun `a chapter nobody has read is not reported`() = runTest {
         val chaptersBySource = mapOf(
             1L to listOf(chapter(1, 1.0)),
             2L to listOf(chapter(2, 1.0)),
@@ -137,7 +137,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `an unmerged entry reports nothing`() {
+    fun `an unmerged entry reports nothing`() = runTest {
         val chaptersBySource = mapOf(1L to listOf(chapter(1, 1.0)))
 
         val result = provider().readInOtherSources(
@@ -150,7 +150,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `an unrecognized chapter number cannot stand in for another source's`() {
+    fun `an unrecognized chapter number cannot stand in for another source's`() = runTest {
         // A negative number has no cross-source identity, so a read one elsewhere proves nothing.
         val leadUnread = chapter(1, -1.0)
         val chaptersBySource = mapOf(
