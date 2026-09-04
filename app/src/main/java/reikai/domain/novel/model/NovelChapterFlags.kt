@@ -1,6 +1,7 @@
 package reikai.domain.novel.model
 
 import reikai.domain.novel.NovelPreferences
+import tachiyomi.core.common.util.lang.compareToWithCollator
 
 /**
  * Per-novel chapter sort / filter / display settings, packed into [Novel.chapterFlags]. Self-contained
@@ -30,10 +31,12 @@ object NovelChapterFlags {
     const val SHOW_NOT_DOWNLOADED = 0x00000040L
     const val DOWNLOADED_MASK = 0x00000060L
 
-    // Sort method (bits 8-9).
+    // Sort method (bits 8-9). The values match the manga side's Manga.CHAPTER_SORTING_* bit for bit,
+    // so the two flag layouts can be read against each other without a translation table.
     const val SORTING_SOURCE = 0x00000000L
     const val SORTING_NUMBER = 0x00000100L
     const val SORTING_UPLOAD_DATE = 0x00000200L
+    const val SORTING_ALPHABET = 0x00000300L
     const val SORTING_MASK = 0x00000300L
 
     // Display (bit 20): source title vs "Chapter N".
@@ -79,6 +82,20 @@ fun Novel.effectiveHideChapterTitles(prefs: NovelPreferences): Boolean =
 fun setNovelFlag(flags: Long, flag: Long, mask: Long): Long = (flags and mask.inv()) or (flag and mask)
 
 /**
+ * The novel's chosen chapter order, as a comparator. Separate from [sortedAndFiltered] because the
+ * reader needs the order without the display filters and always ascending: reading runs first to last
+ * whichever way the chapter list happens to be shown, which is the same call the manga reader makes
+ * with `getChapterSort(manga, sortDescending = false)`.
+ */
+fun readingOrderComparator(novel: Novel, prefs: NovelPreferences): Comparator<NovelChapter> =
+    when (novel.effectiveSorting(prefs)) {
+        NovelChapterFlags.SORTING_NUMBER -> compareBy { it.chapterNumber }
+        NovelChapterFlags.SORTING_UPLOAD_DATE -> compareBy { it.dateUpload }
+        NovelChapterFlags.SORTING_ALPHABET -> Comparator { a, b -> a.name.compareToWithCollator(b.name) }
+        else -> compareBy { it.sourceOrder }
+    }
+
+/**
  * Sort + filter a chapter list for display, using the novel's effective settings. [downloadedChapterIds]
  * carries the disk-download membership (from NovelDownloadCache) so the downloaded filter has no DB flag.
  */
@@ -108,11 +125,6 @@ fun List<NovelChapter>.sortedAndFiltered(
         }
         readOk && bookmarkOk && downloadOk
     }
-    val comparator: Comparator<NovelChapter> = when (novel.effectiveSorting(prefs)) {
-        NovelChapterFlags.SORTING_NUMBER -> compareBy { it.chapterNumber }
-        NovelChapterFlags.SORTING_UPLOAD_DATE -> compareBy { it.dateUpload }
-        else -> compareBy { it.sourceOrder }
-    }
-    val sorted = filtered.sortedWith(comparator)
+    val sorted = filtered.sortedWith(readingOrderComparator(novel, prefs))
     return if (novel.effectiveSortDescending(prefs)) sorted.reversed() else sorted
 }

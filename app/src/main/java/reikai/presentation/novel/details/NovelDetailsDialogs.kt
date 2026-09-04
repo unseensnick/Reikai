@@ -104,6 +104,7 @@ fun NovelChapterSettingsDialog(
                     MR.strings.sort_by_source to NovelChapterFlags.SORTING_SOURCE,
                     MR.strings.sort_by_number to NovelChapterFlags.SORTING_NUMBER,
                     MR.strings.sort_by_upload_date to NovelChapterFlags.SORTING_UPLOAD_DATE,
+                    MR.strings.action_sort_alpha to NovelChapterFlags.SORTING_ALPHABET,
                 ).forEach { (titleRes, mode) ->
                     SortItem(
                         label = stringResource(titleRes),

@@ -26,6 +26,7 @@ import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
+import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
@@ -347,12 +348,20 @@ class NovelReaderScreenModel(
         return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
     }
 
-    /** The merge group's unified chapters in reading order (ascending chapter number), the novel twin of
-     *  MergedChapterProvider. A non-merged novel (or merging disabled) is just its own chapters. The
-     *  global preferred-source ranking picks the trunk, matching the details/library aggregation. */
+    /** The order the reader pages in: the opened novel's own chapter sort, always ascending, so prev and
+     *  next follow the order the user chose on its chapter list rather than a fixed one. The manga reader
+     *  resolves the same way, with getChapterSort(manga, sortDescending = false). */
+    private suspend fun readingOrder(): Comparator<NovelChapter> {
+        val novel = novelRepo.getById(novelId)
+        return if (novel == null) compareBy { it.chapterNumber } else readingOrderComparator(novel, novelPreferences)
+    }
+
+    /** The merge group's unified chapters in reading order, the novel twin of MergedChapterProvider. A
+     *  non-merged novel (or merging disabled) is just its own chapters. The global preferred-source
+     *  ranking picks the trunk, matching the details/library aggregation. */
     private suspend fun resolveGroupChapters(): List<NovelChapter> {
         val ids = mergeManager.relatedIdsList(novelId)
-        if (ids.size <= 1) return chapterRepo.getByNovelId(novelId)
+        if (ids.size <= 1) return chapterRepo.getByNovelId(novelId).sortedWith(readingOrder())
         val byNovel = ids.associateWith { chapterRepo.getByNovelId(it) }
         val sourceIdByNovel = ids.associateWith { novelRepo.getById(it)?.source.orEmpty() }
         return NovelChapterAggregation.aggregate(
@@ -360,7 +369,7 @@ class NovelReaderScreenModel(
             sourceIdByNovel,
             reikaiLibraryPreferences.preferredNovelSources.get(),
             mergeManager.overrideRankingMemberIds(novelId),
-        ).sortedBy { it.chapterNumber }
+        ).sortedWith(readingOrder())
     }
 
     /** Drop user-hidden chapters from a reading-order id list so prev/next skips them, keeping the
@@ -681,14 +690,14 @@ class NovelReaderScreenModel(
                 // pass a list. A group-scoped chapter opened from History can be deduped out of the
                 // unified list, so keep it (placed by chapter number) or prev/next would break.
                 val resolved = if (sourceScoped) {
-                    chapterRepo.getByNovelId(novelId).map { it.id }
+                    chapterRepo.getByNovelId(novelId).sortedWith(readingOrder()).map { it.id }
                 } else {
                     val chapters = resolveGroupChapters()
                     val withCurrent = if (chapters.any { it.id == currentId }) {
                         chapters
                     } else {
                         val current = chapterRepo.getById(currentId)
-                        if (current == null) chapters else (chapters + current).sortedBy { it.chapterNumber }
+                        if (current == null) chapters else (chapters + current).sortedWith(readingOrder())
                     }
                     withCurrent.map { it.id }
                 }

@@ -68,6 +68,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Updating your novel library now shows how far along it is, as a percentage.** Manga already did.
 - **Installed light-novel plugins now show their version in Browse -> Extensions.** Until now the version only appeared once an update was waiting.
 - **Long-pressing an installed light-novel plugin in Browse -> Extensions now offers to remove it.** It asks first, since Android has no uninstall prompt of its own for a plugin.
+- **A novel's chapter list can now be sorted alphabetically, the fourth sort manga already had.**
 
 **Tracking**
 
@@ -310,6 +311,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
 - **The manga reader now names the chapter you are actually on while you scroll across a chapter boundary.** It briefly showed the previous chapter's title and page count beside the new chapter's page number.
 - **Each chapter you open in the manga reader now starts where you left that chapter, not where you left the one before it.** Most visible right after jumping in from a page preview.
+- **The novel reader now moves through chapters in the order you sorted that novel's chapter list.** It always read by chapter number, so a novel sorted by source, upload date or name was read in a different order than it was shown in.
 
 **Tracking**
 
