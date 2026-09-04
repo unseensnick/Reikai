@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.domain.manga.model.readingMode
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
@@ -17,7 +16,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
-import mihon.app.di.appGraph
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
@@ -44,15 +42,13 @@ internal fun ColumnScope.ReadingModePage(viewModel: ReaderSettingsViewModel) {
         }
     }
 
-    if (viewer is WebGpuViewer) {
-        val default = LocalContext.current.appGraph.readerPreferences.defaultReadingMode.get()
-        val resolved = ReadingMode.fromPreference(
-            when {
-                readingMode == ReadingMode.DEFAULT -> default
-                else -> manga?.readingMode?.toInt() ?: default
-            },
-        )
-        if (resolved == ReadingMode.LEFT_TO_RIGHT || resolved == ReadingMode.RIGHT_TO_LEFT) {
+    val webGpuViewer = viewer as? WebGpuViewer
+    if (webGpuViewer != null) {
+        // RK: read the shape off the viewer that is actually running, not off the stored mode.
+        // Auto-webtoon overrides a DEFAULT series to long strip at open time without writing the
+        // preference, so resolving from the preference offered dual-page settings and hid Min width
+        // on a series being displayed as long strip.
+        if (!webGpuViewer.isContinuous && !webGpuViewer.isVertical) {
             val dualPageView by viewModel.preferences.dualPageView.collectAsState()
             SettingsChipRow(MR.strings.pref_dual_page_view) {
                 ReaderPreferences.DualPageView.entries.map {
@@ -65,7 +61,7 @@ internal fun ColumnScope.ReadingModePage(viewModel: ReaderSettingsViewModel) {
             }
         }
 
-        if (resolved == ReadingMode.WEBTOON) {
+        if (webGpuViewer.isContinuous) {
             val numberFormat = remember { NumberFormat.getPercentInstance() }
             val continuousMinWidth by viewModel.preferences.continuousMinWidth.collectAsState()
             SliderItem(
