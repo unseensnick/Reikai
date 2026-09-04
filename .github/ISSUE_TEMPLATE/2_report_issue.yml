@@ -102,7 +102,7 @@ body:
           required: true
         - label: I have written a short but informative title.
           required: true
-        - label: I have gone through the [FAQ](https://mihon.app/docs/faq/general) and [troubleshooting guide](https://mihon.app/docs/guides/troubleshooting/).
+        - label: I have gone through the [FAQ](https://reikai.app/docs/faq/general) and [troubleshooting guide](https://reikai.app/docs/guides/troubleshooting/).
           required: true
         - label: I have updated the app to the [latest release](https://github.com/unseensnick/Reikai/releases/latest).
           required: true

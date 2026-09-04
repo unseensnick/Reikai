@@ -39,6 +39,7 @@ import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
+import tachiyomi.core.common.Constants
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
@@ -76,7 +77,7 @@ fun Screen.reikaiMigrateSourceTab(browseScreenModel: ReikaiBrowseScreenModel): T
             AppBar.Action(
                 title = stringResource(MR.strings.migration_help_guide),
                 icon = Icons.AutoMirrored.Outlined.HelpOutline,
-                onClick = { uriHandler.openUri("https://mihon.app/docs/guides/source-migration") },
+                onClick = { uriHandler.openUri("${Constants.URL_DOCS}/guides/source-migration") },
             ),
         ),
         content = { contentPadding, _ ->

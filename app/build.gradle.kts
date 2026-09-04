@@ -34,13 +34,16 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        // RK --> Reikai identity: keep eu.kanade.tachiyomi base + .y2k suffix so existing installs upgrade in place.
-        // versionName: Reikai's own SemVer for the Mihon era, starting at 0.1.0 (drops the old 5-segment Yokai scheme).
-        // versionCode must keep climbing and stay above the last Yokai-based build (168) so installs upgrade in place.
-        applicationId = "eu.kanade.tachiyomi"
+        // RK --> Reikai identity. app.reikai is the fork's own id, named the way the other Mihon
+        // forks name theirs; the namespace above stays eu.kanade.tachiyomi, which upstream shares, so
+        // source classes and installed extensions still resolve. Android treats this as a different
+        // app from eu.kanade.tachiyomi.y2k, so it installs beside an older build instead of over it;
+        // the release notes carry the backup-and-restore steps. versionCode still only ever climbs,
+        // so later releases upgrade this one in place.
+        applicationId = "app.reikai"
 
-        versionCode = 184
-        versionName = "0.3.1"
+        versionCode = 185
+        versionName = "0.3.2"
         // RK <--
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
@@ -84,7 +87,7 @@ android {
 
     buildTypes {
         val debug = getByName("debug") {
-            applicationIdSuffix = ".debugY2k" // RK: match existing Reikai debug package
+            applicationIdSuffix = ".dev" // RK: matches upstream, so this block stays diffable
             versionNameSuffix = "-${getLatestCommitCount()}"
             isPseudoLocalesEnabled = true
         }
@@ -92,9 +95,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
 
-            // RK --> existing Reikai release package; signed with the real key when CI secrets or a
-            // local keystore.properties are present (see the signingConfigs block above), else debug-signed.
-            applicationIdSuffix = ".y2k"
+            // RK --> signed with the real key when CI secrets or a local keystore.properties are
+            // present (see the signingConfigs block above), else debug-signed. The release variant
+            // carries no applicationIdSuffix, so it ships as plain app.reikai, matching upstream.
             signingConfig = signingConfigs.getByName("debug")
             // RK <--
 

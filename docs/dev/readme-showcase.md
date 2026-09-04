@@ -47,7 +47,7 @@ The screenshots are just the device framebuffer (1344x2992); the frame is compos
 emulator's own skin doesn't matter for the output.
 
 1. **AVD**: 1344x2992, density 480, the `pixel_10_pro_xl` skin. Install the debug app
-   (`eu.kanade.tachiyomi.debugY2k`) and restore a backup so the library/history have content.
+   (`app.reikai.dev`) and restore a backup so the library/history have content.
 2. **Clean status bar** via SystemUI demo mode (re-broadcast before each capture, it can lapse). See
    the `clean-status-bar-capture` note in the agent memory for the full recipe; the key flags:
    `adb shell settings put global sysui_demo_allowed 1` then the demo broadcasts with

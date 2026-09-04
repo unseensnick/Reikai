@@ -6,97 +6,162 @@
 #     (Other is exempt), under a length cap.
 #   ROADMAP.md - forward-only backlog stays name-clean: no content-source names, no em dash, no
 #     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
+#   .kt comments - no plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, plan-style
+#     Step N) in newly added lines; they rot. State the durable fact instead (R8 and M3 are spared).
+#   .kt comment blocks under reikai/ or exh/ - a run of consecutive comment lines is capped at 8; a
+#     9th is rejected. See .claude/rules/code-quality.md "Comments".
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
 
 staged() { git diff --cached --name-only | grep -qx "$1"; }
-# Content-source names (adult + mainstream) that must be genericized or use an approved shorthand
-# (EH / ExH / MD / CMK) in the public-facing docs. Trackers (MangaUpdates, Shikimori, AniList, ...) are NOT
-# sources and stay allowed. Extend this list as new sources get named in the repo.
-deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick'
 fail=0
+
+# The rules themselves live in scripts/lint-docs.sh, which .github/workflows/docs-lint.yml also
+# calls. The hook decides WHAT to check (the staged content) and the script decides what counts as
+# a violation, so the two enforcers cannot drift apart.
+lint() { bash scripts/lint-docs.sh "$@" || fail=1; }
+scratch_a=$(mktemp); scratch_b=$(mktemp)
+trap 'rm -f "$scratch_a" "$scratch_b"' EXIT
 
 # ===== CHANGELOG.md =====
 if staged CHANGELOG.md; then
-  # 1) No content-source names in any newly added CHANGELOG line.
-  bad_names=$(git diff --cached -U0 -- CHANGELOG.md | grep -E '^\+[^+]' | grep -inE "$deny" || true)
-  if [ -n "$bad_names" ]; then
-    echo "CHANGELOG: a new line names a content source, genericize it (see Public-facing naming):"
-    echo "$bad_names"
-    fail=1
-  fi
+  # Source names are checked on newly added lines only: already-released entries are never rewritten.
+  git diff --cached -U0 -- CHANGELOG.md | grep -E '^\+[^+]' > "$scratch_a" || true
+  lint source-names "$scratch_a" "CHANGELOG"
 
-  # 2) Structure of the staged [Unreleased] section (only [Unreleased] is checked).
-  issues=$(git show :CHANGELOG.md | awk '
-    /^## \[Unreleased\]/ { u=1; next }
-    /^## \[/             { u=0 }
-    !u                  { next }
-    /^### /             { sec=$0; sub(/^### /,"",sec); next }
-    /^\*\*/             { next }
-    /^- / {
-      if (length($0) > 320)
-        print "  - over the length cap (>320 chars); trim to a bold headline + one sentence:\n    " $0
-      if (sec != "Other" && $0 !~ /^- \*\*[^*]+[.!?]\*\*/)
-        print "  - needs a self-contained bold headline ending in . ! or ? (Other is exempt):\n    " $0
-    }
-  ')
-  if [ -n "$issues" ]; then
-    echo "CHANGELOG [Unreleased] entry issues:"
-    echo "$issues"
-    fail=1
-  fi
+  # Entry shape is checked on the whole staged [Unreleased] section, since an entry can be edited
+  # into a bad shape by a line that does not itself look wrong.
+  git show :CHANGELOG.md > "$scratch_b"
+  lint changelog-entries "$scratch_b"
 fi
 
 # ===== ROADMAP.md =====
 if staged ROADMAP.md; then
-  road=$(git show :ROADMAP.md)
+  git show :ROADMAP.md > "$scratch_a"
+  lint source-names "$scratch_a" "ROADMAP"
+  lint em-dash "$scratch_a" "ROADMAP"
+  lint issue-refs "$scratch_a" "ROADMAP" "'Roadmap N' or owner/repo#N"
+fi
 
-  # 1) No content-source names anywhere (use EH / ExH shorthand or generic wording).
-  rn=$(printf '%s\n' "$road" | grep -inE "$deny" || true)
-  if [ -n "$rn" ]; then
-    echo "ROADMAP: names a content source, use an approved shorthand (EH / ExH / MD / CMK) or generic wording"
-    echo "(specific source names belong in docs/dev/shipped.md and the plan docs, not the forward roadmap):"
-    echo "$rn"
-    fail=1
+# ===== the dev sync records (content-source names are allowed: they are dev records) =====
+for doc in docs/dev/upstream-sync.md docs/dev/feature-ports.md; do
+  if staged "$doc"; then
+    git show ":$doc" > "$scratch_a"
+    lint em-dash "$scratch_a" "$doc"
+    lint issue-refs "$scratch_a" "$doc" "owner/repo#N (mihonapp/mihon#N for upstream)"
   fi
+done
 
-  # 2) No em dash.
-  em=$(printf '%s\n' "$road" | grep -n '—' || true)
-  if [ -n "$em" ]; then
-    echo "ROADMAP: contains an em dash; use commas, parentheses, periods or colons:"
-    echo "$em"
-    fail=1
+# ===== DI ownership: graph-owned, singleton, and never Injekt-registered as well =====
+# All three mistakes are silent at build and run time: two instances of a type lose state, and a
+# missed annotation keeps working on the Injekt registration. See docs/dev/plans/metro-di-migration.md.
+# The trigger is the staged content, not a path list: a path list goes stale as the port deletes files,
+# and the mistake usually lands on an ordinary annotated class rather than on a module file.
+di_touched=0
+for f in $(git diff --cached --name-only --diff-filter=d | grep '\.kt$'); do
+  if git show ":$f" 2>/dev/null | grep -qE 'dev\.zacsweers\.metro|InjektModule|addSingletonFactory|addFactory'; then
+    di_touched=1
+    break
   fi
-
-  # 3) No bare #N (a '#' + digits not preceded by an alphanumeric; owner/repo#N is fine).
-  hn=$(printf '%s\n' "$road" | grep -nE '(^|[^A-Za-z0-9])#[0-9]' || true)
-  if [ -n "$hn" ]; then
-    echo "ROADMAP: bare '#N' auto-links to a Reikai issue, use 'Roadmap N' or owner/repo#N:"
-    echo "$hn"
-    fail=1
+done
+if [ "$di_touched" -eq 1 ] && [ -f scripts/di-interop-check.ps1 ]; then
+  if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -File scripts/di-interop-check.ps1; then
+      fail=1
+    fi
+  else
+    echo "di-interop-check: pwsh not found, skipping (run scripts/di-interop-check.ps1 by hand)."
   fi
 fi
 
-# ===== docs/dev/upstream-sync.md (content-source names allowed here: it is a dev record) =====
-if staged docs/dev/upstream-sync.md; then
-  sync=$(git show :docs/dev/upstream-sync.md)
+# ===== code comments (.kt/.kts/.sq/.sqm): no plan/roadmap codename markers (they rot) =====
+# Only newly added comment lines are scanned; the patterns live in scripts/lint-docs.sh so CI's
+# whole-tree pass enforces exactly the same rule.
+git diff --cached -U0 --diff-filter=ACM -- '*.kt' '*.kts' '*.sq' '*.sqm' | grep -E '^\+' | grep -vE '^\+\+\+' > "$scratch_a" || true
+lint codenames --stdin < "$scratch_a"
 
-  # No em dash.
-  em=$(printf '%s\n' "$sync" | grep -n '—' || true)
-  if [ -n "$em" ]; then
-    echo "upstream-sync: contains an em dash; use commas, parentheses, periods or colons:"
-    echo "$em"
-    fail=1
-  fi
+# ===== code comments (.kt/.kts/.sq/.sqm): no calendar dates =====
+# A date stamps when someone looked, which is what git already records, and it reads as an expiry the
+# code does not have. State the durable fact instead, and let the plan doc carry when it was measured.
+# Only 20xx-MM-DD is matched, so a format string ("yyyy-MM-dd") and an epoch (1970-01-01) are spared.
+datestamps=$(git diff --cached -U0 --diff-filter=ACM -- '*.kt' '*.kts' '*.sq' '*.sqm' \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E '(//|/\*|^\+[[:space:]]*\*|^\+[[:space:]]*--)' \
+  | grep -E '\b20[0-9]{2}-[01][0-9]-[0-3][0-9]\b' || true)
+if [ -n "$datestamps" ]; then
+  echo "code comments: drop the calendar date, state the durable fact instead"
+  echo "(git records when; the plan doc records what was measured):"
+  echo "$datestamps"
+  fail=1
+fi
 
-  # No bare #N (reference upstream as mihonapp/mihon#N; owner/repo#N is fine).
-  hn=$(printf '%s\n' "$sync" | grep -nE '(^|[^A-Za-z0-9])#[0-9]' || true)
-  if [ -n "$hn" ]; then
-    echo "upstream-sync: bare '#N' auto-links to a Reikai issue, use mihonapp/mihon#N:"
-    echo "$hn"
-    fail=1
+# ===== docs/dev/off-path-manifest.md: a deleted Mihon file must stay deleted and stay declared =====
+# The manifest only works if every row is real and no listed file comes back. Both failures used to be
+# silent: a resurrected file gives two implementations of one surface, and a reroute with no row means
+# the next sync never learns upstream touched it.
+manifest="docs/dev/off-path-manifest.md"
+if [ -f "$manifest" ]; then
+  # Every row still describes reality: the file stays deleted and the replacement exists. Shared
+  # with CI, which runs the same check on every push.
+  lint manifest-rows "$manifest"
+
+  # A staged deletion of a file Mihon still has needs a manifest row in the SAME commit, or the reroute
+  # is invisible to every future sync. Needs the refs clone; warn (never block) when it is absent.
+  mihon_clone="../refs/mihon"
+  if [ -d "$mihon_clone" ]; then
+    deleted=$(git diff --cached --name-only --diff-filter=D)
+    for path in $deleted; do
+      git -C "$mihon_clone" cat-file -e "HEAD:$path" 2>/dev/null || continue
+      if ! grep -qF "| $path |" "$manifest"; then
+        echo "off-path manifest: deleting '$path', which Mihon still has, without a manifest row."
+        echo "  Add a row (path | mihon | replacement) so the next sync is told when upstream changes it."
+        fail=1
+      fi
+    done
+  elif [ -n "$(git diff --cached --name-only --diff-filter=D)" ]; then
+    echo "off-path manifest: no refs/mihon clone, skipping the undeclared-reroute check."
   fi
+fi
+
+# ===== comment blocks (.kt under reikai/ or exh/): no wall of text =====
+# See .claude/rules/code-quality.md "Comments". A run of consecutive comment lines is capped at 8, and
+# a 9th line is rejected. Over the cap the invariant stays in the code as a sentence or two and the
+# narrative moves to the feature's record in docs/dev/plans/.
+#
+# Scoped to the Reikai-owned trees. Mihon's own files keep upstream shape, which measures at 97% of
+# comment blocks within the same 8 lines, so this codifies the surrounding style rather than departing
+# from it.
+#
+# The whole staged file is measured, not just its added lines: a comment block is contiguous, so a
+# diff shows fragments of one and a wall added over two commits would slip through.
+#
+# A KDoc tag list (@param, @return, @property, ...) stops the count for the rest of its block. Tags
+# are an enumeration keyed to the signature, not narrative, so a function with six documented
+# parameters is not the wall this cap is aimed at. Tags always come last in a KDoc, so the prose
+# above them is still measured in full.
+blocks=""
+for f in $(git diff --cached --name-only --diff-filter=ACM -- '*.kt' | grep -E '(^|/)(reikai|exh)/' || true); do
+  blocks="$blocks$(git show ":$f" | awk -v file="$f" '
+    { line = $0; sub(/^[ \t]+/, "", line); isc = 0
+      if (inblock)               { isc = 1; if (line ~ /\*\//) inblock = 0 }
+      else if (line ~ /^\/\*/)   { isc = 1; if (line !~ /\*\//) inblock = 1; tagged = 0 }
+      else if (line ~ /^\/\//)   { isc = 1 }
+      if (isc && line ~ /^\*[ \t]*@/) tagged = 1
+      if (isc && !tagged) { if (run == 0) start = NR; run++ }
+      else { if (run > 8) print file ":" start ": " run " lines"; run = 0 }
+      if (!isc) tagged = 0 }
+    END      { if (run > 8) print file ":" start ": " run " lines" }
+  ')
+"
+done
+over_cap=$(printf '%s' "$blocks" | grep -E ': [0-9]+ lines$' || true)
+if [ -n "$over_cap" ]; then
+  echo "code comments: a comment block runs past the cap of 8 lines."
+  echo "Keep the invariant, the trap or the coupling in the code as a sentence or two; move the"
+  echo "narrative to the feature's record in docs/dev/plans/ and point at it by filename:"
+  echo "$over_cap"
+  fail=1
 fi
 
 if [ "$fail" -ne 0 ]; then
