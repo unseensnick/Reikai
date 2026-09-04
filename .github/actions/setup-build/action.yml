@@ -27,10 +27,6 @@ runs:
       with:
         cache-read-only: ${{ inputs.cache-read-only }}
 
-    - name: Setup Android SDK
-      shell: bash
-      run: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.0"
-
     - name: Copy CI gradle.properties
       shell: bash
       run: |

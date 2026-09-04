@@ -34,6 +34,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+
       - name: Set up the build
         uses: ./.github/actions/setup-build
 
@@ -46,10 +49,12 @@ jobs:
       - name: Check DI ownership
         run: pwsh -NoProfile -File scripts/di-interop-check.ps1
 
-      # Mihon base has no product flavors; the variant is just `release` (debug-signed for now).
-      - name: Build the app
-        run: ./gradlew assembleRelease
+      # A schema change without its .sqm is invisible until an upgraded install crashes on a
+      # missing table, and this is the only thing that catches it.
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
 
+      # Tests before the build: a failing test should not cost a full minified release build first.
       - name: Run unit tests
         run: ./gradlew test
 
@@ -60,6 +65,10 @@ jobs:
           include_passed: true
           detailed_summary: true
           report_paths: '**/build/test-results/test*/TEST-*.xml'
+
+      # Mihon base has no product flavors; the variant is just `release` (debug-signed for now).
+      - name: Build the app
+        run: ./gradlew assembleRelease
 
       - name: Upload APK to artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
