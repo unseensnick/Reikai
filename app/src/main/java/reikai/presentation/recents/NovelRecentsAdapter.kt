@@ -29,6 +29,7 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
@@ -153,7 +154,7 @@ class NovelRecentsAdapter(
             state = chapterState(
                 read = chapter.read,
                 bookmark = chapter.bookmark,
-                progress = RecentsProgress.Percent(chapter.lastTextProgress),
+                progress = ChapterProgress.Percent(chapter.lastTextProgress),
             ),
             download = chapterDownloadUi(
                 chapterId = chapter.id,
@@ -373,7 +374,7 @@ internal fun novelRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         state = chapterState(
             read = payload.update.read,
             bookmark = payload.update.bookmark,
-            progress = RecentsProgress.Percent(payload.update.lastTextProgress),
+            progress = ChapterProgress.Percent(payload.update.lastTextProgress),
         ),
     )
     is NovelHistoryWithRelations -> RecentsRowUi(
@@ -385,7 +386,7 @@ internal fun novelRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         state = chapterState(
             read = payload.read,
             bookmark = payload.bookmark,
-            progress = RecentsProgress.Percent(payload.lastTextProgress),
+            progress = ChapterProgress.Percent(payload.lastTextProgress),
         ),
     )
     is RecentlyAddedNovel -> RecentsRowUi(

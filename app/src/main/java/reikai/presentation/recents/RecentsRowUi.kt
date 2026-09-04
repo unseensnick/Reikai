@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.reader.ChapterProgress
 
 /**
  * What one recents row draws, answered by the provider that owns the entry so the shared layer never
@@ -80,22 +81,8 @@ sealed interface RecentsChapterUi {
 data class RecentsChapterState(
     val read: Boolean,
     val bookmark: Boolean,
-    val progress: RecentsProgress?,
+    val progress: ChapterProgress?,
 )
-
-/**
- * How far into a chapter the reader got, in the engine's own unit, so nothing shared has to know what
- * a page or a scroll position is. Whether a value rounds away to nothing is the renderer's call, since
- * only it knows how the number is written out.
- */
-@Immutable
-sealed interface RecentsProgress {
-    /** [pageCount] is 0 where the reader has never loaded the chapter, so the row leaves it off. */
-    data class Pages(val lastPageRead: Long, val pageCount: Long) : RecentsProgress
-
-    /** Hundredths of a percent, the unit the novel reader stores. */
-    data class Percent(val hundredths: Long) : RecentsProgress
-}
 
 /**
  * A chapter's state, carrying the one rule both feeds share: progress shows only where reading
@@ -105,7 +92,7 @@ sealed interface RecentsProgress {
 fun chapterState(
     read: Boolean,
     bookmark: Boolean,
-    progress: RecentsProgress,
+    progress: ChapterProgress,
 ): RecentsChapterState = RecentsChapterState(
     read = read,
     bookmark = bookmark,

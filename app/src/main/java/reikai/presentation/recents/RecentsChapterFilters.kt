@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
 import reikai.domain.entry.EntryId
+import reikai.domain.reader.ChapterProgress
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.applyFilter
 
@@ -72,8 +73,8 @@ data class RecentsRowGate(
 private val RecentsChapterState.hasStarted: Boolean
     get() = read || progress?.hasStarted == true
 
-private val RecentsProgress.hasStarted: Boolean
+private val ChapterProgress.hasStarted: Boolean
     get() = when (this) {
-        is RecentsProgress.Pages -> lastPageRead > 0L
-        is RecentsProgress.Percent -> hundredths > 0L
+        is ChapterProgress.Pages -> lastPageRead > 0L
+        is ChapterProgress.Percent -> hundredths > 0L
     }

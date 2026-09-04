@@ -12,6 +12,7 @@ import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedNovel
 import reikai.presentation.components.pageProgressLabel
@@ -229,7 +230,7 @@ interface RecentsMappingProbe {
     fun rowUi(item: RecentsItem): RecentsRowUi
 
     /** What a started chapter reports, in this engine's own unit. */
-    fun startedProgress(): RecentsProgress
+    fun startedProgress(): ChapterProgress
 }
 
 class MangaRecentsMappingProbe : RecentsMappingProbe {
@@ -286,7 +287,7 @@ class MangaRecentsMappingProbe : RecentsMappingProbe {
 
     override fun rowUi(item: RecentsItem) = mangaRowUi(item)
 
-    override fun startedProgress() = RecentsProgress.Pages(5L, 38L)
+    override fun startedProgress() = ChapterProgress.Pages(5L, 38L)
 }
 
 class NovelRecentsMappingProbe : RecentsMappingProbe {
@@ -343,5 +344,5 @@ class NovelRecentsMappingProbe : RecentsMappingProbe {
 
     override fun rowUi(item: RecentsItem) = novelRowUi(item)
 
-    override fun startedProgress() = RecentsProgress.Percent(5000L)
+    override fun startedProgress() = ChapterProgress.Percent(5000L)
 }

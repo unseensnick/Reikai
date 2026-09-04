@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.reader.ChapterProgress
 import tachiyomi.core.common.preference.TriState
 
 /**
@@ -16,7 +17,7 @@ class RecentsChapterFiltersTest {
     private fun state(
         read: Boolean = false,
         bookmark: Boolean = false,
-        progress: RecentsProgress? = null,
+        progress: ChapterProgress? = null,
     ) = RecentsChapterState(read = read, bookmark = bookmark, progress = progress)
 
     private fun RecentsChapterFilters.keeps(state: RecentsChapterState, downloaded: Boolean = false) =
@@ -99,13 +100,13 @@ class RecentsChapterFiltersTest {
     companion object {
         @JvmStatic
         fun startedProbes() = listOf(
-            StartedProbe("pages") { RecentsProgress.Pages(it, pageCount = 38) },
-            StartedProbe("percent") { RecentsProgress.Percent(it) },
+            StartedProbe("pages") { ChapterProgress.Pages(it, pageCount = 38) },
+            StartedProbe("percent") { ChapterProgress.Percent(it) },
         )
     }
 }
 
 /** One content type's unit of reading progress, so the started rule is pinned once over both. */
-class StartedProbe(private val label: String, val at: (Long) -> RecentsProgress) {
+class StartedProbe(private val label: String, val at: (Long) -> ChapterProgress) {
     override fun toString() = label
 }

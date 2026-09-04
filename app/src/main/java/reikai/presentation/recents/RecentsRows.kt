@@ -47,6 +47,7 @@ import eu.kanade.presentation.manga.components.swipeActionThreshold
 import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.download.model.Download
 import me.saket.swipe.SwipeableActionsBox
+import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.components.percentProgressLabel
 import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
@@ -417,11 +418,11 @@ fun RecentsSectionFooter(onClick: () -> Unit, modifier: Modifier = Modifier) {
  * calls too.
  */
 @Composable
-fun readProgressLabel(progress: RecentsProgress?): String? = when (progress) {
+fun readProgressLabel(progress: ChapterProgress?): String? = when (progress) {
     null -> null
-    is RecentsProgress.Pages -> pageProgressLabel(progress.lastPageRead, progress.pageCount)
+    is ChapterProgress.Pages -> pageProgressLabel(progress.lastPageRead, progress.pageCount)
         ?.let { (resource, args) -> stringResource(resource, *args) }
-    is RecentsProgress.Percent -> percentProgressLabel(progress.hundredths)
+    is ChapterProgress.Percent -> percentProgressLabel(progress.hundredths)
 }
 
 @Composable

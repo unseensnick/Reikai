@@ -25,6 +25,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
@@ -156,7 +157,7 @@ class MangaRecentsAdapter(
             state = chapterState(
                 read = chapter.read,
                 bookmark = chapter.bookmark,
-                progress = RecentsProgress.Pages(chapter.lastPageRead, chapter.pageCount),
+                progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount),
             ),
             download = chapterDownloadUi(
                 chapterId = chapter.id,
@@ -410,7 +411,7 @@ internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         state = chapterState(
             read = payload.update.read,
             bookmark = payload.update.bookmark,
-            progress = RecentsProgress.Pages(payload.update.lastPageRead, payload.update.pageCount),
+            progress = ChapterProgress.Pages(payload.update.lastPageRead, payload.update.pageCount),
         ),
     )
     is HistoryWithRelations -> RecentsRowUi(
@@ -422,7 +423,7 @@ internal fun mangaRowUi(item: RecentsItem): RecentsRowUi = when (val payload = i
         state = chapterState(
             read = payload.read,
             bookmark = payload.bookmark,
-            progress = RecentsProgress.Pages(payload.lastPageRead, payload.pageCount),
+            progress = ChapterProgress.Pages(payload.lastPageRead, payload.pageCount),
         ),
     )
     is RecentlyAddedManga -> RecentsRowUi(
