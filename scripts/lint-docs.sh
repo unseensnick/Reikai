@@ -124,6 +124,12 @@ case "$cmd" in
     # otherwise silent: a resurrected file gives two implementations of one surface, and a row
     # pointing nowhere protects nothing.
     file="${1:?file}"
+    # A tree with no manifest has nothing to protect, which is the case on a branch cut before the
+    # delete-and-manifest policy existed. Absent is not a violation; an empty one is, below.
+    if [ ! -f "$file" ]; then
+      echo "off-path manifest: $file does not exist here, nothing to check."
+      exit 0
+    fi
     fail=0
     # Data rows look like `| <path> | <upstream> | <replacement> |`, the shape off-path-check.ps1 parses.
     rows=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$file" || true)
