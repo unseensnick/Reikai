@@ -79,6 +79,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
 import reikai.domain.reader.isChapterComplete
+import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.removeDuplicateChapters
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -512,12 +513,11 @@ class ReaderViewModel(
         // Matched by id, not instance: the two lists are built separately and hold different objects.
         val chapterPos = fullChapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
         val forwardIds = chapterList.mapTo(HashSet()) { it.chapter.id }
+        val eligible = { candidate: ReaderChapter -> candidate.chapter.id in forwardIds }
         val newChapters = ViewerChapters(
             chapter,
-            fullChapterList.getOrNull(chapterPos - 1),
-            fullChapterList.asSequence()
-                .drop(chapterPos + 1)
-                .firstOrNull { it.chapter.id in forwardIds },
+            fullChapterList.neighbourChapter(chapterPos, forward = false, eligible),
+            fullChapterList.neighbourChapter(chapterPos, forward = true, eligible),
         )
 
         withUIContext {

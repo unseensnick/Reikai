@@ -24,10 +24,15 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelHistoryUpdate
+import reikai.domain.novel.model.effectiveBookmarkedFilter
+import reikai.domain.novel.model.effectiveDownloadedFilter
+import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.removeDuplicateChapters
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
@@ -125,7 +130,13 @@ class NovelReaderScreenModel(
     /** Chapter ids in reading order, loaded once on first [load]. */
     private var orderedIds: List<Long> = emptyList()
 
+    /** Which of [orderedIds] a forward step may land on, per the skip settings. Back steps ignore it, so
+     *  a skipped chapter stays reachable from the one after it. Built with [orderedIds]. */
+    private var forwardEligibleIds: Set<Long> = emptySet()
+
     private val skipDupePref = novelPreferences.readerSkipDuplicateChapters()
+    private val skipReadPref = novelPreferences.readerSkipRead()
+    private val skipFilteredPref = novelPreferences.readerSkipFiltered()
 
     /** Per-novel reader orientation override (a [ReaderOrientation] flagValue; 0 = follow the global
      *  default), seeded from the host novel in [init]. Keyed on the opened entry [novelId] (the anchor
@@ -517,17 +528,18 @@ class NovelReaderScreenModel(
     }
 
     /** The id one step from [currentId] in reading order. Duplicates are already gone from [orderedIds],
-     *  removed when it was built, so this never has to walk past them. */
-    private fun resolveNeighbor(delta: Int): Long? {
-        val index = orderedIds.indexOf(currentId)
-        if (index < 0) return null
-        return orderedIds.getOrNull(index + delta)
-    }
+     *  removed when it was built, so this never has to walk past them. Forward honours the skip settings
+     *  and back does not, so the chapter just finished stays reachable; see [neighbourChapter]. */
+    private fun resolveNeighbor(forward: Boolean): Long? = orderedIds.neighbourChapter(
+        index = orderedIds.indexOf(currentId),
+        forward = forward,
+        isForwardEligible = { it in forwardEligibleIds },
+    )
 
     /** Re-resolve both neighbors (skip-duplicate aware) and warm the next chapter. */
     private suspend fun resolveBothNeighbors() {
-        resolvedPrev = resolveNeighbor(-1)
-        resolvedNext = resolveNeighbor(+1)
+        resolvedPrev = resolveNeighbor(forward = false)
+        resolvedNext = resolveNeighbor(forward = true)
         prefetchNext()
         maybeDownloadAhead()
     }
@@ -690,6 +702,38 @@ class NovelReaderScreenModel(
         downloadManager.deleteChapters(listOf(target))
     }
 
+    /**
+     * Which chapters a forward step may stop on. "Skip read" drops read ones; "skip filtered" drops the
+     * ones this novel's own chapter-list filters hide, which is what makes the setting mean the same
+     * thing here as on the details screen. The open chapter always stays eligible, so opening a filtered
+     * chapter directly does not strand the reader on it.
+     */
+    private suspend fun resolveForwardEligible(ids: List<Long>): Set<Long> {
+        val skipRead = skipReadPref.get()
+        val skipFiltered = skipFilteredPref.get()
+        if (!skipRead && !skipFiltered) return ids.toSet()
+        val novel = novelRepo.getById(novelId) ?: return ids.toSet()
+        val chapters = ids.mapNotNull { chapterRepo.getById(it) }
+        val downloaded = if (skipFiltered) downloadedChapterIds(chapters) else emptySet()
+        val readFilter = novel.effectiveReadFilter(novelPreferences)
+        val bookmarkFilter = novel.effectiveBookmarkedFilter(novelPreferences)
+        val downloadFilter = novel.effectiveDownloadedFilter(novelPreferences)
+        return chapters.filterTo(HashSet()) { ch ->
+            when {
+                ch.id == currentId -> true
+                skipRead && ch.read -> false
+                !skipFiltered -> true
+                readFilter == NovelChapterFlags.SHOW_UNREAD && ch.read -> false
+                readFilter == NovelChapterFlags.SHOW_READ && !ch.read -> false
+                bookmarkFilter == NovelChapterFlags.SHOW_BOOKMARKED && !ch.bookmark -> false
+                bookmarkFilter == NovelChapterFlags.SHOW_NOT_BOOKMARKED && ch.bookmark -> false
+                downloadFilter == NovelChapterFlags.SHOW_DOWNLOADED && ch.id !in downloaded -> false
+                downloadFilter == NovelChapterFlags.SHOW_NOT_DOWNLOADED && ch.id in downloaded -> false
+                else -> true
+            }
+        }.mapTo(HashSet()) { it.id }
+    }
+
     private fun load() {
         mutableState.value = NovelReaderState.Loading
         screenModelScope.launchIO { loadCurrent() }
@@ -717,6 +761,7 @@ class NovelReaderScreenModel(
                 // Skip user-hidden chapters so prev/next matches the details list; the open chapter is
                 // always kept (filterHiddenChapters guards currentId).
                 orderedIds = filterHiddenChapters(resolved)
+                forwardEligibleIds = resolveForwardEligible(orderedIds)
             }
             val id = currentId
             val chapter = chapterRepo.getById(id) ?: error("Chapter not found")

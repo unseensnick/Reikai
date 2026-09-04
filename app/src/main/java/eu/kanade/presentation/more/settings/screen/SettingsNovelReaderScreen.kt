@@ -62,6 +62,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_swipe_between_chapters),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSkipRead(),
+                    title = stringResource(MR.strings.pref_skip_read_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSkipFiltered(),
+                    title = stringResource(MR.strings.pref_skip_filtered_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSkipDuplicateChapters(),
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
                 ),

@@ -140,6 +140,15 @@ class NovelPreferences(
      *  same-number duplicates a cross-source merge produces). Reading-navigation only, non-destructive. */
     fun readerSkipDuplicateChapters() = preferenceStore.getBoolean("ln_reader_skip_duplicate_chapters", false)
 
+    /**
+     * Forward-only skips, the novel twins of the manga reader's `skipRead` / `skipFiltered`. Their own
+     * keys rather than the manga ones, so a reader can skip read chapters in one library and not the
+     * other; the defaults match manga's so the two behave alike until someone changes one.
+     */
+    fun readerSkipRead() = preferenceStore.getBoolean("ln_reader_skip_read", false)
+
+    fun readerSkipFiltered() = preferenceStore.getBoolean("ln_reader_skip_filtered", true)
+
     /** When on, tapping "next" marks the chapter you skipped away from as read (forward only), the novel
      *  twin of the manga reader's mark-read-on-skip. Opt-in. */
     fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)

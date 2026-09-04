@@ -69,6 +69,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Installed light-novel plugins now show their version in Browse -> Extensions.** Until now the version only appeared once an update was waiting.
 - **Long-pressing an installed light-novel plugin in Browse -> Extensions now offers to remove it.** It asks first, since Android has no uninstall prompt of its own for a plugin.
 - **A novel's chapter list can now be sorted alphabetically, the fourth sort manga already had.**
+- **Settings -> Novel reader can now skip chapters marked read, and skip filtered chapters, like manga.** Skipping applies going forward only, so the previous-chapter button still reaches the chapter you just finished.
 
 **Tracking**
 
@@ -154,6 +155,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
+- **The novel reader now starts with Skip filtered chapters switched on, matching manga.** If a novel's chapter list is filtered, the next-chapter button steps past what that filter hides; turn it off under Settings -> Novel reader to stop on every chapter again.
 
 **Tracking**
 
