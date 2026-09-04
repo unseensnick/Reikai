@@ -130,6 +130,7 @@ jobs:
       - name: Stamp a dated commit for this release to hang on
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry-run }}
         run: bash scripts/ci/stamp-nightly-commit.sh
 
       - name: Publish nightly release

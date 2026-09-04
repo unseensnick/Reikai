@@ -11,7 +11,10 @@
 # this nightly was built from, in the exact shape lib.sh's nightly_source_commit parses. Keep those
 # two in step.
 #
-# Environment: PREVIEW_REPO, GH_TOKEN, COMMIT_COUNT.
+# A dry run reuses the bucket's own head instead of writing a commit. A draft creates no tag, so
+# the stamp would date nothing and would sit there unreachable once the draft is deleted.
+#
+# Environment: PREVIEW_REPO, GH_TOKEN, COMMIT_COUNT, DRY_RUN.
 set -eu
 
 : "${PREVIEW_REPO:?PREVIEW_REPO is required}"
@@ -20,6 +23,13 @@ GITHUB_ENV="${GITHUB_ENV:-/dev/stdout}"
 
 base=$(gh api "repos/$PREVIEW_REPO/git/ref/heads/main" --jq '.object.sha')
 tree=$(gh api "repos/$PREVIEW_REPO/commits/main" --jq '.commit.tree.sha')
+
+if [ "${DRY_RUN:-false}" = "true" ]; then
+  echo "STAMP_SHA=$base" >> "$GITHUB_ENV"
+  echo "Dry run: hanging the draft off $base rather than writing a stamp commit."
+  exit 0
+fi
+
 bot='{"name":"github-actions[bot]","email":"41898282+github-actions[bot]@users.noreply.github.com"}'
 
 stamp=$(jq -n \
