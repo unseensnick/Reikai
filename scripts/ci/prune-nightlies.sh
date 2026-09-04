@@ -13,7 +13,7 @@ set -eu
 KEEP="${KEEP:-365}"
 LIST_LIMIT=$((KEEP + 135))
 
-gh release list --repo "$PREVIEW_REPO" --json tagName --limit "$LIST_LIMIT" \
+gh release list --repo "$PREVIEW_REPO" --exclude-drafts --json tagName --limit "$LIST_LIMIT" \
   | jq -r --argjson keep "$KEEP" \
       'sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[$keep:] | .[].tagName' \
   | while read -r tag; do

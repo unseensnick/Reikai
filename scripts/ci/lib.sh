@@ -16,8 +16,11 @@ nightly_source_commit() {
     | sed -n 's/^\(preview\|nightly\) r[0-9]* (\([0-9a-f]\{7,40\}\))$/\2/p' | head -1
 }
 
-# Newest published nightly tag, empty when the bucket has none.
+# Newest PUBLISHED nightly tag, empty when the bucket has none. Drafts are excluded on purpose: a
+# dry run leaves one behind and gh lists drafts by default, so the guard would compare against a
+# number nothing was ever released at and skip the next real build. A draft has no tag either, so
+# nightly_source_commit could not resolve it and the notes would fall back to all of [Unreleased].
 latest_nightly_tag() {
-  gh release list --repo "$PREVIEW_REPO" --json tagName --limit 1 \
+  gh release list --repo "$PREVIEW_REPO" --exclude-drafts --json tagName --limit 1 \
     --jq 'select(length > 0) | .[0].tagName' || true
 }
