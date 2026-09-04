@@ -51,18 +51,10 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
-      # Firebase config is never committed (see .gitignore), so the telemetry build needs it written
-      # from the repo secret first. Fail loudly rather than let the google-services plugin guess.
-      - name: Write google-services.json
+      - name: Write the Firebase config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          set -e
-          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "::error::GOOGLE_SERVICES_JSON secret is missing; -Pinclude-telemetry cannot build without it."
-            exit 1
-          fi
-          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        run: bash scripts/ci/write-firebase-config.sh
 
       - name: Build signed release APKs
         run: ./gradlew assembleRelease -Pinclude-telemetry -Penable-updater
@@ -100,61 +92,13 @@ jobs:
 
       - name: Prepare release body
         env:
+          VERSION_TAG: ${{ env.VERSION_TAG }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
           MESSAGE: ${{ github.event.inputs.message }}
-        run: |
-          set -e
-          version="${VERSION_TAG#v}"
-          # Stable notes come ONLY from the matching [version] section (cut by renaming [Unreleased] to
-          # [version]). No [Unreleased] fallback, or nightly-only changes would leak into a stable release.
-          if ! changelog="$(parse-changelog CHANGELOG.md "$version" 2>/dev/null)"; then
-            echo "::error::CHANGELOG.md has no [$version] section. Rename [Unreleased] to [$version] (and add a fresh empty [Unreleased]) before cutting v$version."
-            exit 1
-          fi
-          # The release note is the one-line bold headline of each entry (kept scannable, like
-          # Mihon / LNReader); the full sentences stay in CHANGELOG.md, linked below. The sed reduces
-          # "- **Headline.** detail" -> "- Headline." and a "**Sub-header**" line -> "#### Sub-header".
-          highlights="$(printf '%s\n' "$changelog" \
-            | sed -E -e 's/^- \*\*([^*]+)\*\*.*/- \1/' -e 's/^\*\*([^*]+)\*\*$/#### \1/')"
-          # Previous tag (linear main), for a "changes since" compare link. Empty on the first release.
-          prev="$(git describe --tags --abbrev=0 "${VERSION_TAG}^" 2>/dev/null || true)"
-          repo="${{ github.server_url }}/${{ github.repository }}"
-          {
-            echo "RELEASE_BODY<<__EOF__"
-            if [ -n "$MESSAGE" ]; then
-              printf '%s\n\n' "$MESSAGE"
-            fi
-            printf '%s\n\n' "$highlights"
-            printf '**Full changelog:** %s/blob/main/CHANGELOG.md\n' "$repo"
-            if [ -n "$prev" ]; then
-              printf '**Changes since %s:** %s/compare/%s...%s\n' "$prev" "$repo" "$prev" "$VERSION_TAG"
-            fi
-            echo "__EOF__"
-          } >> "$GITHUB_ENV"
+        run: bash scripts/ci/release-notes.sh
 
       - name: Rename APKs and checksum
-        run: |
-          set -e
-          d=app/build/outputs/apk/release
-          declare -A abis=( [universal]="" [arm64-v8a]="-arm64-v8a" [armeabi-v7a]="-armeabi-v7a" [x86]="-x86" [x86_64]="-x86_64" )
-          checksums="### Checksums"$'\n\n'"| Variant | SHA-256 |"$'\n'"| ------- | ------- |"
-          for key in universal arm64-v8a armeabi-v7a x86 x86_64; do
-            src="$d/app-${key}-release.apk"
-            out="reikai${abis[$key]}-${VERSION_TAG}.apk"
-            mv "$src" "$out"
-            sum=$(sha256sum "$out" | awk '{ print $1 }')
-            checksums+=$'\n'"| \`$out\` | \`$sum\` |"
-          done
-          # FOSS ships universal only, and keeps "-foss" in the name so the in-app updater picks it
-          # for anyone already running that variant.
-          foss_out="reikai-foss-${VERSION_TAG}.apk"
-          mv app/build/outputs/apk/foss/app-universal-foss.apk "$foss_out"
-          foss_sum=$(sha256sum "$foss_out" | awk '{ print $1 }')
-          checksums+=$'\n'"| \`$foss_out\` | \`$foss_sum\` |"
-          {
-            echo "CHECKSUMS<<__EOF__"
-            echo "$checksums"
-            echo "__EOF__"
-          } >> "$GITHUB_ENV"
+        run: bash scripts/ci/package-apks.sh release "${VERSION_TAG}"
 
       - name: Create draft release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2

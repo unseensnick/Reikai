@@ -67,45 +67,8 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
-        run: |
-          set -e
-          # Only ever written when skipping, so the build job's `!= 'true'` does not depend on which
-          # of two writes to the same output key wins.
-          skip() { echo "skip=true" >> "$GITHUB_OUTPUT"; echo "::notice::Skipping nightly: $1"; exit 0; }
-
-          # A commit carrying a release tag ships as that release; a nightly of it duplicates it.
-          if git tag --points-at HEAD | grep -qE '^v[0-9]'; then
-            skip "$(git tag --points-at HEAD | grep -E '^v[0-9]' | head -1) is a release commit"
-          fi
-
-          commit_count=$(git rev-list --count HEAD)
-          prev_tag=$(gh release list --repo "$PREVIEW_REPO" --json tagName --limit 1 \
-                     --jq 'select(length > 0) | .[0].tagName' || true)
-          if [ -z "$prev_tag" ]; then
-            echo "No previous nightly; building r${commit_count}"
-            exit 0
-          fi
-
-          # Tags are r<commitCount> and the prune keeps the highest numbers, so a build numbered at
-          # or below the newest would be deleted by its own run and ignored by the in-app updater,
-          # which compares the tag number against the installed build's commit count.
-          prev_count=${prev_tag#r}
-          if [ "$commit_count" -le "$prev_count" ]; then
-            skip "r${commit_count} would not climb above ${prev_tag}; is this branch behind the one that built it?"
-          fi
-
-          # Same content as the last nightly means the same APK. Compare trees, not commits: a merge
-          # into another branch is a new commit over an identical tree. A manual run builds anyway,
-          # since asking for one is deliberate.
-          prev_sha=$(gh api "repos/$PREVIEW_REPO/commits/$prev_tag" --jq '.commit.message' 2>/dev/null \
-                     | sed -n 's/^\(preview\|nightly\) r[0-9]* (\([0-9a-f]\{7,40\}\))$/\2/p' | head -1)
-          if [ "${{ github.event_name }}" = 'push' ] && [ -n "$prev_sha" ] && git cat-file -e "${prev_sha}^{commit}" 2>/dev/null; then
-            if [ "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "${prev_sha}^{tree}")" ]; then
-              skip "tree is identical to ${prev_tag}, so the APK would be the same"
-            fi
-          fi
-
-          echo "Building r${commit_count}, previous ${prev_tag}"
+          EVENT_NAME: ${{ github.event_name }}
+        run: bash scripts/ci/nightly-guard.sh
 
   nightly:
     name: Build signed nightly
@@ -130,18 +93,10 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
-      # Firebase config is never committed (see .gitignore), so the telemetry build needs it written
-      # from the repo secret first. Fail loudly rather than let the google-services plugin guess.
-      - name: Write google-services.json
+      - name: Write the Firebase config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          set -e
-          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "::error::GOOGLE_SERVICES_JSON secret is missing; -Pinclude-telemetry cannot build without it."
-            exit 1
-          fi
-          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        run: bash scripts/ci/write-firebase-config.sh
 
       - name: Build signed nightly APKs
         run: ./gradlew assembleNightly -Pinclude-telemetry -Penable-updater
@@ -165,110 +120,17 @@ jobs:
       - name: Prepare release body
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
-        run: |
-          set -e
-          commit_count=$(git rev-list --count HEAD)
-          echo "COMMIT_COUNT=$commit_count" >> "$GITHUB_ENV"
-
-          # Resolve the previous nightly's source commit by reading it back off that release's stamp
-          # commit, which records it. The old arithmetic (HEAD~(count - prevCount)) assumed every nightly
-          # was cut from the same branch: counts on main and on a feature branch are unrelated, so a
-          # preview following one built elsewhere silently diffed against a stranger commit that happened
-          # to sit that far back, and the notes listed the whole [Unreleased] section.
-          prev_ref=""
-          prev_tag=$(gh release list --repo "$PREVIEW_REPO" --json tagName --limit 1 --jq 'select(length > 0) | .[0].tagName' || true)
-          if [ -n "$prev_tag" ]; then
-            prev_sha=$(gh api "repos/$PREVIEW_REPO/commits/$prev_tag" --jq '.commit.message' 2>/dev/null \
-                       | sed -n 's/^\(preview\|nightly\) r[0-9]* (\([0-9a-f]\{7,40\}\))$/\2/p' | head -1)
-            if [ -n "$prev_sha" ] && git cat-file -e "${prev_sha}^{commit}" 2>/dev/null; then
-              if git merge-base --is-ancestor "$prev_sha" HEAD; then
-                prev_ref="$prev_sha"
-              else
-                # That nightly came off another branch, so the honest base is where the two diverged.
-                prev_ref=$(git merge-base "$prev_sha" HEAD || true)
-              fi
-            fi
-          fi
-          # A stamp with no recorded commit (or one this clone cannot see) leaves prev_ref empty, and the
-          # notes fall back to the whole [Unreleased] section rather than to a guess.
-          echo "Previous nightly ${prev_tag:-none}, diffing against ${prev_ref:-nothing}"
-
-          # Nightly notes are the entries ADDED to CHANGELOG.md's [Unreleased] since the previous nightly
-          # (the running list would otherwise repeat every build). Diff the current [Unreleased] against
-          # the same section as it stood at the previous nightly's commit. When the changelog was NOT
-          # touched since then, fall back to the commit subjects in that range so the notes still say
-          # what changed.
-          parse-changelog CHANGELOG.md Unreleased > /tmp/cur.txt 2>/dev/null || true
-          : > /tmp/prev.txt
-          if [ -n "$prev_ref" ]; then
-            git show "$prev_ref:CHANGELOG.md" > /tmp/prevchg.md 2>/dev/null \
-              && parse-changelog /tmp/prevchg.md Unreleased > /tmp/prev.txt 2>/dev/null || true
-          fi
-
-          new_lines=$(grep -vxF -f /tmp/prev.txt /tmp/cur.txt 2>/dev/null | sed '/^[[:space:]]*$/d' || true)
-          # Reduce each entry to its one-line bold headline, matching the stable release notes.
-          new_lines=$(printf '%s\n' "$new_lines" | sed -E -e 's/^- \*\*([^*]+)\*\*.*/- \1/' -e 's/^\*\*([^*]+)\*\*$/#### \1/')
-          repo="${{ github.server_url }}/${{ github.repository }}"
-          {
-            echo "RELEASE_BODY<<__EOF__"
-            if [ -n "$new_lines" ]; then
-              echo "### New since the last nightly"
-              echo ""
-              echo "$new_lines"
-              echo ""
-              # Pin the link to the commit this nightly was built from, not to a branch. A nightly is
-              # usually cut from a feature branch, so blob/main pointed at a changelog that does not
-              # contain these entries, and a branch link would 404 once that branch is merged away.
-              printf '**Full changelog:** %s/blob/%s/CHANGELOG.md\n' "$repo" "${{ github.sha }}"
-            else
-              commits=""
-              if [ -n "$prev_ref" ]; then
-                commits=$(git log --no-merges --format='- %s' "$prev_ref..HEAD" || true)
-              fi
-              if [ -n "$commits" ]; then
-                echo "### Changes since the last nightly"
-                echo ""
-                echo "$commits"
-              else
-                echo "No changelog or commit changes since the last nightly."
-              fi
-            fi
-            echo "__EOF__"
-          } >> "$GITHUB_ENV"
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          HEAD_SHA: ${{ github.sha }}
+        run: bash scripts/ci/nightly-notes.sh
 
       - name: Rename APKs
-        run: |
-          set -e
-          d=app/build/outputs/apk/nightly
-          mv "$d/app-universal-nightly.apk"    "reikai-r${COMMIT_COUNT}.apk"
-          mv "$d/app-arm64-v8a-nightly.apk"    "reikai-arm64-v8a-r${COMMIT_COUNT}.apk"
-          mv "$d/app-armeabi-v7a-nightly.apk"  "reikai-armeabi-v7a-r${COMMIT_COUNT}.apk"
-          mv "$d/app-x86-nightly.apk"          "reikai-x86-r${COMMIT_COUNT}.apk"
-          mv "$d/app-x86_64-nightly.apk"       "reikai-x86_64-r${COMMIT_COUNT}.apk"
+        run: bash scripts/ci/package-apks.sh nightly "r${COMMIT_COUNT}"
 
       - name: Stamp a dated commit for this release to hang on
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
-        run: |
-          set -e
-          # The releases page orders by the TAG's commit date, not the publish date. Every preview tag
-          # used to point at the release bucket's single LICENSE commit, so that key tied across all of
-          # them and GitHub fell back to comparing tag names as strings, which sorts r1350 below r380.
-          # Each release now gets its own commit dated at build time, so the primary sort works and the
-          # tie-break never runs. The commit reuses main's tree and hangs off it as a sibling, reachable
-          # only through its tag, so the release bucket's own history stays a single LICENSE commit.
-          # The message records the Reikai commit this nightly was built from, in the exact shape the
-          # release-body step parses to find the previous nightly's base. Keep the two in step.
-          base=$(gh api "repos/$PREVIEW_REPO/git/ref/heads/main" --jq '.object.sha')
-          tree=$(gh api "repos/$PREVIEW_REPO/commits/main" --jq '.commit.tree.sha')
-          bot='{"name":"github-actions[bot]","email":"41898282+github-actions[bot]@users.noreply.github.com"}'
-          stamp=$(jq -n --arg m "nightly r${COMMIT_COUNT} ($(git rev-parse HEAD))" --arg t "$tree" --arg p "$base" \
-                        --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson who "$bot" \
-                    '{message:$m, tree:$t, parents:[$p],
-                      author:    ($who + {date:$d}),
-                      committer: ($who + {date:$d})}' \
-                  | gh api "repos/$PREVIEW_REPO/git/commits" --input - --jq '.sha')
-          echo "STAMP_SHA=$stamp" >> "$GITHUB_ENV"
+        run: bash scripts/ci/stamp-nightly-commit.sh
 
       - name: Publish nightly release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
@@ -296,19 +158,8 @@ jobs:
           draft: ${{ github.event.inputs.dry-run == 'true' }}
           prerelease: false
 
-      - name: Prune old nightlies (keep newest 365)
+      - name: Prune old nightlies
         if: ${{ github.event.inputs.dry-run != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
-        run: |
-          set -e
-          # Keep the 365 highest build numbers (tags are r<commitCount>). Sorting by the numeric tag,
-          # not createdAt: a history-rewrite force-push can leave every release with the same createdAt,
-          # which made the old date sort delete the just-published release instead of the oldest.
-          # The list limit has to stay above the retention or the slice below is always empty and the
-          # prune silently stops deleting anything.
-          gh release list --repo "$PREVIEW_REPO" --json tagName --limit 500 \
-            | jq -r 'sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[365:] | .[].tagName' \
-            | while read -r tag; do
-                [ -n "$tag" ] && gh release delete "$tag" --repo "$PREVIEW_REPO" --cleanup-tag --yes
-              done
+        run: bash scripts/ci/prune-nightlies.sh
