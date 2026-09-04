@@ -149,6 +149,16 @@ class NovelPreferences(
 
     fun readerSkipFiltered() = preferenceStore.getBoolean("ln_reader_skip_filtered", true)
 
+    /**
+     * The progress rail's side and height. Novels always draw the rail, so unlike the manga reader's
+     * pair these are never gated on a reading mode; the manga rows are hidden until a vertical
+     * navigator is switched on, which used to leave a novel reader's rail configured by settings the
+     * user could not see. Defaults match the manga ones.
+     */
+    fun readerRailOnLeft() = preferenceStore.getBoolean("ln_reader_rail_on_left", false)
+
+    fun readerRailHeight() = preferenceStore.getInt("ln_reader_rail_height", 65)
+
     /** When on, tapping "next" marks the chapter you skipped away from as read (forward only), the novel
      *  twin of the manga reader's mark-read-on-skip. Opt-in. */
     fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)

@@ -301,6 +301,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Updating your novel library can no longer save one novel's title and cover onto a different novel; refresh an affected entry to restore its details.**
 - **Updating several light-novel plugins at once no longer loses one of them.** Two updates finishing close together could leave a plugin listed as updatable however often you updated it.
 - **A novel's full-cover view now loads on sources that need a referer.** Opening it before the source finished resolving left the request without one for as long as the page stayed open.
+- **Settings -> Novel reader now has its own progress rail side and height, instead of taking both from the manga reader screen.** The two readers can be set up differently now, and the novel values start from the defaults.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 
 **Reader & chapters**

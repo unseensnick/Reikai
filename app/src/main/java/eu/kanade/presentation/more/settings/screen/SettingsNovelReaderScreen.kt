@@ -97,6 +97,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
         val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
         val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
+        // Ungated, unlike the manga screen's pair: a novel always draws its progress rail, so there is
+        // no reading mode to switch on first.
+        val railHeightPref = novelPreferences.readerRailHeight()
+        val railHeight by railHeightPref.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
@@ -117,6 +121,17 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     valueString = "$volumeButtonsPercent%",
                     enabled = useVolumeButtons,
                     onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerRailOnLeft(),
+                    title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = railHeight,
+                    valueRange = 65..100,
+                    steps = 6,
+                    title = stringResource(MR.strings.pref_vertical_navigator_height),
+                    onValueChanged = { railHeightPref.set(it) },
                 ),
             ),
         )

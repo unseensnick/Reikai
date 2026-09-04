@@ -7,7 +7,6 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -93,9 +92,6 @@ class NovelReaderScreenModel(
     private val installer: LnPluginInstaller by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
 
-    // Shared with the manga reader so the vertical-rail geometry (height + side) is one setting for
-    // both readers.
-    private val readerPreferences: ReaderPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
@@ -224,8 +220,8 @@ class NovelReaderScreenModel(
             combine(
                 novelPreferences.readerAutoScroll().changes(),
                 novelPreferences.readerAutoScrollSpeed().changes(),
-                readerPreferences.verticalNavigatorHeight.changes(),
-                readerPreferences.verticalNavigatorOnLeft.changes(),
+                novelPreferences.readerRailHeight().changes(),
+                novelPreferences.readerRailOnLeft().changes(),
             ) { autoScroll, speed, railHeight, railOnLeft ->
                 ScrollPrefs(autoScroll, speed, railHeight, railOnLeft)
             },
@@ -295,8 +291,8 @@ class NovelReaderScreenModel(
             showProgressPercentage = novelPreferences.readerShowProgressPercentage().get(),
             autoScroll = novelPreferences.readerAutoScroll().get(),
             autoScrollSpeed = novelPreferences.readerAutoScrollSpeed().get(),
-            railHeightPercent = readerPreferences.verticalNavigatorHeight.get(),
-            railOnLeft = readerPreferences.verticalNavigatorOnLeft.get(),
+            railHeightPercent = novelPreferences.readerRailHeight().get(),
+            railOnLeft = novelPreferences.readerRailOnLeft().get(),
             useVolumeButtons = novelPreferences.readerUseVolumeButtons().get(),
             volumeButtonsInverted = novelPreferences.readerVolumeButtonsInverted().get(),
             volumeButtonsFraction = novelPreferences.readerVolumeButtonsFraction().get(),

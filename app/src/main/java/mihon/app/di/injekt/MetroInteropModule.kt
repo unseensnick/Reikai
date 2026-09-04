@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import exh.eh.EHentaiUpdateHelper
 import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
@@ -68,7 +67,6 @@ class MetroInteropModule(
 
     private val basePreferences: Provider<BasePreferences>,
     private val sourcePreferences: Provider<SourcePreferences>,
-    private val readerPreferences: Provider<ReaderPreferences>,
     private val trackPreferences: Provider<TrackPreferences>,
 
     private val categoryRepository: Provider<CategoryRepository>,
@@ -112,7 +110,6 @@ class MetroInteropModule(
 
         addSingletonFactory { basePreferences() }
         addSingletonFactory { sourcePreferences() }
-        addSingletonFactory { readerPreferences() }
         addSingletonFactory { trackPreferences() }
 
         addSingletonFactory { categoryRepository() }
