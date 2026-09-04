@@ -62,10 +62,10 @@ object TelemetryConfig {
     }
 }
 
-// The stable and preview packages only: the local debugY2k build is deliberately absent, so a dev
-// build never reports even if it is signed with the release key (a local keystore.properties makes
-// that the default).
-private val REIKAI_PACKAGES = hashSetOf("eu.kanade.tachiyomi.y2k", "eu.kanade.tachiyomi.debug")
+// The stable and preview packages only: the local dev build is deliberately absent, so it never
+// reports even when signed with the release key, which a local signing config makes the default.
+// Matched exactly, so a package rename silently stops all reporting until this list moves with it.
+private val REIKAI_PACKAGES = hashSetOf("app.reikai", "app.reikai.debug")
 private const val REIKAI_CERTIFICATE_FINGERPRINT =
     "D0:E2:7C:7C:43:A6:BE:B1:66:BB:18:83:19:EE:4A:03:4F:7B:F0:A3:9B:CC:03:EC:E6:49:5C:E0:8F:5D:D6:EC"
 // RK <--
