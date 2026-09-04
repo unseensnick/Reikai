@@ -73,6 +73,16 @@ val ChapterProgress.trailingLabel: String
         is ChapterProgress.Percent -> "100%"
     }
 
+/**
+ * The zero-based page this sits on, or null where the medium has no pages. An exhaustive `when`
+ * rather than a cast, so a medium added later cannot be silently read as a paged one.
+ */
+val ChapterProgress.pageIndex: Int?
+    get() = when (this) {
+        is ChapterProgress.Pages -> lastPageRead.toInt()
+        is ChapterProgress.Percent -> null
+    }
+
 /** The inverse of [fraction]: where a scrub lands, in the medium's own unit. */
 fun ChapterProgress.seekTo(fraction: Float): ChapterProgress = when (this) {
     is ChapterProgress.Pages -> {

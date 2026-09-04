@@ -14,16 +14,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
+import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.leadingLabel
+import reikai.domain.reader.trailingLabel
 
 @Composable
 fun ReaderPageIndicator(
-    currentPage: Int,
-    totalPages: Int,
+    progress: ChapterProgress?,
     modifier: Modifier = Modifier,
 ) {
-    if (currentPage <= 0 || totalPages <= 0) return
+    if (progress == null) return
 
-    val text = "$currentPage / $totalPages"
+    // RK: labels come from the position kernel, so this reads a page count for manga and a percentage
+    // for a continuously scrolled chapter without knowing which it has.
+    val text = "${progress.leadingLabel} / ${progress.trailingLabel}"
 
     val style = TextStyle(
         color = Color(235, 235, 235),
@@ -56,7 +60,7 @@ fun ReaderPageIndicator(
 private fun ReaderPageIndicatorPreview() {
     TachiyomiPreviewTheme {
         Surface {
-            ReaderPageIndicator(currentPage = 10, totalPages = 69)
+            ReaderPageIndicator(ChapterProgress.Pages(lastPageRead = 9, pageCount = 69))
         }
     }
 }

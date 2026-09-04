@@ -31,6 +31,7 @@ import eu.kanade.presentation.reader.components.ChapterNavigator
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.ReaderBarsFadeSpec
 import reikai.presentation.reader.ReaderBarsSlideSpec
 import reikai.presentation.reader.readerBarEnter
@@ -61,10 +62,9 @@ fun ReaderAppBars(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
-    currentPage: Int,
-    totalPages: Int,
-    onPageIndexChange: (Int) -> Unit,
-    onPageIndexChangeFinished: () -> Unit,
+    progress: ChapterProgress?,
+    onSeek: (ChapterProgress) -> Unit,
+    onSeekFinished: () -> Unit,
 
     readingMode: ReadingMode,
     onClickReadingMode: () -> Unit,
@@ -129,10 +129,9 @@ fun ReaderAppBars(
                                     enabledNext = enabledNext,
                                     onPreviousChapter = onPreviousChapter,
                                     enabledPrevious = enabledPrevious,
-                                    currentPage = currentPage,
-                                    totalPages = totalPages,
-                                    onPageIndexChange = onPageIndexChange,
-                                    onPageIndexChangeFinished = onPageIndexChangeFinished,
+                                    progress = progress,
+                                    onSeek = onSeek,
+                                    onSeekFinished = onSeekFinished,
                                 )
                             }
                         }
@@ -158,10 +157,9 @@ fun ReaderAppBars(
                         enabledNext = enabledNext,
                         onPreviousChapter = onPreviousChapter,
                         enabledPrevious = enabledPrevious,
-                        currentPage = currentPage,
-                        totalPages = totalPages,
-                        onPageIndexChange = onPageIndexChange,
-                        onPageIndexChangeFinished = onPageIndexChangeFinished,
+                        progress = progress,
+                        onSeek = onSeek,
+                        onSeekFinished = onSeekFinished,
                     )
                 }
                 ReaderBottomBar(

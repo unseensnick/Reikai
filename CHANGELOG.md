@@ -308,6 +308,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Swiping back from the reader now reaches the chapter you were on.**
 - **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
 - **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
+- **The manga reader now names the chapter you are actually on while you scroll across a chapter boundary.** It briefly showed the previous chapter's title and page count beside the new chapter's page number.
+- **Each chapter you open in the manga reader now starts where you left that chapter, not where you left the one before it.** Most visible right after jumping in from a page preview.
 
 **Tracking**
 

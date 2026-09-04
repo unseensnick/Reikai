@@ -77,6 +77,9 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReaderPosition
+import reikai.domain.reader.isChapterComplete
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -191,6 +194,27 @@ class ReaderViewModel(
             savedState["page_index"] = value
             field = value
         }
+
+    // RK -->
+
+    /**
+     * The page a launch extra asked to open at, for example a page preview jumping into a chapter.
+     * It has its own key because it shares nothing but a shape with the restore index above: this is
+     * a one-off jump, that is a position being kept up to date, and one slot could not be both.
+     */
+    private var launchPageIndex: Int? = savedState.get<Int>("launch_page")
+        set(value) {
+            savedState["launch_page"] = value
+            field = value
+        }
+
+    /**
+     * A restored index belongs to the chapter that was open when the process died, so only the first
+     * chapter to load may take it. Without this the index was re-applied to every chapter that became
+     * current, so each one briefly opened at the previous chapter's page.
+     */
+    private var restorePending = chapterPageIndex >= 0
+    // RK <--
 
     /**
      * The chapter loader for the loaded manga. It'll be null until [manga] is set.
@@ -376,11 +400,22 @@ class ReaderViewModel(
             .distinctUntilChanged()
             .filterNotNull()
             .onEach { currentChapter ->
-                if (chapterPageIndex >= 0) {
-                    // Restore from SavedState
-                    currentChapter.requestedPage = chapterPageIndex
-                } else if (!currentChapter.chapter.read) {
-                    currentChapter.requestedPage = currentChapter.chapter.last_page_read
+                // RK: each source of an opening page is consumed at most once, so only the chapter it
+                // was meant for takes it and every later one resumes from its own stored page.
+                val launchPage = launchPageIndex
+                when {
+                    launchPage != null -> {
+                        currentChapter.requestedPage = launchPage
+                        launchPageIndex = null
+                    }
+                    restorePending -> {
+                        // Restore from SavedState
+                        currentChapter.requestedPage = chapterPageIndex
+                        restorePending = false
+                    }
+                    !currentChapter.chapter.read -> {
+                        currentChapter.requestedPage = currentChapter.chapter.last_page_read
+                    }
                 }
                 chapterId = currentChapter.chapter.id!!
             }
@@ -703,8 +738,14 @@ class ReaderViewModel(
     private suspend fun updateChapterProgress(readerChapter: ReaderChapter, page: Page) {
         val pageIndex = page.index
 
+        // RK: the position names its own chapter, so the chrome cannot pair this page number with a
+        // different chapter's total while the model is still swapping the active chapter across a seam.
+        val progress = ChapterProgress.Pages(
+            lastPageRead = pageIndex.toLong(),
+            pageCount = (readerChapter.pages?.size ?: 0).toLong(),
+        )
         mutableState.update {
-            it.copy(currentPage = pageIndex + 1)
+            it.copy(position = ReaderPosition(chapterId = readerChapter.chapter.id!!, progress = progress))
         }
         readerChapter.requestedPage = pageIndex
         chapterPageIndex = pageIndex
@@ -712,7 +753,7 @@ class ReaderViewModel(
         if (!incognitoMode && page.status !is Page.State.Error) {
             readerChapter.chapter.last_page_read = pageIndex
 
-            if (readerChapter.pages?.lastIndex == pageIndex) {
+            if (progress.isChapterComplete) {
                 updateChapterProgressOnComplete(readerChapter)
             }
 
@@ -1297,7 +1338,9 @@ class ReaderViewModel(
         val viewerChapters: ViewerChapters? = null,
         val bookmarked: Boolean = false,
         val isLoadingAdjacentChapter: Boolean = false,
-        val currentPage: Int = -1,
+        // RK -->
+        val position: ReaderPosition? = null,
+        // RK <--
 
         /**
          * Viewer used to display the pages (pager, webtoon, ...).
@@ -1310,8 +1353,25 @@ class ReaderViewModel(
         val currentChapter: ReaderChapter?
             get() = viewerChapters?.currChapter
 
-        val totalPages: Int
-            get() = currentChapter?.pages?.size ?: -1
+        // RK -->
+
+        /**
+         * The chapter the chrome describes, which is not always [currentChapter]: the viewer crosses
+         * into the next chapter before the model swaps that asynchronously, so reading the title from
+         * it used to pair one chapter's page number with another's title and total.
+         */
+        val visibleChapter: ReaderChapter?
+            get() {
+                val id = position?.chapterId
+                val chapters = viewerChapters ?: return null
+                return when (id) {
+                    chapters.currChapter.chapter.id -> chapters.currChapter
+                    chapters.prevChapter?.chapter?.id -> chapters.prevChapter
+                    chapters.nextChapter?.chapter?.id -> chapters.nextChapter
+                    else -> null
+                } ?: currentChapter
+            }
+        // RK <--
     }
 
     sealed interface Dialog {

@@ -100,6 +100,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import reikai.domain.reader.pageIndex
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -114,8 +115,9 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 class ReaderActivity : BaseActivity() {
 
     companion object {
-        // RK: optional page param jumps the reader to a specific page (gallery page previews);
-        // the ViewModel reads it from the "page_index" extra. Null keeps Mihon's default behavior.
+        // RK: optional page param jumps the reader to a specific page (gallery page previews); the
+        // ViewModel reads it from "launch_page", which is deliberately not the "page_index" key its
+        // process-death restore uses. Null keeps Mihon's default behavior.
         // sourceScoped narrows the chapter list to the opened source's own chapters (Updates, a
         // specific source chip); default false = the whole merge group (group scope).
         fun newIntent(
@@ -128,7 +130,7 @@ class ReaderActivity : BaseActivity() {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
-                if (page != null) putExtra("page_index", page)
+                if (page != null) putExtra("launch_page", page)
                 if (sourceScoped) putExtra("source_scoped", true)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
@@ -294,8 +296,7 @@ class ReaderActivity : BaseActivity() {
             Box(modifier = Modifier.fillMaxSize()) {
                 if (!state.menuVisible && showPageNumber) {
                     ReaderPageIndicator(
-                        currentPage = state.currentPage,
-                        totalPages = state.totalPages,
+                        progress = state.position?.progress,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding(),
@@ -527,7 +528,7 @@ class ReaderActivity : BaseActivity() {
             visible = state.menuVisible,
 
             mangaTitle = state.manga?.title,
-            chapterTitle = state.currentChapter?.chapter?.name,
+            chapterTitle = state.visibleChapter?.chapter?.name,
             navigateUp = onBackPressedDispatcher::onBackPressed,
             onClickTopAppBar = ::openMangaScreen,
             bookmarked = state.bookmarked,
@@ -554,13 +555,12 @@ class ReaderActivity : BaseActivity() {
             enabledNext = state.viewerChapters?.nextChapter != null,
             onPreviousChapter = ::loadPreviousChapter,
             enabledPrevious = state.viewerChapters?.prevChapter != null,
-            currentPage = state.currentPage,
-            totalPages = state.totalPages,
-            onPageIndexChange = {
+            progress = state.position?.progress,
+            onSeek = {
                 isScrollingThroughPages = true
-                moveToPageIndex(it)
+                it.pageIndex?.let(::moveToPageIndex)
             },
-            onPageIndexChangeFinished = {
+            onSeekFinished = {
                 isScrollingThroughPages = false
             },
 

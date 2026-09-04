@@ -140,6 +140,18 @@ class ReaderPositionTest {
         ChapterProgress.Percent(hundredths = 0).trailingLabel shouldBe "100%"
     }
 
+    // The page a paged progress names, which is what the paged viewers are driven by.
+
+    @Test
+    fun `a paged chapter names the page it sits on`() {
+        ChapterProgress.Pages(lastPageRead = 5, pageCount = 38).pageIndex shouldBe 5
+    }
+
+    @Test
+    fun `a continuous chapter names no page at all`() {
+        ChapterProgress.Percent(hundredths = 6200).pageIndex shouldBe null
+    }
+
     // Scrubbing back, the inverse of the fraction.
 
     @Test

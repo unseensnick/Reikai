@@ -27,7 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,10 +43,16 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.presentation.util.isTabletUi
+import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.fraction
+import reikai.domain.reader.isSeekable
+import reikai.domain.reader.leadingLabel
+import reikai.domain.reader.seekTo
+import reikai.domain.reader.stepCount
+import reikai.domain.reader.trailingLabel
 import reikai.presentation.reader.VerticalReaderRail
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import kotlin.math.roundToInt
 
 enum class ChapterNavigatorType {
     HORIZONTAL_LTR,
@@ -65,28 +71,27 @@ fun ChapterNavigator(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
-    currentPage: Int,
-    totalPages: Int,
-    onPageIndexChange: (Int) -> Unit,
-    onPageIndexChangeFinished: () -> Unit,
+    progress: ChapterProgress?,
+    onSeek: (ChapterProgress) -> Unit,
+    onSeekFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
 
-    val state = remember(totalPages) {
-        SliderState(
-            value = currentPage.toFloat(),
-            steps = totalPages - 2,
-            valueRange = 1f..totalPages.toFloat(),
-        )
+    // RK: the thumb runs 0..1 over a step count the position kernel clamps, so the page arithmetic
+    // that used to hand Material a negative step count for a one-page chapter cannot arise here.
+    val fraction = progress?.fraction ?: 0f
+    val steps = progress?.stepCount ?: 0
+    val state = remember(steps) {
+        SliderState(value = fraction, steps = steps, valueRange = 0f..1f)
     }
-    state.value = currentPage.toFloat()
-    state.onValueChange = { onPageIndexChange(it.roundToInt() - 1) }
-    state.onValueChangeFinished = onPageIndexChangeFinished
+    state.value = fraction
+    state.onValueChange = { value -> progress?.let { onSeek(it.seekTo(value)) } }
+    state.onValueChangeFinished = onSeekFinished
 
     val interactionSource = remember { MutableInteractionSource() }
     val sliderDragged by interactionSource.collectIsDraggedAsState()
-    LaunchedEffect(currentPage) {
+    LaunchedEffect(fraction) {
         if (sliderDragged) {
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         }
@@ -112,8 +117,7 @@ fun ChapterNavigator(
             enabledNext = enabledNext,
             onPreviousChapter = onPreviousChapter,
             enabledPrevious = enabledPrevious,
-            currentPage = currentPage,
-            totalPages = totalPages,
+            progress = progress,
             interactionSource = interactionSource,
             mainAxisPadding = mainAxisPadding,
             backgroundColor = backgroundColor,
@@ -127,8 +131,7 @@ fun ChapterNavigator(
             enabledNext = enabledNext,
             onPreviousChapter = onPreviousChapter,
             enabledPrevious = enabledPrevious,
-            currentPage = currentPage,
-            totalPages = totalPages,
+            progress = progress,
             interactionSource = interactionSource,
             modifier = modifier,
         )
@@ -143,8 +146,7 @@ fun HorizontalChapterNavigator(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
-    currentPage: Int,
-    totalPages: Int,
+    progress: ChapterProgress?,
     interactionSource: MutableInteractionSource,
     mainAxisPadding: Dp,
     backgroundColor: Color,
@@ -174,7 +176,7 @@ fun HorizontalChapterNavigator(
                 )
             }
 
-            if (totalPages > 1) {
+            if (progress != null && progress.isSeekable) {
                 CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
                     Row(
                         modifier = Modifier
@@ -185,9 +187,9 @@ fun HorizontalChapterNavigator(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(contentAlignment = Alignment.CenterEnd) {
-                            Text(text = currentPage.toString())
-                            // Taking up full length so the slider doesn't shift when 'currentPage' length changes
-                            Text(text = totalPages.toString(), color = Color.Transparent)
+                            Text(text = progress.leadingLabel)
+                            // Taking up full length so the slider doesn't shift when the label length changes
+                            Text(text = progress.trailingLabel, color = Color.Transparent)
                         }
 
                         Slider(
@@ -198,7 +200,7 @@ fun HorizontalChapterNavigator(
                             interactionSource = interactionSource,
                         )
 
-                        Text(text = totalPages.toString())
+                        Text(text = progress.trailingLabel)
                     }
                 }
             } else {
@@ -222,7 +224,7 @@ fun HorizontalChapterNavigator(
 }
 
 // RK: delegates to the shared VerticalReaderRail (also used by the novel reader) so the two stay in
-// sync; the page-index value semantics (currentPage / totalPages labels) are provided here.
+// sync; the labels come from the position kernel, in whatever unit the medium counts in.
 @Composable
 fun VerticalChapterNavigator(
     state: SliderState,
@@ -230,16 +232,15 @@ fun VerticalChapterNavigator(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
-    currentPage: Int,
-    totalPages: Int,
+    progress: ChapterProgress?,
     interactionSource: MutableInteractionSource,
     modifier: Modifier = Modifier,
 ) {
     VerticalReaderRail(
         sliderState = state,
-        topLabel = currentPage.toString(),
-        bottomLabel = totalPages.toString(),
-        showSlider = totalPages > 1,
+        topLabel = progress?.leadingLabel.orEmpty(),
+        bottomLabel = progress?.trailingLabel.orEmpty(),
+        showSlider = progress?.isSeekable == true,
         onPreviousChapter = onPreviousChapter,
         enabledPrevious = enabledPrevious,
         onNextChapter = onNextChapter,
@@ -252,7 +253,9 @@ fun VerticalChapterNavigator(
 @Preview
 @Composable
 private fun ChapterNavigatorPreview() {
-    var currentPage by remember { mutableIntStateOf(1) }
+    var progress by remember {
+        mutableStateOf<ChapterProgress>(ChapterProgress.Pages(lastPageRead = 0, pageCount = 10))
+    }
     TachiyomiPreviewTheme {
         ChapterNavigator(
             type = ChapterNavigatorType.VERTICAL_RIGHT,
@@ -260,10 +263,9 @@ private fun ChapterNavigatorPreview() {
             enabledNext = true,
             onPreviousChapter = {},
             enabledPrevious = true,
-            currentPage = currentPage,
-            totalPages = 10,
-            onPageIndexChange = { currentPage = (it + 1) },
-            onPageIndexChangeFinished = {},
+            progress = progress,
+            onSeek = { progress = it },
+            onSeekFinished = {},
         )
     }
 }
