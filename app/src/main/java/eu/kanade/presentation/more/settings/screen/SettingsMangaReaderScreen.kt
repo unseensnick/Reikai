@@ -39,6 +39,11 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val context = LocalContext.current
         val readerPref = remember { context.appGraph.readerPreferences }
 
+        // RK: the two renderers read different width controls, so the group offers whichever one is
+        // live. Side padding is inert under the high quality renderer and Min width under the old one.
+        val highQualityRenderer by remember { context.appGraph.basePreferences.highQualityRenderer }
+            .collectAsState()
+
         return listOf(
             Preference.PreferenceItem.ListPreference(
                 preference = readerPref.defaultReadingMode,
@@ -73,7 +78,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
             getEInkGroup(readerPreferences = readerPref),
             getReadingGroup(readerPreferences = readerPref),
             getPagedGroup(readerPreferences = readerPref),
-            getWebtoonGroup(readerPreferences = readerPref),
+            getWebtoonGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer),
             getNavigationGroup(readerPreferences = readerPref),
             getActionsGroup(readerPreferences = readerPref),
         )
@@ -328,18 +333,23 @@ object SettingsMangaReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getWebtoonGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+    private fun getWebtoonGroup(
+        readerPreferences: ReaderPreferences,
+        highQualityRenderer: Boolean,
+    ): Preference.PreferenceGroup {
         val numberFormat = remember { NumberFormat.getPercentInstance() }
 
         val navModePref = readerPreferences.navigationModeWebtoon
         val dualPageSplitPref = readerPreferences.dualPageSplitWebtoon
         val rotateToFitPref = readerPreferences.dualPageRotateToFitWebtoon
         val webtoonSidePaddingPref = readerPreferences.webtoonSidePadding
+        val continuousMinWidthPref = readerPreferences.continuousMinWidth
 
         val navMode by navModePref.collectAsState()
         val dualPageSplit by dualPageSplitPref.collectAsState()
         val rotateToFit by rotateToFitPref.collectAsState()
         val webtoonSidePadding by webtoonSidePaddingPref.collectAsState()
+        val continuousMinWidth by continuousMinWidthPref.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.webtoon_viewer),
@@ -363,15 +373,25 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
                     enabled = navMode != 5,
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = webtoonSidePadding,
-                    valueRange = ReaderPreferences.let {
-                        it.WEBTOON_PADDING_MIN..it.WEBTOON_PADDING_MAX
-                    },
-                    title = stringResource(MR.strings.pref_webtoon_side_padding),
-                    valueString = numberFormat.format(webtoonSidePadding / 100f),
-                    onValueChanged = { webtoonSidePaddingPref.set(it) },
-                ),
+                if (highQualityRenderer) {
+                    Preference.PreferenceItem.SliderPreference(
+                        value = continuousMinWidth,
+                        valueRange = 1..100,
+                        title = stringResource(MR.strings.pref_continuous_minwidth),
+                        valueString = numberFormat.format(continuousMinWidth / 100f),
+                        onValueChanged = { continuousMinWidthPref.set(it) },
+                    )
+                } else {
+                    Preference.PreferenceItem.SliderPreference(
+                        value = webtoonSidePadding,
+                        valueRange = ReaderPreferences.let {
+                            it.WEBTOON_PADDING_MIN..it.WEBTOON_PADDING_MAX
+                        },
+                        title = stringResource(MR.strings.pref_webtoon_side_padding),
+                        valueString = numberFormat.format(webtoonSidePadding / 100f),
+                        onValueChanged = { webtoonSidePaddingPref.set(it) },
+                    )
+                },
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.readerHideThreshold,
                     entries = mapOf(
