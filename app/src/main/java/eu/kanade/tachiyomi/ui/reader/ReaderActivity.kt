@@ -6,7 +6,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -80,7 +79,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
-import eu.kanade.tachiyomi.util.system.isNightMode
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.readerBackgroundColor
 import eu.kanade.tachiyomi.util.system.toShareIntent
