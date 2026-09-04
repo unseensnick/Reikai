@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -75,6 +73,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Delete
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.novel.interactor.AddNovelTrack
@@ -624,7 +624,7 @@ data class EntryTrackDateRemoverScreen(
         }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = { Icon(imageVector = Icons.Default.Delete, contentDescription = null) },
+            icon = { Icon(imageVector = MaterialSymbols.Rounded.Delete, contentDescription = null) },
             title = {
                 Text(
                     text = stringResource(MR.strings.track_remove_date_conf_title),
@@ -841,7 +841,7 @@ data class EntryTrackerRemoveScreen(
         var removeRemoteTrack by remember { mutableStateOf(false) }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = { Icon(imageVector = Icons.Default.Delete, contentDescription = null) },
+            icon = { Icon(imageVector = MaterialSymbols.Rounded.Delete, contentDescription = null) },
             title = {
                 Text(
                     text = stringResource(MR.strings.track_delete_title, serviceName),

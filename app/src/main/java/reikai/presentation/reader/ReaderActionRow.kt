@@ -2,17 +2,6 @@ package reikai.presentation.reader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.FormatBold
-import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.outlined.FormatSize
-import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.SwipeVertical
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -27,6 +16,18 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Explore
+import mihon.icons.materialsymbols.rounded.FormatBold
+import mihon.icons.materialsymbols.rounded.FormatListNumbered
+import mihon.icons.materialsymbols.rounded.Palette
+import mihon.icons.materialsymbols.rounded.Public
+import mihon.icons.materialsymbols.rounded.Settings
+import mihon.icons.materialsymbols.rounded.Share
+import reikai.presentation.icons.FormatSize
+import reikai.presentation.icons.Lightbulb
+import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.icons.SwipeVertical
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -74,7 +75,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.ViewChapters.isIn(enabledButtons)) {
             IconButton(onClick = onClickChapterList) {
                 Icon(
-                    imageVector = Icons.Outlined.FormatListNumbered,
+                    imageVector = MaterialSymbols.Rounded.FormatListNumbered,
                     contentDescription = stringResource(MR.strings.chapters),
                 )
             }
@@ -83,7 +84,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.WebView.isIn(enabledButtons) && onClickWebView != null) {
             IconButton(onClick = onClickWebView) {
                 Icon(
-                    imageVector = Icons.Outlined.Public,
+                    imageVector = MaterialSymbols.Rounded.Public,
                     contentDescription = stringResource(MR.strings.action_open_in_web_view),
                 )
             }
@@ -92,7 +93,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.Browser.isIn(enabledButtons) && onClickBrowser != null) {
             IconButton(onClick = onClickBrowser) {
                 Icon(
-                    imageVector = Icons.Outlined.Explore,
+                    imageVector = MaterialSymbols.Rounded.Explore,
                     contentDescription = stringResource(MR.strings.action_open_in_browser),
                 )
             }
@@ -101,7 +102,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.Share.isIn(enabledButtons) && onClickShare != null) {
             IconButton(onClick = onClickShare) {
                 Icon(
-                    imageVector = Icons.Outlined.Share,
+                    imageVector = MaterialSymbols.Rounded.Share,
                     contentDescription = stringResource(MR.strings.action_share),
                 )
             }
@@ -139,7 +140,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.Autoscroll.isIn(enabledButtons) && onClickAutoScroll != null) {
             ToggleActionButton(
                 onClick = onClickAutoScroll,
-                icon = Icons.Outlined.SwipeVertical,
+                icon = ReikaiIcons.SwipeVertical,
                 description = stringResource(MR.strings.pref_auto_scroll),
                 active = autoScrollActive,
             )
@@ -148,7 +149,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.KeepScreenOn.isIn(enabledButtons) && onClickKeepScreenOn != null) {
             ToggleActionButton(
                 onClick = onClickKeepScreenOn,
-                icon = Icons.Outlined.Lightbulb,
+                icon = ReikaiIcons.Lightbulb,
                 description = stringResource(MR.strings.pref_keep_screen_on),
                 active = keepScreenOn,
             )
@@ -157,7 +158,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.BionicReading.isIn(enabledButtons) && onClickBionic != null) {
             ToggleActionButton(
                 onClick = onClickBionic,
-                icon = Icons.Outlined.FormatBold,
+                icon = MaterialSymbols.Rounded.FormatBold,
                 description = stringResource(MR.strings.pref_bionic_reading),
                 active = bionicActive,
             )
@@ -166,7 +167,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.Theme.isIn(enabledButtons) && onClickTheme != null) {
             IconButton(onClick = onClickTheme) {
                 Icon(
-                    imageVector = Icons.Outlined.Palette,
+                    imageVector = MaterialSymbols.Rounded.Palette,
                     contentDescription = stringResource(MR.strings.pref_category_theme),
                 )
             }
@@ -175,7 +176,7 @@ fun ReaderActionRow(
         if (ReaderBottomButton.TextSize.isIn(enabledButtons) && onClickTextSize != null) {
             IconButton(onClick = onClickTextSize) {
                 Icon(
-                    imageVector = Icons.Outlined.FormatSize,
+                    imageVector = ReikaiIcons.FormatSize,
                     contentDescription = stringResource(MR.strings.pref_reader_text_size),
                 )
             }
@@ -183,7 +184,7 @@ fun ReaderActionRow(
 
         IconButton(onClick = onClickSettings) {
             Icon(
-                imageVector = Icons.Outlined.Settings,
+                imageVector = MaterialSymbols.Rounded.Settings,
                 contentDescription = stringResource(MR.strings.action_settings),
             )
         }

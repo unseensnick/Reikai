@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -22,6 +18,10 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.PushPin
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -54,7 +54,7 @@ fun EntrySearchSourceFilterChips(
                     selected = isPinnedOnly,
                     onClick = onSelectPinnedOnly,
                     leadingIcon = {
-                        Icon(Icons.Outlined.PushPin, null, Modifier.size(FilterChipDefaults.IconSize))
+                        Icon(MaterialSymbols.Rounded.PushPin, null, Modifier.size(FilterChipDefaults.IconSize))
                     },
                     label = { Text(stringResource(MR.strings.pinned_sources)) },
                 )
@@ -62,7 +62,7 @@ fun EntrySearchSourceFilterChips(
                     selected = !isPinnedOnly,
                     onClick = onSelectAll,
                     leadingIcon = {
-                        Icon(Icons.Outlined.DoneAll, null, Modifier.size(FilterChipDefaults.IconSize))
+                        Icon(MaterialSymbols.Rounded.DoneAll, null, Modifier.size(FilterChipDefaults.IconSize))
                     },
                     label = { Text(stringResource(MR.strings.all_sources)) },
                 )
@@ -73,7 +73,7 @@ fun EntrySearchSourceFilterChips(
                 selected = onlyShowHasResults,
                 onClick = onToggleResults,
                 leadingIcon = {
-                    Icon(Icons.Outlined.FilterList, null, Modifier.size(FilterChipDefaults.IconSize))
+                    Icon(MaterialSymbols.Rounded.FilterList, null, Modifier.size(FilterChipDefaults.IconSize))
                 },
                 label = { Text(stringResource(MR.strings.has_results)) },
             )

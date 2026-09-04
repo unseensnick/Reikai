@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dangerous
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -41,6 +38,9 @@ import exh.assets.ehassets.EhLogo
 import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
 import exh.source.eHentaiSourceIds
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Dangerous
+import mihon.icons.materialsymbols.rounded.Warning
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.source.model.Source
 import tachiyomi.source.local.isLocal
@@ -59,7 +59,7 @@ fun SourceIcon(
     when {
         source.isStub && icon == null -> {
             Image(
-                imageVector = Icons.Filled.Warning,
+                imageVector = MaterialSymbols.Rounded.Warning,
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.error),
                 modifier = modifier.then(defaultModifier),
@@ -174,7 +174,7 @@ fun ExtensionIcon(
             }
         }
         is Extension.Untrusted -> Image(
-            imageVector = Icons.Filled.Dangerous,
+            imageVector = MaterialSymbols.Rounded.Dangerous,
             contentDescription = null,
             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.error),
             modifier = modifier.then(defaultModifier),

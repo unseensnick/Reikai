@@ -8,14 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +20,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.category.contentTypeLabel
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.DragHandle
+import mihon.icons.materialsymbols.rounded.Edit
+import mihon.icons.materialsymbols.rounded.RadioButtonUnchecked
+import mihon.icons.materialsymbols.rounded.Visibility
+import mihon.icons.materialsymbols.rounded.VisibilityOff
+import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import reikai.domain.category.isHidden
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
@@ -71,7 +71,7 @@ fun ReorderableCollectionItemScope.CategoryListItem(
             // RK -->
             if (showDragHandle) {
                 Icon(
-                    imageVector = Icons.Outlined.DragHandle,
+                    imageVector = MaterialSymbols.Rounded.DragHandle,
                     contentDescription = null,
                     modifier = Modifier
                         .padding(MaterialTheme.padding.medium)
@@ -101,7 +101,11 @@ fun ReorderableCollectionItemScope.CategoryListItem(
             // (hide is a Reikai addition; rename + delete are Mihon's).
             if (selectionMode) {
                 Icon(
-                    imageVector = if (selected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    imageVector = if (selected) {
+                        MaterialSymbols.RoundedFilled.CheckCircle
+                    } else {
+                        MaterialSymbols.Rounded.RadioButtonUnchecked
+                    },
                     contentDescription = null,
                     tint = if (selected) {
                         MaterialTheme.colorScheme.primary
@@ -114,9 +118,9 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                 IconButton(onClick = onToggleHidden) {
                     Icon(
                         imageVector = if (category.isHidden) {
-                            Icons.Outlined.Visibility
+                            MaterialSymbols.Rounded.Visibility
                         } else {
-                            Icons.Outlined.VisibilityOff
+                            MaterialSymbols.Rounded.VisibilityOff
                         },
                         contentDescription = stringResource(
                             if (category.isHidden) MR.strings.action_show_category else MR.strings.action_hide_category,
@@ -125,13 +129,13 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                 }
                 IconButton(onClick = onRename) {
                     Icon(
-                        imageVector = Icons.Outlined.Edit,
+                        imageVector = MaterialSymbols.Rounded.Edit,
                         contentDescription = stringResource(MR.strings.action_rename_category),
                     )
                 }
                 IconButton(onClick = onDelete) {
                     Icon(
-                        imageVector = Icons.Outlined.Delete,
+                        imageVector = MaterialSymbols.Rounded.Delete,
                         contentDescription = stringResource(MR.strings.action_delete),
                     )
                 }

@@ -1,12 +1,12 @@
 package reikai.presentation.library
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Autorenew
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -21,7 +21,7 @@ fun ResetToGlobalSortItem(onClick: () -> Unit) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
     BaseSortItem(
         label = stringResource(MR.strings.action_sort_reset_to_global),
-        icon = Icons.Outlined.SettingsBackupRestore,
+        icon = MaterialSymbols.Rounded.Autorenew,
         onClick = onClick,
     )
 }

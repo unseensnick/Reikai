@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
@@ -31,6 +27,10 @@ import exh.assets.ehassets.EhLogo
 import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
 import exh.source.eHentaiSourceIds
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Folder
+import mihon.icons.materialsymbols.rounded.LocalLibrary
+import mihon.icons.materialsymbols.rounded.Warning
 import reikai.data.coil.NovelCover
 import reikai.domain.entry.EntryId
 import tachiyomi.domain.manga.model.MangaCover
@@ -90,7 +90,7 @@ fun SourceIconBadge(source: Source?) {
     val icon = produceState<ImageBitmap?>(initialValue = null, source.id) { value = source.icon() }.value
     when {
         source.isStub && icon == null -> Badge(
-            imageVector = Icons.Filled.Warning,
+            imageVector = MaterialSymbols.Rounded.Warning,
             color = MaterialTheme.colorScheme.errorContainer,
             iconColor = MaterialTheme.colorScheme.error,
         )
@@ -101,7 +101,7 @@ fun SourceIconBadge(source: Source?) {
                 .height(18.dp),
         )
         source.id == LocalSource.ID -> Badge(
-            imageVector = Icons.Outlined.Folder,
+            imageVector = MaterialSymbols.Rounded.Folder,
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )
@@ -113,7 +113,7 @@ fun SourceIconBadge(source: Source?) {
         source.id == PURURIN_SOURCE_ID -> PururinSourceIconBadge()
         source.id == NHENTAI_NET_SOURCE_ID -> NHentaiNetSourceIconBadge()
         else -> Badge(
-            imageVector = Icons.Outlined.LocalLibrary,
+            imageVector = MaterialSymbols.Rounded.LocalLibrary,
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )

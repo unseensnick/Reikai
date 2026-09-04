@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material.icons.outlined.SwapCalls
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +29,11 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.rounded.SelectAll
+import mihon.icons.materialsymbols.rounded.SwapCalls
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
@@ -80,12 +80,12 @@ class UpdateErrorsScreen(
                             listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_select_all),
-                                    icon = Icons.Outlined.SelectAll,
+                                    icon = MaterialSymbols.Rounded.SelectAll,
                                     onClick = viewModel::selectAll,
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_migrate),
-                                    icon = Icons.Outlined.SwapCalls,
+                                    icon = MaterialSymbols.Rounded.SwapCalls,
                                     enabled = successState.selectionIsSingleVertical,
                                     onClick = {
                                         val mangaIds = viewModel.selectedMangaIds()
@@ -104,7 +104,7 @@ class UpdateErrorsScreen(
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_delete),
-                                    icon = Icons.Outlined.Delete,
+                                    icon = MaterialSymbols.Rounded.Delete,
                                     onClick = viewModel::dismissSelected,
                                 ),
                             ),
@@ -116,7 +116,7 @@ class UpdateErrorsScreen(
                                 listOf(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_update_library),
-                                        icon = Icons.Outlined.Refresh,
+                                        icon = MaterialSymbols.Rounded.Refresh,
                                         onClick = { viewModel.retry(context) },
                                     ),
                                     AppBar.OverflowAction(

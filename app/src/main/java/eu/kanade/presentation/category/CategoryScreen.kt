@@ -12,10 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FlipToFront
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -30,6 +26,10 @@ import eu.kanade.presentation.category.components.CategoryListItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.ui.category.CategoryScreenState
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.FlipToBack
+import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import sh.calvin.reorderable.ReorderableItem
@@ -84,17 +84,17 @@ fun CategoryScreen(
                         listOf(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_select_all),
-                                icon = Icons.Outlined.SelectAll,
+                                icon = MaterialSymbols.Rounded.SelectAll,
                                 onClick = onSelectAll,
                             ),
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_select_inverse),
-                                icon = Icons.Outlined.FlipToFront,
+                                icon = MaterialSymbols.Rounded.FlipToBack,
                                 onClick = onInvertSelection,
                             ),
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_delete),
-                                icon = Icons.Outlined.Delete,
+                                icon = MaterialSymbols.Rounded.Delete,
                                 onClick = onDeleteSelected,
                             ),
                         ),

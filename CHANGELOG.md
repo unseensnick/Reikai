@@ -88,6 +88,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Reikai can now send crash reports so bugs get found and fixed faster, and both they and anonymous usage data are opt-out under Settings -> Security and privacy.** Onboarding offers the same choice on a fresh install.
 - **Every release now also has a `-foss` APK with no crash reporting or analytics in it at all.** It installs as a separate app, so it can sit alongside your normal one.
 - **A new Tokyo Night app theme, selectable under Settings -> Appearance.**
+- **Every icon in the app is now drawn in Google's newer Material Symbols style (synced from Mihon, mihonapp/mihon#3873).** Eleven that Mihon does not ship, like the novel reader's text-alignment controls and the gallery star ratings, keep the look they have now.
 - **Settings -> About now links Reikai's website and privacy policy.** Both open reikai.app, which is where the documentation lives.
 - **Settings -> Advanced has a new switch, "Solve interactive Cloudflare challenges", that ticks the verification box instead of giving up on it.** It works while you are using the app, and a second switch beneath it extends that to library updates that run when the app is not open.
 

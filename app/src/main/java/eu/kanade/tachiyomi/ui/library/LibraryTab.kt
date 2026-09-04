@@ -17,9 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -71,6 +68,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Help
+import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -575,7 +575,7 @@ data object LibraryTab : Tab {
                             else -> listOf(
                                 EmptyScreenAction(
                                     stringRes = MR.strings.getting_started_guide,
-                                    icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                                    icon = MaterialSymbols.AutoMirroredRounded.Help,
                                     onClick = { handler.openUri(GETTING_STARTED_URL) },
                                 ),
                             )
@@ -595,7 +595,7 @@ data object LibraryTab : Tab {
                             listOf(
                                 EmptyScreenAction(
                                     stringRes = MR.strings.action_global_search,
-                                    icon = Icons.Outlined.TravelExplore,
+                                    icon = MaterialSymbols.Rounded.TravelExplore,
                                     onClick = {
                                         navigator.push(
                                             EntryGlobalSearchScreen(query, scopedContentType = libraryContentType),

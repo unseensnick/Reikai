@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,6 +26,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Pause
+import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import kotlin.math.roundToInt
 
 private val PuckSize = 44.dp
@@ -102,7 +102,11 @@ fun NovelTtsFloatingButton(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = if (playing) {
+                        MaterialSymbols.Rounded.Pause
+                    } else {
+                        MaterialSymbols.RoundedFilled.PlayArrow
+                    },
                     contentDescription = if (playing) "Pause read-aloud" else "Read aloud",
                     modifier = Modifier.size(24.dp),
                 )

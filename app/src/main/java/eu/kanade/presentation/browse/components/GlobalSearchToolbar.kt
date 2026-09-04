@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -28,6 +23,11 @@ import androidx.compose.ui.Modifier
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.PushPin
+import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.SearchSourceFilter
@@ -97,7 +97,7 @@ fun GlobalSearchToolbar(
                                     add(
                                         AppBar.Action(
                                             title = stringResource(MR.strings.action_bulk_select),
-                                            icon = Icons.Outlined.Checklist,
+                                            icon = MaterialSymbols.Rounded.SelectAll,
                                             onClick = onToggleSelectionMode,
                                         ),
                                     )

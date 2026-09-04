@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Add
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.ExpandLess
+import mihon.icons.materialsymbols.rounded.ExpandMore
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -76,13 +76,16 @@ fun PreferredSourcesContent(
             itemsIndexed(preferred, key = { _, item -> item.key }) { index, item ->
                 SourceRow(item) {
                     IconButton(onClick = { onMoveUp(item.key) }, enabled = index > 0) {
-                        Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null)
+                        Icon(MaterialSymbols.Rounded.ExpandLess, contentDescription = null)
                     }
                     IconButton(onClick = { onMoveDown(item.key) }, enabled = index < preferred.lastIndex) {
-                        Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null)
+                        Icon(MaterialSymbols.Rounded.ExpandMore, contentDescription = null)
                     }
                     IconButton(onClick = { onRemove(item.key) }) {
-                        Icon(Icons.Outlined.Close, contentDescription = stringResource(MR.strings.action_remove))
+                        Icon(
+                            MaterialSymbols.Rounded.Close,
+                            contentDescription = stringResource(MR.strings.action_remove),
+                        )
                     }
                 }
             }
@@ -101,7 +104,7 @@ fun PreferredSourcesContent(
             items(available, key = { it.key }) { item ->
                 SourceRow(item, modifier = Modifier.clickable { onAdd(item.key) }) {
                     IconButton(onClick = { onAdd(item.key) }) {
-                        Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.action_add))
+                        Icon(MaterialSymbols.Rounded.Add, contentDescription = stringResource(MR.strings.action_add))
                     }
                 }
             }

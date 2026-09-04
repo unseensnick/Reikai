@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Circle
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +42,11 @@ import eu.kanade.presentation.manga.components.swipeActionThreshold
 import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.download.model.Download
 import me.saket.swipe.SwipeableActionsBox
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.ExpandLess
+import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.roundedfilled.Bookmark
+import mihon.icons.materialsymbols.roundedfilled.Circle
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.components.percentProgressLabel
@@ -133,7 +133,7 @@ fun RecentsGroupRow(
             }
         }
         Icon(
-            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            imageVector = if (expanded) MaterialSymbols.Rounded.ExpandLess else MaterialSymbols.Rounded.ExpandMore,
             contentDescription = null,
             modifier = Modifier.padding(start = 4.dp),
         )
@@ -209,7 +209,7 @@ fun RecentsGroupChildRow(
                 var textHeight by remember { mutableIntStateOf(0) }
                 if (state.bookmark) {
                     Icon(
-                        imageVector = Icons.Filled.Bookmark,
+                        imageVector = MaterialSymbols.RoundedFilled.Bookmark,
                         contentDescription = stringResource(MR.strings.action_filter_bookmarked),
                         modifier = Modifier
                             .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
@@ -346,7 +346,7 @@ fun RecentsCombinedRow(
                         }
                         if (bookmark) {
                             Icon(
-                                imageVector = Icons.Filled.Bookmark,
+                                imageVector = MaterialSymbols.RoundedFilled.Bookmark,
                                 contentDescription = stringResource(MR.strings.action_filter_bookmarked),
                                 modifier = Modifier
                                     .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
@@ -428,7 +428,7 @@ fun readProgressLabel(progress: ChapterProgress?): String? = when (progress) {
 @Composable
 private fun UnreadDot() {
     Icon(
-        imageVector = Icons.Filled.Circle,
+        imageVector = MaterialSymbols.RoundedFilled.Circle,
         contentDescription = null,
         modifier = Modifier
             .height(8.dp)

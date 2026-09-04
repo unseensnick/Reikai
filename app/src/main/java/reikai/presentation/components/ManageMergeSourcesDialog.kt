@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CallSplit
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +29,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.DragHandle
+import mihon.icons.materialsymbols.rounded.SelectAll
+import mihon.icons.materialsymbols.rounded.SwapCalls
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -124,7 +124,7 @@ fun ManageMergeSourcesDialog(
                     onClick = { if (selectionMode) exitSelection() else selectionMode = true },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Checklist,
+                        imageVector = MaterialSymbols.Rounded.SelectAll,
                         contentDescription = stringResource(MR.strings.action_bulk_select),
                         tint = if (selectionMode) {
                             MaterialTheme.colorScheme.primary
@@ -237,7 +237,7 @@ private fun ReorderableCollectionItemScope.SourceRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Outlined.DragHandle,
+            imageVector = MaterialSymbols.Rounded.DragHandle,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
@@ -273,13 +273,13 @@ private fun ReorderableCollectionItemScope.SourceRow(
         if (!selectionMode) {
             IconButton(onClick = onSplit) {
                 Icon(
-                    imageVector = Icons.Outlined.CallSplit,
+                    imageVector = MaterialSymbols.Rounded.SwapCalls,
                     contentDescription = stringResource(MR.strings.merge_sources_split_action),
                 )
             }
             IconButton(onClick = onRemove) {
                 Icon(
-                    imageVector = Icons.Outlined.Close,
+                    imageVector = MaterialSymbols.Rounded.Close,
                     contentDescription = stringResource(MR.strings.merge_sources_remove_action),
                 )
             }

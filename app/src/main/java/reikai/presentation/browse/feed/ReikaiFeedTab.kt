@@ -6,11 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,6 +24,11 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Sort
+import mihon.icons.materialsymbols.rounded.Add
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.BulkCategoryDialogs
@@ -115,7 +115,7 @@ fun Screen.reikaiFeedTab(): TabContent {
             listOf(
                 AppBar.Action(
                     title = stringResource(MR.strings.action_done_reordering),
-                    icon = Icons.Outlined.Close,
+                    icon = MaterialSymbols.Rounded.Close,
                     onClick = { reordering = false },
                 ),
             )
@@ -123,17 +123,17 @@ fun Screen.reikaiFeedTab(): TabContent {
             listOfNotNull(
                 AppBar.Action(
                     title = stringResource(MR.strings.action_add_to_feed),
-                    icon = Icons.Outlined.Add,
+                    icon = MaterialSymbols.Rounded.Add,
                     onClick = model::openAddDialog,
                 ),
                 AppBar.Action(
                     title = stringResource(MR.strings.action_reorder_feed),
-                    icon = Icons.Outlined.SwapVert,
+                    icon = MaterialSymbols.AutoMirroredRounded.Sort,
                     onClick = { reordering = true },
                 ).takeIf { state.entries.size > 1 },
                 AppBar.Action(
                     title = stringResource(MR.strings.action_bulk_select),
-                    icon = Icons.Outlined.Checklist,
+                    icon = MaterialSymbols.Rounded.SelectAll,
                     onClick = { mangaBulk.toggleSelectionMode(true) },
                 ).takeIf { state.entries.isNotEmpty() },
             )

@@ -10,12 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.NewReleases
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -60,6 +54,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.NewReleases
+import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
@@ -476,7 +476,7 @@ class EntryCatalogueScreen(
         ) {
             ListingChip(
                 selected = loaded.listing == EntryBrowseListing.Popular,
-                icon = Icons.Outlined.Favorite,
+                icon = MaterialSymbols.Rounded.Favorite,
                 label = stringResource(MR.strings.popular),
                 onClick = {
                     onClearSavedSearch()
@@ -486,7 +486,7 @@ class EntryCatalogueScreen(
             if (loaded.supportsLatest) {
                 ListingChip(
                     selected = loaded.listing == EntryBrowseListing.Latest,
-                    icon = Icons.Outlined.NewReleases,
+                    icon = MaterialSymbols.Rounded.NewReleases,
                     label = stringResource(MR.strings.latest),
                     onClick = {
                         onClearSavedSearch()
@@ -497,7 +497,7 @@ class EntryCatalogueScreen(
             if (loaded.hasFilters) {
                 ListingChip(
                     selected = loaded.filtersActive,
-                    icon = Icons.Outlined.FilterList,
+                    icon = MaterialSymbols.Rounded.FilterList,
                     label = stringResource(MR.strings.action_filter),
                     onClick = {
                         // Opening the sheet, not only applying from it: whatever the reader does next
@@ -554,7 +554,7 @@ class EntryCatalogueScreen(
             selected = selected,
             onClick = onClick,
             leadingIcon = {
-                Icon(Icons.Outlined.BookmarkBorder, null, Modifier.size(FilterChipDefaults.IconSize))
+                Icon(MaterialSymbols.RoundedFilled.Bookmark, null, Modifier.size(FilterChipDefaults.IconSize))
             },
             label = {
                 Text(
@@ -592,7 +592,7 @@ class EntryCatalogueScreen(
                     message = state.message,
                     modifier = Modifier.padding(contentPadding),
                     actions = listOf(
-                        EmptyScreenAction(MR.strings.action_retry, Icons.Outlined.Refresh, state.reload),
+                        EmptyScreenAction(MR.strings.action_retry, MaterialSymbols.Rounded.Refresh, state.reload),
                     ),
                 )
                 else -> Unit

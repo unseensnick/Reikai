@@ -22,18 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.ZeroCornerSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.BookmarkRemove
-import androidx.compose.material.icons.outlined.CallSplit
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Merge
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.RemoveDone
-import androidx.compose.material.icons.outlined.SwapCalls
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +52,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Label
+import mihon.icons.materialsymbols.rounded.BookmarkAdd
+import mihon.icons.materialsymbols.rounded.BookmarkRemove
+import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.MoreVert
+import mihon.icons.materialsymbols.rounded.RemoveDone
+import mihon.icons.materialsymbols.rounded.SwapCalls
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Duration.Companion.seconds
@@ -115,7 +113,7 @@ fun MangaBottomActionMenu(
                 if (onBookmarkClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_bookmark),
-                        icon = Icons.Outlined.BookmarkAdd,
+                        icon = MaterialSymbols.Rounded.BookmarkAdd,
                         toConfirm = confirm[0],
                         onLongClick = { onLongClickItem(0) },
                         onClick = onBookmarkClicked,
@@ -124,7 +122,7 @@ fun MangaBottomActionMenu(
                 if (onRemoveBookmarkClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_remove_bookmark),
-                        icon = Icons.Outlined.BookmarkRemove,
+                        icon = MaterialSymbols.Rounded.BookmarkRemove,
                         toConfirm = confirm[1],
                         onLongClick = { onLongClickItem(1) },
                         onClick = onRemoveBookmarkClicked,
@@ -133,7 +131,7 @@ fun MangaBottomActionMenu(
                 if (onMarkAsReadClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_mark_as_read),
-                        icon = Icons.Outlined.DoneAll,
+                        icon = MaterialSymbols.Rounded.DoneAll,
                         toConfirm = confirm[2],
                         onLongClick = { onLongClickItem(2) },
                         onClick = onMarkAsReadClicked,
@@ -142,7 +140,7 @@ fun MangaBottomActionMenu(
                 if (onMarkAsUnreadClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_mark_as_unread),
-                        icon = Icons.Outlined.RemoveDone,
+                        icon = MaterialSymbols.Rounded.RemoveDone,
                         toConfirm = confirm[3],
                         onLongClick = { onLongClickItem(3) },
                         onClick = onMarkAsUnreadClicked,
@@ -160,7 +158,7 @@ fun MangaBottomActionMenu(
                 if (onDownloadClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_download),
-                        icon = Icons.Outlined.Download,
+                        icon = MaterialSymbols.Rounded.Download,
                         toConfirm = confirm[5],
                         onLongClick = { onLongClickItem(5) },
                         onClick = onDownloadClicked,
@@ -169,7 +167,7 @@ fun MangaBottomActionMenu(
                 if (onDeleteClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_delete),
-                        icon = Icons.Outlined.Delete,
+                        icon = MaterialSymbols.Rounded.Delete,
                         toConfirm = confirm[6],
                         onLongClick = { onLongClickItem(6) },
                         onClick = onDeleteClicked,
@@ -280,21 +278,21 @@ fun LibraryBottomActionMenu(
             ) {
                 Button(
                     title = stringResource(MR.strings.action_move_category),
-                    icon = Icons.AutoMirrored.Outlined.Label,
+                    icon = MaterialSymbols.AutoMirroredRounded.Label,
                     toConfirm = confirm[0],
                     onLongClick = { onLongClickItem(0) },
                     onClick = onChangeCategoryClicked,
                 )
                 Button(
                     title = stringResource(MR.strings.action_mark_as_read),
-                    icon = Icons.Outlined.DoneAll,
+                    icon = MaterialSymbols.Rounded.DoneAll,
                     toConfirm = confirm[1],
                     onLongClick = { onLongClickItem(1) },
                     onClick = onMarkAsReadClicked,
                 )
                 Button(
                     title = stringResource(MR.strings.action_mark_as_unread),
-                    icon = Icons.Outlined.RemoveDone,
+                    icon = MaterialSymbols.Rounded.RemoveDone,
                     toConfirm = confirm[2],
                     onLongClick = { onLongClickItem(2) },
                     onClick = onMarkAsUnreadClicked,
@@ -303,7 +301,7 @@ fun LibraryBottomActionMenu(
                 if (onMergeClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_merge),
-                        icon = Icons.Outlined.Merge,
+                        icon = MaterialSymbols.Rounded.SwapCalls,
                         toConfirm = false,
                         onLongClick = {},
                         onClick = onMergeClicked,
@@ -313,7 +311,7 @@ fun LibraryBottomActionMenu(
                 if (onUnmergeClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_unmerge),
-                        icon = Icons.Outlined.CallSplit,
+                        icon = MaterialSymbols.Rounded.SwapCalls,
                         toConfirm = false,
                         onLongClick = {},
                         onClick = onUnmergeClicked,
@@ -323,7 +321,7 @@ fun LibraryBottomActionMenu(
                     var downloadExpanded by remember { mutableStateOf(false) }
                     Button(
                         title = stringResource(MR.strings.action_download),
-                        icon = Icons.Outlined.Download,
+                        icon = MaterialSymbols.Rounded.Download,
                         toConfirm = confirm[3],
                         onLongClick = { onLongClickItem(3) },
                         onClick = { downloadExpanded = !downloadExpanded },
@@ -340,7 +338,7 @@ fun LibraryBottomActionMenu(
                     if (onMigrateClicked != null) {
                         Button(
                             title = stringResource(MR.strings.migrate),
-                            icon = Icons.Outlined.SwapCalls,
+                            icon = MaterialSymbols.Rounded.SwapCalls,
                             toConfirm = confirm[4],
                             onLongClick = { onLongClickItem(4) },
                             onClick = onMigrateClicked,
@@ -348,7 +346,7 @@ fun LibraryBottomActionMenu(
                     }
                     Button(
                         title = stringResource(MR.strings.action_delete),
-                        icon = Icons.Outlined.Delete,
+                        icon = MaterialSymbols.Rounded.Delete,
                         toConfirm = confirm[5],
                         onLongClick = { onLongClickItem(5) },
                         onClick = onDeleteClicked,
@@ -357,7 +355,7 @@ fun LibraryBottomActionMenu(
                     var overflowMenuOpen by remember { mutableStateOf(false) }
                     Button(
                         title = stringResource(MR.strings.label_more),
-                        icon = Icons.Outlined.MoreVert,
+                        icon = MaterialSymbols.Rounded.MoreVert,
                         toConfirm = false,
                         onLongClick = {},
                         onClick = { overflowMenuOpen = true },

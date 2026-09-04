@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.StarHalf
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -46,6 +42,10 @@ import exh.metadata.metadata.RaisedSearchMetadata
 import exh.util.SourceTagsUtil
 import exh.util.SourceTagsUtil.GenreColor
 import reikai.presentation.browse.catalogue.EntryBrowseRow
+import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.icons.Star
+import reikai.presentation.icons.StarBorder
+import reikai.presentation.icons.StarHalf
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
@@ -279,9 +279,9 @@ private fun RatingStars(
     ) {
         for (star in 1..5) {
             val icon = when {
-                rating >= star -> Icons.Filled.Star
-                rating >= star - 0.5f -> Icons.AutoMirrored.Filled.StarHalf
-                else -> Icons.Filled.StarBorder
+                rating >= star -> ReikaiIcons.Star
+                rating >= star - 0.5f -> ReikaiIcons.StarHalf
+                else -> ReikaiIcons.StarBorder
             }
             Icon(
                 imageVector = icon,

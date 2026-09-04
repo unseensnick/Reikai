@@ -18,12 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
-import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.FormatAlignCenter
-import androidx.compose.material.icons.filled.FormatAlignJustify
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -60,8 +54,15 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import kotlinx.coroutines.delay
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.ExpandMore
 import reikai.domain.novel.tts.TtsEngineInfo
 import reikai.domain.novel.tts.TtsVoice
+import reikai.presentation.icons.FormatAlignCenter
+import reikai.presentation.icons.FormatAlignJustify
+import reikai.presentation.icons.FormatAlignLeft
+import reikai.presentation.icons.FormatAlignRight
+import reikai.presentation.icons.ReikaiIcons
 import tachiyomi.presentation.core.components.lockPagerSwipeWhileDragging
 import tachiyomi.presentation.core.i18n.stringResource
 import java.util.Locale
@@ -145,11 +146,11 @@ fun NovelReaderSettingsSheet(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        AlignButton(Icons.AutoMirrored.Filled.FormatAlignLeft, "left", settings.textAlign, onTextAlign)
-                        AlignButton(Icons.Filled.FormatAlignCenter, "center", settings.textAlign, onTextAlign)
-                        AlignButton(Icons.Filled.FormatAlignJustify, "justify", settings.textAlign, onTextAlign)
+                        AlignButton(ReikaiIcons.FormatAlignLeft, "left", settings.textAlign, onTextAlign)
+                        AlignButton(ReikaiIcons.FormatAlignCenter, "center", settings.textAlign, onTextAlign)
+                        AlignButton(ReikaiIcons.FormatAlignJustify, "justify", settings.textAlign, onTextAlign)
                         AlignButton(
-                            Icons.AutoMirrored.Filled.FormatAlignRight,
+                            ReikaiIcons.FormatAlignRight,
                             "right",
                             settings.textAlign,
                             onTextAlign,
@@ -433,7 +434,11 @@ private fun PickerRow(label: String, value: String, onClick: () -> Unit) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(value, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(
+                MaterialSymbols.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }

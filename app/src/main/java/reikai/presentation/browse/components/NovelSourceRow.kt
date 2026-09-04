@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -28,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
+import mihon.icons.materialsymbols.rounded.PushPin
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
@@ -120,7 +119,7 @@ fun NovelSourceLatestButton(onClick: () -> Unit) {
  */
 @Composable
 fun NovelSourcePinButton(isPinned: Boolean, onClick: () -> Unit) {
-    val icon = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin
+    val icon = if (isPinned) MaterialSymbols.Rounded.PushPin else MaterialSymbols.Rounded.PushPin
     val tint = if (isPinned) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -174,7 +173,7 @@ fun NovelSourceIcon(iconUrl: String?, size: Dp = 40.dp) {
         .clip(RoundedCornerShape(4.dp))
     if (iconUrl.isNullOrEmpty()) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+            imageVector = MaterialSymbols.AutoMirroredRounded.ChromeReaderMode,
             contentDescription = null,
             modifier = modifier,
         )

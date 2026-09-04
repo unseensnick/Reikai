@@ -1,10 +1,6 @@
 package reikai.presentation.recommendation.browse
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ViewList
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -27,6 +23,10 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.launch
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.ViewList
+import mihon.icons.materialsymbols.rounded.SelectAll
+import mihon.icons.materialsymbols.rounded.Visibility
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
@@ -77,7 +77,7 @@ class RelatedMangasBrowseScreen(
                             if (state.hasHidden) {
                                 IconButton(onClick = viewModel::toggleShowHidden) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Visibility,
+                                        imageVector = MaterialSymbols.Rounded.Visibility,
                                         contentDescription = stringResource(MR.strings.recs_show_hidden),
                                         tint = if (state.showHidden) {
                                             MaterialTheme.colorScheme.primary
@@ -90,7 +90,7 @@ class RelatedMangasBrowseScreen(
                             if (state.hasMultipleOrigins) {
                                 IconButton(onClick = viewModel::toggleGrouping) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.ViewList,
+                                        imageVector = MaterialSymbols.AutoMirroredRounded.ViewList,
                                         contentDescription = stringResource(MR.strings.recs_group_toggle),
                                         tint = if (state.grouped) {
                                             MaterialTheme.colorScheme.primary
@@ -102,7 +102,7 @@ class RelatedMangasBrowseScreen(
                             }
                             IconButton(onClick = viewModel::enterSelectionMode) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Checklist,
+                                    imageVector = MaterialSymbols.Rounded.SelectAll,
                                     contentDescription = stringResource(MR.strings.action_bulk_select),
                                 )
                             }

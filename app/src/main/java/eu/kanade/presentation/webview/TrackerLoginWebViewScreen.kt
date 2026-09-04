@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
@@ -29,6 +25,10 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.setUserAgent
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.Refresh
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -63,18 +63,18 @@ fun TrackerLoginWebViewScreen(
                 AppBar(
                     title = title,
                     navigateUp = onUp,
-                    navigationIcon = Icons.Outlined.Close,
+                    navigationIcon = MaterialSymbols.Rounded.Close,
                     actions = {
                         AppBarActions(
                             listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_webview_refresh),
-                                    icon = Icons.Outlined.Refresh,
+                                    icon = MaterialSymbols.Rounded.Refresh,
                                     onClick = { navigator.reload() },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.login_webview_confirm),
-                                    icon = Icons.Outlined.Check,
+                                    icon = MaterialSymbols.Rounded.Check,
                                     onClick = onConfirmLogin,
                                 ),
                             ),

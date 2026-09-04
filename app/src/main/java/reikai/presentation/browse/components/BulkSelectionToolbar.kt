@@ -1,13 +1,13 @@
 package reikai.presentation.browse.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.rounded.FlipToBack
+import mihon.icons.materialsymbols.rounded.SelectAll
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -34,7 +34,7 @@ fun BulkSelectionToolbar(
                         add(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_select_all),
-                                icon = Icons.Filled.SelectAll,
+                                icon = MaterialSymbols.Rounded.SelectAll,
                                 onClick = onSelectAll,
                             ),
                         )
@@ -43,7 +43,7 @@ fun BulkSelectionToolbar(
                         add(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_select_inverse),
-                                icon = Icons.Outlined.FlipToBack,
+                                icon = MaterialSymbols.Rounded.FlipToBack,
                                 onClick = onReverseSelection,
                             ),
                         )
@@ -51,7 +51,7 @@ fun BulkSelectionToolbar(
                     add(
                         AppBar.Action(
                             title = stringResource(MR.strings.add_to_library),
-                            icon = Icons.Filled.Favorite,
+                            icon = MaterialSymbols.Rounded.Favorite,
                             onClick = { if (selectedCount > 0) onChangeCategoryClick() },
                         ),
                     )

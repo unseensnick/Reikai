@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +23,9 @@ import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
@@ -73,7 +73,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
         actions = listOfNotNull(
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
-                icon = Icons.Outlined.TravelExplore,
+                icon = MaterialSymbols.Rounded.TravelExplore,
                 onClick = {
                     // One screen for both types; from Browse it opens on whatever the chip holds.
                     navigator.push(EntryGlobalSearchScreen())
@@ -83,7 +83,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
             // All and Manga to the manga screen left every plugin unreachable from the default chip.
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
-                icon = Icons.Outlined.FilterList,
+                icon = MaterialSymbols.Rounded.FilterList,
                 onClick = { navigator.push(EntrySourcesFilterScreen(state.contentType)) },
             ),
         ),

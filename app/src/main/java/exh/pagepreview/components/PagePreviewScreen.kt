@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.UTurnRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -33,6 +31,8 @@ import eu.kanade.presentation.manga.components.PagePreview
 import exh.pagepreview.PagePreviewState
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
+import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.icons.UTurnRight
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -191,7 +191,7 @@ fun PagePreviewTopAppBar(
                     persistentListOf(
                         AppBar.Action(
                             title = stringResource(MR.strings.page_preview_page_go_to),
-                            icon = Icons.Outlined.UTurnRight,
+                            icon = ReikaiIcons.UTurnRight,
                             onClick = onOpenPageDialog,
                         ),
                     )

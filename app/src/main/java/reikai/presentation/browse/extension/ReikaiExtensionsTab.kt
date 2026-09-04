@@ -10,12 +10,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.GetApp
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -52,6 +46,12 @@ import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.Public
+import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.rounded.Settings
 import reikai.domain.library.ContentType
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
@@ -194,7 +194,7 @@ private fun ExtensionsEmptyScreen(
                 add(
                     EmptyScreenAction(
                         stringRes = MR.strings.action_retry,
-                        icon = Icons.Outlined.Refresh,
+                        icon = MaterialSymbols.Rounded.Refresh,
                         onClick = onRetry,
                     ),
                 )
@@ -202,7 +202,7 @@ private fun ExtensionsEmptyScreen(
             add(
                 EmptyScreenAction(
                     stringRes = MR.strings.repos,
-                    icon = Icons.Outlined.Settings,
+                    icon = MaterialSymbols.Rounded.Settings,
                     onClick = onOpenRepos,
                 ),
             )
@@ -425,7 +425,7 @@ private fun NovelExtensionRow(
                 NovelRowAction(inProgress = canonicalizePluginUrl(payload.entry.url) in state.inProgress) {
                     IconButton(onClick = { model.update(payload) }) {
                         Icon(
-                            imageVector = Icons.Outlined.GetApp,
+                            imageVector = MaterialSymbols.Rounded.Download,
                             contentDescription = stringResource(MR.strings.ext_update),
                         )
                     }
@@ -443,7 +443,7 @@ private fun NovelExtensionRow(
             action = {
                 IconButton(onClick = { model.uninstall(payload) }) {
                     Icon(
-                        imageVector = Icons.Outlined.Delete,
+                        imageVector = MaterialSymbols.Rounded.Delete,
                         contentDescription = stringResource(MR.strings.ext_uninstall),
                     )
                 }
@@ -465,14 +465,14 @@ private fun NovelExtensionRow(
                         if (payload.site.isNotEmpty()) {
                             IconButton(onClick = { navigator.push(webViewFor(payload)) }) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Public,
+                                    imageVector = MaterialSymbols.Rounded.Public,
                                     contentDescription = stringResource(MR.strings.action_open_in_web_view),
                                 )
                             }
                         }
                         IconButton(onClick = { model.install(payload) }) {
                             Icon(
-                                imageVector = Icons.Outlined.GetApp,
+                                imageVector = MaterialSymbols.Rounded.Download,
                                 contentDescription = stringResource(MR.strings.ext_install),
                             )
                         }

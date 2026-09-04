@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Label
+import mihon.icons.materialsymbols.rounded.ExpandLess
+import mihon.icons.materialsymbols.rounded.ExpandMore
 
 /**
  * Floating category jump control for the single-list library: previous category / scroll to
@@ -45,7 +45,7 @@ fun ReikaiCategoryHopper(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onUpClick) {
-                Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = null)
+                Icon(imageVector = MaterialSymbols.Rounded.ExpandLess, contentDescription = null)
             }
             // Raw combinedClickable (not IconButton) since IconButton has no long-press slot.
             Box(
@@ -55,10 +55,10 @@ fun ReikaiCategoryHopper(
                     .combinedClickable(onClick = onCenterClick, onLongClick = onCenterLongClick),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(imageVector = Icons.AutoMirrored.Outlined.Label, contentDescription = null)
+                Icon(imageVector = MaterialSymbols.AutoMirroredRounded.Label, contentDescription = null)
             }
             IconButton(onClick = onDownClick) {
-                Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                Icon(imageVector = MaterialSymbols.Rounded.ExpandMore, contentDescription = null)
             }
         }
     }

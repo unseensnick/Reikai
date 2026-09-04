@@ -7,10 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -34,6 +30,10 @@ import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Help
+import mihon.icons.materialsymbols.rounded.Public
+import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.presentation.browse.EntryBrowseGridCell
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -106,8 +106,8 @@ fun EntryBrowseCatalogue(
             actions = onLocalSourceHelpClick?.let {
                 listOf(EmptyScreenAction(MR.strings.local_source_help_guide, HelpIcon, it))
             } ?: listOf(
-                EmptyScreenAction(MR.strings.action_retry, Icons.Outlined.Refresh, rows::refresh),
-                EmptyScreenAction(MR.strings.action_open_in_web_view, Icons.Outlined.Public) {
+                EmptyScreenAction(MR.strings.action_retry, MaterialSymbols.Rounded.Refresh, rows::refresh),
+                EmptyScreenAction(MR.strings.action_open_in_web_view, MaterialSymbols.Rounded.Public) {
                     onWebViewClick(challengeUrl)
                 },
                 EmptyScreenAction(MR.strings.label_help, HelpIcon, onHelpClick),
@@ -212,4 +212,4 @@ private fun rememberBrowseColumns(): GridCells {
 private val LazyPagingItems<*>.isAppending: Boolean
     get() = loadState.refresh is LoadState.Loading || loadState.append is LoadState.Loading
 
-private val HelpIcon = Icons.AutoMirrored.Outlined.HelpOutline
+private val HelpIcon = MaterialSymbols.AutoMirroredRounded.Help

@@ -20,20 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.PersonOutline
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AttachMoney
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Done
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.LibraryAdd
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +57,20 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Add
+import mihon.icons.materialsymbols.rounded.AttachMoney
+import mihon.icons.materialsymbols.rounded.Block
+import mihon.icons.materialsymbols.rounded.Brush
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.CollectionsBookmark
+import mihon.icons.materialsymbols.rounded.Done
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.Pause
+import mihon.icons.materialsymbols.rounded.Person
+import mihon.icons.materialsymbols.rounded.Schedule
+import mihon.icons.materialsymbols.rounded.SelectAll
+import mihon.icons.materialsymbols.rounded.Warning
 import reikai.data.novel.NovelStatusCode
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -164,7 +164,7 @@ fun <T> EntryDuplicateDialog(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Checklist,
+                            imageVector = MaterialSymbols.Rounded.SelectAll,
                             contentDescription = stringResource(MR.strings.action_bulk_select),
                             tint = if (selectionMode) {
                                 MaterialTheme.colorScheme.primary
@@ -229,7 +229,7 @@ fun <T> EntryDuplicateDialog(
                         } else {
                             stringResource(MR.strings.action_add_to_group_hint)
                         },
-                        icon = Icons.Outlined.LibraryAdd,
+                        icon = MaterialSymbols.Rounded.CollectionsBookmark,
                         onPreferenceClick = if (hasSelection) {
                             {
                                 onDismissRequest()
@@ -246,7 +246,7 @@ fun <T> EntryDuplicateDialog(
 
                 TextPreferenceWidget(
                     title = stringResource(MR.strings.action_add_anyway),
-                    icon = Icons.Outlined.Add,
+                    icon = MaterialSymbols.Rounded.Add,
                     onPreferenceClick = {
                         onDismissRequest()
                         onConfirm()
@@ -385,11 +385,11 @@ private fun EntryDuplicateCard(
         )
 
         ui.displayAuthor?.let {
-            EntryDetailRow(text = it, iconImageVector = Icons.Filled.PersonOutline, maxLines = 2)
+            EntryDetailRow(text = it, iconImageVector = MaterialSymbols.Rounded.Person, maxLines = 2)
         }
 
         ui.displayArtist?.let {
-            EntryDetailRow(text = it, iconImageVector = Icons.Filled.Brush, maxLines = 2)
+            EntryDetailRow(text = it, iconImageVector = MaterialSymbols.Rounded.Brush, maxLines = 2)
         }
 
         EntryDetailRow(
@@ -405,7 +405,7 @@ private fun EntryDuplicateCard(
         ) {
             if (ui.source is EntrySourceLabel.Missing) {
                 Icon(
-                    imageVector = Icons.Filled.Warning,
+                    imageVector = MaterialSymbols.Rounded.Warning,
                     contentDescription = null,
                     modifier = Modifier.size(EntryDetailsIconWidth),
                     tint = MaterialTheme.colorScheme.error,
@@ -450,13 +450,13 @@ private fun EntryDetailRow(
 
 /** SManga and NovelStatusCode share the same 0-6 codes, so one switch serves both content types. */
 private fun statusIcon(status: Long): ImageVector = when (status.toInt()) {
-    NovelStatusCode.ONGOING -> Icons.Outlined.Schedule
-    NovelStatusCode.COMPLETED -> Icons.Outlined.DoneAll
-    NovelStatusCode.LICENSED -> Icons.Outlined.AttachMoney
-    NovelStatusCode.PUBLISHING_FINISHED -> Icons.Outlined.Done
-    NovelStatusCode.CANCELLED -> Icons.Outlined.Close
-    NovelStatusCode.ON_HIATUS -> Icons.Outlined.Pause
-    else -> Icons.Outlined.Block
+    NovelStatusCode.ONGOING -> MaterialSymbols.Rounded.Schedule
+    NovelStatusCode.COMPLETED -> MaterialSymbols.Rounded.DoneAll
+    NovelStatusCode.LICENSED -> MaterialSymbols.Rounded.AttachMoney
+    NovelStatusCode.PUBLISHING_FINISHED -> MaterialSymbols.Rounded.Done
+    NovelStatusCode.CANCELLED -> MaterialSymbols.Rounded.Close
+    NovelStatusCode.ON_HIATUS -> MaterialSymbols.Rounded.Pause
+    else -> MaterialSymbols.Rounded.Block
 }
 
 /** Blank author and an artist that only repeats the author are not worth a row of their own. */

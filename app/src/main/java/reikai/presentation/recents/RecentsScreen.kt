@@ -10,14 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DeleteSweep
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.FlipToBack
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -66,6 +58,14 @@ import eu.kanade.tachiyomi.util.lang.toTimestampString
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import mihon.feature.upcoming.UpcomingScreen
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.CalendarMonth
+import mihon.icons.materialsymbols.rounded.Delete
+import mihon.icons.materialsymbols.rounded.DeleteSweep
+import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.FlipToBack
+import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -346,12 +346,12 @@ private fun RecentsToolbar(
                     listOf(
                         AppBar.Action(
                             title = stringResource(MR.strings.action_select_all),
-                            icon = Icons.Outlined.SelectAll,
+                            icon = MaterialSymbols.Rounded.SelectAll,
                             onClick = onSelectAll,
                         ),
                         AppBar.Action(
                             title = stringResource(MR.strings.action_select_inverse),
-                            icon = Icons.Outlined.FlipToBack,
+                            icon = MaterialSymbols.Rounded.FlipToBack,
                             onClick = onInvertSelection,
                         ),
                     ),
@@ -373,7 +373,7 @@ private fun RecentsToolbar(
                     add(
                         AppBar.Action(
                             title = stringResource(MR.strings.action_filter),
-                            icon = Icons.Outlined.FilterList,
+                            icon = MaterialSymbols.Rounded.FilterList,
                             iconTint = if (filterActive) {
                                 MaterialTheme.colorScheme.active
                             } else {
@@ -435,7 +435,7 @@ private fun RecentsEmptyState(
         modifier = modifier,
         actions = onFilterClicked
             ?.takeIf { filterActive }
-            ?.let { listOf(EmptyScreenAction(MR.strings.action_filter, Icons.Outlined.FilterList, it)) },
+            ?.let { listOf(EmptyScreenAction(MR.strings.action_filter, MaterialSymbols.Rounded.FilterList, it)) },
     )
 }
 
@@ -534,7 +534,7 @@ private fun RecentsMixedLaneRow(
                             enabled = !selectionActive,
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.FavoriteBorder,
+                                imageVector = MaterialSymbols.Rounded.Favorite,
                                 contentDescription = stringResource(MR.strings.add_to_library),
                             )
                         }
@@ -554,7 +554,7 @@ private fun RecentsMixedLaneRow(
                         enabled = !selectionActive,
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Delete,
+                            imageVector = MaterialSymbols.Rounded.Delete,
                             contentDescription = stringResource(MR.strings.action_delete),
                         )
                     }
@@ -876,7 +876,7 @@ private fun RecentsEntryRow(
                             enabled = !selectionActive,
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.FavoriteBorder,
+                                imageVector = MaterialSymbols.Rounded.Favorite,
                                 contentDescription = stringResource(MR.strings.add_to_library),
                             )
                         }
@@ -898,7 +898,7 @@ private fun RecentsEntryRow(
                         enabled = !selectionActive,
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Delete,
+                            imageVector = MaterialSymbols.Rounded.Delete,
                             contentDescription = stringResource(MR.strings.action_delete),
                         )
                     }

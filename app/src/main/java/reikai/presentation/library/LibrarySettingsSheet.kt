@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -25,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.sortForCategory
 import reikai.presentation.category.CategoryFilterRow
@@ -218,7 +218,7 @@ private fun ColumnScope.SortPage(
         if (mode == LibrarySort.Type.Random) {
             BaseSortItem(
                 label = stringResource(titleRes),
-                icon = Icons.Default.Refresh.takeIf { currentSort.type == LibrarySort.Type.Random },
+                icon = MaterialSymbols.Rounded.Refresh.takeIf { currentSort.type == LibrarySort.Type.Random },
                 onClick = { settings.setSort(scopeId, mode, LibrarySort.Direction.Ascending) },
             )
             return@forEach

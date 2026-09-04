@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -42,6 +38,10 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.Pause
+import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.download.DownloadQueueSortKey
@@ -138,7 +138,7 @@ object DownloadQueueScreen : Screen() {
                                 listOf(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_sort),
-                                        icon = Icons.Outlined.FilterList,
+                                        icon = MaterialSymbols.Rounded.FilterList,
                                         onClick = { showSortSheet = true },
                                     ),
                                     AppBar.OverflowAction(
@@ -170,7 +170,11 @@ object DownloadQueueScreen : Screen() {
                         Text(text = stringResource(id))
                     },
                     icon = {
-                        val icon = if (running) Icons.Outlined.Pause else Icons.Filled.PlayArrow
+                        val icon = if (running) {
+                            MaterialSymbols.Rounded.Pause
+                        } else {
+                            MaterialSymbols.RoundedFilled.PlayArrow
+                        }
                         Icon(imageVector = icon, contentDescription = null)
                     },
                     onClick = {

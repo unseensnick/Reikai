@@ -2,8 +2,6 @@ package exh.md.follows
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -23,6 +21,8 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.BulkFavoriteViewModel
@@ -91,7 +91,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                                     add(
                                         AppBar.Action(
                                             title = stringResource(MR.strings.action_bulk_select),
-                                            icon = Icons.Outlined.Checklist,
+                                            icon = MaterialSymbols.Rounded.SelectAll,
                                             onClick = bulkFavoriteViewModel::toggleSelectionMode,
                                         ),
                                     )

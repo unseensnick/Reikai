@@ -12,11 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +53,11 @@ import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.MoreVert
+import mihon.icons.materialsymbols.rounded.Search
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
@@ -144,7 +144,7 @@ class EntryMigrationListScreen(
                             listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
-                                    icon = Icons.Outlined.DoneAll,
+                                    icon = MaterialSymbols.Rounded.DoneAll,
                                     onClick = viewModel::acceptAll,
                                     // Matches acceptAll's own guard: it refuses while anything is
                                     // committing, so an enabled icon there would be a dead tap.
@@ -334,7 +334,7 @@ private fun OverridePicker(
                     enabled = query.isNotBlank(),
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Search,
+                        imageVector = MaterialSymbols.Rounded.Search,
                         contentDescription = stringResource(MR.strings.action_search),
                     )
                 }
@@ -444,11 +444,11 @@ private fun RowTrailing(
             )
             if (accepted) {
                 FilledTonalIconButton(onClick = { viewModel.toggleAccept(row.entry.id) }) {
-                    Icon(imageVector = Icons.Filled.Check, contentDescription = description)
+                    Icon(imageVector = MaterialSymbols.Rounded.Check, contentDescription = description)
                 }
             } else {
                 OutlinedIconButton(onClick = { viewModel.toggleAccept(row.entry.id) }) {
-                    Icon(imageVector = Icons.Filled.Check, contentDescription = description)
+                    Icon(imageVector = MaterialSymbols.Rounded.Check, contentDescription = description)
                 }
             }
         }
@@ -458,7 +458,7 @@ private fun RowTrailing(
     Box {
         IconButton(onClick = { menuExpanded = true }) {
             Icon(
-                imageVector = Icons.Outlined.MoreVert,
+                imageVector = MaterialSymbols.Rounded.MoreVert,
                 contentDescription = stringResource(MR.strings.action_menu_overflow_description),
             )
         }

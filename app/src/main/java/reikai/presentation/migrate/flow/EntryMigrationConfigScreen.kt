@@ -10,12 +10,6 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Deselect
-import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -65,6 +59,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
+import mihon.icons.materialsymbols.rounded.Deselect
+import mihon.icons.materialsymbols.rounded.DragHandle
+import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.NovelSourceIcon
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -123,17 +123,17 @@ class EntryMigrationConfigScreen(
                                 // them out with it, while enabledSources() never offers one.
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
-                                    icon = Icons.Outlined.SelectAll,
+                                    icon = MaterialSymbols.Rounded.SelectAll,
                                     onClick = { viewModel.selectAll() },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
-                                    icon = Icons.Outlined.Deselect,
+                                    icon = MaterialSymbols.Rounded.Deselect,
                                     onClick = { viewModel.selectNone() },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
-                                    icon = Icons.Outlined.Tune,
+                                    icon = MaterialSymbols.Rounded.FilterList,
                                     onClick = { showTuning = true },
                                 ),
                                 AppBar.OverflowAction(
@@ -153,7 +153,7 @@ class EntryMigrationConfigScreen(
                         text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
                         icon = {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                                imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
                                 contentDescription = null,
                             )
                         },
@@ -323,7 +323,7 @@ private fun SourceItem(
         trailingContent = if (dragEnabled) {
             {
                 Icon(
-                    imageVector = Icons.Outlined.DragHandle,
+                    imageVector = MaterialSymbols.Rounded.DragHandle,
                     contentDescription = null,
                     modifier = with(scope) {
                         Modifier.draggableHandle()

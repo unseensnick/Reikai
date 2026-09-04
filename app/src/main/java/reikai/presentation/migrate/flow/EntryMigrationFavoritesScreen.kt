@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.FlipToBack
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -57,6 +53,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
+import mihon.icons.materialsymbols.rounded.FlipToBack
+import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.util.system.logcat
@@ -114,12 +114,12 @@ class EntryMigrationFavoritesScreen(
                                 listOf(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_select_all),
-                                        icon = Icons.Outlined.SelectAll,
+                                        icon = MaterialSymbols.Rounded.SelectAll,
                                         onClick = viewModel::selectAll,
                                     ),
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_select_inverse),
-                                        icon = Icons.Outlined.FlipToBack,
+                                        icon = MaterialSymbols.Rounded.FlipToBack,
                                         onClick = viewModel::invertSelection,
                                     ),
                                 ),
@@ -134,7 +134,7 @@ class EntryMigrationFavoritesScreen(
                         text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
                         icon = {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                                imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
                                 contentDescription = null,
                             )
                         },

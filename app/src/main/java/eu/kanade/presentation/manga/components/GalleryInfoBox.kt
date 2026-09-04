@@ -8,14 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.StarHalf
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -38,6 +30,15 @@ import exh.metadata.metadata.MangaDexSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.util.SourceTagsUtil
 import exh.util.SourceTagsUtil.GenreColor
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
+import mihon.icons.materialsymbols.rounded.Info
+import mihon.icons.materialsymbols.rounded.Storage
+import mihon.icons.materialsymbols.roundedfilled.Bookmark
+import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.icons.Star
+import reikai.presentation.icons.StarBorder
+import reikai.presentation.icons.StarHalf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
@@ -99,7 +100,10 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
         genre?.let { (color, res) -> GenreBadge(color, stringResource(res)) }
         Spacer(Modifier.weight(1f))
         metadata.length?.let {
-            IconLabel(Icons.AutoMirrored.Outlined.MenuBook, pluralStringResource(MR.plurals.num_pages, it, it))
+            IconLabel(
+                MaterialSymbols.AutoMirroredRounded.ChromeReaderMode,
+                pluralStringResource(MR.plurals.num_pages, it, it),
+            )
             Spacer(Modifier.weight(1f))
         }
         onMoreInfoClick?.let { MoreInfoLink(it) }
@@ -112,7 +116,9 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
                 }
             },
             right = {
-                metadata.size?.let { IconLabel(Icons.Outlined.Storage, MetadataUtil.humanReadableByteCount(it, true)) }
+                metadata.size?.let {
+                    IconLabel(MaterialSymbols.Rounded.Storage, MetadataUtil.humanReadableByteCount(it, true))
+                }
             },
         )
     }
@@ -128,7 +134,7 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
                     InfoText(text)
                 }
             },
-            right = { metadata.favorites?.let { IconLabel(Icons.Outlined.Bookmark, it.toString()) } },
+            right = { metadata.favorites?.let { IconLabel(MaterialSymbols.RoundedFilled.Bookmark, it.toString()) } },
         )
     }
     if (metadata.visible != null || metadata.uploader != null) {
@@ -209,7 +215,7 @@ private fun MoreInfoLink(onClick: () -> Unit, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Info,
+            imageVector = MaterialSymbols.Rounded.Info,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp),
@@ -259,9 +265,9 @@ private fun RatingStars(rating: Float) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (star in 1..5) {
             val icon = when {
-                rating >= star -> Icons.Filled.Star
-                rating >= star - 0.5f -> Icons.AutoMirrored.Filled.StarHalf
-                else -> Icons.Filled.StarBorder
+                rating >= star -> ReikaiIcons.Star
+                rating >= star - 0.5f -> ReikaiIcons.StarHalf
+                else -> ReikaiIcons.StarBorder
             }
             Icon(
                 imageVector = icon,

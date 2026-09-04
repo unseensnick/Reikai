@@ -1,9 +1,5 @@
 package reikai.presentation.browse.catalogue
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.ViewModule
-import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
@@ -17,6 +13,10 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.ViewList
+import mihon.icons.materialsymbols.rounded.SelectAll
+import mihon.icons.materialsymbols.rounded.ViewModule
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -62,9 +62,9 @@ fun EntryCatalogueToolbar(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_display_mode),
                                 icon = if (displayMode == LibraryDisplayMode.List) {
-                                    Icons.AutoMirrored.Filled.ViewList
+                                    MaterialSymbols.AutoMirroredRounded.ViewList
                                 } else {
-                                    Icons.Filled.ViewModule
+                                    MaterialSymbols.Rounded.ViewModule
                                 },
                                 onClick = { selectingDisplayMode = true },
                             ),
@@ -75,7 +75,7 @@ fun EntryCatalogueToolbar(
                         add(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_bulk_select),
-                                icon = Icons.Outlined.Checklist,
+                                icon = MaterialSymbols.Rounded.SelectAll,
                                 onClick = onToggleSelectionMode,
                             ),
                         )

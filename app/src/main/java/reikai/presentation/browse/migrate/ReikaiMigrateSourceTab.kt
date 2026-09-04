@@ -6,12 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
-import androidx.compose.material.icons.outlined.Numbers
-import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +32,12 @@ import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrateSourceViewModel
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Help
+import mihon.icons.materialsymbols.rounded.ArrowDownward
+import mihon.icons.materialsymbols.rounded.ArrowUpward
+import mihon.icons.materialsymbols.rounded.Numbers
+import mihon.icons.materialsymbols.rounded.SortByAlpha
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.ReikaiBrowseViewModel
@@ -85,7 +85,7 @@ fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabCo
         actions = listOf(
             AppBar.Action(
                 title = stringResource(MR.strings.migration_help_guide),
-                icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                icon = MaterialSymbols.AutoMirroredRounded.Help,
                 onClick = { uriHandler.openUri("${Constants.URL_DOCS}/guides/source-migration") },
             ),
         ),
@@ -199,11 +199,11 @@ private fun MigrateSortHeader(
         IconButton(onClick = onToggleSortingMode) {
             when (sortingMode) {
                 SetMigrateSorting.Mode.ALPHABETICAL -> Icon(
-                    Icons.Outlined.SortByAlpha,
+                    MaterialSymbols.Rounded.SortByAlpha,
                     contentDescription = stringResource(MR.strings.action_sort_alpha),
                 )
                 SetMigrateSorting.Mode.TOTAL -> Icon(
-                    Icons.Outlined.Numbers,
+                    MaterialSymbols.Rounded.Numbers,
                     contentDescription = stringResource(MR.strings.action_sort_count),
                 )
             }
@@ -211,11 +211,11 @@ private fun MigrateSortHeader(
         IconButton(onClick = onToggleSortingDirection) {
             when (sortingDirection) {
                 SetMigrateSorting.Direction.ASCENDING -> Icon(
-                    Icons.Outlined.ArrowUpward,
+                    MaterialSymbols.Rounded.ArrowUpward,
                     contentDescription = stringResource(MR.strings.action_asc),
                 )
                 SetMigrateSorting.Direction.DESCENDING -> Icon(
-                    Icons.Outlined.ArrowDownward,
+                    MaterialSymbols.Rounded.ArrowDownward,
                     contentDescription = stringResource(MR.strings.action_desc),
                 )
             }
