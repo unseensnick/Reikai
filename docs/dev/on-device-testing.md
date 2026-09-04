@@ -9,9 +9,9 @@ loopback failure for Gradle and mangles `/sdcard`-style paths via MSYS).
 ## 0. Facts you need first
 
 - **adb:** `$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe` (there's a `sqlite3.exe` beside it for DB pulls).
-- **Debug package:** `eu.kanade.tachiyomi.debugY2k` (the instrumented test package is `…debugY2k.test`).
+- **Debug package:** `app.reikai.dev` (the instrumented test package is `app.reikai.dev.test`).
 - **Build + install** (JDK not on PATH, set JAVA_HOME inline): `$env:JAVA_HOME="$HOME\.jdks\temurin-21.0.11"; & ".\gradlew.bat" :app:installDebug --offline --console=plain`. Compile-only: `:app:compileDebugKotlin`.
-- **Confirm the device + that the app is installed:** `& $adb devices` and `& $adb shell pm path eu.kanade.tachiyomi.debugY2k`.
+- **Confirm the device + that the app is installed:** `& $adb devices` and `& $adb shell pm path app.reikai.dev`.
 - **Screen geometry is device-specific.** Get it with `& $adb shell wm size` (the reference Z Fold reports `1856x2160`). You need the real resolution because a screenshot you read back is downscaled, so tap coordinates must be mapped against the REAL resolution (see §2/§3).
 - **Foldables freeze the inner display when folded/asleep.** Always wake first (§1) or `screencap` returns a stale frozen frame and `input` may not land.
 
@@ -22,7 +22,7 @@ Define `$adb` once per command block: `$adb = "$env:LOCALAPPDATA\Android\Sdk\pla
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 & $adb shell input keyevent KEYCODE_WAKEUP | Out-Null
-& $adb shell monkey -p eu.kanade.tachiyomi.debugY2k -c android.intent.category.LAUNCHER 1 2>&1 | Out-Null
+& $adb shell monkey -p app.reikai.dev -c android.intent.category.LAUNCHER 1 2>&1 | Out-Null
 ```
 
 `monkey … LAUNCHER 1` reopens the app on its last screen. Installing a fresh APK restarts it.
@@ -136,7 +136,7 @@ Ground-truth via app state (text over stdout, sandbox-safe, no local write):
 
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
-$pkg = "eu.kanade.tachiyomi.debugY2k"
+$pkg = "app.reikai.dev"
 # a pref actually persisted (e.g. a filter toggle / include-exclude set):
 & $adb shell run-as $pkg cat /data/data/$pkg/shared_prefs/${pkg}_preferences.xml | Select-String 'pref_filter_library_categories'
 # a download actually enqueued (the queue store gains entries; it drains as the job runs):
@@ -203,7 +203,7 @@ $env:JAVA_HOME="$HOME\.jdks\temurin-21.0.11"
 & ".\gradlew.bat" :app:installDebug :app:installDebugAndroidTest --offline --console=plain
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 & $adb logcat -c
-& $adb shell am instrument -w -e class reikai.novel.host.HeadlessJsIntegrationTest#lnPluginsRunInProductionHeadlessHost eu.kanade.tachiyomi.debugY2k.test/androidx.test.runner.AndroidJUnitRunner
+& $adb shell am instrument -w -e class reikai.novel.host.HeadlessJsIntegrationTest#lnPluginsRunInProductionHeadlessHost app.reikai.dev.test/androidx.test.runner.AndroidJUnitRunner
 & $adb logcat -d -s HeadlessJsTest:I       # the per-plugin breakdown
 ```
 
@@ -232,7 +232,7 @@ No on-device `sqlite3`. Pull the DB binary-safe and query locally. Binary pulls 
 tool (relative remote path; PowerShell `>` corrupts binary), then `sqlite3.exe` locally:
 
 ```bash
-adb exec-out run-as eu.kanade.tachiyomi.debugY2k cat databases/tachiyomi.db > local.db
+adb exec-out run-as app.reikai.dev cat databases/tachiyomi.db > local.db
 # pull the -wal and -shm alongside it (WAL-aware), or VACUUM INTO a single file on-device first
 ```
 

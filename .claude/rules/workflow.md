@@ -124,4 +124,4 @@ Any remaining Reikai-own feature (the parity backlog is mostly shipped) is porte
 
 ## Identity (preserve through the rebase)
 
-Keep Reikai identity as-is when porting: `applicationId = "eu.kanade.tachiyomi"` + `.y2k` / `.debugY2k` suffix, app name `Reikai` (i18n), `google-services.json` (gitignored, never committed), README/CHANGELOG fork sections, the `// RK` marker convention. Take Mihon for everything else.
+Keep Reikai identity as-is when porting: `applicationId = "app.reikai"` with upstream's build-type suffixes, app name `Reikai` (i18n), `google-services.json` (gitignored, never committed), README/CHANGELOG fork sections, the `// RK` marker convention. Take Mihon for everything else.

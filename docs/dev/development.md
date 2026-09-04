@@ -6,7 +6,7 @@
 
 - GitHub: `https://github.com/unseensnick/Reikai`
 - Mihon upstream: `https://github.com/mihonapp/mihon`
-- Package ID: `eu.kanade.tachiyomi`, release suffix `.y2k` (debug `.debugY2k`). Legacy, kept so existing installs upgrade in place. Mihon's own applicationId is `app.mihon`; the `eu.kanade.tachiyomi` namespace is shared by both, so source classes resolve either way.
+- Package ID: `app.reikai`, with no suffix on release and upstream's suffixes elsewhere (`.dev` debug, `.debug` preview, `.foss`, `.benchmark`). Renamed at 0.3.2 from `eu.kanade.tachiyomi` + `.y2k`. The `eu.kanade.tachiyomi` **namespace** is unchanged and shared with Mihon, so source classes and installed extensions resolve either way.
 - App name string: `Reikai` (`i18n/src/commonMain/moko-resources/base/strings.xml`).
 - The **database** is not interchangeable with the old Yōkai-based builds: the schema differs, so a Mihon-based install cannot open a Yōkai-Reikai `tachiyomi.db`, which is why `LegacyYokaiDbImporter` exists. **Backup files are** interchangeable: the proto is shared and each side's extra field numbers are disjoint, so a Yōkai `.tachibk` restores here and vice versa.
 
@@ -27,7 +27,7 @@ The working rules under `.claude/rules/` are the single source of truth; this do
 
 - Android Studio (`Build → Make/Rebuild`). JDK 21 (Temurin 21.0.11; matches `.github/.java-version`). Formatting via Spotless (`./gradlew spotlessApply`).
 - `minSdk 26`, `targetSdk 36`, `compileSdk 37`.
-- No product flavors. Build types: `debug` (`.debugY2k`), `release` (`.y2k`), `foss`, `nightly`, `benchmark`. Release builds use AGP-native signing with the real key when CI secrets or a local `keystore.properties` are present, else they fall back to debug-signed (see the `// RK` signing block in `app/build.gradle.kts`). The `nightly` build type is the pre-release channel; it installs as `eu.kanade.tachiyomi.debug`.
+- No product flavors. Build types: `debug` (`.dev`), `release` (no suffix), `foss`, `nightly` (`.debug`), `benchmark`. Release builds use AGP-native signing with the real key when CI secrets or a local `keystore.properties` are present, else they fall back to debug-signed (see the `// RK` signing block in `app/build.gradle.kts`). The `nightly` build type is the pre-release channel; it installs as `app.reikai.debug`.
 - Domain tests: `./gradlew :domain:test`.
 - CLI Gradle is intermittent on the dev machine (loopback flake); build/test on-device in Android Studio when it fails.
 

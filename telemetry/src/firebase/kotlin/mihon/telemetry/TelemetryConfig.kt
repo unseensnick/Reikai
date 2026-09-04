@@ -2,7 +2,6 @@ package mihon.telemetry
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -15,7 +14,7 @@ object TelemetryConfig {
 
     fun init(context: Context) {
         // To stop forks/test builds from polluting our data
-        if (!context.isReikaiProductionApp()) return
+        if (!context.isReikaiProductionApp()) return // RK: Reikai's own gate, see the island below
 
         // Check if Google Play Services is available before initializing Firebase
         if (!isGooglePlayServicesAvailable(context)) {
@@ -25,7 +24,6 @@ object TelemetryConfig {
 
         try {
             analytics = FirebaseAnalytics.getInstance(context)
-            analytics?.setUserProperty("preferred_abi", Build.SUPPORTED_ABIS[0])
             FirebaseApp.initializeApp(context)
             crashlytics = FirebaseCrashlytics.getInstance()
         } catch (e: Exception) {
@@ -62,10 +60,10 @@ object TelemetryConfig {
     }
 }
 
-// The stable and preview packages only: the local debugY2k build is deliberately absent, so a dev
-// build never reports even if it is signed with the release key (a local keystore.properties makes
-// that the default).
-private val REIKAI_PACKAGES = hashSetOf("eu.kanade.tachiyomi.y2k", "eu.kanade.tachiyomi.debug")
+// The stable and preview packages only: the local dev build is deliberately absent, so it never
+// reports even when signed with the release key, which a local signing config makes the default.
+// Matched exactly, so a package rename silently stops all reporting until this list moves with it.
+private val REIKAI_PACKAGES = hashSetOf("app.reikai", "app.reikai.debug")
 private const val REIKAI_CERTIFICATE_FINGERPRINT =
     "D0:E2:7C:7C:43:A6:BE:B1:66:BB:18:83:19:EE:4A:03:4F:7B:F0:A3:9B:CC:03:EC:E6:49:5C:E0:8F:5D:D6:EC"
 // RK <--

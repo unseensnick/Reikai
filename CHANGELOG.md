@@ -405,6 +405,19 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The app now wires its components together at build time instead of looking them up while running, closing a class of crash that only showed up in release builds (synced from Mihon, mihonapp/mihon#3608). The light-novel reader keeps the old wiring until it is rebuilt.
 - Light-novel browse now pages through the same paging library the manga catalogue uses, instead of its own hand-rolled pager.
 
+## [0.3.2]
+
+### Changes
+
+- **This release cannot update your current Reikai, so it installs alongside it and you will need to move your library across.** Reikai had been identifying itself to Android as Tachiyomi; it now uses its own identifier, and Android treats that as a different app.
+
+**Moving your library across**
+
+- **Back up first from Settings > Data and storage > Backup and restore > Create backup, ticking "Include sensitive settings" so your tracker logins come with it.** Everything else in the backup is included by default.
+- **Install this release, then choose the same storage folder when it asks.** Your downloads, local source files and old backups are all in there, and it finds them again once you point at it.
+- **Restore that backup, then uninstall the old Reikai.** Left installed, it will keep offering updates it can no longer install.
+- **Covers you set by hand are the one thing a backup cannot bring across.** They live inside the old app and are removed with it, so set those again afterwards.
+
 ## [0.3.1]
 
 ### Additions

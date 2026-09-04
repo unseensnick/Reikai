@@ -52,7 +52,7 @@ EVERY commit (including `docs` / `chore` / one-line fixes) follows the "Commit m
 
 ## Identity (load-bearing, preserve through the rebase)
 
-`applicationId = "eu.kanade.tachiyomi"` with release suffix `.y2k` (and debug `.debugY2k`), so existing installs upgrade in place. Mihon's own `applicationId` is `app.mihon`; the namespace `eu.kanade.tachiyomi` is shared by both, so source classes resolve either way. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Keep the `.y2k` suffix and app name; take Mihon for everything else.
+`applicationId = "app.reikai"`, with upstream's suffixes on top of it: `.dev` for debug, `.debug` for preview, `.foss`, `.benchmark`, and none at all on release. The **namespace** stays `eu.kanade.tachiyomi`, which Mihon shares, so source classes and installed extensions resolve either way. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Renamed at 0.3.2 from `eu.kanade.tachiyomi` + `.y2k`, which was Tachiyomi's id rather than the fork's own; because Android identifies an app by that id, 0.3.2 installs beside an older build instead of over it. Keep the id and app name; take Mihon for everything else.
 
 **Reikai patches on Mihon files** are fenced with `// RK -->` / `// RK <--` comment islands (grep `// RK` to find every active patch), mirroring how Komikku marks its `// SY` / `// KMK` patches. Everything that can live in its own file/module should, rather than editing Mihon's files.
 
@@ -60,7 +60,7 @@ EVERY commit (including `docs` / `chore` / one-line fixes) follows the "Commit m
 
 Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java-version`), formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. Spotless is the only formatter: there is no Kotlinter, no `lintKotlin` / `formatKotlin` task, and no pre-push hook. Use `spotlessApply` to format and `compileDebugKotlin` to check. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)
 
-**Release-type builds are minified, the `debugY2k` dev build is not**, so R8-only bugs are invisible in the normal dev loop. Metro resolves the graph at compile time and reflects on nothing, so graph-owned code carries no keep of its own; the hazard is only the surviving Injekt calls, whose generic signatures R8 strips (`FullTypeReference`). Verify anything touching those on a minified `:app:assembleNightly` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
+**Release-type builds are minified, the `debug` dev build is not**, so R8-only bugs are invisible in the normal dev loop. Metro resolves the graph at compile time and reflects on nothing, so graph-owned code carries no keep of its own; the hazard is only the surviving Injekt calls, whose generic signatures R8 strips (`FullTypeReference`). Verify anything touching those on a minified `:app:assembleNightly` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
 
 ## Current release target (next cycle, on `feat/0.4.0`)
 
