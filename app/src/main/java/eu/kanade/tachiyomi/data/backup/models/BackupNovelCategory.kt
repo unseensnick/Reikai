@@ -1,4 +1,4 @@
-// RK: novel backup (Roadmap 9). Net-new Reikai file: novel-category twin of BackupCategory. Novel
+// RK: novel backup. Net-new Reikai file: novel-category twin of BackupCategory. Novel
 // categories now share the `categories` table, but they keep their own backup list: a novel's category
 // memberships are stored as each category's `order` and resolved against this list alone, so dropping a
 // category from it would orphan them. It needs no content type of its own; a category spanning both

@@ -1,4 +1,4 @@
--- Manga custom-info overlay (P6). Net-new non-destructive table holding user edits (title/author/
+-- Manga custom-info overlay. Net-new non-destructive table holding user edits (title/author/
 -- artist/description/genre/status/thumbnail) layered over the source data at the display layer,
 -- favorites only. Reaches fresh installs via Schema.create(); existing installs need it created here or
 -- the custom_manga_info queries crash "no such table". Mirrors 24.sqm (novel_update_errors). Raw
