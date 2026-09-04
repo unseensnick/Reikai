@@ -28,6 +28,7 @@ import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.reader.removeDuplicateChapters
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
@@ -131,10 +132,6 @@ class NovelReaderScreenModel(
      *  for a merged novel), since orientation is a book-level preference like sort/filter, not the
      *  per-source progress that [currentNovelId] tracks. */
     private val orientationOverride = MutableStateFlow(ReaderOrientation.DEFAULT.flagValue)
-
-    /** Reading-order number of the current chapter; the skip-duplicate walk compares against it. */
-    @Volatile
-    private var currentNumber: Double = -1.0
 
     /** Owning novel of the current chapter. Defaults to the host (== owner for a standalone novel);
      *  a merged session re-points it per chapter so the last-read stamp lands on the source read. */
@@ -364,12 +361,35 @@ class NovelReaderScreenModel(
         if (ids.size <= 1) return chapterRepo.getByNovelId(novelId).sortedWith(readingOrder())
         val byNovel = ids.associateWith { chapterRepo.getByNovelId(it) }
         val sourceIdByNovel = ids.associateWith { novelRepo.getById(it)?.source.orEmpty() }
-        return NovelChapterAggregation.aggregate(
+        val aggregated = NovelChapterAggregation.aggregate(
             byNovel,
             sourceIdByNovel,
             reikaiLibraryPreferences.preferredNovelSources.get(),
             mergeManager.overrideRankingMemberIds(novelId),
         ).sortedWith(readingOrder())
+        return dedupIfEnabled(aggregated, sourceIdByNovel)
+    }
+
+    /**
+     * Drop same-numbered duplicates from the list rather than stepping over them while navigating, so the
+     * chapter sheet, download-ahead and delete-after-read all count what the reader actually shows. Runs
+     * for an unmerged novel too, matching the manga reader, since one source can list a chapter twice.
+     * A novel has no scanlator, so its source stands in as the origin the current chapter prefers. This is
+     * the second net: [NovelChapterAggregation] already collapses cross-source copies by normalized title,
+     * so only copies whose titles differ but whose numbers agree ever reach here.
+     */
+    private fun dedupIfEnabled(
+        chapters: List<NovelChapter>,
+        sourceIdByNovel: Map<Long, String> = emptyMap(),
+    ): List<NovelChapter> {
+        if (!skipDupePref.get()) return chapters
+        val current = chapters.find { it.id == currentId } ?: return chapters
+        return chapters.removeDuplicateChapters(
+            current,
+            numberOf = { it.chapterNumber },
+            idOf = { it.id },
+            originOf = { sourceIdByNovel[it.novelId] },
+        )
     }
 
     /** Drop user-hidden chapters from a reading-order id list so prev/next skips them, keeping the
@@ -496,19 +516,12 @@ class NovelReaderScreenModel(
         chapterReadStartTime = null
     }
 
-    /** The id [delta] steps from [currentId] in reading order. With skip-duplicate on, keeps walking
-     *  past chapters whose number matches the current one (the same-number dupes a merge produces). */
-    private suspend fun resolveNeighbor(delta: Int): Long? {
-        var index = orderedIds.indexOf(currentId)
+    /** The id one step from [currentId] in reading order. Duplicates are already gone from [orderedIds],
+     *  removed when it was built, so this never has to walk past them. */
+    private fun resolveNeighbor(delta: Int): Long? {
+        val index = orderedIds.indexOf(currentId)
         if (index < 0) return null
-        val skip = skipDupePref.get()
-        while (true) {
-            index += delta
-            val id = orderedIds.getOrNull(index) ?: return null
-            if (!skip || currentNumber <= 0.0) return id
-            val number = chapterRepo.getById(id)?.chapterNumber
-            if (number == null || number <= 0.0 || number != currentNumber) return id
-        }
+        return orderedIds.getOrNull(index + delta)
     }
 
     /** Re-resolve both neighbors (skip-duplicate aware) and warm the next chapter. */
@@ -690,7 +703,7 @@ class NovelReaderScreenModel(
                 // pass a list. A group-scoped chapter opened from History can be deduped out of the
                 // unified list, so keep it (placed by chapter number) or prev/next would break.
                 val resolved = if (sourceScoped) {
-                    chapterRepo.getByNovelId(novelId).sortedWith(readingOrder()).map { it.id }
+                    dedupIfEnabled(chapterRepo.getByNovelId(novelId).sortedWith(readingOrder())).map { it.id }
                 } else {
                     val chapters = resolveGroupChapters()
                     val withCurrent = if (chapters.any { it.id == currentId }) {
@@ -707,7 +720,6 @@ class NovelReaderScreenModel(
             }
             val id = currentId
             val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
-            currentNumber = chapter.chapterNumber
             currentNovelId = chapter.novelId
             chapterReadStartTime = System.currentTimeMillis()
             ttsController.setNowPlaying(chapter.name)

@@ -52,7 +52,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
-import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -80,6 +79,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
 import reikai.domain.reader.isChapterComplete
+import reikai.domain.reader.removeDuplicateChapters
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -375,7 +375,13 @@ class ReaderViewModel(
             .sortedWith(getChapterSort(manga, sortDescending = false))
             .run {
                 if (readerPreferences.skipDupe.get()) {
-                    removeDuplicates(selectedChapter)
+                    // RK: the shared dedup kernel, so novels drop duplicates by the same rule.
+                    removeDuplicateChapters(
+                        selectedChapter,
+                        numberOf = { it.chapterNumber },
+                        idOf = { it.id },
+                        originOf = { it.scanlator },
+                    )
                 } else {
                     this
                 }
@@ -681,7 +687,12 @@ class ReaderViewModel(
 
             val chaptersToDownload = getNextChapters.await(nextChapterManga.id, nextChapter.id!!).run {
                 if (readerPreferences.skipDupe.get()) {
-                    removeDuplicates(nextChapter.toDomainChapter()!!)
+                    removeDuplicateChapters(
+                        nextChapter.toDomainChapter()!!,
+                        numberOf = { it.chapterNumber },
+                        idOf = { it.id },
+                        originOf = { it.scanlator },
+                    )
                 } else {
                     this
                 }

@@ -312,6 +312,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The manga reader now names the chapter you are actually on while you scroll across a chapter boundary.** It briefly showed the previous chapter's title and page count beside the new chapter's page number.
 - **Each chapter you open in the manga reader now starts where you left that chapter, not where you left the one before it.** Most visible right after jumping in from a page preview.
 - **The novel reader now moves through chapters in the order you sorted that novel's chapter list.** It always read by chapter number, so a novel sorted by source, upload date or name was read in a different order than it was shown in.
+- **Skip duplicate chapters now removes them from a novel's chapter list, instead of only stepping over them.** Download ahead and delete after reading counted the duplicates, so they fetched fewer chapters than asked and could delete the wrong one.
 
 **Tracking**
 
