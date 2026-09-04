@@ -15,93 +15,43 @@
 set -u
 
 staged() { git diff --cached --name-only | grep -qx "$1"; }
-# Content-source names (adult + mainstream) that must be genericized or use an approved shorthand
-# (EH / ExH / MD / CMK) in the public-facing docs. Trackers (MangaUpdates, Shikimori, AniList, ...) are NOT
-# sources and stay allowed. Extend this list as new sources get named in the repo.
-deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick'
 fail=0
+
+# The rules themselves live in scripts/lint-docs.sh, which .github/workflows/docs-lint.yml also
+# calls. The hook decides WHAT to check (the staged content) and the script decides what counts as
+# a violation, so the two enforcers cannot drift apart.
+lint() { bash scripts/lint-docs.sh "$@" || fail=1; }
+scratch_a=$(mktemp); scratch_b=$(mktemp)
+trap 'rm -f "$scratch_a" "$scratch_b"' EXIT
 
 # ===== CHANGELOG.md =====
 if staged CHANGELOG.md; then
-  # 1) No content-source names in any newly added CHANGELOG line.
-  bad_names=$(git diff --cached -U0 -- CHANGELOG.md | grep -E '^\+[^+]' | grep -inE "$deny" || true)
-  if [ -n "$bad_names" ]; then
-    echo "CHANGELOG: a new line names a content source, genericize it (see Public-facing naming):"
-    echo "$bad_names"
-    fail=1
-  fi
+  # Source names are checked on newly added lines only: already-released entries are never rewritten.
+  git diff --cached -U0 -- CHANGELOG.md | grep -E '^\+[^+]' > "$scratch_a" || true
+  lint source-names "$scratch_a" "CHANGELOG"
 
-  # 2) Structure of the staged [Unreleased] section (only [Unreleased] is checked).
-  issues=$(git show :CHANGELOG.md | awk '
-    /^## \[Unreleased\]/ { u=1; next }
-    /^## \[/             { u=0 }
-    !u                  { next }
-    /^### /             { sec=$0; sub(/^### /,"",sec); next }
-    /^\*\*/             { next }
-    /^- / {
-      if (length($0) > 320)
-        print "  - over the length cap (>320 chars); trim to a bold headline + one sentence:\n    " $0
-      if (sec != "Other" && $0 !~ /^- \*\*[^*]+[.!?]\*\*/)
-        print "  - needs a self-contained bold headline ending in . ! or ? (Other is exempt):\n    " $0
-    }
-  ')
-  if [ -n "$issues" ]; then
-    echo "CHANGELOG [Unreleased] entry issues:"
-    echo "$issues"
-    fail=1
-  fi
+  # Entry shape is checked on the whole staged [Unreleased] section, since an entry can be edited
+  # into a bad shape by a line that does not itself look wrong.
+  git show :CHANGELOG.md > "$scratch_b"
+  lint changelog-entries "$scratch_b"
 fi
 
 # ===== ROADMAP.md =====
 if staged ROADMAP.md; then
-  road=$(git show :ROADMAP.md)
-
-  # 1) No content-source names anywhere (use EH / ExH shorthand or generic wording).
-  rn=$(printf '%s\n' "$road" | grep -inE "$deny" || true)
-  if [ -n "$rn" ]; then
-    echo "ROADMAP: names a content source, use an approved shorthand (EH / ExH / MD / CMK) or generic wording"
-    echo "(specific source names belong in docs/dev/shipped.md and the plan docs, not the forward roadmap):"
-    echo "$rn"
-    fail=1
-  fi
-
-  # 2) No em dash.
-  em=$(printf '%s\n' "$road" | grep -n '—' || true)
-  if [ -n "$em" ]; then
-    echo "ROADMAP: contains an em dash; use commas, parentheses, periods or colons:"
-    echo "$em"
-    fail=1
-  fi
-
-  # 3) No bare #N (a '#' + digits not preceded by an alphanumeric; owner/repo#N is fine).
-  hn=$(printf '%s\n' "$road" | grep -nE '(^|[^A-Za-z0-9])#[0-9]' || true)
-  if [ -n "$hn" ]; then
-    echo "ROADMAP: bare '#N' auto-links to a Reikai issue, use 'Roadmap N' or owner/repo#N:"
-    echo "$hn"
-    fail=1
-  fi
+  git show :ROADMAP.md > "$scratch_a"
+  lint source-names "$scratch_a" "ROADMAP"
+  lint em-dash "$scratch_a" "ROADMAP"
+  lint issue-refs "$scratch_a" "ROADMAP" "'Roadmap N' or owner/repo#N"
 fi
 
-# ===== docs/dev/upstream-sync.md (content-source names allowed here: it is a dev record) =====
-if staged docs/dev/upstream-sync.md; then
-  sync=$(git show :docs/dev/upstream-sync.md)
-
-  # No em dash.
-  em=$(printf '%s\n' "$sync" | grep -n '—' || true)
-  if [ -n "$em" ]; then
-    echo "upstream-sync: contains an em dash; use commas, parentheses, periods or colons:"
-    echo "$em"
-    fail=1
+# ===== the dev sync records (content-source names are allowed: they are dev records) =====
+for doc in docs/dev/upstream-sync.md docs/dev/feature-ports.md; do
+  if staged "$doc"; then
+    git show ":$doc" > "$scratch_a"
+    lint em-dash "$scratch_a" "$doc"
+    lint issue-refs "$scratch_a" "$doc" "owner/repo#N (mihonapp/mihon#N for upstream)"
   fi
-
-  # No bare #N (reference upstream as mihonapp/mihon#N; owner/repo#N is fine).
-  hn=$(printf '%s\n' "$sync" | grep -nE '(^|[^A-Za-z0-9])#[0-9]' || true)
-  if [ -n "$hn" ]; then
-    echo "upstream-sync: bare '#N' auto-links to a Reikai issue, use mihonapp/mihon#N:"
-    echo "$hn"
-    fail=1
-  fi
-fi
+done
 
 # ===== DI ownership: graph-owned, singleton, and never Injekt-registered as well =====
 # All three mistakes are silent at build and run time: two instances of a type lose state, and a
@@ -126,27 +76,10 @@ if [ "$di_touched" -eq 1 ] && [ -f scripts/di-interop-check.ps1 ]; then
 fi
 
 # ===== code comments (.kt/.kts/.sq/.sqm): no plan/roadmap codename markers (they rot) =====
-# Only newly added comment lines (//, a KDoc *-line, or a SQL -- line) are scanned, across every staged
-# .kt/.kts/.sq/.sqm file. The project's planning codenames are caught: Phase N, the P<phase> / P5 S5
-# shorthand, Y<n> Yokai-era feature refs, R<n> roadmap refs, Active #N, and in-words "Roadmap N" /
-# "Roadmap:" refs (the bare document name ROADMAP.md stays allowed). A colon-led algorithm step
-# ("Step 1:") is allowed; a plan-style "Step 3" is not. The step match is case-insensitive and
-# word-bounded: a lower-case "step 2" reached main once because only a capitalised one was caught,
-# and \b keeps it off words like "footstep". Two shapes that are never a plan reference are spared
-# too, both from Kotlin ranges quoted in a comment: "2..20 step 6" and a fractional "step 0.5".
-# Deliberately spared: R8 (the code shrinker; R uses
-# [0-79] so 8 is skipped) and M3 (Material 3; M is not matched).
-codenames=$(git diff --cached -U0 --diff-filter=ACM -- '*.kt' '*.kts' '*.sq' '*.sqm' \
-  | grep -E '^\+' | grep -vE '^\+\+\+' \
-  | grep -E '(//|/\*|^\+[[:space:]]*\*|^\+[[:space:]]*--)' \
-  | grep -E '(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9]|[Rr]oadmap[[:space:]]*(#?[0-9]|:))' \
-  | grep -vE '(\b[Ss]tep[[:space:]]*[0-9]:|[0-9]\.\.[0-9]+[[:space:]]+step[[:space:]]|[Ss]tep[[:space:]]*[0-9]+\.[0-9])' || true)
-if [ -n "$codenames" ]; then
-  echo "code comments: drop plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, Roadmap N, plan Step N),"
-  echo "state the durable fact instead:"
-  echo "$codenames"
-  fail=1
-fi
+# Only newly added comment lines are scanned; the patterns live in scripts/lint-docs.sh so CI's
+# whole-tree pass enforces exactly the same rule.
+git diff --cached -U0 --diff-filter=ACM -- '*.kt' '*.kts' '*.sq' '*.sqm' | grep -E '^\+' | grep -vE '^\+\+\+' > "$scratch_a" || true
+lint codenames --stdin < "$scratch_a"
 
 # ===== code comments (.kt/.kts/.sq/.sqm): no calendar dates =====
 # A date stamps when someone looked, which is what git already records, and it reads as an expiry the
@@ -169,31 +102,9 @@ fi
 # the next sync never learns upstream touched it.
 manifest="docs/dev/off-path-manifest.md"
 if [ -f "$manifest" ]; then
-  # Data rows look like `| <path> | <upstream> | <replacement> |`, same shape the sync script parses.
-  manifest_paths=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$manifest" | awk -F'|' '{gsub(/ /,"",$2); print $2}')
-  manifest_repl=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$manifest" | awk -F'|' '{gsub(/ /,"",$4); print $4}')
-
-  for path in $manifest_paths; do
-    if [ -e "$path" ]; then
-      echo "off-path manifest: '$path' is listed as deleted but exists in the tree."
-      echo "  Either it was resurrected (delete it, its twin renders the surface), or it is live again"
-      echo "  (drop its manifest row and say why in the commit)."
-      fail=1
-    fi
-  done
-
-  # A replacement that does not exist means the row points nowhere and the check silently protects nothing.
-  for repl in $manifest_repl; do
-    [ -z "$repl" ] && continue
-    found=0
-    for root in app/src/main/java domain/src/main/java data/src/main/java core/common/src/main/kotlin ""; do
-      [ -e "${root:+$root/}$repl" ] && found=1 && break
-    done
-    if [ "$found" -eq 0 ]; then
-      echo "off-path manifest: replacement '$repl' does not exist; the row protects nothing."
-      fail=1
-    fi
-  done
+  # Every row still describes reality: the file stays deleted and the replacement exists. Shared
+  # with CI, which runs the same check on every push.
+  lint manifest-rows "$manifest"
 
   # A staged deletion of a file Mihon still has needs a manifest row in the SAME commit, or the reroute
   # is invisible to every future sync. Needs the refs clone; warn (never block) when it is absent.

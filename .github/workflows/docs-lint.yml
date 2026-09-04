@@ -1,16 +1,19 @@
 name: Docs lint
 
 # Enforces the CHANGELOG, ROADMAP, upstream-sync and feature-ports conventions (see .claude/rules/workflow.md:
-# "After completing any code change", "Public-facing naming", "Roadmap & plans", "Syncing with
-# Mihon"), plus the no-plan-codename rule for .kt comments (code-quality.md). Mirrors the local
-# .githooks/pre-commit so PRs are checked even when the hook isn't installed.
+# "After completing any code change", "Public-facing naming", "Roadmap & plans"), plus the
+# no-plan-codename rule for code comments (code-quality.md).
+#
+# The rules live in scripts/lint-docs.sh, which .githooks/pre-commit calls too. The hook checks what
+# a commit stages; this checks the whole tree, so anything that slipped in without the hook fails
+# here. Both read the same patterns, so neither can quietly get stricter than the other.
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', '**/*.kt']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', '**/*.kt']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'scripts/lint-docs.sh', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
 
 permissions:
   contents: read
@@ -23,124 +26,34 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Lint CHANGELOG.md, ROADMAP.md, upstream-sync.md and feature-ports.md
+      # The rules are regexes, and one that silently stops matching looks exactly like a clean tree.
+      - name: Check the rules still reject what they should
+        run: bash scripts/lint-docs-test.sh
+
+      - name: Lint CHANGELOG.md
         run: |
-          set -u
-          # Content-source names (adult + mainstream); genericize or use an approved shorthand
-          # (EH / ExH / MD / CMK). Trackers (MangaUpdates, Shikimori, ...) are not sources; keep them.
-          deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick'
-          fail=0
+          bash scripts/lint-docs.sh source-names CHANGELOG.md CHANGELOG.md
+          bash scripts/lint-docs.sh changelog-entries CHANGELOG.md
 
-          # ===== CHANGELOG.md =====
-          if names=$(grep -inE "$deny" CHANGELOG.md); then
-            echo "::error::CHANGELOG.md names a content source; genericize it (see Public-facing naming)."
-            echo "$names"
-            fail=1
-          fi
-          issues=$(awk '
-            /^## \[Unreleased\]/ { u=1; next }
-            /^## \[/             { u=0 }
-            !u                  { next }
-            /^### /             { sec=$0; sub(/^### /,"",sec); next }
-            /^\*\*/             { next }
-            /^- / {
-              if (length($0) > 320)
-                print "  - over the length cap (>320 chars): " $0
-              if (sec != "Other" && $0 !~ /^- \*\*[^*]+[.!?]\*\*/)
-                print "  - needs a self-contained bold headline ending in . ! or ? (Other is exempt): " $0
-            }
-          ' CHANGELOG.md)
-          if [ -n "$issues" ]; then
-            echo "::error::CHANGELOG [Unreleased] entry issues:"
-            echo "$issues"
-            fail=1
-          fi
-
-          # ===== ROADMAP.md =====
-          if names=$(grep -inE "$deny" ROADMAP.md); then
-            echo "::error::ROADMAP.md names a content source; use an approved shorthand (EH / ExH / MD / CMK) or generic wording."
-            echo "$names"
-            fail=1
-          fi
-          if em=$(grep -n '—' ROADMAP.md); then
-            echo "::error::ROADMAP.md contains an em dash; use commas, parentheses, periods or colons."
-            echo "$em"
-            fail=1
-          fi
-          if hn=$(grep -nE '(^|[^A-Za-z0-9])#[0-9]' ROADMAP.md); then
-            echo "::error::ROADMAP.md has a bare '#N'; use 'Roadmap N' or owner/repo#N."
-            echo "$hn"
-            fail=1
-          fi
-
-          # ===== docs/dev/upstream-sync.md (content-source names are allowed: it is a dev record) =====
-          if em=$(grep -n '—' docs/dev/upstream-sync.md); then
-            echo "::error::upstream-sync.md contains an em dash; use commas, parentheses, periods or colons."
-            echo "$em"
-            fail=1
-          fi
-          if hn=$(grep -nE '(^|[^A-Za-z0-9])#[0-9]' docs/dev/upstream-sync.md); then
-            echo "::error::upstream-sync.md has a bare '#N'; reference upstream as mihonapp/mihon#N."
-            echo "$hn"
-            fail=1
-          fi
-
-          # ===== docs/dev/feature-ports.md (content-source names are allowed: it is a dev record) =====
-          if em=$(grep -n '—' docs/dev/feature-ports.md); then
-            echo "::error::feature-ports.md contains an em dash; use commas, parentheses, periods or colons."
-            echo "$em"
-            fail=1
-          fi
-          if hn=$(grep -nE '(^|[^A-Za-z0-9])#[0-9]' docs/dev/feature-ports.md); then
-            echo "::error::feature-ports.md has a bare '#N'; reference a ref's PR as owner/repo#N."
-            echo "$hn"
-            fail=1
-          fi
-
-          [ "$fail" -eq 0 ]
-
-      - name: Lint .kt comments for plan/roadmap codenames
+      - name: Lint ROADMAP.md
         run: |
-          # No plan/roadmap codename markers in .kt comments (mirrors .githooks/pre-commit and
-          # code-quality.md): Phase N, the P5 S5 shorthand, Y<n>, R<n> roadmap refs, Active #N, and a
-          # plan-style Step N, matched case-insensitively and word-bounded (a lower-case "step 2"
-          # reached main once when only a capitalised one was caught). Spares R8 (the code shrinker;
-          # R uses [0-79]), M3 (Material 3), and colon-led algorithm steps ("Step 1:"). Whole-tree
-          # check, so anything that slips in fails.
-          bad=$(git grep -nE '(//|/\*|^[[:space:]]*\*).*(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|\b[Ss]tep[[:space:]]*[0-9])' -- '*.kt' | grep -vE '\b[Ss]tep[[:space:]]*[0-9]:' || true)
-          if [ -n "$bad" ]; then
-            echo "::error::a .kt comment carries a plan/roadmap codename marker; state the fact instead (see code-quality.md):"
-            echo "$bad"
-            exit 1
-          fi
+          bash scripts/lint-docs.sh source-names ROADMAP.md ROADMAP.md
+          bash scripts/lint-docs.sh em-dash ROADMAP.md ROADMAP.md
+          bash scripts/lint-docs.sh issue-refs ROADMAP.md ROADMAP.md "'Roadmap N' or owner/repo#N"
 
+      # Content-source names are allowed in these two: they are dev records, not marketing.
+      - name: Lint the dev sync records
+        run: |
+          for doc in docs/dev/upstream-sync.md docs/dev/feature-ports.md; do
+            bash scripts/lint-docs.sh em-dash "$doc" "$doc"
+            bash scripts/lint-docs.sh issue-refs "$doc" "$doc" "owner/repo#N (mihonapp/mihon#N for upstream)"
+          done
+
+      - name: Lint code comments for plan codenames
+        run: bash scripts/lint-docs.sh codenames --tree
+
+      # CI has no refs/ clone, so it cannot diff against upstream; it checks that every manifested
+      # file stays deleted and every replacement exists, which is what catches a resurrected file or
+      # a row pointing nowhere. The hook owns the undeclared-reroute half.
       - name: Lint the off-path manifest
-        run: |
-          # Mirrors the repo-only half of .githooks/pre-commit. CI has no refs/ clones, so it cannot
-          # diff against upstream; it checks that every manifested file stays deleted and every
-          # replacement exists, which is what catches a resurrected file or a row pointing nowhere.
-          manifest="docs/dev/off-path-manifest.md"
-          fail=0
-          rows=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$manifest" || true)
-          if [ -z "$rows" ]; then
-            echo "::error::off-path manifest has no machine-readable rows; the sync check would silently pass"
-            exit 1
-          fi
-          while IFS='|' read -r _ path _ repl _; do
-            path=$(echo "$path" | tr -d ' ')
-            repl=$(echo "$repl" | tr -d ' ')
-            [ -z "$path" ] && continue
-            if [ -e "$path" ]; then
-              echo "::error::$path is manifested as deleted but exists in the tree"
-              fail=1
-            fi
-            found=0
-            for root in app/src/main/java domain/src/main/java data/src/main/java core/common/src/main/kotlin ""; do
-              [ -e "${root:+$root/}$repl" ] && found=1 && break
-            done
-            if [ "$found" -eq 0 ]; then
-              echo "::error::off-path manifest replacement '$repl' does not exist; the row protects nothing"
-              fail=1
-            fi
-          done <<< "$rows"
-          [ "$fail" -eq 0 ]
+        run: bash scripts/lint-docs.sh manifest-rows docs/dev/off-path-manifest.md
