@@ -81,7 +81,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Reader**
 
-- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transition animations and a display cutout mode with it.
+- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transition animations, a display cutout mode, and a Min width slider that sets how much of the screen a long strip fills.
 
 **App**
 
@@ -386,6 +386,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Looking up a source now waits for the extension scan instead of reading a half-built list, so a screen opened during startup gets a slow answer rather than a wrong one (synced from Mihon, mihonapp/mihon#3869). Novel sources changed the same way.
 - Translated strings refreshed across 56 locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677 and mihonapp/mihon#3701).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
+- Extensions are now class-loaded through the platform's own delegate-last loader rather than a hand-rolled one (synced from Mihon, mihonapp/mihon#3874).
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
 - The library, details, add-to-library and source-grouping surfaces now run on one shared implementation across manga and novels, covering list assembly, filtering, sorting, selection, the dialogs and the merge wiring, so a change to any of them reaches both instead of being written twice.
 - A library section is now a distinct type rather than a category with a negative id, so a grouped view can no longer reach a category-scoped action that has nothing to act on.
