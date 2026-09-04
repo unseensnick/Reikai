@@ -27,7 +27,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Pause
+import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import kotlin.math.roundToInt
 
@@ -103,7 +103,7 @@ fun NovelTtsFloatingButton(
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = if (playing) {
-                        MaterialSymbols.Rounded.Pause
+                        MaterialSymbols.RoundedFilled.Pause
                     } else {
                         MaterialSymbols.RoundedFilled.PlayArrow
                     },

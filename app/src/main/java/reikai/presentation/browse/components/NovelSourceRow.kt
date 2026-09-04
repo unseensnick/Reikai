@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
 import mihon.icons.materialsymbols.rounded.PushPin
+import mihon.icons.materialsymbols.roundedfilled.PushPin
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
@@ -119,7 +120,7 @@ fun NovelSourceLatestButton(onClick: () -> Unit) {
  */
 @Composable
 fun NovelSourcePinButton(isPinned: Boolean, onClick: () -> Unit) {
-    val icon = if (isPinned) MaterialSymbols.Rounded.PushPin else MaterialSymbols.Rounded.PushPin
+    val icon = if (isPinned) MaterialSymbols.RoundedFilled.PushPin else MaterialSymbols.Rounded.PushPin
     val tint = if (isPinned) {
         MaterialTheme.colorScheme.primary
     } else {

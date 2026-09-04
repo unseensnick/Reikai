@@ -13,6 +13,7 @@ import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.PushPin
+import mihon.icons.materialsymbols.roundedfilled.PushPin
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
@@ -64,7 +65,7 @@ private fun SourcePinButton(
     isPinned: Boolean,
     onClick: () -> Unit,
 ) {
-    val icon = if (isPinned) MaterialSymbols.Rounded.PushPin else MaterialSymbols.Rounded.PushPin
+    val icon = if (isPinned) MaterialSymbols.RoundedFilled.PushPin else MaterialSymbols.Rounded.PushPin
     val tint = if (isPinned) {
         MaterialTheme.colorScheme.primary
     } else {

@@ -40,7 +40,7 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
-import mihon.icons.materialsymbols.rounded.Pause
+import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
@@ -171,7 +171,7 @@ object DownloadQueueScreen : Screen() {
                     },
                     icon = {
                         val icon = if (running) {
-                            MaterialSymbols.Rounded.Pause
+                            MaterialSymbols.RoundedFilled.Pause
                         } else {
                             MaterialSymbols.RoundedFilled.PlayArrow
                         }
