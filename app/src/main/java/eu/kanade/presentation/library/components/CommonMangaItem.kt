@@ -337,7 +337,9 @@ fun MangaListItem(
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    badge: @Composable (RowScope.() -> Unit),
+    // RK: split into two groups like the grid cells, so the badge ladder can degrade the end group
+    badgeStart: (@Composable RowScope.() -> Unit)? = null,
+    badgeEnd: (@Composable RowScope.() -> Unit)? = null,
     isSelected: Boolean = false,
     coverAlpha: Float = 1f,
     onClickContinueReading: (() -> Unit)? = null,
@@ -368,7 +370,19 @@ fun MangaListItem(
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
         )
-        BadgeGroup(content = badge)
+        // RK -->
+        // Capped at half the row: the list has no overdraw problem, since these follow a weighted
+        // title, but a four-source merged row used to ellipsize that title down to a word or two.
+        if (badgeStart != null || badgeEnd != null) {
+            CoverBadgeRow(
+                modifier = Modifier,
+                badgesStart = badgeStart,
+                badgesEnd = badgeEnd,
+                spread = false,
+                widthFraction = 0.5f,
+            )
+        }
+        // RK <--
         if (onClickContinueReading != null) {
             ContinueReadingButton(
                 size = ContinueReadingButtonSizeSmall,

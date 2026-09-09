@@ -90,6 +90,22 @@ Shipped and on-device verified: the `chapter_match_key` schema and migration 31 
 
 **A wordless title is matched by position, not by number.** A chapter named only with numbers (`Chapter 524 - 518` against `Chapter 518`) has no title text to key on, so both copies used to survive. `MergedChapterOrder` now defers such a chapter instead of placing it: when the next identifiable one closes the run, a sibling that offered exactly as many unidentifiable chapters as the order already holds between the same two anchors is showing the same chapters, and its copies go. Any other count keeps them all, and a run with nothing after it is kept, since neither can be aligned. Measured on the two-source group: between `Ever His Humble Servant` and `Games` both sources have two untitled chapters, and the pairing is exact. This is the reconciliation the earlier note said nothing upstream attempts, and that is still true of the numbers; what makes it work here is the stitched order, which supplies positions where the numbers supply nothing. Manga is unaffected: a sibling's unrecognized chapters are dropped there rather than keyed, so no duplicate arises to fix.
 
+**Device-verified (2026-09-09), with three cases that cannot be reached through the UI.** Confirmed on
+the emulator against the restored library: the chip-view delete removes the sibling's real file; the
+library Remove dialog with `All grouped sources` clears every source and leaves the entry in the
+library; the merged unread count matches the stitched unit count on two entries (408 of 1485 raw rows,
+44 of 248); the Unread chapter filter answers for the group (34 shown on a source whose own copies are
+all unread); bookmark and mark-read propagate to every source and clear from any of them; `Download
+next` queues one copy per unit and a second run skips what is on disk; the download badge counts units;
+download-ahead fires, crosses a merge boundary onto the next chapter's own source, and still draws from
+the group's list in downloaded-only mode where the reader's own list is exhausted; skip-read steps over
+a chapter only a sibling has read; History resume and the library Resume open the same chapter; and the
+unified widget draws one cover per group where three of its four series have several members among the
+most recent updates. **Three cases have no UI path to the state they test**, so they rest on their unit
+tests: the download badge counting a chapter two sources both hold (the app refuses to download a unit
+the group already has), the bookmark read-back from a single source (bookmark writes propagate to all
+of them), and an update run's notification and queue behaviour (it needs a source to actually publish).
+
 ## Decisions & tradeoffs
 
 - **Read means read on any source.** The alternative, matching the aggregated list exactly, reproduces a quirk rather than fixing it: reading a chapter on a source that loses the dedup leaves it displayed as unread. One definition everywhere is the point.

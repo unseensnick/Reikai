@@ -48,6 +48,7 @@ import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.source.local.LocalSource
+import kotlin.math.roundToInt
 
 /*
  * Net-new Reikai cover badges, used by every library cell (single-list, panorama, and the pager's
@@ -236,22 +237,6 @@ fun libraryCoverModel(item: LibraryItem): Any {
     }
 }
 
-/** The end-of-cover badge: the merge badge for a grouped cover, otherwise the source icon (coil-loaded
- *  from a URL for a novel, the source bitmap for manga). Centralizes the merge/novel/manga branch so
- *  every library cell renders it identically. */
-@Composable
-fun LibraryCoverEndBadge(item: LibraryItem) {
-    val isNovel = item.entryId is EntryId.Novel
-    when {
-        // A merged novel renders coil-loaded source icons; a merged manga the bitmap ones.
-        item.relatedMangaIds.size > 1 && isNovel ->
-            NovelMergeBadge(item.relatedMangaIds, item.badges.mergedSourceIconUrls)
-        item.relatedMangaIds.size > 1 -> MergeBadge(item.relatedMangaIds, item.badges.mergedSources)
-        isNovel -> NovelSourceIconBadge(item.badges.sourceIconUrl)
-        else -> SourceIconBadge(item.badges.source)
-    }
-}
-
 /**
  * How much horizontal room the cover's end badge group may occupy, in pixels, published by
  * [MangaGridCover] once the start group has been measured. Unbounded by default so the list layout
@@ -317,10 +302,9 @@ private val IconBadgeWidth = 18.dp
 private val TextBadgeWidth = 26.dp
 
 /**
- * The cover's end badge group for a library grid cell: the language badge plus the merge/source
- * icons, degraded together to fit [LocalCoverBadgeBudget]. Kept separate from [LibraryCoverEndBadge],
- * which the list layout still uses: there the badges sit after a weighted title, so they never
- * overdraw anything and need no budget.
+ * The end badge group for a library cell: the language badge plus the merge or source icons,
+ * degraded together to fit [LocalCoverBadgeBudget]. Every cell uses it, grid, panorama and list,
+ * so a merged entry degrades the same way whatever the display mode.
  */
 @Composable
 fun LibraryCoverEndBadges(item: LibraryItem) {
@@ -407,9 +391,11 @@ fun CoverBadgeRow(
     modifier: Modifier,
     badgesStart: (@Composable RowScope.() -> Unit)?,
     badgesEnd: (@Composable RowScope.() -> Unit)?,
+    spread: Boolean = true,
+    widthFraction: Float = 1f,
 ) {
     SubcomposeLayout(modifier) { constraints ->
-        val width = constraints.maxWidth
+        val width = (constraints.maxWidth * widthFraction).roundToInt()
 
         // Each group is measured against a hard ceiling, so a badge the ladder's estimates did not
         // shrink enough is clipped at the cover's edge rather than spilling outside the cell.
@@ -435,13 +421,17 @@ fun CoverBadgeRow(
         val end = measure("end", width - startWidth, drop = false, content = badgesEnd)
         val endWidth = end.sumOf { it.width }
         val height = (start + end).maxOfOrNull { it.height } ?: 0
+        // The cover spreads its two groups to opposite corners; the list cell sizes to its content
+        // and keeps them together, so the title beside it gets every pixel the badges did not need.
+        val laidOutWidth = if (spread) width else startWidth + endWidth
+        val endX = if (spread) (width - endWidth).coerceAtLeast(0) else startWidth
 
-        layout(width, height) {
+        layout(laidOutWidth, height) {
             start.fold(0) { x, p ->
                 p.place(x, 0)
                 x + p.width
             }
-            end.fold((width - endWidth).coerceAtLeast(0)) { x, p ->
+            end.fold(endX) { x, p ->
                 p.place(x, 0)
                 x + p.width
             }

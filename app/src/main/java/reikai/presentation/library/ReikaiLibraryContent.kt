@@ -19,13 +19,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.presentation.library.components.DownloadsBadge
 import eu.kanade.presentation.library.components.GlobalSearchItem
-import eu.kanade.presentation.library.components.LanguageBadge
 import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
-import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -279,15 +276,9 @@ fun ReikaiLibraryContent(
                                     onClick = onClick,
                                     onLongClick = onLongClick,
                                     onClickContinueReading = onContinueReading,
-                                    badge = {
-                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                        UnreadBadge(count = libraryItem.badges.unreadCount)
-                                        LanguageBadge(
-                                            isLocal = libraryItem.badges.isLocal,
-                                            sourceLanguage = libraryItem.badges.sourceLanguage,
-                                        )
-                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
-                                    },
+                                    // Capped at half the row so a merged entry's badges leave the title room
+                                    badgeStart = { LibraryCoverStartBadges(libraryItem) },
+                                    badgeEnd = { LibraryCoverEndBadges(libraryItem) },
                                     isSelected = isSelected,
                                 )
                                 LibraryDisplayMode.ComfortableGrid -> MangaComfortableGridItem(

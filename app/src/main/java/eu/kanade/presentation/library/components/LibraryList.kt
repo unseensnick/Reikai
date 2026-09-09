@@ -9,7 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
-import reikai.presentation.library.LibraryCoverEndBadge // RK
+import reikai.presentation.library.LibraryCoverEndBadges // RK
+import reikai.presentation.library.LibraryCoverStartBadges // RK
 import reikai.presentation.library.libraryCoverModel // RK
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -50,15 +51,9 @@ internal fun LibraryList(
                 isSelected = libraryItem.entryId in selection, // RK
                 title = manga.title,
                 coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
-                badge = {
-                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                    LanguageBadge(
-                        isLocal = libraryItem.badges.isLocal,
-                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                    )
-                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
-                },
+                // RK: capped at half the row so a merged entry's badges cannot crowd out the title
+                badgeStart = { LibraryCoverStartBadges(libraryItem) },
+                badgeEnd = { LibraryCoverEndBadges(libraryItem) },
                 onLongClick = { onLongClick(libraryItem) },
                 onClick = { onClick(libraryItem) },
                 onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {

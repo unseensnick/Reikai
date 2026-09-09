@@ -208,7 +208,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library**
 
-- **A library cover's unread count is no longer painted over by the badges beside it.** An entry with 408 unread on a grouped series could read as "4"; the badges now share the cover's width and the source icons give way first.
+- **Library badges no longer crowd out the unread count or the title.** A cover with 408 unread on a grouped series could read as "4", and a list row gave its title away to the source icons; the badges now share a measured width and the icons give way first.
 - **A grouped series' chapter list now reads straight down instead of alternating between its sources.** Two sources rarely agree on what number a chapter is, so the list was being ordered by a number that means something different on each one, on manga and novels alike.
 - **Finishing a chapter now marks that same chapter read on the group's other sources, not one a few along.** It matched on chapter number, which two sources of one series routinely disagree about.
 - **"Missing N chapters" no longer invents gaps on a grouped series, on manga and novels alike.** It compared numbers across two sources that count differently, and believed a volume extra's title enough to claim hundreds were missing.

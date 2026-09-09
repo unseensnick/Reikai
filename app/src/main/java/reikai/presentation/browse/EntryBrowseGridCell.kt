@@ -63,7 +63,7 @@ fun EntryBrowseGridCell(
             coverData = ui.cover,
             title = ui.title,
             coverAlpha = coverAlpha,
-            badge = { InLibraryBadge(enabled = ui.favorite) },
+            badgeStart = { InLibraryBadge(enabled = ui.favorite) },
             onClick = onClick,
             onLongClick = onLongClick,
             isSelected = isSelected,
