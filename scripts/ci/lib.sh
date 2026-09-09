@@ -1,11 +1,11 @@
 # Shared helpers for the CI scripts. Sourced, never run.
 
 # A release note is the one-line bold headline of each CHANGELOG entry; the full sentences stay in
-# CHANGELOG.md, linked from the release body. Reduces "- **Headline.** detail" to "- Headline." and
-# a "**Sub-header**" line to "#### Sub-header". Both publishers use this, so the shape of a release
-# note is defined once.
+# CHANGELOG.md, linked from the release body. Reduces "- **Headline.** detail" to "- Headline.".
+# Headings pass through untouched, so a version section's own "### Area" / "#### Added" nesting is
+# the nesting of the release body. Both publishers use this, so the shape is defined once.
 headlines() {
-  sed -E -e 's/^- \*\*([^*]+)\*\*.*/- \1/' -e 's/^\*\*([^*]+)\*\*$/#### \1/'
+  sed -E 's/^- \*\*([^*]+)\*\*.*/- \1/'
 }
 
 # Reads back the Reikai commit a published nightly was built from. Every nightly tag points at a
