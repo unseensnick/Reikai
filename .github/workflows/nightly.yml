@@ -164,3 +164,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
         run: bash scripts/ci/prune-nightlies.sh
+
+      # The download page reads its nightly version from the releases API at build time, so it only
+      # changes when the site rebuilds. A nightly touches no docs, so nothing else asks it to.
+      #
+      # Last, and skipped on a dry run: a draft release is invisible to /releases/latest, so
+      # rebuilding for one would publish the same page again for nothing. A failure here leaves the
+      # nightly published and only the site stale, which is why it does not gate anything above it.
+      - name: Ask the site to rebuild
+        if: ${{ github.event.inputs.dry-run != 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+        run: |
+          gh api repos/unseensnick/Reikai-website/dispatches \
+            --method POST \
+            --field event_type=app-release \
+            --field "client_payload[release]=r${COMMIT_COUNT}"
+          echo "Asked Reikai-website to rebuild for r${COMMIT_COUNT}."

@@ -132,6 +132,14 @@ Unported commits sitting above the current base that are **not** routine bumps: 
 
 </details>
 
+## The website is synced separately
+
+This file covers the Android app. The docs site is its own repository with its own upstream
+(`mihonapp/website`, cloned read-only at `refs/mihon-website/`), its own cadence and its own
+divergences, so its ledger lives beside it in `Reikai-website/UPSTREAM-SYNC.md`. Read that one
+before porting anything into the site; it records where Reikai is deliberately ahead of upstream and
+should not be moved backwards.
+
 ## Synced-base ledger
 
 Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" is the sync commit. For syncs older than the table, run `git log --oneline --grep="sync Mihon" -i`.

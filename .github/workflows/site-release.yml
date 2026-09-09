@@ -1,0 +1,49 @@
+name: Refresh the site after a release
+
+# The download page on reikai.app reads its version numbers from the releases API at build time, so
+# they only change when something rebuilds the site. Nothing did after a release, which left that
+# page advertising the previous version until the next docs push happened to land.
+#
+# This hangs off `published` rather than off release.yml, because release.yml creates the release as
+# a DRAFT for review and the API's /releases/latest ignores drafts. Firing when that workflow ends
+# would rebuild the site while the release is still invisible to it. Publishing the draft by hand is
+# the moment the version actually changes, and this is the event for it.
+#
+# Nightlies are not covered here: they publish to unseensnick/Reikai-preview, so their `published`
+# event fires in that repository rather than this one. nightly.yml sends the same dispatch itself.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Ask the site to rebuild
+    runs-on: ubuntu-latest
+    steps:
+      # The same fine-grained PAT deploy-docs.yml uses, which already reaches Reikai-website.
+      # GITHUB_TOKEN cannot do this: it is scoped to this repository and the dispatch targets
+      # another one.
+      - name: Trigger the site deploy
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || 'manual run' }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::PREVIEW_REPO_TOKEN is not set, so the download page still shows the old version."
+            echo "Add it under Settings -> Secrets and variables -> Actions, or run the site's"
+            echo "Deploy site workflow by hand."
+            exit 1
+          fi
+          # No client_payload.ref on purpose. The site uses that to choose which branch of this repo
+          # the docs are built from, and a release must refresh the version numbers without also
+          # republishing the docs from a tag that may be behind the branch being worked on.
+          gh api repos/unseensnick/Reikai-website/dispatches \
+            --method POST \
+            --field event_type=app-release \
+            --field "client_payload[release]=${TAG}"
+          echo "Asked Reikai-website to rebuild for ${TAG}."
