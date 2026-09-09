@@ -50,6 +50,7 @@ import org.intellij.markdown.MarkdownTokenTypes.Companion.HTML_TAG
 import org.intellij.markdown.flavours.MarkdownFlavourDescriptor
 import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
 import org.intellij.markdown.flavours.commonmark.CommonMarkMarkerProcessor
+import org.intellij.markdown.flavours.gfm.GFMElementTypes // RK
 import org.intellij.markdown.flavours.gfm.table.GitHubTableMarkerProvider
 import org.intellij.markdown.parser.MarkerProcessor
 import org.intellij.markdown.parser.MarkerProcessorFactory
@@ -64,6 +65,7 @@ import org.intellij.markdown.parser.markerblocks.providers.CodeFenceProvider
 import org.intellij.markdown.parser.markerblocks.providers.HorizontalRuleProvider
 import org.intellij.markdown.parser.markerblocks.providers.ListMarkerProvider
 import org.intellij.markdown.parser.markerblocks.providers.SetextHeaderProvider
+import reikai.presentation.components.MarkdownAlert // RK
 import tachiyomi.presentation.core.components.material.padding
 
 const val MARKDOWN_INLINE_IMAGE_TAG = "MARKDOWN_INLINE_IMAGE"
@@ -219,6 +221,15 @@ private val markdownComponents = markdownComponents(
         )
     },
     custom = { type, model ->
+        // RK -->
+        // The GFM parser gives "> [!WARNING]" its own node type, which this renderer has no
+        // component for. Without a branch here the whole callout vanishes rather than degrading
+        // to a quote: an unhandled type counts as handled the moment a custom slot exists, so the
+        // library never falls back to drawing the children itself.
+        if (type == GFMElementTypes.ALERT) {
+            MarkdownAlert(model)
+        }
+        // RK <--
         if (type in DISALLOWED_MARKDOWN_TYPES) {
             MarkdownText(
                 content = model.content.substring(model.node.startOffset, model.node.endOffset),
