@@ -3,12 +3,16 @@ package reikai.presentation.library
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,10 +20,16 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.domain.source.model.icon
+import eu.kanade.presentation.library.components.DownloadsBadge
+import eu.kanade.presentation.library.components.LanguageBadge
+import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import exh.assets.EhAssets
@@ -36,6 +46,7 @@ import reikai.domain.entry.EntryId
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge
+import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.source.local.LocalSource
 
 /*
@@ -238,5 +249,202 @@ fun LibraryCoverEndBadge(item: LibraryItem) {
         item.relatedMangaIds.size > 1 -> MergeBadge(item.relatedMangaIds, item.badges.mergedSources)
         isNovel -> NovelSourceIconBadge(item.badges.sourceIconUrl)
         else -> SourceIconBadge(item.badges.source)
+    }
+}
+
+/**
+ * How much horizontal room the cover's end badge group may occupy, in pixels, published by
+ * [MangaGridCover] once the start group has been measured. Unbounded by default so the list layout
+ * and the browse grids, which do not compete for a fixed cover width, are unaffected.
+ */
+val LocalCoverBadgeBudget = compositionLocalOf { Int.MAX_VALUE }
+
+/** What survives in the end badge group at a given width. See [planEndBadges]. */
+data class EndBadgePlan(
+    val showLanguage: Boolean,
+    val icons: Int,
+    val overflow: Int,
+    val showGroupCount: Boolean,
+)
+
+/**
+ * Decides what the end badge group drops as the cover narrows. The cover width varies with the
+ * columns setting (0..10), so the budget is measured rather than assumed: a fixed icon cap is either
+ * too many at ten columns or needlessly stingy at two. Order of sacrifice is the owner's ruling:
+ * icons fold into "+N", then into the plain group count, then the language badge goes. The caller
+ * guarantees the unread count is never what loses.
+ */
+fun planEndBadges(
+    budgetPx: Int,
+    sourceCount: Int,
+    maxIcons: Int,
+    hasLanguage: Boolean,
+    iconWidthPx: Int,
+    textBadgeWidthPx: Int,
+    canShowGroupCount: Boolean = true,
+): EndBadgePlan {
+    val nothing = EndBadgePlan(showLanguage = false, icons = 0, overflow = 0, showGroupCount = false)
+    val languageCost = if (hasLanguage) textBadgeWidthPx else 0
+    // Rungs 1-2: as many icons as fit, remainder folded into a "+N" badge.
+    for (icons in minOf(sourceCount, maxIcons) downTo 1) {
+        val overflow = sourceCount - icons
+        val cost = languageCost + icons * iconWidthPx + if (overflow > 0) textBadgeWidthPx else 0
+        if (cost <= budgetPx) {
+            return EndBadgePlan(hasLanguage, icons, overflow, showGroupCount = false)
+        }
+    }
+    // Rungs 3-4: no icon fits, so the group count stands in for them, and it outranks the language
+    // badge. An unmerged row has no count to fall back to and skips straight to the last rung.
+    if (canShowGroupCount) {
+        if (languageCost + textBadgeWidthPx <= budgetPx) {
+            return EndBadgePlan(hasLanguage, icons = 0, overflow = 0, showGroupCount = true)
+        }
+        if (textBadgeWidthPx <= budgetPx) {
+            return nothing.copy(showGroupCount = true)
+        }
+    }
+    // Rung 5: the language badge alone still beats an empty corner.
+    if (hasLanguage && languageCost <= budgetPx) {
+        return nothing.copy(showLanguage = true)
+    }
+    return nothing
+}
+
+/** Width estimates for the end group. Icons are fixed-size so this is exact for them; the text
+ *  badges are sized generously, since the start group (whose width varies with the unread count's
+ *  digits) is measured for real by the layout and is never the thing that gives way. */
+private val IconBadgeWidth = 18.dp
+private val TextBadgeWidth = 26.dp
+
+/**
+ * The cover's end badge group for a library grid cell: the language badge plus the merge/source
+ * icons, degraded together to fit [LocalCoverBadgeBudget]. Kept separate from [LibraryCoverEndBadge],
+ * which the list layout still uses: there the badges sit after a weighted title, so they never
+ * overdraw anything and need no budget.
+ */
+@Composable
+fun LibraryCoverEndBadges(item: LibraryItem) {
+    val budget = LocalCoverBadgeBudget.current
+    val density = LocalDensity.current
+    val isNovel = item.entryId is EntryId.Novel
+    val isMerged = item.relatedMangaIds.size > 1
+    val mergedSources = item.badges.mergedSources.distinctBy { it.id }
+    val hasOwnIcon = if (isNovel) !item.badges.sourceIconUrl.isNullOrEmpty() else item.badges.source != null
+    // An unmerged row still spends the same budget: one source icon competing with the language badge.
+    val sourceCount = if (isMerged) {
+        if (isNovel) item.badges.mergedSourceIconUrls.size else mergedSources.size
+    } else if (hasOwnIcon) {
+        1
+    } else {
+        0
+    }
+    val hasLanguage = item.badges.isLocal || item.badges.sourceLanguage.isNotEmpty()
+
+    val plan = remember(budget, sourceCount, hasLanguage, isMerged) {
+        with(density) {
+            planEndBadges(
+                budgetPx = budget,
+                sourceCount = sourceCount,
+                maxIcons = if (isMerged) MAX_MERGE_ICONS else 1,
+                hasLanguage = hasLanguage,
+                iconWidthPx = IconBadgeWidth.roundToPx(),
+                textBadgeWidthPx = TextBadgeWidth.roundToPx(),
+                canShowGroupCount = isMerged,
+            )
+        }
+    }
+
+    if (plan.showLanguage) {
+        LanguageBadge(isLocal = item.badges.isLocal, sourceLanguage = item.badges.sourceLanguage)
+    }
+    when {
+        // The group count stands in for icons that no longer fit; an unmerged row has none to stand in for.
+        plan.showGroupCount -> if (isMerged) Badge(text = item.relatedMangaIds.size.toString())
+        plan.icons == 0 -> Unit
+        !isMerged -> if (isNovel) {
+            NovelSourceIconBadge(
+                item.badges.sourceIconUrl,
+            )
+        } else {
+            SourceIconBadge(item.badges.source)
+        }
+        isNovel -> {
+            item.badges.mergedSourceIconUrls.take(plan.icons).forEach { NovelSourceIconBadge(it) }
+            if (plan.overflow > 0) Badge(text = "+${plan.overflow}")
+        }
+        else -> {
+            mergedSources.take(plan.icons).forEach { SourceIconBadge(it) }
+            if (plan.overflow > 0) Badge(text = "+${plan.overflow}")
+        }
+    }
+}
+
+/**
+ * Set by [MangaGridCover] when the start group cannot fit the cover even on its own. The download
+ * count is the one it gives up: the unread count is the number the eye is scanning for, so it is the
+ * last badge standing.
+ */
+val LocalCoverBadgeDropDownload = compositionLocalOf { false }
+
+/** The cover's start badge group for a library grid cell. */
+@Composable
+fun LibraryCoverStartBadges(item: LibraryItem) {
+    if (!LocalCoverBadgeDropDownload.current) {
+        DownloadsBadge(count = item.badges.downloadCount)
+    }
+    UnreadBadge(count = item.badges.unreadCount)
+}
+
+/**
+ * Lays the cover's two badge groups out against one shared width so the end group can never paint
+ * over the start group, which is how a 408-unread cover used to render a confident "4". The start
+ * group is measured first and keeps what it needs; the end group is handed the remainder through
+ * [LocalCoverBadgeBudget] and degrades itself. Only when the start group alone overflows does it give
+ * up its download badge, via [LocalCoverBadgeDropDownload].
+ */
+@Composable
+fun CoverBadgeRow(
+    modifier: Modifier,
+    badgesStart: (@Composable RowScope.() -> Unit)?,
+    badgesEnd: (@Composable RowScope.() -> Unit)?,
+) {
+    SubcomposeLayout(modifier) { constraints ->
+        val width = constraints.maxWidth
+
+        // Each group is measured against a hard ceiling, so a badge the ladder's estimates did not
+        // shrink enough is clipped at the cover's edge rather than spilling outside the cell.
+        fun measure(slot: String, budget: Int, drop: Boolean, content: (@Composable RowScope.() -> Unit)?) =
+            content?.let {
+                subcompose(slot) {
+                    CompositionLocalProvider(
+                        LocalCoverBadgeBudget provides budget,
+                        LocalCoverBadgeDropDownload provides drop,
+                    ) { BadgeGroup(content = it) }
+                }.map { measurable ->
+                    measurable.measure(
+                        Constraints(maxWidth = budget.coerceAtLeast(0), maxHeight = constraints.maxHeight),
+                    )
+                }
+            }.orEmpty()
+
+        var start = measure("start", width, drop = false, content = badgesStart)
+        if (start.sumOf { it.width } > width) {
+            start = measure("start-trimmed", width, drop = true, content = badgesStart)
+        }
+        val startWidth = start.sumOf { it.width }
+        val end = measure("end", width - startWidth, drop = false, content = badgesEnd)
+        val endWidth = end.sumOf { it.width }
+        val height = (start + end).maxOfOrNull { it.height } ?: 0
+
+        layout(width, height) {
+            start.fold(0) { x, p ->
+                p.place(x, 0)
+                x + p.width
+            }
+            end.fold((width - endWidth).coerceAtLeast(0)) { x, p ->
+                p.place(x, 0)
+                x + p.width
+            }
+        }
     }
 }

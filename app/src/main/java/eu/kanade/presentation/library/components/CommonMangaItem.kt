@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.manga.components.MangaCover
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import reikai.presentation.library.CoverBadgeRow // RK
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.i18n.stringResource
@@ -247,23 +248,21 @@ internal fun MangaGridCover(
     ) {
         cover()
         content?.invoke(this)
-        if (badgesStart != null) {
-            BadgeGroup(
+        // RK -->
+        // Upstream aligned the two badge groups independently (TopStart / TopEnd) in this Box, so on a
+        // narrow cover the end group painted over the start group and an unread count of 408 rendered
+        // as "4". CoverBadgeRow gives them one shared width instead, and degrades the end group.
+        if (badgesStart != null || badgesEnd != null) {
+            CoverBadgeRow(
                 modifier = Modifier
                     .padding(4.dp)
+                    .fillMaxWidth()
                     .align(Alignment.TopStart),
-                content = badgesStart,
+                badgesStart = badgesStart,
+                badgesEnd = badgesEnd,
             )
         }
-
-        if (badgesEnd != null) {
-            BadgeGroup(
-                modifier = Modifier
-                    .padding(4.dp)
-                    .align(Alignment.TopEnd),
-                content = badgesEnd,
-            )
-        }
+        // RK <--
     }
 }
 

@@ -5,10 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import eu.kanade.presentation.library.components.DownloadsBadge
-import eu.kanade.presentation.library.components.LanguageBadge
 import eu.kanade.presentation.library.components.LazyLibraryGrid
-import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.presentation.library.components.globalSearchItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
@@ -47,17 +44,9 @@ fun ReikaiLibraryComfortableGridPanorama(
                 isSelected = libraryItem.entryId in selection,
                 title = manga.title,
                 coverData = libraryCoverModel(libraryItem), // NovelCover for novels, else MangaCover
-                coverBadgeStart = {
-                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                },
-                coverBadgeEnd = {
-                    LanguageBadge(
-                        isLocal = libraryItem.badges.isLocal,
-                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                    )
-                    LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
-                },
+                // RK: both groups share one measured width so neither can overdraw the other
+                coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
+                coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
                 onLongClick = { onLongClick(libraryItem) },
                 onClick = { onClick(libraryItem) },
                 onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {

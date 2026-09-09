@@ -7,7 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
-import reikai.presentation.library.LibraryCoverEndBadge // RK
+import reikai.presentation.library.LibraryCoverEndBadges // RK
+import reikai.presentation.library.LibraryCoverStartBadges // RK
 import reikai.presentation.library.libraryCoverModel // RK
 import tachiyomi.domain.library.model.LibraryManga
 
@@ -40,17 +41,9 @@ internal fun LibraryComfortableGrid(
                 isSelected = libraryItem.entryId in selection, // RK
                 title = manga.title,
                 coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
-                coverBadgeStart = {
-                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                },
-                coverBadgeEnd = {
-                    LanguageBadge(
-                        isLocal = libraryItem.badges.isLocal,
-                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                    )
-                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
-                },
+                // RK: both groups share one measured width so neither can overdraw the other
+                coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
+                coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
                 onLongClick = { onLongClick(libraryItem) },
                 onClick = { onClick(libraryItem) },
                 onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {

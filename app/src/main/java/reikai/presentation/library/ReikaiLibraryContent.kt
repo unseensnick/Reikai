@@ -297,17 +297,9 @@ fun ReikaiLibraryContent(
                                     onLongClick = onLongClick,
                                     onClickContinueReading = onContinueReading,
                                     isSelected = isSelected,
-                                    coverBadgeStart = {
-                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                        UnreadBadge(count = libraryItem.badges.unreadCount)
-                                    },
-                                    coverBadgeEnd = {
-                                        LanguageBadge(
-                                            isLocal = libraryItem.badges.isLocal,
-                                            sourceLanguage = libraryItem.badges.sourceLanguage,
-                                        )
-                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
-                                    },
+                                    // RK: both groups share one measured width so neither can overdraw the other
+                                    coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
+                                    coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
                                 )
                                 // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
                                 LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
@@ -317,17 +309,9 @@ fun ReikaiLibraryContent(
                                     onLongClick = onLongClick,
                                     onClickContinueReading = onContinueReading,
                                     isSelected = isSelected,
-                                    coverBadgeStart = {
-                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                        UnreadBadge(count = libraryItem.badges.unreadCount)
-                                    },
-                                    coverBadgeEnd = {
-                                        LanguageBadge(
-                                            isLocal = libraryItem.badges.isLocal,
-                                            sourceLanguage = libraryItem.badges.sourceLanguage,
-                                        )
-                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
-                                    },
+                                    // RK: both groups share one measured width so neither can overdraw the other
+                                    coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
+                                    coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
                                 )
                                 // Compact grid (with title) and cover-only grid (title null) share a cell.
                                 LibraryDisplayMode.CompactGrid,
@@ -339,17 +323,9 @@ fun ReikaiLibraryContent(
                                     onLongClick = onLongClick,
                                     onClickContinueReading = onContinueReading,
                                     isSelected = isSelected,
-                                    coverBadgeStart = {
-                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                        UnreadBadge(count = libraryItem.badges.unreadCount)
-                                    },
-                                    coverBadgeEnd = {
-                                        LanguageBadge(
-                                            isLocal = libraryItem.badges.isLocal,
-                                            sourceLanguage = libraryItem.badges.sourceLanguage,
-                                        )
-                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
-                                    },
+                                    // RK: both groups share one measured width so neither can overdraw the other
+                                    coverBadgeStart = { LibraryCoverStartBadges(libraryItem) },
+                                    coverBadgeEnd = { LibraryCoverEndBadges(libraryItem) },
                                 )
                             }
                         }
