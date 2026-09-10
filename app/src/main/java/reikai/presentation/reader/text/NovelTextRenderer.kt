@@ -9,6 +9,7 @@ import androidx.core.text.PrecomputedTextCompat
 import androidx.core.widget.TextViewCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
@@ -30,7 +31,8 @@ class NovelTextRenderer(
 
     /**
      * [paragraphSpacing] and [paragraphIndent] are multiples of the font size, matching how tsundoku
-     * stores them. [onTextSet] fires once the views hold the finished text.
+     * stores them. [onTextSet] fires once the views hold the finished text, and the returned job ends
+     * after that, or without it when the render is superseded or the block dropped.
      */
     fun render(
         block: ChapterTextBlock,
@@ -50,12 +52,12 @@ class NovelTextRenderer(
         /** The chapter's own site, sent as the Referer for an image some hosts would otherwise refuse. */
         refererUrl: String?,
         onTextSet: () -> Unit,
-    ) {
+    ): Job {
         val body = wrapParagraphs(html)
         val density = context.resources.displayMetrics.density
         val token = ++block.renderToken
 
-        scope.launch {
+        return scope.launch {
             val imageGetter = NovelImageGetter(
                 context = context,
                 scope = scope,

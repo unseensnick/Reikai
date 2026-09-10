@@ -100,6 +100,9 @@ class NovelTextViewport(
         var rendered = false
     }
 
+    /** Every pixel scrolled, so a correction can tell the reader's own movement from the layout's. */
+    private var scrolled = 0L
+
     /** The last chapter announced, so a scroll that stays inside one says nothing. */
     private var reportedVisibleId: Long? = null
 
@@ -173,6 +176,7 @@ class NovelTextViewport(
         isVerticalScrollBarEnabled = true
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
+                scrolled += dy
                 reportVisibleChapter()
                 report(onProgressChanged)
                 reportEnds()
@@ -221,7 +225,9 @@ class NovelTextViewport(
     /**
      * Nothing compensates for the insert. Measured in `RecyclerPrependPositionTest`: a chapter added
      * above the reading position moves it by zero pixels, because the layout manager anchors on a
-     * child it already has and never lays out an item entirely above the viewport.
+     * child it already has and never lays out an item entirely above the viewport. That holds while the
+     * screen is full, which the host keeps true by adding below first ([NovelWindowDiff]); with nothing
+     * below a short chapter, the chapter joins at its final height ([add]) and the reader ends at the bottom.
      */
     override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
         if (slots.any { it.chapter.chapterId == chapter.chapterId }) return
@@ -234,7 +240,7 @@ class NovelTextViewport(
         val index = slots.indexOfFirst { it.chapter.chapterId == chapterId }
         if (index < 0) return
         slots.removeAt(index).block.discarded = true
-        adapter.show(slots)
+        adapter.show(joined())
     }
 
     override fun setBoundaryFailures(
@@ -271,14 +277,17 @@ class NovelTextViewport(
             val redraw = previous != null && previous.paragraphShape().needsRedrawFor(settings.paragraphShape())
             if (redraw) {
                 // Only the chapter being read keeps its place; a neighbour is redrawn from its top,
-                // since the window rebuilds around wherever the reader ends up.
+                // since the window rebuilds around wherever the reader ends up. Rebuilt outward from
+                // it, below before above, for the reason the host grows a window that way.
                 val visible = visibleSlot()
-                val chapters = slots.map { it.chapter to (it === visible) }
-                val fraction = percent() / 100f
+                val chapters = slots.map { it.chapter }
+                val reading = slots.indexOf(visible).coerceAtLeast(0)
+                val fraction = (percent() / 100f).takeIf { visible != null }
                 evictAll()
-                chapters.forEach { (chapter, isVisible) ->
-                    add(chapter, settings, atEnd = true, startFraction = if (isVisible) fraction else null)
-                }
+                if (chapters.isEmpty()) return@launch
+                add(chapters[reading], settings, atEnd = true, startFraction = fraction)
+                chapters.drop(reading + 1).forEach { add(it, settings, atEnd = true, startFraction = null) }
+                chapters.take(reading).asReversed().forEach { add(it, settings, atEnd = false, startFraction = null) }
                 return@launch
             }
             slots.forEach { slot ->
@@ -344,14 +353,14 @@ class NovelTextViewport(
     }
 
     /**
-     * Adds [chapter] to the end of the window and starts its render, seeking to [startFraction] once
-     * the text has a height. Indent and spacing are spans measured in pixels when the text is built,
-     * so a change to those re-appends instead, which is why the start position is a parameter.
-     *
-     * A null [startFraction] means the reader is not to be moved, which is not the same as zero:
-     * zero is the chapter's first line, which sits below whatever marker its item carries.
+     * Adds [chapter] to the window and renders it, seeking to [startFraction] once the text has a
+     * height. Indent and spacing are spans measured in pixels when the text is built, so a change to
+     * those re-adds instead. A null [startFraction] leaves the reader where they are; zero is the
+     * chapter's first line. Returns once the chapter has joined the list, which it does only with its
+     * text set ([applyPendingProgress]): laid out earlier, a chapter above the reader grows after
+     * layout and carries the reader with it. Returning then makes the host's order the join order.
      */
-    private fun add(
+    private suspend fun add(
         chapter: NovelReaderViewModel.LoadedChapter,
         settings: NovelReaderSettings,
         atEnd: Boolean,
@@ -373,7 +382,6 @@ class NovelTextViewport(
             }
         }
         slots.add(if (atEnd) slots.size else 0, slot)
-        adapter.show(slots)
         renderer.render(
             block = block,
             html = chapter.html,
@@ -385,8 +393,11 @@ class NovelTextViewport(
             contentWidth = columnWidthPx(settings),
             refererUrl = chapter.baseUrl?.let { it.trimEnd('/') + "/" },
             onTextSet = { applyPendingProgress(slot) },
-        )
+        ).join()
     }
+
+    /** The chapters the list shows: every one in the window whose text is set. */
+    private fun joined(): List<ChapterSlot> = slots.filter { it.rendered }
 
     /** Empties the window. Each block's views leave with it, so nothing holds a chapter's text once
      *  it is out. */
@@ -394,7 +405,7 @@ class NovelTextViewport(
         slots.forEach { it.block.discarded = true }
         slots.clear()
         reportedVisibleId = null
-        adapter.show(slots)
+        adapter.show(joined())
     }
 
     override fun seekTo(progress: ChapterProgress) {
@@ -532,7 +543,7 @@ class NovelTextViewport(
     private fun visibleSlot(): ChapterSlot? {
         val manager = recycler.layoutManager as? LinearLayoutManager ?: return null
         val position = manager.findFirstVisibleItemPosition()
-        return slots.getOrNull(position)
+        return adapter.slotAt(position)
     }
 
     /**
@@ -543,7 +554,7 @@ class NovelTextViewport(
      * Null until the recycler has laid this chapter out, and again once it scrolls out of the window.
      */
     private fun boundsOf(slot: ChapterSlot): Pair<Int, Int>? {
-        val position = slots.indexOf(slot).takeIf { it >= 0 } ?: return null
+        val position = adapter.positionOf(slot).takeIf { it >= 0 } ?: return null
         val item = recycler.layoutManager?.findViewByPosition(position) ?: return null
         val text = slot.block.container
         return (item.top + text.top) to text.height
@@ -565,6 +576,7 @@ class NovelTextViewport(
 
     private fun applyPendingProgress(slot: ChapterSlot) {
         slot.rendered = true
+        adapter.show(joined())
         // Null is the window growing around the reader, which must not move them. Zero is a real
         // position, so it is not skipped: it is this chapter's first line, which sits below whatever
         // marker its item carries.
@@ -603,22 +615,47 @@ class NovelTextViewport(
 
         private var shown: List<ChapterSlot> = emptyList()
 
+        fun slotAt(position: Int): ChapterSlot? = shown.getOrNull(position)
+
+        fun positionOf(slot: ChapterSlot): Int = shown.indexOf(slot)
+
         /**
          * Dispatches the difference rather than invalidating everything, because a full invalidation
          * throws the reading position away: the layout manager keeps its anchor across an insert or
          * a removal it is told about, and cannot across a dataset change it is not.
          */
         fun show(next: List<ChapterSlot>) {
+            // Measured against the layout still showing, so the change can be taken back out of it.
+            val anchor = visibleSlot()
+            val before = anchor?.let { boundsOf(it)?.first }
+            val scrolledBefore = scrolled
             val previous = shown
             shown = next.toList()
             DiffUtil.calculateDiff(SlotDiff(previous, shown)).dispatchUpdatesTo(this)
-            // A chapter already on screen keeps its holder through the diff, so an arriving
-            // neighbour never reaches the seam that names it without this.
-            refreshSeams()
+            if (anchor != null && before != null) keepReaderStill(anchor, before, scrolledBefore)
         }
 
-        /** Identity is the chapter, and a chapter's own view never needs rebinding: its text is set
-         *  into the block, not into the holder. */
+        /**
+         * A seam turning up or going away is growth above the reading chapter's text but inside its
+         * item, which the layout manager anchors by the item's top, so the chapter being read is put
+         * back once the change has laid out. Measured in `RecyclerPrependPositionTest`. A window changes
+         * as the reader crosses a seam, usually mid-fling, so what they scrolled in between is theirs
+         * and stays: only what the layout moved is taken back.
+         */
+        private fun keepReaderStill(anchor: ChapterSlot, before: Int, scrolledBefore: Long) {
+            recycler.post {
+                val after = boundsOf(anchor)?.first ?: return@post
+                val shift = after - before + (scrolled - scrolledBefore).toInt()
+                if (shift != 0) recycler.scrollBy(0, shift)
+            }
+        }
+
+        /**
+         * Identity is the chapter, and a chapter's own view never needs rebinding: its text is set into
+         * the block, not into the holder. Its seam does, since the seam names the chapter above, so that
+         * is its content: the rebind lands in the same layout pass as the neighbour arriving, rather than
+         * growing the item in a pass of its own after the list has already settled around it.
+         */
         private inner class SlotDiff(
             private val before: List<ChapterSlot>,
             private val after: List<ChapterSlot>,
@@ -631,7 +668,11 @@ class NovelTextViewport(
             override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
                 before[oldItemPosition].chapter.chapterId == after[newItemPosition].chapter.chapterId
 
-            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) = true
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) =
+                before.getOrNull(oldItemPosition - 1)?.chapter?.chapterId ==
+                    after.getOrNull(newItemPosition - 1)?.chapter?.chapterId
+
+            override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any = SEAM_CHANGED
         }
 
         /** The seam marker sits above the chapter rather than between two items, so a position still
@@ -640,13 +681,16 @@ class NovelTextViewport(
         inner class Holder(
             val root: LinearLayout,
             val head: NovelBoundaryFailureView,
-            val seam: NovelChapterSeamView,
+            var seam: NovelChapterSeamView,
             val tail: NovelBoundaryFailureView,
-        ) : RecyclerView.ViewHolder(root)
+        ) : RecyclerView.ViewHolder(root) {
+            /** What [seam] names, null while it is hidden. */
+            var seamTitles: Pair<String, String>? = null
+        }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val head = NovelBoundaryFailureView(parent.context)
-            val seam = NovelChapterSeamView(parent.context)
+            val seam = NovelChapterSeamView(parent.context).apply { isVisible = false }
             val tail = NovelBoundaryFailureView(parent.context)
             val root = LinearLayout(parent.context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -659,6 +703,16 @@ class NovelTextViewport(
                 addView(tail)
             }
             return Holder(root, head, seam, tail)
+        }
+
+        /** A seam-only change rebinds just the seam: a full bind re-adds the chapter's text container,
+         *  re-measuring every chunk of what may be the chapter on screen. */
+        override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
+            if (payloads.isNotEmpty() && payloads.all { it === SEAM_CHANGED }) {
+                bindSeam(holder, position)
+            } else {
+                onBindViewHolder(holder, position)
+            }
         }
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
@@ -686,9 +740,19 @@ class NovelTextViewport(
          */
         private fun bindSeam(holder: Holder, position: Int) {
             val finished = shown.getOrNull(position - 1)?.chapter
-            holder.seam.isVisible = finished != null
-            if (finished == null) return
-            holder.seam.bind(finished.title, shown[position].chapter.title)
+            val titles = finished?.let { it.title to shown[position].chapter.title }
+            if (titles == holder.seamTitles) return
+            holder.seamTitles = titles
+            // A fresh view rather than new state on the old one: a new composition is measured in the
+            // layout pass that adds it, where a recomposition lands a frame later and grows the item
+            // after the list has settled around it, which carried a short last chapter off screen.
+            val fresh = NovelChapterSeamView(holder.root.context)
+            titles?.let { (done, next) -> fresh.bind(done, next) }
+            fresh.isVisible = titles != null
+            val index = holder.root.indexOfChild(holder.seam)
+            holder.root.removeViewAt(index)
+            holder.root.addView(fresh, index)
+            holder.seam = fresh
         }
 
         /**
@@ -712,30 +776,6 @@ class NovelTextViewport(
             }
         }
 
-        /**
-         * Re-draws the seams on the holders already bound, for the same reason [refreshBoundaries]
-         * exists: a rebind would re-measure the text of the chapter the reader is inside.
-         *
-         * A seam turning up is growth above the reading position, which the recycler anchors a
-         * prepend against but not this, so the chapter being read is put back where it was. Both
-         * costs are measured in `RecyclerPrependPositionTest`.
-         */
-        fun refreshSeams() {
-            recycler.post {
-                val anchor = visibleSlot()
-                val before = anchor?.let { boundsOf(it)?.first }
-                shown.indices.forEach { position ->
-                    val holder = recycler.findViewHolderForAdapterPosition(position) as? Holder ?: return@forEach
-                    bindSeam(holder, position)
-                }
-                if (anchor == null || before == null) return@post
-                recycler.post {
-                    val after = boundsOf(anchor)?.first ?: return@post
-                    if (after != before) recycler.scrollBy(0, after - before)
-                }
-            }
-        }
-
         override fun getItemCount(): Int = shown.size
     }
 
@@ -747,6 +787,9 @@ class NovelTextViewport(
         /** Where the chapter's text sits among an item's fixed children: after the failure view for
          *  the edge above it and the seam marker, before the failure view for the edge below. */
         const val CHAPTER_CHILD_INDEX = 2
+
+        /** The one partial change an item takes: the chapter above it, which its seam names, moved. */
+        val SEAM_CHANGED = Any()
 
         /** The frame rate the WebView renderer's per-frame speed was written against. */
         const val FRAMES_PER_SECOND = 60f

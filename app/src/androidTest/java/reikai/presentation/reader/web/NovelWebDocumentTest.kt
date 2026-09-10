@@ -265,6 +265,21 @@ class NovelWebDocumentTest {
         )
     }
 
+    /**
+     * A chapter shorter than the screen opened between two others keeps its first line at the top only
+     * if the chapter after it arrives first: the one before it is kept in place by scrolling down by
+     * its height, which a document with nothing below the short chapter has no room for.
+     */
+    @Test
+    fun aShortChapterOpenedBetweenTwoKeepsItsPlaceWhenTheWindowGrowsBelowFirst() {
+        loadDocument(document(chapterHtml = "<p>short</p>"))
+        settleFrames()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '${"<p>next</p>".repeat(200)}')")
+        eval("window.rkReader.prependChapter('98', 'Chapter 0', '${"<p>previous</p>".repeat(200)}')")
+        settleFrames()
+        assertEquals(0.0, chapterTop(CHAPTER_ID.toString()), 2.0)
+    }
+
     // endregion
 
     // region the page
@@ -586,6 +601,10 @@ class NovelWebDocumentTest {
     }
 
     private fun chapterCount(): String = eval("document.querySelectorAll('.rk-chapter').length")
+
+    /** Where [chapterId]'s chapter begins on screen, in CSS pixels. */
+    private fun chapterTop(chapterId: String): Double =
+        eval("document.querySelector('[data-rk-chapter-id=\"$chapterId\"]').getBoundingClientRect().top").toDouble()
 
     /** Waits for the page to report [chapterId]'s end, since an image's decode and the frame after it
      *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */

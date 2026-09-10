@@ -118,6 +118,7 @@ import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.TextViewport
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
+import reikai.presentation.reader.text.NovelWindowDiff
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -648,12 +649,14 @@ class ReaderActivity : BaseActivity() {
                 }
                 if (window == null) return@onEach
                 val wanted = state.chapters.map { it.chapterId }
-                rendered.filterNot { it in wanted }.forEach(window::evict)
-                state.chapters.takeWhile { it.chapterId !in rendered }
-                    .reversed()
-                    .forEach { window.prepend(it, settings) }
-                state.chapters.takeLastWhile { it.chapterId !in rendered }
-                    .forEach { window.append(it, settings) }
+                val byId = state.chapters.associateBy { it.chapterId }
+                NovelWindowDiff.plan(rendered, wanted).forEach { step ->
+                    when (step) {
+                        is NovelWindowDiff.Step.Evict -> window.evict(step.chapterId)
+                        is NovelWindowDiff.Step.Append -> window.append(byId.getValue(step.chapterId), settings)
+                        is NovelWindowDiff.Step.Prepend -> window.prepend(byId.getValue(step.chapterId), settings)
+                    }
+                }
                 rendered = wanted
                 // After the verbs, so an edge is never marked failed on a window that is one append
                 // away from reaching past it.

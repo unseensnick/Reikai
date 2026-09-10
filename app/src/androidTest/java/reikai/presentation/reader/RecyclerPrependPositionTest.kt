@@ -45,6 +45,12 @@ class RecyclerPrependPositionTest {
         /** Where that chapter lands once the text is measured. */
         const val MEASURED = HEIGHT * 6
 
+        /** A chapter shorter than the screen. */
+        const val SHORT_CHAPTER = HEIGHT / 10
+
+        /** A chapter whose text has not been set yet: its column's padding and nothing else. */
+        const val UNMEASURED_TEXT = 48
+
         const val CURRENT = "current"
         const val PREVIOUS = "previous"
     }
@@ -407,6 +413,49 @@ class RecyclerPrependPositionTest {
         Log.i(TAG, "RESULT composite: prependDrift=$prependDrift chunkDrift=$chunkDrift")
         assertNotNull(prependDrift)
         assertTrue("a prepended chapter should not move the reader, drift=$prependDrift", abs(prependDrift!!) <= 2)
+    }
+
+    /**
+     * Everything above assumes the screen is full, which a last chapter shorter than the screen is
+     * not. The layout manager closes the gap below it by scrolling the inserted chapter into view, so
+     * that chapter is laid out after all, and becomes the child the next layout anchors on.
+     */
+    private fun measureShortLastPrepend(label: String, growAfterLayout: Boolean): Pair<Int?, Int?> {
+        var afterInsert: Int? = null
+        var settled: Int? = null
+        instrumentation.runOnMainSync {
+            val items = mutableListOf(Item(CURRENT, SHORT_CHAPTER))
+            val adapter = ChapterAdapter(items)
+            val rv = recycler(adapter)
+            rv.relayout()
+            items.add(0, Item(PREVIOUS, if (growAfterLayout) UNMEASURED_TEXT else MEASURED))
+            adapter.notifyItemInserted(0)
+            rv.relayout()
+            afterInsert = rv.topOfTag(CURRENT)
+            if (growAfterLayout) {
+                items[0].height = MEASURED
+                adapter.notifyItemChanged(0)
+                rv.relayout()
+            }
+            settled = rv.topOfTag(CURRENT)
+            Log.i(TAG, "$label: afterInsert=$afterInsert settled=$settled")
+        }
+        return afterInsert to settled
+    }
+
+    /** The shape the native viewport had: the chapter before arrives with no text, then grows. */
+    @Test
+    fun shortLastChapter_prependGrowsAfterLayout() {
+        val (afterInsert, settled) = measureShortLastPrepend("short-last, grows-after", growAfterLayout = true)
+        Log.i(TAG, "RESULT short-last grows-after: afterInsert=$afterInsert settled=$settled")
+    }
+
+    /** The chapter before arrives already measured: the gap closes once and nothing grows after. */
+    @Test
+    fun shortLastChapter_prependHeightFinalAtLayout() {
+        val (_, settled) = measureShortLastPrepend("short-last, final-height", growAfterLayout = false)
+        Log.i(TAG, "RESULT short-last final-height: settled=$settled")
+        assertTrue("the short chapter should end at the bottom, settled=$settled", settled == HEIGHT - SHORT_CHAPTER)
     }
 
     /** How wide the window actually is: how many chapter-sized children stay laid out at once. */
