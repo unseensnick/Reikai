@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          A bare WebView host for instrumented tests, in the debug variant rather than the test APK
+          because instrumentation refuses to start an Activity that resolves to a different process.
+          Chromium drives requestAnimationFrame and scroll anchoring from the compositor, so a WebView
+          that was only measured and laid out runs neither. Not exported, and dev builds only.
+        -->
+        <activity
+            android:name="reikai.presentation.reader.WebViewHostActivity"
+            android:exported="false" />
+    </application>
+
+</manifest>
