@@ -67,7 +67,11 @@ class NovelWebDocumentTest {
         railOnLeft = false,
     )
 
-    private fun document(html: String = "<p>lorem ipsum</p>".repeat(200)): String =
+    private fun document(
+        html: String = "<p>lorem ipsum</p>".repeat(200),
+        useOriginalFonts: Boolean = false,
+        sourceCssPriority: Boolean = false,
+    ): String =
         NovelWebDocument.build(
             context = instrumentation.targetContext,
             chapterId = CHAPTER_ID,
@@ -76,6 +80,8 @@ class NovelWebDocumentTest {
             settings = settings,
             statusBarHeightPx = 0,
             customFontUrl = null,
+            useOriginalFonts = useOriginalFonts,
+            sourceCssPriority = sourceCssPriority,
         )
 
     @Before
@@ -96,6 +102,32 @@ class NovelWebDocumentTest {
     fun everyBuildTokenIsSubstituted() {
         val leftover = Regex("__[A-Z_]+__").findAll(document()).map { it.value }.toSet()
         assertTrue("the document still carries build tokens: $leftover", leftover.isEmpty())
+    }
+
+    /** A chapter's own CSS sits inside the body and so wins a tie, which is what these take back. */
+    @Test
+    fun theReaderOverridesAChaptersOwnStylingByDefault() {
+        val css = document()
+        assertTrue("the reader does not force its font size", css.contains("font-size: inherit !important"))
+        assertTrue("the reader does not force its face", css.contains("font-family: inherit !important"))
+        assertTrue(
+            "headings are not restated, so forcing an inherited size flattens them",
+            css.contains("h1 { font-size: 2em !important; }"),
+        )
+    }
+
+    @Test
+    fun sourceCssPriorityLeavesAChaptersStylingAlone() {
+        val css = document(sourceCssPriority = true)
+        assertTrue("the reader still forces its styling over the chapter's", !css.contains("!important"))
+    }
+
+    /** The narrower of the two: the chapter keeps its face, and everything else is still the reader's. */
+    @Test
+    fun useOriginalFontsDropsOnlyTheFaceOverride() {
+        val css = document(useOriginalFonts = true)
+        assertTrue("the chapter's own face is still overridden", !css.contains("font-family: inherit !important"))
+        assertTrue("the reader stopped forcing its size too", css.contains("font-size: inherit !important"))
     }
 
     @Test

@@ -303,6 +303,15 @@ class NovelPreferences(
      *  (ads, loaders, analytics) rather than chapter content. */
     fun readerKeepEmbeddedJs() = preferenceStore.getBoolean("ln_reader_keep_embedded_js", false)
 
+    /** Let the chapter's own font declarations stand instead of the reader's chosen face. Only the
+     *  WebView renderer can honour this, since a chapter's CSS never reaches the text renderer. */
+    fun readerUseOriginalFonts() = preferenceStore.getBoolean("ln_reader_use_original_fonts", false)
+
+    /** Let the chapter's own styling win over the reader's display settings, rather than the reader
+     *  forcing size, colour and spacing over it. Off, because a source that styles for its own site
+     *  otherwise overrides the theme the reader chose. */
+    fun readerSourceCssPriority() = preferenceStore.getBoolean("ln_reader_source_css_priority", false)
+
     /** Let a long-press select the chapter text, at the cost of following links: the two cannot both
      *  work, because selection needs the movement method that dispatches the drag. Off until
      *  selection actually engages inside the recycler (see the reader-surface plan doc). */

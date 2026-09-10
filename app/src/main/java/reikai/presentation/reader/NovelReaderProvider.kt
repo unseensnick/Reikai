@@ -139,6 +139,8 @@ class NovelReaderProvider(
             volumeKeysEnabled = settings.useVolumeButtons,
             volumeKeysInverted = settings.volumeButtonsInverted,
             volumeKeyScrollFraction = settings.volumeButtonsFraction,
+            useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
+            sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
             // The live percent drives the navigator; the settled one persists, and it carries
             // mark-as-read and the tracker push with it.
             onProgressChanged = viewModel::reportProgress,

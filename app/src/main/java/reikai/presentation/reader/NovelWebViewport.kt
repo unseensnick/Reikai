@@ -36,6 +36,10 @@ class NovelWebViewport(
     private val volumeKeysEnabled: Boolean,
     private val volumeKeysInverted: Boolean,
     private val volumeKeyScrollFraction: Float,
+    /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. Read
+     *  once like the volume-key values above, so a change lands on the next open. */
+    private val useOriginalFonts: Boolean,
+    private val sourceCssPriority: Boolean,
     /** Named with its chapter, matching the native viewport, so the model never has to assume which
      *  chapter a percentage belongs to. */
     private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
@@ -157,6 +161,8 @@ class NovelWebViewport(
                 settings = settings,
                 statusBarHeightPx = statusBarPx,
                 customFontUrl = fontUrl,
+                useOriginalFonts = useOriginalFonts,
+                sourceCssPriority = sourceCssPriority,
             )
         }
         // Only trust an http(s) base URL. The plugin controls the site URL, and a file:// base would

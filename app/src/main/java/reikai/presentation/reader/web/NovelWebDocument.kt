@@ -35,6 +35,8 @@ object NovelWebDocument {
         settings: NovelReaderSettings,
         statusBarHeightPx: Int,
         customFontUrl: String?,
+        useOriginalFonts: Boolean,
+        sourceCssPriority: Boolean,
     ): String {
         val css = NovelWebAssets.read(context, "reader.css")
         val js = NovelWebAssets.readWith(
@@ -58,6 +60,7 @@ object NovelWebDocument {
             ${fontFace(settings.fontFamily, customFontUrl)}
             :root { ${variables(settings, statusBarHeightPx)} }
             $css
+            ${overrides(useOriginalFonts, sourceCssPriority)}
             </style>
             </head>
             <body>
@@ -88,6 +91,44 @@ object NovelWebDocument {
         append("--rk-paragraph-indent:").append(settings.paragraphIndent).append("em;")
         append("--rk-paragraph-spacing:").append(settings.paragraphSpacing).append("em;")
         append("--rk-inset-top:").append(statusBarHeightPx).append("px;")
+    }
+
+    /**
+     * How the reader's display settings hold their ground against a chapter that ships its own CSS.
+     * A chapter's styles sit inside the body and so win a tie on document order, which is why these
+     * carry `!important` rather than being folded into the stylesheet. Ported from tsundoku's
+     * `fontOverrideCss`, including why the headings are restated: forcing `font-size: inherit` on
+     * every element is what stops a source sizing its own text, and it flattens headings with it.
+     */
+    private fun overrides(useOriginalFonts: Boolean, sourceCssPriority: Boolean): String {
+        if (sourceCssPriority) return ""
+        val family = if (useOriginalFonts) "" else "font-family: var(--rk-font-family) !important;"
+        val familyInherit = if (useOriginalFonts) "" else "font-family: inherit !important;"
+        return """
+            .rk-chapter {
+              font-size: var(--rk-font-size) !important;
+              line-height: var(--rk-line-height) !important;
+              color: var(--rk-text) !important;
+              text-align: var(--rk-text-align) !important;
+              $family
+            }
+            .rk-chapter * {
+              font-size: inherit !important;
+              color: inherit !important;
+              background-color: transparent !important;
+              $familyInherit
+            }
+            .rk-chapter p {
+              text-indent: var(--rk-paragraph-indent) !important;
+              margin-bottom: var(--rk-paragraph-spacing) !important;
+            }
+            .rk-chapter h1 { font-size: 2em !important; }
+            .rk-chapter h2 { font-size: 1.5em !important; }
+            .rk-chapter h3 { font-size: 1.17em !important; }
+            .rk-chapter h4 { font-size: 1em !important; }
+            .rk-chapter h5 { font-size: 0.83em !important; }
+            .rk-chapter h6 { font-size: 0.67em !important; }
+        """.trimIndent()
     }
 
     /** The block the page's own settings object is given, for what a custom property cannot express. */

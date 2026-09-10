@@ -202,6 +202,19 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_keep_embedded_js),
                     subtitle = stringResource(MR.strings.pref_keep_embedded_js_summary),
                 ).takeIf { renderingMode != NovelRenderingMode.NATIVE },
+                // Only the shared host's WebView renderer honours these two. The legacy reader is a
+                // WebView as well but renders through the vendored engine, which has no answer for
+                // either, so showing them there would be a switch that does nothing.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerUseOriginalFonts(),
+                    title = stringResource(MR.strings.pref_use_original_fonts),
+                    subtitle = stringResource(MR.strings.pref_use_original_fonts_summary),
+                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSourceCssPriority(),
+                    title = stringResource(MR.strings.pref_source_css_priority),
+                    subtitle = stringResource(MR.strings.pref_source_css_priority_summary),
+                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
                 // Its own screen rather than a row: a rule is five fields plus a preview, and the
                 // list has no useful upper bound.
                 Preference.PreferenceItem.TextPreference(
