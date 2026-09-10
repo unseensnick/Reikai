@@ -250,12 +250,13 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_novel_text_selectable),
                     subtitle = stringResource(MR.strings.pref_novel_text_selectable_summary),
                 ).takeIf { renderingMode == NovelRenderingMode.NATIVE },
-                // Same reason: only the native renderer holds more than one chapter at a time.
+                // Both renderers on the shared host hold a window; the standalone reader is the one
+                // that cannot, which is the same line NovelReaderViewModel.windowedReading draws.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSeamlessChapters(),
                     title = stringResource(MR.strings.pref_novel_seamless_chapters),
                     subtitle = stringResource(MR.strings.pref_novel_seamless_chapters_summary),
-                ).takeIf { renderingMode == NovelRenderingMode.NATIVE },
+                ).takeIf { renderingMode != NovelRenderingMode.LEGACY },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerDefaultOrientation(),
                     entries = ReaderOrientation.entries

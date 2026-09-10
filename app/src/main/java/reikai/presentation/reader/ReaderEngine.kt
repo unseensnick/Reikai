@@ -100,6 +100,13 @@ class ReaderEngine(
         (provider.autoScroll?.enabled ?: flowOf(false))
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Bionic reading, or null where this session's pages are images. */
+    val bionicReading: ReaderBionicReading? get() = provider.bionicReading
+
+    val bionicReadingEnabled: StateFlow<Boolean> =
+        (provider.bionicReading?.enabled ?: flowOf(false))
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     fun previousChapter() = stepChapter { provider.previousChapter() }
 
     fun nextChapter() = stepChapter { provider.nextChapter() }

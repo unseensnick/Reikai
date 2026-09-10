@@ -306,6 +306,41 @@ Tsundoku's side, measured the same day: the text package at 3153 lines of which 
 
 **A watch item, not a known defect: two boundary symptoms seen once and not reproducible.** After 7a to 7d, the owner reported on the Fold that the chrome named the chapter above the one on screen, and that a rail drag to 0% from a couple of percent into a chapter landed at the previous chapter's start instead. Both were traced with temporary probes across `native.visible`, `page.visible`, both `seekTo` paths, `model.visible`, `model.window`, `host.window` and the seam refresh, on the emulator and then on the Fold with the owner driving. Neither reproduced on the build carrying the seam and start-position fixes, and every probed path behaved: a crossing in either direction reported the arriving chapter and re-centred the window, and a rail drag held its target chapter from 11.76% down to 0.0 and landed on that chapter's own first line. The most likely explanation is that the report predates those fixes, since the owner's Android Studio was refusing to build at the time (the Mihon sync took AGP to 9.4.0, which needs Quail 4). Recorded rather than closed: if either returns, the probe set is the way back in, and the two candidate mechanisms to re-examine first are `visibleSlot` resolving through `findFirstVisibleItemPosition` on an item that now carries a seam, and `seekTo` re-reading its target chapter on every event of one drag.
 
+
+**The watch item above is resolved, and its cause was a rule written twice.** The chrome naming the
+chapter above the one on screen is the seam: the native renderer puts the seam marker inside the
+chapter's own item view, so a reader stopped in a seam is in the chapter below it
+(`NovelTextViewport`'s `Holder`, with `boundsOf` keeping the geometry to the text alone), while the
+WebView engine attributed the seam's pixels to the chapter above. Measured on the emulator: at a
+backward load `scrollY` was 8164 against an open chapter starting at 8188.05, a gap of exactly the
+`#rk-chapters` top padding. `rebuildBoundaries` now records a `claimFrom` per chapter, the top of the
+seam that introduces it, and `state()` picks the chapter by that while progress still measures from
+the chapter's own start. Pinned by `aReaderInsideASeamIsInTheChapterBelowIt` and
+`aPrependAtTheTopDoesNotRenameTheChapterBeingRead`; reverting the clause turns both red. A first
+attempt patched the prepend compensation instead, which fixed one symptom of the general rule and was
+reverted. The rail-drag half of the watch item did not reproduce and stays open.
+
+**Step 7c found four defects rather than none, which is why the walk exists.** Bionic reading was a
+one-way toggle: `applyBionic` replaces text nodes and nothing un-applied them, so switching it off
+persisted until the chapter was reopened; the emphasis is now a class on the root with the stylesheet
+making the spans inert. The swipe threshold was a quarter of the viewport with no origin rule, where
+`core.js` and the native renderer both use 180 CSS px plus the start-on-the-far-half rule. A settings
+push landing while a document loads was dropped, and now queues like a window verb. And a pipeline
+setting changed after a seamless crossing reopened the chapter the session started on, because
+`load()` re-aims at `pendingChapterId`, which only an explicit open moves.
+
+**"Remove extra spacing" did nothing in the native renderer**, which the WebView mode made visible by
+doing something. `collapseBlankLines` flattened every run of newlines to one, and a `<br>` run is
+exactly what the setting trims, so both states rendered identically as `a\nb`; the mutation test
+records that. One break per run is taken now, which is the block separator the collapse was written
+for, and a surviving blank line no longer picks up paragraph spacing so it costs what the break it
+came from costs in a WebView.
+
+**Bionic reading had no in-reader control on the shared host** (owner, 2026-09-10, ruled in during the
+walk). `onClickBionic` was supplied only by the legacy screen, so the bar button was unreachable in
+both new modes and the setting was reachable only from Settings. It is now a `ReaderBionicReading`
+capability answered by the novel provider and null for manga, mirroring `ReaderAutoScroll`. This is a
+7f-class find made before 7f: the takeover had dropped an affordance the replaced reader had.
 ## Decisions & tradeoffs
 
 - **The host is one Activity and the engine sits above two providers.** The program's usual shape does not survive contact with a window-owning host, and pretending it does is how this surface would get mis-planned.

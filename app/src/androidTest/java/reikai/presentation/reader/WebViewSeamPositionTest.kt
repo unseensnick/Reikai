@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.presentation.reader.web.NovelWebDocument
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -32,6 +33,9 @@ class WebViewSeamPositionTest {
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var webView: WebView
     private val frames = FrameSignal()
+
+    /** The real document's engine reporting that its script ran to the end. */
+    private var engineReady = CountDownLatch(1)
 
     /**
      * How the page says a frame was composited. `evaluateJavascript` does not await a promise, so a
@@ -294,6 +298,139 @@ class WebViewSeamPositionTest {
         val bad = offsets.associateWith { driftAt(it, compensate = true) }.filterValues { abs(it) > FREE }
         assertTrue("a compensated prepend moved the reader at scroll offsets $bad", bad.isEmpty())
     }
+
+    // region the real document
+
+    /**
+     * The same measurements against the document the reader actually renders, driven through the
+     * engine's own window verbs. The synthetic cases above measure Chromium; these say whether the
+     * real page still gets that behaviour once its stylesheet, its seams and its own ResizeObserver
+     * are in the way. `insertChapter` compensates only at scroll offset zero and relies on anchoring
+     * everywhere else, so a regression in either half shows up here as drift.
+     */
+    @Test
+    fun theRealDocumentHoldsItsPlaceWhenTheWindowGrows() {
+        loadReal()
+        scrollMarkerToMidScreenInstantly()
+        val beforeAppend = markerTop()
+        insertReal(atStart = false)
+        val appendDrift = (markerTop() - beforeAppend).roundToInt()
+        Log.i(TAG, "real/append: drift=$appendDrift")
+        assertTrue("appending below the reader moved it by $appendDrift px", abs(appendDrift) <= FREE)
+
+        val beforePrepend = markerTop()
+        insertReal(atStart = true)
+        val prependDrift = (markerTop() - beforePrepend).roundToInt()
+        Log.i(TAG, "real/prepend: drift=$prependDrift")
+        assertTrue("prepending above the reader moved it by $prependDrift px", abs(prependDrift) <= FREE)
+    }
+
+    /**
+     * The crossing that actually needs the correction: a backward load arrives while the reader sits
+     * at the top of the document, which is the one offset Blink suppresses anchoring at.
+     */
+    @Test
+    fun theRealDocumentHoldsItsPlaceWhenPrependedAtTheTop() {
+        val bad = listOf(0, 1, 50).associateWith { offset ->
+            loadReal()
+            scrollInstantlyTo(offset.toDouble())
+            val before = markerTop()
+            insertReal(atStart = true)
+            val drift = (markerTop() - before).roundToInt()
+            Log.i(TAG, "real/prepend/near-top: scrollY=$offset drift=$drift")
+            drift
+        }.filterValues { abs(it) > FREE }
+        assertTrue("a prepend moved the reader at scroll offsets $bad", bad.isEmpty())
+    }
+
+    /** The chapter body the real document is built around, carrying the marker the drift is read off. */
+    private fun chapterBody(marker: Boolean) = buildString {
+        append("<div style=\"height:${CHAPTER_PX / 2}px\"></div>")
+        if (marker) append("<div id=\"marker\" style=\"height:2px\"></div>")
+        append("<div style=\"height:${CHAPTER_PX / 2}px\"></div>")
+    }
+
+    /** Loads the real document and waits for its engine, not just for the page. */
+    private fun loadReal() {
+        engineReady = CountDownLatch(1)
+        instrumentation.runOnMainSync { webView.addJavascriptInterface(EngineBridge(), "ReikaiWeb") }
+        load(
+            NovelWebDocument.build(
+                context = instrumentation.targetContext,
+                chapterId = 1L,
+                chapterTitle = "Chapter 1",
+                chapterHtml = chapterBody(marker = true),
+                initialFraction = 0f,
+                settings = readerTestSettings,
+                statusBarHeightPx = 0,
+                customFontUrl = null,
+                useOriginalFonts = false,
+                sourceCssPriority = false,
+            ),
+        )
+        assertTrue("the engine never reported ready", engineReady.await(TIMEOUT_S, TimeUnit.SECONDS))
+        settle()
+    }
+
+    /**
+     * The real stylesheet sets `scroll-behavior: smooth`, so a plain scrollTo animates and a
+     * measurement two frames later reads the animation rather than the result. The engine's own
+     * seek asks for an instant scroll for the same reason.
+     */
+    private fun scrollInstantlyTo(y: Double) {
+        eval("window.scrollTo({ top: $y, behavior: 'instant' }); return 'ok'")
+        settle()
+    }
+
+    private fun scrollMarkerToMidScreenInstantly() {
+        val target = evalDouble(
+            "var m = document.getElementById('marker');" +
+                "return m.getBoundingClientRect().top + window.scrollY - window.innerHeight / 2",
+        )
+        scrollInstantlyTo(target.roundToInt().toDouble())
+    }
+
+    /** Ids climb away from the opening chapter's, which the engine would refuse as already present. */
+    private var insertedChapters = 0
+
+    private fun insertReal(atStart: Boolean) {
+        val verb = if (atStart) "prependChapter" else "appendChapter"
+        val id = if (atStart) -(++insertedChapters) else 100 + insertedChapters++
+        val before = evalDouble("return document.querySelectorAll('.rk-chapter').length")
+        eval("window.rkReader.$verb('$id', 'Chapter $id', '${chapterBody(marker = false)}'); return 'ok'")
+        settle()
+        // An insert the engine refuses adds no height, which would read as a drift of zero and pass.
+        assertTrue(
+            "$verb('$id') did not add a chapter",
+            evalDouble("return document.querySelectorAll('.rk-chapter').length") > before,
+        )
+    }
+
+    /** The page calls these on every frame; without them the engine throws inside its own rAF. */
+    private inner class EngineBridge {
+        @JavascriptInterface
+        fun onReady() = engineReady.countDown()
+
+        @JavascriptInterface
+        fun onVisibleChapter(chapterId: String) = Unit
+
+        @JavascriptInterface
+        fun onProgress(chapterId: String, fraction: Double) = Unit
+
+        @JavascriptInterface
+        fun onProgressSettled(chapterId: String, fraction: Double) = Unit
+
+        @JavascriptInterface
+        fun onRetryBoundary(forward: Boolean) = Unit
+
+        @JavascriptInterface
+        fun onToggleMenu() = Unit
+
+        @JavascriptInterface
+        fun onStepChapter(forward: Boolean) = Unit
+    }
+
+    // endregion
 
     /** With anchoring suppressed, a bare insert must shift the page by exactly what it added. */
     @Test

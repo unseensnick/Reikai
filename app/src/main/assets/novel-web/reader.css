@@ -43,6 +43,11 @@ body {
   margin: 0 0 var(--rk-paragraph-spacing) 0;
 }
 
+/* Bionic emphasis is switched here rather than in the DOM; see syncBionic in reader.js. */
+html:not(.rk-bionic-on) .rk-bionic b {
+  font-weight: inherit;
+}
+
 /*
  * A plain-text chapter is rebuilt into paragraphs with no styling of its own, so it needs the
  * wrapping the source would have given it. Carried from the island the vendored index.css held.

@@ -100,6 +100,12 @@ class NovelReaderProvider(
         }
     }
 
+    override val bionicReading: ReaderBionicReading = object : ReaderBionicReading {
+        override val enabled: Flow<Boolean> = viewModel.settings.map { it.bionicReading }
+
+        override fun toggle() = viewModel.setBionicReading(!viewModel.settings.value.bionicReading)
+    }
+
     override val orientation: Flow<Int> = viewModel.settings.map { it.orientation }
 
     override val keepScreenOn: Flow<Boolean> = viewModel.settings.map { it.keepScreenOn }

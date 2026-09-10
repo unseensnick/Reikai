@@ -174,6 +174,9 @@ class MangaReaderProvider(
     // asked; this stays the novel session's until it is.
     override val autoScroll: ReaderAutoScroll? = null
 
+    // Same reason as the typography above: an image has no words whose openings could be bolded.
+    override val bionicReading: ReaderBionicReading? = null
+
     // Unresolved, because the picker's "use default" action has to be able to tell a series following
     // the default from one pinned to the same value the default happens to be.
     override val orientation: Flow<Int> = viewModel.state

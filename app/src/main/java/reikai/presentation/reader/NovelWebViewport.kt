@@ -207,18 +207,18 @@ class NovelWebViewport(
     /**
      * Pushes changed display settings into the live document, so a size or colour change reflows in
      * place rather than waiting for the next chapter. The custom properties are rewritten wholesale,
-     * since the stylesheet reads them and nothing else has to be told; only what CSS cannot express
-     * goes to the page's own settings object.
+     * since the stylesheet reads them; only what CSS cannot express goes to the page's own settings
+     * object. Queued like a window verb, because a change made while a document is still loading
+     * would otherwise find no engine and be dropped with no trace until the next chapter.
      */
     override fun applySettings(settings: NovelReaderSettings) {
         val variables = NovelWebDocument.variables(settings, statusBarHeightPx())
         val behaviour = NovelWebDocument.behaviourJson(settings).toString()
-        val script = buildString {
-            append("document.documentElement.setAttribute('style', ")
-            append(JSONObject.quote(variables))
-            append("); if (window.rkReader) rkReader.setSettings(").append(behaviour).append(");")
-        }
-        webView.evaluateJavascript(script, null)
+        // A block, since runOrQueue's guard would otherwise cover only the first of the two.
+        runOrQueue(
+            "{ document.documentElement.setAttribute('style', ${JSONObject.quote(variables)}); " +
+                "rkReader.setSettings($behaviour); }",
+        )
     }
 
     /**

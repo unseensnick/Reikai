@@ -176,6 +176,8 @@ class NovelReaderViewModel(
 
     fun setAutoScroll(enabled: Boolean) = novelPreferences.readerAutoScroll().set(enabled)
 
+    fun setBionicReading(enabled: Boolean) = novelPreferences.readerBionicReading().set(enabled)
+
     fun setFontSize(size: Int) = novelPreferences.readerFontSize().set(size)
 
     fun setFollowSystemTheme() = novelPreferences.readerFollowSystemTheme().set(true)
@@ -462,6 +464,10 @@ class NovelReaderViewModel(
         textLoader.settingsChanged
             .onEach {
                 htmlCache.clear()
+                // Re-aimed at what is on screen: a seamless crossing moves the reader into a chapter
+                // without opening it, so the load would otherwise reopen the one the session started
+                // on. Not done in reportVisibleChapter, which would also redirect a retry.
+                pendingChapterId = currentChapterId
                 load()
             }
             .launchIn(viewModelScope)

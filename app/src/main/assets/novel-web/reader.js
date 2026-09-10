@@ -13,6 +13,9 @@
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
   var CHAPTER_TITLE_ATTR = 'data-rk-chapter-title';
   var DONE_THRESHOLD = __DONE_THRESHOLD__;
+  // core.js's swipe distance, in CSS pixels. The document is initial-scale=1, so this is the same
+  // unit the native renderer's SWIPE_MIN_DP resolves to and the gesture matches in all three.
+  var SWIPE_MIN_PX = 180;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
   // waits this out rather than saving a position the layout is about to move.
   var SETTLE_MS = 400;
@@ -71,9 +74,18 @@
     for (var i = 0; i < chapters.length; i++) {
       var rect = chapters[i].getBoundingClientRect();
       var start = rect.top + top;
+      // A chapter is read from the top of the seam that introduces it, while its progress still
+      // measures the text alone. The native renderer draws the same two lines, by putting the seam
+      // inside the chapter's own item: without this, a reader stopped anywhere in a seam is reported
+      // in the chapter above while the screen below the seam is entirely the chapter it names.
+      var above = chapters[i].previousElementSibling;
+      var claimFrom = above && above.classList.contains('rk-seam')
+        ? above.getBoundingClientRect().top + top
+        : start;
       next.push({
         id: chapters[i].getAttribute(CHAPTER_ID_ATTR),
         start: start,
+        claimFrom: claimFrom,
         height: rect.height,
       });
     }
@@ -108,7 +120,7 @@
      */
     var index = 0;
     for (var i = 0; i < boundaries.length; i++) {
-      if (top >= boundaries[i].start - EDGE_TOLERANCE) index = i; else break;
+      if (top >= boundaries[i].claimFrom - EDGE_TOLERANCE) index = i; else break;
     }
     var chapter = boundaries[index];
     var isLast = index === boundaries.length - 1;
@@ -206,6 +218,15 @@
     });
   }
 
+  /*
+   * Bionic emphasis is switched by a class on the root, not by undoing applyBionic: that replaces
+   * text nodes with spans and cannot be unwound, so switching the setting off used to leave the
+   * emphasis in place until the chapter was reopened.
+   */
+  function syncBionic() {
+    document.documentElement.classList.toggle('rk-bionic-on', !!settings.bionic);
+  }
+
   function tapZone(x, y) {
     // Thirds vertically, matching the native renderer's own tap rule.
     var third = viewportHeight() / 3;
@@ -237,10 +258,20 @@
       var dy = touch.clientY - startY;
       var elapsed = Date.now() - startAt;
 
-      // A horizontal fling that stayed horizontal steps a chapter.
-      if (settings.swipe && Math.abs(dx) > window.innerWidth * 0.25 && Math.abs(dx) > Math.abs(dy) * 2) {
-        bridge().onStepChapter(dx < 0);
-        return;
+      // core.js's rule, which the native renderer also implements: mostly sideways, far enough not
+      // to be a stray, and started on the half it moves away from, so it crosses the middle rather
+      // than flicking in a corner. A swipe that clears the first two but starts on the wrong half
+      // falls through to the tap check below, where `moved` discards it.
+      if (settings.swipe && Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 2) {
+        var middle = window.innerWidth / 2;
+        if (dx < 0 && startX >= middle) {
+          bridge().onStepChapter(true);
+          return;
+        }
+        if (dx > 0 && startX <= middle) {
+          bridge().onStepChapter(false);
+          return;
+        }
       }
       if (moved || elapsed > 400) return;
       // A tap on a link is the link's, not the reader's.
@@ -293,6 +324,7 @@
       if (settings.bionic && !wasBionic) {
         document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
       }
+      syncBionic();
     },
     autoScrollStart: function (perFrame) { autoScroll.start(perFrame); },
     autoScrollStop: function () { autoScroll.stop(); },
@@ -457,6 +489,7 @@
   }
 
   installGestures();
+  syncBionic();
   if (settings.bionic) {
     document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
   }

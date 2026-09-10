@@ -221,26 +221,16 @@ class NovelTextRenderer(
         img.attr("src", best.first)
     }
 
-    /**
-     * `Html.fromHtml` separates blocks with a blank line, which would sit under the paragraph spacing
-     * and make the same setting draw a wider gap here than in a WebView. Collapsing it leaves the
-     * spacing as the whole gap in both. Tsundoku keeps the blank line and carries that difference.
-     */
-    private fun collapseBlankLines(text: SpannableStringBuilder) {
-        var i = text.length - 1
-        while (i > 0) {
-            if (text[i] == '\n' && text[i - 1] == '\n') text.delete(i, i + 1)
-            i--
-        }
-    }
-
     private fun applyParagraphSpans(spannable: SpannableStringBuilder, spacingPx: Int, indentPx: Int) {
         var i = 0
         var paragraphStart = 0
         while (i < spannable.length) {
             if (spannable[i] == '\n' || i == spannable.length - 1) {
                 val paragraphEnd = i + 1
-                if (spacingPx > 0) {
+                // A blank line the source asked for costs one line height, as the break it came from
+                // does in a WebView. Spacing it like a paragraph would multiply every stacked break.
+                val isBlankLine = paragraphEnd - paragraphStart == 1 && spannable[paragraphStart] == '\n'
+                if (spacingPx > 0 && !isBlankLine) {
                     spannable.setSpan(
                         ParagraphSpacingSpan(spacingPx),
                         paragraphStart,
@@ -248,7 +238,7 @@ class NovelTextRenderer(
                         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                     )
                 }
-                if (indentPx > 0) {
+                if (indentPx > 0 && !isBlankLine) {
                     spannable.setSpan(
                         ParagraphIndentSpan(indentPx),
                         paragraphStart,
@@ -264,6 +254,23 @@ class NovelTextRenderer(
 
     companion object {
         private const val CHUNK_TARGET_CHARS = 6_000
+
+        /**
+         * `Html.fromHtml` separates blocks with a blank line, which would sit under the paragraph
+         * spacing and draw a wider gap than the same settings do in a WebView. Exactly one break per
+         * run is taken, which is that separator: a longer run is line breaks the source asked for,
+         * and flattening those too made "Remove extra spacing" invisible in this renderer.
+         */
+        internal fun collapseBlankLines(text: SpannableStringBuilder) {
+            var i = text.length - 1
+            while (i > 0) {
+                if (text[i] == '\n' && text[i - 1] == '\n') {
+                    text.delete(i, i + 1)
+                    while (i > 0 && text[i - 1] == '\n') i--
+                }
+                i--
+            }
+        }
 
         private val leadingSpaceInParagraph = Regex("<p>(?: |&#160;|&nbsp;)+")
         private val whitespace = Regex("\\s+")

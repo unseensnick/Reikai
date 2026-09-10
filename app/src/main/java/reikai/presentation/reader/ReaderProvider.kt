@@ -79,6 +79,9 @@ interface ReaderProvider {
     /** Continuous scrolling, or null for a type that offers no such setting. */
     val autoScroll: ReaderAutoScroll?
 
+    /** Bionic reading, or null for a type whose pages are images and so have no words to bold. */
+    val bionicReading: ReaderBionicReading?
+
     /**
      * The entry's own rotation flag, a [eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation]
      * `flagValue` where 0 means follow that content type's global default. Both types store one per

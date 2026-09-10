@@ -273,6 +273,27 @@ class ReaderEngineTest {
         engine.autoScrollEnabled.value shouldBe true
     }
 
+    /** The manga shape again: an image has no words to bold, so the button is absent, not lit. */
+    @Test
+    fun `a session without bionic reading reports it off`() {
+        val engine = engine()
+
+        engine.bionicReading shouldBe null
+        engine.bionicReadingEnabled.value shouldBe false
+    }
+
+    @Test
+    fun `bionic reading follows the session that offers it`() {
+        val provider = FakeReaderProvider()
+        val bionic = FakeBionicReading()
+        provider.bionicReadingSlot = bionic
+        val engine = engine(provider)
+
+        bionic.toggle()
+
+        engine.bionicReadingEnabled.value shouldBe true
+    }
+
     /**
      * A scrub is an explicit position choice, and a running auto-scroll would carry the reader off it
      * within a frame, so the engine stops it before the viewport moves.
@@ -301,6 +322,14 @@ class ReaderEngineTest {
         engine.seek(ChapterProgress.Percent(hundredths = 5000))
 
         viewport.sought shouldBe ChapterProgress.Percent(hundredths = 5000)
+    }
+}
+
+private class FakeBionicReading : ReaderBionicReading {
+    override val enabled = MutableStateFlow(false)
+
+    override fun toggle() {
+        enabled.value = !enabled.value
     }
 }
 
@@ -335,6 +364,10 @@ private class FakeReaderProvider : ReaderProvider {
     var autoScrollSlot: ReaderAutoScroll? = null
 
     override val autoScroll: ReaderAutoScroll? get() = autoScrollSlot
+
+    var bionicReadingSlot: ReaderBionicReading? = null
+
+    override val bionicReading: ReaderBionicReading? get() = bionicReadingSlot
 
     override val navigator = MutableStateFlow(ReaderNavigatorState())
 

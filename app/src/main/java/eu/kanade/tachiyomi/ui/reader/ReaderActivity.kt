@@ -847,6 +847,7 @@ class ReaderActivity : BaseActivity() {
         val orientation by engine.orientation.collectAsState()
         val keepScreenOn by engine.keepScreenOn.collectAsState()
         val autoScrollActive by engine.autoScrollEnabled.collectAsState()
+        val bionicActive by engine.bionicReadingEnabled.collectAsState()
 
         ReaderAppBars(
             visible = state.menuVisible,
@@ -917,6 +918,8 @@ class ReaderActivity : BaseActivity() {
             onClickTheme = engine.textSettings?.let { { engine.openDialog(ReaderDialog.ThemeSelect(it)) } },
             autoScrollActive = autoScrollActive,
             onClickAutoScroll = engine.autoScroll?.let { auto -> { auto.toggle() } },
+            bionicActive = bionicActive,
+            onClickBionic = engine.bionicReading?.let { bionic -> { bionic.toggle() } },
             // RK <--
         )
     }

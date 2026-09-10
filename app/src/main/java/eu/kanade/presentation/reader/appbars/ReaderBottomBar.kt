@@ -29,6 +29,8 @@ fun ReaderBottomBar(
     onClickTheme: (() -> Unit)?,
     autoScrollActive: Boolean,
     onClickAutoScroll: (() -> Unit)?,
+    bionicActive: Boolean,
+    onClickBionic: (() -> Unit)?,
     // RK <--
     modifier: Modifier = Modifier,
 ) {
@@ -47,6 +49,8 @@ fun ReaderBottomBar(
         onClickTheme = onClickTheme,
         autoScrollActive = autoScrollActive,
         onClickAutoScroll = onClickAutoScroll,
+        bionicActive = bionicActive,
+        onClickBionic = onClickBionic,
         orientation = orientation,
         onClickOrientation = onClickOrientation,
         onClickSettings = onClickSettings,
