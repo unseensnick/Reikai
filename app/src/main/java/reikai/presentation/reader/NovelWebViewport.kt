@@ -20,6 +20,8 @@ import reikai.presentation.novel.reader.NovelChapterNavigationClient
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.MR
 import kotlin.math.roundToInt
 
 /**
@@ -49,12 +51,17 @@ class NovelWebViewport(
     private val onStepChapter: (forward: Boolean) -> Unit,
     /** Which chapter the reader is actually in, which stops being the loaded one once a window grows. */
     private val onVisibleChapter: (chapterId: Long) -> Unit,
+    /** Asking again for the neighbour whose failure is drawn at an edge. */
+    private val onRetryBoundary: (forward: Boolean) -> Unit,
     /** Read per load rather than once: the cutout inset is only known after the window has one. */
     private val statusBarHeightPx: () -> Int,
-) : ReaderViewport, TextViewport {
+) : ReaderViewport, TextViewport, ChapterWindow {
 
     /** The chapter the document was built around, so a load can be told apart from a re-entry. */
     private var loadedChapterId: Long? = null
+
+    /** The chapter the reader is actually in, which the rail seeks inside of. */
+    private var visibleChapterId: Long? = null
 
     /** The document URL the chapter was loaded as, so the navigation policy can tell a footnote jump
      *  from the chapter trying to leave. */
@@ -63,6 +70,14 @@ class NovelWebViewport(
     /** The last auto-scroll state the host asked for, so a freshly built document can be given it. */
     private var autoScrollRunning = false
     private var autoScrollPixelsPerFrame = 0f
+
+    /**
+     * Window verbs the page was not up to receive yet. Loading a document is asynchronous, so the
+     * host's first append and prepend arrive while the page is still an empty frame, where the call
+     * would find no engine and be dropped without a trace. Held in order and flushed on ready.
+     */
+    private var pageReady = false
+    private val pendingWindowVerbs = mutableListOf<String>()
 
     // Bridge messages arrive on a WebView background thread, so UI-affecting callbacks marshal here.
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -75,16 +90,18 @@ class NovelWebViewport(
         settings.allowFileAccess = false
         addJavascriptInterface(
             NovelWebBridge(
-                onVisibleChapter = { id -> mainHandler.post { onVisibleChapter(id) } },
+                onVisibleChapter = { id ->
+                    visibleChapterId = id
+                    mainHandler.post { onVisibleChapter(id) }
+                },
                 onProgress = { id, f -> mainHandler.post { onProgressChanged(id, f.toPercent()) } },
                 // Persisted rather than drawn, so it does not need the main thread to be correct.
                 onProgressSettled = { id, f -> onProgressSettled(id, f.toPercent()) },
-                onReachedEnd = { },
-                onReachedStart = { },
+                onRetryBoundary = { forward -> mainHandler.post { onRetryBoundary(forward) } },
                 onToggleMenu = { mainHandler.post { onToggleMenu() } },
                 onStepChapter = { forward -> mainHandler.post { onStepChapter(forward) } },
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
-                onReady = { mainHandler.post { pushAutoScroll() } },
+                onReady = { mainHandler.post { onPageReady() } },
             ),
             NovelWebBridge.NAME,
         )
@@ -97,11 +114,19 @@ class NovelWebViewport(
     override val isRtl: Boolean
         get() = false
 
-    // Scrolled natively rather than through JS, so the thumb and the text move together while the rail
-    // is being dragged. A paged progress is not this medium's unit and is ignored.
+    /**
+     * Seeks inside the chapter being read rather than across the document, because with a window the
+     * two stopped being the same thing: a rail at half way means half of this chapter, not half of
+     * everything loaded around it. A paged progress is not this medium's unit and is ignored.
+     */
     override fun seekTo(progress: ChapterProgress) {
         if (progress !is ChapterProgress.Percent) return
-        webView.scrollTo(0, (webView.maxScroll * progress.fraction).roundToInt())
+        val chapterId = visibleChapterId ?: loadedChapterId ?: return
+        webView.evaluateJavascript(
+            "if (window.rkReader) rkReader.seekWithin(" +
+                "${JSONObject.quote(chapterId.toString())}, ${progress.fraction});",
+            null,
+        )
     }
 
     // Nothing to do: a step reloads the document, which starts at that chapter's own stored position.
@@ -144,6 +169,11 @@ class NovelWebViewport(
         settings: NovelReaderSettings,
     ) {
         loadedChapterId = chapter.chapterId
+        visibleChapterId = chapter.chapterId
+        // A new document has no engine until it says so, and whatever the old one had queued belongs
+        // to a window that is being replaced.
+        pageReady = false
+        pendingWindowVerbs.clear()
         val statusBarPx = statusBarHeightPx()
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
@@ -154,6 +184,7 @@ class NovelWebViewport(
             NovelWebDocument.build(
                 context = context,
                 chapterId = chapter.chapterId,
+                chapterTitle = chapter.title,
                 chapterHtml = chapter.html,
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
@@ -217,6 +248,66 @@ class NovelWebViewport(
             "window.scrollBy({ top: window.innerHeight * $fraction, behavior: 'smooth' });",
             null,
         )
+    }
+
+    // The renderer holds a window, so the host drives these rather than reloading the document.
+    override val window: ChapterWindow
+        get() = this
+
+    override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) =
+        insert(chapter, atStart = false)
+
+    override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) =
+        insert(chapter, atStart = true)
+
+    /**
+     * The page holds the chapter's own scroll anchoring, so nothing is compensated here. Chromium
+     * keeps the reading position when content lands above it, except at scroll offset zero, which
+     * the page corrects for; both halves are measured in `WebViewSeamPositionTest`.
+     */
+    private fun insert(chapter: NovelReaderViewModel.LoadedChapter, atStart: Boolean) {
+        val verb = if (atStart) "prependChapter" else "appendChapter"
+        runOrQueue(
+            "rkReader.$verb(" +
+                "${JSONObject.quote(chapter.chapterId.toString())}, " +
+                "${JSONObject.quote(chapter.title)}, " +
+                "${JSONObject.quote(chapter.html)});",
+        )
+    }
+
+    override fun evict(chapterId: Long) {
+        runOrQueue("rkReader.evictChapter(${JSONObject.quote(chapterId.toString())});")
+    }
+
+    /** Runs [js] against the page, or holds it in order until the page says it has an engine. */
+    private fun runOrQueue(js: String) {
+        if (pageReady) {
+            webView.evaluateJavascript("if (window.rkReader) $js", null)
+        } else {
+            pendingWindowVerbs += js
+        }
+    }
+
+    private fun onPageReady() {
+        pageReady = true
+        pendingWindowVerbs.forEach { webView.evaluateJavascript("if (window.rkReader) $it", null) }
+        pendingWindowVerbs.clear()
+        pushAutoScroll()
+    }
+
+    override fun setBoundaryFailures(
+        previous: NovelReaderViewModel.BoundaryFailure?,
+        next: NovelReaderViewModel.BoundaryFailure?,
+    ) {
+        // The page has no resources, so the strings it draws are resolved here.
+        val retry = context.stringResource(MR.strings.action_retry)
+        val fallback = context.stringResource(MR.strings.chapter_load_failed)
+        listOf(true to previous, false to next).forEach { (atStart, failure) ->
+            val message = failure?.let { JSONObject.quote(it.message ?: fallback) } ?: "null"
+            runOrQueue(
+                "rkReader.setBoundaryFailure($atStart, $message, ${JSONObject.quote(retry)});",
+            )
+        }
     }
 
     private fun Double.toPercent(): Int = (this * 100).roundToInt().coerceIn(0, 100)

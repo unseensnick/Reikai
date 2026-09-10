@@ -933,11 +933,11 @@ class NovelReaderViewModel(
 
     /**
      * Whether the renderer holds more than one chapter, which decides how wide a window to publish.
-     * Reads the rendering mode as well as the setting, because the WebView renderers show a chapter
-     * at a time and would only pay for neighbours they cannot draw.
+     * The legacy standalone reader is the one that cannot, so it would only pay for neighbours it
+     * has nowhere to draw; the two renderers on the shared host both hold a window.
      */
     private fun windowedReading() = novelPreferences.readerSeamlessChapters().get() &&
-        novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE
+        novelPreferences.readerRenderingMode().get() != NovelRenderingMode.LEGACY
 
     /**
      * One speculative request per neighbour, so crossing into it needs no round trip and the source

@@ -30,6 +30,7 @@ object NovelWebDocument {
     fun build(
         context: Context,
         chapterId: Long,
+        chapterTitle: String,
         chapterHtml: String,
         initialFraction: Float,
         settings: NovelReaderSettings,
@@ -65,7 +66,8 @@ object NovelWebDocument {
             </head>
             <body>
             <div id="rk-chapters">
-            <div class="rk-chapter" data-rk-chapter-id="$chapterId">$chapterHtml</div>
+            <div class="rk-chapter" data-rk-chapter-id="$chapterId"
+                 data-rk-chapter-title="${attribute(chapterTitle)}">$chapterHtml</div>
             </div>
             <script>$js</script>
             </body>
@@ -130,6 +132,17 @@ object NovelWebDocument {
             .rk-chapter h6 { font-size: 0.67em !important; }
         """.trimIndent()
     }
+
+    /**
+     * A chapter's title is carried on its element so a seam can name the chapter it introduces. A
+     * prepend has to read it back off whichever chapter it lands above, since the title it needs is
+     * that one's rather than the arriving chapter's.
+     */
+    private fun attribute(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
 
     /** The block the page's own settings object is given, for what a custom property cannot express. */
     fun behaviourJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {

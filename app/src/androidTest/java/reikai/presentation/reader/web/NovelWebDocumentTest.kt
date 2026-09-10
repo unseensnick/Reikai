@@ -1,5 +1,6 @@
 package reikai.presentation.reader.web
 
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.test.core.app.ActivityScenario
@@ -18,9 +19,9 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * That the WebView rendering mode's document is one a browser can actually run. A token left
- * unsubstituted is a JavaScript syntax error, which renders a blank page and reports nothing, so it
- * looks the same as a chapter that simply failed to load. This proves the engine started instead.
+ * That the WebView rendering mode's document is one a browser can actually run, and that its window
+ * verbs do what the host expects. A token left unsubstituted is a syntax error, which renders a
+ * blank page and reports nothing, so it looks exactly like a chapter that failed to load.
  */
 @RunWith(AndroidJUnit4::class)
 class NovelWebDocumentTest {
@@ -28,10 +29,35 @@ class NovelWebDocumentTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var webView: WebView
+    private val ready = CountDownLatch(1)
 
     private companion object {
         const val CHAPTER_ID = 4242L
         const val TIMEOUT_S = 10L
+    }
+
+    /** Only the ready signal is needed here; the rest exist so the page never calls a missing method. */
+    private inner class Bridge {
+        @JavascriptInterface
+        fun onReady() = ready.countDown()
+
+        @JavascriptInterface
+        fun onVisibleChapter(chapterId: String) = Unit
+
+        @JavascriptInterface
+        fun onProgress(chapterId: String, fraction: Double) = Unit
+
+        @JavascriptInterface
+        fun onProgressSettled(chapterId: String, fraction: Double) = Unit
+
+        @JavascriptInterface
+        fun onRetryBoundary(forward: Boolean) = Unit
+
+        @JavascriptInterface
+        fun onToggleMenu() = Unit
+
+        @JavascriptInterface
+        fun onStepChapter(forward: Boolean) = Unit
     }
 
     private val settings = NovelReaderSettings(
@@ -68,21 +94,20 @@ class NovelWebDocumentTest {
     )
 
     private fun document(
-        html: String = "<p>lorem ipsum</p>".repeat(200),
         useOriginalFonts: Boolean = false,
         sourceCssPriority: Boolean = false,
-    ): String =
-        NovelWebDocument.build(
-            context = instrumentation.targetContext,
-            chapterId = CHAPTER_ID,
-            chapterHtml = html,
-            initialFraction = 0f,
-            settings = settings,
-            statusBarHeightPx = 0,
-            customFontUrl = null,
-            useOriginalFonts = useOriginalFonts,
-            sourceCssPriority = sourceCssPriority,
-        )
+    ): String = NovelWebDocument.build(
+        context = instrumentation.targetContext,
+        chapterId = CHAPTER_ID,
+        chapterTitle = "Chapter 1",
+        chapterHtml = "<p>lorem ipsum</p>".repeat(200),
+        initialFraction = 0f,
+        settings = settings,
+        statusBarHeightPx = 0,
+        customFontUrl = null,
+        useOriginalFonts = useOriginalFonts,
+        sourceCssPriority = sourceCssPriority,
+    )
 
     @Before
     fun setUp() {
@@ -97,6 +122,8 @@ class NovelWebDocumentTest {
     fun tearDown() {
         if (::scenario.isInitialized) scenario.close()
     }
+
+    // region document
 
     @Test
     fun everyBuildTokenIsSubstituted() {
@@ -118,11 +145,13 @@ class NovelWebDocumentTest {
 
     @Test
     fun sourceCssPriorityLeavesAChaptersStylingAlone() {
-        val css = document(sourceCssPriority = true)
-        assertTrue("the reader still forces its styling over the chapter's", !css.contains("!important"))
+        assertTrue(
+            "the reader still forces its styling over the chapter's",
+            !document(sourceCssPriority = true).contains("!important"),
+        )
     }
 
-    /** The narrower of the two: the chapter keeps its face, and everything else is still the reader's. */
+    /** The narrower of the two: the chapter keeps its face, everything else is still the reader's. */
     @Test
     fun useOriginalFontsDropsOnlyTheFaceOverride() {
         val css = document(useOriginalFonts = true)
@@ -130,37 +159,99 @@ class NovelWebDocumentTest {
         assertTrue("the reader stopped forcing its size too", css.contains("font-size: inherit !important"))
     }
 
+    // endregion
+
+    // region the page
+
     @Test
     fun theEngineStartsAndReportsReady() {
-        val ready = CountDownLatch(1)
-        val bridge = object {
-            @android.webkit.JavascriptInterface
-            fun onReady() = ready.countDown()
+        loadDocument()
+        assertEquals("the chapter is not in the document", "1", chapterCount())
+        assertEquals(
+            "the chapter is not the one asked for",
+            CHAPTER_ID.toString(),
+            eval("document.querySelector('.rk-chapter').getAttribute('data-rk-chapter-id')"),
+        )
+    }
 
-            @android.webkit.JavascriptInterface
-            fun onVisibleChapter(chapterId: String) = Unit
+    /**
+     * The window verbs against the real document, rather than the synthetic one
+     * `WebViewSeamPositionTest` measures anchoring with, so a chapter that arrives is one the reader
+     * can reach: in the container, carrying its id, with a seam introducing it.
+     */
+    @Test
+    fun appendingAChapterAddsItWithASeam() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next chapter</p>')")
+        assertEquals("the appended chapter is missing", "2", chapterCount())
+        assertEquals("the seam introducing it is missing", "1", eval("document.querySelectorAll('.rk-seam').length"))
+        assertEquals(
+            "the appended chapter is not last",
+            "99",
+            eval("document.querySelectorAll('.rk-chapter')[1].getAttribute('data-rk-chapter-id')"),
+        )
+    }
 
-            @android.webkit.JavascriptInterface
-            fun onProgress(chapterId: String, fraction: Double) = Unit
+    /**
+     * A seam introduces the chapter below it, so a prepend labels its seam with the title of the
+     * chapter it landed above, not its own. Getting this backwards names every boundary after the
+     * chapter the reader just finished, which reads as the reader having gone nowhere.
+     */
+    @Test
+    fun aSeamNamesTheChapterBelowIt() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
+        assertEquals(
+            "an appended seam does not name the chapter it introduces",
+            "Chapter 2",
+            eval("document.querySelector('.rk-seam').textContent"),
+        )
+        eval("window.rkReader.prependChapter('7', 'Chapter 0', '<p>earlier</p>')")
+        assertEquals(
+            "a prepended seam names the arriving chapter instead of the one below it",
+            "Chapter 1",
+            eval("document.querySelectorAll('.rk-seam')[0].textContent"),
+        )
+    }
 
-            @android.webkit.JavascriptInterface
-            fun onProgressSettled(chapterId: String, fraction: Double) = Unit
+    @Test
+    fun evictingAChapterTakesItsSeamWithIt() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
+        eval("window.rkReader.evictChapter('99')")
+        assertEquals("the chapter was not evicted", "1", chapterCount())
+        assertEquals("its seam was left behind", "0", eval("document.querySelectorAll('.rk-seam').length"))
+    }
 
-            @android.webkit.JavascriptInterface
-            fun onReachedEnd(chapterId: String) = Unit
+    @Test
+    fun theSameChapterIsNeverAddedTwice() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
+        assertEquals("the chapter was added twice", "2", chapterCount())
+    }
 
-            @android.webkit.JavascriptInterface
-            fun onReachedStart(chapterId: String) = Unit
+    @Test
+    fun aBoundaryFailureDrawsOutsideTheChapterContainer() {
+        loadDocument()
+        eval("window.rkReader.setBoundaryFailure(false, 'no luck', 'Retry')")
+        assertEquals("the failure is missing", "1", eval("document.querySelectorAll('.rk-failure').length"))
+        // Inside the container it would count as the last chapter's height and skew its progress.
+        assertEquals(
+            "the failure sits inside the chapter container",
+            "0",
+            eval("document.querySelectorAll('#rk-chapters .rk-failure').length"),
+        )
+        eval("window.rkReader.setBoundaryFailure(false, null, 'Retry')")
+        assertEquals("clearing left it behind", "0", eval("document.querySelectorAll('.rk-failure').length"))
+    }
 
-            @android.webkit.JavascriptInterface
-            fun onToggleMenu() = Unit
+    // endregion
 
-            @android.webkit.JavascriptInterface
-            fun onStepChapter(forward: Boolean) = Unit
-        }
+    private fun loadDocument() {
         val finished = CountDownLatch(1)
         instrumentation.runOnMainSync {
-            webView.addJavascriptInterface(bridge, NovelWebBridge.NAME)
+            webView.addJavascriptInterface(Bridge(), NovelWebBridge.NAME)
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String?) = finished.countDown()
             }
@@ -171,15 +262,9 @@ class NovelWebDocumentTest {
             "the page never reported ready, so its script did not run to the end",
             ready.await(TIMEOUT_S, TimeUnit.SECONDS),
         )
-        assertEquals("the chapter is not in the document", "1", eval("document.querySelectorAll('.rk-chapter').length"))
-        assertEquals(
-            "the chapter is not the one asked for",
-            CHAPTER_ID.toString(),
-            eval(
-                "document.querySelector('.rk-chapter').getAttribute('data-rk-chapter-id')",
-            ),
-        )
     }
+
+    private fun chapterCount(): String = eval("document.querySelectorAll('.rk-chapter').length")
 
     private fun eval(js: String): String {
         val done = CountDownLatch(1)

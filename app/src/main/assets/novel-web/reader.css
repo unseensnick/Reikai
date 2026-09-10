@@ -110,3 +110,32 @@ th {
   background-color: var(--rk-text);
   color: var(--rk-background);
 }
+
+/* Why the window stops at an edge. Outside the chapter container on purpose, so its height is never
+   counted as the neighbouring chapter's and cannot skew that chapter's reading position. */
+.rk-failure {
+  margin: 2em var(--rk-margin-right) 2em var(--rk-margin-left);
+  padding: 1.25em;
+  border: 1px solid var(--rk-text);
+  border-radius: 8px;
+  opacity: 0.85;
+  text-align: center;
+  text-indent: 0;
+}
+
+.rk-failure-message {
+  margin-bottom: 0.85em;
+}
+
+.rk-failure-retry {
+  font: inherit;
+  color: var(--rk-background);
+  background-color: var(--rk-text);
+  border: none;
+  border-radius: 999px;
+  padding: 0.5em 1.5em;
+}
+
+.rk-failure-retry:disabled {
+  opacity: 0.5;
+}

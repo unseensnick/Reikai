@@ -152,6 +152,7 @@ class NovelReaderProvider(
             // same way the bar's step buttons are.
             onStepChapter = { forward -> if (forward) host.engine.nextChapter() else host.engine.previousChapter() },
             onVisibleChapter = viewModel::reportVisibleChapter,
+            onRetryBoundary = viewModel::retryBoundary,
             statusBarHeightPx = host::displayCutoutTopDp,
         )
     }

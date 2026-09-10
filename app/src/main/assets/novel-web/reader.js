@@ -6,12 +6,12 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __LOAD_THRESHOLD__, __DONE_THRESHOLD__.
+ * __DONE_THRESHOLD__, __INITIAL_FRACTION__.
  */
 (function () {
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
-  var LOAD_THRESHOLD = __LOAD_THRESHOLD__;
+  var CHAPTER_TITLE_ATTR = 'data-rk-chapter-title';
   var DONE_THRESHOLD = __DONE_THRESHOLD__;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
   // waits this out rather than saving a position the layout is about to move.
@@ -29,7 +29,6 @@
   var lastReportedAt = 0;
   var lastResizeAt = 0;
   var framePending = false;
-  var loadPending = false;
 
   function bridge() {
     return window.ReikaiWeb;
@@ -137,15 +136,6 @@
       bridge().onProgress(s.id, 1);
     }
 
-    if (!loadPending) {
-      if (s.isLast && s.progress >= LOAD_THRESHOLD) {
-        loadPending = true;
-        bridge().onReachedEnd(s.id);
-      } else if (s.index === 0 && scrollTop() <= viewportHeight() * (1 - LOAD_THRESHOLD)) {
-        loadPending = true;
-        bridge().onReachedStart(s.id);
-      }
-    }
   }
 
   function onScroll() {
@@ -281,7 +271,6 @@
     /* Called after any insert, so the next frame measures the shape the reader is actually in. */
     refresh: function () {
       rebuildBoundaries();
-      loadPending = false;
       onScroll();
     },
     setSettings: function (next) {
@@ -311,10 +300,45 @@
     prependChapter: function (id, title, html) {
       insertChapter(id, title, html, true);
     },
+    /*
+     * Why the window stops at an edge. Drawn outside the chapter container, so it can never be
+     * counted as chapter height and skew the progress of the chapter it sits against. Passing null
+     * clears that edge. The strings come from the host, since the page has no resources.
+     */
+    setBoundaryFailure: function (atStart, message, retryLabel) {
+      var id = atStart ? 'rk-failure-start' : 'rk-failure-end';
+      var existing = document.getElementById(id);
+      if (existing) existing.parentNode.removeChild(existing);
+      if (message === null) return;
+      var box = document.createElement('div');
+      box.id = id;
+      box.className = 'rk-failure';
+      var text = document.createElement('div');
+      text.className = 'rk-failure-message';
+      text.textContent = message;
+      var button = document.createElement('button');
+      button.className = 'rk-failure-retry';
+      button.textContent = retryLabel;
+      button.addEventListener('click', function () {
+        button.disabled = true;
+        bridge().onRetryBoundary(!atStart);
+      });
+      box.appendChild(text);
+      box.appendChild(button);
+      var container = document.getElementById('rk-chapters');
+      if (atStart) {
+        container.parentNode.insertBefore(box, container);
+      } else {
+        container.parentNode.appendChild(box);
+      }
+    },
     evictChapter: function (id) {
       var el = document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
       if (!el) return;
+      // The seam belonging to a chapter is the one above it, except for the first chapter, whose
+      // seam is below because a seam introduces what follows it. Taking the wrong side strands one.
       var seam = el.previousElementSibling;
+      if (!seam || !seam.classList.contains('rk-seam')) seam = el.nextElementSibling;
       el.parentNode.removeChild(el);
       if (seam && seam.classList.contains('rk-seam')) seam.parentNode.removeChild(seam);
       rebuildBoundaries();
@@ -325,12 +349,19 @@
     var el = document.createElement('div');
     el.className = 'rk-chapter';
     el.setAttribute(CHAPTER_ID_ATTR, String(id));
+    el.setAttribute(CHAPTER_TITLE_ATTR, title);
     el.innerHTML = html;
     if (settings.bionic) applyBionic(el);
+    return el;
+  }
+
+  /* A seam introduces the chapter below it, so it carries that chapter's title rather than the one
+     above. Getting this backwards labels every boundary with the chapter the reader just left. */
+  function buildSeam(title) {
     var seam = document.createElement('div');
     seam.className = 'rk-seam';
     seam.textContent = title;
-    return { chapter: el, seam: seam };
+    return seam;
   }
 
   /*
@@ -345,17 +376,20 @@
     if (!container || document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]')) {
       return;
     }
-    var built = buildChapter(id, title, html);
+    var chapter = buildChapter(id, title, html);
     if (atStart) {
       var heightBefore = documentHeight();
       var topBefore = scrollTop();
-      container.insertBefore(built.seam, container.firstChild);
-      container.insertBefore(built.chapter, built.seam);
+      // The seam introduces what was the first chapter, since that is what now sits below it.
+      var below = container.querySelector(CHAPTER_SELECTOR);
+      var seam = buildSeam(below ? below.getAttribute(CHAPTER_TITLE_ATTR) : '');
+      container.insertBefore(seam, container.firstChild);
+      container.insertBefore(chapter, seam);
       var added = documentHeight() - heightBefore;
       if (topBefore === 0 && added > 0) window.scrollTo({ top: added, behavior: 'instant' });
     } else {
-      container.appendChild(built.seam);
-      container.appendChild(built.chapter);
+      container.appendChild(buildSeam(title));
+      container.appendChild(chapter);
     }
     window.rkReader.refresh();
   }

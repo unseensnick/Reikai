@@ -14,8 +14,7 @@ class NovelWebBridge(
     private val onVisibleChapter: (chapterId: Long) -> Unit,
     private val onProgress: (chapterId: Long, fraction: Double) -> Unit,
     private val onProgressSettled: (chapterId: Long, fraction: Double) -> Unit,
-    private val onReachedEnd: (chapterId: Long) -> Unit,
-    private val onReachedStart: (chapterId: Long) -> Unit,
+    private val onRetryBoundary: (forward: Boolean) -> Unit,
     private val onToggleMenu: () -> Unit,
     private val onStepChapter: (forward: Boolean) -> Unit,
     private val onReady: () -> Unit,
@@ -37,14 +36,7 @@ class NovelWebBridge(
     }
 
     @JavascriptInterface
-    fun onReachedEnd(chapterId: String) {
-        chapterId.toLongOrNull()?.let(onReachedEnd)
-    }
-
-    @JavascriptInterface
-    fun onReachedStart(chapterId: String) {
-        chapterId.toLongOrNull()?.let(onReachedStart)
-    }
+    fun onRetryBoundary(forward: Boolean) = onRetryBoundary.invoke(forward)
 
     @JavascriptInterface
     fun onToggleMenu() = onToggleMenu.invoke()
