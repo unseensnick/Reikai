@@ -2,7 +2,6 @@ package reikai.novel.source
 
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +21,8 @@ import reikai.novel.install.LnPluginInstaller
 @SingleIn(AppScope::class)
 class NovelSourceManager(
     // Deferred because the installer registers back into this map, so the two are a cycle; Metro cuts
-    // it at the Provider, the same way ReikaiBindings cuts the merge managers' propagator edge.
-    private val installer: Provider<LnPluginInstaller>,
+    // it at the deferred parameter, the same way ReikaiBindings cuts the merge managers' propagator edge.
+    private val installer: () -> LnPluginInstaller,
 ) {
 
     private val sourcesFlow = MutableStateFlow<Map<String, NovelSource>>(emptyMap())

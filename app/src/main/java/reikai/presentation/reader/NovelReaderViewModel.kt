@@ -9,7 +9,6 @@ import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.source.interactor.GetIncognitoState
@@ -92,7 +91,7 @@ class NovelReaderViewModel(
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
     private val novelPreferences: NovelPreferences,
-    private val downloadManagerProvider: Provider<NovelDownloadManager>,
+    private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
     private val setNovelReadStatus: SetNovelReadStatus,
     // Merge-group resolution + the shared "mark duplicate read" pref, for marking same-numbered

@@ -1,7 +1,6 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.novel.NovelChapterRepository
@@ -26,7 +25,7 @@ class RepairNovelDetails(
     private val sourceManager: NovelSourceManager,
     // A Provider, not the manager: constructing it restores the persisted queue and can start the
     // download worker, and a repair run must not do that just by existing.
-    private val downloadManager: Provider<NovelDownloadManager>,
+    private val downloadManager: () -> NovelDownloadManager,
     private val database: Database,
 ) {
 

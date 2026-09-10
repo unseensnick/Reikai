@@ -5,7 +5,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
-import dev.zacsweers.metro.Provider
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.util.system.workManager
@@ -79,8 +78,8 @@ class NovelRecentsAdapter(
     // Providers, so building the adapter still does not build the download manager: constructing it
     // restores the persisted queue and can start the download worker. Both are only read when a row
     // renders its download badge, which is where the previous lazy delegates built them too.
-    private val novelDownloadManagerProvider: Provider<NovelDownloadManager>,
-    private val novelDownloadCacheProvider: Provider<NovelDownloadCache>,
+    private val novelDownloadManagerProvider: () -> NovelDownloadManager,
+    private val novelDownloadCacheProvider: () -> NovelDownloadCache,
     private val application: Context,
 ) : RecentsProvider {
 

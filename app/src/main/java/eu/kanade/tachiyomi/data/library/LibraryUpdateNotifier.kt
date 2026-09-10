@@ -15,7 +15,6 @@ import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.transform.CircleCropTransformation
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.Downloader
@@ -51,9 +50,9 @@ class LibraryUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
     private val sourceManager: SourceManager,
-    // RK: a Provider, so the checker (and the extension manager behind it) is still only built when a
+    // RK: deferred, so the checker (and the extension manager behind it) is still only built when a
     // notification actually has to test one, as the `by lazy` below did before.
-    private val adultCheckerProvider: Provider<AdultContentChecker>,
+    private val adultCheckerProvider: () -> AdultContentChecker,
 ) {
 
     private val percentFormatter = NumberFormat.getPercentInstance().apply {

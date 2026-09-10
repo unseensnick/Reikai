@@ -17,7 +17,6 @@ import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.track.service.TrackPreferences
@@ -147,7 +146,7 @@ class NovelDetailsViewModel(
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
     private val database: Database,
-    private val downloadManagerProvider: Provider<NovelDownloadManager>,
+    private val downloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,

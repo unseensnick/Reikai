@@ -2,7 +2,6 @@ package reikai.presentation.migrate.flow
 
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.Flow
@@ -55,7 +54,7 @@ class NovelMigrationFlowAdapter(
     private val chapterRepository: NovelChapterRepository,
     private val database: Database,
     private val coverCache: CoverCache,
-    private val downloadManagerProvider: Provider<NovelDownloadManager>,
+    private val downloadManagerProvider: () -> NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
     private val mergeManager: NovelMergeManager,
     private val installer: LnPluginInstaller,

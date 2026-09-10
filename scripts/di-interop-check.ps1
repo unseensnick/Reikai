@@ -65,7 +65,7 @@ if (-not (Test-Path -LiteralPath $interopFile)) {
 # Types the graph hands back: the constructor parameter types of MetroInteropModule.
 $interopTypes = [System.Collections.Generic.List[string]]::new()
 foreach ($line in Get-Content -LiteralPath $interopFile) {
-    if ($line -match '^\s*private val \w+:\s*Provider<([A-Za-z0-9_.]+)>') {
+    if ($line -match '^\s*private val \w+:\s*(?:Provider<|\(\)\s*->\s*)([A-Za-z0-9_.]+)') {
         $interopTypes.Add(($Matches[1] -split '\.')[-1])
     } elseif ($line -match '^\s*private val \w+:\s*([A-Za-z0-9_.]+),\s*$') {
         $interopTypes.Add(($Matches[1] -split '\.')[-1])
@@ -115,9 +115,11 @@ function Test-Scoped([string]$typeName) {
 
     # An implementation bound to this interface, or a @Provides function returning it, may carry the
     # scope instead. The supertype match starts after the constructor's closing paren so a parameter
-    # of this type cannot be mistaken for a supertype.
-    $asSupertype = "@SingleIn\(AppScope::class\)[^{]{0,300}?\b(?:class|object) \w+ ?(?:\([^)]*\) ?)?: [^{]*?\b$typeName\b"
-    $asReturnType = "@SingleIn\(AppScope::class\)[^{]{0,200}?\bfun \w+ ?\([^)]*\) ?: $typeName\b"
+    # of this type cannot be mistaken for a supertype. The parameter list has to allow one level of
+    # nesting, because a deferred dependency is spelled `() -> T` and a flat [^)]* stops at its paren.
+    $params = '(?:[^()]|\([^()]*\))*'
+    $asSupertype = "@SingleIn\(AppScope::class\)[^{]{0,300}?\b(?:class|object) \w+ ?(?:\($params\) ?)?: [^{]*?\b$typeName\b"
+    $asReturnType = "@SingleIn\(AppScope::class\)[^{]{0,200}?\bfun \w+ ?\($params\) ?: $typeName\b"
     foreach ($flat in $flatScoped) {
         if (-not $flat.Contains($typeName)) { continue }
         if ($flat -match $asSupertype -or $flat -match $asReturnType) { return $true }

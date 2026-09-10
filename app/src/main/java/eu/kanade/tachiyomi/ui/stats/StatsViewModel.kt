@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.core.util.fastCountNot
@@ -63,7 +62,7 @@ class StatsViewModel(
     private val novelHistoryRepository: NovelHistoryRepository,
     private val novelPreferences: NovelPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
-    private val novelDownloadManager: Provider<NovelDownloadManager>,
+    private val novelDownloadManager: () -> NovelDownloadManager,
     private val mergeGroupRepository: MergeGroupRepository,
     // RK <--
 ) : ViewModel() {

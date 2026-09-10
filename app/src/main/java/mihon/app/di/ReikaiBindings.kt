@@ -2,7 +2,6 @@ package mihon.app.di
 
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.BindingContainer
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -26,7 +25,7 @@ import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 @BindingContainer
 object ReikaiBindings {
 
-    // The propagator arrives as a Provider because it depends on the manager it is being handed to.
+    // The propagator arrives deferred because it depends on the manager it is being handed to.
     // Three cycles run through this one edge: each manager to its own propagator, and the novel
     // propagator again through GetNovelTracks. The lambda only ever runs inside a suspend function,
     // never during construction, so deferring it is safe.
@@ -35,7 +34,7 @@ object ReikaiBindings {
     fun providesMangaMergeManager(
         repository: MergeGroupRepository,
         preferences: ReikaiLibraryPreferences,
-        propagate: Provider<PropagateTrackerLinks>,
+        propagate: () -> PropagateTrackerLinks,
     ): MangaMergeManager = MangaMergeManager(repository, preferences) { propagate().distribute(it) }
 
     @Provides
@@ -43,7 +42,7 @@ object ReikaiBindings {
     fun providesNovelMergeManager(
         repository: MergeGroupRepository,
         preferences: ReikaiLibraryPreferences,
-        propagate: Provider<PropagateNovelTrackerLinks>,
+        propagate: () -> PropagateNovelTrackerLinks,
     ): NovelMergeManager = NovelMergeManager(repository, preferences) { propagate().distribute(it) }
 
     // Each fetcher wants a concrete tracker, and those are properties of the TrackerManager

@@ -1,7 +1,6 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
@@ -39,7 +38,7 @@ class MigrateNovelUseCase(
     private val novelMergeManager: NovelMergeManager,
     // A Provider: constructing the manager restores the persisted download queue and can start the
     // download worker, which building a migration must not do.
-    private val novelDownloadManagerProvider: Provider<NovelDownloadManager>,
+    private val novelDownloadManagerProvider: () -> NovelDownloadManager,
     private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
     private val getNovelTracks: GetNovelTracks,

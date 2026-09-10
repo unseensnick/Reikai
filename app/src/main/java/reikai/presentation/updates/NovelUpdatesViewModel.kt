@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
@@ -63,7 +62,7 @@ class NovelUpdatesViewModel(
     private val novelRepo: NovelRepository,
     private val chapterRepo: NovelChapterRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
-    private val downloadManagerProvider: Provider<NovelDownloadManager>,
+    private val downloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val updatesPreferences: UpdatesPreferences,
