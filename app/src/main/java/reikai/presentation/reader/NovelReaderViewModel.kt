@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -68,6 +69,7 @@ import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.novel.reader.ReaderMargins
+import reikai.presentation.reader.text.NovelWarmPolicy
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
@@ -147,6 +149,19 @@ class NovelReaderViewModel(
     val loadState = MutableStateFlow<ReaderLoadState>(ReaderLoadState.Loading)
 
     fun retryLoad() = load()
+
+    /**
+     * The reader asking for the chapter at one end of the window again, from the message the renderer
+     * draws where the text runs out. Immediate: waiting out a cooldown the reader has just overridden
+     * by hand is the stranding the cooldown exists to prevent, in miniature.
+     */
+    fun retryBoundary(forward: Boolean) {
+        val id = (if (forward) neighbours.value.next else neighbours.value.previous) ?: return
+        // Dropped without republishing the window: the renderer is already showing its own progress
+        // for this tap, and clearing the edge here would take that away and put it back.
+        warmFailures.remove(id)
+        viewModelScope.launchIO { warmNeighbour(id) }
+    }
 
     /** Per-novel reader orientation override (a [ReaderOrientation] flagValue; 0 = follow the global
      *  default). Keyed on the opened entry [novelId] (the anchor for a merged novel), since orientation
@@ -314,7 +329,19 @@ class NovelReaderViewModel(
         val generation: Int = 0,
         val anchorId: Long = -1L,
         val chapters: List<LoadedChapter> = emptyList(),
+        /** Set where the reader runs out of text because the chapter beyond it would not load, so
+         *  the renderer can say so at the edge instead of simply ending. */
+        val failedPrevious: BoundaryFailure? = null,
+        val failedNext: BoundaryFailure? = null,
     )
+
+    /**
+     * Why a neighbour chapter is missing from the window, for the message the renderer shows.
+     * [failedAtElapsedMs] is carried so a second failure of the same chapter is a different value:
+     * without it a retry that fails the same way is indistinguishable from the first, and the
+     * renderer would be left showing whatever it drew while the retry was running.
+     */
+    data class BoundaryFailure(val message: String?, val failedAtElapsedMs: Long)
 
     @Volatile
     private var openGeneration = 0
@@ -416,6 +443,14 @@ class NovelReaderViewModel(
         },
     )
 
+    /** The last warm failure per chapter, which [NovelWarmPolicy] reads to decide whether the window
+     *  may reach for that chapter again unprompted. An explicit open clears the lot. */
+    private val warmFailures: MutableMap<Long, NovelWarmPolicy.Failure> = Collections.synchronizedMap(mutableMapOf())
+
+    /** Chapters with a warm already running, so two crossings in quick succession do not fetch the
+     *  same chapter twice. */
+    private val warmsInFlight: MutableSet<Long> = Collections.synchronizedSet(mutableSetOf())
+
     init {
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
@@ -489,6 +524,10 @@ class NovelReaderViewModel(
      */
     private fun load() {
         val target = pendingChapterId
+        // An explicit open is the reader asking for chapters afresh, so nothing a previous warm
+        // recorded may go on suppressing one. Without this the window strands on a chapter that has
+        // since recovered, which is the bug tsundoku's own latch shipped with.
+        warmFailures.clear()
         loadState.value = ReaderLoadState.Loading
         viewModelScope.launchIO {
             try {
@@ -912,16 +951,25 @@ class NovelReaderViewModel(
             rebuildWindow()
             return
         }
+        if (!NovelWarmPolicy.mayAutoWarm(warmFailures[id], SystemClock.elapsedRealtime())) return
+        if (!warmsInFlight.add(id)) return
         viewModelScope.launchIO {
             try {
-                val row = chapterRepo.getById(id) ?: return@launchIO
+                val row = chapterRepo.getById(id) ?: error("Chapter not found: $id")
                 htmlCache[id] = loadChapterHtml(row)
+                warmFailures.remove(id)
                 rebuildWindow()
             } catch (e: Throwable) {
-                // A speculative fetch failing is not the reader's problem, but swallowing the
-                // cancellation would report a warm-up failure for a session that is gone.
+                // Swallowing the cancellation would record a failure against a session that is gone,
+                // and leaving on the last chapter of a novel would then look like a broken one.
                 if (e is CancellationException) throw e
                 logcat(LogPriority.WARN, e) { "Failed to prefetch novel chapter $id" }
+                warmFailures[id] = NovelWarmPolicy.Failure(SystemClock.elapsedRealtime(), e.message)
+                // The window is republished so the renderer can offer a retry at the edge the reader
+                // is about to reach, rather than the text simply stopping there.
+                rebuildWindow()
+            } finally {
+                warmsInFlight.remove(id)
             }
         }
     }
@@ -943,7 +991,21 @@ class NovelReaderViewModel(
             val (html, baseUrl) = htmlCache[id] ?: return@mapNotNull null
             chapterRepo.getById(id)?.toLoadedChapter(html, baseUrl)
         }
-        windowState.value = Window(openGeneration, current.chapterId, chapters)
+        windowState.value = Window(
+            generation = openGeneration,
+            anchorId = current.chapterId,
+            chapters = chapters,
+            failedPrevious = boundaryFailure(neighbours.value.previous, chapters),
+            failedNext = boundaryFailure(neighbours.value.next, chapters),
+        )
+    }
+
+    /** A failure only counts at an edge the reader can actually reach: once the chapter is in the
+     *  window it loaded on a later attempt, whatever an earlier one recorded. */
+    private fun boundaryFailure(chapterId: Long?, chapters: List<LoadedChapter>): BoundaryFailure? {
+        val id = chapterId ?: return null
+        if (chapters.any { it.chapterId == id }) return null
+        return warmFailures[id]?.let { BoundaryFailure(it.message, it.failedAtElapsedMs) }
     }
 
     /** Enqueues the next N un-downloaded chapters in reading order, the novel twin of manga's

@@ -651,6 +651,9 @@ class ReaderActivity : BaseActivity() {
                 state.chapters.takeLastWhile { it.chapterId !in rendered }
                     .forEach { window.append(it, settings) }
                 rendered = wanted
+                // After the verbs, so an edge is never marked failed on a window that is one append
+                // away from reaching past it.
+                window.setBoundaryFailures(state.failedPrevious, state.failedNext)
             }
             .launchIn(lifecycleScope)
 

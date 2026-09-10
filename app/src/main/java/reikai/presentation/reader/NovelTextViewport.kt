@@ -29,6 +29,7 @@ import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
+import reikai.presentation.reader.text.NovelBoundaryFailureView
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
@@ -60,6 +61,8 @@ class NovelTextViewport(
     /** Which chapter the reader is in, whenever that changes. The window is the only reason it can
      *  differ from the one the model last opened. */
     private val onVisibleChapter: (chapterId: Long) -> Unit,
+    /** The reader asking again for the chapter beyond an edge that would not load. */
+    private val onRetryBoundary: (forward: Boolean) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -88,6 +91,10 @@ class NovelTextViewport(
 
     /** The last chapter announced, so a scroll that stays inside one says nothing. */
     private var reportedVisibleId: Long? = null
+
+    /** What the window ran out of text on at each end, drawn on the edge items. */
+    private var failedPrevious: NovelReaderViewModel.BoundaryFailure? = null
+    private var failedNext: NovelReaderViewModel.BoundaryFailure? = null
 
     /** Auto-scroll in pixels a second, zero when it is off. Carry and timestamp belong to the frame
      *  callback below and are held here so stopping can reset them. */
@@ -232,6 +239,19 @@ class NovelTextViewport(
         if (index < 0) return
         slots.removeAt(index).block.discarded = true
         adapter.show(slots)
+    }
+
+    override fun setBoundaryFailures(
+        previous: NovelReaderViewModel.BoundaryFailure?,
+        next: NovelReaderViewModel.BoundaryFailure?,
+    ) {
+        if (previous == failedPrevious && next == failedNext) return
+        failedPrevious = previous
+        failedNext = next
+        // The bound holders are updated in place rather than through the adapter. A rebind detaches
+        // and re-adds the chapter's text container, re-measuring every chunk of the chapter the
+        // reader is inside, which is the one thing this container must never do while it is showing.
+        adapter.refreshBoundaries()
     }
 
     /** Everything a view is drawn from. The rest of the object (auto-scroll, the rail, volume keys,
@@ -571,28 +591,39 @@ class NovelTextViewport(
         }
 
         /** The seam marker sits above the chapter rather than between two items, so a position still
-         *  names a chapter and the geometry stays a chapter's own bounds. */
-        inner class Holder(val root: LinearLayout, val seam: NovelChapterSeamView) :
-            RecyclerView.ViewHolder(root)
+         *  names a chapter and the geometry stays a chapter's own bounds. The two failure views are
+         *  fixed children for the same reason: a window edge is a place in the text, not an item. */
+        inner class Holder(
+            val root: LinearLayout,
+            val head: NovelBoundaryFailureView,
+            val seam: NovelChapterSeamView,
+            val tail: NovelBoundaryFailureView,
+        ) : RecyclerView.ViewHolder(root)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+            val head = NovelBoundaryFailureView(parent.context)
             val seam = NovelChapterSeamView(parent.context)
+            val tail = NovelBoundaryFailureView(parent.context)
             val root = LinearLayout(parent.context).apply {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                 )
+                addView(head)
                 addView(seam)
+                addView(tail)
             }
-            return Holder(root, seam)
+            return Holder(root, head, seam, tail)
         }
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
-            while (holder.root.childCount > 1) holder.root.removeViewAt(1)
+            holder.root.findChapterContainer()?.let(holder.root::removeView)
             val container = shown.getOrNull(position)?.block?.container ?: return
             (container.parent as? ViewGroup)?.removeView(container)
-            holder.root.addView(container)
+            // Between the seam above the chapter and the failure below it, which is the order the
+            // reader scrolls through them in.
+            holder.root.addView(container, CHAPTER_CHILD_INDEX)
             // The first chapter in the window has nothing above it to have finished.
             val finished = shown.getOrNull(position - 1)?.chapter
             holder.seam.isVisible = finished != null
@@ -601,7 +632,34 @@ class NovelTextViewport(
                 settings?.let { NovelTextStyle.applySideMargins(holder.seam, it, context) }
                 holder.seam.bind(finished.title, shown[position].chapter.title)
             }
+            bindBoundaries(holder, position)
             if (!textSelectable) holder.root.setOnClickListener { onTap(touchDownY) }
+        }
+
+        /** The chapter's own container, which is whatever child is not one of the three fixtures. */
+        private fun LinearLayout.findChapterContainer(): View? = (0 until childCount)
+            .map(::getChildAt)
+            .firstOrNull { it !is NovelBoundaryFailureView && it !is NovelChapterSeamView }
+
+        /**
+         * Only the two ends of the window can have run out of text, so only they draw a failure.
+         * A single-chapter window is both ends at once, which is the shape a first load leaves.
+         */
+        private fun bindBoundaries(holder: Holder, position: Int) {
+            val above = failedPrevious.takeIf { position == 0 }
+            val below = failedNext.takeIf { position == shown.lastIndex }
+            holder.head.isVisible = above != null
+            above?.let { holder.head.bind(it.message) { onRetryBoundary(false) } }
+            holder.tail.isVisible = below != null
+            below?.let { holder.tail.bind(it.message) { onRetryBoundary(true) } }
+        }
+
+        /** Re-draws the edges on the holders already bound, without rebinding their chapters. */
+        fun refreshBoundaries() {
+            shown.indices.forEach { position ->
+                val holder = recycler.findViewHolderForAdapterPosition(position) as? Holder ?: return@forEach
+                bindBoundaries(holder, position)
+            }
         }
 
         override fun getItemCount(): Int = shown.size
@@ -611,6 +669,10 @@ class NovelTextViewport(
         /** Chapters the window holds at most, the previous one, the one being read and the next,
          *  which is the same three the webtoon viewer keeps. */
         const val WINDOW_SIZE = 3
+
+        /** Where the chapter's text sits among an item's fixed children: after the failure view for
+         *  the edge above it and the seam marker, before the failure view for the edge below. */
+        const val CHAPTER_CHILD_INDEX = 2
 
         /** The frame rate the WebView renderer's per-frame speed was written against. */
         const val FRAMES_PER_SECOND = 60f

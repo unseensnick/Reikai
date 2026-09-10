@@ -64,4 +64,14 @@ interface ChapterWindow {
 
     /** Drops a chapter the window has moved past, freeing its rendered text. */
     fun evict(chapterId: Long)
+
+    /**
+     * Why the window stops where it does at each end, or null at an end that simply has no more
+     * chapters. Separate from the verbs above because a chapter that would not load never becomes an
+     * item, so there is nothing for the reader to reach except the edge itself.
+     */
+    fun setBoundaryFailures(
+        previous: NovelReaderViewModel.BoundaryFailure?,
+        next: NovelReaderViewModel.BoundaryFailure?,
+    )
 }

@@ -131,6 +131,7 @@ class NovelReaderProvider(
                     if (forward) host.engine.nextChapter() else host.engine.previousChapter()
                 },
                 onVisibleChapter = viewModel::reportVisibleChapter,
+                onRetryBoundary = viewModel::retryBoundary,
             )
         }
         return NovelWebViewport(
