@@ -1,6 +1,9 @@
 package reikai.presentation.reader.web
 
+import android.graphics.Bitmap
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.test.core.app.ActivityScenario
@@ -17,6 +20,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.presentation.reader.WebViewHostActivity
 import reikai.presentation.reader.readerTestSettings
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -76,7 +82,19 @@ class NovelWebDocumentTest {
         fun onChapterFits(chapterId: String, fits: Boolean) {
             fitsReports[chapterId] = fits
         }
+
+        @JavascriptInterface
+        fun onChapterEndSeen(chapterId: String) {
+            endsSeen += chapterId
+        }
     }
+
+    /** Every chapter the page said had its last line on screen, in order. */
+    private val endsSeen = CopyOnWriteArrayList<String>()
+
+    /** Holds every image the page asks for until counted down, when one is set. */
+    @Volatile
+    private var imageGate: CountDownLatch? = null
 
     /** The last fit answer the page sent per chapter. */
     private val fitsReports = mutableMapOf<String, Boolean>()
@@ -121,6 +139,8 @@ class NovelWebDocumentTest {
 
     @After
     fun tearDown() {
+        // A failed case can leave an image request parked on the gate.
+        imageGate?.countDown()
         if (::scenario.isInitialized) scenario.close()
     }
 
@@ -208,6 +228,41 @@ class NovelWebDocumentTest {
         settleFrames()
         assertEquals("a short chapter reported progress", 0.0, lastProgress, 0.0)
         assertEquals("the page never said the chapter fits", true, fitsReports[CHAPTER_ID.toString()])
+    }
+
+    /** The novel's last chapter is read when its last line reaches the screen, which a short one's does
+     *  as it opens. */
+    @Test
+    fun aShortChapterSaysItsEndWasSeen() {
+        loadDocument(document(chapterHtml = "<p>short</p>"))
+        settleFrames()
+        assertEquals(listOf(CHAPTER_ID.toString()), endsSeen.toList())
+    }
+
+    @Test
+    fun aLongChapterSaysNothingUntilItsLastLineIsOnScreen() {
+        loadDocument()
+        settleFrames()
+        val atTheTop = endsSeen.toList()
+        eval("window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' })")
+        settleFrames()
+        assertEquals(emptyList<String>() to listOf(CHAPTER_ID.toString()), atTheTop to endsSeen.toList())
+    }
+
+    /** A chapter measures short until its images land, so one still loading would be read on opening. */
+    @Test
+    fun anImageStillLoadingHoldsBackTheEnd() {
+        loadDocument(document(chapterHtml = "<p>short</p>"))
+        imageGate = CountDownLatch(1)
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>short</p><img src=\"https://rk.test/a.png\">')")
+        settleFrames()
+        val whileLoading = endsSeen.toList()
+        imageGate?.countDown()
+        awaitEndSeen("99")
+        assertEquals(
+            listOf(CHAPTER_ID.toString()) to listOf(CHAPTER_ID.toString(), "99"),
+            whileLoading to endsSeen.toList(),
+        )
     }
 
     // endregion
@@ -514,6 +569,12 @@ class NovelWebDocumentTest {
             webView.addJavascriptInterface(Bridge(), NovelWebBridge.NAME)
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String?) = finished.countDown()
+
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                    val gate = imageGate ?: return null
+                    gate.await(TIMEOUT_S, TimeUnit.SECONDS)
+                    return WebResourceResponse("image/png", null, ByteArrayInputStream(onePixelPng()))
+                }
             }
             webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
         }
@@ -525,6 +586,17 @@ class NovelWebDocumentTest {
     }
 
     private fun chapterCount(): String = eval("document.querySelectorAll('.rk-chapter').length")
+
+    /** Waits for the page to report [chapterId]'s end, since an image's decode and the frame after it
+     *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */
+    private fun awaitEndSeen(chapterId: String) {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        while (chapterId !in endsSeen && System.currentTimeMillis() < deadline) Thread.sleep(50)
+    }
+
+    private fun onePixelPng(): ByteArray = ByteArrayOutputStream().also {
+        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
+    }.toByteArray()
 
     private fun eval(js: String): String {
         val done = CountDownLatch(1)

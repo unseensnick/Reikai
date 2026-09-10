@@ -69,6 +69,8 @@ class NovelWebViewport(
     /** Whether a chapter fits on one screen, whenever that answer changes, as the native viewport
      *  reports it. Called off the main thread; the model's record of it is synchronised. */
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
+    /** A chapter's last line reached the screen, once its images had landed. Off the main thread too. */
+    private val onChapterEndSeen: (chapterId: Long) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     /** The chapter the document was built around, so a load can be told apart from a re-entry. */
@@ -127,6 +129,7 @@ class NovelWebViewport(
                 onToggleMenu = { mainHandler.post { onToggleMenu() } },
                 onStepChapter = { forward -> mainHandler.post { onStepChapter(forward) } },
                 onChapterFits = onChapterFits,
+                onChapterEndSeen = onChapterEndSeen,
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { mainHandler.post { onPageReady() } },
             ),

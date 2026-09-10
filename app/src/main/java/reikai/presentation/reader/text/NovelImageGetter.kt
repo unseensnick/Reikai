@@ -63,8 +63,9 @@ class NovelImageGetter(
     /** Some hosts refuse an image without one, so the chapter's own site is sent. */
     private val refererUrl: String?,
     private val resolveView: (Drawable) -> TextView?,
-    /** The views whose images have arrived. Re-measuring is the renderer's job, because only it
-     *  knows whether the text is precomputed, and a precomputed layout ignores a bounds change. */
+    /** Every load has finished, with the views whose images arrived, empty when none did. Re-measuring
+     *  is the renderer's job, because only it knows whether the text is precomputed, and a precomputed
+     *  layout ignores a bounds change. */
     private val onImagesReady: (List<TextView>) -> Unit,
 ) : Html.ImageGetter {
 
@@ -100,11 +101,14 @@ class NovelImageGetter(
         return wrapper
     }
 
-    /** Main thread: the queued images load once the views they measure against exist. */
-    fun startLoading() {
+    /** Main thread: the queued images load once the views they measure against exist. False when
+     *  there were none, so [onImagesReady] will not be called. */
+    fun startLoading(): Boolean {
+        val started = pendingLoads.isNotEmpty()
         outstandingLoads.set(pendingLoads.size)
         pendingLoads.forEach { (source, wrapper) -> loadFromNetwork(source, wrapper) }
         pendingLoads.clear()
+        return started
     }
 
     /** A downloaded chapter stores its images inline, so this is the offline path. */
@@ -154,7 +158,7 @@ class NovelImageGetter(
         if (outstandingLoads.decrementAndGet() > 0) return
         val views = dirtyViews.toList()
         dirtyViews.clear()
-        if (views.isNotEmpty()) onImagesReady(views)
+        onImagesReady(views)
     }
 
     private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper) {

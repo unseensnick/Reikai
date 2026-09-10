@@ -469,6 +469,26 @@ class NovelReaderViewModel(
         }
     }
 
+    /** A chapter's last line reached the screen, once its images had landed. */
+    fun reportChapterEndSeen(chapterId: Long) {
+        // Outside the order, chapterAfter has no index to step from and would call anything the last.
+        if (chapterId !in orderedIds) return
+        val chapter = windowState.value.chapters.firstOrNull { it.chapterId == chapterId } ?: return
+        val hasNext = chapterAfter(chapterId) != null
+        // A position it reported on opening, still waiting to be written, would land after the mark
+        // and put a chapter just read back at 0.
+        if (!hasNext && pendingSave?.first == chapterId) {
+            progressSaveJob?.cancel()
+            pendingSave = null
+        }
+        // Off the caller's thread, which for the native renderer is the main one, since this parses.
+        viewModelScope.launchIO {
+            if (!NovelLeaveRule.readsOnReachingEnd(hasNext, chapter.html)) return@launchIO
+            if (chapterRepo.getById(chapterId)?.read != false) return@launchIO
+            persistProgress(chapterId, 100)
+        }
+    }
+
     init {
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
@@ -1047,11 +1067,13 @@ class NovelReaderViewModel(
     /** Past the next chapter while each fits on one screen, see [NovelWindowReach]. */
     private fun forwardReach(): List<Long> = NovelWindowReach.forward(
         next = neighbours.value.next,
-        after = { id ->
-            orderedIds.neighbourChapter(orderedIds.indexOf(id), forward = true) { it in forwardEligibleIds }
-        },
+        after = ::chapterAfter,
         fitsOnScreen = { it in fitsOnScreen },
     )
+
+    /** The chapter a forward step from [id] lands on, null when there is none to step to. */
+    private fun chapterAfter(id: Long): Long? =
+        orderedIds.neighbourChapter(orderedIds.indexOf(id), forward = true) { it in forwardEligibleIds }
 
     /** Warms whatever the reach needs that is not cached yet; a warm republishes the window itself. */
     private suspend fun extendWindowForward() {

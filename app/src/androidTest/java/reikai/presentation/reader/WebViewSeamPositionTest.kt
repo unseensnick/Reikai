@@ -479,6 +479,9 @@ class WebViewSeamPositionTest {
 
         @JavascriptInterface
         fun onChapterFits(chapterId: String, fits: Boolean) = Unit
+
+        @JavascriptInterface
+        fun onChapterEndSeen(chapterId: String) = Unit
     }
 
     // endregion

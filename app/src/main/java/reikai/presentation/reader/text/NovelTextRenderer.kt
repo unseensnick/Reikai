@@ -62,7 +62,13 @@ class NovelTextRenderer(
                 contentWidthPx = contentWidth,
                 refererUrl = refererUrl,
                 resolveView = block::chunkViewFor,
-                onImagesReady = { views -> remeasureForImages(views, selectable, block) },
+                onImagesReady = { views ->
+                    // A superseded render's images finishing says nothing about this render's.
+                    if (token == block.renderToken) block.imagesLoading = false
+                    remeasureForImages(views, selectable, block)
+                    // Nothing arrived, so nothing re-lays out; this does, which is what re-checks the chapter.
+                    if (views.isEmpty()) block.container.requestLayout()
+                },
             )
 
             val spannable = withContext(Dispatchers.Default) {
@@ -119,7 +125,7 @@ class NovelTextRenderer(
                 }
             }
             // After the text is set, so every image span has a view to find and re-measure.
-            imageGetter.startLoading()
+            block.imagesLoading = imageGetter.startLoading()
             onTextSet()
         }
     }

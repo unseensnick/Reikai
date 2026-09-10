@@ -38,6 +38,10 @@ class ChapterTextBlock(
      */
     var renderToken: Int = 0
 
+    /** True while a network image of the current render is still loading, when the chapter's height
+     *  is still the placeholders' rather than its own. */
+    var imagesLoading: Boolean = false
+
     /**
      * Set when the viewport drops this chapter, which is what stops an in-flight render. Attachment
      * cannot stand in for it: a chapter queued below the reader is not attached until it has a

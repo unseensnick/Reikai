@@ -145,6 +145,7 @@ class NovelReaderProvider(
                 onRetryBoundary = viewModel::retryBoundary,
                 cutoutTopDp = host::displayCutoutTopDp,
                 onChapterFits = viewModel::reportFitsOnScreen,
+                onChapterEndSeen = viewModel::reportChapterEndSeen,
             )
         }
         return NovelWebViewport(
@@ -169,6 +170,7 @@ class NovelReaderProvider(
             onRetryBoundary = viewModel::retryBoundary,
             statusBarHeightPx = host::displayCutoutTopDp,
             onChapterFits = viewModel::reportFitsOnScreen,
+            onChapterEndSeen = viewModel::reportChapterEndSeen,
         )
     }
 }

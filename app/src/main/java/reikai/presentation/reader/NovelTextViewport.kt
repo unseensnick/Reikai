@@ -71,6 +71,9 @@ class NovelTextViewport(
     /** Whether a chapter fits on one screen, whenever that answer changes. Such a chapter has no
      *  scroll room, so the model reads it when the reader steps forward from it. */
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
+    /** A chapter's last line reached the screen, once its images had landed. The model reads the
+     *  novel's last chapter on it, since nothing follows that one to be left into. */
+    private val onChapterEndSeen: (chapterId: Long) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -172,6 +175,7 @@ class NovelTextViewport(
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
                 reportVisibleChapter()
                 report(onProgressChanged)
+                reportEnds()
             }
 
             override fun onScrollStateChanged(view: RecyclerView, state: Int) {
@@ -359,6 +363,15 @@ class NovelTextViewport(
         NovelTextStyle.applyMargins(block.container, settings, context, topInsetPx)
         val slot = ChapterSlot(chapter, block)
         slot.pendingProgress = startFraction
+        // A chapter changes height without a scroll when its text is set and when its images land, and
+        // a short one is never scrolled, so a new height is the only point its fit and end get checked.
+        // Posted, since the list places the item only after the column has laid out.
+        block.container.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            recycler.post {
+                reportFits(slot)
+                reportEnds()
+            }
+        }
         slots.add(if (atEnd) slots.size else 0, slot)
         adapter.show(slots)
         renderer.render(
@@ -476,6 +489,22 @@ class NovelTextViewport(
         if (reportedFits.put(slot.chapter.chapterId, fits) != fits) onChapterFits(slot.chapter.chapterId, fits)
     }
 
+    /** Chapters whose last line has been on screen, each told once. */
+    private val reportedEnds = mutableSetOf<Long>()
+
+    /** The WebView page's `reportEnds`: held while a chapter's images load, since until they land it
+     *  measures short and would be read the moment it opened. */
+    private fun reportEnds() {
+        slots.forEach { slot ->
+            val id = slot.chapter.chapterId
+            if (!slot.rendered || slot.block.imagesLoading || id in reportedEnds) return@forEach
+            val (top, height) = boundsOf(slot) ?: return@forEach
+            if (top + height > recycler.height) return@forEach
+            reportedEnds += id
+            onChapterEndSeen(id)
+        }
+    }
+
     /** What the redraw seeks back to, which is always the chapter being read. */
     private fun percent(): Int = visibleSlot()?.let(::percentOf) ?: 0
 
@@ -536,9 +565,6 @@ class NovelTextViewport(
 
     private fun applyPendingProgress(slot: ChapterSlot) {
         slot.rendered = true
-        // Posted for the same reason as the seek below; a short chapter is never scrolled, so this is
-        // the only report it would get.
-        recycler.post { reportFits(slot) }
         // Null is the window growing around the reader, which must not move them. Zero is a real
         // position, so it is not skipped: it is this chapter's first line, which sits below whatever
         // marker its item carries.

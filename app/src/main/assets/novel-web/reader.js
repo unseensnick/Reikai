@@ -83,6 +83,7 @@
         : start;
       next.push({
         id: chapters[i].getAttribute(CHAPTER_ID_ATTR),
+        el: chapters[i],
         start: start,
         claimFrom: claimFrom,
         height: rect.height,
@@ -90,6 +91,7 @@
     }
     boundaries = next;
     reportFits();
+    reportEnds();
   }
 
   /* The last answer sent per chapter, so a rebuild that changes nothing says nothing. */
@@ -108,6 +110,31 @@
       fitsReported[b.id] = fits;
       bridge().onChapterFits(b.id, fits);
     });
+  }
+
+  /* Chapters whose last line has been on screen, each told once. */
+  var endsSeen = {};
+
+  /*
+   * Tells the host a chapter's last line reached the screen, which reads the novel's last chapter:
+   * nothing follows it to be left into. Held while any of its images is still loading, since until
+   * they land it measures short and would be read the moment it opened.
+   */
+  function reportEnds() {
+    var bottom = scrollTop() + viewportHeight() + EDGE_TOLERANCE;
+    boundaries.forEach(function (b) {
+      if (endsSeen[b.id] || b.start + b.height > bottom || !imagesLanded(b.el)) return;
+      endsSeen[b.id] = true;
+      bridge().onChapterEndSeen(b.id);
+    });
+  }
+
+  function imagesLanded(el) {
+    var images = el.querySelectorAll('img');
+    for (var i = 0; i < images.length; i++) {
+      if (!images[i].complete) return false;
+    }
+    return true;
   }
 
   /* Which chapter the reader is in and how far through it, rather than through the document. */
@@ -169,7 +196,7 @@
       lastReported = 1;
       bridge().onProgress(s.id, 1);
     }
-
+    reportEnds();
   }
 
   function onScroll() {
@@ -560,6 +587,14 @@
       settleTimer = setTimeout(function () { persist(); }, 250);
     }, { passive: true });
   }
+
+  // An image that lands without changing the layout escapes the resize observer, and it is what
+  // releases a chapter reportEnds is holding. A broken one releases it the same way.
+  ['load', 'error'].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      if (e.target.tagName === 'IMG') onScroll();
+    }, true);
+  });
 
   if (typeof ResizeObserver === 'function' && document.body) {
     new ResizeObserver(function () {
