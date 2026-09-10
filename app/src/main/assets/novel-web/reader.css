@@ -1,0 +1,112 @@
+/*
+ * Reikai's stylesheet for the WebView rendering mode.
+ *
+ * Replaces the vendored LNReader index.css. Every rule for in-page UI is gone, because Reikai draws
+ * the chrome, the footer and the image viewer in Compose; what is left is chapter text, the elements
+ * a source can put inside it, and the seam between two chapters in a window.
+ *
+ * Everything a setting can change is a custom property, so a settings push rewrites variables
+ * instead of rebuilding the document.
+ */
+
+html {
+  /* A smooth scroll here is why auto-scroll has to ask for an instant one; see reader.js. */
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--rk-background);
+  color: var(--rk-text);
+  font-family: var(--rk-font-family);
+  font-size: var(--rk-font-size);
+  line-height: var(--rk-line-height);
+  text-align: var(--rk-text-align);
+  overflow-wrap: break-word;
+  /* The cutout inset, so the first line clears a camera housing. */
+  padding-top: var(--rk-inset-top);
+}
+
+.rk-chapter {
+  padding: 0 var(--rk-margin-right) 0 var(--rk-margin-left);
+}
+
+/* The ends of the document, not of each chapter: a window would otherwise repeat both at every seam. */
+#rk-chapters {
+  padding: var(--rk-margin-top) 0 var(--rk-margin-bottom) 0;
+}
+
+.rk-chapter p {
+  text-indent: var(--rk-paragraph-indent);
+  margin: 0 0 var(--rk-paragraph-spacing) 0;
+}
+
+/*
+ * A plain-text chapter is rebuilt into paragraphs with no styling of its own, so it needs the
+ * wrapping the source would have given it. Carried from the island the vendored index.css held.
+ */
+[data-reikai-plain-text] p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rk-seam {
+  margin: 2.5em var(--rk-margin-right) 2.5em var(--rk-margin-left);
+  padding-top: 2.5em;
+  border-top: 1px solid var(--rk-text);
+  opacity: 0.45;
+  font-size: 0.85em;
+  text-align: center;
+  text-indent: 0;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--rk-text);
+  opacity: 0.3;
+  margin: 1.5em 0;
+}
+
+a {
+  color: var(--rk-text);
+  text-decoration: underline;
+}
+
+sup {
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: super;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+th,
+td {
+  border: 1px solid var(--rk-text);
+  padding: 0.4em;
+  text-align: left;
+}
+
+th {
+  font-weight: bold;
+}
+
+/* The paragraph read-aloud is voicing. Unused until the read-aloud re-host, styled here so the
+   renderer that gets it does not also have to add the rule. */
+.rk-highlight {
+  background-color: var(--rk-text);
+  color: var(--rk-background);
+}

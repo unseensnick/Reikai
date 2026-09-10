@@ -1,0 +1,118 @@
+package reikai.presentation.reader.web
+
+import android.content.Context
+import org.json.JSONObject
+import reikai.novel.font.fontDisplayName
+import reikai.novel.font.isSupportedFontFile
+import reikai.presentation.novel.reader.NovelReaderSettings
+import reikai.presentation.novel.reader.cssBackgroundColor
+import reikai.presentation.novel.reader.cssFontFamily
+import reikai.presentation.novel.reader.cssTextAlign
+import reikai.presentation.novel.reader.cssTextColor
+import reikai.presentation.novel.reader.isSafeInCssUrl
+
+/**
+ * The document the WebView rendering mode renders, assembled here because it is this renderer's own
+ * format. Its stylesheet and engine are inlined from `assets/novel-web/`.
+ *
+ * Every settings-derived value goes through the sanitisers in `NovelReaderCssValues`, since a
+ * restored backup can put any string in a preference and this block runs in a page holding the
+ * app's cookies.
+ */
+object NovelWebDocument {
+
+    /** Where a chapter is considered finished, matching what the page reports as one. */
+    private const val DONE_THRESHOLD = 0.99
+
+    /** How far into the last chapter a forward load is asked for. Fixed, matching the native mode. */
+    private const val LOAD_THRESHOLD = 0.8
+
+    fun build(
+        context: Context,
+        chapterId: Long,
+        chapterHtml: String,
+        initialFraction: Float,
+        settings: NovelReaderSettings,
+        statusBarHeightPx: Int,
+        customFontUrl: String?,
+    ): String {
+        val css = NovelWebAssets.read(context, "reader.css")
+        val js = NovelWebAssets.readWith(
+            context,
+            "reader.js",
+            mapOf(
+                "__TAP_TO_SCROLL__" to settings.tapToScroll.toString(),
+                "__SWIPE__" to settings.swipeGestures.toString(),
+                "__BIONIC__" to settings.bionicReading.toString(),
+                "__LOAD_THRESHOLD__" to LOAD_THRESHOLD.toString(),
+                "__DONE_THRESHOLD__" to DONE_THRESHOLD.toString(),
+                "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
+            ),
+        )
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+            <style>
+            ${fontFace(settings.fontFamily, customFontUrl)}
+            :root { ${variables(settings, statusBarHeightPx)} }
+            $css
+            </style>
+            </head>
+            <body>
+            <div id="rk-chapters">
+            <div class="rk-chapter" data-rk-chapter-id="$chapterId">$chapterHtml</div>
+            </div>
+            <script>$js</script>
+            </body>
+            </html>
+        """.trimIndent()
+    }
+
+    /**
+     * The custom properties the stylesheet reads. Rewriting these is how a settings change reflows in
+     * place, so every value a setting can move is one of them rather than baked into the document.
+     */
+    fun variables(settings: NovelReaderSettings, statusBarHeightPx: Int): String = buildString {
+        append("--rk-background:").append(cssBackgroundColor(settings.backgroundColor)).append(';')
+        append("--rk-text:").append(cssTextColor(settings.textColor)).append(';')
+        append("--rk-font-size:").append(settings.fontSize).append("px;")
+        append("--rk-line-height:").append(settings.lineHeight).append(';')
+        append("--rk-text-align:").append(cssTextAlign(settings.textAlign)).append(';')
+        append("--rk-font-family:").append(webFontFamily(settings.fontFamily).ifEmpty { "serif" }).append(';')
+        append("--rk-margin-top:").append(settings.margins.top).append("px;")
+        append("--rk-margin-bottom:").append(settings.margins.bottom).append("px;")
+        append("--rk-margin-left:").append(settings.margins.left).append("px;")
+        append("--rk-margin-right:").append(settings.margins.right).append("px;")
+        append("--rk-paragraph-indent:").append(settings.paragraphIndent).append("em;")
+        append("--rk-paragraph-spacing:").append(settings.paragraphSpacing).append("em;")
+        append("--rk-inset-top:").append(statusBarHeightPx).append("px;")
+    }
+
+    /** The block the page's own settings object is given, for what a custom property cannot express. */
+    fun behaviourJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {
+        put("tapToScroll", settings.tapToScroll)
+        put("swipe", settings.swipeGestures)
+        put("bionic", settings.bionicReading)
+    }
+
+    /**
+     * The `@font-face` a font the user added needs, since it lives under their storage location
+     * rather than in the assets folder the bundled faces come from.
+     */
+    private fun fontFace(family: String, url: String?): String {
+        if (url == null || !isSupportedFontFile(family)) return ""
+        // Dropping the declaration loses the face; letting it through loses the whole style block.
+        if (!isSafeInCssUrl(url)) return ""
+        return "@font-face { font-family: '${webFontFamily(family)}'; src: url('$url'); }"
+    }
+
+    /**
+     * What the page is told the family is called. A font the user added is stored as its file name,
+     * and `font-family: Merriweather.ttf` is not a valid family, so the face would be declared and
+     * never referenced. The readable name has no dot in it.
+     */
+    private fun webFontFamily(family: String): String =
+        cssFontFamily(if (isSupportedFontFile(family)) fontDisplayName(family) else family)
+}

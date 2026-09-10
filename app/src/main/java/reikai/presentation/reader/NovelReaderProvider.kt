@@ -149,6 +149,7 @@ class NovelReaderProvider(
             // Through the engine rather than the model, so a swipe is sequenced with the viewport the
             // same way the bar's step buttons are.
             onStepChapter = { forward -> if (forward) host.engine.nextChapter() else host.engine.previousChapter() },
+            onVisibleChapter = viewModel::reportVisibleChapter,
             statusBarHeightPx = host::displayCutoutTopDp,
         )
     }
