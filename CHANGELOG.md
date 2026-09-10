@@ -214,6 +214,7 @@ every release now also ships a foss build with neither in it.
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**
 - **Swiping back from the reader now reaches the chapter you were on.**
 - **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
+- **The WebGPU reader now frees a page's graphics memory as soon as it can no longer be shown (synced from Mihon, mihonapp/mihon#3872).**
 - **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
 - **The manga reader now names the chapter you are actually on while you scroll across a chapter boundary.** It briefly showed the previous chapter's title and page count beside the new chapter's page number.
 - **Each chapter you open in the manga reader now starts where you left that chapter, not where you left the one before it.** Most visible right after jumping in from a page preview.
@@ -470,7 +471,7 @@ every release now also ships a foss build with neither in it.
 - The pre-release channel is now called nightly rather than preview, matching Mihon (synced from Mihon, mihonapp/mihon#3760). The About screen and the release title say Nightly; downloads keep their file names and installs are unaffected.
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Every list screen now stops querying a few seconds after you leave it, instead of running as long as the app does: the library, Recents, the source and extension lists, and the category, migration, cover and upcoming screens (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3762).
-- Dependency updates: appcompat, paging, webkit, okhttp, kim, the image decoder, the subsampling image view and the baseline-profile plugin (synced from Mihon).
+- Dependency updates: appcompat, paging, webkit, okhttp, kim, Firebase, the rich text editor behind manga notes, the image decoder, the subsampling image view and the baseline-profile plugin, plus the Kotlin, Android Gradle, dependency-injection and formatting build plugins (synced from Mihon).
 - Installed extensions are now read off the main thread, so they no longer hold up a cold start (synced from Mihon, mihonapp/mihon#3788).
 - Extension trust is re-checked from the repo list itself rather than by the two screens that happened to change it, so adding or removing a repo anywhere re-checks straight away, and a re-check can no longer be undone by the startup scan finishing after it.
 - The app now wires its components together at build time instead of looking them up while running, closing a class of crash that only showed up in release builds (synced from Mihon, mihonapp/mihon#3608). The light-novel reader keeps the old wiring until it is rebuilt.
