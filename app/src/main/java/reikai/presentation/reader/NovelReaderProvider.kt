@@ -123,11 +123,16 @@ class NovelReaderProvider(
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
         val settings = viewModel.settings.value
+        val textSelectable = novelPreferences.readerTextSelectable().get()
+        // One rule for both renderers: the keys are the reader's only while the menu is down, as they
+        // are for manga. Read from the host each press, since the menu opens and closes mid-session.
+        val volumeKeys = settings.useVolumeButtons
+        val volumeKeysActive = { volumeKeys && !host.isMenuVisible }
         if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
-                textSelectable = novelPreferences.readerTextSelectable().get(),
-                volumeKeysEnabled = settings.useVolumeButtons,
+                textSelectable = textSelectable,
+                volumeKeysActive = volumeKeysActive,
                 volumeKeysInverted = settings.volumeButtonsInverted,
                 volumeKeyScrollFraction = settings.volumeButtonsFraction,
                 onProgressChanged = viewModel::reportProgress,
@@ -138,11 +143,13 @@ class NovelReaderProvider(
                 },
                 onVisibleChapter = viewModel::reportVisibleChapter,
                 onRetryBoundary = viewModel::retryBoundary,
+                cutoutTopDp = host::displayCutoutTopDp,
             )
         }
         return NovelWebViewport(
             context = host,
-            volumeKeysEnabled = settings.useVolumeButtons,
+            textSelectable = textSelectable,
+            volumeKeysActive = volumeKeysActive,
             volumeKeysInverted = settings.volumeButtonsInverted,
             volumeKeyScrollFraction = settings.volumeButtonsFraction,
             useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),

@@ -371,7 +371,7 @@ class ReaderActivity : BaseActivity() {
         engine.loadState
             .onEach { state ->
                 setProgressDialog(state is ReaderLoadState.Loading)
-                if (state is ReaderLoadState.Failed) setChapterLoadError(state.message)
+                if (state is ReaderLoadState.Failed) setChapterLoadError(state)
             }
             .launchIn(lifecycleScope)
 
@@ -468,8 +468,12 @@ class ReaderActivity : BaseActivity() {
             when (val dialog = engineDialog) {
                 // RK -->
                 is ReaderDialog.LoadFailed -> {
+                    val giveUp = {
+                        onDismissRequest()
+                        if (!dialog.canKeepReading) finish()
+                    }
                     AlertDialog(
-                        onDismissRequest = onDismissRequest,
+                        onDismissRequest = giveUp,
                         title = { Text(stringResource(MR.strings.chapter_load_failed)) },
                         text = dialog.message?.let { { Text(it) } },
                         confirmButton = {
@@ -483,7 +487,7 @@ class ReaderActivity : BaseActivity() {
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = onDismissRequest) {
+                            TextButton(onClick = giveUp) {
                                 Text(stringResource(MR.strings.action_cancel))
                             }
                         },
@@ -682,10 +686,14 @@ class ReaderActivity : BaseActivity() {
     }
 
     /**
-     * The cutout inset in dp, so the first line clears a punch-hole in immersive mode. The WebView
-     * viewport is initial-scale=1, so its CSS pixels are dp.
+     * The cutout inset in dp, so the first line clears a punch-hole in immersive mode. Both novel
+     * viewports add it at the top of the page. The WebView one is initial-scale=1, so its CSS pixels
+     * are dp.
      */
     internal fun displayCutoutTopDp(): Int {
+        // RK: applyInsetsPadding already keeps the container clear of the cutout unless the reader
+        // draws under it; a page adding the inset on top of that padding cleared the cutout twice.
+        if (!readerPreferences.fullscreen.get() || !readerPreferences.drawUnderCutout.get()) return 0
         val insets = ViewCompat.getRootWindowInsets(binding.root)
             ?.getInsets(WindowInsetsCompat.Type.displayCutout())
         return ((insets?.top ?: 0) / resources.displayMetrics.density).roundToInt()
@@ -1050,11 +1058,11 @@ class ReaderActivity : BaseActivity() {
         toast(error.message)
     }
 
-    // RK: a chapter that failed after the reader was already open. Unlike initError above, the reader
-    // stays: closing it would throw away the chapter the user was reading, and the failure is often
-    // one retry away.
-    private fun setChapterLoadError(message: String?) {
-        engine.openDialog(ReaderDialog.LoadFailed(message))
+    // RK: unlike initError above, the reader stays: closing it would throw away the chapter the user
+    // was reading, and the failure is often one retry away. A novel's first chapter fails through
+    // here too, with nothing on screen, which is why giving up can still close the reader.
+    private fun setChapterLoadError(failure: ReaderLoadState.Failed) {
+        engine.openDialog(ReaderDialog.LoadFailed(failure.message, failure.canKeepReading))
     }
 
     /**
@@ -1102,6 +1110,11 @@ class ReaderActivity : BaseActivity() {
     fun toggleMenu() {
         setMenuVisibility(!viewModel.state.value.menuVisible)
     }
+
+    // RK: for a novel viewport, which yields the volume keys to the system while the menu is up, as
+    // PagerViewer and WebtoonViewer do by reading this model directly.
+    val isMenuVisible: Boolean
+        get() = viewModel.state.value.menuVisible
 
     /**
      * Called from the viewer to show the menu.

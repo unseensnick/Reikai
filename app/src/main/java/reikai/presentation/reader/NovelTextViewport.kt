@@ -47,7 +47,9 @@ class NovelTextViewport(
     private val context: Context,
     /** Selection and clickable links are exclusive: the movement method that drags cannot click. */
     private val textSelectable: Boolean,
-    private val volumeKeysEnabled: Boolean,
+    /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
+     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. */
+    private val volumeKeysActive: () -> Boolean,
     private val volumeKeysInverted: Boolean,
     private val volumeKeyScrollFraction: Float,
     /** Both carry the chapter measured, not just the number: at a boundary the reader is already in
@@ -63,6 +65,9 @@ class NovelTextViewport(
     private val onVisibleChapter: (chapterId: Long) -> Unit,
     /** The reader asking again for the chapter beyond an edge that would not load. */
     private val onRetryBoundary: (forward: Boolean) -> Unit,
+    /** The cutout inset in dp, zero when the host already pads clear of it. Read per load, like the
+     *  WebView viewport's, since it is only known once the window has insets. */
+    private val cutoutTopDp: () -> Int,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -104,30 +109,11 @@ class NovelTextViewport(
 
     private val adapter = BlockAdapter()
 
-    /**
-     * `viewer_container` blocks descendant focus (`reader_activity.xml:14`, upstream's, so the image
-     * viewers keep it), and an unfocusable TextView never initialises the Editor that draws
-     * selection handles. Lifted only while this viewport is attached, and only when selection is on.
-     * The parent is held rather than re-read, because a detach can arrive after it is gone.
-     * Declared above the recycler that registers it, or it is null when that runs.
-     */
-    private val focusableWhileAttached = object : View.OnAttachStateChangeListener {
+    /** Declared above the recycler that registers it, or it is null when that runs. */
+    private val focusableWhileAttached = SelectableWhileAttached()
 
-        private var host: ViewGroup? = null
-        private var blocked = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-
-        override fun onViewAttachedToWindow(v: View) {
-            val parent = v.parent as? ViewGroup ?: return
-            host = parent
-            blocked = parent.descendantFocusability
-            parent.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-        }
-
-        override fun onViewDetachedFromWindow(v: View) {
-            host?.descendantFocusability = blocked
-            host = null
-        }
-    }
+    /** The cutout inset in pixels, added to each column's top margin. Set on every open. */
+    private var topInsetPx = 0
 
     /** Where the touch went down, in viewport coordinates: a click carries no position of its own, and
      *  a swipe is measured from here. */
@@ -208,6 +194,9 @@ class NovelTextViewport(
         // where this is a coroutine, so the chunk views below find it cached rather than each doing
         // that lookup on the main thread as it is built.
         context.appGraph.novelFontManager.warm(settings.fontFamily)
+        // Folded into the column's own top margin, since a seek measures from the viewport's edge and
+        // would scroll a padding above the list straight off screen, even to 0%.
+        topInsetPx = (cutoutTopDp() * context.resources.displayMetrics.density).toInt()
         // An explicit open replaces the window rather than growing it: the chapters around the one
         // being left are not the ones around the one being opened.
         evictAll()
@@ -286,7 +275,7 @@ class NovelTextViewport(
                 return@launch
             }
             slots.forEach { slot ->
-                NovelTextStyle.applyMargins(slot.block.container, settings, context)
+                NovelTextStyle.applyMargins(slot.block.container, settings, context, topInsetPx)
                 slot.block.chunkViews.forEach { view ->
                     // A precomputed layout was measured against the old paint, and the framework's own
                     // long-press drag path re-sets it without checking, which throws. Copying rather
@@ -364,7 +353,7 @@ class NovelTextViewport(
         this.settings = settings
         recycler.setBackgroundColor(NovelTextStyle.parseColor(settings.backgroundColor, Color.WHITE))
         val block = ChapterTextBlock(context) { createChunkView(settings) }
-        NovelTextStyle.applyMargins(block.container, settings, context)
+        NovelTextStyle.applyMargins(block.container, settings, context, topInsetPx)
         val slot = ChapterSlot(chapter, block)
         slot.pendingProgress = startFraction
         slots.add(if (atEnd) slots.size else 0, slot)
@@ -416,7 +405,7 @@ class NovelTextViewport(
     override fun handleKeyEvent(event: KeyEvent): Boolean {
         val isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
             event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-        if (!volumeKeysEnabled || !isVolumeKey) return false
+        if (!isVolumeKey || !volumeKeysActive()) return false
         if (event.action == KeyEvent.ACTION_DOWN) {
             val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != volumeKeysInverted
             val fraction = volumeKeyScrollFraction.coerceIn(0.1f, 1f)

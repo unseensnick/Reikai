@@ -93,10 +93,8 @@
   }
 
   /*
-   * Which chapter the reader is in and how far through it, rather than through the document.
-   * The last chapter subtracts a viewport because its trailing screen is space nothing scrolls
-   * into; a middle chapter ends at the next one's start and so needs no such correction. A last
-   * chapter shorter than the viewport has no scroll room at all, so it falls back to document
+   * Which chapter the reader is in and how far through it, rather than through the document. A
+   * last chapter shorter than the viewport has no scroll room at all, so it falls back to document
    * progress, which can still reach the end.
    */
   function state() {
@@ -129,7 +127,11 @@
       progress = docProgress;
     } else {
       var within = Math.max(top - chapter.start, 0);
-      var usable = Math.max(chapter.height - (isLast ? viewport : 0), 1);
+      // Every chapter ends when its last line reaches the bottom of the screen, as in the native
+      // renderer's ChapterScrollProgress. Tsundoku measures a middle chapter against its full height
+      // instead, which gives one stored percent two positions: saved with the next chapter below,
+      // restored with the chapter opened alone, it landed a fraction of a screen early.
+      var usable = Math.max(chapter.height - viewport, 1);
       progress = Math.min(within / usable, 1);
       if (progress >= DONE_THRESHOLD) progress = 1;
     }
@@ -200,7 +202,14 @@
   }
 
   function applyBionic(root) {
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    // A chapter's own script and style blocks are text nodes too, and wrapping them in spans empties
+    // them: an element child is not script or CSS, so the chapter's styling and code were lost.
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        var tag = node.parentNode && node.parentNode.nodeName;
+        return tag === 'SCRIPT' || tag === 'STYLE' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      },
+    });
     var texts = [];
     while (walker.nextNode()) {
       if (walker.currentNode.nodeValue.trim()) texts.push(walker.currentNode);
@@ -334,8 +343,8 @@
       rebuildBoundaries();
       for (var i = 0; i < boundaries.length; i++) {
         if (boundaries[i].id !== String(chapterId)) continue;
-        var isLast = i === boundaries.length - 1;
-        var usable = Math.max(boundaries[i].height - (isLast ? viewportHeight() : 0), 1);
+        // The inverse of state()'s measure, so a seek and a report cannot drift apart.
+        var usable = Math.max(boundaries[i].height - viewportHeight(), 1);
         // Rounded, so a seek to a chapter's own start lands on it rather than a fraction below.
         window.scrollTo({ top: Math.round(boundaries[i].start + usable * fraction), behavior: 'instant' });
         // The reader is now in this chapter by construction, so the next frame must not report the
@@ -465,7 +474,27 @@
       container.appendChild(buildSeam(above ? above.getAttribute(CHAPTER_TITLE_ATTR) : '', title));
       container.appendChild(chapter);
     }
+    // After the prepend compensation, so a script that adds height lands under anchoring rather than
+    // inside the measurement.
+    runScripts(chapter);
     window.rkReader.refresh();
+  }
+
+  /*
+   * A chapter's own scripts, which innerHTML parses but never runs. The chapter the page opened on
+   * ran its scripts as the document loaded, so a chapter arriving while scrolling gets the same by
+   * being handed fresh script elements. The pipeline strips scripts unless "Run scripts a chapter
+   * embeds" is on, so any found here are ones the reader asked for.
+   */
+  function runScripts(root) {
+    root.querySelectorAll('script').forEach(function (old) {
+      var fresh = document.createElement('script');
+      for (var i = 0; i < old.attributes.length; i++) {
+        fresh.setAttribute(old.attributes[i].name, old.attributes[i].value);
+      }
+      fresh.text = old.text;
+      old.parentNode.replaceChild(fresh, old);
+    });
   }
 
   // endregion

@@ -14,8 +14,9 @@ sealed interface ReaderDialog {
     /** Raised by the host while an adjacent chapter loads; it owns that state, the engine shows it. */
     data object Loading : ReaderDialog
 
-    /** A chapter that could not be loaded while the reader stayed open, offering another attempt. */
-    data class LoadFailed(val message: String?) : ReaderDialog
+    /** A chapter that could not be loaded, offering another attempt. Dismissed with nothing on
+     *  screen, it closes the reader rather than leave a blank page with no retry left. */
+    data class LoadFailed(val message: String?, val canKeepReading: Boolean) : ReaderDialog
 
     data object Settings : ReaderDialog
 

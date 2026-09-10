@@ -20,6 +20,7 @@ import reikai.presentation.novel.reader.NovelChapterNavigationClient
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
+import reikai.presentation.reader.web.NovelWebFonts
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import kotlin.math.roundToInt
@@ -35,7 +36,12 @@ import kotlin.math.roundToInt
 @SuppressLint("SetJavaScriptEnabled")
 class NovelWebViewport(
     private val context: Context,
-    private val volumeKeysEnabled: Boolean,
+    /** Long press selects text, the same setting the native viewport reads. Links keep working here,
+     *  which the native one cannot offer alongside selection. */
+    private val textSelectable: Boolean,
+    /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
+     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. */
+    private val volumeKeysActive: () -> Boolean,
     private val volumeKeysInverted: Boolean,
     private val volumeKeyScrollFraction: Float,
     /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. Read
@@ -88,6 +94,12 @@ class NovelWebViewport(
         // The stylesheet and engine are inlined into the document, so unlike the legacy reader this
         // mode needs no file origin at all and the flag stays off.
         settings.allowFileAccess = false
+        isLongClickable = textSelectable
+        if (textSelectable) {
+            isFocusable = true
+            isFocusableInTouchMode = true
+            addOnAttachStateChangeListener(SelectableWhileAttached())
+        }
         addJavascriptInterface(
             NovelWebBridge(
                 onVisibleChapter = { id ->
@@ -144,7 +156,7 @@ class NovelWebViewport(
     override fun handleKeyEvent(event: KeyEvent): Boolean {
         val isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
             event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-        if (!volumeKeysEnabled || !isVolumeKey) return false
+        if (!isVolumeKey || !volumeKeysActive()) return false
         if (event.action == KeyEvent.ACTION_DOWN) {
             val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != volumeKeysInverted
             val fraction = volumeKeyScrollFraction.coerceIn(0.1f, 1f)
@@ -178,8 +190,7 @@ class NovelWebViewport(
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
-        val fonts = context.appGraph.novelFontManager
-        val fontUrl = withContext(Dispatchers.IO) { fonts.webUrl(settings.fontFamily) }
+        val fontSource = NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, settings.fontFamily)
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -191,9 +202,10 @@ class NovelWebViewport(
                 initialFraction = chapter.progressPercent / 100f,
                 settings = settings,
                 statusBarHeightPx = statusBarPx,
-                customFontUrl = fontUrl,
+                fontSource = fontSource,
                 useOriginalFonts = useOriginalFonts,
                 sourceCssPriority = sourceCssPriority,
+                textSelectable = textSelectable,
             )
         }
         // Only trust an http(s) base URL. The plugin controls the site URL, and a file:// base would

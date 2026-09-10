@@ -564,7 +564,7 @@ class NovelReaderViewModel(
                 // failure for a chapter nobody is waiting for any more.
                 if (e is CancellationException) throw e
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
-                loadState.value = ReaderLoadState.Failed(e.message)
+                loadState.value = ReaderLoadState.Failed(e.message, canKeepReading = loadedChapter.value != null)
             }
         }
     }

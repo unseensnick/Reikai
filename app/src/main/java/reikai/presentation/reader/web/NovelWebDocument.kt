@@ -34,9 +34,11 @@ object NovelWebDocument {
         initialFraction: Float,
         settings: NovelReaderSettings,
         statusBarHeightPx: Int,
-        customFontUrl: String?,
+        /** The chosen face as a `data:` URI from [NovelWebFonts], or null for a generic family. */
+        fontSource: String?,
         useOriginalFonts: Boolean,
         sourceCssPriority: Boolean,
+        textSelectable: Boolean,
     ): String {
         val css = NovelWebAssets.read(context, "reader.css")
         val js = NovelWebAssets.readWith(
@@ -60,10 +62,11 @@ object NovelWebDocument {
             <head>
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
             <style>
-            ${fontFace(settings.fontFamily, customFontUrl)}
+            ${fontFace(settings.fontFamily, fontSource)}
             :root { ${variables(settings, statusBarHeightPx)} }
             $css
             ${overrides(useOriginalFonts, sourceCssPriority)}
+            ${if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }"}
             </style>
             </head>
             <body>
@@ -103,6 +106,7 @@ object NovelWebDocument {
      * carry `!important` rather than being folded into the stylesheet. Ported from tsundoku's
      * `fontOverrideCss`, including why the headings are restated: forcing `font-size: inherit` on
      * every element is what stops a source sizing its own text, and it flattens headings with it.
+     * Tsundoku restates only headings, which left footnote markers at full body size.
      */
     private fun overrides(useOriginalFonts: Boolean, sourceCssPriority: Boolean): String {
         if (sourceCssPriority) return ""
@@ -132,6 +136,8 @@ object NovelWebDocument {
             .rk-chapter h4 { font-size: 1em !important; }
             .rk-chapter h5 { font-size: 0.83em !important; }
             .rk-chapter h6 { font-size: 0.67em !important; }
+            .rk-chapter sup, .rk-chapter sub { font-size: 0.7em !important; }
+            .rk-chapter small { font-size: 0.83em !important; }
         """.trimIndent()
     }
 
@@ -160,15 +166,12 @@ object NovelWebDocument {
         put("bionic", settings.bionicReading)
     }
 
-    /**
-     * The `@font-face` a font the user added needs, since it lives under their storage location
-     * rather than in the assets folder the bundled faces come from.
-     */
-    private fun fontFace(family: String, url: String?): String {
-        if (url == null || !isSupportedFontFile(family)) return ""
+    /** The face behind the chosen family, bundled or the user's own. None for a generic family. */
+    private fun fontFace(family: String, source: String?): String {
+        if (source == null) return ""
         // Dropping the declaration loses the face; letting it through loses the whole style block.
-        if (!isSafeInCssUrl(url)) return ""
-        return "@font-face { font-family: '${webFontFamily(family)}'; src: url('$url'); }"
+        if (!isSafeInCssUrl(source)) return ""
+        return "@font-face { font-family: '${webFontFamily(family)}'; src: url('$source'); }"
     }
 
     /**

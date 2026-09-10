@@ -6,6 +6,8 @@ import android.webkit.WebViewClient
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.runBlocking
+import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,7 +30,11 @@ class NovelWebDocumentTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var webView: WebView
-    private val ready = CountDownLatch(1)
+    private var ready = CountDownLatch(1)
+
+    /** The last fraction the page reported for the chapter it names, as the rail would show it. */
+    @Volatile
+    private var lastProgress = -1.0
 
     private companion object {
         const val CHAPTER_ID = 4242L
@@ -46,7 +52,9 @@ class NovelWebDocumentTest {
         }
 
         @JavascriptInterface
-        fun onProgress(chapterId: String, fraction: Double) = Unit
+        fun onProgress(chapterId: String, fraction: Double) {
+            lastProgress = fraction
+        }
 
         @JavascriptInterface
         fun onProgressSettled(chapterId: String, fraction: Double) = Unit
@@ -76,17 +84,20 @@ class NovelWebDocumentTest {
     private fun document(
         useOriginalFonts: Boolean = false,
         sourceCssPriority: Boolean = false,
+        fontFamily: String = settings.fontFamily,
+        fontSource: String? = null,
     ): String = NovelWebDocument.build(
         context = instrumentation.targetContext,
         chapterId = CHAPTER_ID,
         chapterTitle = "Chapter 1",
         chapterHtml = "<p>lorem ipsum</p>".repeat(200),
         initialFraction = 0f,
-        settings = settings,
+        settings = settings.copy(fontFamily = fontFamily),
         statusBarHeightPx = 0,
-        customFontUrl = null,
+        fontSource = fontSource,
         useOriginalFonts = useOriginalFonts,
         sourceCssPriority = sourceCssPriority,
+        textSelectable = false,
     )
 
     @Before
@@ -137,6 +148,25 @@ class NovelWebDocumentTest {
         val css = document(useOriginalFonts = true)
         assertTrue("the chapter's own face is still overridden", !css.contains("font-family: inherit !important"))
         assertTrue("the reader stopped forcing its size too", css.contains("font-size: inherit !important"))
+    }
+
+    /**
+     * A bundled face has to reach the page, not just its name: the family is written into the
+     * stylesheet either way, and with no face behind it the text falls back without a trace. The
+     * WebView mode keeps file access off, so the face travels inline.
+     */
+    @Test
+    fun aBundledFontActuallyLoads() {
+        val context = instrumentation.targetContext
+        val source = runBlocking { NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, "lora") }
+        loadDocument(document(fontFamily = "lora", fontSource = source))
+        eval("document.fonts.load('16px lora')")
+        settleFrames()
+        assertEquals(
+            "the bundled face did not load",
+            "true",
+            eval("[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"),
+        )
     }
 
     // endregion
@@ -266,6 +296,76 @@ class NovelWebDocumentTest {
         assertEquals("the page named the chapter above the seam", "99", visibleChapters.last())
     }
 
+    /**
+     * A chapter's percent has one meaning. It is saved while the next chapter sits below it, and
+     * restored when the chapter is opened alone, so the two must be the same position. The native
+     * renderer measures every chapter against its height minus one screen (ChapterScrollProgress).
+     */
+    @Test
+    fun aPercentSavedWithANeighbourRestoresToTheSamePlace() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '${"<p>next</p>".repeat(200)}')")
+        settleFrames()
+        eval("window.scrollTo({ top: 3000, behavior: 'instant' })")
+        settleFrames()
+        val savedAt = eval("window.scrollY").toDouble()
+        val fraction = lastProgress
+        val nativeFraction = eval(
+            "var c = document.querySelector('.rk-chapter').getBoundingClientRect();" +
+                "Math.min(Math.max(-c.top, 0) / (c.height - window.innerHeight), 1)",
+        ).toDouble()
+
+        loadDocument()
+        eval("window.rkReader.seekWithin('$CHAPTER_ID', $fraction)")
+        settleFrames()
+        val restoredAt = eval("window.scrollY").toDouble()
+
+        val findings = "reported $fraction where native reads $nativeFraction; " +
+            "restored ${restoredAt - savedAt}px from where it was saved"
+        assertEquals(findings, savedAt, restoredAt, 2.0)
+        assertEquals(findings, nativeFraction, fraction, 0.01)
+    }
+
+    /** The chapter the page opened on runs its scripts as it loads; one arriving by scrolling has to too. */
+    @Test
+    fun aSeamlessChapterRunsItsOwnScripts() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p><script>window.rkRan = 1;</script>')")
+        assertEquals("the arriving chapter's script never ran", "1", eval("String(window.rkRan)"))
+    }
+
+    /**
+     * Bionic reading walks a chapter's text, and a style block's CSS is text too. Wrapped in spans it
+     * stops being CSS, so a chapter that ships its own styling lost it whenever bionic was on.
+     */
+    @Test
+    fun bionicLeavesAChaptersOwnStylesAlone() {
+        loadDocument()
+        eval("window.rkReader.setSettings({ bionic: true })")
+        eval(
+            "window.rkReader.appendChapter('99', 'Chapter 2', " +
+                "'<style>.rk-probe { letter-spacing: 7px; }</style><p class=\"rk-probe\">styled</p>')",
+        )
+        assertEquals(
+            "the chapter's own style block was emptied",
+            "7px",
+            eval("getComputedStyle(document.querySelector('.rk-probe')).letterSpacing"),
+        )
+    }
+
+    /** Forcing every element to the reader's size is what stops a source sizing its text, and it must
+     *  not take footnote markers with it. */
+    @Test
+    fun footnoteMarkersStaySmallerThanTheText() {
+        loadDocument()
+        eval(
+            "window.rkReader.appendChapter('99', 'Chapter 2', '<p id=\"rk-body\">text<sup id=\"rk-note\">1</sup></p>')",
+        )
+        val body = eval("parseFloat(getComputedStyle(document.getElementById('rk-body')).fontSize)").toDouble()
+        val note = eval("parseFloat(getComputedStyle(document.getElementById('rk-note')).fontSize)").toDouble()
+        assertTrue("a footnote marker renders at $note px beside $body px text", note < body)
+    }
+
     /** Long enough for the engine's own rAF report, which is what names the chapter. */
     private fun settleFrames() = Thread.sleep(500)
 
@@ -366,14 +466,15 @@ class NovelWebDocumentTest {
 
     // endregion
 
-    private fun loadDocument() {
+    private fun loadDocument(html: String = document()) {
         val finished = CountDownLatch(1)
+        ready = CountDownLatch(1)
         instrumentation.runOnMainSync {
             webView.addJavascriptInterface(Bridge(), NovelWebBridge.NAME)
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String?) = finished.countDown()
             }
-            webView.loadDataWithBaseURL(null, document(), "text/html", "UTF-8", null)
+            webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
         }
         assertTrue("the document never finished loading", finished.await(TIMEOUT_S, TimeUnit.SECONDS))
         assertTrue(

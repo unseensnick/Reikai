@@ -243,13 +243,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     entries = NovelRenderingMode.entries.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_novel_rendering_mode),
                 ),
-                // Only the native renderer answers this. A WebView selects text on its own terms, so
-                // the row would toggle nothing in the other two modes.
+                // Both renderers on the shared host read this; the standalone reader never did. Only the
+                // native one gives up link taps for it, so only it carries the warning.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTextSelectable(),
                     title = stringResource(MR.strings.pref_novel_text_selectable),
-                    subtitle = stringResource(MR.strings.pref_novel_text_selectable_summary),
-                ).takeIf { renderingMode == NovelRenderingMode.NATIVE },
+                    subtitle = stringResource(MR.strings.pref_novel_text_selectable_summary)
+                        .takeIf { renderingMode == NovelRenderingMode.NATIVE },
+                ).takeIf { renderingMode != NovelRenderingMode.LEGACY },
                 // Both renderers on the shared host hold a window; the standalone reader is the one
                 // that cannot, which is the same line NovelReaderViewModel.windowedReading draws.
                 Preference.PreferenceItem.SwitchPreference(

@@ -107,7 +107,7 @@ The plan originally had no settings dimension, which is where the user-visible r
 
 **Newly possible, carried (owner, 2026-09-03).** Paragraph indent and paragraph spacing, which have no preference today and are hardcoded margins in the vendored CSS. User regex find-and-replace rules. Custom fonts through a font manager. And the rendering-mode picker itself, which is a new setting rather than a replacement for one. The first four were previously held by the roadmap's tsundoku feature-harvest line, which no longer exists as a separate item.
 
-**Survives untouched.** Orientation, both the global default and the per-novel `viewer_flags` override. Keep screen on. The whole brightness and colour-filter block, already a native shared `ReaderContentOverlay` outside the tree. Skip duplicate chapters, mark read on skip, bottom-bar button selection, incognito behaviour, and download-ahead.
+**Survives untouched.** Orientation, both the global default and the per-novel `viewer_flags` override. Keep screen on. The brightness and colour-filter overlay itself, a native shared `ReaderContentOverlay` outside the tree; which preferences it reads in a novel session is a step 11 gap, recorded in Status. Skip duplicate chapters, mark read on skip, bottom-bar button selection, incognito behaviour, and download-ahead.
 
 **Dropped.** The two floating-TTS-puck position keys become orphans when the puck is deleted, and they are state rather than options, so nothing replaces them.
 
@@ -341,6 +341,33 @@ walk). `onClickBionic` was supplied only by the legacy screen, so the bar button
 both new modes and the setting was reachable only from Settings. It is now a `ReaderBionicReading`
 capability answered by the novel provider and null for manga, mirroring `ReaderAutoScroll`. This is a
 7f-class find made before 7f: the takeover had dropped an affordance the replaced reader had.
+**Step 7 is complete.** 7c and 7e landed as described above, and 7f, the behaviour inventory, is its own section below: twelve missing behaviours fixed, the deliberate changes listed with their reasons, and three differences left for a ruling. Read-aloud and the step 11 settings stay deferred as planned. Step 8, the TTS re-host, is next.
+
+## The WebView mode's behaviour inventory (step 7f)
+
+Device verification finds what you thought to test, so the replaced stack was walked instead. The legacy WebView reader (`core.js`, `NovelReaderHtmlBuilder`, `NovelReaderWebView`, `NovelReaderScreen`) was censused into 104 behaviours, the 13 message types of its single bridge, and every preference that reaches it, and each was checked against the shared host with the WebView mode installed. Every verdict other than present was re-read against current code before it counted, and tsundoku's `webview/` package was consulted for each. Scroll mechanics, the navigation policy, chapter stepping and its skip rules, prefetch and download-ahead, progress persistence with mark-read, trackers and delete-after-read, history, and every pipeline behaviour came through intact. Every item not simply present is below.
+
+**Missing, and fixed here.**
+
+- **A chapter percent had two meanings.** `reader.js` measured a chapter against its full height whenever another chapter sat below it and against its height less a screen when it was last, while `seekWithin` and a fresh open always use the second, so a percent saved during continuous reading restored up to a screen early. Measured at 375px, and seen on the emulator as 35% reopening at 20%. Tsundoku carries the same split in both its renderers; ours now match the native `ChapterScrollProgress` rule for every chapter. Pinned by `aPercentSavedWithANeighbourRestoresToTheSamePlace`.
+- **Bundled fonts never loaded and user fonts were blocked.** `fontFace` declared a face only for a user's file, which pointed at `file://` with file access off. Both now travel inline as a `data:` URI from `NovelWebFonts`, resolved the way `NovelTextStyle` resolves them. Tsundoku serves its user fonts from an intercepted https URL instead, and has no bundled fonts. Pinned by `aBundledFontActuallyLoads`.
+- **Long press selected nothing.** `viewer_container` blocks descendant focus and only the native viewport lifted it. Both now install `SelectableWhileAttached` under the one "Select text by long press" setting, whose row now shows in both modes and carries its link-taps warning only in native, where it applies.
+- **Volume keys scrolled with the menu up, in both new modes.** Legacy, both manga viewers and tsundoku hand them to the system while the menu shows. The provider now builds one predicate over the setting and `ReaderActivity.isMenuVisible` for both viewports.
+- **A first chapter that failed to load left a blank reader after Cancel.** Manga closes on an initial failure, while a novel's first failure went through the after-open dialog, whose state never re-emits. `ReaderLoadState.Failed` carries `canKeepReading`, and giving up with nothing on screen closes the reader.
+- **Scripts in chapters added by scrolling never ran** (owner, 2026-09-10: parity with the opened chapter, beyond tsundoku, which does not run them either). `runScripts` hands an inserted chapter fresh script elements. The pipeline strips scripts unless "Run scripts a chapter embeds" is on.
+- **Bionic reading emptied a chapter's own style and script blocks**, found while wiring the item above: `applyBionic` wrapped every text node, including CSS and code. It now skips both. Pinned by `bionicLeavesAChaptersOwnStylesAlone`.
+- **Footnote markers rendered at full body size.** The override forces an inherited size on every element and restated headings only, as tsundoku's does. `sup`, `sub` and `small` are restated too.
+- **Wide blocks panned the page sideways.** Legacy clipped the root horizontally; `reader.css` now does.
+- **The cutout was cleared twice, or not at all.** The WebView page added the inset even where the host already pads the container, and the native viewport never added it. `displayCutoutTopDp` is zero whenever the host pads, and native folds it into the column's top margin, since its seeks measure from the viewport edge and would scroll a list padding away.
+- **Text size and theme had no in-reader control on a default setup**, since the host's gear opens the manga sheet (owner, 2026-09-10). Both buttons are now in `NOVEL_BUTTONS_DEFAULTS`, which reaches only readers who never saved a button set.
+- **Bionic reading had no bar button on the host**, recorded above under Status.
+
+**Deliberately changed.** Links, tables, rules and images are restyled to the reader's own colours rather than the Material scheme the legacy page carried. Loading and failure are the host's dialogs, shared with manga, rather than an in-place spinner and retry. The progress footer is the shared page indicator. Tap zones and the tap step use the visible viewport rather than the physical screen, which legacy captured once and never updated on rotation. Debug console forwarding is not carried, since the new engine logs nothing. A position saved in the legacy mode lands up to a screen away in either new one, since legacy measured the bottom of the viewport; that mode leaves at step 9.
+
+**Open, and needing a ruling.** A chapter shorter than the screen reports 0 in native and completes as it is scrolled through in the WebView mode. Native applies the top and bottom margins to every chapter's column, so a window repeats them at each seam, where the WebView page applies them once at its ends. A font change reaches an open page only at the next open, which is harmless while no in-reader control can change the font and needs pushing the face live once step 11 adds one.
+
+**Deferred, as planned.** Read-aloud is step 8, and until then a reader with it switched on gets no control on the host and no way to switch it off there. Brightness and the colour filter read manga's preferences, and the gear opens manga's sheet, until step 11.
+
 ## Decisions & tradeoffs
 
 - **The host is one Activity and the engine sits above two providers.** The program's usual shape does not survive contact with a window-owning host, and pretending it does is how this surface would get mis-planned.

@@ -43,10 +43,16 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
             CropBorders,
         ).map { it.value }.toSet()
 
-        /** Novel reader defaults (the Settings gear is always shown, so it is not listed here). */
+        /**
+         * Novel reader defaults (the Settings gear is always shown, so it is not listed here). Text
+         * size and theme are on because the shared host's gear opens the manga sheet, which leaves
+         * these two buttons the only in-reader way to change either.
+         */
         val NOVEL_BUTTONS_DEFAULTS = setOf(
             ViewChapters,
             Rotation,
+            TextSize,
+            Theme,
         ).map { it.value }.toSet()
     }
 }

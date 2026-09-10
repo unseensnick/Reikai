@@ -13,7 +13,8 @@ sealed interface ReaderLoadState {
 
     /**
      * The chapter could not be loaded. [message] is what to tell the reader, null where the failure
-     * carried nothing worth showing.
+     * carried nothing worth showing. [canKeepReading] is false when nothing reached the screen, so
+     * giving up closes the reader, as manga does, instead of leaving it blank with no way back.
      */
-    data class Failed(val message: String?) : ReaderLoadState
+    data class Failed(val message: String?, val canKeepReading: Boolean) : ReaderLoadState
 }
