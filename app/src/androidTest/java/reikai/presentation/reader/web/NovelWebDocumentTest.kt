@@ -193,26 +193,26 @@ class NovelWebDocumentTest {
     }
 
     /**
-     * A seam introduces the chapter below it, so a prepend labels its seam with the title of the
-     * chapter it landed above, not its own. Getting this backwards names every boundary after the
-     * chapter the reader just finished, which reads as the reader having gone nowhere.
+     * A seam names the chapter that finished over the one that follows, the pair Mihon's
+     * TransitionText draws. Both inserts have to read one of the two titles off the neighbour
+     * already in the document; taking the arriving chapter's for both names the boundary wrongly in
+     * one direction, which is what a first cut of the prepend did.
      */
     @Test
-    fun aSeamNamesTheChapterBelowIt() {
+    fun aSeamNamesTheChapterEitherSideOfIt() {
         loadDocument()
         eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
-        assertEquals(
-            "an appended seam does not name the chapter it introduces",
-            "Chapter 2",
-            eval("document.querySelector('.rk-seam').textContent"),
-        )
+        assertEquals("the appended seam has no finished chapter", "Chapter 1", seamTitle(0, 0))
+        assertEquals("the appended seam has the wrong next chapter", "Chapter 2", seamTitle(0, 1))
+
         eval("window.rkReader.prependChapter('7', 'Chapter 0', '<p>earlier</p>')")
-        assertEquals(
-            "a prepended seam names the arriving chapter instead of the one below it",
-            "Chapter 1",
-            eval("document.querySelectorAll('.rk-seam')[0].textContent"),
-        )
+        assertEquals("the prepended seam has the wrong finished chapter", "Chapter 0", seamTitle(0, 0))
+        assertEquals("the prepended seam has the wrong next chapter", "Chapter 1", seamTitle(0, 1))
     }
+
+    // The part-th half (finished, then next) of the seam-th seam.
+    private fun seamTitle(seam: Int, part: Int): String =
+        eval("document.querySelectorAll('.rk-seam')[$seam].querySelectorAll('.rk-seam-title')[$part].textContent")
 
     @Test
     fun evictingAChapterTakesItsSeamWithIt() {

@@ -10,6 +10,8 @@ import reikai.presentation.novel.reader.cssFontFamily
 import reikai.presentation.novel.reader.cssTextAlign
 import reikai.presentation.novel.reader.cssTextColor
 import reikai.presentation.novel.reader.isSafeInCssUrl
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.MR
 
 /**
  * The document the WebView rendering mode renders, assembled here because it is this renderer's own
@@ -23,9 +25,6 @@ object NovelWebDocument {
 
     /** Where a chapter is considered finished, matching what the page reports as one. */
     private const val DONE_THRESHOLD = 0.99
-
-    /** How far into the last chapter a forward load is asked for. Fixed, matching the native mode. */
-    private const val LOAD_THRESHOLD = 0.8
 
     fun build(
         context: Context,
@@ -47,9 +46,12 @@ object NovelWebDocument {
                 "__TAP_TO_SCROLL__" to settings.tapToScroll.toString(),
                 "__SWIPE__" to settings.swipeGestures.toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
-                "__LOAD_THRESHOLD__" to LOAD_THRESHOLD.toString(),
                 "__DONE_THRESHOLD__" to DONE_THRESHOLD.toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
+                // The seam names both chapters under these, the way TransitionText does. Resolved
+                // here because the page has no resources of its own.
+                "__LABEL_FINISHED__" to jsString(context.stringResource(MR.strings.transition_finished)),
+                "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
             ),
         )
         return """
@@ -133,10 +135,17 @@ object NovelWebDocument {
         """.trimIndent()
     }
 
+    /** Safe inside the single quotes the script writes it into, which is all it has to survive. */
+    private fun jsString(value: String): String = value
+        .replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace("\n", " ")
+        .replace("\r", " ")
+
     /**
-     * A chapter's title is carried on its element so a seam can name the chapter it introduces. A
-     * prepend has to read it back off whichever chapter it lands above, since the title it needs is
-     * that one's rather than the arriving chapter's.
+     * A chapter's title is carried on its element so a seam can name both chapters it sits between.
+     * An insert reads the neighbour's back off the DOM, since one of the two titles it needs belongs
+     * to the chapter already there rather than the arriving one.
      */
     private fun attribute(value: String): String = value
         .replace("&", "&amp;")

@@ -219,7 +219,7 @@ class NovelTextViewport(
     override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
         if (slots.any { it.chapter.chapterId == chapter.chapterId }) return
         context.appGraph.novelFontManager.warm(settings.fontFamily)
-        add(chapter, settings, atEnd = true, startFraction = 0f)
+        add(chapter, settings, atEnd = true, startFraction = null)
     }
 
     /**
@@ -231,7 +231,7 @@ class NovelTextViewport(
         if (slots.any { it.chapter.chapterId == chapter.chapterId }) return
         context.appGraph.novelFontManager.warm(settings.fontFamily)
         // From its end, because that is the edge the reader is about to scroll back into.
-        add(chapter, settings, atEnd = false, startFraction = 0f)
+        add(chapter, settings, atEnd = false, startFraction = null)
     }
 
     override fun evict(chapterId: Long) {
@@ -281,7 +281,7 @@ class NovelTextViewport(
                 val fraction = percent() / 100f
                 evictAll()
                 chapters.forEach { (chapter, isVisible) ->
-                    add(chapter, settings, atEnd = true, startFraction = if (isVisible) fraction else 0f)
+                    add(chapter, settings, atEnd = true, startFraction = if (isVisible) fraction else null)
                 }
                 return@launch
             }
@@ -350,14 +350,16 @@ class NovelTextViewport(
     /**
      * Adds [chapter] to the end of the window and starts its render, seeking to [startFraction] once
      * the text has a height. Indent and spacing are spans measured in pixels when the text is built,
-     * so neither they nor a font size they are a multiple of can be restyled in place: a change to
-     * those re-appends instead, which is why the start position is a parameter.
+     * so a change to those re-appends instead, which is why the start position is a parameter.
+     *
+     * A null [startFraction] means the reader is not to be moved, which is not the same as zero:
+     * zero is the chapter's first line, which sits below whatever marker its item carries.
      */
     private fun add(
         chapter: NovelReaderViewModel.LoadedChapter,
         settings: NovelReaderSettings,
         atEnd: Boolean,
-        startFraction: Float,
+        startFraction: Float?,
     ) {
         this.settings = settings
         recycler.setBackgroundColor(NovelTextStyle.parseColor(settings.backgroundColor, Color.WHITE))
@@ -518,17 +520,23 @@ class NovelTextViewport(
      *  within yet, which is that chapter's own height rather than the whole list's. */
     private fun scrollWithin(slot: ChapterSlot, fraction: Float): Boolean {
         val (top, height) = boundsOf(slot) ?: return false
-        if (height <= recycler.height) return false
-        val target = ChapterScrollProgress.offsetFor(fraction, height, recycler.height)
+        // A chapter shorter than the viewport has no room to seek inside itself, but its own start
+        // is still a position worth reaching: the marker above it means its text does not begin
+        // where its item does, so landing on the item would open the chapter above the first line.
+        val seekable = height > recycler.height
+        if (!seekable && fraction > 0f) return false
+        val target = if (seekable) ChapterScrollProgress.offsetFor(fraction, height, recycler.height) else 0
         recycler.scrollBy(0, target + top)
         return true
     }
 
     private fun applyPendingProgress(slot: ChapterSlot) {
         slot.rendered = true
+        // Null is the window growing around the reader, which must not move them. Zero is a real
+        // position, so it is not skipped: it is this chapter's first line, which sits below whatever
+        // marker its item carries.
         val fraction = slot.pendingProgress ?: return
         slot.pendingProgress = null
-        if (fraction <= 0f) return
         // Posted so the freshly set text has been measured; before that the chapter has no height.
         recycler.post { scrollWithin(slot, fraction) }
     }
@@ -571,6 +579,9 @@ class NovelTextViewport(
             val previous = shown
             shown = next.toList()
             DiffUtil.calculateDiff(SlotDiff(previous, shown)).dispatchUpdatesTo(this)
+            // A chapter already on screen keeps its holder through the diff, so an arriving
+            // neighbour never reaches the seam that names it without this.
+            refreshSeams()
         }
 
         /** Identity is the chapter, and a chapter's own view never needs rebinding: its text is set
@@ -624,14 +635,7 @@ class NovelTextViewport(
             // Between the seam above the chapter and the failure below it, which is the order the
             // reader scrolls through them in.
             holder.root.addView(container, CHAPTER_CHILD_INDEX)
-            // The first chapter in the window has nothing above it to have finished.
-            val finished = shown.getOrNull(position - 1)?.chapter
-            holder.seam.isVisible = finished != null
-            if (finished != null) {
-                // The side margins live on the chunk views, which the marker is not one of.
-                settings?.let { NovelTextStyle.applySideMargins(holder.seam, it, context) }
-                holder.seam.bind(finished.title, shown[position].chapter.title)
-            }
+            bindSeam(holder, position)
             bindBoundaries(holder, position)
             if (!textSelectable) holder.root.setOnClickListener { onTap(touchDownY) }
         }
@@ -640,6 +644,21 @@ class NovelTextViewport(
         private fun LinearLayout.findChapterContainer(): View? = (0 until childCount)
             .map(::getChildAt)
             .firstOrNull { it !is NovelBoundaryFailureView && it !is NovelChapterSeamView }
+
+        /**
+         * The marker above a chapter, which names the one that finished as well as this one. It
+         * therefore depends on the chapter's neighbour rather than on the chapter, so it has to be
+         * re-decided whenever the window changes and not only when a holder is first bound: a
+         * chapter opened on its own has nothing above it, and a later prepend gives it one.
+         */
+        private fun bindSeam(holder: Holder, position: Int) {
+            val finished = shown.getOrNull(position - 1)?.chapter
+            holder.seam.isVisible = finished != null
+            if (finished == null) return
+            // The side margins live on the chunk views, which the marker is not one of.
+            settings?.let { NovelTextStyle.applySideMargins(holder.seam, it, context) }
+            holder.seam.bind(finished.title, shown[position].chapter.title)
+        }
 
         /**
          * Only the two ends of the window can have run out of text, so only they draw a failure.
@@ -659,6 +678,30 @@ class NovelTextViewport(
             shown.indices.forEach { position ->
                 val holder = recycler.findViewHolderForAdapterPosition(position) as? Holder ?: return@forEach
                 bindBoundaries(holder, position)
+            }
+        }
+
+        /**
+         * Re-draws the seams on the holders already bound, for the same reason [refreshBoundaries]
+         * exists: a rebind would re-measure the text of the chapter the reader is inside.
+         *
+         * A seam turning up is growth above the reading position, which the recycler anchors a
+         * prepend against but not this, so the chapter being read is put back where it was. Both
+         * costs are measured in `RecyclerPrependPositionTest`.
+         */
+        fun refreshSeams() {
+            recycler.post {
+                val anchor = visibleSlot()
+                val before = anchor?.let { boundsOf(it)?.first }
+                shown.indices.forEach { position ->
+                    val holder = recycler.findViewHolderForAdapterPosition(position) as? Holder ?: return@forEach
+                    bindSeam(holder, position)
+                }
+                if (anchor == null || before == null) return@post
+                recycler.post {
+                    val after = boundsOf(anchor)?.first ?: return@post
+                    if (after != before) recycler.scrollBy(0, after - before)
+                }
             }
         }
 

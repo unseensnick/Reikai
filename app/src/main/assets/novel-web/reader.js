@@ -6,7 +6,7 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __DONE_THRESHOLD__, __INITIAL_FRACTION__.
+ * __DONE_THRESHOLD__, __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__.
  */
 (function () {
   var CHAPTER_SELECTOR = '.rk-chapter';
@@ -16,6 +16,14 @@
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
   // waits this out rather than saving a position the layout is about to move.
   var SETTLE_MS = 400;
+  // Sub-pixel slack when deciding which chapter a scroll position is in. See state().
+  var EDGE_TOLERANCE = 2;
+
+  // Resolved by the host, since the page has no resources of its own.
+  var labels = {
+    finished: '__LABEL_FINISHED__',
+    next: '__LABEL_NEXT__',
+  };
 
   var settings = {
     tapToScroll: __TAP_TO_SCROLL__,
@@ -92,9 +100,15 @@
       return { id: null, progress: docProgress, index: 0, isLast: true };
     }
 
+    /*
+     * A boundary position is both the end of one chapter and the start of the next, so the tie
+     * breaks toward the later one: arriving counts. The tolerance matters because a seek to a
+     * chapter's own start can land fractionally short, which would report the reader as still in
+     * the chapter they just left and retarget the next seek of the same drag to that chapter.
+     */
     var index = 0;
     for (var i = 0; i < boundaries.length; i++) {
-      if (top >= boundaries[i].start) index = i; else break;
+      if (top >= boundaries[i].start - EDGE_TOLERANCE) index = i; else break;
     }
     var chapter = boundaries[index];
     var isLast = index === boundaries.length - 1;
@@ -290,7 +304,11 @@
         if (boundaries[i].id !== String(chapterId)) continue;
         var isLast = i === boundaries.length - 1;
         var usable = Math.max(boundaries[i].height - (isLast ? viewportHeight() : 0), 1);
-        window.scrollTo({ top: boundaries[i].start + usable * fraction, behavior: 'instant' });
+        // Rounded, so a seek to a chapter's own start lands on it rather than a fraction below.
+        window.scrollTo({ top: Math.round(boundaries[i].start + usable * fraction), behavior: 'instant' });
+        // The reader is now in this chapter by construction, so the next frame must not report the
+        // one above and hand the rest of a rail drag a target the reader has already left.
+        lastChapterSeen = String(chapterId);
         return;
       }
     },
@@ -355,13 +373,34 @@
     return el;
   }
 
-  /* A seam introduces the chapter below it, so it carries that chapter's title rather than the one
-     above. Getting this backwards labels every boundary with the chapter the reader just left. */
-  function buildSeam(title) {
+  /*
+   * The marker between two chapters, in the shape Mihon's TransitionText draws: the finished
+   * chapter over the next one, each under its own label. Mirrored rather than invented so a seam
+   * reads the same in this renderer, the text renderer and the manga reader.
+   *
+   * It names both chapters, so it needs the one above as well as the one below; getting that pair
+   * backwards labels every boundary with the chapter the reader just left.
+   */
+  function buildSeam(finishedTitle, nextTitle) {
     var seam = document.createElement('div');
     seam.className = 'rk-seam';
-    seam.textContent = title;
+    seam.appendChild(seamPart(labels.finished, finishedTitle));
+    seam.appendChild(seamPart(labels.next, nextTitle));
     return seam;
+  }
+
+  function seamPart(label, title) {
+    var part = document.createElement('div');
+    part.className = 'rk-seam-part';
+    var header = document.createElement('div');
+    header.className = 'rk-seam-label';
+    header.textContent = label;
+    var name = document.createElement('div');
+    name.className = 'rk-seam-title';
+    name.textContent = title;
+    part.appendChild(header);
+    part.appendChild(name);
+    return part;
   }
 
   /*
@@ -380,15 +419,18 @@
     if (atStart) {
       var heightBefore = documentHeight();
       var topBefore = scrollTop();
-      // The seam introduces what was the first chapter, since that is what now sits below it.
+      // The arriving chapter is the one that finished; what was first is what comes next.
       var below = container.querySelector(CHAPTER_SELECTOR);
-      var seam = buildSeam(below ? below.getAttribute(CHAPTER_TITLE_ATTR) : '');
+      var seam = buildSeam(title, below ? below.getAttribute(CHAPTER_TITLE_ATTR) : '');
       container.insertBefore(seam, container.firstChild);
       container.insertBefore(chapter, seam);
       var added = documentHeight() - heightBefore;
       if (topBefore === 0 && added > 0) window.scrollTo({ top: added, behavior: 'instant' });
     } else {
-      container.appendChild(buildSeam(title));
+      // What was last is what finished; the arriving chapter is what comes next.
+      var chapters = container.querySelectorAll(CHAPTER_SELECTOR);
+      var above = chapters[chapters.length - 1];
+      container.appendChild(buildSeam(above ? above.getAttribute(CHAPTER_TITLE_ATTR) : '', title));
       container.appendChild(chapter);
     }
     window.rkReader.refresh();
