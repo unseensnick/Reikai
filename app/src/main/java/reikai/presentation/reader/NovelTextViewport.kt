@@ -68,6 +68,9 @@ class NovelTextViewport(
     /** The cutout inset in dp, zero when the host already pads clear of it. Read per load, like the
      *  WebView viewport's, since it is only known once the window has insets. */
     private val cutoutTopDp: () -> Int,
+    /** Whether a chapter fits on one screen, whenever that answer changes. Such a chapter has no
+     *  scroll room, so the model reads it when the reader steps forward from it. */
+    private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -459,6 +462,18 @@ class NovelTextViewport(
     private fun report(sink: (Long, Int) -> Unit) {
         val slot = visibleSlot() ?: return
         sink(slot.chapter.chapterId, percentOf(slot))
+        reportFits(slot)
+    }
+
+    /** The last fit answer sent per chapter, so a scroll that changes nothing says nothing. */
+    private val reportedFits = mutableMapOf<Long, Boolean>()
+
+    /** The same test [ChapterScrollProgress] makes when it reports such a chapter at 0. */
+    private fun reportFits(slot: ChapterSlot) {
+        if (!slot.rendered) return
+        val (_, height) = boundsOf(slot) ?: return
+        val fits = height <= recycler.height
+        if (reportedFits.put(slot.chapter.chapterId, fits) != fits) onChapterFits(slot.chapter.chapterId, fits)
     }
 
     /** What the redraw seeks back to, which is always the chapter being read. */
@@ -521,6 +536,9 @@ class NovelTextViewport(
 
     private fun applyPendingProgress(slot: ChapterSlot) {
         slot.rendered = true
+        // Posted for the same reason as the seek below; a short chapter is never scrolled, so this is
+        // the only report it would get.
+        recycler.post { reportFits(slot) }
         // Null is the window growing around the reader, which must not move them. Zero is a real
         // position, so it is not skipped: it is this chapter's first line, which sits below whatever
         // marker its item carries.

@@ -68,7 +68,9 @@ import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.novel.reader.ReaderMargins
+import reikai.presentation.reader.text.NovelLeaveRule
 import reikai.presentation.reader.text.NovelWarmPolicy
+import reikai.presentation.reader.text.NovelWindowReach
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
@@ -452,6 +454,21 @@ class NovelReaderViewModel(
      *  same chapter twice. */
     private val warmsInFlight: MutableSet<Long> = Collections.synchronizedSet(mutableSetOf())
 
+    /** Chapters the renderer found fit on one screen, so a forward step from one reads it. Kept current
+     *  rather than latched, since a chapter can measure short before its images land. */
+    private val fitsOnScreen: MutableSet<Long> = Collections.synchronizedSet(mutableSetOf())
+
+    fun reportFitsOnScreen(chapterId: Long, fits: Boolean) {
+        val changed = if (fits) fitsOnScreen.add(chapterId) else fitsOnScreen.remove(chapterId)
+        // A chapter that turns out to fit is one the reader cannot scroll past, so the window has to
+        // reach beyond it; one that grows past a screen lets the window shrink back.
+        if (!changed) return
+        viewModelScope.launchIO {
+            extendWindowForward()
+            rebuildWindow()
+        }
+    }
+
     init {
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
@@ -487,14 +504,25 @@ class NovelReaderViewModel(
 
     /**
      * The renderer scrolled into a different chapter of the window. Not a step: nothing is fetched
-     * and nothing is skipped, so `markReadOnSkip` stays out of it. The chapter being left keeps
-     * whatever the scroll already saved, which for a chapter read to its end is 100 and a mark-read.
+     * and nothing is skipped, so `markReadOnSkip` stays out of it. Scrolling forward past a chapter
+     * reads it through [NovelLeaveRule], which is the only way one shorter than the screen ever is.
      */
     fun reportVisibleChapter(chapterId: Long) {
         if (chapterId == currentChapterId) return
         val arriving = windowState.value.chapters.firstOrNull { it.chapterId == chapterId } ?: return
         viewModelScope.launchIO {
+            val passed = NovelLeaveRule.passedGoingForward(
+                window = windowState.value.chapters.map { it.chapterId },
+                from = currentChapterId,
+                to = arriving.chapterId,
+            )
+            // A partial position still pending for a chapter being read in full would race the mark.
+            if (pendingSave?.first in passed) {
+                progressSaveJob?.cancel()
+                pendingSave = null
+            }
             flushProgress()
+            passed.forEach { persistProgress(it, 100) }
             updateHistory()
             currentChapterId = arriving.chapterId
             currentNovelId = chapterRepo.getById(arriving.chapterId)?.novelId ?: currentNovelId
@@ -516,7 +544,15 @@ class NovelReaderViewModel(
             // or the debounce would still be waiting when the chapter it belongs to stops being current.
             flushProgress()
             updateHistory()
-            if (markDepartedRead) markReadOnSkip(currentChapterId, currentNovelId)
+            if (markDepartedRead) {
+                // One that fit on the screen was read in full, whatever the skip setting says: it has
+                // no scroll room, so this step is the only point it can be called finished.
+                if (currentChapterId in fitsOnScreen) {
+                    persistProgress(currentChapterId, 100)
+                } else {
+                    markReadOnSkip(currentChapterId, currentNovelId)
+                }
+            }
             pendingChapterId = chapterId
             load()
         }
@@ -934,6 +970,7 @@ class NovelReaderViewModel(
         // Only the window scrolls backwards into a chapter, and the forward warm above already serves
         // the next-chapter button, so this one is the only warm the setting decides.
         if (windowedReading()) warmNeighbour(neighbours.value.previous)
+        extendWindowForward()
         maybeDownloadAhead()
     }
 
@@ -990,7 +1027,8 @@ class NovelReaderViewModel(
             windowState.value = Window(openGeneration, current.chapterId, listOf(current))
             return
         }
-        val ids = listOfNotNull(neighbours.value.previous, current.chapterId, neighbours.value.next)
+        val forward = forwardReach()
+        val ids = listOfNotNull(neighbours.value.previous, current.chapterId) + forward
         val chapters = ids.mapNotNull { id ->
             if (id == current.chapterId) return@mapNotNull current
             val (html, baseUrl) = htmlCache[id] ?: return@mapNotNull null
@@ -1001,8 +1039,24 @@ class NovelReaderViewModel(
             anchorId = current.chapterId,
             chapters = chapters,
             failedPrevious = boundaryFailure(neighbours.value.previous, chapters),
-            failedNext = boundaryFailure(neighbours.value.next, chapters),
+            // The first chapter of the reach still missing is the edge the reader will run into.
+            failedNext = boundaryFailure(forward.firstOrNull { id -> chapters.none { it.chapterId == id } }, chapters),
         )
+    }
+
+    /** Past the next chapter while each fits on one screen, see [NovelWindowReach]. */
+    private fun forwardReach(): List<Long> = NovelWindowReach.forward(
+        next = neighbours.value.next,
+        after = { id ->
+            orderedIds.neighbourChapter(orderedIds.indexOf(id), forward = true) { it in forwardEligibleIds }
+        },
+        fitsOnScreen = { it in fitsOnScreen },
+    )
+
+    /** Warms whatever the reach needs that is not cached yet; a warm republishes the window itself. */
+    private suspend fun extendWindowForward() {
+        if (!windowedReading()) return
+        forwardReach().forEach { warmNeighbour(it) }
     }
 
     /** A failure only counts at an edge the reader can actually reach: once the chapter is in the

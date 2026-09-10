@@ -71,7 +71,15 @@ class NovelWebDocumentTest {
             steps += forward
             stepped.countDown()
         }
+
+        @JavascriptInterface
+        fun onChapterFits(chapterId: String, fits: Boolean) {
+            fitsReports[chapterId] = fits
+        }
     }
+
+    /** The last fit answer the page sent per chapter. */
+    private val fitsReports = mutableMapOf<String, Boolean>()
 
     /** What the page asked the host to do, for the gesture cases. */
     private val steps = mutableListOf<Boolean>()
@@ -87,11 +95,12 @@ class NovelWebDocumentTest {
         sourceCssPriority: Boolean = false,
         fontFamily: String = settings.fontFamily,
         fontSource: String? = null,
+        chapterHtml: String = "<p>lorem ipsum</p>".repeat(200),
     ): String = NovelWebDocument.build(
         context = instrumentation.targetContext,
         chapterId = CHAPTER_ID,
         chapterTitle = "Chapter 1",
-        chapterHtml = "<p>lorem ipsum</p>".repeat(200),
+        chapterHtml = chapterHtml,
         initialFraction = 0f,
         settings = settings.copy(fontFamily = fontFamily),
         statusBarHeightPx = 0,
@@ -184,6 +193,21 @@ class NovelWebDocumentTest {
             "true",
             eval("[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"),
         )
+    }
+
+    /**
+     * A chapter shorter than the screen has no scroll room, so it holds at 0 as the native renderer
+     * does and says it fits, which is what lets the model read it when the reader steps on. It used
+     * to report itself finished on sight, marking read a chapter nobody had read.
+     */
+    @Test
+    fun aChapterThatFitsOnScreenHoldsAtZeroAndSaysSo() {
+        loadDocument(document(chapterHtml = "<p>short</p>"))
+        // A page this short cannot scroll, so the report is asked for rather than scrolled into.
+        eval("window.rkReader.refresh()")
+        settleFrames()
+        assertEquals("a short chapter reported progress", 0.0, lastProgress, 0.0)
+        assertEquals("the page never said the chapter fits", true, fitsReports[CHAPTER_ID.toString()])
     }
 
     // endregion

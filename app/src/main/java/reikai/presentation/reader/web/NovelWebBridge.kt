@@ -17,6 +17,7 @@ class NovelWebBridge(
     private val onRetryBoundary: (forward: Boolean) -> Unit,
     private val onToggleMenu: () -> Unit,
     private val onStepChapter: (forward: Boolean) -> Unit,
+    private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
     private val onReady: () -> Unit,
 ) {
 
@@ -43,6 +44,11 @@ class NovelWebBridge(
 
     @JavascriptInterface
     fun onStepChapter(forward: Boolean) = onStepChapter.invoke(forward)
+
+    @JavascriptInterface
+    fun onChapterFits(chapterId: String, fits: Boolean) {
+        chapterId.toLongOrNull()?.let { onChapterFits(it, fits) }
+    }
 
     @JavascriptInterface
     fun onReady() = onReady.invoke()

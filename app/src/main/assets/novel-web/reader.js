@@ -6,13 +6,12 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __DONE_THRESHOLD__, __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__.
+ * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__.
  */
 (function () {
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
   var CHAPTER_TITLE_ATTR = 'data-rk-chapter-title';
-  var DONE_THRESHOLD = __DONE_THRESHOLD__;
   // core.js's swipe distance, in CSS pixels. The document is initial-scale=1, so this is the same
   // unit the native renderer's SWIPE_MIN_DP resolves to and the gesture matches in all three.
   var SWIPE_MIN_PX = 180;
@@ -90,24 +89,34 @@
       });
     }
     boundaries = next;
+    reportFits();
   }
 
+  /* The last answer sent per chapter, so a rebuild that changes nothing says nothing. */
+  var fitsReported = {};
+
   /*
-   * Which chapter the reader is in and how far through it, rather than through the document. A
-   * last chapter shorter than the viewport has no scroll room at all, so it falls back to document
-   * progress, which can still reach the end.
+   * Whether each chapter fits on one screen, the test state() makes when it holds one at 0. The model
+   * reads such a chapter when the reader steps forward from it. Re-sent on change, since a chapter can
+   * measure short before its images land.
    */
+  function reportFits() {
+    var viewport = viewportHeight();
+    boundaries.forEach(function (b) {
+      var fits = b.height <= viewport;
+      if (fitsReported[b.id] === fits) return;
+      fitsReported[b.id] = fits;
+      bridge().onChapterFits(b.id, fits);
+    });
+  }
+
+  /* Which chapter the reader is in and how far through it, rather than through the document. */
   function state() {
     var top = scrollTop();
     var viewport = viewportHeight();
-    var scrollable = documentHeight() - viewport;
-    var docProgress = scrollable > 0 ? top / scrollable : 1;
-    if (scrollable > 0 && top >= scrollable - 2) docProgress = 1;
-    if (docProgress >= DONE_THRESHOLD) docProgress = 1;
-    if (docProgress < 0) docProgress = 0;
 
     if (boundaries.length === 0) {
-      return { id: null, progress: docProgress, index: 0, isLast: true };
+      return { id: null, progress: 0 };
     }
 
     /*
@@ -121,21 +130,18 @@
       if (top >= boundaries[i].claimFrom - EDGE_TOLERANCE) index = i; else break;
     }
     var chapter = boundaries[index];
-    var isLast = index === boundaries.length - 1;
-    var progress;
-    if (isLast && chapter.height <= viewport) {
-      progress = docProgress;
-    } else {
+    var progress = 0;
+    // A chapter that fits on one screen stays at 0, as in the native renderer: it has no scroll room
+    // and is read when the reader leaves it forward (NovelLeaveRule), never on sight.
+    if (chapter.height > viewport) {
       var within = Math.max(top - chapter.start, 0);
       // Every chapter ends when its last line reaches the bottom of the screen, as in the native
       // renderer's ChapterScrollProgress. Tsundoku measures a middle chapter against its full height
       // instead, which gives one stored percent two positions: saved with the next chapter below,
       // restored with the chapter opened alone, it landed a fraction of a screen early.
-      var usable = Math.max(chapter.height - viewport, 1);
-      progress = Math.min(within / usable, 1);
-      if (progress >= DONE_THRESHOLD) progress = 1;
+      progress = Math.min(within / (chapter.height - viewport), 1);
     }
-    return { id: chapter.id, progress: progress, index: index, isLast: isLast };
+    return { id: chapter.id, progress: progress };
   }
 
   // endregion
@@ -247,6 +253,8 @@
   function installGestures() {
     var startX = 0, startY = 0, startAt = 0, moved = false;
     document.addEventListener('touchstart', function (e) {
+      // A finger on the page takes the scroll over, as it stops a fling.
+      glide.stop();
       if (e.touches.length !== 1) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -291,10 +299,47 @@
         bridge().onToggleMenu();
       } else {
         var by = viewportHeight() * 0.75;
-        window.scrollBy({ top: zone === 'up' ? -by : by, behavior: 'smooth' });
+        glide.by(zone === 'up' ? -by : by);
       }
     }, { passive: true });
   }
+
+  /*
+   * A smooth scroll made of relative steps, one a frame. The browser's own heads for a position
+   * fixed when it starts, and crossing a boundary adds or drops a chapter above the reader
+   * mid-animation, so it finished a whole chapter away. Relative steps ride on the scroll anchoring
+   * that keeps the text still, as the native renderer's smoothScrollBy does. Tsundoku avoids the
+   * question by jumping without animating.
+   */
+  var glide = (function () {
+    var DURATION_MS = 300;
+    var raf = null, start = 0, total = 0, done = 0;
+    function frame(now) {
+      if (!start) start = now;
+      var t = Math.min((now - start) / DURATION_MS, 1);
+      var step = Math.round(total * (1 - Math.pow(1 - t, 3)) - done);
+      if (step !== 0) {
+        window.scrollBy({ top: step, behavior: 'instant' });
+        done += step;
+      }
+      raf = t < 1 ? requestAnimationFrame(frame) : null;
+    }
+    return {
+      // A second press while one is running carries on from where that one had got to.
+      by: function (dy) {
+        total = total - done + dy;
+        done = 0;
+        start = 0;
+        if (!raf) raf = requestAnimationFrame(frame);
+      },
+      stop: function () {
+        if (raf) cancelAnimationFrame(raf);
+        raf = null;
+        total = 0;
+        done = 0;
+      },
+    };
+  })();
 
   /*
    * Auto-scroll as a rate rather than a step per frame, because a fixed step ran at double speed on
@@ -339,6 +384,8 @@
     setFontFace: function (css) {
       document.getElementById('rk-font-face').textContent = css;
     },
+    /* The volume keys' page step, through the same relative animation as a tap. */
+    scrollSmoothlyBy: function (dy) { glide.by(dy); },
     autoScrollStart: function (perFrame) { autoScroll.start(perFrame); },
     autoScrollStop: function () { autoScroll.stop(); },
     /* Scrolls so a chapter's own fraction is the reading position, which is how a restore and the

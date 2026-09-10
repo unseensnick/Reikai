@@ -343,6 +343,52 @@ class WebViewSeamPositionTest {
         assertTrue("a prepend moved the reader at scroll offsets $bad", bad.isEmpty())
     }
 
+    /**
+     * A tap or a volume key scrolls smoothly, and crossing into a chapter re-centres the window, which
+     * drops the chapter two behind from above the reader while that scroll is still running. Where
+     * the page ends up must be where the scroll was going, measured against the text rather than the
+     * document, since the document just lost a chapter's height.
+     */
+    @Test
+    fun aChapterDroppedAboveMidScrollDoesNotMoveTheReader() {
+        val drifts = listOf(false, true).associateWith { evict ->
+            loadReal()
+            val above = insertReal(atStart = true)
+            insertReal(atStart = false)
+            scrollMarkerToMidScreenInstantly()
+            val before = markerTop()
+            val step = evalDouble("return Math.round(window.innerHeight * 0.75)")
+            eval("window.rkReader.scrollSmoothlyBy($step); return 'ok'")
+            Thread.sleep(80)
+            if (evict) eval("window.rkReader.evictChapter('$above'); return 'ok'")
+            Thread.sleep(900)
+            settle()
+            val drift = (markerTop() - (before - step)).roundToInt()
+            Log.i(TAG, "real/smooth-scroll evict=$evict drift=$drift")
+            drift
+        }
+        assertTrue("a smooth scroll ended away from its target: $drifts", drifts.values.all { abs(it) <= FREE })
+    }
+
+    /** The backward half: scrolling up re-centres the window onto an earlier chapter, which arrives
+     *  above the reader while the scroll up is still running. */
+    @Test
+    fun aChapterArrivingAboveMidScrollDoesNotMoveTheReader() {
+        loadReal()
+        insertReal(atStart = true)
+        scrollMarkerToMidScreenInstantly()
+        val before = markerTop()
+        val step = evalDouble("return Math.round(window.innerHeight * 0.75)")
+        eval("window.rkReader.scrollSmoothlyBy(-$step); return 'ok'")
+        Thread.sleep(80)
+        insertReal(atStart = true)
+        Thread.sleep(900)
+        settle()
+        val drift = (markerTop() - (before + step)).roundToInt()
+        Log.i(TAG, "real/smooth-scroll-up prepend drift=$drift")
+        assertTrue("a smooth scroll up ended $drift px from its target", abs(drift) <= FREE)
+    }
+
     /** The chapter body the real document is built around, carrying the marker the drift is read off. */
     private fun chapterBody(marker: Boolean) = buildString {
         append("<div style=\"height:${CHAPTER_PX / 2}px\"></div>")
@@ -394,7 +440,7 @@ class WebViewSeamPositionTest {
     /** Ids climb away from the opening chapter's, which the engine would refuse as already present. */
     private var insertedChapters = 0
 
-    private fun insertReal(atStart: Boolean) {
+    private fun insertReal(atStart: Boolean): Int {
         val verb = if (atStart) "prependChapter" else "appendChapter"
         val id = if (atStart) -(++insertedChapters) else 100 + insertedChapters++
         val before = evalDouble("return document.querySelectorAll('.rk-chapter').length")
@@ -405,6 +451,7 @@ class WebViewSeamPositionTest {
             "$verb('$id') did not add a chapter",
             evalDouble("return document.querySelectorAll('.rk-chapter').length") > before,
         )
+        return id
     }
 
     /** The page calls these on every frame; without them the engine throws inside its own rAF. */
@@ -429,6 +476,9 @@ class WebViewSeamPositionTest {
 
         @JavascriptInterface
         fun onStepChapter(forward: Boolean) = Unit
+
+        @JavascriptInterface
+        fun onChapterFits(chapterId: String, fits: Boolean) = Unit
     }
 
     // endregion

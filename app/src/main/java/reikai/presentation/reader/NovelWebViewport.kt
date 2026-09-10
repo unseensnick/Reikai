@@ -66,6 +66,9 @@ class NovelWebViewport(
     private val onRetryBoundary: (forward: Boolean) -> Unit,
     /** Read per load rather than once: the cutout inset is only known after the window has one. */
     private val statusBarHeightPx: () -> Int,
+    /** Whether a chapter fits on one screen, whenever that answer changes, as the native viewport
+     *  reports it. Called off the main thread; the model's record of it is synchronised. */
+    private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     /** The chapter the document was built around, so a load can be told apart from a re-entry. */
@@ -123,6 +126,7 @@ class NovelWebViewport(
                 onRetryBoundary = { forward -> mainHandler.post { onRetryBoundary(forward) } },
                 onToggleMenu = { mainHandler.post { onToggleMenu() } },
                 onStepChapter = { forward -> mainHandler.post { onStepChapter(forward) } },
+                onChapterFits = onChapterFits,
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { mainHandler.post { onPageReady() } },
             ),
@@ -279,11 +283,11 @@ class NovelWebViewport(
         webView.evaluateJavascript(js, null)
     }
 
-    /** Smooth-scrolls the viewport by a signed fraction (positive = forward), reusing the WebView's own
-     *  smooth scroll so a volume press feels like tap-to-scroll. */
+    /** Scrolls by a signed fraction of the screen (positive = forward), through the page's own
+     *  relative animation so a volume press moves exactly as a tap does. */
     private fun scrollByFraction(fraction: Float) {
         webView.evaluateJavascript(
-            "window.scrollBy({ top: window.innerHeight * $fraction, behavior: 'smooth' });",
+            "if (window.rkReader) rkReader.scrollSmoothlyBy(window.innerHeight * $fraction);",
             null,
         )
     }
