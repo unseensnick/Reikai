@@ -10,7 +10,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
 import org.json.JSONObject
@@ -88,6 +93,12 @@ class NovelWebViewport(
     // Bridge messages arrive on a WebView background thread, so UI-affecting callbacks marshal here.
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** The family the page holds a face for, so a settings push knows when the face has to change. */
+    private var faceFamily: String? = null
+    private var faceJob: Job? = null
+
     private val webView = ProgressWebView(context).apply {
         setDefaultSettings()
         webViewClient = NovelChapterNavigationClient(context) { loadedBaseUrl }
@@ -145,6 +156,7 @@ class NovelWebViewport(
     override fun onChapterStepped() = Unit
 
     override fun destroy() {
+        scope.cancel()
         webView.stopLoading()
         // The bridge captures the host and is called off the main thread, so drop it before teardown.
         // destroy() on an attached WebView is undefined and pins the hierarchy, hence the detach.
@@ -186,6 +198,9 @@ class NovelWebViewport(
         // to a window that is being replaced.
         pageReady = false
         pendingWindowVerbs.clear()
+        // The document is built with this family's face, and any swap still resolving is for the old page.
+        faceJob?.cancel()
+        faceFamily = settings.fontFamily
         val statusBarPx = statusBarHeightPx()
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
@@ -231,6 +246,17 @@ class NovelWebViewport(
             "{ document.documentElement.setAttribute('style', ${JSONObject.quote(variables)}); " +
                 "rkReader.setSettings($behaviour); }",
         )
+        if (settings.fontFamily != faceFamily) swapFontFace(settings.fontFamily)
+    }
+
+    /** The variable above already names the new family; without its face the text falls back. */
+    private fun swapFontFace(family: String) {
+        faceFamily = family
+        faceJob?.cancel()
+        faceJob = scope.launch {
+            val source = NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, family)
+            runOrQueue("rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});")
+        }
     }
 
     /**

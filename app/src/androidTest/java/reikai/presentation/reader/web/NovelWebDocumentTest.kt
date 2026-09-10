@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -164,6 +165,22 @@ class NovelWebDocumentTest {
         settleFrames()
         assertEquals(
             "the bundled face did not load",
+            "true",
+            eval("[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"),
+        )
+    }
+
+    /** A font picked while a chapter is open reaches the page as a face, not only as a family name. */
+    @Test
+    fun aFontPickedWithThePageOpenLoadsItsFace() {
+        val context = instrumentation.targetContext
+        loadDocument()
+        val source = runBlocking { NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, "lora") }
+        eval("window.rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace("lora", source))})")
+        eval("document.fonts.load('16px lora')")
+        settleFrames()
+        assertEquals(
+            "the face pushed into the open page did not load",
             "true",
             eval("[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"),
         )

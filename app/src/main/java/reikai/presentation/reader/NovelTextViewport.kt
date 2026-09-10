@@ -644,8 +644,6 @@ class NovelTextViewport(
             val finished = shown.getOrNull(position - 1)?.chapter
             holder.seam.isVisible = finished != null
             if (finished == null) return
-            // The side margins live on the chunk views, which the marker is not one of.
-            settings?.let { NovelTextStyle.applySideMargins(holder.seam, it, context) }
             holder.seam.bind(finished.title, shown[position].chapter.title)
         }
 

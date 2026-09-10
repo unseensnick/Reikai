@@ -27,17 +27,16 @@ body {
   line-height: var(--rk-line-height);
   text-align: var(--rk-text-align);
   overflow-wrap: break-word;
-  /* The cutout inset, so the first line clears a camera housing. */
-  padding-top: var(--rk-inset-top);
 }
 
+/*
+ * Every chapter carries the page margins and the cutout inset, as each native column does, so a
+ * window repeats them around every seam in both renderers. Part of the chapter's own height, which
+ * is also what native measures its progress against.
+ */
 .rk-chapter {
-  padding: 0 var(--rk-margin-right) 0 var(--rk-margin-left);
-}
-
-/* The ends of the document, not of each chapter: a window would otherwise repeat both at every seam. */
-#rk-chapters {
-  padding: var(--rk-margin-top) 0 var(--rk-margin-bottom) 0;
+  padding: calc(var(--rk-margin-top) + var(--rk-inset-top)) var(--rk-margin-right)
+    var(--rk-margin-bottom) var(--rk-margin-left);
 }
 
 .rk-chapter p {
@@ -65,9 +64,13 @@ html:not(.rk-bionic-on) .rk-bionic b {
  * aligned and capped in width. Sizes mirror that composable, whose chapter name is 20sp under a
  * titleMedium label with a 24dp gap between the two halves.
  */
+/*
+ * The webtoon viewer's boundary, measured off WebtoonTransitionHolder and ChapterTransition: 128px
+ * above and below, 32px at the sides, a centred column capped at 460px, a 16px label over a 20px
+ * title. Fixed sizes, since the manga one does not scale with the reader's text either.
+ */
 .rk-seam {
-  margin: 3em var(--rk-margin-right) 3em var(--rk-margin-left);
-  max-width: 460px;
+  padding: 128px 32px;
   text-align: left;
   text-indent: 0;
   /* The app's own face, not the reader's. Its twin draws under the app theme's typography, so a
@@ -75,18 +78,23 @@ html:not(.rk-bionic-on) .rk-bionic b {
   font-family: sans-serif;
 }
 
+.rk-seam-part {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
 .rk-seam-part + .rk-seam-part {
   margin-top: 24px;
 }
 
 .rk-seam-label {
-  font-size: 1em;
+  font-size: 16px;
   font-weight: 500;
   margin-bottom: 4px;
 }
 
 .rk-seam-title {
-  font-size: 1.25em;
+  font-size: 20px;
   line-height: 1.3;
 }
 

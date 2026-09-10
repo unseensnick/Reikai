@@ -335,6 +335,10 @@
       }
       syncBionic();
     },
+    /* The face for a font picked while this page is open; the family itself arrives as a variable. */
+    setFontFace: function (css) {
+      document.getElementById('rk-font-face').textContent = css;
+    },
     autoScrollStart: function (perFrame) { autoScroll.start(perFrame); },
     autoScrollStop: function () { autoScroll.stop(); },
     /* Scrolls so a chapter's own fraction is the reading position, which is how a restore and the

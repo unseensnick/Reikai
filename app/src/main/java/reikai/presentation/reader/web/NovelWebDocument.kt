@@ -61,8 +61,8 @@ object NovelWebDocument {
             <html>
             <head>
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+            <style id="rk-font-face">${fontFace(settings.fontFamily, fontSource)}</style>
             <style>
-            ${fontFace(settings.fontFamily, fontSource)}
             :root { ${variables(settings, statusBarHeightPx)} }
             $css
             ${overrides(useOriginalFonts, sourceCssPriority)}
@@ -166,8 +166,11 @@ object NovelWebDocument {
         put("bionic", settings.bionicReading)
     }
 
-    /** The face behind the chosen family, bundled or the user's own. None for a generic family. */
-    private fun fontFace(family: String, source: String?): String {
+    /**
+     * The face behind the chosen family, bundled or the user's own. None for a generic family. Its
+     * own style block, so a font changed with a chapter open swaps the face without a rebuild.
+     */
+    fun fontFace(family: String, source: String?): String {
         if (source == null) return ""
         // Dropping the declaration loses the face; letting it through loses the whole style block.
         if (!isSafeInCssUrl(source)) return ""
