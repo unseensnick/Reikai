@@ -40,6 +40,10 @@ class NovelWebViewportGateTest {
     /** Every chapter the viewport told the host the reader is in. */
     private val visibleReports = CopyOnWriteArrayList<Long>()
 
+    /** Every chapter step, and every chapter end, the viewport passed on. */
+    private val steps = CopyOnWriteArrayList<Boolean>()
+    private val endsSeen = CopyOnWriteArrayList<Long>()
+
     private val webView: WebView get() = viewport.view as WebView
 
     private companion object {
@@ -47,6 +51,9 @@ class NovelWebViewportGateTest {
 
         /** Long enough for a bridge call made from the page to be queued on the main thread. */
         const val REPORT_QUEUED_MS = 300L
+
+        /** Any token but the one the viewport built its document with, as every other caller has. */
+        const val ANOTHER_DOCUMENT = "not-this-document"
     }
 
     @Before
@@ -64,12 +71,12 @@ class NovelWebViewportGateTest {
                 onProgressChanged = { _, _ -> },
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},
-                onStepChapter = {},
+                onStepChapter = { steps += it },
                 onVisibleChapter = { visibleReports += it },
                 onRetryBoundary = {},
                 statusBarHeightPx = { inset },
                 onChapterFits = { _, _ -> },
-                onChapterEndSeen = {},
+                onChapterEndSeen = { endsSeen += it },
             )
             (activity.webView.parent as ViewGroup).addView(
                 viewport.view,
@@ -103,7 +110,7 @@ class NovelWebViewportGateTest {
         openAndAwaitReady(1L)
         instrumentation.runOnMainSync {
             // The page being replaced reporting late, or a chapter's own script calling the bridge.
-            webView.evaluateJavascript("window.ReikaiWeb.onReady('not-this-document')", null)
+            webView.evaluateJavascript("window.ReikaiWeb.onReady('$ANOTHER_DOCUMENT')", null)
             // Held, so that report is queued ahead of anything the next load posts to this thread.
             Thread.sleep(REPORT_QUEUED_MS)
             scope.launch {
@@ -126,10 +133,34 @@ class NovelWebViewportGateTest {
         visibleReports.clear()
         instrumentation.runOnMainSync {
             scope.launch { viewport.load(chapter(3L), readerTestSettings) }
-            webView.evaluateJavascript("window.ReikaiWeb.onVisibleChapter('1')", null)
+            webView.evaluateJavascript("window.ReikaiWeb.onVisibleChapter('$ANOTHER_DOCUMENT', '1')", null)
         }
         Thread.sleep(REPORT_QUEUED_MS)
         assertEquals(false, 1L in visibleReports)
+    }
+
+    /** Passed on, the page being replaced finishing a chapter the new window has would read it. */
+    @Test
+    fun aChapterEndReportedByThePageBeingReplacedIsNotPassedOn() {
+        openAndAwaitReady(1L)
+        instrumentation.runOnMainSync {
+            scope.launch { viewport.load(chapter(3L), readerTestSettings) }
+            webView.evaluateJavascript("window.ReikaiWeb.onChapterEndSeen('$ANOTHER_DOCUMENT', '3')", null)
+        }
+        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(emptyList<Long>(), endsSeen.toList())
+    }
+
+    /** A chapter's own script reaches the bridge, from the page or from a frame it makes, but not the
+     *  token, which only the engine holds. */
+    @Test
+    fun aStepFromACallerWithoutTheDocumentsTokenIsNotPassedOn() {
+        openAndAwaitReady(1L)
+        instrumentation.runOnMainSync {
+            webView.evaluateJavascript("window.ReikaiWeb.onStepChapter('$ANOTHER_DOCUMENT', true)", null)
+        }
+        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(emptyList<Boolean>(), steps.toList())
     }
 
     /** A document rebuilt as the Activity is recreated is built before its window has an inset. */

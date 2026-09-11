@@ -437,10 +437,12 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" }
 
-    /** Opens [chapter] and waits for its first fit report, each renderer's sign that it has rendered. */
+    /** Opens [chapter] and waits for its first fit report, each renderer's sign that it has rendered.
+     *  Asserted, since a case that expects nothing to happen would otherwise pass on a blank screen. */
     private fun open(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings = readerTestSettings) {
         runBlocking(Dispatchers.Main) { viewport.load(chapter, settings) }
         awaitWhile { !fits.containsKey(chapter.chapterId) }
+        assertTrue("chapter ${chapter.chapterId} never rendered", fits.containsKey(chapter.chapterId))
         settle()
     }
 

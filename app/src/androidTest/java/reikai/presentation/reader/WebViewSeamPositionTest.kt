@@ -485,28 +485,28 @@ class WebViewSeamPositionTest {
         fun onReady(documentToken: String) = engineReady.countDown()
 
         @JavascriptInterface
-        fun onVisibleChapter(chapterId: String) = Unit
+        fun onVisibleChapter(documentToken: String, chapterId: String) = Unit
 
         @JavascriptInterface
-        fun onProgress(chapterId: String, fraction: Double) = Unit
+        fun onProgress(documentToken: String, chapterId: String, fraction: Double) = Unit
 
         @JavascriptInterface
-        fun onProgressSettled(chapterId: String, fraction: Double) = Unit
+        fun onProgressSettled(documentToken: String, chapterId: String, fraction: Double) = Unit
 
         @JavascriptInterface
-        fun onRetryBoundary(forward: Boolean) = Unit
+        fun onRetryBoundary(documentToken: String, forward: Boolean) = Unit
 
         @JavascriptInterface
-        fun onToggleMenu() = Unit
+        fun onToggleMenu(documentToken: String) = Unit
 
         @JavascriptInterface
-        fun onStepChapter(forward: Boolean) = Unit
+        fun onStepChapter(documentToken: String, forward: Boolean) = Unit
 
         @JavascriptInterface
-        fun onChapterFits(chapterId: String, fits: Boolean) = Unit
+        fun onChapterFits(documentToken: String, chapterId: String, fits: Boolean) = Unit
 
         @JavascriptInterface
-        fun onChapterEndSeen(chapterId: String) = Unit
+        fun onChapterEndSeen(documentToken: String, chapterId: String) = Unit
     }
 
     // endregion

@@ -15,8 +15,9 @@
   var self = document.currentScript;
   if (self && self.parentNode) self.parentNode.removeChild(self);
 
-  // Names this document to the host, whose gate opens only for the document it built last. A ready
-  // report from the page being replaced, or from a chapter's script, carries no such token.
+  // Names this document to the host, which hears only the document it built last, so every bridge call
+  // passes it first. The page being replaced, a chapter's script, or a frame one creates (the bridge is
+  // in every frame) can reach the bridge too, and none of them has this.
   var DOCUMENT_TOKEN = '__DOCUMENT_TOKEN__';
 
   var CHAPTER_SELECTOR = '.rk-chapter';
@@ -54,6 +55,9 @@
   var heldReport = null;
   var lastResizeAt = 0;
   var framePending = false;
+  // The host drops everything this page says before its ready report, and a fit or an end is said only
+  // once, so neither is sent before then.
+  var ready = false;
 
   // Held from before the chapter's scripts run, so one of them replacing the global cannot stand in
   // for the bridge and read what the engine sends.
@@ -122,12 +126,13 @@
    * loading, as reportEnds is, since until they land a long illustrated chapter measures short.
    */
   function reportFits() {
+    if (!ready) return;
     var viewport = viewportHeight();
     boundaries.forEach(function (b) {
       var fits = b.height <= viewport;
       if (fitsReported[b.id] === fits || !imagesLanded(b.el)) return;
       fitsReported[b.id] = fits;
-      bridge().onChapterFits(b.id, fits);
+      bridge().onChapterFits(DOCUMENT_TOKEN, b.id, fits);
     });
   }
 
@@ -140,11 +145,12 @@
    * they land it measures short and would be read the moment it opened.
    */
   function reportEnds() {
+    if (!ready) return;
     var bottom = scrollTop() + viewportHeight() + EDGE_TOLERANCE;
     boundaries.forEach(function (b) {
       if (endsSeen[b.id] || b.start + b.height > bottom || !imagesLanded(b.el)) return;
       endsSeen[b.id] = true;
-      bridge().onChapterEndSeen(b.id);
+      bridge().onChapterEndSeen(DOCUMENT_TOKEN, b.id);
     });
   }
 
@@ -201,7 +207,7 @@
 
     if (s.id !== lastChapterSeen) {
       lastChapterSeen = s.id;
-      bridge().onVisibleChapter(s.id);
+      bridge().onVisibleChapter(DOCUMENT_TOKEN, s.id);
     }
 
     reportProgress(s);
@@ -229,7 +235,7 @@
     lastReportedAt = Date.now();
     lastReported = s.progress;
     lastReportedId = s.id;
-    bridge().onProgress(s.id, s.progress);
+    bridge().onProgress(DOCUMENT_TOKEN, s.id, s.progress);
   }
 
   function onScroll() {
@@ -247,7 +253,7 @@
       return;
     }
     var s = state();
-    if (s.id !== null) bridge().onProgressSettled(s.id, s.progress);
+    if (s.id !== null) bridge().onProgressSettled(DOCUMENT_TOKEN, s.id, s.progress);
   }
 
   // endregion
@@ -359,11 +365,11 @@
       if (settings.swipe && Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 2) {
         var middle = window.innerWidth / 2;
         if (dx < 0 && startX >= middle) {
-          bridge().onStepChapter(true);
+          bridge().onStepChapter(DOCUMENT_TOKEN, true);
           return;
         }
         if (dx > 0 && startX <= middle) {
-          bridge().onStepChapter(false);
+          bridge().onStepChapter(DOCUMENT_TOKEN, false);
           return;
         }
       }
@@ -374,7 +380,7 @@
 
       var zone = settings.tapToScroll ? tapZone(touch.clientY) : 'menu';
       if (zone === 'menu') {
-        bridge().onToggleMenu();
+        bridge().onToggleMenu(DOCUMENT_TOKEN);
       } else {
         var by = viewportHeight() * 0.75;
         glide.by(zone === 'up' ? -by : by);
@@ -543,7 +549,7 @@
         var progress = document.createElement('div');
         progress.className = 'rk-failure-progress';
         button.parentNode.replaceChild(progress, button);
-        bridge().onRetryBoundary(!atStart);
+        bridge().onRetryBoundary(DOCUMENT_TOKEN, !atStart);
       });
       box.appendChild(button);
       var container = document.getElementById('rk-chapters');
@@ -577,6 +583,9 @@
 
   // A value with a scheme, or a fragment, does not depend on a base and is left as written.
   var HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+  // One srcset candidate as the browser splits it: a URL runs to whitespace and can hold commas (a
+  // data: URI), then either the commas that end it or its descriptors up to the next comma.
+  var SRCSET_CANDIDATE = /([\s,]*)(\S+?)(,+(?=\s|$)|(?=\s|$)[^,]*)/g;
 
   /*
    * The document has one base, the chapter it opened on, so a chapter added by scrolling would resolve
@@ -588,18 +597,28 @@
     var template = document.createElement('template');
     template.innerHTML = html;
     if (!baseUrl) return template.content;
-    template.content.querySelectorAll('[src], [href]').forEach(function (node) {
+    template.content.querySelectorAll('[src], [href], [srcset]').forEach(function (node) {
       ['src', 'href'].forEach(function (name) {
-        var value = (node.getAttribute(name) || '').trim();
-        if (!value || value.charAt(0) === '#' || HAS_SCHEME.test(value)) return;
-        try {
-          node.setAttribute(name, new URL(value, baseUrl).href);
-        } catch (e) {
-          // Not a URL either base can make sense of, so it stays as the source wrote it.
-        }
+        if (node.hasAttribute(name)) node.setAttribute(name, absolute(node.getAttribute(name), baseUrl));
       });
+      if (!node.hasAttribute('srcset')) return;
+      var srcset = node.getAttribute('srcset').replace(SRCSET_CANDIDATE, function (_, lead, url, tail) {
+        return lead + absolute(url, baseUrl) + tail;
+      });
+      node.setAttribute('srcset', srcset);
     });
     return template.content;
+  }
+
+  /* value against baseUrl, or as written when it needs no base or is not a URL either base can read. */
+  function absolute(value, baseUrl) {
+    var trimmed = value.trim();
+    if (!trimmed || trimmed.charAt(0) === '#' || HAS_SCHEME.test(trimmed)) return value;
+    try {
+      return new URL(trimmed, baseUrl).href;
+    } catch (e) {
+      return value;
+    }
   }
 
   /*
@@ -721,11 +740,27 @@
     })();
   }
 
-  /* Whether the browser fetches this script, and so reports a load or an error to wait on. */
+  // The HTML standard's JavaScript MIME types, the only classic scripts a browser fetches.
+  var JAVASCRIPT_TYPE =
+    /^(?:(?:application|text)\/(?:x-)?(?:ecma|java)script|text\/(?:javascript1\.[0-5]|jscript|livescript))$/i;
+
+  /*
+   * Whether the browser fetches this script, and so reports a load or an error to wait on. A type it
+   * never runs fires neither, and waiting on one stopped every script after it. The type is resolved
+   * as the standard does: an empty one is JavaScript, and with none, the language attribute names it.
+   */
   function loadsFromSource(script) {
-    var type = (script.getAttribute('type') || '').trim().toLowerCase();
-    return script.hasAttribute('src') && !script.hasAttribute('nomodule') &&
-      (type === '' || type === 'module' || /(java|ecma)script/.test(type));
+    if (!script.hasAttribute('src')) return false;
+    var type = script.getAttribute('type');
+    var language = script.getAttribute('language');
+    if (type === '' || (type === null && !language)) {
+      type = 'text/javascript';
+    } else {
+      type = type === null ? 'text/' + language : type.trim();
+    }
+    // nomodule stops a classic script only; a module ignores it.
+    if (type.toLowerCase() === 'module') return true;
+    return JAVASCRIPT_TYPE.test(type) && !script.hasAttribute('nomodule');
   }
 
   /*
@@ -789,6 +824,9 @@
         window.rkReader.seekWithin(boundaries[0].id, initial);
       }
       bridge().onReady(DOCUMENT_TOKEN);
+      ready = true;
+      reportFits();
+      reportEnds();
     });
   }
 

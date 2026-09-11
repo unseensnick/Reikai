@@ -72,48 +72,55 @@ class NovelWebDocumentTest {
             "[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"
     }
 
-    /** Only the ready signal is needed here; the rest exist so the page never calls a missing method. */
+    /**
+     * Records what the page reports, heard only with the document's token as the host hears it, so an
+     * engine call that passes the wrong one fails the test waiting on it. Every method exists so the
+     * page never calls a missing one.
+     */
     private inner class Bridge {
         @JavascriptInterface
         fun onReady(documentToken: String) = ready.countDown()
 
         @JavascriptInterface
-        fun onVisibleChapter(chapterId: String) {
-            visibleChapters += chapterId
+        fun onVisibleChapter(documentToken: String, chapterId: String) {
+            if (documentToken == DOCUMENT_TOKEN) visibleChapters += chapterId
         }
 
         @JavascriptInterface
-        fun onProgress(chapterId: String, fraction: Double) {
+        fun onProgress(documentToken: String, chapterId: String, fraction: Double) {
+            if (documentToken != DOCUMENT_TOKEN) return
             lastProgress = fraction
             progressByChapter[chapterId] = fraction
         }
 
         @JavascriptInterface
-        fun onProgressSettled(chapterId: String, fraction: Double) = Unit
+        fun onProgressSettled(documentToken: String, chapterId: String, fraction: Double) = Unit
 
         @JavascriptInterface
-        fun onRetryBoundary(forward: Boolean) = Unit
+        fun onRetryBoundary(documentToken: String, forward: Boolean) = Unit
 
         @JavascriptInterface
-        fun onToggleMenu() {
+        fun onToggleMenu(documentToken: String) {
+            if (documentToken != DOCUMENT_TOKEN) return
             menuToggles.incrementAndGet()
             menuToggled.countDown()
         }
 
         @JavascriptInterface
-        fun onStepChapter(forward: Boolean) {
+        fun onStepChapter(documentToken: String, forward: Boolean) {
+            if (documentToken != DOCUMENT_TOKEN) return
             steps += forward
             stepped.countDown()
         }
 
         @JavascriptInterface
-        fun onChapterFits(chapterId: String, fits: Boolean) {
-            fitsReports[chapterId] = fits
+        fun onChapterFits(documentToken: String, chapterId: String, fits: Boolean) {
+            if (documentToken == DOCUMENT_TOKEN) fitsReports[chapterId] = fits
         }
 
         @JavascriptInterface
-        fun onChapterEndSeen(chapterId: String) {
-            endsSeen += chapterId
+        fun onChapterEndSeen(documentToken: String, chapterId: String) {
+            if (documentToken == DOCUMENT_TOKEN) endsSeen += chapterId
         }
     }
 
@@ -470,6 +477,26 @@ class NovelWebDocumentTest {
         )
     }
 
+    /** A srcset is a list of URLs of its own, on an image and on a picture's sources alike, and a data
+     *  URI in it holds commas that do not end a candidate. */
+    @Test
+    fun aChapterAddedByScrollingResolvesItsSrcsetAgainstItsOwnBase() {
+        loadDocument()
+        val html = "<picture><source srcset=\"/a.webp 1x,b.webp 2x\"></picture>" +
+            "<img srcset=\"c.png, data:image/png;base64,AA== 2x\">"
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, 'https://other.test/novel/', $SEAM)")
+        assertEquals(
+            listOf(
+                "https://other.test/a.webp 1x,https://other.test/novel/b.webp 2x",
+                "https://other.test/novel/c.png, data:image/png;base64,AA== 2x",
+            ),
+            evalList(
+                "[...document.querySelectorAll('[data-rk-chapter-id=\"99\"] [srcset]')]" +
+                    ".map(e => e.getAttribute('srcset'))",
+            ),
+        )
+    }
+
     /** A tap on Retry is the button's. With tap-to-scroll off, the default, any other tap toggles the menu. */
     @Test
     fun tappingRetryIsTheButtonsTapNotTheReaders() {
@@ -641,6 +668,18 @@ class NovelWebDocumentTest {
             "<script>window.rkSaw = typeof window.rkLib;</script>"
         eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
         assertEquals("number", awaitEval("String(window.rkSaw)", "number"))
+    }
+
+    /** A script of a type the browser never runs fires no load and no error, so waiting on one stopped
+     *  every script after it. A language attribute names the type when there is none. */
+    @Test
+    fun aSeamlessChaptersScriptsRunPastOnesTheBrowserNeverFetches() {
+        loadDocument()
+        val html = "<script type=\"text/javascript1.6\" src=\"data:text/javascript,window.rkNever=1\"></script>" +
+            "<script language=\"vbscript\" src=\"data:text/javascript,window.rkNever=1\"></script>" +
+            "<script>window.rkAfter = 1;</script>"
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
+        assertEquals("1", awaitEval("String(window.rkAfter)", "1"))
     }
 
     /** Written once parsing is over, document.write opened a new document and wiped the reader. */

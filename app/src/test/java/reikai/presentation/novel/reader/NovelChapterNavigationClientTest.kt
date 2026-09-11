@@ -13,9 +13,16 @@ class NovelChapterNavigationClientTest {
 
     private val base = "https://source.example/novel/ch1"
 
+    /** An empty `href` resolves to the document's own URL, and following it loads the live page from
+     *  the source's site into the reader. */
     @Test
-    fun `the document's own url is allowed`() {
-        decide(base, base, hasGesture = true) shouldBe Decision.ALLOW
+    fun `a tapped link to the document's own url is refused`() {
+        decide(base, base, hasGesture = true) shouldBe Decision.BLOCK
+    }
+
+    @Test
+    fun `the page reloading itself is refused`() {
+        decide(base, base, hasGesture = false) shouldBe Decision.BLOCK
     }
 
     @Test

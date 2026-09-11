@@ -36,14 +36,14 @@ class NovelChapterNavigationClient(
     companion object {
 
         /**
-         * `loadDataWithBaseURL` makes [baseUrl] the document's own URL, so a link resolving to it, or
-         * to it plus a fragment, is the chapter jumping within itself. A null base means the document
-         * has no origin worth trusting, and then nothing is same-document.
+         * `loadDataWithBaseURL` makes [baseUrl] the document's own URL, so a link to it plus a fragment
+         * is the chapter jumping within itself. The URL alone is not: a link to it (an empty `href`
+         * resolves there) loads the live page from the source's site, bridge and cookies included. A
+         * null base means the document has no origin worth trusting, and then nothing is same-document.
          */
         fun decide(requestUrl: String, baseUrl: String?, hasGesture: Boolean): Decision {
-            if (baseUrl != null && (requestUrl == baseUrl || requestUrl.startsWith("$baseUrl#"))) {
-                return Decision.ALLOW
-            }
+            if (baseUrl != null && requestUrl.startsWith("$baseUrl#")) return Decision.ALLOW
+            if (requestUrl == baseUrl) return Decision.BLOCK
             val isWeb = requestUrl.startsWith("http://") || requestUrl.startsWith("https://")
             // Without a gesture the page is navigating itself, which a chapter has no reason to do.
             return if (hasGesture && isWeb) Decision.OPEN_EXTERNALLY else Decision.BLOCK

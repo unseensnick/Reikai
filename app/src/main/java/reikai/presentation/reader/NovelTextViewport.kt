@@ -102,12 +102,25 @@ class NovelTextViewport(
         /** What the chunk views are styled with, so a restyle that landed mid-render is caught on join. */
         var styledWith: NovelReaderSettings,
     ) {
-        /** Applied once this chapter's text has a height to seek within, and cleared only then, so a
-         *  redraw starting in between still knows where the chapter was headed. */
-        var pendingProgress: Float? = null
+        /** Applied once this chapter's text has a height to land in, and cleared only once it has
+         *  landed, so a redraw starting in between still knows where the chapter was headed. */
+        var landing: Landing? = null
 
         /** Before the text is set there is nothing to be a percentage of. */
         var rendered = false
+    }
+
+    /** Where a chapter is put once its text has a height. */
+    private sealed interface Landing {
+        /** A share of the chapter, which a stored percent and the rail name. */
+        data class Share(val fraction: Float) : Landing
+
+        /**
+         * The line holding character [offset] of chunk [chunk], put back at [y] in the recycler, which a
+         * redraw carries: a share counts every position past the chapter's last line reaching the bottom
+         * of the screen as all of it. A redraw keeps the chunking, which depends on the text alone.
+         */
+        data class Line(val chunk: Int, val offset: Int, val y: Int) : Landing
     }
 
     /**
@@ -122,7 +135,7 @@ class NovelTextViewport(
     private class Redraw(
         val chapters: MutableList<NovelReaderViewModel.LoadedChapter>,
         val readingId: Long?,
-        val fraction: Float?,
+        val landing: Landing?,
     )
 
     /** Every pixel scrolled, so a correction can tell the reader's own movement from the layout's. */
@@ -243,7 +256,7 @@ class NovelTextViewport(
         redrawJob?.cancel()
         redraw = null
         evictAll()
-        add(chapter, atEnd = true, startFraction = chapter.progressPercent / 100f)
+        add(chapter, atEnd = true, landing = Landing.Share(chapter.progressPercent / 100f))
     }
 
     override val window: ChapterWindow get() = this
@@ -277,7 +290,7 @@ class NovelTextViewport(
             }
             return
         }
-        add(chapter, atEnd, startFraction = null)
+        add(chapter, atEnd, landing = null)
     }
 
     /** Resolving a user font copies it out of the user's storage folder on first use. Done where
@@ -349,13 +362,13 @@ class NovelTextViewport(
     private fun startRedraw() {
         redrawJob?.cancel()
         // A chapter on its way to a position is where the reader is headed; failing that, the layout.
-        val seeking = slots.firstOrNull { it.pendingProgress != null }
+        val seeking = slots.firstOrNull { it.landing != null }
         val visible = visibleSlot()
         val pending = redraw
         val plan = Redraw(
             chapters = pending?.chapters ?: slots.mapTo(mutableListOf()) { it.chapter },
             readingId = (seeking ?: visible)?.chapter?.chapterId ?: pending?.readingId,
-            fraction = seeking?.pendingProgress ?: visible?.let(::fractionOf) ?: pending?.fraction,
+            landing = seeking?.landing ?: visible?.let(::landingOf) ?: pending?.landing,
         )
         redraw = plan
         redrawJob = scope.launch {
@@ -363,10 +376,26 @@ class NovelTextViewport(
             evictAll()
             while (true) {
                 val (chapter, atEnd) = plan.next() ?: break
-                add(chapter, atEnd, startFraction = plan.fraction.takeIf { chapter.chapterId == plan.readingId })
+                add(chapter, atEnd, landing = plan.landing.takeIf { chapter.chapterId == plan.readingId })
             }
             redraw = null
+            // Posted behind the last join's own landing. Every chapter the redraw adds has joined, so a line
+            // still short of room gets none, and waiting on would move the reader when the window next grows.
+            val rebuilt = joined()
+            recycler.post {
+                rebuilt.forEach { slot ->
+                    land(slot)
+                    slot.landing = null
+                }
+            }
         }
+    }
+
+    /** Where the reader is in [slot], the chapter being read: the line at the top of the screen, or a
+     *  share while the chapter's text starts on screen. */
+    private fun landingOf(slot: ChapterSlot): Landing {
+        val line = lineAtTop() ?: return Landing.Share(fractionOf(slot))
+        return Landing.Line(slot.block.chunkViews.indexOf(line.view), line.offset, line.y)
     }
 
     /**
@@ -522,9 +551,9 @@ class NovelTextViewport(
     }
 
     /**
-     * Adds [chapter] to the window and renders it, seeking to [startFraction] once the text has a
+     * Adds [chapter] to the window and renders it, putting the reader at [landing] once the text has a
      * height. Indent and spacing are spans measured in pixels when the text is built, so a change to
-     * those re-adds instead. A null [startFraction] leaves the reader where they are; zero is the
+     * those re-adds instead. A null [landing] leaves the reader where they are; a share of zero is the
      * chapter's first line. Returns once the chapter has joined the list, which it does only with its
      * text set ([join]): laid out earlier, a chapter above the reader grows after layout and carries
      * the reader with it. Returning then makes the host's order the join order.
@@ -532,14 +561,14 @@ class NovelTextViewport(
     private suspend fun add(
         chapter: NovelReaderViewModel.LoadedChapter,
         atEnd: Boolean,
-        startFraction: Float?,
+        landing: Landing?,
     ) {
         val settings = checkNotNull(this.settings)
         recycler.setBackgroundColor(NovelTextStyle.parseColor(settings.backgroundColor, Color.WHITE))
         val block = ChapterTextBlock(context) { createChunkView(settings) }
         NovelTextStyle.applyMargins(block.container, settings, context, topInsetPx)
         val slot = ChapterSlot(chapter, block, styledWith = settings)
-        slot.pendingProgress = startFraction
+        slot.landing = landing
         // A chapter changes height without a scroll when its text is set and when its images land, and
         // a short one is never scrolled, so a new height is the only point its fit and end get checked.
         // Posted, since the list places the item only after the column has laid out.
@@ -582,14 +611,14 @@ class NovelTextViewport(
         if (progress !is ChapterProgress.Percent) return
         val fraction = progress.fraction
         val slot = visibleSlot() ?: slots.firstOrNull() ?: return
-        // Held for the chapter's own seek to apply when it has one still to come, which is also where
+        // Held for the chapter's own landing to apply when it has one still to come, which is also where
         // one waits that has not rendered yet. Nothing reads it on a chapter already settled.
         if (slot.rendered &&
-            slot.pendingProgress == null
+            slot.landing == null
         ) {
             scrollWithin(slot, fraction)
         } else {
-            slot.pendingProgress = fraction
+            slot.landing = Landing.Share(fraction)
         }
     }
 
@@ -766,16 +795,32 @@ class NovelTextViewport(
         settings?.let { restyle(slot, it) }
         slot.rendered = true
         adapter.show(joined())
-        // Null is the window growing around the reader, which must not move them. Zero is a real
-        // position, so it is not skipped: it is this chapter's first line, which sits below whatever
-        // marker its item carries.
-        if (slot.pendingProgress == null) return
+        // With no chapter headed anywhere this is the window growing around the reader, which must not
+        // move them. Every chapter is landed, not only this one: a line near a chapter's end waits for
+        // the chapter below it to join.
+        if (slots.none { it.landing != null }) return
         // Posted so the freshly set text has been measured; before that the chapter has no height. Read
         // then rather than now, so a seek that lands in between is the one applied.
-        recycler.post {
-            val fraction = slot.pendingProgress ?: return@post
-            slot.pendingProgress = null
-            scrollWithin(slot, fraction)
+        recycler.post { joined().forEach(::land) }
+    }
+
+    /**
+     * Puts the reader where [slot]'s landing names and clears it. A line near the chapter's end can need
+     * the chapter below it for room, which a redraw adds after this one, so a line the list stops short
+     * of stays until then. A share of zero is a real position: the first line, below the item's marker.
+     */
+    private fun land(slot: ChapterSlot) {
+        when (val landing = slot.landing ?: return) {
+            is Landing.Share -> {
+                slot.landing = null
+                scrollWithin(slot, landing.fraction)
+            }
+            is Landing.Line -> {
+                val view = slot.block.chunkViews.getOrNull(landing.chunk) ?: return
+                val top = lineTopOf(view, landing.offset) ?: return
+                recycler.scrollBy(0, top - landing.y)
+                if (lineTopOf(view, landing.offset) == landing.y) slot.landing = null
+            }
         }
     }
 

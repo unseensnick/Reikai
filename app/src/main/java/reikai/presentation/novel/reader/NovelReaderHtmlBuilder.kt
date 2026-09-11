@@ -2,7 +2,6 @@ package reikai.presentation.novel.reader
 
 import org.json.JSONArray
 import org.json.JSONObject
-import reikai.novel.font.fontDisplayName
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
 
@@ -261,7 +260,7 @@ fun readerSettingsJson(settings: NovelReaderSettings): JSONObject = JSONObject()
     // The web layer knows one padding value, and the document's own rule owns the four. This still
     // drives the next-chapter button's side margins, which read the same variable.
     put("padding", settings.margins.left)
-    put("fontFamily", webFontFamily(settings.fontFamily))
+    put("fontFamily", cssFontName(settings.fontFamily))
     // What `core.js` writes into the family variable, quoted as the head writes it. `fontFamily` stays
     // the bare name, since its FontFace call registers the face under that.
     put("fontFamilyValue", cssFontFamilyValue(settings.fontFamily))
@@ -301,16 +300,8 @@ private fun customFontFace(family: String, url: String?): String {
     if (url == null || !isSupportedFontFile(family)) return ""
     // Dropping the declaration loses the face; letting it through loses the whole style block.
     if (!isSafeInCssUrl(url)) return ""
-    return "@font-face { font-family: '${webFontFamily(family)}'; src: url('$url'); }"
+    return "@font-face { font-family: '${cssFontName(family)}'; src: url('$url'); }"
 }
-
-/**
- * What the web layer is told the family is called. A font the user added is stored as its file name,
- * and `font-family: Merriweather.ttf` is not a valid CSS family, so the page fell back to sans-serif
- * with the face declared and never referenced. The readable name has no dot in it.
- */
-private fun webFontFamily(family: String): String =
-    cssFontFamily(if (isSupportedFontFile(family)) fontDisplayName(family) else family)
 
 /** A face shipped in the assets folder, which is the only kind `core.js` can build a URL for. */
 private fun isBundledFont(family: String): Boolean =

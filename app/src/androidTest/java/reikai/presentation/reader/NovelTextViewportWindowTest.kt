@@ -30,7 +30,6 @@ import reikai.presentation.reader.text.NovelChapterSeamView
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
-import kotlin.math.abs
 
 /**
  * Where the native renderer leaves the reader when the window grows around the chapter just opened.
@@ -46,9 +45,6 @@ class NovelTextViewportWindowTest {
 
     /** The last fit answer per chapter, which is also the sign that a chapter has rendered. */
     private val fits = ConcurrentHashMap<Long, Boolean>()
-
-    /** The last percent reported per chapter. */
-    private val progress = ConcurrentHashMap<Long, Int>()
 
     /** Every chapter the viewport named as the one being read, in order. */
     private val visibleChapters = CopyOnWriteArrayList<Long>()
@@ -86,7 +82,7 @@ class NovelTextViewportWindowTest {
                 volumeKeysActive = { false },
                 volumeKeysInverted = false,
                 volumeKeyScrollFraction = 0.75f,
-                onProgressChanged = { id, percent -> progress[id] = percent },
+                onProgressChanged = { _, _ -> },
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = {},
@@ -234,16 +230,32 @@ class NovelTextViewportWindowTest {
      * the reader back at the chapter's first line.
      */
     @Test
-    fun twoQuickTextSizeStepsKeepTheReaderWhereTheyWere() {
+    fun twoQuickTextSizeStepsKeepTheLineTheReaderWasOn() {
         open(LONG, long("current"))
         append(NEXT, long("next"))
         prepend(PREVIOUS, long("previous"))
-        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(6_000)) }
-        settle()
-        val before = progress.getValue(LONG)
+        scrollToTop("current 60.")
         dragTextSize()
-        val after = progress.getValue(LONG)
-        assertTrue("the reader moved from $before% to $after%", abs(after - before) <= 1)
+        assertEquals(0, shownAt("current 60.")?.top)
+    }
+
+    /**
+     * With the next chapter's seam on screen the reader is past where the chapter's last line reaches
+     * the bottom of the screen, which a share of the chapter counts as all of it, so a redraw that put
+     * the reader back by share moved them back by up to a screen.
+     */
+    @Test
+    fun aTextSizeStepAtAChaptersEndKeepsTheLineTheReaderWasOn() {
+        open(LONG, long("current"))
+        append(NEXT, long("next"))
+        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(10_000)) }
+        settle()
+        scrollToTop("current 120.")
+        instrumentation.runOnMainSync {
+            viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 2))
+        }
+        settle(REDRAW_WAIT_S)
+        assertEquals(0, shownAt("current 120.")?.top)
     }
 
     /** The redraw a second step supersedes used to go on adding the neighbours at its own size. */

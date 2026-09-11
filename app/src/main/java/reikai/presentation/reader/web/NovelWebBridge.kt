@@ -3,14 +3,15 @@ package reikai.presentation.reader.web
 import android.webkit.JavascriptInterface
 
 /**
- * What the WebView rendering mode's page can call. Named methods rather than the legacy reader's
- * single `postMessage`, so an argument that is a chapter id stays one instead of being re-parsed
- * out of JSON at both ends.
- *
- * Every method arrives on a WebView binder thread, so a callback that touches the UI marshals.
- * A chapter id crosses as text, because a JS number cannot hold every `Long` exactly.
+ * What the WebView rendering mode's page can call, as named methods so a chapter id stays one rather
+ * than being re-parsed out of JSON. A chapter id crosses as text, since a JS number cannot hold every
+ * `Long`. Every method carries the document's token: the object is exposed to every frame, and a
+ * chapter's script, a frame it creates, or the page being replaced can call it without holding one.
  */
 class NovelWebBridge(
+    /** Runs [call] if [documentToken] names the document the host built last. Every method arrives on
+     *  a WebView binder thread, so this is also where a call reaches the main thread. */
+    private val fromDocument: (documentToken: String, call: () -> Unit) -> Unit,
     private val onVisibleChapter: (chapterId: Long) -> Unit,
     private val onProgress: (chapterId: Long, fraction: Double) -> Unit,
     private val onProgressSettled: (chapterId: Long, fraction: Double) -> Unit,
@@ -19,43 +20,44 @@ class NovelWebBridge(
     private val onStepChapter: (forward: Boolean) -> Unit,
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
-    /** Carries the token the document was built with, since the page being replaced and a chapter's
-     *  own script can both reach this method too. */
+    /** The one call that is not gated: it is what tells the host which token is the page's. */
     private val onReady: (documentToken: String) -> Unit,
 ) {
 
     @JavascriptInterface
-    fun onVisibleChapter(chapterId: String) {
-        chapterId.toLongOrNull()?.let(onVisibleChapter)
+    fun onVisibleChapter(documentToken: String, chapterId: String) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onVisibleChapter(it) } }
     }
 
     @JavascriptInterface
-    fun onProgress(chapterId: String, fraction: Double) {
-        chapterId.toLongOrNull()?.let { onProgress(it, fraction) }
+    fun onProgress(documentToken: String, chapterId: String, fraction: Double) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onProgress(it, fraction) } }
     }
 
     @JavascriptInterface
-    fun onProgressSettled(chapterId: String, fraction: Double) {
-        chapterId.toLongOrNull()?.let { onProgressSettled(it, fraction) }
+    fun onProgressSettled(documentToken: String, chapterId: String, fraction: Double) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onProgressSettled(it, fraction) } }
     }
 
     @JavascriptInterface
-    fun onRetryBoundary(forward: Boolean) = onRetryBoundary.invoke(forward)
+    fun onRetryBoundary(documentToken: String, forward: Boolean) =
+        fromDocument(documentToken) { onRetryBoundary.invoke(forward) }
 
     @JavascriptInterface
-    fun onToggleMenu() = onToggleMenu.invoke()
+    fun onToggleMenu(documentToken: String) = fromDocument(documentToken) { onToggleMenu.invoke() }
 
     @JavascriptInterface
-    fun onStepChapter(forward: Boolean) = onStepChapter.invoke(forward)
+    fun onStepChapter(documentToken: String, forward: Boolean) =
+        fromDocument(documentToken) { onStepChapter.invoke(forward) }
 
     @JavascriptInterface
-    fun onChapterFits(chapterId: String, fits: Boolean) {
-        chapterId.toLongOrNull()?.let { onChapterFits(it, fits) }
+    fun onChapterFits(documentToken: String, chapterId: String, fits: Boolean) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onChapterFits(it, fits) } }
     }
 
     @JavascriptInterface
-    fun onChapterEndSeen(chapterId: String) {
-        chapterId.toLongOrNull()?.let(onChapterEndSeen)
+    fun onChapterEndSeen(documentToken: String, chapterId: String) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onChapterEndSeen(it) } }
     }
 
     @JavascriptInterface

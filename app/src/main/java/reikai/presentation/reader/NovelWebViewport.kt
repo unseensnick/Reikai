@@ -70,9 +70,9 @@ class NovelWebViewport(
     /** Read per load rather than once: the cutout inset is only known after the window has one. */
     private val statusBarHeightPx: () -> Int,
     /** Whether a chapter fits on one screen, whenever that answer changes, as the native viewport
-     *  reports it. Called off the main thread; the model's record of it is synchronised. */
+     *  reports it. */
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
-    /** A chapter's last line reached the screen, once its images had landed. Off the main thread too. */
+    /** A chapter's last line reached the screen, once its images had landed. */
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
@@ -96,9 +96,10 @@ class NovelWebViewport(
     private val pendingWindowVerbs = mutableListOf<String>()
 
     /**
-     * The document built last, which is the only one whose ready report opens the gate. The page being
-     * replaced can still report after the next load has begun, and a chapter's own script can reach the
-     * bridge too; either one opening it sent the new document's verbs to a page that dropped them.
+     * The document built last, the only one whose calls the host hears and whose ready report opens the
+     * gate. The page being replaced can still report after the next load has begun, and a chapter's own
+     * script can reach the bridge too; either one opening it sent the new document's verbs to a page
+     * that dropped them.
      */
     private var documentToken: String? = null
 
@@ -145,26 +146,22 @@ class NovelWebViewport(
         }
         addJavascriptInterface(
             NovelWebBridge(
-                // Where the reader is comes only from the document built last, which reports ready
+                // Only the document built last is heard, once it has reported ready, which it does
                 // before anything else: the page being replaced goes on reporting until it unloads,
-                // and the model has already let go of the window it describes.
+                // about a window the model has already let go of. All on one thread, so a live
+                // progress report still queued cannot land after a settled one and overwrite it.
+                fromDocument = { token, call ->
+                    mainHandler.post { if (pageReady && token == documentToken) call() }
+                },
                 onVisibleChapter = { id ->
-                    mainHandler.post {
-                        if (pageReady) {
-                            visibleChapterId = id
-                            onVisibleChapter(id)
-                        }
-                    }
+                    visibleChapterId = id
+                    onVisibleChapter(id)
                 },
-                onProgress = { id, f -> mainHandler.post { if (pageReady) onProgressChanged(id, f.toPercent()) } },
-                // On the same thread as the live reports, so a live one still queued cannot land after
-                // it and overwrite the settled position.
-                onProgressSettled = { id, f ->
-                    mainHandler.post { if (pageReady) onProgressSettled(id, f.toPercent()) }
-                },
-                onRetryBoundary = { forward -> mainHandler.post { onRetryBoundary(forward) } },
-                onToggleMenu = { mainHandler.post { onToggleMenu() } },
-                onStepChapter = { forward -> mainHandler.post { onStepChapter(forward) } },
+                onProgress = { id, f -> onProgressChanged(id, f.toPercent()) },
+                onProgressSettled = { id, f -> onProgressSettled(id, f.toPercent()) },
+                onRetryBoundary = onRetryBoundary,
+                onToggleMenu = onToggleMenu,
+                onStepChapter = onStepChapter,
                 onChapterFits = onChapterFits,
                 onChapterEndSeen = onChapterEndSeen,
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
@@ -190,16 +187,14 @@ class NovelWebViewport(
     /**
      * Seeks inside the chapter being read rather than across the document, because with a window the
      * two stopped being the same thing: a rail at half way means half of this chapter, not half of
-     * everything loaded around it. A paged progress is not this medium's unit and is ignored.
+     * everything loaded around it. A paged progress is not this medium's unit and is ignored. Queued
+     * like a window verb: the engine runs ahead of the chapter, so a seek while a long one still parses
+     * measured half a page, and could count the chapter's end as seen, which is reported only once.
      */
     override fun seekTo(progress: ChapterProgress) {
         if (progress !is ChapterProgress.Percent) return
         val chapterId = visibleChapterId ?: return
-        webView.evaluateJavascript(
-            "if (window.rkReader) rkReader.seekWithin(" +
-                "${JSONObject.quote(chapterId.toString())}, ${progress.fraction});",
-            null,
-        )
+        runOrQueue("rkReader.seekWithin(${JSONObject.quote(chapterId.toString())}, ${progress.fraction});")
     }
 
     // Nothing to do: a step reloads the document, which starts at that chapter's own stored position.
