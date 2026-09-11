@@ -161,6 +161,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val autoSplitEnabled by novelPreferences.readerAutoSplitText().collectAsState()
         val autoSplitWordCount by novelPreferences.readerAutoSplitWordCount().collectAsState()
+        val sourceCssPriority by novelPreferences.readerSourceCssPriority().collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_chapter_text),
@@ -206,15 +207,17 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 // WebView as well but renders through the vendored engine, which has no answer for
                 // either, so showing them there would be a switch that does nothing.
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerUseOriginalFonts(),
-                    title = stringResource(MR.strings.pref_use_original_fonts),
-                    subtitle = stringResource(MR.strings.pref_use_original_fonts_summary),
-                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
-                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSourceCssPriority(),
                     title = stringResource(MR.strings.pref_source_css_priority),
                     subtitle = stringResource(MR.strings.pref_source_css_priority_summary),
                 ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
+                // The font switch only edits the reader's own overrides, and a chapter whose styling
+                // wins gets none of them, so under that it would do nothing.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerUseOriginalFonts(),
+                    title = stringResource(MR.strings.pref_use_original_fonts),
+                    subtitle = stringResource(MR.strings.pref_use_original_fonts_summary),
+                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW && !sourceCssPriority },
                 // Its own screen rather than a row: a rule is five fields plus a preview, and the
                 // list has no useful upper bound.
                 Preference.PreferenceItem.TextPreference(
