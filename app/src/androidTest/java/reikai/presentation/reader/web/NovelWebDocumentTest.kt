@@ -273,8 +273,34 @@ class NovelWebDocumentTest {
             "var c = document.querySelector('[data-rk-chapter-id=\"99\"]');" +
                 "window.scrollTo({ top: c.getBoundingClientRect().top + window.scrollY + 10, behavior: 'instant' })",
         )
-        settleFrames()
+        awaitProgress("99")
         assertEquals(0.0, progressByChapter["99"] ?: -1.0, 0.0)
+    }
+
+    /**
+     * Two scroll frames land well inside the report interval, so the second position is held back. It
+     * still has to reach the rail once the interval passes, or a scroll that stops there leaves the
+     * rail showing where the reader was a moment before.
+     */
+    @Test
+    fun aScrollStoppingInsideTheReportIntervalStillReportsWhereItStopped() {
+        loadDocument()
+        settleFrames()
+        // Registered after the engine's own listener, so the second scroll lands in the frame that sent
+        // the first report and is one frame behind it however slow the frames are.
+        eval(
+            "window.addEventListener('scroll', function once() {" +
+                "window.removeEventListener('scroll', once);" +
+                "requestAnimationFrame(function () { window.scrollTo({ top: 3000, behavior: 'instant' }); });" +
+                "});" +
+                "window.scrollTo({ top: 1000, behavior: 'instant' });",
+        )
+        settleFrames()
+        val expected = eval(
+            "var c = document.querySelector('.rk-chapter').getBoundingClientRect();" +
+                "Math.min(Math.max(-c.top, 0) / (c.height - window.innerHeight), 1)",
+        ).toDouble()
+        assertEquals(expected, lastProgress, 0.01)
     }
 
     /** The novel's last chapter is read when its last line reaches the screen, which a short one's does
@@ -816,6 +842,13 @@ class NovelWebDocumentTest {
 
     /** Waits for the page to report [chapterId]'s end, since an image's decode and the frame after it
      *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */
+    // Waits for the page to report the chapter's progress, which a loaded device can take longer than
+    // a settle to send. Returns either way; the caller asserts.
+    private fun awaitProgress(chapterId: String) {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        while (!progressByChapter.containsKey(chapterId) && System.currentTimeMillis() < deadline) Thread.sleep(50)
+    }
+
     private fun awaitEndSeen(chapterId: String) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
         while (chapterId !in endsSeen && System.currentTimeMillis() < deadline) Thread.sleep(50)

@@ -24,6 +24,8 @@
   // core.js's swipe distance, in CSS pixels. The document is initial-scale=1, so this is the same
   // unit the native renderer's SWIPE_MIN_DP resolves to and the gesture matches in all three.
   var SWIPE_MIN_PX = 180;
+  // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
+  var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
   // waits this out rather than saving a position the layout is about to move.
   var SETTLE_MS = 400;
@@ -45,7 +47,9 @@
   var boundaries = [];
   var lastChapterSeen = null;
   var lastReported = -1;
+  var lastReportedId = null;
   var lastReportedAt = 0;
+  var heldReport = null;
   var lastResizeAt = 0;
   var framePending = false;
 
@@ -198,18 +202,29 @@
       bridge().onVisibleChapter(s.id);
     }
 
-    // Throttled, because this drives the rail and the percentage overlay on every scroll frame.
-    // The completed case is exempt so a chapter finishing is never the report that got dropped.
-    var now = Date.now();
-    if (Math.abs(s.progress - lastReported) > 0.005 && now - lastReportedAt > 50) {
-      lastReportedAt = now;
-      lastReported = s.progress;
-      bridge().onProgress(s.id, s.progress);
-    } else if (s.progress >= 1 && lastReported !== 1) {
-      lastReported = 1;
-      bridge().onProgress(s.id, 1);
-    }
+    reportProgress(s);
     reportEnds();
+  }
+
+  /*
+   * Throttled, because this drives the rail and the percentage overlay on every scroll frame. A report
+   * the throttle holds back is sent once the interval has passed, or a scroll stopping inside it left
+   * the rail on a place the reader had already left. A chapter finishing, or a different chapter, is
+   * never held: the last value sent belongs to the chapter before, so it cannot stand for this one.
+   */
+  function reportProgress(s) {
+    var sameChapter = s.id === lastReportedId;
+    var finishing = s.progress >= 1 && lastReported !== 1;
+    if (sameChapter && !finishing && Math.abs(s.progress - lastReported) <= 0.005) return;
+    var wait = REPORT_INTERVAL_MS - (Date.now() - lastReportedAt);
+    if (sameChapter && !finishing && wait > 0) {
+      if (!heldReport) heldReport = setTimeout(function () { heldReport = null; onScroll(); }, wait);
+      return;
+    }
+    lastReportedAt = Date.now();
+    lastReported = s.progress;
+    lastReportedId = s.id;
+    bridge().onProgress(s.id, s.progress);
   }
 
   function onScroll() {
