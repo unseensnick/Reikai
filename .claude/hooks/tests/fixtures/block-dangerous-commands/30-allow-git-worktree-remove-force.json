@@ -1,0 +1,5 @@
+{
+  "name": "allow git worktree remove --force (a loop cleaning up its worktree)",
+  "stdin": { "tool_input": { "command": "git worktree remove .claude/worktrees/audit-loop --force" } },
+  "expect_exit": 0
+}

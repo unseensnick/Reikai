@@ -1,0 +1,5 @@
+{
+  "name": "allow PowerShell recursive delete of a concrete subdirectory",
+  "stdin": { "tool_input": { "command": "Remove-Item -Recurse -Force .worktrees/loop-12" } },
+  "expect_exit": 0
+}

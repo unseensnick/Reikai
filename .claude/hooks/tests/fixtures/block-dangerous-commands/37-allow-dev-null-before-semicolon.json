@@ -1,0 +1,5 @@
+{
+  "name": "allow >/dev/null followed directly by a semicolon",
+  "stdin": { "tool_input": { "command": "ls >/dev/null; echo done" } },
+  "expect_exit": 0
+}

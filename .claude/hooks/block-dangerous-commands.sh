@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Blocks dangerous shell commands: push to protected branches, force push,
-# destructive operations. PreToolUse hook for Bash operations.
+# destructive operations. PreToolUse hook for Bash and PowerShell operations.
+#
+# Both tools must be matched in settings.json. The PowerShell tool is a
+# separate tool from Bash, so a matcher of "Bash" alone leaves every guard
+# here bypassable by rewriting the command in PowerShell. Both tools carry the
+# command in .tool_input.command, so the parsing below is shared, but the
+# destructive spellings are not: see the PowerShell section.
+#
 # Exit 2 = block. Exit 0 = allow.
 #
 # Configurable via env:
@@ -111,11 +118,51 @@ if printf '%s' "$CMD_NOQUOTE" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]+[[:space:]]+)
   emit_deny "Blocked: recursive delete targeting a system directory."
 fi
 
+# ── PowerShell destructive operations ───────────────────────────────────
+# PowerShell has its own spelling for everything above and the POSIX patterns
+# see none of it. Parameter names may be truncated (-Recurse accepts -Rec), so
+# the recurse switch is matched loosely.
+PS_DEL='(^|[;&|(){}[:space:]])(Remove-Item|Remove-ItemProperty|ri|rmdir|rd|del|erase)[[:space:]]'
+PS_ROOT='([A-Za-z]:\\?([[:space:]*]|$)|~([[:space:]\\/]|$)|\$HOME|\$env:USERPROFILE|\$env:HOMEDRIVE|\$env:SystemRoot|\$[A-Za-z_][A-Za-z0-9_]*([[:space:]]|$)|\.\.[\\/]\.\.)'
+PS_SYSDIR='[A-Za-z]:\\(Windows|Program Files|Program Files \(x86\)|Users|ProgramData)([[:space:]\\]|$)'
+
+if printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_DEL"; then
+  if printf '%s' "$CMD_NOQUOTE" | grep -qiE -- '-Rec(u|ur|urs|urse)?([[:space:]]|$)' \
+     && printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_ROOT"; then
+    emit_deny "Blocked: recursive PowerShell delete on a drive root, home, or unresolved \$variable. Specify a concrete safe target."
+  fi
+  if printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_SYSDIR"; then
+    emit_deny "Blocked: PowerShell delete targeting a system directory."
+  fi
+fi
+
+# Disk and volume destruction.
+if contains_icmd '(^|[;&|(){}[:space:]])(Format-Volume|Clear-Disk|Remove-Partition|Initialize-Disk|Set-Partition)([[:space:]]|$)'; then
+  emit_deny "Blocked: PowerShell disk or volume operation. Irreversible data loss."
+fi
+
+# Download piped into execution, the iwr | iex form of curl | bash.
+if contains_icmd '(Invoke-WebRequest|Invoke-RestMethod|iwr|irm|curl|wget)[^|]*\|[[:space:]]*(Invoke-Expression|iex)([[:space:]]|$)'; then
+  emit_deny "Blocked: piping downloaded content into Invoke-Expression is dangerous."
+fi
+
+# Security settings and machine state.
+if contains_icmd '(^|[;&|(){}[:space:]])Set-ExecutionPolicy([[:space:]]|$)'; then
+  emit_deny "Blocked: changing the PowerShell execution policy is a security settings change."
+fi
+if contains_icmd '(^|[;&|(){}[:space:]])(Stop-Computer|Restart-Computer)([[:space:]]|$)'; then
+  emit_deny "Blocked: shutting down or restarting the machine."
+fi
+# Registry writes under HKLM, which is machine-wide configuration.
+if contains_icmd '(Remove-Item|Set-ItemProperty|New-ItemProperty|Remove-ItemProperty)[^|;]*HKLM:'; then
+  emit_deny "Blocked: writing to HKLM is a machine-wide system settings change."
+fi
+
 # ── Secret files are never read through the shell ───────────────────────
 # The permissions deny list is tool-scoped (Read/Write/Edit only), and auto mode routes
 # file reads through Bash instead, so `cat keystore.properties` walks straight past it.
 # Only the hook sees the command text, which makes this the sole place the rule can hold.
-SECRET_READERS='cat|head|tail|sed|awk|grep|rg|less|more|strings|xxd|od|base64|cp|mv|scp|curl|Get-Content|Select-String'
+SECRET_READERS='cat|head|tail|sed|awk|grep|rg|less|more|strings|xxd|od|base64|cp|mv|scp|curl|Get-Content|gc|type|Select-String'
 SECRET_TARGETS='keystore\.properties|google-services\.json|\.jks([[:space:]]|$)|\.keystore([[:space:]]|$)|api-probes.\.env|(^|[[:space:]=/])\.env([[:space:]./]|$)'
 # The verb must sit in command position (line start, or after a shell operator), never
 # merely after a space: several reader names are also ordinary English words, so matching

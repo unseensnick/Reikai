@@ -1,0 +1,6 @@
+{
+  "name": "block merging a PR through gh api",
+  "stdin": { "tool_input": { "command": "gh api -X PUT repos/unseensnick/Reikai/pulls/12/merge" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "through the API"]
+}

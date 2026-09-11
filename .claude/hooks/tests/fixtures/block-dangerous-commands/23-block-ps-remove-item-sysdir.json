@@ -1,0 +1,6 @@
+{
+  "name": "block PowerShell delete targeting a system directory",
+  "stdin": { "tool_input": { "command": "Remove-Item -Recurse \"C:\\Windows\\System32\"" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "system directory"]
+}

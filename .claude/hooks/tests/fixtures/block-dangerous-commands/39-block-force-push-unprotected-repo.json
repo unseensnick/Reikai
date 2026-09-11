@@ -1,0 +1,7 @@
+{
+  "name": "block force push even in a repo whose main is unprotected",
+  "stdin": { "cwd": "E:\\Code\\yokai-y2k\\reikai-claude-memories", "tool_input": { "command": "git push --force origin main" } },
+  "env": { "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories" },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "force push"]
+}

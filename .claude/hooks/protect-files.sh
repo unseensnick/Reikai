@@ -20,6 +20,8 @@ fi
 INPUT=$(cat)
 FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
 [ -z "$FILE_PATH" ] && exit 0
+# On Windows the tools pass backslash paths, which no directory pattern below would match.
+FILE_PATH=${FILE_PATH//\\//}
 
 BASENAME=$(basename -- "$FILE_PATH")
 # Case-insensitive comparison copy

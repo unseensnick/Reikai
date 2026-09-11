@@ -1,0 +1,6 @@
+{
+  "name": "block PowerShell recursive delete of $HOME",
+  "stdin": { "tool_input": { "command": "Remove-Item -Recurse -Force $HOME" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "recursive PowerShell delete"]
+}

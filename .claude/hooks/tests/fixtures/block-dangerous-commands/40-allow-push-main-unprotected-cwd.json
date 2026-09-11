@@ -1,0 +1,6 @@
+{
+  "name": "allow push to main when the session sits in an unprotected repo",
+  "stdin": { "cwd": "E:\\Code\\yokai-y2k\\reikai-claude-memories", "tool_input": { "command": "git push origin main" } },
+  "env": { "CLAUDE_UNPROTECTED_REPOS": "reikai-claude-memories" },
+  "expect_exit": 0
+}

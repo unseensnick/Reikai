@@ -1,0 +1,6 @@
+{
+  "name": "block gh pr merge (merging is the owner's call)",
+  "stdin": { "tool_input": { "command": "gh pr merge 12 --merge --repo unseensnick/Reikai" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "owner's call"]
+}

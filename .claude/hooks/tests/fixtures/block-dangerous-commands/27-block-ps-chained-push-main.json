@@ -1,0 +1,6 @@
+{
+  "name": "block push to main when chained after a PowerShell Set-Location",
+  "stdin": { "tool_input": { "command": "Set-Location E:\\Code\\yokai-y2k\\app; git push origin main" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "main"]
+}

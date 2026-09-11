@@ -1,0 +1,6 @@
+{
+  "name": "block PowerShell volume format",
+  "stdin": { "tool_input": { "command": "Format-Volume -DriveLetter D -FileSystem NTFS" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "disk or volume"]
+}

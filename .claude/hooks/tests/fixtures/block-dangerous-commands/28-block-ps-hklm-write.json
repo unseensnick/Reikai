@@ -1,0 +1,6 @@
+{
+  "name": "block PowerShell write to HKLM",
+  "stdin": { "tool_input": { "command": "Set-ItemProperty HKLM:\\SOFTWARE\\Policies -Name Disabled -Value 1" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "HKLM"]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "block a raw-device redirect that follows a harmless one",
+  "stdin": { "tool_input": { "command": "ls 2>/dev/null; echo x > /dev/sda" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "raw device"]
+}

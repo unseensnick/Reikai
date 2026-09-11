@@ -1,0 +1,5 @@
+{
+  "name": "allow docker rm -f (the rm -rf rule must not match it)",
+  "stdin": { "tool_input": { "command": "docker rm -f byparr && docker rmi byparr:latest" } },
+  "expect_exit": 0
+}

@@ -1,0 +1,5 @@
+{
+  "name": "allow a commit message that mentions cat and a secret file in prose",
+  "stdin": { "tool_input": { "command": "git commit -m \"docs: explain why cat keystore.properties is refused\"" } },
+  "expect_exit": 0
+}
