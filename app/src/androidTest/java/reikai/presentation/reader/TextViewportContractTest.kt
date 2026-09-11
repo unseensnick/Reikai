@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.core.view.children
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.Dispatchers
@@ -446,14 +447,36 @@ class TextViewportContractTest(private val renderer: Renderer) {
         settle()
     }
 
+    /** Waits for the window to hold one more chapter, so a case asserting that nothing shows between
+     *  two chapters cannot pass because the second never arrived. Not the fit report [open] waits
+     *  for: native lays out nothing entirely above the screen, so a long chapter there sends none. */
     private fun prepend(chapter: NovelReaderViewModel.LoadedChapter) {
+        val before = chapterCount()
         runBlocking(Dispatchers.Main) { viewport.window.prepend(chapter, readerTestSettings) }
-        settle()
+        awaitChapters(before + 1)
     }
 
     private fun append(chapter: NovelReaderViewModel.LoadedChapter) {
+        val before = chapterCount()
         runBlocking(Dispatchers.Main) { viewport.window.append(chapter, readerTestSettings) }
+        awaitChapters(before + 1)
+    }
+
+    private fun awaitChapters(count: Int) {
+        awaitWhile { chapterCount() < count }
+        assertEquals("the window never grew", count, chapterCount())
         settle()
+    }
+
+    private fun chapterCount(): Int = when (renderer) {
+        Renderer.NATIVE -> {
+            var count = 0
+            instrumentation.runOnMainSync {
+                count = descendants(view).filterIsInstance<RecyclerView>().first().adapter?.itemCount ?: 0
+            }
+            count
+        }
+        Renderer.WEB -> eval("document.querySelectorAll('#rk-chapters .rk-chapter').length").toInt()
     }
 
     /** A one-finger drag through the view, as a finger delivers it to either renderer. */
