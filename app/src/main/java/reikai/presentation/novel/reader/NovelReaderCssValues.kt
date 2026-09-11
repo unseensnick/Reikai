@@ -1,5 +1,8 @@
 package reikai.presentation.novel.reader
 
+import reikai.novel.font.fontDisplayName
+import reikai.novel.font.isGenericFont
+import reikai.novel.font.isSupportedFontFile
 import reikai.presentation.reader.readerDarkPreset
 
 /*
@@ -25,12 +28,31 @@ fun cssTextColor(value: String): String = cssColorOrDefault(value, readerDarkPre
 fun cssTextAlign(value: String): String = if (value in cssTextAlignments) value else "left"
 
 /**
- * A family name as CSS can read it. Kept unquoted the way the stylesheet expects, so the characters
- * that would end the declaration are the ones dropped; an empty result is the reader's own default
- * face, which is what an unset preference already means.
+ * A family name as CSS can read it, quoted or not: the characters that would end the declaration or
+ * the quotes around it are the ones dropped. An empty result is the reader's own default face, which
+ * is what an unset preference already means.
  */
 fun cssFontFamily(value: String): String =
     value.filter { it.isLetterOrDigit() || it == ' ' || it == '-' || it == '_' }.trim()
+
+/**
+ * What a page calls [family]. A font the user added is stored as its file name, and a dot is not
+ * valid in a family name, so the page uses the readable name the picker shows.
+ */
+fun cssFontName(family: String): String =
+    cssFontFamily(if (isSupportedFontFile(family)) fontDisplayName(family) else family)
+
+/**
+ * [family] as a `font-family` value. A name is quoted, because unquoted it has to be a run of
+ * identifiers, and a word that starts with a digit ("Source Sans 3") is not one: the declaration is
+ * dropped and the text falls back. The generic families stay bare, since quoted they name no font.
+ * Safe inside the quotes because [cssFontFamily] drops quotes and backslashes.
+ */
+fun cssFontFamilyValue(family: String): String {
+    if (isGenericFont(family)) return family
+    val name = cssFontName(family)
+    return if (name.isEmpty()) "" else "'$name'"
+}
 
 /**
  * Whether a path can go inside a quoted `url('...')`. The font mirror's path carries a file name the

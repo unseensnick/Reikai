@@ -28,6 +28,7 @@ import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import java.util.UUID
 import kotlin.math.roundToInt
 
 /**
@@ -73,9 +74,6 @@ class NovelWebViewport(
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
-    /** The chapter the document was built around, so a load can be told apart from a re-entry. */
-    private var loadedChapterId: Long? = null
-
     /** The chapter the reader is actually in, which the rail seeks inside of. */
     private var visibleChapterId: Long? = null
 
@@ -95,6 +93,18 @@ class NovelWebViewport(
     private var pageReady = false
     private val pendingWindowVerbs = mutableListOf<String>()
 
+    /**
+     * The document built last, which is the only one whose ready report opens the gate. The page being
+     * replaced can still report after the next load has begun, and a chapter's own script can reach the
+     * bridge too; either one opening it sent the new document's verbs to a page that dropped them.
+     */
+    private var documentToken: String? = null
+
+    /** What the open document's variables were last written from, so an inset that changes after the
+     *  build can be written again. A document rebuilt before its window attached reads an inset of 0. */
+    private var documentSettings: NovelReaderSettings? = null
+    private var documentInset = 0
+
     // Bridge messages arrive on a WebView background thread, so UI-affecting callbacks marshal here.
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -104,7 +114,7 @@ class NovelWebViewport(
     private var faceFamily: String? = null
     private var faceJob: Job? = null
 
-    private val webView = ProgressWebView(context).apply {
+    private val webView = WebView(context).apply {
         setDefaultSettings()
         webViewClient = NovelChapterNavigationClient(context) { loadedBaseUrl }
         // The stylesheet and engine are inlined into the document, so unlike the legacy reader this
@@ -123,18 +133,25 @@ class NovelWebViewport(
                     mainHandler.post { onVisibleChapter(id) }
                 },
                 onProgress = { id, f -> mainHandler.post { onProgressChanged(id, f.toPercent()) } },
-                // Persisted rather than drawn, so it does not need the main thread to be correct.
-                onProgressSettled = { id, f -> onProgressSettled(id, f.toPercent()) },
+                // On the same thread as the live reports, so a live one still queued cannot land after
+                // it and overwrite the settled position.
+                onProgressSettled = { id, f -> mainHandler.post { onProgressSettled(id, f.toPercent()) } },
                 onRetryBoundary = { forward -> mainHandler.post { onRetryBoundary(forward) } },
                 onToggleMenu = { mainHandler.post { onToggleMenu() } },
                 onStepChapter = { forward -> mainHandler.post { onStepChapter(forward) } },
                 onChapterFits = onChapterFits,
                 onChapterEndSeen = onChapterEndSeen,
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
-                onReady = { mainHandler.post { onPageReady() } },
+                onReady = { token -> mainHandler.post { onPageReady(token) } },
             ),
             NovelWebBridge.NAME,
         )
+        // Every layout, because the inset is only known once the window has one and it moves with the
+        // system bars; comparing first keeps an unchanged one from rewriting the page.
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val settings = documentSettings
+            if (settings != null && statusBarHeightPx() != documentInset) applySettings(settings)
+        }
     }
 
     override val view: View
@@ -151,7 +168,7 @@ class NovelWebViewport(
      */
     override fun seekTo(progress: ChapterProgress) {
         if (progress !is ChapterProgress.Percent) return
-        val chapterId = visibleChapterId ?: loadedChapterId ?: return
+        val chapterId = visibleChapterId ?: return
         webView.evaluateJavascript(
             "if (window.rkReader) rkReader.seekWithin(" +
                 "${JSONObject.quote(chapterId.toString())}, ${progress.fraction});",
@@ -199,16 +216,19 @@ class NovelWebViewport(
         hasNext: Boolean,
         settings: NovelReaderSettings,
     ) {
-        loadedChapterId = chapter.chapterId
         visibleChapterId = chapter.chapterId
         // A new document has no engine until it says so, and whatever the old one had queued belongs
         // to a window that is being replaced.
         pageReady = false
         pendingWindowVerbs.clear()
+        val token = UUID.randomUUID().toString()
+        documentToken = token
         // The document is built with this family's face, and any swap still resolving is for the old page.
         faceJob?.cancel()
         faceFamily = settings.fontFamily
         val statusBarPx = statusBarHeightPx()
+        documentSettings = settings
+        documentInset = statusBarPx
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
@@ -217,6 +237,7 @@ class NovelWebViewport(
             NovelWebDocument.build(
                 context = context,
                 chapterId = chapter.chapterId,
+                documentToken = token,
                 chapterTitle = chapter.title,
                 chapterHtml = chapter.html,
                 // Carried into the document rather than scrolled to afterwards, because the page has
@@ -230,13 +251,15 @@ class NovelWebViewport(
                 textSelectable = textSelectable,
             )
         }
-        // Only trust an http(s) base URL. The plugin controls the site URL, and a file:// base would
-        // hand the chapter document a file origin.
-        val safeBaseUrl = chapter.baseUrl
-            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        val safeBaseUrl = safeBaseUrl(chapter)
         loadedBaseUrl = safeBaseUrl
         webView.loadDataWithBaseURL(safeBaseUrl, html, "text/html", "UTF-8", null)
     }
+
+    // Only trust an http(s) base URL. The plugin controls the site URL, and a file:// base would hand
+    // the chapter document a file origin.
+    private fun safeBaseUrl(chapter: NovelReaderViewModel.LoadedChapter): String? =
+        chapter.baseUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
 
     /**
      * Pushes changed display settings into the live document, so a size or colour change reflows in
@@ -246,7 +269,9 @@ class NovelWebViewport(
      * would otherwise find no engine and be dropped with no trace until the next chapter.
      */
     override fun applySettings(settings: NovelReaderSettings) {
-        val variables = NovelWebDocument.variables(settings, statusBarHeightPx())
+        documentSettings = settings
+        documentInset = statusBarHeightPx()
+        val variables = NovelWebDocument.variables(settings, documentInset)
         val behaviour = NovelWebDocument.behaviourJson(settings).toString()
         // A block, since runOrQueue's guard would otherwise cover only the first of the two.
         runOrQueue(
@@ -312,11 +337,15 @@ class NovelWebViewport(
      */
     private fun insert(chapter: NovelReaderViewModel.LoadedChapter, atStart: Boolean) {
         val verb = if (atStart) "prependChapter" else "appendChapter"
+        // Its own base, since the document's is the opened chapter's and a neighbour can come from a
+        // download or, in a merged series, another site.
+        val baseUrl = safeBaseUrl(chapter)?.let(JSONObject::quote) ?: "null"
         runOrQueue(
             "rkReader.$verb(" +
                 "${JSONObject.quote(chapter.chapterId.toString())}, " +
                 "${JSONObject.quote(chapter.title)}, " +
-                "${JSONObject.quote(chapter.html)});",
+                "${JSONObject.quote(chapter.html)}, " +
+                "$baseUrl);",
         )
     }
 
@@ -333,7 +362,8 @@ class NovelWebViewport(
         }
     }
 
-    private fun onPageReady() {
+    private fun onPageReady(token: String) {
+        if (token != documentToken) return
         pageReady = true
         pendingWindowVerbs.forEach { webView.evaluateJavascript("if (window.rkReader) $it", null) }
         pendingWindowVerbs.clear()
@@ -356,11 +386,4 @@ class NovelWebViewport(
     }
 
     private fun Double.toPercent(): Int = (this * 100).roundToInt().coerceIn(0, 100)
-}
-
-/** Exposes the vertical scroll range, which `WebView` keeps protected, so a scrub can land natively. */
-@SuppressLint("ViewConstructor")
-private class ProgressWebView(context: Context) : WebView(context) {
-    val maxScroll: Int
-        get() = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
 }

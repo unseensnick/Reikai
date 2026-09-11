@@ -6,9 +6,18 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__.
+ * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __DOCUMENT_TOKEN__.
  */
 (function () {
+  // The token is in this script's own text. Removed while the engine still runs ahead of the chapter,
+  // so no script the chapter carries can read it out of the page.
+  var self = document.currentScript;
+  if (self && self.parentNode) self.parentNode.removeChild(self);
+
+  // Names this document to the host, whose gate opens only for the document it built last. A ready
+  // report from the page being replaced, or from a chapter's script, carries no such token.
+  var DOCUMENT_TOKEN = '__DOCUMENT_TOKEN__';
+
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
   var CHAPTER_TITLE_ATTR = 'data-rk-chapter-title';
@@ -40,8 +49,12 @@
   var lastResizeAt = 0;
   var framePending = false;
 
+  // Held from before the chapter's scripts run, so one of them replacing the global cannot stand in
+  // for the bridge and read what the engine sends.
+  var nativeBridge = window.ReikaiWeb;
+
   function bridge() {
-    return window.ReikaiWeb;
+    return nativeBridge;
   }
 
   // region geometry
@@ -222,10 +235,12 @@
   // region behaviours core.js used to own
 
   /*
-   * Bolds the opening of each word. The length table is text-vide's own, mirrored from
-   * NovelBionicSpans.boldLengthFor so the two renderers emphasise the same letters.
+   * Bolds the opening of each word. The length table and the word rule are text-vide's own, mirrored
+   * from NovelBionicSpans so the two renderers emphasise the same letters; the androidTest
+   * bionicBoldsTheLettersTheNativeRendererDoes runs both.
    */
   var FIXATION = [0, 4, 12, 17, 24, 29, 35, 42, 48];
+  var WORD = /[\p{L}\p{Nd}]*\p{L}[\p{L}\p{Nd}]*/gu;
 
   function boldLength(wordLength) {
     for (var i = 0; i < FIXATION.length; i++) {
@@ -236,11 +251,13 @@
 
   function applyBionic(root) {
     // A chapter's own script and style blocks are text nodes too, and wrapping them in spans empties
-    // them: an element child is not script or CSS, so the chapter's styling and code were lost.
+    // them: an element child is not script or CSS, so the chapter's styling and code were lost. Text
+    // already inside a span this made is skipped, or switching bionic off and on nests the emphasis.
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (node) {
-        var tag = node.parentNode && node.parentNode.nodeName;
-        return tag === 'SCRIPT' || tag === 'STYLE' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        var parent = node.parentNode;
+        if (!parent || parent.nodeName === 'SCRIPT' || parent.nodeName === 'STYLE') return NodeFilter.FILTER_REJECT;
+        return parent.closest('.rk-bionic') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
       },
     });
     var texts = [];
@@ -248,16 +265,29 @@
       if (walker.currentNode.nodeValue.trim()) texts.push(walker.currentNode);
     }
     texts.forEach(function (node) {
-      if (node.parentNode && node.parentNode.classList &&
-        node.parentNode.classList.contains('rk-bionic')) return;
-      var replacement = document.createElement('span');
-      replacement.className = 'rk-bionic';
-      replacement.innerHTML = node.nodeValue.replace(/[\p{L}\p{Nd}]*\p{L}[\p{L}\p{Nd}]*/gu, function (word) {
-        var n = boldLength(word.length);
-        return n > 0 ? '<b>' + word.slice(0, n) + '</b>' + word.slice(n) : word;
-      });
-      node.parentNode.replaceChild(replacement, node);
+      node.parentNode.replaceChild(emphasised(node.nodeValue), node);
     });
+  }
+
+  // Built from nodes, never markup: the text is already decoded, so a chapter's escaped `&lt;i&gt;`
+  // arrives here as `<i>` and would become a tag.
+  function emphasised(text) {
+    var span = document.createElement('span');
+    span.className = 'rk-bionic';
+    var from = 0;
+    var match;
+    WORD.lastIndex = 0;
+    while ((match = WORD.exec(text)) !== null) {
+      var n = boldLength(match[0].length);
+      if (n === 0) continue;
+      if (match.index > from) span.appendChild(document.createTextNode(text.slice(from, match.index)));
+      var bold = document.createElement('b');
+      bold.textContent = match[0].slice(0, n);
+      span.appendChild(bold);
+      from = match.index + n;
+    }
+    if (from < text.length) span.appendChild(document.createTextNode(text.slice(from)));
+    return span;
   }
 
   /*
@@ -269,7 +299,7 @@
     document.documentElement.classList.toggle('rk-bionic-on', !!settings.bionic);
   }
 
-  function tapZone(x, y) {
+  function tapZone(y) {
     // Thirds vertically, matching the native renderer's own tap rule.
     var third = viewportHeight() / 3;
     if (y < third) return 'up';
@@ -318,10 +348,10 @@
         }
       }
       if (moved || elapsed > 400) return;
-      // A tap on a link is the link's, not the reader's.
-      if (e.target && e.target.closest && e.target.closest('a')) return;
+      // A tap on a link or a button (the failure box's Retry) is that control's, not the reader's.
+      if (e.target && e.target.closest && e.target.closest('a, button')) return;
 
-      var zone = settings.tapToScroll ? tapZone(touch.clientX, touch.clientY) : 'menu';
+      var zone = settings.tapToScroll ? tapZone(touch.clientY) : 'menu';
       if (zone === 'menu') {
         bridge().onToggleMenu();
       } else {
@@ -431,11 +461,12 @@
         return;
       }
     },
-    appendChapter: function (id, title, html) {
-      insertChapter(id, title, html, false);
+    /* baseUrl is the chapter's own, or absent for one with none (a download). */
+    appendChapter: function (id, title, html, baseUrl) {
+      insertChapter(id, title, html, baseUrl, false);
     },
-    prependChapter: function (id, title, html) {
-      insertChapter(id, title, html, true);
+    prependChapter: function (id, title, html, baseUrl) {
+      insertChapter(id, title, html, baseUrl, true);
     },
     /*
      * Why the window stops at an edge. Drawn outside the chapter container, so it can never be
@@ -482,14 +513,41 @@
     },
   };
 
-  function buildChapter(id, title, html) {
+  function buildChapter(id, title, html, baseUrl) {
     var el = document.createElement('div');
     el.className = 'rk-chapter';
     el.setAttribute(CHAPTER_ID_ATTR, String(id));
     el.setAttribute(CHAPTER_TITLE_ATTR, title);
-    el.innerHTML = html;
+    el.appendChild(chapterContent(html, baseUrl));
     if (settings.bionic) applyBionic(el);
     return el;
+  }
+
+  // A value with a scheme, or a fragment, does not depend on a base and is left as written.
+  var HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+
+  /*
+   * The document has one base, the chapter it opened on, so a chapter added by scrolling would resolve
+   * its relative images and links against that chapter's site. They are made absolute against the
+   * chapter's own base first, parsed in a template so nothing is fetched before the rewrite. A chapter
+   * with no base keeps its values as written.
+   */
+  function chapterContent(html, baseUrl) {
+    var template = document.createElement('template');
+    template.innerHTML = html;
+    if (!baseUrl) return template.content;
+    template.content.querySelectorAll('[src], [href]').forEach(function (node) {
+      ['src', 'href'].forEach(function (name) {
+        var value = (node.getAttribute(name) || '').trim();
+        if (!value || value.charAt(0) === '#' || HAS_SCHEME.test(value)) return;
+        try {
+          node.setAttribute(name, new URL(value, baseUrl).href);
+        } catch (e) {
+          // Not a URL either base can make sense of, so it stays as the source wrote it.
+        }
+      });
+    });
+    return template.content;
   }
 
   /*
@@ -529,12 +587,12 @@
    * a backward load lands, so the position is taken back by hand there. Measured both ways in
    * WebViewSeamPositionTest.
    */
-  function insertChapter(id, title, html, atStart) {
+  function insertChapter(id, title, html, baseUrl, atStart) {
     var container = document.getElementById('rk-chapters');
     if (!container || document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]')) {
       return;
     }
-    var chapter = buildChapter(id, title, html);
+    var chapter = buildChapter(id, title, html, baseUrl);
     if (atStart) {
       var heightBefore = documentHeight();
       var topBefore = scrollTop();
@@ -559,20 +617,60 @@
   }
 
   /*
-   * A chapter's own scripts, which innerHTML parses but never runs. The chapter the page opened on
-   * ran its scripts as the document loaded, so a chapter arriving while scrolling gets the same by
-   * being handed fresh script elements. The pipeline strips scripts unless "Run scripts a chapter
-   * embeds" is on, so any found here are ones the reader asked for.
+   * A chapter's own scripts, which a parsed-in chapter never runs. The chapter the page opened on ran
+   * its scripts as the document loaded, so a chapter arriving while scrolling gets the same: fresh
+   * script elements, in order, each one with a source loaded before the next runs, as the parser does.
+   * A created script is otherwise async, so an inline one ran ahead of the library it needs. The
+   * pipeline strips scripts unless "Run scripts a chapter embeds" is on.
    */
   function runScripts(root) {
-    root.querySelectorAll('script').forEach(function (old) {
+    var pending = Array.prototype.slice.call(root.querySelectorAll('script'));
+    (function next() {
+      var old = pending.shift();
+      if (!old) return;
+      // The chapter can be evicted while a script ahead of this one loads.
+      if (!old.isConnected) {
+        next();
+        return;
+      }
       var fresh = document.createElement('script');
       for (var i = 0; i < old.attributes.length; i++) {
         fresh.setAttribute(old.attributes[i].name, old.attributes[i].value);
       }
       fresh.text = old.text;
-      old.parentNode.replaceChild(fresh, old);
-    });
+      if (loadsFromSource(old)) {
+        fresh.addEventListener('load', next);
+        fresh.addEventListener('error', next);
+        old.parentNode.replaceChild(fresh, old);
+        return;
+      }
+      writingInPlace(fresh, function () { old.parentNode.replaceChild(fresh, old); });
+      next();
+    })();
+  }
+
+  /* Whether the browser fetches this script, and so reports a load or an error to wait on. */
+  function loadsFromSource(script) {
+    var type = (script.getAttribute('type') || '').trim().toLowerCase();
+    return script.hasAttribute('src') && !script.hasAttribute('nomodule') &&
+      (type === '' || type === 'module' || /(java|ecma)script/.test(type));
+  }
+
+  /*
+   * document.write from a script the parser is not running opens a new document, which wiped the
+   * reader. While an inserted chapter's inline script runs, what it writes lands where the script
+   * sits, as it would have at parse time. One with a source cannot write at all once parsing is over.
+   */
+  function writingInPlace(script, run) {
+    document.write = document.writeln = function () {
+      script.insertAdjacentHTML('beforebegin', Array.prototype.join.call(arguments, ''));
+    };
+    try {
+      run();
+    } finally {
+      delete document.write;
+      delete document.writeln;
+    }
   }
 
   // endregion
@@ -596,26 +694,35 @@
     }, true);
   });
 
-  if (typeof ResizeObserver === 'function' && document.body) {
-    new ResizeObserver(function () {
-      lastResizeAt = Date.now();
-      rebuildBoundaries();
-    }).observe(document.body);
-  }
-
   installGestures();
   syncBionic();
-  if (settings.bionic) {
-    document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
-  }
-  requestAnimationFrame(function () {
-    rebuildBoundaries();
-    // Where the chapter was left. Applied here rather than by the host, because a scroll issued
-    // against a document that has not laid out yet lands at zero and looks like a lost position.
-    var initial = __INITIAL_FRACTION__;
-    if (initial > 0 && boundaries.length > 0) {
-      window.rkReader.seekWithin(boundaries[0].id, initial);
+
+  /* What needs the chapter parsed, which this script, running in the head, is ahead of. */
+  function start() {
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(function () {
+        lastResizeAt = Date.now();
+        rebuildBoundaries();
+      }).observe(document.body);
     }
-    bridge().onReady();
-  });
+    if (settings.bionic) {
+      document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
+    }
+    requestAnimationFrame(function () {
+      rebuildBoundaries();
+      // Where the chapter was left. Applied here rather than by the host, because a scroll issued
+      // against a document that has not laid out yet lands at zero and looks like a lost position.
+      var initial = __INITIAL_FRACTION__;
+      if (initial > 0 && boundaries.length > 0) {
+        window.rkReader.seekWithin(boundaries[0].id, initial);
+      }
+      bridge().onReady(DOCUMENT_TOKEN);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
 })();

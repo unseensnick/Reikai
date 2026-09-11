@@ -19,7 +19,9 @@ class NovelWebBridge(
     private val onStepChapter: (forward: Boolean) -> Unit,
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
-    private val onReady: () -> Unit,
+    /** Carries the token the document was built with, since the page being replaced and a chapter's
+     *  own script can both reach this method too. */
+    private val onReady: (documentToken: String) -> Unit,
 ) {
 
     @JavascriptInterface
@@ -57,7 +59,7 @@ class NovelWebBridge(
     }
 
     @JavascriptInterface
-    fun onReady() = onReady.invoke()
+    fun onReady(documentToken: String) = onReady.invoke(documentToken)
 
     companion object {
         /** The name the page reaches this by, matching `reader.js`. */

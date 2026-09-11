@@ -50,11 +50,11 @@ html:not(.rk-bionic-on) .rk-bionic b {
 }
 
 /*
- * A plain-text chapter is rebuilt into paragraphs with no styling of its own, so it needs the
- * wrapping the source would have given it. Carried from the island the vendored index.css held.
+ * A plain-text chapter is rebuilt into paragraphs with no styling of its own, so a long unbroken run
+ * breaks rather than widening the page. Its line breaks arrive as <br>, so white space collapses here
+ * as it does in the native renderer; keeping it drew runs of spaces and indents that one drops.
  */
 [data-reikai-plain-text] p {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
@@ -138,13 +138,6 @@ td {
 
 th {
   font-weight: bold;
-}
-
-/* The paragraph read-aloud is voicing. Unused until the read-aloud re-host, styled here so the
-   renderer that gets it does not also have to add the rule. */
-.rk-highlight {
-  background-color: var(--rk-text);
-  color: var(--rk-background);
 }
 
 /* Why the window stops at an edge. Outside the chapter container on purpose, so its height is never

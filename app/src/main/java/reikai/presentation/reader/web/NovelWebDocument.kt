@@ -2,11 +2,10 @@ package reikai.presentation.reader.web
 
 import android.content.Context
 import org.json.JSONObject
-import reikai.novel.font.fontDisplayName
-import reikai.novel.font.isSupportedFontFile
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.novel.reader.cssBackgroundColor
-import reikai.presentation.novel.reader.cssFontFamily
+import reikai.presentation.novel.reader.cssFontFamilyValue
+import reikai.presentation.novel.reader.cssFontName
 import reikai.presentation.novel.reader.cssTextAlign
 import reikai.presentation.novel.reader.cssTextColor
 import reikai.presentation.novel.reader.isSafeInCssUrl
@@ -26,6 +25,8 @@ object NovelWebDocument {
     fun build(
         context: Context,
         chapterId: Long,
+        /** Echoed by the page's ready report, so only this document's engine can open the host's gate. */
+        documentToken: String,
         chapterTitle: String,
         chapterHtml: String,
         initialFraction: Float,
@@ -46,12 +47,16 @@ object NovelWebDocument {
                 "__SWIPE__" to settings.swipeGestures.toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
+                "__DOCUMENT_TOKEN__" to jsString(documentToken),
                 // The seam names both chapters under these, the way TransitionText does. Resolved
                 // here because the page has no resources of its own.
                 "__LABEL_FINISHED__" to jsString(context.stringResource(MR.strings.transition_finished)),
                 "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
             ),
         )
+        // The engine is in the head so it runs before the chapter: it holds the bridge and its token
+        // before any script the chapter carries can reach them, and a chapter whose markup never
+        // closes (a stray `<plaintext>`) cannot swallow the engine as text.
         return """
             <!DOCTYPE html>
             <html>
@@ -64,13 +69,13 @@ object NovelWebDocument {
             ${overrides(useOriginalFonts, sourceCssPriority)}
             ${if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }"}
             </style>
+            <script>$js</script>
             </head>
             <body>
             <div id="rk-chapters">
             <div class="rk-chapter" data-rk-chapter-id="$chapterId"
                  data-rk-chapter-title="${attribute(chapterTitle)}">$chapterHtml</div>
             </div>
-            <script>$js</script>
             </body>
             </html>
         """.trimIndent()
@@ -86,7 +91,7 @@ object NovelWebDocument {
         append("--rk-font-size:").append(settings.fontSize).append("px;")
         append("--rk-line-height:").append(settings.lineHeight).append(';')
         append("--rk-text-align:").append(cssTextAlign(settings.textAlign)).append(';')
-        append("--rk-font-family:").append(webFontFamily(settings.fontFamily).ifEmpty { "serif" }).append(';')
+        append("--rk-font-family:").append(cssFontFamilyValue(settings.fontFamily).ifEmpty { "serif" }).append(';')
         append("--rk-margin-top:").append(settings.margins.top).append("px;")
         append("--rk-margin-bottom:").append(settings.margins.bottom).append("px;")
         append("--rk-margin-left:").append(settings.margins.left).append("px;")
@@ -170,14 +175,6 @@ object NovelWebDocument {
         if (source == null) return ""
         // Dropping the declaration loses the face; letting it through loses the whole style block.
         if (!isSafeInCssUrl(source)) return ""
-        return "@font-face { font-family: '${webFontFamily(family)}'; src: url('$source'); }"
+        return "@font-face { font-family: '${cssFontName(family)}'; src: url('$source'); }"
     }
-
-    /**
-     * What the page is told the family is called. A font the user added is stored as its file name,
-     * and `font-family: Merriweather.ttf` is not a valid family, so the face would be declared and
-     * never referenced. The readable name has no dot in it.
-     */
-    private fun webFontFamily(family: String): String =
-        cssFontFamily(if (isSupportedFontFile(family)) fontDisplayName(family) else family)
 }

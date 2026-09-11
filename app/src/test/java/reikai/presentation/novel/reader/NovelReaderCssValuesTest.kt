@@ -1,8 +1,9 @@
 package reikai.presentation.novel.reader
 
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldNotContain
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.presentation.reader.readerDarkPreset
 
 /**
@@ -55,8 +56,38 @@ class NovelReaderCssValuesTest {
     }
 
     @Test
-    fun `a family name cannot end the declaration`() {
-        cssFontFamily("x; } </style><script>alert(1)</script>") shouldNotContain "<"
+    fun `a family name cannot end the style block`() {
+        cssFontFamily("x; } </style><script>alert(1)</script>") shouldBe "x  stylescriptalert1script"
+    }
+
+    /** What ends the declaration the name sits in, or the quotes a face or a family value puts round it. */
+    @ParameterizedTest
+    @ValueSource(strings = [";", "}", "'", "\"", "\\"])
+    fun `a family name cannot end the declaration or its quotes`(character: String) {
+        cssFontFamily("a${character}b") shouldBe "ab"
+    }
+
+    /** Unquoted, a word starting with a digit is not an identifier, and the whole declaration is dropped. */
+    @Test
+    fun `a family value quotes a name with a digit-led word`() {
+        cssFontFamilyValue("Source Sans 3") shouldBe "'Source Sans 3'"
+    }
+
+    /** A downloaded font is stored under its file name, which is not a family name at all. */
+    @Test
+    fun `a family value names a user's font file by its readable name`() {
+        cssFontFamilyValue("Source_Sans_3.ttf") shouldBe "'Source Sans 3'"
+    }
+
+    /** Quoted, a generic family is a font called "serif", which nothing has. */
+    @Test
+    fun `a family value leaves a generic family bare`() {
+        cssFontFamilyValue("sans-serif") shouldBe "sans-serif"
+    }
+
+    @Test
+    fun `a family value for no font is empty`() {
+        cssFontFamilyValue("") shouldBe ""
     }
 
     /** An unset font is the reader's own default face, so an empty result must stay empty rather

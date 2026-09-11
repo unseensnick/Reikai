@@ -404,6 +404,7 @@ class WebViewSeamPositionTest {
             NovelWebDocument.build(
                 context = instrumentation.targetContext,
                 chapterId = 1L,
+                documentToken = "seam-test",
                 chapterTitle = "Chapter 1",
                 chapterHtml = chapterBody(marker = true),
                 initialFraction = 0f,
@@ -457,7 +458,7 @@ class WebViewSeamPositionTest {
     /** The page calls these on every frame; without them the engine throws inside its own rAF. */
     private inner class EngineBridge {
         @JavascriptInterface
-        fun onReady() = engineReady.countDown()
+        fun onReady(documentToken: String) = engineReady.countDown()
 
         @JavascriptInterface
         fun onVisibleChapter(chapterId: String) = Unit
