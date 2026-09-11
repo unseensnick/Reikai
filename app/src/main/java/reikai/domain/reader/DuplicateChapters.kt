@@ -23,3 +23,26 @@ fun <T> List<T>.removeDuplicateChapters(
             ?: chapters.first()
     }
 }
+
+/**
+ * What finishing [read] also marks read under "mark duplicate read chapter as read", [read] excluded.
+ * Within its own entry that is every chapter with the same recognised number, upstream's rule, which is
+ * how another scanlator's copy is reached. Across a merge group a number identifies nothing, so there
+ * only [stitchCopies], the chapters the stored stitch places with [read], count.
+ */
+fun <T> List<T>.duplicatesOfRead(
+    read: T,
+    stitchCopies: Set<Long>,
+    numberOf: (T) -> Double,
+    idOf: (T) -> Long,
+    ownerOf: (T) -> Long,
+): List<T> {
+    val readId = idOf(read)
+    val readOwner = ownerOf(read)
+    // Narrowed to Float as upstream compares: a source-reported number is a float, a parsed one a double.
+    val readNumber = numberOf(read).toFloat()
+    return filter {
+        val sameNumberInEntry = readNumber >= 0f && ownerOf(it) == readOwner && numberOf(it).toFloat() == readNumber
+        idOf(it) != readId && (idOf(it) in stitchCopies || sameNumberInEntry)
+    }
+}

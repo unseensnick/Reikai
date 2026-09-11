@@ -109,7 +109,7 @@ every release now also ships a foss build with neither in it.
 
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **On a merged series, your library, its page and History open the whole group, while Updates, source chips and new-chapter notifications open just that one source.** The reader follows whichever you came from.
-- **Reading a chapter now marks it read on a merged series' other sources too, by default; change it under Settings -> Library.** The setting is "Mark duplicate read chapter as read".
+- **Reading a chapter now marks its duplicates read by default, whether a second listing of it in the same series or its copy on a merged series' other sources; change it under Settings -> Library.** The setting is "Mark duplicate read chapter as read".
 - **Removing a merged series from your library now ticks "All grouped sources" by default.** Untick it to remove only the source shown on the cover.
 - **Settings -> Advanced now has one "Clear all merges" action per content type instead of two.** The two did the same thing.
 

@@ -80,6 +80,7 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
+import reikai.domain.reader.duplicatesOfRead
 import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.removeDuplicateChapters
@@ -249,19 +250,25 @@ class ReaderViewModel(
     /** RK: read, bookmarked and on disk as the group answers them, for the rows in [shown]. Resolved
      *  against [shown] rather than reused from the group, whose own set names the rows the merged list
      *  shows: in source scope those are not the rows here, and the answer came back empty. */
-    private class GroupFlags(val read: Set<Long>, val bookmarked: Set<Long>, val downloaded: Set<Long>)
+    private class GroupFlags(val read: Set<Long>, val bookmarked: Set<Long>, downloaded: () -> Set<Long>) {
+        // Lazy because only a downloaded filter reads it, and answering probes the download cache once
+        // for every chapter of every grouped source.
+        val downloaded by lazy(downloaded)
+    }
 
     private fun flagsInOtherSources(group: MergedChapterProvider.Group?, shown: List<Chapter>): GroupFlags {
         val pooled = group?.pooledChapters ?: shown
-        val downloaded = downloadManager.downloadedChapterIds(pooled) { mangaForChapterId(it.mangaId) }
+        val onDisk = { downloadManager.downloadedChapterIds(pooled) { mangaForChapterId(it.mangaId) } }
         if (group == null) {
-            return GroupFlags(read = emptySet(), bookmarked = emptySet(), downloaded = downloaded)
+            return GroupFlags(read = emptySet(), bookmarked = emptySet(), downloaded = onDisk)
         }
         return GroupFlags(
             read = flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }, { it.read }),
             bookmarked = flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }, { it.bookmark }),
-            downloaded = downloaded +
-                flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }) { it.id in downloaded },
+            downloaded = {
+                val downloaded = onDisk()
+                downloaded + flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }) { it.id in downloaded }
+            },
         )
     }
 
@@ -290,8 +297,8 @@ class ReaderViewModel(
     private var chapterToDownload: Download? = null
 
     private val unfilteredChapterList by lazy {
-        // RK: span the whole merge group so "mark same-number duplicates read" reaches sibling
-        // sources too; for an unmerged manga this is just its own chapters, as before.
+        // RK: span the whole merge group so the duplicate-read pass reaches the stitch's copies on
+        // sibling sources too; for an unmerged manga this is just its own chapters, as before.
         val ids = mergedGroup?.mangaById?.keys ?: setOf(manga!!.id)
         runBlocking { ids.flatMap { getChaptersByMangaId.await(it, applyScanlatorFilter = false) } }
     }
@@ -346,14 +353,20 @@ class ReaderViewModel(
                 val filteredChapters = chapters.filterNot {
                     val isRead = it.read || it.id in flags.read
                     val isBookmarked = it.bookmark || it.id in flags.bookmarked
-                    val isDownloaded = it.id in flags.downloaded
                     when {
                         readerPreferences.skipRead.get() && isRead -> true
                         readerPreferences.skipFiltered.get() -> {
+                            // RK: flags.downloaded is read only behind a downloaded filter, so it stays unprobed.
                             (manga.unreadFilterRaw == Manga.CHAPTER_SHOW_READ && !isRead) ||
                                 (manga.unreadFilterRaw == Manga.CHAPTER_SHOW_UNREAD && isRead) ||
-                                (manga.downloadedFilterRaw == Manga.CHAPTER_SHOW_DOWNLOADED && !isDownloaded) ||
-                                (manga.downloadedFilterRaw == Manga.CHAPTER_SHOW_NOT_DOWNLOADED && isDownloaded) ||
+                                (
+                                    manga.downloadedFilterRaw == Manga.CHAPTER_SHOW_DOWNLOADED &&
+                                        it.id !in flags.downloaded
+                                    ) ||
+                                (
+                                    manga.downloadedFilterRaw == Manga.CHAPTER_SHOW_NOT_DOWNLOADED &&
+                                        it.id in flags.downloaded
+                                    ) ||
                                 (manga.bookmarkedFilterRaw == Manga.CHAPTER_SHOW_BOOKMARKED && !isBookmarked) ||
                                 (manga.bookmarkedFilterRaw == Manga.CHAPTER_SHOW_NOT_BOOKMARKED && isBookmarked)
                         }
@@ -705,9 +718,12 @@ class ReaderViewModel(
             // target is the group's own cross-source list rather than the next chapter's source alone.
             // The group's list, not the reader's: that one is narrowed by the display filters, and in
             // downloaded-only mode it holds nothing left to fetch.
-            // The group's list can only answer for a chapter it kept: a source-scoped session reads its
-            // own source's rows, and the stitch may stand in for this one with a sibling's copy.
-            val group = mergedGroup?.takeIf { it.isMerged && it.chapters.any { c -> c.id == nextChapter.id } }
+            // Only a group-scoped session reads that list. A source-scoped one pages over its own
+            // source's rows, so walking the group's would queue a sibling's chapters it never stops on
+            // and leave its own next ones out. And the list can only answer for a chapter it kept.
+            val group = mergedGroup?.takeIf {
+                !sourceScoped && it.isMerged && it.chapters.any { c -> c.id == nextChapter.id }
+            }
             val chaptersToDownload = if (group != null) {
                 group.chapters.asReversed().asSequence()
                     .dropWhile { it.id != nextChapter.id }
@@ -822,13 +838,19 @@ class ReaderViewModel(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
         if (!markDuplicateAsRead) return
 
-        // RK: the group's other copies of THIS chapter, taken from the stored stitch rather than by
-        // matching numbers: two sources of one series count differently, so a number match marked a
-        // chapter several along on the sibling. Empty when unmerged, which is the upstream behaviour.
-        val readChapterId = readerChapter.chapter.id ?: return
-        val copies = groupCopyIds(readChapterId).toSet()
+        // RK: upstream's same-number match, kept inside the chapter's own entry, plus the group's copies
+        // the stored stitch places with it. A number match across sources marked a chapter several
+        // along on the sibling, since two sources of one series count differently.
+        val readChapter = readerChapter.chapter.toDomainChapter() ?: return
         val duplicateUnreadChapters = unfilteredChapterList
-            .filter { !it.read && it.id in copies && it.id != readChapterId }
+            .duplicatesOfRead(
+                readChapter,
+                groupCopyIds(readChapter.id).toSet(),
+                numberOf = { it.chapterNumber },
+                idOf = { it.id },
+                ownerOf = { it.mangaId },
+            )
+            .filterNot { it.read }
             .map { ChapterUpdate(id = it.id, read = true) }
         updateChapter.awaitAll(duplicateUnreadChapters)
     }
