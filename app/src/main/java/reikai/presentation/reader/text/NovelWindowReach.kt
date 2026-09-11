@@ -26,4 +26,13 @@ object NovelWindowReach {
         }
         return reach
     }
+
+    /**
+     * Whether the chapter before the one being read may join the window yet: once every chapter of the
+     * [forward] reach has [resolved], arrived or failed. A chapter added above keeps the reader's place
+     * only while there is room below to scroll into, which an opened chapter shorter than the screen
+     * lacks until the ones after it are there. One the window [alreadyHeld] stays.
+     */
+    fun previousMayJoin(forward: List<Long>, resolved: (Long) -> Boolean, alreadyHeld: Boolean): Boolean =
+        alreadyHeld || forward.all(resolved)
 }

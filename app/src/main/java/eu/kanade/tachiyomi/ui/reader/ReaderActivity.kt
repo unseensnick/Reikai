@@ -16,6 +16,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.LAYER_TYPE_HARDWARE
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -127,6 +128,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -158,6 +160,8 @@ class ReaderActivity : BaseActivity() {
             }
         }
 
+        // RK -->
+
         /**
          * The novel entry into the same host. Deliberately not an overload of [newIntent]: a novel
          * launch writes no `"manga"` extra, so a caller that confuses the two gets a compile error
@@ -176,7 +180,10 @@ class ReaderActivity : BaseActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
+        // RK <--
     }
+
+    // RK -->
 
     /**
      * Which entry this launch names, or null when it names none. Falls back to the bare `"manga"`
@@ -185,6 +192,7 @@ class ReaderActivity : BaseActivity() {
      */
     private fun Intent.entryId(): EntryId? =
         readEntryId() ?: getLongExtra("manga", -1L).takeIf { it != -1L }?.let(EntryId::Manga)
+    // RK <--
 
     private val graph: AppGraph by lazy { metroGraph() }
 
@@ -614,6 +622,8 @@ class ReaderActivity : BaseActivity() {
         readingModeToast?.cancel()
     }
 
+    // RK --> the novel session's host side: the window protocol with the model, and the cutout inset.
+
     /**
      * Hands each chapter the novel model loads to whichever text renderer is installed. How that
      * becomes pixels is the viewport's business; the host only resolves the theme, which it must,
@@ -624,11 +634,12 @@ class ReaderActivity : BaseActivity() {
         // "Auto" resolves to a preset here; the stored colours are only what a manual choice left
         // behind, so a document built from them would show the wrong shade.
         val resolvedSettings = model.settings.map { it.resolvedForSystemTheme(isNightMode()) }
-        // One collector for both, so an arriving neighbour can never overtake the open that
-        // invalidated it. A renderer without a window slot sees only the anchor, which is the whole
-        // window it ever gets.
+        // One collector for the load and the window verbs, so an arriving neighbour can never overtake
+        // the open that invalidated it.
         val window = viewport.window
         var rendered = emptyList<Long>()
+        // Starts unseen, so an Activity rebuilt around a live session renders its window again, at
+        // where the reader is rather than where the chapter was opened (landingOf).
         var renderedGeneration = -1
         model.window
             .filter { it.chapters.isNotEmpty() }
@@ -637,17 +648,12 @@ class ReaderActivity : BaseActivity() {
                 val opened = state.generation != renderedGeneration
                 if (opened) {
                     renderedGeneration = state.generation
-                    val anchor = state.chapters.first { it.chapterId == state.anchorId }
-                    val neighbours = model.chapterNeighbours.value
-                    viewport.load(
-                        chapter = anchor,
-                        hasPrevious = neighbours.previous != null,
-                        hasNext = neighbours.next != null,
-                        settings = settings,
-                    )
+                    val anchor = model.landingOf(state)
+                    viewport.load(anchor, settings)
+                    // The renderer has let go of the window it had, so its reports count again.
+                    model.rendererLanded(state.generation)
                     rendered = listOf(anchor.chapterId)
                 }
-                if (window == null) return@onEach
                 val wanted = state.chapters.map { it.chapterId }
                 val byId = state.chapters.associateBy { it.chapterId }
                 NovelWindowDiff.plan(rendered, wanted).forEach { step ->
@@ -701,6 +707,7 @@ class ReaderActivity : BaseActivity() {
             ?.getInsets(WindowInsetsCompat.Type.displayCutout())
         return ((insets?.top ?: 0) / resources.displayMetrics.density).roundToInt()
     }
+    // RK <--
 
     // RK --> the activity is singleTask, so a launch while it is already alive is delivered here
     // instead of building a new instance. Without this the new intent was dropped and the reader
@@ -735,6 +742,7 @@ class ReaderActivity : BaseActivity() {
         super.onPause()
     }
 
+    // RK --> whether the reader is on screen, which pauses novel auto-scroll behind another app.
     override fun onStart() {
         super.onStart()
         isOnScreen.value = true
@@ -744,6 +752,7 @@ class ReaderActivity : BaseActivity() {
         isOnScreen.value = false
         super.onStop()
     }
+    // RK <--
 
     /**
      * Set menu visibility again on activity resume to apply immersive mode again if needed.
@@ -751,7 +760,8 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onResume() {
         super.onResume()
-        viewModel.restartReadTimer()
+        // RK: whichever session this is restarts its own clock, as onPause stamps its own history.
+        novelSession?.viewModel?.restartReadTimer() ?: viewModel.restartReadTimer()
         setMenuVisibility(viewModel.state.value.menuVisible)
     }
 
@@ -806,8 +816,35 @@ class ReaderActivity : BaseActivity() {
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val handled = engine.viewport.value?.handleKeyEvent(event) ?: false
+        // RK: a key a novel page takes scrolls it, which is the reader moving (readerMoved).
+        if (handled) novelSession?.viewModel?.readerMoved()
         return handled || super.dispatchKeyEvent(event)
     }
+
+    // RK --> a novel open holds a chapter it landed in until the reader moves the page, and every
+    // drag in the reader, the rail's included, passes through here before any view sees it.
+    private var novelTouchDownX = 0f
+    private var novelTouchDownY = 0f
+    private val touchSlop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        novelSession?.let { session ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    novelTouchDownX = ev.x
+                    novelTouchDownY = ev.y
+                }
+                // Past the slop only: a tap that opens the menu moves nothing.
+                MotionEvent.ACTION_MOVE -> if (
+                    abs(ev.x - novelTouchDownX) > touchSlop || abs(ev.y - novelTouchDownY) > touchSlop
+                ) {
+                    session.viewModel.readerMoved()
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+    // RK <--
 
     /**
      * Dispatches a generic motion event. If the viewer doesn't handle it, call the default

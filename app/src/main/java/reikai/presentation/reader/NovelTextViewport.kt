@@ -229,12 +229,7 @@ class NovelTextViewport(
     /** A chapter is one vertically scrolling column, so there is no right-to-left shape to report. */
     override val isRtl: Boolean get() = false
 
-    override suspend fun load(
-        chapter: NovelReaderViewModel.LoadedChapter,
-        hasPrevious: Boolean,
-        hasNext: Boolean,
-        settings: NovelReaderSettings,
-    ) {
+    override suspend fun load(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
         // Before the suspension below, so a change that lands during it is not overwritten with this.
         this.settings = settings
         warmFont()

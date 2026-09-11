@@ -32,4 +32,30 @@ class NovelWindowReachTest {
     fun `no next chapter reaches nothing`() {
         NovelWindowReach.forward(next = null, after = after, fitsOnScreen = { true }) shouldBe emptyList()
     }
+
+    @Test
+    fun `the chapter before waits while the next one is still arriving`() {
+        NovelWindowReach.previousMayJoin(forward = listOf(3L), resolved = { false }, alreadyHeld = false) shouldBe false
+    }
+
+    @Test
+    fun `the chapter before joins once the next one has resolved`() {
+        NovelWindowReach.previousMayJoin(forward = listOf(3L), resolved = { true }, alreadyHeld = false) shouldBe true
+    }
+
+    @Test
+    fun `the chapter before waits for every chapter of the reach`() {
+        val onlyTheNext: (Long) -> Boolean = { it == 3L }
+        NovelWindowReach.previousMayJoin(listOf(3L, 4L), onlyTheNext, alreadyHeld = false) shouldBe false
+    }
+
+    @Test
+    fun `the chapter before joins at once at the end of the novel`() {
+        NovelWindowReach.previousMayJoin(forward = emptyList(), resolved = { false }, alreadyHeld = false) shouldBe true
+    }
+
+    @Test
+    fun `a chapter before that the window already holds stays`() {
+        NovelWindowReach.previousMayJoin(forward = listOf(3L), resolved = { false }, alreadyHeld = true) shouldBe true
+    }
 }

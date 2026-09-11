@@ -128,14 +128,23 @@ class NovelWebViewport(
         }
         addJavascriptInterface(
             NovelWebBridge(
+                // Where the reader is comes only from the document built last, which reports ready
+                // before anything else: the page being replaced goes on reporting until it unloads,
+                // and the model has already let go of the window it describes.
                 onVisibleChapter = { id ->
-                    visibleChapterId = id
-                    mainHandler.post { onVisibleChapter(id) }
+                    mainHandler.post {
+                        if (pageReady) {
+                            visibleChapterId = id
+                            onVisibleChapter(id)
+                        }
+                    }
                 },
-                onProgress = { id, f -> mainHandler.post { onProgressChanged(id, f.toPercent()) } },
+                onProgress = { id, f -> mainHandler.post { if (pageReady) onProgressChanged(id, f.toPercent()) } },
                 // On the same thread as the live reports, so a live one still queued cannot land after
                 // it and overwrite the settled position.
-                onProgressSettled = { id, f -> mainHandler.post { onProgressSettled(id, f.toPercent()) } },
+                onProgressSettled = { id, f ->
+                    mainHandler.post { if (pageReady) onProgressSettled(id, f.toPercent()) }
+                },
                 onRetryBoundary = { forward -> mainHandler.post { onRetryBoundary(forward) } },
                 onToggleMenu = { mainHandler.post { onToggleMenu() } },
                 onStepChapter = { forward -> mainHandler.post { onStepChapter(forward) } },
@@ -210,12 +219,7 @@ class NovelWebViewport(
      * off the main thread because a downloaded chapter has its images inlined and the string runs to
      * megabytes.
      */
-    override suspend fun load(
-        chapter: NovelReaderViewModel.LoadedChapter,
-        hasPrevious: Boolean,
-        hasNext: Boolean,
-        settings: NovelReaderSettings,
-    ) {
+    override suspend fun load(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
         visibleChapterId = chapter.chapterId
         // A new document has no engine until it says so, and whatever the old one had queued belongs
         // to a window that is being replaced.

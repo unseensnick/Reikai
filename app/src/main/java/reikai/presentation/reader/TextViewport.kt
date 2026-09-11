@@ -3,8 +3,8 @@ package reikai.presentation.reader
 import reikai.presentation.novel.reader.NovelReaderSettings
 
 /**
- * What a viewport answers when it renders text rather than images, so the host can drive any text
- * renderer: today the WebView, next the native one. Kept off [ReaderViewport] so an image viewer is
+ * What a viewport answers when it renders text rather than images, so the host drives the WebView
+ * and the native renderer the same way. Kept off [ReaderViewport] so an image viewer is
  * never made to declare a contract it has no answer for.
  *
  * How a chapter becomes pixels is the implementation's business, which is why [load] takes the
@@ -13,18 +13,14 @@ import reikai.presentation.novel.reader.NovelReaderSettings
 interface TextViewport {
 
     /**
-     * Renders [chapter]. The neighbour flags are the session's, not the chapter's, so a renderer that
-     * offers its own way forward can show it without asking the model.
+     * Starts over on [chapter] alone, at its [NovelReaderViewModel.LoadedChapter.progressPercent].
+     * Once this returns, nothing the renderer reports is about the chapters it held before: the host
+     * tells the model so, and the model takes the renderer's word again from there.
      *
      * Suspending because building the document is proportional to the chapter, and a downloaded one
      * carries its images inline. Implementations do that work off the main thread.
      */
-    suspend fun load(
-        chapter: NovelReaderViewModel.LoadedChapter,
-        hasPrevious: Boolean,
-        hasNext: Boolean,
-        settings: NovelReaderSettings,
-    )
+    suspend fun load(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings)
 
     /**
      * Applies changed display settings to what is already rendered, so a size or colour change lands
@@ -39,12 +35,8 @@ interface TextViewport {
      */
     fun setAutoScroll(running: Boolean, pixelsPerFrame: Float)
 
-    /**
-     * How this renderer holds more than one chapter, or null when it shows one at a time. A slot
-     * rather than a flag, so a renderer that cannot do this is absent from the feature instead of
-     * answering its verbs with nothing.
-     */
-    val window: ChapterWindow? get() = null
+    /** How this renderer holds more than one chapter, which is how the host grows it across a seam. */
+    val window: ChapterWindow
 }
 
 /**

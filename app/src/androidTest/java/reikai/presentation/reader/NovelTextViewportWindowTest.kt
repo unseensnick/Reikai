@@ -243,7 +243,10 @@ class NovelTextViewportWindowTest {
         open(LONG, long("current"))
         scrollToTop("current 60.")
         instrumentation.runOnMainSync {
-            viewport.setBoundaryFailures(NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L), null)
+            viewport.setBoundaryFailures(
+                NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L, chapterId = PREVIOUS),
+                null,
+            )
         }
         settle()
         assertEquals(0, shownAt("current 60.")?.top)
@@ -258,7 +261,10 @@ class NovelTextViewportWindowTest {
         scrollToTop("current 60.")
         instrumentation.runOnMainSync {
             viewport.evict(NEXT)
-            viewport.setBoundaryFailures(NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L), null)
+            viewport.setBoundaryFailures(
+                NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L, chapterId = PREVIOUS),
+                null,
+            )
         }
         settle()
         assertEquals(0, shownAt("current 60.")?.top)
@@ -335,7 +341,7 @@ class NovelTextViewportWindowTest {
 
     private fun open(id: Long, html: String, settings: NovelReaderSettings = readerTestSettings) {
         runBlocking(Dispatchers.Main) {
-            viewport.load(chapter(id, html), hasPrevious = true, hasNext = false, settings = settings)
+            viewport.load(chapter(id, html), settings)
         }
         awaitRendered(id)
     }

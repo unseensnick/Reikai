@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -35,6 +36,9 @@ class NovelWebViewportGateTest {
     /** What the host would say the cutout inset is, which a test can change after a build. */
     @Volatile
     private var inset = 0
+
+    /** Every chapter the viewport told the host the reader is in. */
+    private val visibleReports = CopyOnWriteArrayList<Long>()
 
     private val webView: WebView get() = viewport.view as WebView
 
@@ -61,7 +65,7 @@ class NovelWebViewportGateTest {
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = {},
-                onVisibleChapter = {},
+                onVisibleChapter = { visibleReports += it },
                 onRetryBoundary = {},
                 statusBarHeightPx = { inset },
                 onChapterFits = { _, _ -> },
@@ -87,7 +91,7 @@ class NovelWebViewportGateTest {
         openAndAwaitReady(1L)
         instrumentation.runOnMainSync {
             scope.launch {
-                viewport.load(chapter(3L), hasPrevious = false, hasNext = false, settings = readerTestSettings)
+                viewport.load(chapter(3L), readerTestSettings)
             }
             scope.launch { viewport.append(chapter(4L), readerTestSettings) }
         }
@@ -103,11 +107,29 @@ class NovelWebViewportGateTest {
             // Held, so that report is queued ahead of anything the next load posts to this thread.
             Thread.sleep(REPORT_QUEUED_MS)
             scope.launch {
-                viewport.load(chapter(3L), hasPrevious = false, hasNext = false, settings = readerTestSettings)
+                viewport.load(chapter(3L), readerTestSettings)
             }
             scope.launch { viewport.append(chapter(4L), readerTestSettings) }
         }
         assertEquals("3,4", awaitChapters("3,4"))
+    }
+
+    /**
+     * The page being replaced goes on reporting until it unloads, about a window the model has already
+     * let go of. Passed on, it moved the reader back to the chapter they had just left.
+     */
+    @Test
+    fun aChapterNamedByThePageBeingReplacedIsNotPassedOn() {
+        openAndAwaitReady(1L)
+        // The first page names its chapter once the second one lands under it.
+        Thread.sleep(REPORT_QUEUED_MS)
+        visibleReports.clear()
+        instrumentation.runOnMainSync {
+            scope.launch { viewport.load(chapter(3L), readerTestSettings) }
+            webView.evaluateJavascript("window.ReikaiWeb.onVisibleChapter('1')", null)
+        }
+        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(false, 1L in visibleReports)
     }
 
     /** A document rebuilt as the Activity is recreated is built before its window has an inset. */
@@ -126,7 +148,7 @@ class NovelWebViewportGateTest {
     private fun openAndAwaitReady(id: Long) {
         instrumentation.runOnMainSync {
             scope.launch {
-                viewport.load(chapter(id), hasPrevious = false, hasNext = false, settings = readerTestSettings)
+                viewport.load(chapter(id), readerTestSettings)
             }
             scope.launch { viewport.append(chapter(id + 1), readerTestSettings) }
         }

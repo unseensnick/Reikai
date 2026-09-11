@@ -48,6 +48,7 @@ import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerLightPreset
 import reikai.presentation.reader.readerThemePresets
+import reikai.presentation.reader.text.NovelResume
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
@@ -588,6 +589,12 @@ class NovelReaderScreenModel(
         chapterReadStartTime = null
     }
 
+    /** The screen calls this on resume, since leaving it stamped [updateHistory] and stopped the clock.
+     *  The twin of ReaderViewModel.restartReadTimer. */
+    fun restartReadTimer() {
+        if (loadedId != null) chapterReadStartTime = System.currentTimeMillis()
+    }
+
     /** The id one step from [currentId] in reading order. Duplicates are already gone from [orderedIds],
      *  removed when it was built, so this never has to walk past them. Forward honours the skip settings
      *  and back does not, so the chapter just finished stays reachable; see [neighbourChapter]. */
@@ -818,8 +825,7 @@ class NovelReaderScreenModel(
                 chapterTitle = chapter.name,
                 html = html,
                 baseUrl = baseUrl,
-                // Stored as 0..10000 (hundredths of a percent); the web layer wants 0..100.
-                initialProgressPercent = (chapter.lastTextProgress / 100).coerceIn(0L, 100L).toInt(),
+                initialProgressPercent = NovelResume.percent(chapter.read, chapter.lastTextProgress),
                 hasPrev = resolvedPrev != null,
                 hasNext = resolvedNext != null,
                 // Only from an already-resolved source (so offline downloaded reading stays instant).

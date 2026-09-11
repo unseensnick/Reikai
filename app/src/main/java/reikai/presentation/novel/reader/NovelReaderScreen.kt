@@ -252,6 +252,9 @@ class NovelReaderScreen(
                 override fun onPause(owner: LifecycleOwner) {
                     activity?.lifecycleScope?.launchNonCancellable { screenModel.updateHistory() }
                 }
+
+                // The pause stopped the clock, so time read after coming back counted as none.
+                override fun onResume(owner: LifecycleOwner) = screenModel.restartReadTimer()
             }
             activity?.lifecycle?.addObserver(observer)
             onDispose {

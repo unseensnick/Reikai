@@ -156,8 +156,8 @@ class NovelReaderProvider(
             volumeKeyScrollFraction = settings.volumeButtonsFraction,
             useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
             sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
-            // The live percent drives the navigator; the settled one persists, and it carries
-            // mark-as-read and the tracker push with it.
+            // Both persist: the live percent debounced, since an auto-scrolled or scrubbed read never
+            // settles, and the settled one at once. Either one finishing a chapter marks it read.
             onProgressChanged = viewModel::reportProgress,
             onProgressSettled = viewModel::saveProgress,
             // Taken from the host being built against rather than held, so a reader rebuilt after a

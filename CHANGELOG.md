@@ -254,9 +254,11 @@ every release now also ships a foss build with neither in it.
 - **Code a novel chapter carries is now stripped before it renders, unless you allow it under Settings -> Novel reader.** Scripts, embedded frames and tap handlers all go; chapter markup comes from the source rather than from Reikai.
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
+- **A novel chapter you have already read now opens at its start, like manga.** It used to reopen on its last screen.
 
 #### Fixed
 
+- **Time spent reading a novel now keeps counting after you switch away and come back.** It was recorded as none from that point until the next chapter.
 - **Read aloud in a novel no longer skips a very long paragraph.** It reads the whole thing, broken at its sentences, where the voice engine used to reject anything past its own size limit and move on in silence.
 - **Novel auto-scroll now moves at the speed you set, rather than creeping along at a fraction of it in visible jerks.** The reader page's own stylesheet was animating every step of the scroll.
 - **On a merged novel, downloading from the All chip now downloads the chapters All is showing.** It fetched one source's chapters while you were looking at another's, so nothing on screen ever appeared as downloaded.
