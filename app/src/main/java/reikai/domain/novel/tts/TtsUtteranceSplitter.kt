@@ -4,8 +4,8 @@ import java.text.BreakIterator
 import java.util.Locale
 
 /**
- * Breaks a paragraph into pieces a speech engine will accept. Android refuses an utterance longer
- * than its own maximum outright, so a paragraph past it has to arrive as several.
+ * Breaks a paragraph into pieces a speech engine will speak. An utterance past the engine's maximum
+ * fails, often later through `onError` rather than at `speak`, so a long paragraph goes out as several.
  *
  * Built on [BreakIterator] rather than on a punctuation list: its sentence instance is locale
  * correct, and its line instance segments Chinese, Japanese, Thai and Khmer by dictionary, which is

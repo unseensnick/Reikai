@@ -2,7 +2,7 @@
 # Reikai docs enforcement (see .claude/rules/workflow.md: "After completing any code change",
 # "Public-facing naming", and "Roadmap & plans"). Lints staged CHANGELOG.md and ROADMAP.md:
 #   CHANGELOG.md - no content-source names in newly added lines; every new [Unreleased] entry under
-#     Additions / Changes / Fixes leads with a self-contained bold headline ending in . ! or ?
+#     Added / Changed / Fixed leads with a self-contained bold headline ending in . ! or ?
 #     (Other is exempt), under a length cap.
 #   ROADMAP.md - forward-only backlog stays name-clean: no content-source names, no em dash, no
 #     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
