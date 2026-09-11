@@ -8,7 +8,8 @@ import android.text.style.LineHeightSpan
 
 /**
  * Extra space after a paragraph, added to the last line's descent rather than as a margin, so it
- * survives the chunking that splits a chapter across several views.
+ * survives the chunking that splits a chapter across several views. A paragraph's last line is the
+ * one ending in its newline, or the text's last line, since a chunk leaves out the newline it ends on.
  *
  * Ported from tsundoku (`textview/NovelViewerSpans.kt`).
  */
@@ -21,7 +22,7 @@ class ParagraphSpacingSpan(private val spacingPx: Int) : LineHeightSpan {
         lineHeight: Int,
         fm: Paint.FontMetricsInt,
     ) {
-        if (end > 0 && end <= text.length && text[end - 1] == '\n') {
+        if (end > 0 && end <= text.length && (end == text.length || text[end - 1] == '\n')) {
             fm.descent += spacingPx
             fm.bottom += spacingPx
         }

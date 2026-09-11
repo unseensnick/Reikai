@@ -14,6 +14,7 @@ import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
 import reikai.presentation.novel.reader.NovelReaderSettings
 import tachiyomi.core.common.util.system.logcat
+import kotlin.math.roundToInt
 
 /**
  * Applies the reader's display settings to a chunk view.
@@ -33,11 +34,17 @@ object NovelTextStyle {
         // chunk seam here rather than once per chapter, since a chapter is split across views.
         view.includeFontPadding = false
         view.typeface = typefaceFor(context, settings.fontFamily)
-        applyLineSpacing(view, settings.lineHeight)
+        val lineExtra = applyLineSpacing(view, settings.lineHeight)
         val density = context.resources.displayMetrics.density
-        // Sides only. The top and bottom belong to the column, or a chapter long enough to be split
-        // across chunk views would repeat the page margin at every seam.
-        view.setPadding((settings.margins.left * density).toInt(), 0, (settings.margins.right * density).toInt(), 0)
+        // The page margin goes on the sides only; the top and bottom belong to the column, or a chapter
+        // split across chunk views would repeat it at every seam. The bottom takes the line spacing the
+        // framework leaves off a layout's last line, so a chunk seam spaces like any other line.
+        view.setPadding(
+            (settings.margins.left * density).toInt(),
+            0,
+            (settings.margins.right * density).toInt(),
+            lineExtra.roundToInt(),
+        )
         view.setTextColor(parseColor(settings.textColor, Color.BLACK))
         applyAlignment(view, settings.textAlign)
     }
@@ -60,13 +67,14 @@ object NovelTextStyle {
      * A multiplier scales every line by its own height, and a line holding an image is as tall as the
      * image, so a full-width picture gained half its height again in blank space above it. The same
      * spacing expressed as a fixed amount leaves text looking identical and leaves images alone.
-     * Requires the size and typeface to be set first, since it measures them.
+     * Requires the size and typeface to be set first, since it measures them. Returns the pixels added.
      */
-    private fun applyLineSpacing(view: TextView, multiplier: Float) {
+    private fun applyLineSpacing(view: TextView, multiplier: Float): Float {
         val metrics = view.paint.fontMetricsInt
         val textLineHeight = (metrics.bottom - metrics.top).toFloat()
         val extra = ((multiplier - 1f) * textLineHeight).coerceAtLeast(0f)
         view.setLineSpacing(extra, 1f)
+        return extra
     }
 
     /** Justification is a paragraph property the framework only honours from API 26, our minimum. */

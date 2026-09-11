@@ -164,26 +164,6 @@ class NovelTextRenderer(
         }
     }
 
-    /** Splits at the first paragraph boundary past every [CHUNK_TARGET_CHARS], so each chunk's
-     *  layout stays small and no chunk ends mid-paragraph. */
-    private fun chunkRanges(text: CharSequence): List<Pair<Int, Int>> {
-        val length = text.length
-        if (length == 0) return emptyList()
-        val ranges = ArrayList<Pair<Int, Int>>(length / CHUNK_TARGET_CHARS + 1)
-        var start = 0
-        while (start < length) {
-            var end = (start + CHUNK_TARGET_CHARS).coerceAtMost(length)
-            if (end < length) {
-                var newline = end
-                while (newline < length && text[newline] != '\n') newline++
-                end = if (newline < length) newline + 1 else length
-            }
-            ranges.add(start to end)
-            start = end
-        }
-        return ranges
-    }
-
     private fun wrapParagraphs(html: String): String {
         val content = html.replace(leadingSpaceInParagraph, "<p>")
         if (content.contains("<p>", ignoreCase = true)) return content
@@ -262,6 +242,30 @@ class NovelTextRenderer(
 
     companion object {
         private const val CHUNK_TARGET_CHARS = 6_000
+
+        /**
+         * Splits at the first paragraph boundary past every [CHUNK_TARGET_CHARS], so each chunk's layout
+         * stays small and no chunk ends mid-paragraph. The newline a chunk ends on is left out: a layout
+         * ending in one draws an empty line after it, which widened every chunk seam by a line.
+         * [ParagraphSpacingSpan] and [NovelTextStyle] give the chunk's last line what it stood for.
+         */
+        internal fun chunkRanges(text: CharSequence): List<Pair<Int, Int>> {
+            val length = text.length
+            if (length == 0) return emptyList()
+            val ranges = ArrayList<Pair<Int, Int>>(length / CHUNK_TARGET_CHARS + 1)
+            var start = 0
+            while (start < length) {
+                var end = (start + CHUNK_TARGET_CHARS).coerceAtMost(length)
+                if (end < length) {
+                    while (end < length && text[end] != '\n') end++
+                } else if (text[length - 1] == '\n') {
+                    end = length - 1
+                }
+                ranges.add(start to end)
+                start = end + 1
+            }
+            return ranges
+        }
 
         /**
          * `Html.fromHtml` separates blocks with a blank line, which would sit under the paragraph

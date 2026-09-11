@@ -17,8 +17,9 @@ data class ParagraphShape(
      * Whether moving to [next] owes a redraw rather than a restyle.
      *
      * A size change alone counts only while something is measured against it. That exemption is the
-     * point of the rule: with both at zero, which is the default, dragging the text-size slider
-     * restyles the views it already has instead of re-parsing the chapter per step.
+     * point of the rule: with both at zero, dragging the text-size slider restyles the views it
+     * already has instead of re-parsing the chapter per step. Spacing defaults above zero, so by
+     * default each step is a redraw, which is why the viewport lets a newer one supersede it.
      */
     fun needsRedrawFor(next: ParagraphShape): Boolean {
         if (indent != next.indent || spacing != next.spacing || bionic != next.bionic) return true

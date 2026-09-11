@@ -16,9 +16,8 @@ object ChapterScrollProgress {
      * [top] is the chapter view's top edge in viewport coordinates, negative once scrolled into. The
      * trailing viewport is subtracted because nothing scrolls into it: a chapter ends when its last
      * line reaches the bottom of the screen, the rule the WebView renderer's `reader.js` shares. A
-     * chapter too short to fill the screen reports 0, so it is not marked read the moment it opens;
-     * the WebView one lets such a chapter complete as it is scrolled through, a difference still to
-     * be ruled on.
+     * chapter too short to fill the screen reports 0 in both renderers, so it is not marked read the
+     * moment it opens; the model reads it when the reader leaves it forward (`NovelLeaveRule`).
      */
     fun fractionOf(top: Int, height: Int, viewportHeight: Int): Float {
         val scrollable = height - viewportHeight

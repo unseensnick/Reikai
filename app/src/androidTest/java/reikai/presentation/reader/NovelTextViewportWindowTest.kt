@@ -1,15 +1,22 @@
 package reikai.presentation.reader
 
+import android.graphics.Color
 import android.graphics.Rect
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.children
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -17,9 +24,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.domain.reader.ChapterProgress
+import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelChapterSeamView
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * Where the native renderer leaves the reader when the window grows around the chapter just opened.
@@ -36,6 +46,13 @@ class NovelTextViewportWindowTest {
     /** The last fit answer per chapter, which is also the sign that a chapter has rendered. */
     private val fits = ConcurrentHashMap<Long, Boolean>()
 
+    /** The last percent reported per chapter. */
+    private val progress = ConcurrentHashMap<Long, Int>()
+
+    /** What the host would read as the cutout inset, in dp. */
+    @Volatile
+    private var cutout = 0
+
     private companion object {
         const val PREVIOUS = 1L
         const val SHORT = 2L
@@ -48,6 +65,11 @@ class NovelTextViewportWindowTest {
 
         /** Long enough for a chapter to render on an emulator, for one added off screen that cannot say it has. */
         const val PREPEND_WAIT_S = 3L
+
+        /** Long enough for a settings redraw to rebuild a window of long chapters on an emulator. */
+        const val REDRAW_WAIT_S = 4L
+
+        const val CUTOUT_DP = 24
     }
 
     @Before
@@ -60,13 +82,13 @@ class NovelTextViewportWindowTest {
                 volumeKeysActive = { false },
                 volumeKeysInverted = false,
                 volumeKeyScrollFraction = 0.75f,
-                onProgressChanged = { _, _ -> },
+                onProgressChanged = { id, percent -> progress[id] = percent },
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = {},
                 onVisibleChapter = {},
                 onRetryBoundary = {},
-                cutoutTopDp = { 0 },
+                cutoutTopDp = { cutout },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = {},
             )
@@ -114,6 +136,15 @@ class NovelTextViewportWindowTest {
         assertEquals(0 to 1, alone to seamsShown())
     }
 
+    /** Finished first, next second: swapped, every boundary would name the chapter just left twice
+     *  over, and a count of seams cannot tell. The WebView page pins the same order. */
+    @Test
+    fun theSeamNamesTheChapterThatFinishedAboveTheOneBelow() {
+        open(LONG, long("current"))
+        prepend(PREVIOUS, long("previous"))
+        assertEquals(listOf("Chapter $PREVIOUS" to "Chapter $LONG"), seamTitles())
+    }
+
     /** The window changes as the reader crosses a seam, usually mid-fling, and putting the reading
      *  chapter back after a change must not take the reader's own scroll back with it. */
     @Test
@@ -139,6 +170,157 @@ class NovelTextViewportWindowTest {
         assertEquals(before, shownAt("current 1."))
     }
 
+    /**
+     * With paragraph spacing set, every text-size step redraws the window, and a slider sends steps
+     * faster than a redraw finishes. A second one used to find the list emptied by the first and put
+     * the reader back at the chapter's first line.
+     */
+    @Test
+    fun twoQuickTextSizeStepsKeepTheReaderWhereTheyWere() {
+        open(LONG, long("current"))
+        append(NEXT, long("next"))
+        prepend(PREVIOUS, long("previous"))
+        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(6_000)) }
+        settle()
+        val before = progress.getValue(LONG)
+        dragTextSize()
+        val after = progress.getValue(LONG)
+        assertTrue("the reader moved from $before% to $after%", abs(after - before) <= 1)
+    }
+
+    /** The redraw a second step supersedes used to go on adding the neighbours at its own size. */
+    @Test
+    fun aNeighbourTakesTheLastSizeOfATextSizeDrag() {
+        open(LONG, long("current"))
+        append(NEXT, long("next"))
+        dragTextSize()
+        instrumentation.runOnMainSync { (viewport.view as RecyclerView).scrollToPosition(1) }
+        settle()
+        assertEquals(
+            setOf(sp(readerTestSettings.fontSize + 4)),
+            textViews(viewport.view).filter {
+                it.text.contains("next")
+            }.map { it.textSize }.toSet(),
+        )
+    }
+
+    /** A restyle reaches only views that exist, and a chapter still rendering has none yet. */
+    @Test
+    fun aChapterStillRenderingWhenTheColourChangesTakesTheNewColour() {
+        open(SHORT, "<p>short</p>")
+        runBlocking(Dispatchers.Main) {
+            val arriving = launch(start = CoroutineStart.UNDISPATCHED) {
+                viewport.append(chapter(NEXT, long("next")), readerTestSettings)
+            }
+            viewport.applySettings(readerTestSettings.copy(textColor = "#ff0000"))
+            arriving.join()
+        }
+        settle()
+        assertEquals(
+            setOf(Color.RED),
+            textViews(viewport.view).filter {
+                it.text.contains("next")
+            }.map { it.currentTextColor }.toSet(),
+        )
+    }
+
+    /** With no indent or spacing a text-size change restyles in place, and the text above the reader
+     *  growing inside their chapter used to carry them back towards its start. */
+    @Test
+    fun aRestyleThatGrowsTheTextKeepsTheLineTheReaderWasOn() {
+        val flat = readerTestSettings.copy(paragraphIndent = 0f, paragraphSpacing = 0f)
+        open(LONG, long("current"), flat)
+        scrollToTop("current 60.")
+        instrumentation.runOnMainSync { viewport.applySettings(flat.copy(fontSize = flat.fontSize + 4)) }
+        settle()
+        assertEquals(0, shownAt("current 60.")?.top)
+    }
+
+    /** The chapter before this one failing after the reader has scrolled in draws its row above the
+     *  text inside the same item, which is growth the layout manager does not take back. */
+    @Test
+    fun aFailureAppearingAboveTheTextKeepsTheLineTheReaderWasOn() {
+        open(LONG, long("current"))
+        scrollToTop("current 60.")
+        instrumentation.runOnMainSync {
+            viewport.setBoundaryFailures(NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L), null)
+        }
+        settle()
+        assertEquals(0, shownAt("current 60.")?.top)
+    }
+
+    /** The host changes the window and the edges in one step, and each change used to post its own
+     *  correction: the second read the first's scroll as the reader's and scrolled it again. */
+    @Test
+    fun aFailureArrivingWithAWindowChangeKeepsTheLineTheReaderWasOn() {
+        open(LONG, long("current"))
+        append(NEXT, long("next"))
+        scrollToTop("current 60.")
+        instrumentation.runOnMainSync {
+            viewport.evict(NEXT)
+            viewport.setBoundaryFailures(NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L), null)
+        }
+        settle()
+        assertEquals(0, shownAt("current 60.")?.top)
+    }
+
+    /**
+     * A chapter is split across views every few thousand characters, and the gap where one view ends
+     * and the next begins must be the gap between any two paragraphs. A view ending in a newline drew
+     * an empty line there, and a view's last line loses the line spacing every other line gets.
+     */
+    @Test
+    fun aChunkSeamSpacesItsParagraphsLikeAnyOther() {
+        open(LONG, long("current"))
+        var seam = 0
+        var inside = 0
+        instrumentation.runOnMainSync {
+            val (first, second) = textViews(viewport.view).filter { it.text.contains("current") }
+            val lastLine = first.layout.getLineForOffset(first.text.trimEnd('\n').length - 1)
+            seam = baselineOf(second, 0) - baselineOf(first, lastLine)
+            val secondParagraph = first.layout.getLineForOffset(first.text.indexOf("current 2."))
+            inside = baselineOf(first, secondParagraph) - baselineOf(first, secondParagraph - 1)
+        }
+        assertEquals(inside, seam)
+    }
+
+    /** An evicted chapter's holder waits in the pool until another chapter takes it, and it used to
+     *  hold on to that chapter's text and pictures all the while. */
+    @Test
+    fun chaptersReplacedByAnOpenLeaveNoTextInTheRecyclerPool() {
+        open(SHORT, "<p>short</p>")
+        append(NEXT, "<p>next</p>")
+        open(LONG, long("current"))
+        assertEquals(0, pooledTextViews())
+    }
+
+    /** An open during an Activity recreation runs before the window has insets and reads zero, so the
+     *  inset has to land when the insets do. */
+    @Test
+    fun aCutoutInsetThatArrivesAfterTheOpenReachesTheColumn() {
+        open(LONG, long("current"))
+        cutout = CUTOUT_DP
+        instrumentation.runOnMainSync {
+            ViewCompat.dispatchApplyWindowInsets(viewport.view, WindowInsetsCompat.Builder().build())
+        }
+        settle()
+        assertEquals(dp(readerTestSettings.margins.top) + dp(CUTOUT_DP), columnTopPadding("current"))
+    }
+
+    /** A chapter that fits on screen has no room to seek within, so the rail lands on its start, as
+     *  the WebView page's seek does; it used to leave the reader where they were. */
+    @Test
+    fun aSeekInsideAChapterThatFitsLandsOnItsFirstLine() {
+        open(SHORT, "<p>short</p>")
+        append(NEXT, long("next"))
+        // Into the column's top margin only, so the short chapter is still the one on screen.
+        instrumentation.runOnMainSync { viewport.view.scrollBy(0, dp(readerTestSettings.margins.top) / 2) }
+        settle()
+        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(5_000)) }
+        settle()
+        assertEquals(dp(readerTestSettings.margins.top), shownAt("short")?.top)
+    }
+
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" }
 
@@ -151,9 +333,9 @@ class NovelTextViewportWindowTest {
         progressPercent = 0,
     )
 
-    private fun open(id: Long, html: String) {
+    private fun open(id: Long, html: String, settings: NovelReaderSettings = readerTestSettings) {
         runBlocking(Dispatchers.Main) {
-            viewport.load(chapter(id, html), hasPrevious = true, hasNext = false, settings = readerTestSettings)
+            viewport.load(chapter(id, html), hasPrevious = true, hasNext = false, settings = settings)
         }
         awaitRendered(id)
     }
@@ -168,6 +350,15 @@ class NovelTextViewportWindowTest {
         awaitRendered(id, required = false)
     }
 
+    /** Two text-size steps with nothing in between, as a slider drag sends them. */
+    private fun dragTextSize() {
+        instrumentation.runOnMainSync {
+            viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 2))
+            viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 4))
+        }
+        settle(REDRAW_WAIT_S)
+    }
+
     /** Waits for [id]'s first fit report, then for the frames after it to settle. Not [required] for a
      *  chapter added off screen, which is never laid out and so never reports. */
     private fun awaitRendered(id: Long, required: Boolean = true) {
@@ -175,8 +366,19 @@ class NovelTextViewportWindowTest {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(wait)
         while (!fits.containsKey(id) && System.currentTimeMillis() < deadline) Thread.sleep(50)
         assertTrue("chapter $id never rendered", !required || fits.containsKey(id))
-        Thread.sleep(500)
+        settle()
+    }
+
+    private fun settle(seconds: Long = 0) {
+        Thread.sleep(TimeUnit.SECONDS.toMillis(seconds) + 500)
         instrumentation.waitForIdleSync()
+    }
+
+    /** Scrolls until the first line starting with [text] is at the top of the viewport. */
+    private fun scrollToTop(text: String) {
+        val top = checkNotNull(shownAt(text)).top
+        instrumentation.runOnMainSync { viewport.view.scrollBy(0, top) }
+        settle()
     }
 
     /** Where the first line starting with [text] is drawn, relative to the viewport, or null when it is not laid out. */
@@ -196,6 +398,10 @@ class NovelTextViewportWindowTest {
         return rect
     }
 
+    /** A line's baseline in its column's coordinates. */
+    private fun baselineOf(view: TextView, line: Int) =
+        view.top + view.totalPaddingTop + view.layout.getLineBaseline(line)
+
     private fun onScreen(text: String): Boolean {
         val rect = shownAt(text) ?: return false
         return rect.top >= 0 && rect.bottom <= viewport.view.height
@@ -208,6 +414,46 @@ class NovelTextViewportWindowTest {
         }
         return shown
     }
+
+    private fun seamTitles(): List<Pair<String, String>?> {
+        var titles = emptyList<Pair<String, String>?>()
+        instrumentation.runOnMainSync {
+            titles =
+                descendants(viewport.view).filterIsInstance<NovelChapterSeamView>().filter {
+                    it.isVisible
+                }.map { it.titles }
+        }
+        return titles
+    }
+
+    /** Chunk views left in holders waiting in the recycler's pool, which empties it. */
+    private fun pooledTextViews(): Int {
+        var count = 0
+        instrumentation.runOnMainSync {
+            val pool = (viewport.view as RecyclerView).recycledViewPool
+            count = generateSequence { pool.getRecycledView(0) }.sumOf { textViews(it.itemView).size }
+        }
+        return count
+    }
+
+    /** The top padding of the column holding the chapter whose text contains [text]. */
+    private fun columnTopPadding(text: String): Int? {
+        var padding: Int? = null
+        instrumentation.runOnMainSync {
+            padding = (textViews(viewport.view).firstOrNull { it.text.contains(text) }?.parent as? View)?.paddingTop
+        }
+        return padding
+    }
+
+    /** The same conversion `NovelTextStyle.applyMargins` makes. */
+    private fun dp(value: Int) = (value * instrumentation.targetContext.resources.displayMetrics.density).toInt()
+
+    private fun sp(value: Int) =
+        TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            value.toFloat(),
+            instrumentation.targetContext.resources.displayMetrics,
+        )
 
     private fun descendants(view: View): List<View> =
         listOf(view) + ((view as? ViewGroup)?.children?.flatMap { descendants(it) }?.toList() ?: emptyList())
