@@ -10,9 +10,11 @@ import java.util.Locale
 
 /**
  * The rule every case here checks is the same one: no chunk may exceed the cap, because an utterance
- * past it is refused outright and the paragraph is what stops being read.
+ * past it fails and the paragraph is what stops being read.
  */
 class TtsUtteranceSplitterTest {
+
+    private val runOnSentence = List(300) { "word" }.joinToString(" ") + "."
 
     private fun split(text: String, maxLength: Int, locale: Locale = Locale.ENGLISH) =
         TtsUtteranceSplitter.split(text, maxLength, locale)
@@ -32,12 +34,16 @@ class TtsUtteranceSplitterTest {
         split("   \n  ", maxLength = 100).shouldBeEmpty()
     }
 
+    /**
+     * Fifty-character sentences against a cap of two hundred: three fit and a fourth does not, so every
+     * chunk is three whole sentences and the last holds the two left over. Packing words instead would
+     * fill each chunk to the cap and end it mid-sentence.
+     */
     @Test
     fun `a long paragraph is broken at its sentences`() {
         val chunks = split(sentences(count = 20, wordsEach = 10), maxLength = 200)
 
-        chunks.forEach { it.length shouldBeLessThanOrEqual 200 }
-        chunks.joinToString(" ") shouldBe sentences(count = 20, wordsEach = 10)
+        chunks shouldBe List(6) { sentences(count = 3, wordsEach = 10) } + sentences(count = 2, wordsEach = 10)
     }
 
     /**
@@ -53,15 +59,22 @@ class TtsUtteranceSplitterTest {
         chunks.forEach { it.last() shouldBe '.' }
     }
 
-    /** One run-on sentence past the cap, which the sentence pass cannot help with. */
+    /**
+     * One run-on sentence past the cap, which the sentence pass cannot help with. Rejoined at spaces the
+     * chunks give the sentence back, which fails if a piece went missing or a cut split a word.
+     */
     @Test
     fun `a single oversized sentence is broken between words`() {
-        val text = List(300) { "word" }.joinToString(" ") + "."
+        val chunks = split(runOnSentence, maxLength = 100)
 
-        val chunks = split(text, maxLength = 100)
+        chunks.joinToString(" ") shouldBe runOnSentence
+    }
 
-        chunks.forEach { it.length shouldBeLessThanOrEqual 100 }
-        chunks.forEach { chunk -> chunk.split(" ").forEach { it.trimEnd('.') shouldBe "word" } }
+    @Test
+    fun `a single oversized sentence still fits the cap`() {
+        val chunks = split(runOnSentence, maxLength = 100)
+
+        chunks.maxOf { it.length } shouldBeLessThanOrEqual 100
     }
 
     /**

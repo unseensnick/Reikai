@@ -361,8 +361,9 @@ class NovelPreferences(
      *  `removeExcludeCategories`. */
     fun removeExcludeCategories() = preferenceStore.getStringSet("novel_remove_exclude_categories", emptySet())
 
-    /** Download the next N un-downloaded chapters as you read (download-ahead). 0 = off. Twin of
-     *  manga's `autoDownloadWhileReading`. */
+    /** Download the next N unread, un-downloaded chapters as you read (download-ahead). 0 = off. Twin
+     *  of manga's `autoDownloadWhileReading`, pinned by the kernel both readers call,
+     *  `chaptersToDownloadAhead` in `reikai/domain/reader/ChapterNeighbours.kt`. */
     fun autoDownloadWhileReading() = preferenceStore.getInt("novel_auto_download_while_reading", 0)
 
     /** Auto-download newly fetched chapters when an update is detected. The pref + download-manager

@@ -97,8 +97,9 @@ class SystemTtsEngine(
             onDone()
             return
         }
-        // The engine refuses an utterance past its own maximum outright, so a long paragraph arrives
-        // as several and only the last carries the id the listener completes on.
+        // An utterance past the engine's own maximum fails, often later through onError rather than as a
+        // refusal here, so a long paragraph goes out as several and only the last carries the id the
+        // listener completes on.
         val pieces = TtsUtteranceSplitter.split(
             text = text,
             maxLength = TextToSpeech.getMaxSpeechInputLength(),

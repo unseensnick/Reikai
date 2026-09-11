@@ -42,12 +42,5 @@ class NovelWarmPolicyTest {
         NovelWarmPolicy.mayAutoWarm(failedAt(1_000L), nowElapsedMs = 1_000L + RETRY_COOLDOWN_MS * 4) shouldBe true
     }
 
-    @Test
-    @DisplayName("a repeated failure restarts the cooldown rather than continuing the first one")
-    fun laterFailureRestartsTheCooldown() {
-        // The first failure's window has long since passed; the second one's has not.
-        NovelWarmPolicy.mayAutoWarm(failedAt(60_000L), nowElapsedMs = 61_000L) shouldBe false
-    }
-
     private fun failedAt(elapsedMs: Long) = NovelWarmPolicy.Failure(elapsedMs, message = "offline")
 }

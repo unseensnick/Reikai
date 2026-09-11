@@ -199,7 +199,7 @@ every release now also ships a foss build with neither in it.
 - **The two in-development novel readers carry the reader's full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
 - **The two in-development novel readers now read straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
-- **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every row previews itself, Serif, Sans serif and Monospace join the nine built-in faces, and what you add works in all three rendering modes.
+- **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Each bundled or added font's row is set in that font; Serif, Sans serif and Monospace join the nine built-in faces, and what you add works in all three rendering modes.
 
 #### Changed
 
@@ -254,7 +254,6 @@ every release now also ships a foss build with neither in it.
 - **Code a novel chapter carries is now stripped before it renders, unless you allow it under Settings -> Novel reader.** Scripts, embedded frames and tap handlers all go; chapter markup comes from the source rather than from Reikai.
 - **A slow novel source can no longer stall global search, browsing or updates for every other source.** Each now runs in its own engine, and idle ones free their memory after a minute.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, like manga.**
-- **The novel reader now starts with Skip filtered chapters switched on, matching manga.** If a novel's chapter list is filtered, the next-chapter button steps past what that filter hides; turn it off under Settings -> Novel reader to stop on every chapter again.
 
 #### Fixed
 

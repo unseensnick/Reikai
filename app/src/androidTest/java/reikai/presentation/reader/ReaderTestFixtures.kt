@@ -4,9 +4,9 @@ import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.novel.reader.ReaderMargins
 
 /**
- * A plain settings value for the WebView-mode tests, so the two that build a real document do not
- * each carry the constructor. Nothing here is the subject of a test; a case that cares about a field
- * copies this and says so.
+ * A plain settings value for the tests that render a real chapter, in the WebView and the native
+ * renderer alike, so none of them carries the constructor. Nothing here is the subject of a test; a
+ * case that cares about a field copies this and says so, and a field changed here reaches them all.
  */
 internal val readerTestSettings = NovelReaderSettings(
     fontSize = 18,

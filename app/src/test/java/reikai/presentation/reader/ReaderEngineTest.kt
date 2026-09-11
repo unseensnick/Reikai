@@ -273,6 +273,16 @@ class ReaderEngineTest {
         engine.autoScrollEnabled.value shouldBe true
     }
 
+    /** The bar draws the auto-scroll button only when the engine hands it a toggle to call. */
+    @Test
+    fun `a session that offers auto-scroll gets the button`() {
+        val provider = FakeReaderProvider()
+        val auto = FakeAutoScroll()
+        provider.autoScrollSlot = auto
+
+        engine(provider).autoScroll shouldBe auto
+    }
+
     /** The manga shape again: an image has no words to bold, so the button is absent, not lit. */
     @Test
     fun `a session without bionic reading reports it off`() {
@@ -292,6 +302,16 @@ class ReaderEngineTest {
         bionic.toggle()
 
         engine.bionicReadingEnabled.value shouldBe true
+    }
+
+    /** The novel shape, and the half the absent case cannot catch: the bar's button needs the toggle. */
+    @Test
+    fun `a session that offers bionic reading gets the button`() {
+        val provider = FakeReaderProvider()
+        val bionic = FakeBionicReading()
+        provider.bionicReadingSlot = bionic
+
+        engine(provider).bionicReading shouldBe bionic
     }
 
     /**

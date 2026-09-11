@@ -7,10 +7,12 @@ import reikai.presentation.reader.readerLightPreset
 import reikai.presentation.reader.readerThemePresets
 
 /**
- * Resolved reader display settings, read by every rendering mode: the WebView paths take the LNReader
- * `ChapterReaderSettings` subset, the native renderer styles its text views off the same fields.
- * [followSystemTheme] is carried only so a sheet can show the "Auto" state; it is already resolved
- * into [backgroundColor] and [textColor] by the time a renderer sees it.
+ * Resolved reader display settings, read by every rendering mode: the legacy reader hands `core.js`
+ * its LNReader settings objects ([readerSettingsJson], [generalSettingsJson]), the WebView mode reads
+ * only the CSS variables and behaviour flags `NovelWebDocument` builds, and the native renderer styles
+ * its text views off the same fields. [followSystemTheme] is carried only so a sheet can show the
+ * "Auto" state; it is already resolved into [backgroundColor] and [textColor] by the time a renderer
+ * sees it.
  */
 data class NovelReaderSettings(
     val fontSize: Int,
@@ -31,13 +33,13 @@ data class NovelReaderSettings(
     val orientation: Int,
     /** [orientation] resolved against the global default: the concrete orientation the reader applies. */
     val resolvedOrientation: Int,
-    // Text-to-speech: the subset the WebView's `core.js` reads (general `TTSEnable` + the `tts` block).
+    // Text-to-speech: the subset the legacy reader's `core.js` reads (general `TTSEnable` + the `tts` block).
     val ttsEnabled: Boolean,
     val ttsRate: Float,
     val ttsPitch: Float,
     val ttsAutoPageAdvance: Boolean,
     val ttsScrollToTop: Boolean,
-    // Engine extras applied by `core.js` (general settings block).
+    // Reading extras each renderer applies itself; extra spacing is stripped by the content pipeline instead.
     val bionicReading: Boolean,
     val removeExtraSpacing: Boolean,
     val tapToScroll: Boolean,
