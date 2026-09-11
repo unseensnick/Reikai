@@ -295,12 +295,14 @@ class NovelPreferences(
     /** Strip `img` / `video` / `audio` tags from the chapter body. */
     fun readerBlockMedia() = preferenceStore.getBoolean("ln_reader_block_media", false)
 
-    /** Keep a chapter's own `style` blocks and stylesheet links. Only a WebView renderer can honour
-     *  this: a TextView draws CSS as visible text, so it strips it whatever this says. */
+    /** Keep a chapter's own `style` blocks, `style` attributes and stylesheet links. Only a WebView
+     *  renderer can honour this: a TextView draws CSS as visible text, so it strips it whatever this
+     *  says. */
     fun readerKeepEmbeddedCss() = preferenceStore.getBoolean("ln_reader_keep_embedded_css", true)
 
-    /** Keep a chapter's own `script` blocks. Off by default: they are the source page's own code
-     *  (ads, loaders, analytics) rather than chapter content. */
+    /** Keep a chapter's own code: its `script` blocks, event-handler attributes and `javascript:`
+     *  URLs. Off by default: they are the source page's own code (ads, loaders, analytics) rather than
+     *  chapter content. */
     fun readerKeepEmbeddedJs() = preferenceStore.getBoolean("ln_reader_keep_embedded_js", false)
 
     /** Let the chapter's own font declarations stand instead of the reader's chosen face. Only the
@@ -312,9 +314,9 @@ class NovelPreferences(
      *  otherwise overrides the theme the reader chose. */
     fun readerSourceCssPriority() = preferenceStore.getBoolean("ln_reader_source_css_priority", false)
 
-    /** Let a long-press select the chapter text, at the cost of following links: the two cannot both
-     *  work, because selection needs the movement method that dispatches the drag. Off until
-     *  selection actually engages inside the recycler (see the reader-surface plan doc). */
+    /** Let a long-press select the chapter text in the native and WebView renderers; the legacy
+     *  reader never reads it. The native one gives up following links for it, because selection
+     *  needs the movement method that dispatches the drag. The WebView one keeps its links. */
     fun readerTextSelectable() = preferenceStore.getBoolean("ln_reader_text_selectable", false)
 
     /** Keep the neighbouring chapters loaded so reading runs on past a chapter's end. Off makes each

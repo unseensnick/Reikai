@@ -1,10 +1,16 @@
 package reikai.novel.content
 
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 /**
  * What a chapter's own markup may reach the WebView with. The WebView runs JavaScript with the app's
@@ -68,6 +74,69 @@ class NovelHtmlSanitizerTest {
         web("""<a href="javascript:alert(1)">tap</a>""") shouldNotContain "javascript:"
     }
 
+    /** A browser skips whitespace and control characters when it reads the scheme, so each of these
+     *  still runs as code. One per clause of the normalisation. */
+    @ParameterizedTest
+    @ValueSource(strings = ["\tjava\nscript:alert(1)", " javascript:alert(1)", "\u0001javascript:alert(1)"])
+    fun `a padded javascript url is removed`(url: String) {
+        Jsoup.parseBodyFragment(web("""<a href="$url">tap</a>""")).select("a[href]").shouldBeEmpty()
+    }
+
+    /**
+     * An escaped comment in one text node and its close inside a later raw-text element: cutting the
+     * span out of the serialised markup took the element's start tag with it, and what it held as text
+     * came back as a live element that the attribute pass never saw.
+     */
+    @Test
+    fun `an escaped comment cannot reach into a style block and free what it holds`() {
+        val spanning = "<p>&lt;!--</p><style>--&gt;<img src=x onerror=alert(1)></style>"
+
+        Jsoup.parseBodyFragment(web(spanning)).select("[onerror]").shouldBeEmpty()
+    }
+
+    /** Raw-text content is written out as it stands, so cutting a comment out of it can assemble an
+     *  end tag and let what follows out. */
+    @Test
+    fun `a comment inside a style block is left alone`() {
+        val spliced = "<style><<!--x-->/style><img src=x onerror=alert(1)></style>"
+
+        Jsoup.parseBodyFragment(web(spliced)).select("[onerror]").shouldBeEmpty()
+    }
+
+    /** Escaped by the source, so text to the parser, and it would otherwise show mid-paragraph. */
+    @Test
+    fun `an escaped comment inside a paragraph is dropped`() {
+        web("<p>a &lt;!-- hidden --&gt; b</p>") shouldNotContain "hidden"
+    }
+
+    /** `plaintext` has no end tag, so everything after it in the page becomes text, the reader's own
+     *  engine script included. */
+    @Test
+    fun `a plaintext element does not swallow the page after the chapter`() {
+        val page = Jsoup.parse("<div>${web("<p>one</p><plaintext>two")}</div><script>engine()</script>")
+
+        page.select("script") shouldHaveSize 1
+    }
+
+    @Test
+    fun `the text a plaintext element holds still shows`() {
+        web("<p>one</p><plaintext>two") shouldContain "two"
+    }
+
+    /** An `xmp` block shows its content as literal text, which it keeps unescaped in the markup, where
+     *  any later pass over the page's markup can turn it back into elements. */
+    @Test
+    fun `the content of an xmp block reaches the page escaped`() {
+        web("<xmp><b>x</b></xmp>") shouldContain "&lt;b&gt;"
+    }
+
+    /** Fallbacks for features the reader never has, whose raw-text content no browser shows. */
+    @ParameterizedTest
+    @ValueSource(strings = ["noembed", "noframes"])
+    fun `a fallback for embedded content is removed`(tag: String) {
+        web("<$tag><img src=x onerror=alert(1)></$tag>") shouldNotContain "onerror"
+    }
+
     /** No regex covered these at all, and both run their own content in the page. */
     @Test
     fun `a frame is removed`() {
@@ -91,6 +160,14 @@ class NovelHtmlSanitizerTest {
     @Test
     fun `the source's own styles are dropped when the setting is off`() {
         web("<style>p { color: red }</style><p>a</p>", keepEmbeddedCss = false) shouldNotContain "color: red"
+    }
+
+    /** A browser reads `rel` as a list of words, so any list holding stylesheet loads one. */
+    @Test
+    fun `a stylesheet link is dropped whatever else its rel lists`() {
+        val link = """<link rel="stylesheet preload" href="https://x.invalid/a.css"><p>a</p>"""
+
+        web(link, keepEmbeddedCss = false) shouldNotContain "a.css"
     }
 
     /** A style attribute is CSS, so it follows the same setting rather than the script rule. */
@@ -118,6 +195,21 @@ class NovelHtmlSanitizerTest {
     @Test
     fun `a run of breaks survives`() {
         web("<p>one<br><br>two</p>") shouldContain "<br><br>"
+    }
+
+    /** The TextView's pattern cleanup leaves attributes alone, so it is no fallback for a page that
+     *  runs scripts. */
+    @Test
+    fun `a chapter the parser cannot read reaches the page as text`() {
+        mockkStatic(Jsoup::class)
+        every { Jsoup.parseBodyFragment(any()) } throws IllegalStateException("unreadable")
+        val sanitized = try {
+            web("""<img src="x" onerror="alert(1)">""")
+        } finally {
+            unmockkStatic(Jsoup::class)
+        }
+
+        sanitized shouldNotContain "<img"
     }
 
     @Test

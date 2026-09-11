@@ -52,7 +52,8 @@ class NovelFontManager(
     private val lenientJson = Json { ignoreUnknownKeys = true }
 
     suspend fun installed(): List<NovelFont> = withContext(Dispatchers.IO) {
-        val fonts = storageManager.getFontsDirectory()?.listFiles().orEmpty()
+        val files = storageManager.getFontsDirectory()?.listFiles()
+        val fonts = files.orEmpty()
             .mapNotNull { file ->
                 val name = file.name ?: return@mapNotNull null
                 if (!file.isFile || !isSupportedFontFile(name)) return@mapNotNull null
@@ -60,9 +61,13 @@ class NovelFontManager(
             }
             .sortedBy { it.displayName.lowercase() }
         // A font removed with a file manager leaves its copy behind, and nothing else would ever go
-        // looking for it. Swept here because this is the one place that knows the full list.
-        val kept = fonts.mapTo(HashSet()) { it.fileName }
-        mirrorDir.listFiles()?.forEach { if (it.name !in kept) it.delete() }
+        // looking for it. Swept here because this is the one place that knows the full list, and only
+        // when the folder answered: an unreachable one lists nothing, and the copies are then what
+        // mirror() falls back to.
+        if (files != null) {
+            val kept = fonts.mapTo(HashSet()) { it.fileName }
+            mirrorDir.listFiles()?.forEach { if (it.name !in kept) it.delete() }
+        }
         fonts
     }
 

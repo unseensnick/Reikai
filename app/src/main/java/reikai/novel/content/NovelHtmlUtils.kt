@@ -8,8 +8,10 @@ import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Comment
+import org.jsoup.nodes.DataNode
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
+import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
 import org.jsoup.select.NodeVisitor
 import tachiyomi.core.common.util.system.logcat
@@ -53,9 +55,16 @@ object NovelHtmlUtils {
 
     /** Elements that fetch or run something of their own, none of which a chapter needs. `base`
      *  rewrites every relative URL in the document. `svg` and `math` are foreign content, which does
-     *  not always survive a serialize-and-reparse unchanged, and that is what a mutation bypass is. */
+     *  not always survive a serialize-and-reparse unchanged, and that is what a mutation bypass is.
+     *  `noembed` and `noframes` hold raw text no browser shows. */
     private const val ALWAYS_DROPPED =
-        "noscript, iframe, frame, frameset, object, embed, applet, base, meta, form, svg, math"
+        "noscript, iframe, frame, frameset, object, embed, applet, base, meta, form, svg, math, " +
+            "noembed, noframes"
+
+    /** Raw-text elements a browser shows as literal text. Their content is written out unescaped, so
+     *  any later pass over the markup can turn it into elements, and `plaintext` has no end tag at all:
+     *  it swallows the rest of the page, the reader's engine script included. */
+    private const val SHOWN_AS_RAW_TEXT = "xmp, plaintext"
 
     private const val MEDIA_ELEMENTS = "img, image, picture, video, audio, source, track"
 
@@ -66,6 +75,9 @@ object NovelHtmlUtils {
         Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val htmlCommentRegex = Regex("<!--.*?-->", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val encodedCommentRegex = Regex("&lt;!--.*?--&gt;", RegexOption.DOT_MATCHES_ALL)
+
+    /** `rel` is a list of words, and any list holding this one loads a stylesheet. */
+    private val stylesheetRelRegex = Regex("(^|\\s)stylesheet(\\s|$)", RegexOption.IGNORE_CASE)
 
     private val imgTagRegex = Regex("<img[^>]*>", RegexOption.IGNORE_CASE)
     private val imageTagRegex = Regex("</?image[^>]*>", RegexOption.IGNORE_CASE)
@@ -115,16 +127,6 @@ object NovelHtmlUtils {
             .replace("\u0000", "")
             .replace("\r\n", "\n")
             .replace("\r", "\n")
-    }
-
-    fun normalizeUrl(url: String?): String? {
-        val value = url?.trim().orEmpty()
-        if (value.isBlank()) return null
-        return when {
-            value.startsWith("https//") -> "https://" + value.removePrefix("https//")
-            value.startsWith("http//") -> "http://" + value.removePrefix("http//")
-            else -> value
-        }
     }
 
     fun normalizeContentForHtml(content: String, chapterUrl: String?): String {
@@ -270,8 +272,9 @@ object NovelHtmlUtils {
     /**
      * Prunes the parsed tree, because a regex cannot be a boundary here: `</script >`, a comment
      * spliced through a tag name and every attribute got past the pattern-matching version this
-     * replaces. Falls back to that version only when the parser itself throws, which leaves a
-     * chapter rendering rather than blank.
+     * replaces. Nothing may edit the serialised result either, since a pattern spanning into a
+     * raw-text element can delete its start tag. Only when the parser itself throws does the chapter
+     * go out as escaped text, which still beats a blank page.
      */
     private fun sanitizeForWebView(
         content: String,
@@ -282,28 +285,35 @@ object NovelHtmlUtils {
         val doc = try {
             Jsoup.parseBodyFragment(content)
         } catch (e: Exception) {
-            logcat(LogPriority.WARN, e) { "Falling back to pattern sanitizing for a chapter" }
-            return sanitizeForTextView(content, blockMedia)
+            logcat(LogPriority.WARN, e) { "Showing a chapter the parser could not read as text" }
+            return plainTextToHtml(content)
         }
         // Pretty-printing reflows the markup, which collapses the line breaks inside a plain-text
         // paragraph. Pruning the tree must not rewrite what is left of it.
         doc.outputSettings().prettyPrint(false)
 
         doc.select(ALWAYS_DROPPED).remove()
+        doc.select(SHOWN_AS_RAW_TEXT).forEach(::retagAsPre)
         if (!keepEmbeddedJs) {
             doc.select("script").remove()
             doc.select("*").forEach(::stripScriptingAttributes)
         }
         if (!keepEmbeddedCss) {
-            doc.select("style, link[rel=stylesheet]").remove()
+            doc.select("style").remove()
+            doc.select("link[rel]").filter { stylesheetRelRegex.containsMatchIn(it.attr("rel")) }
+                .forEach(Element::remove)
             doc.select("[style]").removeAttr("style")
         }
         if (blockMedia) doc.select(MEDIA_ELEMENTS).remove()
         dropComments(doc.body())
 
-        // A comment the source escaped is text rather than markup, so the parser leaves it in place
-        // and it would start showing mid-paragraph where it used to be dropped.
-        return doc.body().html().replace(encodedCommentRegex, "")
+        return doc.body().html()
+    }
+
+    /** A `pre` shows the same literal text, held as ordinary escaped text rather than raw. */
+    private fun retagAsPre(element: Element) {
+        element.childNodes().filterIsInstance<DataNode>().forEach { it.replaceWith(TextNode(it.wholeData)) }
+        element.tagName("pre")
     }
 
     /** Removes the inline scripting an element can carry: an event handler, or a URL that is code. */
@@ -323,18 +333,26 @@ object NovelHtmlUtils {
         url.filterNot { it.isWhitespace() || it.code < 0x20 }
             .startsWith("javascript:", ignoreCase = true)
 
+    /** A comment the source escaped is text to the parser and would show mid-paragraph, so it is cut
+     *  out of the one text node holding it. Never out of a data node: raw-text content is written out
+     *  as it stands, and a cut there can assemble an end tag. */
     private fun dropComments(root: Element) {
         val comments = mutableListOf<Comment>()
+        val texts = mutableListOf<TextNode>()
         root.traverse(
             object : NodeVisitor {
                 override fun head(node: Node, depth: Int) {
-                    if (node is Comment) comments.add(node)
+                    when (node) {
+                        is Comment -> comments.add(node)
+                        is TextNode -> texts.add(node)
+                    }
                 }
 
                 override fun tail(node: Node, depth: Int) = Unit
             },
         )
         comments.forEach(Comment::remove)
+        texts.forEach { it.text(it.wholeText.replace(htmlCommentRegex, "")) }
     }
 
     /**
