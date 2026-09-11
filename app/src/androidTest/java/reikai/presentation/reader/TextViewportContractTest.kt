@@ -15,11 +15,13 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelChapterSeamView
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -28,9 +30,10 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The rules both novel renderers answer through [TextViewport], run once against each real viewport
- * rather than restated per renderer: what the marker between two chapters says, when a chapter's end
- * counts as seen, and which drags step to another chapter. Each renderer implements these on its own
- * (Kotlin and `reader.js`), so this is what keeps one from drifting while the other stays right.
+ * rather than restated per renderer: what the marker between two chapters and the one after the last
+ * say and when each is drawn, when a chapter's end counts as seen, and which drags step to another
+ * chapter. Each renderer implements these on its own (Kotlin and `reader.js`), so this is what keeps
+ * one from drifting while the other stays right.
  */
 @RunWith(Parameterized::class)
 class TextViewportContractTest(private val renderer: Renderer) {
@@ -120,6 +123,97 @@ class TextViewportContractTest(private val renderer: Renderer) {
         open(chapter(SECOND, long("second")))
         prepend(chapter(FIRST, long("first"), downloaded = true))
         assertEquals(listOf(true to false), awaitSeams().map { it.finishedDownloaded to it.nextDownloaded })
+    }
+
+    /** With "Always show chapter transition" off, two consecutive chapters run into each other. */
+    @Test
+    fun aSeamBetweenConsecutiveChaptersIsHiddenWithTheSettingOff() {
+        open(chapter(SECOND, long("second")), transitionsOff)
+        prepend(chapter(FIRST, long("first")))
+        Thread.sleep(QUIET_MS)
+        assertEquals(emptyList<DrawnSeam>(), seams())
+    }
+
+    /** Missing chapters are warned of whatever the setting says, as manga's transition is. */
+    @Test
+    fun aSeamOverMissingChaptersShowsWithTheSettingOff() {
+        open(chapter(SECOND, long("second"), number = 14.0), transitionsOff)
+        prepend(chapter(FIRST, long("first"), number = 10.0))
+        assertEquals(listOf(true), awaitSeams().map { it.warnsOfGap })
+    }
+
+    /** The setting reaches a window already on screen through the settings push. */
+    @Test
+    fun turningTheSettingOffHidesASeamAlreadyShown() {
+        open(chapter(SECOND, long("second")))
+        prepend(chapter(FIRST, long("first")))
+        awaitSeams()
+        instrumentation.runOnMainSync { viewport.applySettings(transitionsOff) }
+        settle()
+        assertEquals(emptyList<DrawnSeam>(), seams())
+    }
+
+    // endregion
+
+    // region the end of the novel
+
+    /** Manga's "There's no next chapter" transition, under the name of the chapter that finished. */
+    @Test
+    fun theNovelsLastChapterEndsWithTheNoNextChapterMarker() {
+        open(chapter(FIRST, "<p>short</p>", isLast = true))
+        assertEquals(listOf("Chapter 1.0"), awaitEnds())
+    }
+
+    /** The setting governs only the marker between two chapters. */
+    @Test
+    fun theEndMarkerShowsWithTheSettingOff() {
+        open(chapter(FIRST, "<p>short</p>", isLast = true), transitionsOff)
+        assertEquals(listOf("Chapter 1.0"), awaitEnds())
+    }
+
+    @Test
+    fun aChapterWithOneAfterItHasNoEndMarker() {
+        open(chapter(FIRST, "<p>short</p>"))
+        Thread.sleep(QUIET_MS)
+        assertEquals(emptyList<String>(), ends())
+    }
+
+    /**
+     * A list cannot scroll its last item to the top, so a short last chapter lands low on the screen
+     * with the end of the chapter before it above. The marker below it is part of that last stretch,
+     * so it lands on screen, as manga's last page lands above its transition.
+     */
+    @Test
+    fun aShortLastChapterLandsWithItsEndMarkerOnScreen() {
+        open(chapter(SECOND, "<p>short</p>", isLast = true))
+        prepend(chapter(FIRST, long("first")))
+        awaitEnds()
+        val below = endMarkerBelowScreen()
+        assertTrue("the end marker's top is $below px from the screen's bottom", below < 0f)
+    }
+
+    /** A last chapter the window grows into by scrolling ends with the marker too, not only one opened.
+     *  Both fit on screen, so the native one lays the arriving chapter out. */
+    @Test
+    fun aLastChapterAddedToTheWindowEndsWithTheMarker() {
+        open(chapter(FIRST, "<p>first</p>"))
+        append(chapter(SECOND, "<p>second</p>", isLast = true))
+        assertEquals(listOf("Chapter 2.0"), awaitEnds())
+    }
+
+    /**
+     * The marker is not part of the chapter: a chapter read to its end has its last line at the bottom
+     * of the screen and the marker just below it. Counted as the chapter's own height, the seek would
+     * have pulled the marker on screen and the chapter's end would count as seen only once it was.
+     */
+    @Test
+    fun aLastChapterReadToItsEndHasItsEndMarkerJustBelowTheScreen() {
+        open(chapter(FIRST, long("first"), isLast = true))
+        awaitEnds()
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(10_000)) }
+        settle()
+        val below = endMarkerBelowScreen()
+        assertTrue("the end marker's top is $below px from the screen's bottom", below >= -EDGE_SLACK_PX)
     }
 
     // endregion
@@ -229,14 +323,17 @@ class TextViewportContractTest(private val renderer: Renderer) {
             instrumentation.runOnMainSync {
                 drawn = descendants(view).filterIsInstance<NovelChapterSeamView>().filter { it.isVisible }
                     .mapNotNull { it.seam }
-                    .map {
-                        DrawnSeam(
-                            it.finishedTitle,
-                            it.nextTitle,
-                            it.finishedDownloaded,
-                            it.nextDownloaded,
-                            it.missingChapters > 0,
-                        )
+                    .mapNotNull { seam ->
+                        // One with no next chapter is the end marker, which ends() reads.
+                        seam.nextTitle?.let { next ->
+                            DrawnSeam(
+                                seam.finishedTitle,
+                                next,
+                                seam.finishedDownloaded,
+                                seam.nextDownloaded,
+                                seam.missingChapters > 0,
+                            )
+                        }
                     }
             }
             drawn
@@ -244,7 +341,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         Renderer.WEB -> {
             val array = JSONArray(
                 eval(
-                    "[...document.querySelectorAll('.rk-seam')].map(function (s) {" +
+                    // The chapters' own seams: the end marker sits outside their container.
+                    "[...document.querySelectorAll('#rk-chapters .rk-seam')].map(function (s) {" +
                         " var p = s.querySelectorAll('.rk-seam-part');" +
                         " return [p[0].querySelector('.rk-seam-title').textContent," +
                         " p[1].querySelector('.rk-seam-title').textContent," +
@@ -265,30 +363,94 @@ class TextViewportContractTest(private val renderer: Renderer) {
         }
     }
 
-    private fun chapter(id: Long, html: String, number: Double = id.toDouble(), downloaded: Boolean = false) =
-        NovelReaderViewModel.LoadedChapter(
-            chapterId = id,
-            title = "Chapter $number",
-            url = "/chapter/$id",
-            html = html,
-            baseUrl = null,
-            progressPercent = 0,
-            chapterNumber = number,
-            downloaded = downloaded,
-        )
+    /** The finished chapter each end marker names, once there is one, or none at the timeout. */
+    private fun awaitEnds(): List<String> {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        var ends = ends()
+        while (ends.isEmpty() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+            ends = ends()
+        }
+        return ends
+    }
+
+    /** The finished chapter each end marker names, counting only one that says there is no next. */
+    private fun ends(): List<String> = when (renderer) {
+        Renderer.NATIVE -> {
+            var drawn = emptyList<String>()
+            instrumentation.runOnMainSync {
+                drawn = descendants(view).filterIsInstance<NovelChapterSeamView>().filter { it.isVisible }
+                    .mapNotNull { it.seam }
+                    .filter { it.nextTitle == null }
+                    .map { it.finishedTitle }
+            }
+            drawn
+        }
+        Renderer.WEB -> {
+            val array = JSONArray(
+                eval(
+                    "[...document.querySelectorAll('#rk-end')]" +
+                        ".filter(function (e) { return !!e.querySelector('.rk-seam-notice'); })" +
+                        ".map(function (e) { return e.querySelector('.rk-seam-title').textContent; })",
+                ),
+            )
+            List(array.length(), array::getString)
+        }
+    }
+
+    /** How far below the bottom of the screen the end marker's top is, in the renderer's own pixels. */
+    private fun endMarkerBelowScreen(): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var below = Float.NaN
+            instrumentation.runOnMainSync {
+                val marker = descendants(view).filterIsInstance<NovelChapterSeamView>()
+                    .first { it.isVisible && it.seam?.nextTitle == null }
+                val origin = IntArray(2).also(view::getLocationOnScreen)
+                val at = IntArray(2).also(marker::getLocationOnScreen)
+                below = (at[1] - origin[1] - view.height).toFloat()
+            }
+            below
+        }
+        Renderer.WEB ->
+            eval("document.getElementById('rk-end').getBoundingClientRect().top - window.innerHeight")
+                .toFloatOrNull() ?: Float.NaN
+    }
+
+    private fun chapter(
+        id: Long,
+        html: String,
+        number: Double = id.toDouble(),
+        downloaded: Boolean = false,
+        isLast: Boolean = false,
+    ) = NovelReaderViewModel.LoadedChapter(
+        chapterId = id,
+        title = "Chapter $number",
+        url = "/chapter/$id",
+        html = html,
+        baseUrl = null,
+        progressPercent = 0,
+        chapterNumber = number,
+        downloaded = downloaded,
+        isLast = isLast,
+    )
 
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" }
 
     /** Opens [chapter] and waits for its first fit report, each renderer's sign that it has rendered. */
-    private fun open(chapter: NovelReaderViewModel.LoadedChapter) {
-        runBlocking(Dispatchers.Main) { viewport.load(chapter, readerTestSettings) }
+    private fun open(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings = readerTestSettings) {
+        runBlocking(Dispatchers.Main) { viewport.load(chapter, settings) }
         awaitWhile { !fits.containsKey(chapter.chapterId) }
         settle()
     }
 
     private fun prepend(chapter: NovelReaderViewModel.LoadedChapter) {
         runBlocking(Dispatchers.Main) { viewport.window.prepend(chapter, readerTestSettings) }
+        settle()
+    }
+
+    private fun append(chapter: NovelReaderViewModel.LoadedChapter) {
+        runBlocking(Dispatchers.Main) { viewport.window.append(chapter, readerTestSettings) }
         settle()
     }
 
@@ -358,6 +520,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** Long enough for a report the WebView makes off the main thread to arrive, had it been sent. */
         const val QUIET_MS = 1_000L
+
+        /** A seek's rounding, in either renderer's pixels. */
+        const val EDGE_SLACK_PX = 2f
+
+        val transitionsOff = readerTestSettings.copy(alwaysShowChapterTransition = false)
 
         /** Past the 180dp both renderers need, and short of it. */
         const val SWIPE_DP = 220

@@ -344,6 +344,26 @@ class WebViewSeamPositionTest {
     }
 
     /**
+     * Switching "Always show chapter transition" off takes the seam above the reader out of the page,
+     * which is height leaving above them like a chapter dropped there. Anchoring has to hold it.
+     */
+    @Test
+    fun theRealDocumentHoldsItsPlaceWhenASeamAboveIsHidden() {
+        loadReal()
+        insertReal(atStart = true)
+        scrollMarkerToMidScreenInstantly()
+        val before = markerTop()
+        // The seam the prepend drew introduces the opening chapter, which loadReal builds as 1.
+        eval("window.rkReader.setSeam('1', null); return 'ok'")
+        settle()
+        val drift = (markerTop() - before).roundToInt()
+        Log.i(TAG, "real/seam-hidden: drift=$drift")
+        // A seam left in place would read as no drift and pass.
+        assertTrue("the seam was not removed", evalDouble("return document.querySelectorAll('.rk-seam').length") == 0.0)
+        assertTrue("hiding the seam above the reader moved it by $drift px", abs(drift) <= FREE)
+    }
+
+    /**
      * A tap or a volume key scrolls smoothly, and crossing into a chapter re-centres the window, which
      * drops the chapter two behind from above the reader while that scroll is still running. Where
      * the page ends up must be where the scroll was going, measured against the text rather than the

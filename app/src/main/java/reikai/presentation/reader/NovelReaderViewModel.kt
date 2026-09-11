@@ -285,7 +285,10 @@ class NovelReaderViewModel(
                 novelPreferences.readerVolumeButtonsInverted().changes(),
                 novelPreferences.readerVolumeButtonsFraction().changes(),
             ) { enabled, inverted, fraction -> VolumePrefs(enabled, inverted, fraction) },
-        ) { tts, flags, scroll, volume -> ReaderExtraPrefs(tts, flags, scroll, volume) },
+            novelPreferences.readerAlwaysShowChapterTransition().changes(),
+        ) { tts, flags, scroll, volume, alwaysShowTransition ->
+            ReaderExtraPrefs(tts, flags, scroll, volume, alwaysShowTransition)
+        },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
             fontSize = display.type.fontSize,
@@ -318,6 +321,7 @@ class NovelReaderViewModel(
             useVolumeButtons = extra.volume.enabled,
             volumeButtonsInverted = extra.volume.inverted,
             volumeButtonsFraction = extra.volume.fraction,
+            alwaysShowChapterTransition = extra.alwaysShowTransition,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -334,6 +338,9 @@ class NovelReaderViewModel(
          *  count is taken from, and whether this chapter's own copy is on disk. */
         val chapterNumber: Double,
         val downloaded: Boolean,
+        /** No chapter follows it to step forward to, the answer `chapterAfter` gives, so the end marker
+         *  (`NovelSeam.end`) is drawn below it. */
+        val isLast: Boolean,
     )
 
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
@@ -779,6 +786,8 @@ class NovelReaderViewModel(
         chapterNumber = chapterNumber,
         // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
         downloaded = novelRepo.getById(novelId)?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
+        // Outside the order, chapterAfter has no index to step from and would call anything the last.
+        isLast = id in orderedIds && chapterAfter(id) == null,
     )
 
     /**
@@ -883,6 +892,7 @@ class NovelReaderViewModel(
             useVolumeButtons = novelPreferences.readerUseVolumeButtons().get(),
             volumeButtonsInverted = novelPreferences.readerVolumeButtonsInverted().get(),
             volumeButtonsFraction = novelPreferences.readerVolumeButtonsFraction().get(),
+            alwaysShowChapterTransition = novelPreferences.readerAlwaysShowChapterTransition().get(),
         )
     }
 
@@ -1310,6 +1320,7 @@ class NovelReaderViewModel(
         val flags: FlagPrefs,
         val scroll: ScrollPrefs,
         val volume: VolumePrefs,
+        val alwaysShowTransition: Boolean,
     )
 
     /** Per-novel orientation [override] + the global [default]; [resolved] is what the reader applies

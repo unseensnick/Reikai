@@ -115,9 +115,37 @@ class NovelTextViewportWindowTest {
      */
     @Test
     fun aShortLastChapterStaysOnScreenWhenTheChapterBeforeItArrives() {
-        open(SHORT, "<p>short</p>")
+        open(SHORT, "<p>short</p>", isLast = true)
         prepend(PREVIOUS, long("previous"))
         assertTrue("the short chapter is not on screen: ${shownAt("short")}", onScreen("short"))
+    }
+
+    /** The end marker takes the room below a short last chapter, so the chapter lands above it with the
+     *  marker on screen, as manga's last page lands above its transition. */
+    @Test
+    fun aShortLastChapterLandsAboveItsEndMarker() {
+        open(SHORT, "<p>short</p>", isLast = true)
+        prepend(PREVIOUS, long("previous"))
+        val text = shownAt("short")
+        val marker = endMarkerTop()
+        assertTrue(
+            "the end marker at $marker is not on screen below the chapter at $text",
+            text != null && marker != null && marker >= text.bottom && marker < viewport.view.height,
+        )
+    }
+
+    /** Hiding a seam above the text the reader is in shortens the item above that text, which the
+     *  layout manager does not take back, the same growth a failure turning up is. */
+    @Test
+    fun aSeamHiddenAboveTheTextKeepsTheLineTheReaderWasOn() {
+        open(LONG, long("current"))
+        prepend(PREVIOUS, long("previous"))
+        scrollToTop("current 60.")
+        instrumentation.runOnMainSync {
+            viewport.applySettings(readerTestSettings.copy(alwaysShowChapterTransition = false))
+        }
+        settle()
+        assertEquals(0, shownAt("current 60.")?.top)
     }
 
     /** The same short chapter with one after it: the host adds that one first, so there is room to
@@ -360,7 +388,7 @@ class NovelTextViewportWindowTest {
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" }
 
-    private fun chapter(id: Long, html: String) = NovelReaderViewModel.LoadedChapter(
+    private fun chapter(id: Long, html: String, isLast: Boolean = false) = NovelReaderViewModel.LoadedChapter(
         chapterId = id,
         title = "Chapter $id",
         url = "/chapter/$id",
@@ -369,11 +397,17 @@ class NovelTextViewportWindowTest {
         progressPercent = 0,
         chapterNumber = id.toDouble(),
         downloaded = false,
+        isLast = isLast,
     )
 
-    private fun open(id: Long, html: String, settings: NovelReaderSettings = readerTestSettings) {
+    private fun open(
+        id: Long,
+        html: String,
+        settings: NovelReaderSettings = readerTestSettings,
+        isLast: Boolean = false,
+    ) {
         runBlocking(Dispatchers.Main) {
-            viewport.load(chapter(id, html), settings)
+            viewport.load(chapter(id, html, isLast), settings)
         }
         awaitRendered(id)
     }
@@ -453,8 +487,22 @@ class NovelTextViewportWindowTest {
         return shown
     }
 
-    private fun seamTitles(): List<Pair<String, String>?> {
-        var titles = emptyList<Pair<String, String>?>()
+    /** The end marker's top edge relative to the viewport, or null when none is drawn. */
+    private fun endMarkerTop(): Int? {
+        var top: Int? = null
+        instrumentation.runOnMainSync {
+            val marker = descendants(viewport.view).firstOrNull {
+                it is NovelChapterSeamView && it.isVisible && it.seam?.nextTitle == null
+            } ?: return@runOnMainSync
+            val origin = IntArray(2).also(viewport.view::getLocationOnScreen)
+            val at = IntArray(2).also(marker::getLocationOnScreen)
+            top = at[1] - origin[1]
+        }
+        return top
+    }
+
+    private fun seamTitles(): List<Pair<String, String?>?> {
+        var titles = emptyList<Pair<String, String?>?>()
         instrumentation.runOnMainSync {
             titles =
                 descendants(viewport.view).filterIsInstance<NovelChapterSeamView>().filter {

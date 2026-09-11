@@ -164,6 +164,7 @@ class NovelWebViewportGateTest {
         progressPercent = 0,
         chapterNumber = id.toDouble(),
         downloaded = false,
+        isLast = false,
     )
 
     /** The page's chapter ids once they read [expected], or as they stand at the timeout. */

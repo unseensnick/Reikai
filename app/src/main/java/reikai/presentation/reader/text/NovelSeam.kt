@@ -11,10 +11,19 @@ import tachiyomi.domain.chapter.service.calculateChapterGap
 data class NovelSeam(
     val finishedTitle: String,
     val finishedDownloaded: Boolean,
-    val nextTitle: String,
+    /** Null below the novel's last chapter, where the marker says there is no next one. */
+    val nextTitle: String?,
     val nextDownloaded: Boolean,
     val missingChapters: Int,
 ) {
+    /**
+     * Whether a renderer draws this marker: manga's rule for its Next transition, which always shows
+     * at the end and across missing chapters, and between two consecutive ones only with "Always show
+     * chapter transition" on (`WebtoonAdapter.setChapters`).
+     */
+    fun isShown(alwaysShowTransition: Boolean): Boolean =
+        nextTitle == null || missingChapters > 0 || alwaysShowTransition
+
     companion object {
         fun between(finished: LoadedChapter, next: LoadedChapter) = NovelSeam(
             finishedTitle = finished.title,
@@ -25,5 +34,18 @@ data class NovelSeam(
             // pair the order runs backwards, where the transition shows nothing.
             missingChapters = calculateChapterGap(next.chapterNumber, finished.chapterNumber).coerceAtLeast(0),
         )
+
+        /** The marker below [chapter] when nothing follows it, "There's no next chapter" under its
+         *  name, or null while a chapter does. */
+        fun end(chapter: LoadedChapter): NovelSeam? {
+            if (!chapter.isLast) return null
+            return NovelSeam(
+                finishedTitle = chapter.title,
+                finishedDownloaded = chapter.downloaded,
+                nextTitle = null,
+                nextDownloaded = false,
+                missingChapters = 0,
+            )
+        }
     }
 }

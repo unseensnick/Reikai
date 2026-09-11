@@ -56,6 +56,10 @@ data class NovelReaderSettings(
     // Vertical progress-rail geometry, shared with the manga reader (verticalNavigator prefs).
     val railHeightPercent: Int,
     val railOnLeft: Boolean,
+    /** Whether the marker between two consecutive chapters shows (`NovelSeam.isShown`). Carried here
+     *  so the host's settings push redraws an open window. Defaulted because the legacy reader builds
+     *  this object too and draws no marker. */
+    val alwaysShowChapterTransition: Boolean = true,
 )
 
 /**

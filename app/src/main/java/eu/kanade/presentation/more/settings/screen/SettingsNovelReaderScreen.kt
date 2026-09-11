@@ -232,6 +232,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
     @Composable
     private fun getReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
+        val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
         val autoScrollSpeedPref = novelPreferences.readerAutoScrollSpeed()
         val autoScrollSpeed by autoScrollSpeedPref.collectAsState()
         val autoScroll by novelPreferences.readerAutoScroll().collectAsState()
@@ -261,6 +262,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_novel_seamless_chapters),
                     subtitle = stringResource(MR.strings.pref_novel_seamless_chapters_summary),
                 ).takeIf { renderingMode != NovelRenderingMode.LEGACY },
+                // Only a window has a marker between two chapters to hide, and the end-of-novel marker
+                // shows whatever this says.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerAlwaysShowChapterTransition(),
+                    title = stringResource(MR.strings.pref_always_show_chapter_transition),
+                ).takeIf { renderingMode != NovelRenderingMode.LEGACY && seamless },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerDefaultOrientation(),
                     entries = ReaderOrientation.entries

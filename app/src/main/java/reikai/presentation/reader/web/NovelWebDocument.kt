@@ -54,6 +54,7 @@ object NovelWebDocument {
                 // here because the page has no resources of its own.
                 "__LABEL_FINISHED__" to jsString(context.stringResource(MR.strings.transition_finished)),
                 "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
+                "__LABEL_NO_NEXT__" to jsString(context.stringResource(MR.strings.transition_no_next)),
                 "__LABEL_DOWNLOADED__" to jsString(context.stringResource(MR.strings.label_downloaded)),
             ),
         )
@@ -106,18 +107,27 @@ object NovelWebDocument {
     /**
      * What the page's own markers are drawn with and no setting moves, so a settings push, which
      * rewrites [variables] only, leaves them alone. The seam's padding is the text renderer's (its
-     * seam view), written once; the error colour is the app theme's, as the text renderer's failure
-     * and gap warning draw in it.
+     * seam view), written once; the error and primary colours are the app theme's, as the text
+     * renderer's gap warning and no-next notice draw their icons in them.
      */
     private fun chromeVariables(context: Context): String = buildString {
         append("--rk-seam-padding-vertical:").append(NovelChapterSeamView.PADDING_VERTICAL_DP).append("px;")
         append("--rk-seam-padding-horizontal:").append(NovelChapterSeamView.PADDING_HORIZONTAL_DP).append("px;")
         val error = MaterialColors.getColor(context, com.google.android.material.R.attr.colorError, FALLBACK_ERROR)
-        append("--rk-error:").append("#%06X".format(Locale.ROOT, error and 0xFFFFFF)).append(';')
+        append("--rk-error:").append(cssHex(error)).append(';')
+        val primary = MaterialColors.getColor(
+            context,
+            com.google.android.material.R.attr.colorPrimary,
+            FALLBACK_PRIMARY,
+        )
+        append("--rk-primary:").append(cssHex(primary)).append(';')
     }
 
-    /** Material's baseline error red, for a context whose theme names none. */
+    private fun cssHex(color: Int): String = "#%06X".format(Locale.ROOT, color and 0xFFFFFF)
+
+    /** Material's baseline error red and primary purple, for a context whose theme names neither. */
     private const val FALLBACK_ERROR = 0xFFB3261E.toInt()
+    private const val FALLBACK_PRIMARY = 0xFF6750A4.toInt()
 
     /**
      * How the reader's display settings hold their ground against a chapter that ships its own CSS.

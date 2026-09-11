@@ -6,8 +6,9 @@ import org.junit.jupiter.api.Test
 import reikai.presentation.reader.NovelReaderViewModel.LoadedChapter
 
 /**
- * What the marker between two novel chapters says, which both renderers draw from. The count is the
- * one manga's transition shows for the same two numbers.
+ * What the marker between two novel chapters says, which both renderers draw from, and when each
+ * marker is drawn at all. The count and the rule are the ones manga's transition takes from the same
+ * two chapters and the same setting.
  */
 class NovelSeamTest {
 
@@ -54,7 +55,50 @@ class NovelSeamTest {
             ("Chapter 1.0" to "Chapter 2.0")
     }
 
-    private fun chapter(number: Double, downloaded: Boolean = false) = LoadedChapter(
+    @Test
+    @DisplayName("a seam between consecutive chapters is hidden with always-show-transition off")
+    fun consecutiveSeamHiddenWithTheSettingOff() {
+        NovelSeam.between(chapter(10.0), chapter(11.0)).isShown(alwaysShowTransition = false) shouldBe false
+    }
+
+    @Test
+    @DisplayName("a seam between consecutive chapters shows with always-show-transition on")
+    fun consecutiveSeamShownWithTheSettingOn() {
+        NovelSeam.between(chapter(10.0), chapter(11.0)).isShown(alwaysShowTransition = true) shouldBe true
+    }
+
+    @Test
+    @DisplayName("a seam over missing chapters shows with always-show-transition off")
+    fun gapSeamShownWithTheSettingOff() {
+        NovelSeam.between(chapter(10.0), chapter(14.0)).isShown(alwaysShowTransition = false) shouldBe true
+    }
+
+    @Test
+    @DisplayName("the end marker shows with always-show-transition off")
+    fun endMarkerShownWithTheSettingOff() {
+        NovelSeam.end(chapter(10.0, isLast = true))?.isShown(alwaysShowTransition = false) shouldBe true
+    }
+
+    @Test
+    @DisplayName("a chapter with one after it has no end marker")
+    fun noEndMarkerWhileAChapterFollows() {
+        NovelSeam.end(chapter(10.0)) shouldBe null
+    }
+
+    @Test
+    @DisplayName("the end marker names the last chapter as finished and no chapter after it")
+    fun endMarkerNamesTheLastChapterAndNoNext() {
+        NovelSeam.end(chapter(10.0, isLast = true))?.let { it.finishedTitle to it.nextTitle } shouldBe
+            ("Chapter 10.0" to null)
+    }
+
+    @Test
+    @DisplayName("the end marker carries the last chapter's own download state")
+    fun endMarkerCarriesItsDownloadState() {
+        NovelSeam.end(chapter(10.0, downloaded = true, isLast = true))?.finishedDownloaded shouldBe true
+    }
+
+    private fun chapter(number: Double, downloaded: Boolean = false, isLast: Boolean = false) = LoadedChapter(
         chapterId = number.toLong(),
         title = "Chapter $number",
         url = "",
@@ -63,5 +107,6 @@ class NovelSeamTest {
         progressPercent = 0,
         chapterNumber = number,
         downloaded = downloaded,
+        isLast = isLast,
     )
 }

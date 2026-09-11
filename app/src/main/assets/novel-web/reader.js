@@ -6,7 +6,8 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__.
+ * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_NO_NEXT__, __LABEL_DOWNLOADED__,
+ * __DOCUMENT_TOKEN__.
  */
 (function () {
   // The token is in this script's own text. Removed while the engine still runs ahead of the chapter,
@@ -35,6 +36,7 @@
   var labels = {
     finished: '__LABEL_FINISHED__',
     next: '__LABEL_NEXT__',
+    noNext: '__LABEL_NO_NEXT__',
     downloaded: '__LABEL_DOWNLOADED__',
   };
 
@@ -491,6 +493,34 @@
       insertChapter(id, html, baseUrl, true, seam);
     },
     /*
+     * Replaces the marker that introduces chapter id with seam, or removes it for null: the host
+     * re-decides every seam when the setting that hides them changes. Scroll anchoring holds the
+     * reader, as it does for a chapter arriving above.
+     */
+    setSeam: function (id, seam) {
+      var el = document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
+      if (!el) return;
+      var above = el.previousElementSibling;
+      if (above && above.classList.contains('rk-seam')) above.parentNode.removeChild(above);
+      if (seam) el.parentNode.insertBefore(buildSeam(seam), el);
+      window.rkReader.refresh();
+    },
+    /*
+     * The marker below the novel's last chapter, or null to clear it. Outside the chapter container
+     * like a failure, so it is never counted as chapter height nor taken for a chapter's seam.
+     */
+    setEnd: function (end) {
+      var existing = document.getElementById('rk-end');
+      if (existing) existing.parentNode.removeChild(existing);
+      if (end) {
+        var marker = buildSeam(end);
+        marker.id = 'rk-end';
+        var container = document.getElementById('rk-chapters');
+        container.parentNode.insertBefore(marker, container.nextSibling);
+      }
+      window.rkReader.refresh();
+    },
+    /*
      * Why the window stops at an edge, drawn as the text renderer draws it (NovelBoundaryFailureView):
      * the heading, the source's own message under it when there is one, and Retry, which turns into
      * progress once tapped. Outside the chapter container, so it can never be counted as chapter
@@ -576,12 +606,19 @@
    * The marker between two chapters, in the shape Mihon's TransitionText draws: the finished chapter
    * over the next one, each under its own label and marked when it is on disk, with a warning between
    * them when the numbering skips chapters. Mirrored rather than invented so a seam reads the same in
-   * this renderer, the text renderer and the manga reader. What it says comes from the host.
+   * this renderer, the text renderer and the manga reader. What it says comes from the host. With no
+   * next chapter it is the end marker, which says so in TransitionText's fallback notice.
    */
   function buildSeam(seam) {
     var el = document.createElement('div');
     el.className = 'rk-seam';
     el.appendChild(seamPart(labels.finished, seam.finished));
+    if (!seam.next) {
+      var notice = textBlock('rk-seam-notice', labels.noNext);
+      notice.insertBefore(icon('rk-icon-info'), notice.firstChild);
+      el.appendChild(notice);
+      return el;
+    }
     if (seam.missing) {
       var warning = textBlock('rk-seam-warning', seam.missing);
       warning.insertBefore(icon('rk-icon-warning'), warning.firstChild);

@@ -319,6 +319,10 @@ class NovelTextViewport(
     override fun applySettings(settings: NovelReaderSettings) {
         val previous = this.settings
         this.settings = settings
+        // The markers are views of their own, so showing or hiding them re-measures no text.
+        if (previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition) {
+            adapter.refreshSeams()
+        }
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         if (previous != null && previous.paragraphShape().needsRedrawFor(settings.paragraphShape())) {
             startRedraw()
@@ -734,7 +738,8 @@ class NovelTextViewport(
     /**
      * Where this chapter's text sits in the viewport, and how tall it is. The item view is not the
      * answer: it also holds the seam marker above the text, and counting that would have the reader
-     * a few percent into a chapter before its first line.
+     * a few percent into a chapter before its first line. The end marker below the last chapter is
+     * left out for the same reason, or its end would count as seen only once the marker was.
      *
      * Null until the recycler has laid this chapter out, and again once it scrolls out of the window.
      */
@@ -866,12 +871,14 @@ class NovelTextViewport(
         }
 
         /** The seam marker sits above the chapter rather than between two items, so a position still
-         *  names a chapter and the geometry stays a chapter's own bounds. The two failure views are
-         *  fixed children for the same reason: a window edge is a place in the text, not an item. */
+         *  names a chapter and the geometry stays a chapter's own bounds. The end marker and the two
+         *  failure views are fixed children for the same reason: a window edge is a place in the text,
+         *  not an item. */
         inner class Holder(
             val root: LinearLayout,
             var head: NovelBoundaryFailureView,
             var seam: NovelChapterSeamView,
+            var end: NovelChapterSeamView,
             var tail: NovelBoundaryFailureView,
         ) : RecyclerView.ViewHolder(root) {
             /** What [head] and [tail] draw, null while each is hidden. */
@@ -882,6 +889,7 @@ class NovelTextViewport(
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val head = NovelBoundaryFailureView(parent.context).apply { isVisible = false }
             val seam = NovelChapterSeamView(parent.context, seam = null)
+            val end = NovelChapterSeamView(parent.context, seam = null)
             val tail = NovelBoundaryFailureView(parent.context).apply { isVisible = false }
             val root = LinearLayout(parent.context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -891,9 +899,10 @@ class NovelTextViewport(
                 )
                 addView(head)
                 addView(seam)
+                addView(end)
                 addView(tail)
             }
-            return Holder(root, head, seam, tail)
+            return Holder(root, head, seam, end, tail)
         }
 
         /** A seam-only change rebinds just the seam: a full bind re-adds the chapter's text container,
@@ -910,10 +919,11 @@ class NovelTextViewport(
             holder.root.findChapterContainer()?.let(holder.root::removeView)
             val container = shown.getOrNull(position)?.block?.container ?: return
             (container.parent as? ViewGroup)?.removeView(container)
-            // Between the seam above the chapter and the failure below it, which is the order the
-            // reader scrolls through them in.
+            // Between the seam above the chapter and the end marker or failure below it, which is the
+            // order the reader scrolls through them in.
             holder.root.addView(container, CHAPTER_CHILD_INDEX)
             bindSeam(holder, position)
+            bindEnd(holder, position)
             bindBoundaries(holder, position)
             if (!textSelectable) holder.root.setOnClickListener { onReaderTap(touchDownX, touchDownY) }
         }
@@ -924,7 +934,7 @@ class NovelTextViewport(
             holder.root.findChapterContainer()?.let(holder.root::removeView)
         }
 
-        /** The chapter's own container, which is whatever child is not one of the three fixtures. */
+        /** The chapter's own container, which is whatever child is not one of the four fixtures. */
         private fun LinearLayout.findChapterContainer(): View? = (0 until childCount)
             .map(::getChildAt)
             .firstOrNull { it !is NovelBoundaryFailureView && it !is NovelChapterSeamView }
@@ -937,9 +947,17 @@ class NovelTextViewport(
          */
         private fun bindSeam(holder: Holder, position: Int) {
             val finished = shown.getOrNull(position - 1)?.chapter
-            val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }
+            val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }?.drawn()
             if (seam == holder.seam.seam) return
             holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam))
+        }
+
+        /** The marker below the novel's last chapter, which depends on that chapter alone, so a full
+         *  bind is the only point it can change. */
+        private fun bindEnd(holder: Holder, position: Int) {
+            val end = NovelSeam.end(shown[position].chapter)?.drawn()
+            if (end == holder.end.seam) return
+            holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end))
         }
 
         /**
@@ -987,8 +1005,17 @@ class NovelTextViewport(
             }
         }
 
+        /** Re-decides every seam once the setting that hides them has changed. A change notice rather
+         *  than the bound holders alone, since a holder cached off screen would come back with its old
+         *  seam. One above the text the reader is in moves that text, so that is taken back. */
+        fun refreshSeams() = keepingReaderStill { notifyItemRangeChanged(0, shown.size, SEAM_CHANGED) }
+
         override fun getItemCount(): Int = shown.size
     }
+
+    /** This marker as the reader's setting draws it, or null where the setting hides it. */
+    private fun NovelSeam.drawn(): NovelSeam? =
+        takeIf { it.isShown(alwaysShowTransition = settings?.alwaysShowChapterTransition != false) }
 
     private companion object {
         /** Chapters the window holds at most: the previous one, the one being read, and as many past
@@ -996,10 +1023,11 @@ class NovelTextViewport(
         const val WINDOW_SIZE = 2 + NovelWindowReach.MAX_FORWARD
 
         /** Where the chapter's text sits among an item's fixed children: after the failure view for
-         *  the edge above it and the seam marker, before the failure view for the edge below. */
+         *  the edge above it and the seam marker, before the end marker and the failure view below. */
         const val CHAPTER_CHILD_INDEX = 2
 
-        /** The one partial change an item takes: the chapter above it, which its seam names, moved. */
+        /** The one partial change an item takes: what its seam draws, since the chapter above it moved
+         *  or the setting that hides seams changed. */
         val SEAM_CHANGED = Any()
 
         /** The frame rate the WebView renderer's per-frame speed was written against. */

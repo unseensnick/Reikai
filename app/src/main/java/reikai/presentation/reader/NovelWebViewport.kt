@@ -114,6 +114,9 @@ class NovelWebViewport(
     private var shownPrevious: NovelReaderViewModel.BoundaryFailure? = null
     private var shownNext: NovelReaderViewModel.BoundaryFailure? = null
 
+    /** The end marker the open document shows, so a window change that keeps it sends nothing. */
+    private var shownEnd: NovelSeam? = null
+
     /** What the open document's variables were last written from, so an inset that changes after the
      *  build can be written again. A document rebuilt before its window attached reads an inset of 0. */
     private var documentSettings: NovelReaderSettings? = null
@@ -243,6 +246,7 @@ class NovelWebViewport(
         held += chapter
         shownPrevious = null
         shownNext = null
+        shownEnd = null
         val token = UUID.randomUUID().toString()
         documentToken = token
         // The document is built with this family's face, and any swap still resolving is for the old page.
@@ -275,6 +279,7 @@ class NovelWebViewport(
         val safeBaseUrl = safeBaseUrl(chapter)
         loadedBaseUrl = safeBaseUrl
         webView.loadDataWithBaseURL(safeBaseUrl, html, "text/html", "UTF-8", null)
+        syncEnd()
     }
 
     // Only trust an http(s) base URL. The plugin controls the site URL, and a file:// base would hand
@@ -290,6 +295,7 @@ class NovelWebViewport(
      * would otherwise find no engine and be dropped with no trace until the next chapter.
      */
     override fun applySettings(settings: NovelReaderSettings) {
+        val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         documentSettings = settings
         documentInset = statusBarHeightPx()
         val variables = NovelWebDocument.variables(settings, documentInset)
@@ -300,6 +306,19 @@ class NovelWebViewport(
                 "rkReader.setSettings($behaviour); }",
         )
         if (settings.fontFamily != faceFamily) swapFontFace(settings.fontFamily)
+        if (seamsMoved) redrawSeams()
+    }
+
+    /** Re-decides every seam the document holds, each named by the chapter it introduces, since the
+     *  page cannot tell which of its seams the setting hides. The end marker shows either way. */
+    private fun redrawSeams() {
+        held.zipWithNext { finished, next ->
+            val seam = NovelSeam.between(finished, next).drawn()
+            runOrQueue(
+                "rkReader.setSeam(${JSONObject.quote(next.chapterId.toString())}, " +
+                    "${seam?.let(::seamJson) ?: "null"});",
+            )
+        }
     }
 
     /** The variable above already names the new family; without its face the text falls back. */
@@ -363,7 +382,7 @@ class NovelWebViewport(
             held.firstOrNull()?.let { NovelSeam.between(chapter, it) }
         } else {
             held.lastOrNull()?.let { NovelSeam.between(it, chapter) }
-        }
+        }?.drawn()
         held.add(if (atStart) 0 else held.size, chapter)
         val verb = if (atStart) "prependChapter" else "appendChapter"
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
@@ -376,12 +395,27 @@ class NovelWebViewport(
                 "$baseUrl, " +
                 "${seam?.let(::seamJson) ?: "null"});",
         )
+        syncEnd()
     }
 
-    /** The marker's text, resolved here since the page has no resources. The labels are the document's. */
+    /** This marker as the reader's setting draws it, or null where the setting hides it. */
+    private fun NovelSeam.drawn(): NovelSeam? =
+        takeIf { it.isShown(alwaysShowTransition = documentSettings?.alwaysShowChapterTransition != false) }
+
+    /** Draws the end marker below the last chapter held when nothing follows it, and takes it away
+     *  once that chapter is no longer the last one held. Outside the chapters, as a failure is. */
+    private fun syncEnd() {
+        val end = held.lastOrNull()?.let(NovelSeam::end)?.drawn()
+        if (end == shownEnd) return
+        shownEnd = end
+        runOrQueue("rkReader.setEnd(${end?.let(::seamJson) ?: "null"});")
+    }
+
+    /** The marker's text, resolved here since the page has no resources. The labels are the document's.
+     *  One with no next chapter is the end marker, which the page draws with the no-next notice. */
     private fun seamJson(seam: NovelSeam): JSONObject = JSONObject().apply {
         put("finished", JSONObject().put("title", seam.finishedTitle).put("downloaded", seam.finishedDownloaded))
-        put("next", JSONObject().put("title", seam.nextTitle).put("downloaded", seam.nextDownloaded))
+        seam.nextTitle?.let { put("next", JSONObject().put("title", it).put("downloaded", seam.nextDownloaded)) }
         if (seam.missingChapters > 0) {
             put(
                 "missing",
@@ -397,6 +431,7 @@ class NovelWebViewport(
     override fun evict(chapterId: Long) {
         held.removeAll { it.chapterId == chapterId }
         runOrQueue("rkReader.evictChapter(${JSONObject.quote(chapterId.toString())});")
+        syncEnd()
     }
 
     /** Runs [js] against the page, or holds it in order until the page says it has an engine. */

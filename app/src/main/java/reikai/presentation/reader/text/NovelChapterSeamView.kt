@@ -23,8 +23,8 @@ import tachiyomi.presentation.core.i18n.stringResource
  * manga viewers use so a seam reads the same in either. Without it a chapter simply becomes the next
  * one mid-scroll, which is what it looked like before.
  *
- * [seam] is what it says, or null to hide it. Fixed at construction, because the viewport swaps in a
- * new view rather than re-binding one (its bindSeam).
+ * [seam] is what it says, or null to hide it; one with no next chapter is the end-of-novel marker.
+ * Fixed at construction, because the viewport swaps in a new view rather than re-binding one.
  */
 class NovelChapterSeamView(context: Context, val seam: NovelSeam?) : AbstractComposeView(context) {
 
@@ -54,10 +54,10 @@ class NovelChapterSeamView(context: Context, val seam: NovelSeam?) : AbstractCom
                         topChapter = TransitionChapter(shown.finishedTitle, subtitle = null),
                         topChapterDownloaded = shown.finishedDownloaded,
                         bottomLabel = stringResource(MR.strings.transition_next),
-                        bottomChapter = TransitionChapter(shown.nextTitle, subtitle = null),
+                        bottomChapter = shown.nextTitle?.let { TransitionChapter(it, subtitle = null) },
                         bottomChapterDownloaded = shown.nextDownloaded,
-                        // Both chapters are present, so the fallback is unreachable here.
-                        fallbackLabel = "",
+                        // Drawn in place of the next chapter by the end marker, which has none.
+                        fallbackLabel = stringResource(MR.strings.transition_no_next),
                         chapterGap = shown.missingChapters,
                     )
                 }

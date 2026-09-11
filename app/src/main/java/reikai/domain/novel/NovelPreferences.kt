@@ -323,6 +323,12 @@ class NovelPreferences(
      *  chapter its own page, which some readers want as the place they stop. */
     fun readerSeamlessChapters() = preferenceStore.getBoolean("ln_reader_seamless_chapters", true)
 
+    /** The novel twin of manga's `alwaysShowChapterTransition`, its own key because each reader keeps
+     *  its own settings. Off draws the marker between two chapters only where chapters are missing;
+     *  the marker after the last chapter shows either way. */
+    fun readerAlwaysShowChapterTransition() =
+        preferenceStore.getBoolean("ln_reader_always_show_chapter_transition", true)
+
     /** Insert paragraph breaks into chapters that arrive as one unbroken block of text. */
     fun readerAutoSplitText() = preferenceStore.getBoolean("ln_reader_auto_split_text", false)
 
