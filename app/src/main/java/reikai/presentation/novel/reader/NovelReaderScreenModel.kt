@@ -30,6 +30,7 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -138,6 +139,15 @@ class NovelReaderScreenModel(
             trackPreferences = trackPreferences,
             trackNovelChapter = trackNovelChapter,
             context = Injekt.get<Application>(),
+        )
+    }
+
+    private val deleteChaptersBehindReader by lazy {
+        DeleteNovelChaptersBehindReader(
+            novelPreferences = novelPreferences,
+            getNovelCategories = getNovelCategories,
+            downloadManager = { downloadManager },
+            chapterRepository = chapterRepo,
         )
     }
 
@@ -758,34 +768,12 @@ class NovelReaderScreenModel(
      * Finishing [chapter] through [NovelChapterFinish], which NovelReaderViewModel.markChapterRead calls
      * too, so the mark, "mark duplicate read", the tracker push and the once-a-session latch are one
      * rule for both readers. Reaching the end and mark-read-on-skip both land here, as manga's both go
-     * through updateChapterProgressOnComplete. Only the trim behind the reader is still its own twin.
+     * through updateChapterProgressOnComplete. The trim behind the reader is shared the same way.
      */
     private suspend fun markChapterRead(chapter: NovelChapter) {
-        chapterFinish.finish(chapter, memberIds, groupStitch) { maybeDeleteAfterRead(chapter) }
-    }
-
-    /** Twin of [reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader], which the shared
-     *  reader calls. Collapses into it when this model is deleted by the reader takeover.
-     *
-     *  Keep the last N read chapters downloaded (the [NovelPreferences.removeAfterReadSlots] buffer):
-     *  delete the chapter [slots] positions back in reading order, so sequential reading keeps a rolling
-     *  buffer. Skips a bookmarked chapter unless allowed and novels in an excluded category. The separate
-     *  "delete after marked as read" pref is handled by [deleteNovelChaptersAfterRead] on the mark itself. */
-    private suspend fun maybeDeleteAfterRead(read: NovelChapter) {
-        val slots = novelPreferences.removeAfterReadSlots().get()
-        if (slots < 0) return
-        val index = orderedIds.indexOf(read.id)
-        if (index < 0) return
-        val targetId = orderedIds.getOrNull(index - slots) ?: return
-        val target = chapterRepo.getById(targetId) ?: return
-        if (!target.read) return
-        if (target.bookmark && !novelPreferences.removeBookmarkedChapters().get()) return
-        val excluded = novelPreferences.removeExcludeCategories().get().mapNotNull { it.toLongOrNull() }
-        if (excluded.isNotEmpty()) {
-            val cats = getNovelCategories.awaitByNovelId(read.novelId).map { it.id }.ifEmpty { listOf(0L) }
-            if (cats.intersect(excluded.toSet()).isNotEmpty()) return
+        chapterFinish.finish(chapter, memberIds, groupStitch) {
+            deleteChaptersBehindReader.await(chapter.novelId, orderedIds, chapter.id)
         }
-        downloadManager.deleteChapters(listOf(target))
     }
 
     /**
