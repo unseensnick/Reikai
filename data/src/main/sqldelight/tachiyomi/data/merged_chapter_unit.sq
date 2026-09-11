@@ -54,64 +54,99 @@ CREATE TABLE merged_novel_chapter_unit (
 CREATE INDEX merged_novel_chapter_unit_group_index
 ON merged_novel_chapter_unit(group_id, unit, copy_order);
 
--- Groups whose stored stitch no longer describes the chapters behind them, in both directions: a
--- member chapter with no row or with changed inputs, and a row for a chapter that is no longer a
--- library member's. A stale group is rebuilt whole, since one new chapter moves every position after
--- it. Both halves see only members still in the library, which is what the stitch itself is given, so
--- removing an entry from the library and re-adding it are self-correcting like any other change.
-staleMergedGroups:
-SELECT DISTINCT groupId FROM (
-    SELECT MGM.group_id AS groupId
-    FROM merge_group_manga MGM
-    JOIN mangas M
-    ON M._id = MGM.manga_id
-    AND M.favorite = 1
-    JOIN chapters C
-    ON C.manga_id = MGM.manga_id
-    LEFT JOIN merged_chapter_unit U
-    ON U.chapter_id = C._id
-    AND U.group_id = MGM.group_id
-    WHERE U.chapter_id IS NULL OR U.derived_number != C.chapter_number
-    UNION ALL
-    SELECT U.group_id AS groupId
-    FROM merged_chapter_unit U
-    LEFT JOIN chapters C
-    ON C._id = U.chapter_id
-    LEFT JOIN merge_group_manga MGM
-    ON MGM.manga_id = C.manga_id
-    AND MGM.group_id = U.group_id
-    LEFT JOIN mangas M
-    ON M._id = MGM.manga_id
-    AND M.favorite = 1
-    WHERE M._id IS NULL
+-- The source ranking each group was last stitched under, as ranking stamps (see SourceRanking.kt), the
+-- one stitch input that is not a chapter row. The ranking picks the trunk, so a reorder or a changed
+-- preferred-source list is as much a reason to restitch as a new chapter. The preferred list lives in
+-- preferences, out of SQL's reach, so the comparison is the reconciliation's; this only remembers.
+CREATE TABLE merged_group_ranking (
+    group_id INTEGER NOT NULL PRIMARY KEY,
+    ranking TEXT NOT NULL,
+    FOREIGN KEY(group_id) REFERENCES merge_group (_id)
+    ON DELETE CASCADE
 );
 
+-- Every group whose stored stitch no longer describes the chapters behind it, once per stale row, in
+-- both directions: a member chapter with no row or with changed inputs, and a row for a chapter that
+-- is no longer a library member's. A stale group is rebuilt whole, since one new chapter moves every
+-- position after it. Both halves see only members still in the library, which is what the stitch
+-- itself is given, so removing an entry from the library and re-adding it are self-correcting like any
+-- other change. A view so the library-wide and the one-group check share one definition: a filter on
+-- groupId reaches into both halves, so the one-group check costs that group's chapters alone.
+CREATE VIEW mergedChapterStaleView AS
+SELECT MGM.group_id AS groupId
+FROM merge_group_manga MGM
+JOIN mangas M
+ON M._id = MGM.manga_id
+AND M.favorite = 1
+JOIN chapters C
+ON C.manga_id = MGM.manga_id
+LEFT JOIN merged_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGM.group_id
+WHERE U.chapter_id IS NULL OR U.derived_number != C.chapter_number
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_chapter_unit U
+LEFT JOIN chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_manga MGM
+ON MGM.manga_id = C.manga_id
+AND MGM.group_id = U.group_id
+LEFT JOIN mangas M
+ON M._id = MGM.manga_id
+AND M.favorite = 1
+WHERE M._id IS NULL;
+
+CREATE VIEW mergedNovelChapterStaleView AS
+SELECT MGN.group_id AS groupId
+FROM merge_group_novel MGN
+JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite = 1
+JOIN novel_chapters C
+ON C.novel_id = MGN.novel_id
+LEFT JOIN merged_novel_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGN.group_id
+WHERE U.chapter_id IS NULL OR U.derived_name != C.name OR U.derived_number != C.chapter_number
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_novel_chapter_unit U
+LEFT JOIN novel_chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_novel MGN
+ON MGN.novel_id = C.novel_id
+AND MGN.group_id = U.group_id
+LEFT JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite = 1
+WHERE N._id IS NULL;
+
+staleMergedGroups:
+SELECT DISTINCT groupId FROM mergedChapterStaleView;
+
+staleMergedGroup:
+SELECT groupId FROM mergedChapterStaleView WHERE groupId = :groupId LIMIT 1;
+
 staleMergedNovelGroups:
-SELECT DISTINCT groupId FROM (
-    SELECT MGN.group_id AS groupId
-    FROM merge_group_novel MGN
-    JOIN novels N
-    ON N._id = MGN.novel_id
-    AND N.favorite = 1
-    JOIN novel_chapters C
-    ON C.novel_id = MGN.novel_id
-    LEFT JOIN merged_novel_chapter_unit U
-    ON U.chapter_id = C._id
-    AND U.group_id = MGN.group_id
-    WHERE U.chapter_id IS NULL OR U.derived_name != C.name OR U.derived_number != C.chapter_number
-    UNION ALL
-    SELECT U.group_id AS groupId
-    FROM merged_novel_chapter_unit U
-    LEFT JOIN novel_chapters C
-    ON C._id = U.chapter_id
-    LEFT JOIN merge_group_novel MGN
-    ON MGN.novel_id = C.novel_id
-    AND MGN.group_id = U.group_id
-    LEFT JOIN novels N
-    ON N._id = MGN.novel_id
-    AND N.favorite = 1
-    WHERE N._id IS NULL
-);
+SELECT DISTINCT groupId FROM mergedNovelChapterStaleView;
+
+staleMergedNovelGroup:
+SELECT groupId FROM mergedNovelChapterStaleView WHERE groupId = :groupId LIMIT 1;
+
+storedRankings:
+SELECT group_id, ranking FROM merged_group_ranking;
+
+-- Guarded like insert below: the rebuild reads the ranking before it writes, and a group dissolved in
+-- between would otherwise leave a row the foreign-key check refuses.
+insertRanking:
+INSERT OR REPLACE INTO merged_group_ranking(group_id, ranking)
+SELECT :groupId, :ranking
+WHERE EXISTS (SELECT 1 FROM merge_group WHERE _id = :groupId);
+
+deleteRanking:
+DELETE FROM merged_group_ranking
+WHERE group_id = :groupId;
 
 -- Clearing before a rebuild reaches rows by group AND by member, because a member that has just left
 -- the group still owns rows stamped with it, and those are exactly what makes the group stale.

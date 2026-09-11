@@ -90,4 +90,27 @@ class NovelReadingOrderTest {
         all.sortedWith(readingOrderComparator(Novel.create(), global)).map { it.id } shouldBe
             listOf(2L, 1L, 3L)
     }
+
+    // Two chapters tying on every sort key, handed over against source order, which is how the reader
+    // hands a chapter it re-added to the end of its list. Only the source-order tiebreak orders them.
+    private val tiedFirst = chapter(id = 4, name = "Same", number = 5.0, order = 1, upload = 500)
+    private val tiedSecond = chapter(id = 5, name = "Same", number = 5.0, order = 2, upload = 500)
+
+    private fun tiedIds(sorting: Long) =
+        listOf(tiedSecond, tiedFirst).sortedWith(readingOrderComparator(novel(sorting), prefs)).map { it.id }
+
+    @Test
+    fun `chapters sharing a number read in source order`() {
+        tiedIds(NovelChapterFlags.SORTING_NUMBER) shouldBe listOf(4L, 5L)
+    }
+
+    @Test
+    fun `chapters sharing an upload date read in source order`() {
+        tiedIds(NovelChapterFlags.SORTING_UPLOAD_DATE) shouldBe listOf(4L, 5L)
+    }
+
+    @Test
+    fun `chapters sharing a name read in source order`() {
+        tiedIds(NovelChapterFlags.SORTING_ALPHABET) shouldBe listOf(4L, 5L)
+    }
 }

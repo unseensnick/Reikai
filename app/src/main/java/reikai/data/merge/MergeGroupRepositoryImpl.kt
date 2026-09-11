@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.RankedMember
 import reikai.domain.merge.model.MergeGroup
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -100,6 +101,16 @@ class MergeGroupRepositoryImpl(
                 .subscribeToList().map { rows -> rows.groupBy({ it.first }, { it.second }) }
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
+
+    override suspend fun getRankedMangaMembers(): List<RankedMember<Long>> =
+        queries.rankedMangaMembers { groupId, mangaId, source, override ->
+            RankedMember(groupId, mangaId, source, override == 1L)
+        }.awaitAsList()
+
+    override suspend fun getRankedNovelMembers(): List<RankedMember<String>> =
+        queries.rankedNovelMembers { groupId, novelId, source, override ->
+            RankedMember(groupId, novelId, source, override == 1L)
+        }.awaitAsList()
 
     override suspend fun merge(contentType: ContentType, ids: List<Long>): Long? {
         val distinct = ids.distinct()

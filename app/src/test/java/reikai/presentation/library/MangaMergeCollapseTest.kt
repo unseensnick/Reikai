@@ -56,16 +56,41 @@ class MangaMergeCollapseTest {
         overrideRankings: Map<Long, List<Long>> = emptyMap(),
         preferredSourceIds: List<Long> = emptyList(),
         distinctChapterCounts: Map<Long, Long> = emptyMap(),
+        mergedUnreadByGroup: Map<Long, Long> = emptyMap(),
     ) = MangaMergeCollapse.collapse(
         items,
         membership,
         mergingEnabled,
         showMergeSourceIcons = true,
         resolveSource,
+        mergedUnreadByGroup = mergedUnreadByGroup,
         overrideRankings = overrideRankings,
         preferredSourceIds = preferredSourceIds,
         distinctChapterCounts = distinctChapterCounts,
     )
+
+    @Test
+    fun `a group not stitched yet keeps its leading source's own unread count`() = runTest {
+        // Group 8 is stitched and fully read; group 7 has no stitch yet, which is not the same as read.
+        val result = collapse(
+            listOf(item(1, unread = 5), item(2, unread = 3), item(3), item(4)),
+            membership = mapOf(1L to 7L, 2L to 7L, 3L to 8L, 4L to 8L),
+            mergedUnreadByGroup = mapOf(8L to 0L),
+        )
+
+        result.first { it.id == 1L }.unreadCount shouldBe 5L
+    }
+
+    @Test
+    fun `a stitched group reports its deduplicated unread count`() = runTest {
+        val result = collapse(
+            listOf(item(1, unread = 5), item(2, unread = 3)),
+            membership = mapOf(1L to 7L, 2L to 7L),
+            mergedUnreadByGroup = mapOf(7L to 6L),
+        )
+
+        result.single().unreadCount shouldBe 6L
+    }
 
     @Test
     fun `a single item is returned unchanged`() = runTest {

@@ -33,8 +33,8 @@ class EntryMergeActionHost(
     private val setFavorite: suspend (ids: List<Long>, favorite: Boolean) -> Unit,
 ) {
 
-    /** Persist a manage-sources drag as the group's source order, then re-aggregate live (a fresh array
-     *  re-emits the flow so the new trunk leads the list). */
+    /** Persist a manage-sources drag as the group's source order, then re-read the group: a fresh array
+     *  re-emits the list, whose stitch the new ranking has made stale, so it is rebuilt on the new trunk. */
     fun reorderSources(orderedIds: List<Long>) {
         scope.launchIO {
             mergeManager.setSourceOrder(orderedIds)
@@ -42,7 +42,8 @@ class EntryMergeActionHost(
         }
     }
 
-    /** Clear the per-group source-order override (back to the global ranking) and re-aggregate live. */
+    /** Clear the per-group source-order override (back to the global ranking) and re-read the group,
+     *  which rebuilds its stitch on the global ranking. */
     fun resetSourceOrder() {
         dismissDialog()
         scope.launchIO {

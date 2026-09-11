@@ -13,6 +13,12 @@ interface MergedChapterUnitRepository {
     /** Groups of [contentType] whose stored stitch no longer matches the chapters behind them. */
     suspend fun getStaleGroups(contentType: ContentType): List<Long>
 
+    /** [getStaleGroups] for one group, at the cost of that group's chapters rather than the library's. */
+    suspend fun isStale(contentType: ContentType, groupId: Long): Boolean
+
+    /** The ranking stamp each group was last stitched under, keyed by group; see [rankingStamps]. */
+    suspend fun getRankings(): Map<Long, String>
+
     /**
      * [groupId]'s stored stitch, in merged order, for a screen about to render it. Chapters the stitch
      * dropped are left out, since they render nowhere. Empty when the group has never been stitched.
@@ -20,16 +26,16 @@ interface MergedChapterUnitRepository {
     suspend fun getStitch(contentType: ContentType, groupId: Long): List<ChapterUnit>
 
     /**
-     * Replace [groupId]'s stored stitch with [units], clearing what was there first, in one
-     * transaction. Passing none clears the group, which is what a group with too few library members
-     * left to stitch comes to.
+     * Replace [groupId]'s stored stitch with [units] and the [ranking] stamp it was built under,
+     * clearing what was there first, in one transaction. Passing no units clears the group, which is
+     * what a group with too few library members left to stitch comes to; a null [ranking] records none.
      */
-    suspend fun replaceGroup(contentType: ContentType, groupId: Long, units: List<StoredUnit>)
+    suspend fun replaceGroup(contentType: ContentType, groupId: Long, units: List<StoredUnit>, ranking: String?)
 
     /**
      * Unread chapters per merge group: one per chapter the group covers, counted only when no member
-     * source's copy is read. A group with everything read produces NO ENTRY, not a zero, so a caller
-     * must read a missing group as zero rather than as "no data, keep the last value".
+     * source's copy is read. Every stitched group has an entry, zero when it is fully read. A missing
+     * group has not been stitched yet, which a caller must show as its leading source's own count.
      */
     suspend fun getUnreadCounts(contentType: ContentType): Map<Long, Long>
 

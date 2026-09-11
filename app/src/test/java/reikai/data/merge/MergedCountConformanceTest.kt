@@ -232,6 +232,7 @@ class MergedCountConformanceTest {
             ContentType.NOVELS,
             group,
             storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }),
+            ranking = null,
         )
         return units.getUnreadCounts(ContentType.NOVELS)[group]?.toInt() ?: 0
     }
@@ -247,6 +248,7 @@ class MergedCountConformanceTest {
             ContentType.MANGA,
             group,
             storedUnitsOf(chapters, merged, { it.id }, { it.name }, { it.chapterNumber }),
+            ranking = null,
         )
         return units.getUnreadCounts(ContentType.MANGA)[group]?.toInt() ?: 0
     }

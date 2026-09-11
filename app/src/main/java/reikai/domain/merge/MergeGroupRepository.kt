@@ -59,6 +59,16 @@ interface MergeGroupRepository {
     fun getOverrideRankingsAsFlow(contentType: ContentType): Flow<Map<Long, List<Long>>>
 
     /**
+     * Every library member of every manga group with what ranks it before chapters are counted, each
+     * group's rows in its own member order. What the stored stitch's staleness check reads, so a reorder
+     * or a preferred-source change is caught without loading any group's chapters.
+     */
+    suspend fun getRankedMangaMembers(): List<RankedMember<Long>>
+
+    /** Novel twin of [getRankedMangaMembers]; novel source ids are strings. */
+    suspend fun getRankedNovelMembers(): List<RankedMember<String>>
+
+    /**
      * Merge [ids] into one group, absorbing any groups they already belong to (so merging two
      * collapsed cards pulls in every hidden member). Atomic. Returns the group id, or null when fewer
      * than two distinct entries would take part.

@@ -1,0 +1,64 @@
+-- RK: the source ranking each merge group was stitched under, so a reorder or a changed preferred-source
+-- list makes the stored stitch stale the way a new chapter does, plus the staleness checks as views so
+-- one group can be checked without scanning the whole library. See data/merged_chapter_unit.sq for the
+-- full rationale. These statements mirror that file exactly: fresh installs build from the .sq via
+-- Schema.create(), existing installs reach the same schema here.
+--
+-- No backfill: every group starts with no ranking recorded, which reads as stale, so the next
+-- reconciliation pass restitches each group once and records it. The stitch is a rebuildable cache.
+CREATE TABLE merged_group_ranking (
+    group_id INTEGER NOT NULL PRIMARY KEY,
+    ranking TEXT NOT NULL,
+    FOREIGN KEY(group_id) REFERENCES merge_group (_id)
+    ON DELETE CASCADE
+);
+
+CREATE VIEW mergedChapterStaleView AS
+SELECT MGM.group_id AS groupId
+FROM merge_group_manga MGM
+JOIN mangas M
+ON M._id = MGM.manga_id
+AND M.favorite = 1
+JOIN chapters C
+ON C.manga_id = MGM.manga_id
+LEFT JOIN merged_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGM.group_id
+WHERE U.chapter_id IS NULL OR U.derived_number != C.chapter_number
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_chapter_unit U
+LEFT JOIN chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_manga MGM
+ON MGM.manga_id = C.manga_id
+AND MGM.group_id = U.group_id
+LEFT JOIN mangas M
+ON M._id = MGM.manga_id
+AND M.favorite = 1
+WHERE M._id IS NULL;
+
+CREATE VIEW mergedNovelChapterStaleView AS
+SELECT MGN.group_id AS groupId
+FROM merge_group_novel MGN
+JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite = 1
+JOIN novel_chapters C
+ON C.novel_id = MGN.novel_id
+LEFT JOIN merged_novel_chapter_unit U
+ON U.chapter_id = C._id
+AND U.group_id = MGN.group_id
+WHERE U.chapter_id IS NULL OR U.derived_name != C.name OR U.derived_number != C.chapter_number
+UNION ALL
+SELECT U.group_id AS groupId
+FROM merged_novel_chapter_unit U
+LEFT JOIN novel_chapters C
+ON C._id = U.chapter_id
+LEFT JOIN merge_group_novel MGN
+ON MGN.novel_id = C.novel_id
+AND MGN.group_id = U.group_id
+LEFT JOIN novels N
+ON N._id = MGN.novel_id
+AND N.favorite = 1
+WHERE N._id IS NULL;

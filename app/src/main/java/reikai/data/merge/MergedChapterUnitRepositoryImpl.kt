@@ -1,6 +1,7 @@
 package reikai.data.merge
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -29,6 +30,15 @@ class MergedChapterUnitRepositoryImpl(
             ContentType.NOVELS -> queries.staleMergedNovelGroups().awaitAsList()
             else -> queries.staleMergedGroups().awaitAsList()
         }
+
+    override suspend fun isStale(contentType: ContentType, groupId: Long): Boolean =
+        when (contentType) {
+            ContentType.NOVELS -> queries.staleMergedNovelGroup(groupId).awaitAsOneOrNull()
+            else -> queries.staleMergedGroup(groupId).awaitAsOneOrNull()
+        } != null
+
+    override suspend fun getRankings(): Map<Long, String> =
+        queries.storedRankings().awaitAsList().associate { it.group_id to it.ranking }
 
     override suspend fun getStitch(contentType: ContentType, groupId: Long): List<ChapterUnit> =
         when (contentType) {
@@ -67,10 +77,16 @@ class MergedChapterUnitRepositoryImpl(
     override suspend fun getCoveredChapterCounts(): Map<Long, Long> =
         queries.coveredChapterCountsByManga().awaitAsList().associate { it.mangaId to it.coveredCount }
 
-    override suspend fun replaceGroup(contentType: ContentType, groupId: Long, units: List<StoredUnit>) {
+    override suspend fun replaceGroup(
+        contentType: ContentType,
+        groupId: Long,
+        units: List<StoredUnit>,
+        ranking: String?,
+    ) {
         val novels = contentType == ContentType.NOVELS
         database.transaction {
             if (novels) queries.deleteNovelGroup(groupId) else queries.deleteGroup(groupId)
+            if (ranking == null) queries.deleteRanking(groupId) else queries.insertRanking(groupId, ranking)
             units.forEach {
                 val unit = it.unit?.toLong()
                 val copyOrder = it.copyOrder.toLong()

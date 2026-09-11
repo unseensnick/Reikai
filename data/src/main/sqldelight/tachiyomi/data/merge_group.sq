@@ -163,6 +163,23 @@ JOIN merge_group AS mg ON mg._id = mgn.group_id
 WHERE mg.override_source_ranking = 1
 ORDER BY mgn.group_id, mgn.source_priority, mgn._id;
 
+-- RK: every library member of a group with what ranks it when the group is stitched: its source, for
+-- the global preferred list, and the group's override flag, with rows in the group's own member order.
+-- The stored stitch is checked against these, so a ranking change reads as stale like a chapter change.
+rankedMangaMembers:
+SELECT MGM.group_id, MGM.manga_id, M.source, MG.override_source_ranking
+FROM merge_group_manga MGM
+JOIN merge_group MG ON MG._id = MGM.group_id
+JOIN mangas M ON M._id = MGM.manga_id AND M.favorite = 1
+ORDER BY MGM.group_id, MGM.source_priority, MGM._id;
+
+rankedNovelMembers:
+SELECT MGN.group_id, MGN.novel_id, N.source, MG.override_source_ranking
+FROM merge_group_novel MGN
+JOIN merge_group MG ON MG._id = MGN.group_id
+JOIN novels N ON N._id = MGN.novel_id AND N.favorite = 1
+ORDER BY MGN.group_id, MGN.source_priority, MGN._id;
+
 -- Dissolve every group of a content type (members cascade); the Settings "clear all merges" action.
 deleteGroupsByContentType:
 DELETE FROM merge_group

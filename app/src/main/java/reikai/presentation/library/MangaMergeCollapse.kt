@@ -21,12 +21,8 @@ object MangaMergeCollapse {
         // When false, the group's sources are not resolved and the badge falls back to a count.
         showMergeSourceIcons: Boolean,
         resolveSource: suspend (Long) -> Source,
-        // Group id -> deduplicated unread count. A group is ABSENT when everything in it is read, so a
-        // missing entry means zero, not "unknown". Empty until the match-key backfill has run, in which
-        // case the group keeps the primary's own count rather than reporting a wrong one. Known edge:
-        // a library whose merge groups are ALL fully read also yields an empty map and takes that
-        // fallback, briefly over-reporting from the primary's own count; telling the two apart would
-        // need a backfill marker, and any group gaining an unread chapter corrects it.
+        // Group id -> deduplicated unread count. A stitched group always has an entry, zero included,
+        // so an absent one has not been stitched and keeps the primary's own count, as on the novel side.
         mergedUnreadByGroup: Map<Long, Long> = emptyMap(),
         // Group id -> merged chapters with a copy on disk. A stitched group always has an entry, zero
         // included, so an absent one has not been stitched and keeps the members' own sum.
@@ -68,12 +64,7 @@ object MangaMergeCollapse {
                         preferredSourceIds = preferredSourceIds,
                         showMergeSourceIcons = showMergeSourceIcons,
                         resolveSource = resolveSource,
-                        // Absent group = nothing unread. Null only when the map has no data at all.
-                        mergedUnread = if (groupId != null && mergedUnreadByGroup.isNotEmpty()) {
-                            mergedUnreadByGroup[groupId] ?: 0L
-                        } else {
-                            null
-                        },
+                        mergedUnread = groupId?.let { mergedUnreadByGroup[it] },
                         mergedDownloads = if (groupId != null && mergedDownloadsByGroup.isNotEmpty()) {
                             mergedDownloadsByGroup[groupId]
                         } else {

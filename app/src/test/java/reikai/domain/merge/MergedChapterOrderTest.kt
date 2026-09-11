@@ -163,6 +163,35 @@ class MergedChapterOrderTest {
     }
 
     @Test
+    @DisplayName("an identity the order holds twice pairs with the copy ahead of the walk")
+    fun repeatedIdentityPairsAhead() {
+        // "z" is a per-volume title such as an afterword: the same identity, a different chapter.
+        val order = order()
+
+        order.addTrunk("a:1", "z:1", "b:1", "z:3", "c:1")
+        order.addSource("a:2", "z:2", "b:2", "z:4", "c:2")
+
+        order.result().copies shouldBe listOf(
+            "a:2" to "a:1",
+            "z:2" to "z:1",
+            "b:2" to "b:1",
+            "z:4" to "z:3",
+            "c:2" to "c:1",
+        )
+    }
+
+    @Test
+    @DisplayName("a match behind the walk after an unidentifiable run pairs with the chapter it matched")
+    fun matchBehindTheWalkKeepsItsPair() {
+        val order = order()
+
+        order.addTrunk("a:1", "b:1", "c:1")
+        order.addSourceDeferring("c:2", "?x:2", "a:2")
+
+        order.result().copies shouldBe listOf("c:2" to "c:1", "a:2" to "a:1")
+    }
+
+    @Test
     @DisplayName("an aligned unidentifiable run records each of its chapters as a copy")
     fun alignedRunRecordsCopies() {
         val order = order()

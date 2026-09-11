@@ -36,11 +36,18 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
         cursor = -1
     }
 
-    /** Where an already-placed chapter shares [item]'s identity, or -1 when none does. */
+    /**
+     * Where an already-placed chapter shares [item]'s identity, or -1 when none does. One identity
+     * can sit in the order several times (a per-volume "Afterword" normalizes to one title), so the
+     * copy this source means is the first one past its cursor; only when none lies ahead is it the
+     * nearest one behind. Taking the first in the whole order filed a later volume's copy under the
+     * earliest and dragged the cursor back to it.
+     */
     fun positionOf(item: T): Int {
         val key = keyOf(item) ?: return -1
         if (key !in placedKeys) return -1
-        return order.indexOfFirst { it.key == key }
+        return (cursor + 1 until order.size).firstOrNull { order[it].key == key }
+            ?: (cursor downTo 0).first { order[it].key == key }
     }
 
     /**
@@ -57,10 +64,11 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
             deferred.clear()
             cursor = index
         } else {
-            // Placing shifts the match down by however many landed above it.
-            val added = deferred.size
+            // The run lands just past the cursor, so it shifts the match down only when the match
+            // lies past the cursor too; a match behind it stays where it was.
+            val shift = if (index > cursor) deferred.size else 0
             placeDeferred()
-            cursor = index + added
+            cursor = index + shift
         }
         copies += item to order[cursor].item
     }

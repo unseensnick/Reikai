@@ -9,6 +9,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository.StoredUnit
 import reikai.domain.merge.MergedGroupStitcher
+import reikai.domain.merge.rankingStamps
 import reikai.domain.merge.storedUnitsOf
 
 /**
@@ -51,4 +52,10 @@ class NovelGroupStitcher(
             number = { it.chapterNumber },
         )
     }
+
+    override suspend fun rankings(): Map<Long, String> =
+        rankingStamps(
+            mergeGroupRepository.getRankedNovelMembers(),
+            reikaiLibraryPreferences.preferredNovelSources.get(),
+        )
 }

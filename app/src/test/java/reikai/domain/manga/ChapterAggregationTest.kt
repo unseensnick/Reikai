@@ -1,5 +1,6 @@
 package reikai.domain.manga
 
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.chapter.model.Chapter
@@ -39,7 +40,7 @@ class ChapterAggregationTest {
             chapter(2L, 5.0),
         )
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to source1, 2L to source2))
+        val unified = ChapterAggregation.merge(mapOf(1L to source1, 2L to source2)).chapters
 
         // Source 2 wins the trunk despite source 1 having more rows; source 1 adds nothing new.
         unified.size shouldBe 5
@@ -52,7 +53,7 @@ class ChapterAggregationTest {
         val trunk = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
         val other = listOf(chapter(2L, 4.0), chapter(2L, 5.0), chapter(2L, 6.0), chapter(2L, 7.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
 
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0)
         // Trunk owns 1..5; only the missing 6 and 7 are borrowed from source 2.
@@ -67,7 +68,7 @@ class ChapterAggregationTest {
         // Number 3 appears twice (two scanlators) in the gap-filled source.
         val other = listOf(chapter(2L, 3.0, "A"), chapter(2L, 3.0, "B"), chapter(2L, 4.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
 
         unified.count { it.chapterNumber == 3.0 } shouldBe 1
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0)
@@ -78,7 +79,7 @@ class ChapterAggregationTest {
         val trunk = listOf(chapter(1L, 1.0, "A"), chapter(1L, 1.0, "B"), chapter(1L, 2.0))
         val other = listOf(chapter(2L, 1.0), chapter(2L, 2.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
 
         unified.count { it.chapterNumber == 1.0 } shouldBe 1
         unified.numbers() shouldBe listOf(1.0, 2.0)
@@ -90,7 +91,7 @@ class ChapterAggregationTest {
         val trunk = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
         val other = listOf(chapter(2L, -1.0), chapter(2L, 3.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
 
         // The unrecognized (-1) sibling chapter can't be matched by number, so it's dropped; 3 fills.
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0)
@@ -104,7 +105,7 @@ class ChapterAggregationTest {
         val floatOrigin = listOf(chapter(1L, 1.0), chapter(1L, 1.1f.toDouble()), chapter(1L, 1.2f.toDouble()))
         val doubleOrigin = listOf(chapter(2L, 1.0), chapter(2L, 1.1), chapter(2L, 1.2))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to floatOrigin, 2L to doubleOrigin))
+        val unified = ChapterAggregation.merge(mapOf(1L to floatOrigin, 2L to doubleOrigin)).chapters
 
         // One row per logical number despite the float/double representation gap.
         unified.size shouldBe 3
@@ -117,7 +118,7 @@ class ChapterAggregationTest {
         val trunk = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
         val offset = listOf(chapter(2L, 1.005), chapter(2L, 1.1))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to offset))
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to offset)).chapters
 
         unified.numbers() shouldBe listOf(1.0, 1.005, 1.1, 2.0)
     }
@@ -126,14 +127,14 @@ class ChapterAggregationTest {
     fun `single source returns its chapters unchanged`() {
         val only = listOf(chapter(1L, 1.0, "A"), chapter(1L, 1.0, "B"), chapter(1L, -1.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to only))
+        val unified = ChapterAggregation.merge(mapOf(1L to only)).chapters
 
         unified shouldBe only
     }
 
     @Test
     fun `empty input returns empty`() {
-        ChapterAggregation.aggregate(emptyMap()) shouldBe emptyList()
+        ChapterAggregation.merge(emptyMap()).chapters shouldBe emptyList()
     }
 
     @Test
@@ -142,11 +143,11 @@ class ChapterAggregationTest {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
 
-        val unified = ChapterAggregation.aggregate(
+        val unified = ChapterAggregation.merge(
             chaptersBySource = mapOf(1L to source1, 2L to source2),
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
             preferredSourceIds = listOf(200L),
-        )
+        ).chapters
 
         // Source 2 wins the trunk (1..3); source 1 only gap-fills 4 and 5.
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
@@ -160,12 +161,12 @@ class ChapterAggregationTest {
         val sourceB = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
         val sourceC = listOf(chapter(3L, 1.0), chapter(3L, 2.0), chapter(3L, 3.0), chapter(3L, 4.0))
 
-        val unified = ChapterAggregation.aggregate(
+        val unified = ChapterAggregation.merge(
             chaptersBySource = mapOf(1L to sourceA, 2L to sourceB, 3L to sourceC),
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L, 3L to 300L),
             // B is ranked first, then A; C is unranked (most distinct, but lowest priority).
             preferredSourceIds = listOf(200L, 100L),
-        )
+        ).chapters
 
         // B (rank 0) is the trunk owning 1..3; C only gap-fills 4 despite having the most chapters.
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0)
@@ -178,11 +179,11 @@ class ChapterAggregationTest {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
 
-        val unified = ChapterAggregation.aggregate(
+        val unified = ChapterAggregation.merge(
             chaptersBySource = mapOf(1L to source1, 2L to source2),
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
             preferredSourceIds = listOf(999L), // no source in the group has this id
-        )
+        ).chapters
 
         // Unchanged from the no-preference case: source 1 (most distinct) is the trunk.
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
@@ -195,12 +196,12 @@ class ChapterAggregationTest {
         val source2 = listOf(chapter(2L, 3.0), chapter(2L, 4.0))
         val bySource = mapOf(1L to source1, 2L to source2)
 
-        val withDefaults = ChapterAggregation.aggregate(bySource)
-        val withEmptyPrefs = ChapterAggregation.aggregate(
+        val withDefaults = ChapterAggregation.merge(bySource).chapters
+        val withEmptyPrefs = ChapterAggregation.merge(
             chaptersBySource = bySource,
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
             preferredSourceIds = emptyList(),
-        )
+        ).chapters
 
         withEmptyPrefs shouldBe withDefaults
     }
@@ -212,10 +213,10 @@ class ChapterAggregationTest {
         val galleryA = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val galleryB = listOf(chapter(2L, 1.0))
 
-        val unified = ChapterAggregation.aggregate(
+        val unified = ChapterAggregation.merge(
             chaptersBySource = mapOf(1L to galleryA, 2L to galleryB),
             gallerySourceMangaIds = setOf(1L, 2L),
-        )
+        ).chapters
 
         // Every gallery chapter survives: A's 3 plus B's 1, including both number-1 rows.
         unified.size shouldBe 4
@@ -229,10 +230,26 @@ class ChapterAggregationTest {
         val galleryA = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val galleryB = listOf(chapter(2L, 1.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to galleryA, 2L to galleryB))
+        val unified = ChapterAggregation.merge(mapOf(1L to galleryA, 2L to galleryB)).chapters
 
         unified.size shouldBe 3
         unified.count { it.chapterNumber == 1.0 } shouldBe 1
+    }
+
+    @Test
+    fun `a regular source ranked after a gallery source keeps its own chapter one`() {
+        // The gallery's work is numbered 1 like every gallery's first, which identifies nothing, so
+        // the regular source's chapter 1 is not a copy of it.
+        val gallery = listOf(chapter(1L, 1.0))
+        val regular = listOf(chapter(2L, 3.0), chapter(2L, 2.0), chapter(2L, 1.0))
+
+        val unified = ChapterAggregation.merge(
+            chaptersBySource = mapOf(1L to gallery, 2L to regular),
+            gallerySourceMangaIds = setOf(1L),
+            memberRanking = listOf(1L, 2L),
+        ).chapters
+
+        unified.map { it.id } shouldContain regular[2].id
     }
 
     @Test
@@ -241,10 +258,10 @@ class ChapterAggregationTest {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
 
-        val unified = ChapterAggregation.aggregate(
+        val unified = ChapterAggregation.merge(
             chaptersBySource = mapOf(1L to source1, 2L to source2),
             memberRanking = listOf(2L, 1L),
-        )
+        ).chapters
 
         // Member 2 wins the trunk (1..3); member 1 only gap-fills 4 and 5.
         unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
@@ -257,12 +274,12 @@ class ChapterAggregationTest {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0))
 
-        val unified = ChapterAggregation.aggregate(
+        val unified = ChapterAggregation.merge(
             chaptersBySource = mapOf(1L to source1, 2L to source2),
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
             preferredSourceIds = listOf(100L), // would rank member 1 first
             memberRanking = listOf(2L, 1L), // but the per-group override wins
-        )
+        ).chapters
 
         // Member 2 leads despite the preferred list favoring member 1's source.
         unified.first { it.chapterNumber == 1.0 }.mangaId shouldBe 2L
@@ -278,12 +295,12 @@ class ChapterAggregationTest {
         val sameSource = mapOf(1L to 100L, 2L to 100L)
 
         // Member 1 chosen as trunk: it owns 1 and 2, member 2 only gap-fills 3.
-        val member1First = ChapterAggregation.aggregate(bySource, sameSource, memberRanking = listOf(1L, 2L))
+        val member1First = ChapterAggregation.merge(bySource, sameSource, memberRanking = listOf(1L, 2L)).chapters
         member1First.first { it.chapterNumber == 1.0 }.mangaId shouldBe 1L
         member1First.first { it.chapterNumber == 3.0 }.mangaId shouldBe 2L
 
         // Reversing the override flips the trunk, proving the order is per-member, not per-source.
-        val member2First = ChapterAggregation.aggregate(bySource, sameSource, memberRanking = listOf(2L, 1L))
+        val member2First = ChapterAggregation.merge(bySource, sameSource, memberRanking = listOf(2L, 1L)).chapters
         member2First.first { it.chapterNumber == 1.0 }.mangaId shouldBe 2L
     }
 
@@ -293,17 +310,17 @@ class ChapterAggregationTest {
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
         val bySource = mapOf(1L to source1, 2L to source2)
 
-        val withEmptyOverride = ChapterAggregation.aggregate(
+        val withEmptyOverride = ChapterAggregation.merge(
             chaptersBySource = bySource,
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
             preferredSourceIds = listOf(200L),
             memberRanking = emptyList(),
-        )
-        val withoutOverride = ChapterAggregation.aggregate(
+        ).chapters
+        val withoutOverride = ChapterAggregation.merge(
             chaptersBySource = bySource,
             sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
             preferredSourceIds = listOf(200L),
-        )
+        ).chapters
 
         withEmptyOverride shouldBe withoutOverride
     }
@@ -315,7 +332,7 @@ class ChapterAggregationTest {
         val trunk = listOf(chapter(1L, 1.0), chapter(1L, 3.0))
         val other = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
 
-        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
 
         unified.map { it.chapterNumber } shouldBe listOf(1.0, 2.0, 3.0)
         unified.map { it.sourceOrder } shouldBe listOf(0L, 1L, 2L)

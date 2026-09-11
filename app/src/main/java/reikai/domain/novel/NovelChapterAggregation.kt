@@ -2,6 +2,7 @@ package reikai.domain.novel
 
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
+import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.unstitchedChapters
 import reikai.domain.novel.model.NovelChapter
 
@@ -16,27 +17,18 @@ import reikai.domain.novel.model.NovelChapter
 object NovelChapterAggregation {
 
     /**
+     * The group's chapter list in reading order, plus which merged chapter every input chapter belongs
+     * to, for the callers that have to count the group once rather than render it. Each chapter's
+     * `sourceOrder` is restamped as its position in that order, which is the only index comparable
+     * across the group.
+     *
      * @param chaptersByNovel each grouped novel's id mapped to that novel's chapters.
      * @param sourceIdByNovel each grouped novel's id mapped to its source id (for the priority rank).
      * @param preferredSourceIds the global preferred-source ranking, highest priority first.
      * @param memberRanking a per-group override: the member novel ids in the group's trunk order. When
      *   non-empty it ranks members by position and [preferredSourceIds] is ignored, so two members
      *   sharing a source still order distinctly. Empty uses the source list.
-     * @return the unified chapter list in reading order, each chapter's `sourceOrder` restamped as its
-     *   position in that order, which is the only index comparable across the group. For 0 or 1 novel,
-     *   the input unchanged.
-     */
-    fun aggregate(
-        chaptersByNovel: Map<Long, List<NovelChapter>>,
-        sourceIdByNovel: Map<Long, String> = emptyMap(),
-        preferredSourceIds: List<String> = emptyList(),
-        memberRanking: List<Long> = emptyList(),
-    ): List<NovelChapter> =
-        merge(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).chapters
-
-    /**
-     * [aggregate] plus which merged chapter every input chapter belongs to, for the callers that have
-     * to count the group once rather than render it. Same walk, so the two can never disagree.
+     * @return for 0 or 1 novel, the input unchanged.
      */
     fun merge(
         chaptersByNovel: Map<Long, List<NovelChapter>>,
@@ -93,7 +85,7 @@ object NovelChapterAggregation {
     }
 
     /**
-     * The member novel ids in trunk order (first = trunk), the same ranking [aggregate] applies. Lets the
+     * The member novel ids in trunk order (first = trunk), the same ranking [merge] applies. Lets the
      * manage-sources dialog badge the primary source without stitching the whole chapter list.
      */
     fun rankedMemberIds(
@@ -103,9 +95,8 @@ object NovelChapterAggregation {
         memberRanking: List<Long> = emptyList(),
     ): List<Long> = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).map { it.novelId }
 
-    // Rank by preferred-source priority first (a ranked source wins the trunk regardless of count), then
-    // chapter count desc, then novel id asc for a stable order. A per-group override ranks by member id
-    // directly (memberRanking), bypassing the source list.
+    // Rank by the group's source priority first (a ranked source wins the trunk regardless of count),
+    // then chapter count desc, then novel id asc for a stable order.
     private fun rank(
         chaptersByNovel: Map<Long, List<NovelChapter>>,
         sourceIdByNovel: Map<Long, String>,
@@ -113,14 +104,7 @@ object NovelChapterAggregation {
         memberRanking: List<Long>,
     ): List<RankedSource> = chaptersByNovel.entries
         .map { (novelId, chapters) ->
-            val prefRank = if (memberRanking.isNotEmpty()) {
-                memberRanking.indexOf(novelId).takeIf { it >= 0 } ?: Int.MAX_VALUE
-            } else {
-                sourceIdByNovel[novelId]
-                    ?.let { preferredSourceIds.indexOf(it) }
-                    ?.takeIf { it >= 0 }
-                    ?: Int.MAX_VALUE
-            }
+            val prefRank = sourcePriority(novelId, sourceIdByNovel[novelId], preferredSourceIds, memberRanking)
             RankedSource(novelId, chapters, prefRank)
         }
         .sortedWith(

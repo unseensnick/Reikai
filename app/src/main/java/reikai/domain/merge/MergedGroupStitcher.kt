@@ -4,8 +4,8 @@ import reikai.domain.library.ContentType
 
 /**
  * Stitching one merge group of one content type: loading its library members' chapters and running
- * the cross-source stitch over them. The only per-type part of keeping the stored stitch current, so
- * the reconciliation itself is written once.
+ * the cross-source stitch over them, and saying which ranking it would run under. The only per-type
+ * part of keeping the stored stitch current, so the reconciliation itself is written once.
  */
 interface MergedGroupStitcher {
 
@@ -13,6 +13,10 @@ interface MergedGroupStitcher {
 
     /** [groupId]'s stitch, as rows to store. Empty when the group has nothing left to stitch. */
     suspend fun stitch(groupId: Long): List<MergedChapterUnitRepository.StoredUnit>
+
+    /** The ranking stamp every group of [contentType] would be stitched under now, keyed by group; a
+     *  group with no library member is absent. See [rankingStamps]. */
+    suspend fun rankings(): Map<Long, String>
 }
 
 /**
