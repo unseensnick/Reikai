@@ -22,8 +22,8 @@ echo "$subject" | grep -qE '^(feat|fix|docs|chore|refactor|test|perf|build|ci|st
 # 3) No em dash anywhere in the message
 echo "$msg" | grep -q '—' && errors+=("contains an em dash; use commas, parentheses, periods, or colons")
 
-# 4) No AI watermark
-echo "$msg" | grep -qiE 'co-authored-by|generated with|claude\.ai/code|🤖' \
+# 4) No AI watermark. A human co-author is fine: GitHub adds one when a review suggestion is committed.
+echo "$msg" | grep -qiE 'co-authored-by:.*(claude|anthropic)|generated with|claude\.ai/code|🤖' \
   && errors+=("contains an AI watermark (Co-Authored-By / Generated with / robot emoji)")
 
 # 5) No BARE '#<number>' issue ref (ambiguous: a misformatted roadmap/upstream ref vs a real issue).
