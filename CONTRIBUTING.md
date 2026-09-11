@@ -20,6 +20,14 @@ Working knowledge of [Android development](https://developer.android.com/) and [
 
 Tooling: [Android Studio](https://developer.android.com/studio) (JDK 21), and an emulator or device for testing. Build and format per the conventions in the repo (`CLAUDE.md` and `.claude/rules/`).
 
+Commit messages use `type(scope): summary` (lower-case, imperative, no trailing period, 72 characters at most), with no em dashes, no AI co-author or "generated with" trailers, and no bare `#N`: link an issue as `unseensnick/Reikai#N`. CI checks every commit in a pull request against this. To catch it before pushing, install the hooks once per clone:
+
+```bash
+cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit
+```
+
+The full standard is the "Commit message standard" section of [`.claude/rules/workflow.md`](.claude/rules/workflow.md).
+
 ## Upstream
 
 Reikai tracks Mihon as its base; upstream changes are ported **by hand**: clone Mihon locally, diff, and apply the relevant changes, with edits to Mihon's own files fenced by `// RK` markers. Reikai's own pre-rebase features come from the `design/library-compose` branch. See [`docs/dev/development.md`](docs/dev/development.md) for the architecture.
