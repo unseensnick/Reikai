@@ -279,6 +279,7 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader now has its own progress rail side and height, instead of taking both from the manga reader screen.** The two readers can be set up differently now, and the novel values start from the defaults.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 - **A font whose name has a word starting with a digit, such as Source Sans 3, now applies in the Legacy novel reader.** The text fell back to the default font.
+- **The Legacy novel reader now finishes a chapter once, instead of re-running tracker sync and download cleanup every time you scroll near its end.**
 
 ### Browse & sources
 

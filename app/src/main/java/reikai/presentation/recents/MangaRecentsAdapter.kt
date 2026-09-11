@@ -192,7 +192,8 @@ class MangaRecentsAdapter(
         val mangaId = item.entryId.rawId
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
-        val readElsewhere = group?.readInOtherSources.orEmpty()
+        val pooled = group?.pooledChapters.orEmpty()
+        val stitch = group?.stitch.orEmpty()
         val groupChapters = readingOrder(manga, group?.chapters)
         // Every chapter a rule below could name, so the id it returns can be projected back into a
         // row. The own-source list is not a subset of the group's: the cross-source stitch drops the
@@ -201,30 +202,28 @@ class MangaRecentsAdapter(
         suspend fun ownSource(): List<Chapter> =
             readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true))
                 .onEach { chapters[it.id] = it }
+        fun List<Chapter>.forRules() = recentsChapters(this, pooled, stitch, { it.id }, { it.dateFetch }, { it.read })
 
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeTarget(
-                groupChapters.map { it.toRecentsChapter(readElsewhere) },
-                lane.chapter.chapterId,
-            ) { ownSource().map { it.toRecentsChapter(readElsewhere) } }
+            is RecentsLane.Read -> resumeTarget(groupChapters.forRules(), lane.chapter.chapterId) {
+                ownSource().forRules()
+            }
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // The burst is one source's: fetch times do not line up across sources, so only the
                 // read-elsewhere carry-over crosses the group here.
-                chapters = ownSource().map { it.toRecentsChapter(readElsewhere) },
+                chapters = ownSource().forRules(),
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> addedTarget(groupChapters.map { it.toRecentsChapter(readElsewhere) }) {
-                ownSource().map { it.toRecentsChapter(readElsewhere) }
-            }
+            RecentsLane.Added -> addedTarget(groupChapters.forRules()) { ownSource().forRules() }
         } ?: return null
+        // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
+        val named = chapters.values.toList()
         return TargetResolution(
             chapterId = chapterId,
             chapters = chapters,
             mangaById = group?.mangaById.orEmpty(),
-            readElsewhere = readElsewhere,
-            bookmarkedElsewhere = group?.let {
-                flaggedOnAnotherSource(it.pooledChapters, it.chapters, it.stitch, { c -> c.id }, { c -> c.bookmark })
-            }.orEmpty(),
+            readElsewhere = flaggedOnAnotherSource(pooled, named, stitch, { it.id }, { it.read }),
+            bookmarkedElsewhere = flaggedOnAnotherSource(pooled, named, stitch, { it.id }, { it.bookmark }),
         )
     }
 
@@ -240,12 +239,6 @@ class MangaRecentsAdapter(
         chapters.distinctBy { it.mangaId }.size > 1 -> chapters.sortedByDescending { it.sourceOrder }
         else -> chapters.sortedWith(getChapterSort(manga, sortDescending = false))
     }
-
-    private fun Chapter.toRecentsChapter(readInOtherSources: Set<Long>) = RecentsChapter(
-        id = id,
-        fetchedAt = dateFetch,
-        read = read || id in readInOtherSources,
-    )
 
     override suspend fun latestRead(): RecentsItem? = historyModel?.getLast()?.toRecentsItem()
 

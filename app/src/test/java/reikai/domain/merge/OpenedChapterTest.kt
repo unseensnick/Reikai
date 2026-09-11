@@ -86,4 +86,10 @@ class OpenedChapterTest {
     fun `a chapter the list already shows leaves it untouched`() {
         novelSession(trunk, trunk[3], stitch) shouldBe trunk
     }
+
+    @Test
+    fun `a chapter the list already shows is not added again when the stitch places it nowhere`() {
+        // With no stitch the placement goes by number, which would slot a second copy in beside it.
+        novelSession(trunk, trunk[3], emptyList()).map { it.id } shouldBe trunk.map { it.id }
+    }
 }

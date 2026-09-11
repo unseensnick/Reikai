@@ -10,8 +10,8 @@ import reikai.domain.library.ContentType
  * its source ranking. Written once over both content types; how a group's chapters are loaded and
  * stitched is each [MergedGroupStitcher]'s.
  *
- * Costs three indexed queries per content type when nothing changed, and [awaitGroup] checks one
- * group rather than the library, so both are cheap to call from any path that may have written.
+ * Three indexed queries per content type when nothing changed, so any path that may have written can
+ * call it. [awaitGroup] reads one group's chapters; its ranking check reads every group's member rows.
  */
 @Inject
 @SingleIn(AppScope::class)

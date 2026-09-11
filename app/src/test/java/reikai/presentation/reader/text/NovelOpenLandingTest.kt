@@ -39,17 +39,40 @@ class NovelOpenLandingTest {
     }
 
     @Test
-    fun `an earlier chapter may be read once the reader has moved the page`() {
-        landing.counts(1L, 0)
+    fun `an earlier chapter may be read once the reader has moved the page into it`() {
+        landing.counts(2L, 0)
         landing.readerMoved()
+        landing.counts(1L, 100)
         landing.mayRead(1L) shouldBe true
     }
 
     @Test
-    fun `an earlier chapter's position counts once the reader has moved the page`() {
-        landing.counts(1L, 0)
+    fun `an earlier chapter's position counts once the reader has moved the page into it`() {
+        landing.counts(2L, 0)
         landing.readerMoved()
-        landing.counts(1L, 0) shouldBe true
+        landing.counts(1L, 100) shouldBe true
+    }
+
+    @Test
+    fun `moving the page without scrolling it leaves an earlier chapter unread`() {
+        // A drag at the end of the list: nothing scrolls, so the renderer reports where it already was.
+        landing.counts(1L, 100)
+        landing.readerMoved()
+        landing.counts(1L, 100)
+        landing.mayRead(1L) shouldBe false
+    }
+
+    @Test
+    fun `moving the page without scrolling it keeps an earlier chapter's position the landing's`() {
+        landing.counts(1L, 100)
+        landing.readerMoved()
+        landing.counts(1L, 100) shouldBe false
+    }
+
+    @Test
+    fun `moving the page before anything is reported leaves an earlier chapter unread`() {
+        landing.readerMoved()
+        landing.mayRead(1L) shouldBe false
     }
 
     @Test

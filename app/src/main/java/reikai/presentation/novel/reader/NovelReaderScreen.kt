@@ -56,18 +56,13 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.presentation.reader.appbars.ReaderTopBar
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.openInBrowser
-import reikai.domain.merge.GroupChapterFlags
-import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
-import reikai.novel.download.toDownloadState
 import reikai.presentation.reader.ReaderActionRow
 import reikai.presentation.reader.ReaderChapterListDialog
-import reikai.presentation.reader.ReaderChapterRow
 import reikai.presentation.reader.ReaderOrientationDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
@@ -503,44 +498,8 @@ class NovelReaderScreen(
         }
 
         if (chaptersOpen) {
-            var chapters by remember { mutableStateOf<List<NovelChapter>?>(null) }
-            var sourceNames by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
-            var flags by remember { mutableStateOf<GroupChapterFlags<NovelChapter>?>(null) }
-            val downloadQueue by screenModel.downloadQueue.collectAsState()
-            LaunchedEffect(Unit) {
-                val list = screenModel.chapterList()
-                sourceNames = screenModel.chapterSourceNames(list)
-                chapters = list
-            }
-            // Re-asked whenever the queue changes (a finished download leaves it), so a chapter downloaded
-            // from the sheet flips to "downloaded" without reopening, like the manga sheet.
-            LaunchedEffect(chapters, downloadQueue) {
-                chapters?.let { flags = screenModel.chapterSheetFlags(it) }
-            }
-            // The shared reader sheet, over rows this screen maps because its model predates the
-            // provider seam. Nothing here decides how a row looks; the group decides what it says.
-            val rows = remember(chapters, downloadQueue, flags) {
-                val group = flags ?: return@remember emptyList()
-                chapters.orEmpty().map { ch ->
-                    ReaderChapterRow(
-                        id = ch.id,
-                        title = ch.name,
-                        subtitle = sourceNames[ch.novelId],
-                        dateUpload = ch.dateUpload,
-                        readProgress = (ch.lastTextProgress / 100L).toInt().takeIf { it > 0 }?.let { "$it%" },
-                        read = group.isRead(ch),
-                        bookmark = group.isBookmarked(ch),
-                        downloadState = when {
-                            downloadQueue.any { it.chapterId == ch.id } ->
-                                downloadQueue.first { it.chapterId == ch.id }.state.toDownloadState()
-                            group.isDownloaded(ch) -> Download.State.DOWNLOADED
-                            else -> Download.State.NOT_DOWNLOADED
-                        },
-                        downloadProgress = 0,
-                    )
-                }
-            }
-            val chaptersById = remember(chapters) { chapters.orEmpty().associateBy { it.id } }
+            // The shared reader sheet, over rows the model builds off the main thread.
+            val rows by screenModel.chapterRows.collectAsState(emptyList())
             ReaderChapterListDialog(
                 onDismissRequest = { chaptersOpen = false },
                 rows = rows,
@@ -551,11 +510,9 @@ class NovelReaderScreen(
                     chaptersOpen = false
                     screenModel.goToChapter(id)
                 },
-                onMarkRead = { id, read -> chaptersById[id]?.let { screenModel.setChapterReadStatus(it, read) } },
-                onBookmark = { id, bookmarked -> screenModel.setChapterBookmark(id, bookmarked) },
-                onDownloadAction = { id, action ->
-                    chaptersById[id]?.let { screenModel.onChapterDownloadAction(it, action) }
-                },
+                onMarkRead = screenModel::setChapterReadStatus,
+                onBookmark = screenModel::setChapterBookmark,
+                onDownloadAction = screenModel::onChapterDownloadAction,
             )
         }
 

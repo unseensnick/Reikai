@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.merge.ChapterUnit
 
 /**
  * The updated lane's target rule, and the read lane's. They are one function each rather than one per
@@ -61,6 +62,43 @@ class RecentsTargetTest {
     @Test
     fun `a newly added row falls back to the entry's own chapters when the group has none unread`() = runTest {
         addedTarget(listOf(chapter(1, read = true))) { listOf(chapter(8, read = true), chapter(9)) } shouldBe 9L
+    }
+
+    /**
+     * Source A leads the stitch with chapters 1 and 2, both read. Source B's copies of them, 11 and 12,
+     * are unread and dropped from the group list; B's 14 is a chapter the stitch places nowhere.
+     */
+    private data class Copy(val id: Long, val read: Boolean)
+
+    private val pooled = listOf(Copy(1, true), Copy(2, true), Copy(11, false), Copy(12, false), Copy(14, false))
+    private val stitch = listOf(
+        ChapterUnit(1L, 0, 0),
+        ChapterUnit(11L, 0, 1),
+        ChapterUnit(2L, 1, 0),
+        ChapterUnit(12L, 1, 1),
+    )
+
+    private fun forRules(chapters: List<Copy>) = recentsChapters(
+        chapters = chapters,
+        pooled = pooled,
+        stitch = stitch,
+        id = { it.id },
+        fetchedAt = { 0L },
+        read = { it.read },
+    )
+
+    @Test
+    fun `a newly added row's own-source fallback skips a copy the group read on another source`() = runTest {
+        val groupList = forRules(pooled.take(2))
+
+        addedTarget(groupList) { forRules(pooled.drop(2)) } shouldBe 14L
+    }
+
+    @Test
+    fun `a recorded copy the stitch dropped moves on when the group read it on another source`() = runTest {
+        val groupList = forRules(pooled.take(2))
+
+        resumeTarget(groupList, recordedId = 11) { forRules(pooled.drop(2)) } shouldBe 14L
     }
 
     @Test

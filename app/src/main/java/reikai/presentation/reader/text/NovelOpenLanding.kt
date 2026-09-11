@@ -18,17 +18,23 @@ class NovelOpenLanding(private val openedId: Long, private val isEarlier: (Long)
 
     private var openedAt: Int? = null
     private var held: Pair<Long, Int>? = null
+    private var lastReport: Pair<Long, Int>? = null
+
+    @Volatile
+    private var moveArmed = false
 
     /** Whether [chapterId] may become the chapter being read. */
     fun mayRead(chapterId: Long): Boolean = settled || !isEarlier(chapterId)
 
     /**
-     * The reader dragged the page or pressed a key that scrolls it. The only sure sign of moving: a
-     * percent saturates, at 0 for a chapter that fits and at 100 across a chapter's last screen, so
-     * scrolling up out of the opened chapter's top changes neither percent for a screen or more.
+     * The reader dragged the page or pressed a key that scrolls it. That alone settles nothing, since
+     * a drag at the end of the list scrolls nothing; the next report differing from the last, in
+     * chapter or percent, does. A percent saturates, at 0 for a chapter that fits and at 100 across a
+     * chapter's last screen, so scrolling up out of the opened chapter's top changes neither percent
+     * for a screen or more, while the chapter the renderer names changes at once.
      */
     fun readerMoved() {
-        settled = true
+        moveArmed = true
     }
 
     /**
@@ -38,6 +44,12 @@ class NovelOpenLanding(private val openedId: Long, private val isEarlier: (Long)
      */
     fun counts(chapterId: Long, percent: Int): Boolean {
         if (settled) return true
+        val previous = lastReport
+        lastReport = chapterId to percent
+        if (moveArmed && previous != null && previous != lastReport) {
+            settled = true
+            return true
+        }
         if (chapterId == openedId) {
             val first = openedAt ?: percent.also { openedAt = it }
             if (percent != first) settled = true

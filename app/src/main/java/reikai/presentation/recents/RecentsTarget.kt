@@ -1,5 +1,8 @@
 package reikai.presentation.recents
 
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.flaggedOnAnotherSource
+
 /**
  * One of an entry's chapters, projected to what a target rule needs, built by each provider from its own
  * engine so the data access stays per type while the rules stay one rule. **The list is always ascending
@@ -12,6 +15,25 @@ data class RecentsChapter(
     val fetchedAt: Long,
     val read: Boolean,
 )
+
+/**
+ * [chapters], in the order given, as the rules below read them: read when the copy is, or when a copy
+ * on another source that the stored [stitch] places with it is, among [pooled], every member's
+ * chapters. A provider projects the group list and the entry's own list both through here: a copy the
+ * stitch dropped from the group list is still that chapter, and carrying only its own flag let the
+ * own-source fallback reopen a chapter the group had finished.
+ */
+fun <T> recentsChapters(
+    chapters: List<T>,
+    pooled: List<T>,
+    stitch: List<ChapterUnit>,
+    id: (T) -> Long,
+    fetchedAt: (T) -> Long,
+    read: (T) -> Boolean,
+): List<RecentsChapter> {
+    val readElsewhere = flaggedOnAnotherSource(pooled, chapters, stitch, id, read)
+    return chapters.map { RecentsChapter(id(it), fetchedAt(it), read(it) || id(it) in readElsewhere) }
+}
 
 /**
  * Resume over a merge group: reopen the recorded chapter while it is unfinished, else the earliest
@@ -54,8 +76,8 @@ fun firstUnreadOf(chapters: List<RecentsChapter>): Long? = chapters.firstOrNull 
 /**
  * The chapter a newly added row opens: the group's first unread, else the entry's own. The second pass
  * is for chapters the cross-source stitch drops, without which a merged row resolves nothing and the
- * tap dies; only then does it pay [ownSource]'s query. Both lists carry what another source already
- * read as read, so the fallback cannot reopen a chapter the group finished.
+ * tap dies; only then does it pay [ownSource]'s query. Both lists come through [recentsChapters], so
+ * the fallback cannot reopen a chapter the group finished.
  */
 suspend fun addedTarget(group: List<RecentsChapter>, ownSource: suspend () -> List<RecentsChapter>): Long? =
     firstUnreadOf(group) ?: firstUnreadOf(ownSource())

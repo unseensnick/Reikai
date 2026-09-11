@@ -7,11 +7,17 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.category.GetNovelCategories
@@ -39,16 +45,18 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
 import reikai.domain.reader.removeDuplicateChapters
-import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.reader.ReaderChapterRow
 import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerLightPreset
 import reikai.presentation.reader.readerThemePresets
+import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelResume
+import reikai.presentation.reader.toReaderChapterRow
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
@@ -120,6 +128,18 @@ class NovelReaderScreenModel(
     private val trackPreferences: TrackPreferences by injectLazy()
 
     private val getIncognitoState: GetIncognitoState by injectLazy()
+
+    /** Finishes each chapter once a session, however often a scroll reaches its end. */
+    private val chapterFinish by lazy {
+        NovelChapterFinish(
+            chapterRepo = chapterRepo,
+            setNovelReadStatus = setNovelReadStatus,
+            libraryPreferences = libraryPreferences,
+            trackPreferences = trackPreferences,
+            trackNovelChapter = trackNovelChapter,
+            context = Injekt.get<Application>(),
+        )
+    }
 
     /** Read-aloud (TTS) controller. Owned here so it survives rotation; the WebView registers its
      *  `evaluateJavascript` sink. Auto-page-advance continues into the next chapter via [next]. */
@@ -387,7 +407,7 @@ class NovelReaderScreenModel(
 
     /** Chapters in reading order, for the jump-to-chapter sheet. One query for the anchor novel covers
      *  the non-merged case; a merged novel's cross-source siblings fall back to per-id lookups. */
-    suspend fun chapterList(): List<NovelChapter> {
+    private suspend fun chapterList(): List<NovelChapter> {
         val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
         return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
     }
@@ -495,8 +515,12 @@ class NovelReaderScreenModel(
     /** Set the read state of an arbitrary chapter from the chapters sheet's swipe, on every source's copy
      *  of it as the details list does; uses SetNovelReadStatus so delete-after-read fires like the
      *  details "mark as read". */
-    fun setChapterReadStatus(chapter: NovelChapter, read: Boolean) {
-        screenModelScope.launchIO { setNovelReadStatus.await(read, groupCopies(chapter.id)) }
+    fun setChapterReadStatus(chapterId: Long, read: Boolean) {
+        screenModelScope.launchIO {
+            val copies = groupCopies(chapterId)
+            if (!read) chapterFinish.release(copies.map { it.id })
+            setNovelReadStatus.await(read, copies)
+        }
     }
 
     /** Set [bookmark] on chapter [id] and every source's copy of it (the chapters sheet's swipe/toggle);
@@ -514,28 +538,44 @@ class NovelReaderScreenModel(
     private suspend fun groupCopies(chapterId: Long): List<NovelChapter> =
         expandToUnits(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
 
-    /** Live download queue, for the chapters sheet's per-row download indicator. */
-    val downloadQueue: StateFlow<List<NovelDownload>> get() = downloadManager.queueState
+    /**
+     * The chapters sheet's rows, in reading order, as the merge group answers for them, the answer the
+     * shared reader's sheet and the details list give. Cold and off the main thread, since it reads the
+     * database and probes the disk; re-asked whenever the download queue moves, so a finished download
+     * shows without reopening.
+     */
+    val chapterRows: Flow<List<ReaderChapterRow>> = flow {
+        val chapters = chapterList()
+        val sourceNames = chapterSourceNames(chapters)
+        emitAll(
+            downloadManager.queueState.map { queue ->
+                val flags = groupFlags(memberIds.flatMap { chapterRepo.getByNovelId(it) }, chapters)
+                val queued = queue.associateBy { it.chapterId }
+                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags) }
+            },
+        )
+    }.flowOn(Dispatchers.IO)
 
     /** Start / cancel / delete a chapter download from the chapters sheet (mirrors the details model). */
-    fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
-        when (action) {
-            ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
-            ChapterDownloadAction.START_NOW -> {
-                downloadManager.downloadChapters(listOf(chapter))
-                downloadManager.startDownloadNow(chapter.id)
-            }
-            ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-            // The row reads as downloaded when any source's copy is on disk, so every copy goes.
-            ChapterDownloadAction.DELETE -> screenModelScope.launchIO {
-                downloadManager.deleteChapters(groupCopies(chapter.id))
+    fun onChapterDownloadAction(chapterId: Long, action: ChapterDownloadAction) {
+        screenModelScope.launchIO {
+            val chapter = chapterRepo.getById(chapterId) ?: return@launchIO
+            when (action) {
+                ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
+                ChapterDownloadAction.START_NOW -> {
+                    downloadManager.downloadChapters(listOf(chapter))
+                    downloadManager.startDownloadNow(chapter.id)
+                }
+                ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
+                // The row reads as downloaded when any source's copy is on disk, so every copy goes.
+                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(groupCopies(chapter.id))
             }
         }
     }
 
     /** Per-source display names keyed by novelId, for the chapters sheet's source labels on a merged
      *  novel. Empty for a single-source novel (one distinct novelId), so no label is shown. */
-    suspend fun chapterSourceNames(chapters: List<NovelChapter>): Map<Long, String> {
+    private suspend fun chapterSourceNames(chapters: List<NovelChapter>): Map<Long, String> {
         val novelIds = chapters.map { it.novelId }.distinct()
         if (novelIds.size <= 1) return emptyMap()
         return novelIds.associateWith { id ->
@@ -544,12 +584,6 @@ class NovelReaderScreenModel(
                 ?: ""
         }
     }
-
-    /** The sheet's [chapters] as the merge group answers for them, the answer the new reader's sheet
-     *  and the details list give, so a row reads as its actions act. Re-asked by the sheet whenever
-     *  the download queue changes, so a finished download shows without reopening. */
-    suspend fun chapterSheetFlags(chapters: List<NovelChapter>): GroupChapterFlags<NovelChapter> =
-        groupFlags(memberIds.flatMap { chapterRepo.getByNovelId(it) }, chapters)
 
     private fun goTo(id: Long, markDepartedRead: Boolean = false) {
         // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->
@@ -721,23 +755,13 @@ class NovelReaderScreenModel(
     }
 
     /**
-     * Finishing [chapter]: the mark, its merged copies under "mark duplicate read", the tracker push and
-     * the trim behind the reader, all keyed on the chapter's own novel. Reaching the end and
-     * mark-read-on-skip both land here, as manga's both go through updateChapterProgressOnComplete. Twin
-     * of NovelReaderViewModel.markChapterRead; collapses into it when the reader takeover deletes this.
+     * Finishing [chapter] through [NovelChapterFinish], which NovelReaderViewModel.markChapterRead calls
+     * too, so the mark, "mark duplicate read", the tracker push and the once-a-session latch are one
+     * rule for both readers. Reaching the end and mark-read-on-skip both land here, as manga's both go
+     * through updateChapterProgressOnComplete. Only the trim behind the reader is still its own twin.
      */
     private suspend fun markChapterRead(chapter: NovelChapter) {
-        val markDupes = libraryPreferences.markDuplicateReadChapterAsRead.get()
-            .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
-        // The stored stitch decides which rows are this chapter: a chapter number is whatever its own
-        // source counted, so matching on it marked a chapter several along on the sibling.
-        val copies = if (markDupes) groupCopies(chapter.id).filter { it.id != chapter.id } else emptyList()
-        // SetNovelReadStatus also honours "delete after marked as read".
-        setNovelReadStatus.await(true, listOf(chapter) + copies)
-        if (trackPreferences.autoUpdateTrack.get()) {
-            trackNovelChapter.await(Injekt.get<Application>(), chapter.novelId, chapter.chapterNumber)
-        }
-        maybeDeleteAfterRead(chapter)
+        chapterFinish.finish(chapter, memberIds, groupStitch) { maybeDeleteAfterRead(chapter) }
     }
 
     /** Twin of [reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader], which the shared

@@ -189,41 +189,36 @@ class NovelRecentsAdapter(
         val chapters = group.chapters.associateByTo(mutableMapOf()) { it.id }
         suspend fun ownSource(): List<NovelChapter> =
             chapterRepository.getByNovelId(novelId).onEach { chapters[it.id] = it }
+        fun List<NovelChapter>.forRules() =
+            recentsChapters(this, group.pooledChapters, group.stitch, { it.id }, { it.dateFetch }, { it.read })
 
         val chapterId = when (val lane = item.lane) {
-            is RecentsLane.Read -> resumeTarget(
-                group.chapters.map { it.toRecentsChapter(group.readInOtherSources) },
-                lane.chapter.chapterId,
-            ) { ownSource().map { it.toRecentsChapter(group.readInOtherSources) } }
+            is RecentsLane.Read -> resumeTarget(group.chapters.forRules(), lane.chapter.chapterId) {
+                ownSource().forRules()
+            }
             is RecentsLane.Updated -> firstUnreadInBurst(
                 // Source order is this type's reading order, which is what getByNovelId returns. The
                 // burst stays within one source; only the read-elsewhere carry-over crosses the group.
-                chapters = ownSource().map { it.toRecentsChapter(group.readInOtherSources) },
+                chapters = ownSource().forRules(),
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> addedTarget(group.chapters.map { it.toRecentsChapter(group.readInOtherSources) }) {
-                ownSource().map { it.toRecentsChapter(group.readInOtherSources) }
-            }
+            RecentsLane.Added -> addedTarget(group.chapters.forRules()) { ownSource().forRules() }
         } ?: return null
+        // Over both lists, so a row naming a copy the stitch dropped says what the group says of it.
+        val named = chapters.values.toList()
         return TargetResolution(
             chapterId = chapterId,
             chapters = chapters,
-            readElsewhere = group.readInOtherSources,
+            readElsewhere = flaggedOnAnotherSource(group.pooledChapters, named, group.stitch, { it.id }, { it.read }),
             bookmarkedElsewhere = flaggedOnAnotherSource(
                 group.pooledChapters,
-                group.chapters,
+                named,
                 group.stitch,
                 { it.id },
                 { it.bookmark },
             ),
         )
     }
-
-    private fun NovelChapter.toRecentsChapter(readInOtherSources: Set<Long>) = RecentsChapter(
-        id = id,
-        fetchedAt = dateFetch,
-        read = read || id in readInOtherSources,
-    )
 
     override suspend fun latestRead(): RecentsItem? = historyModel?.getLast()?.toRecentsItem()
 
