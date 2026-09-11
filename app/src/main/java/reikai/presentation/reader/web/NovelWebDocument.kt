@@ -1,6 +1,7 @@
 package reikai.presentation.reader.web
 
 import android.content.Context
+import com.google.android.material.color.MaterialColors
 import org.json.JSONObject
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.novel.reader.cssBackgroundColor
@@ -9,8 +10,10 @@ import reikai.presentation.novel.reader.cssFontName
 import reikai.presentation.novel.reader.cssTextAlign
 import reikai.presentation.novel.reader.cssTextColor
 import reikai.presentation.novel.reader.isSafeInCssUrl
+import reikai.presentation.reader.text.NovelChapterSeamView
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import java.util.Locale
 
 /**
  * The document the WebView rendering mode renders, assembled here because it is this renderer's own
@@ -27,7 +30,6 @@ object NovelWebDocument {
         chapterId: Long,
         /** Echoed by the page's ready report, so only this document's engine can open the host's gate. */
         documentToken: String,
-        chapterTitle: String,
         chapterHtml: String,
         initialFraction: Float,
         settings: NovelReaderSettings,
@@ -52,6 +54,7 @@ object NovelWebDocument {
                 // here because the page has no resources of its own.
                 "__LABEL_FINISHED__" to jsString(context.stringResource(MR.strings.transition_finished)),
                 "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
+                "__LABEL_DOWNLOADED__" to jsString(context.stringResource(MR.strings.label_downloaded)),
             ),
         )
         // The engine is in the head so it runs before the chapter: it holds the bridge and its token
@@ -64,7 +67,7 @@ object NovelWebDocument {
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
             <style id="rk-font-face">${fontFace(settings.fontFamily, fontSource)}</style>
             <style>
-            :root { ${variables(settings, statusBarHeightPx)} }
+            :root { ${variables(settings, statusBarHeightPx)} ${chromeVariables(context)} }
             $css
             ${overrides(useOriginalFonts, sourceCssPriority)}
             ${if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }"}
@@ -73,8 +76,7 @@ object NovelWebDocument {
             </head>
             <body>
             <div id="rk-chapters">
-            <div class="rk-chapter" data-rk-chapter-id="$chapterId"
-                 data-rk-chapter-title="${attribute(chapterTitle)}">$chapterHtml</div>
+            <div class="rk-chapter" data-rk-chapter-id="$chapterId">$chapterHtml</div>
             </div>
             </body>
             </html>
@@ -100,6 +102,22 @@ object NovelWebDocument {
         append("--rk-paragraph-spacing:").append(settings.paragraphSpacing).append("em;")
         append("--rk-inset-top:").append(statusBarHeightPx).append("px;")
     }
+
+    /**
+     * What the page's own markers are drawn with and no setting moves, so a settings push, which
+     * rewrites [variables] only, leaves them alone. The seam's padding is the text renderer's (its
+     * seam view), written once; the error colour is the app theme's, as the text renderer's failure
+     * and gap warning draw in it.
+     */
+    private fun chromeVariables(context: Context): String = buildString {
+        append("--rk-seam-padding-vertical:").append(NovelChapterSeamView.PADDING_VERTICAL_DP).append("px;")
+        append("--rk-seam-padding-horizontal:").append(NovelChapterSeamView.PADDING_HORIZONTAL_DP).append("px;")
+        val error = MaterialColors.getColor(context, com.google.android.material.R.attr.colorError, FALLBACK_ERROR)
+        append("--rk-error:").append("#%06X".format(Locale.ROOT, error and 0xFFFFFF)).append(';')
+    }
+
+    /** Material's baseline error red, for a context whose theme names none. */
+    private const val FALLBACK_ERROR = 0xFFB3261E.toInt()
 
     /**
      * How the reader's display settings hold their ground against a chapter that ships its own CSS.
@@ -148,17 +166,6 @@ object NovelWebDocument {
         .replace("'", "\\'")
         .replace("\n", " ")
         .replace("\r", " ")
-
-    /**
-     * A chapter's title is carried on its element so a seam can name both chapters it sits between.
-     * An insert reads the neighbour's back off the DOM, since one of the two titles it needs belongs
-     * to the chapter already there rather than the arriving one.
-     */
-    private fun attribute(value: String): String = value
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
 
     /** The block the page's own settings object is given, for what a custom property cannot express. */
     fun behaviourJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {

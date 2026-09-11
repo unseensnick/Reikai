@@ -42,5 +42,20 @@ class NovelWarmPolicyTest {
         NovelWarmPolicy.mayAutoWarm(failedAt(1_000L), nowElapsedMs = 1_000L + RETRY_COOLDOWN_MS * 4) shouldBe true
     }
 
+    /** A chapter that keeps failing is left alone for a whole cooldown after each attempt, not reached
+     *  for again as soon as the first failure's cooldown runs out. */
+    @Test
+    @DisplayName("a second failure restarts the cooldown")
+    fun repeatedFailureRestartsTheCooldown() {
+        val failures = NovelWarmPolicy.Failures()
+        failures.record(CHAPTER, nowElapsedMs = 0L, message = "offline")
+        failures.record(CHAPTER, nowElapsedMs = 60_000L, message = "offline")
+        failures.mayAutoWarm(CHAPTER, nowElapsedMs = 61_000L) shouldBe false
+    }
+
+    private companion object {
+        const val CHAPTER = 7L
+    }
+
     private fun failedAt(elapsedMs: Long) = NovelWarmPolicy.Failure(elapsedMs, message = "offline")
 }

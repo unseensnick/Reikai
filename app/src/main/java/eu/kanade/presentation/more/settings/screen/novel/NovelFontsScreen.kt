@@ -49,7 +49,6 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import reikai.novel.font.GoogleFont
-import reikai.novel.font.isGenericFont
 import reikai.presentation.novel.reader.readerFonts
 import reikai.presentation.novel.reader.readerGenericFonts
 import tachiyomi.i18n.MR
@@ -200,15 +199,23 @@ class NovelFontsScreen : Screen() {
 }
 
 /**
- * A bundled row draws itself in its own asset, which is the only way to tell nine serifs apart. Null
- * for the source's own font and the generic families, which have nothing of their own to show.
+ * A bundled row draws itself in its own asset, which is the only way to tell nine serifs apart, and a
+ * generic family in the face Android gives that name. Null for the default, which sets no font.
  */
 @Composable
 private fun assetPreview(context: Context, family: String): FontFamily? = remember(family) {
-    if (family.isEmpty() || isGenericFont(family)) return@remember null
+    if (family.isEmpty()) return@remember null
+    genericPreview(family)?.let { return@remember it }
     runCatching {
         FontFamily(Font(path = "fonts/$family.ttf", assetManager = context.assets))
     }.getOrNull()
+}
+
+private fun genericPreview(family: String): FontFamily? = when (family) {
+    "serif" -> FontFamily.Serif
+    "sans-serif" -> FontFamily.SansSerif
+    "monospace" -> FontFamily.Monospace
+    else -> null
 }
 
 /** The same for a font the user added, from the readable copy the screen model resolved off-thread. */

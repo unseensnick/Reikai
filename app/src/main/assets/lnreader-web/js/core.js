@@ -80,10 +80,13 @@ window.reader = new (function () {
       '--readerSettings-lineHeight',
       settings.lineHeight,
     );
+    // RK --> the host quotes the family (cssFontFamilyValue): unquoted, a name with a word that starts
+    // with a digit ("Source Sans 3") is no valid family, so the declaration was dropped.
     document.documentElement.style.setProperty(
       '--readerSettings-fontFamily',
-      settings.fontFamily,
+      settings.fontFamilyValue,
     );
+    // RK <--
     // RK: only a bundled face has a file in the assets folder. A generic name is a family the browser
     // already knows and a font the user added is declared as a @font-face in the document head, so
     // without the flag the asset URL would be built from a name with nothing behind it and 404.

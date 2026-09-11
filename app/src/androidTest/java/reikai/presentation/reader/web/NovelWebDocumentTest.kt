@@ -61,6 +61,13 @@ class NovelWebDocumentTest {
         const val CHAPTER_ID = 4242L
         const val DOCUMENT_TOKEN = "test-document-token"
         const val TIMEOUT_S = 10L
+
+        /** A seam as the viewport sends one, for the cases about what a chapter arriving does. */
+        const val SEAM =
+            "{ finished: { title: 'Above', downloaded: false }, next: { title: 'Below', downloaded: false } }"
+
+        /** A failure as the viewport sends one, with the source's reason. */
+        const val FAILURE = "{ heading: \"Couldn't load\", message: 'no luck', retry: 'Retry' }"
         const val LORA_LOADED =
             "[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"
     }
@@ -139,7 +146,6 @@ class NovelWebDocumentTest {
         context = instrumentation.targetContext,
         chapterId = CHAPTER_ID,
         documentToken = DOCUMENT_TOKEN,
-        chapterTitle = "Chapter 1",
         chapterHtml = chapterHtml,
         initialFraction = 0f,
         settings = settings.copy(fontFamily = fontFamily),
@@ -264,8 +270,8 @@ class NovelWebDocumentTest {
     @Test
     fun aShortChapterBetweenTwoHoldsAtZeroOnceScrolledInto() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>short</p>')")
-        eval("window.rkReader.appendChapter('100', 'Chapter 3', '${"<p>next</p>".repeat(200)}')")
+        eval("window.rkReader.appendChapter('99', '<p>short</p>', null, $SEAM)")
+        eval("window.rkReader.appendChapter('100', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
         // Part way through the first chapter first, so the short one's 0 is a change worth reporting.
         eval("window.scrollTo({ top: 3000, behavior: 'instant' })")
         settleFrames()
@@ -327,7 +333,7 @@ class NovelWebDocumentTest {
     fun anImageStillLoadingHoldsBackTheEnd() {
         loadDocument(document(chapterHtml = "<p>short</p>"))
         imageGate = CountDownLatch(1)
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>short</p><img src=\"https://rk.test/a.png\">')")
+        eval("window.rkReader.appendChapter('99', '<p>short</p><img src=\"https://rk.test/a.png\">', null, $SEAM)")
         settleFrames()
         val whileLoading = endsSeen.toList()
         imageGate?.countDown()
@@ -336,6 +342,20 @@ class NovelWebDocumentTest {
             listOf(CHAPTER_ID.toString()) to listOf(CHAPTER_ID.toString(), "99"),
             whileLoading to endsSeen.toList(),
         )
+    }
+
+    /** Held the same way, since a forward step reads a chapter that fits, and a long illustrated one
+     *  measures short until its pictures arrive. The native renderer holds its fit report too. */
+    @Test
+    fun anImageStillLoadingHoldsBackTheFit() {
+        loadDocument(document(chapterHtml = "<p>short</p>"))
+        imageGate = CountDownLatch(1)
+        eval("window.rkReader.appendChapter('99', '<p>short</p><img src=\"https://rk.test/a.png\">', null, $SEAM)")
+        settleFrames()
+        val whileLoading = fitsReports["99"]
+        imageGate?.countDown()
+        awaitFits("99")
+        assertEquals(null to true, whileLoading to fitsReports["99"])
     }
 
     /**
@@ -347,8 +367,8 @@ class NovelWebDocumentTest {
     fun aShortChapterOpenedBetweenTwoKeepsItsPlaceWhenTheWindowGrowsBelowFirst() {
         loadDocument(document(chapterHtml = "<p>short</p>"))
         settleFrames()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '${"<p>next</p>".repeat(200)}')")
-        eval("window.rkReader.prependChapter('98', 'Chapter 0', '${"<p>previous</p>".repeat(200)}')")
+        eval("window.rkReader.appendChapter('99', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
+        eval("window.rkReader.prependChapter('98', '${"<p>previous</p>".repeat(200)}', null, $SEAM)")
         settleFrames()
         assertEquals(0.0, chapterTop(CHAPTER_ID.toString()), 2.0)
     }
@@ -376,7 +396,7 @@ class NovelWebDocumentTest {
     @Test
     fun appendingAChapterAddsItWithASeam() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next chapter</p>')")
+        eval("window.rkReader.appendChapter('99', '<p>next chapter</p>', null, $SEAM)")
         assertEquals("the appended chapter is missing", "2", chapterCount())
         assertEquals("the seam introducing it is missing", "1", eval("document.querySelectorAll('.rk-seam').length"))
         assertEquals(
@@ -387,31 +407,30 @@ class NovelWebDocumentTest {
     }
 
     /**
-     * A seam names the chapter that finished over the one that follows, the pair Mihon's
-     * TransitionText draws. Both inserts have to read one of the two titles off the neighbour
-     * already in the document; taking the arriving chapter's for both names the boundary wrongly in
-     * one direction, which is what a first cut of the prepend did.
+     * A prepended chapter's seam goes below it, between it and the chapter it finished into, and
+     * draws the finished chapter over the next the way TransitionText does. Which two chapters those
+     * are is the viewport's to say (`TextViewportContractTest`), so the page draws what it is given.
      */
     @Test
-    fun aSeamNamesTheChapterEitherSideOfIt() {
+    fun aPrependedSeamSitsBetweenTheTwoChaptersFinishedFirst() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
-        assertEquals("the appended seam has no finished chapter", "Chapter 1", seamTitle(0, 0))
-        assertEquals("the appended seam has the wrong next chapter", "Chapter 2", seamTitle(0, 1))
-
-        eval("window.rkReader.prependChapter('7', 'Chapter 0', '<p>earlier</p>')")
-        assertEquals("the prepended seam has the wrong finished chapter", "Chapter 0", seamTitle(0, 0))
-        assertEquals("the prepended seam has the wrong next chapter", "Chapter 1", seamTitle(0, 1))
+        eval(
+            "window.rkReader.prependChapter('7', '<p>earlier</p>', null, " +
+                "{ finished: { title: 'Chapter 0', downloaded: false }, next: { title: 'Chapter 1', downloaded: false } })",
+        )
+        assertEquals(
+            "rk-chapter, rk-seam, rk-chapter: Chapter 0 over Chapter 1",
+            eval(
+                "[...document.getElementById('rk-chapters').children].map(e => e.className).join(', ') + ': ' + " +
+                    "[...document.querySelectorAll('.rk-seam .rk-seam-title')].map(e => e.textContent).join(' over ')",
+            ),
+        )
     }
-
-    // The part-th half (finished, then next) of the seam-th seam.
-    private fun seamTitle(seam: Int, part: Int): String =
-        eval("document.querySelectorAll('.rk-seam')[$seam].querySelectorAll('.rk-seam-title')[$part].textContent")
 
     @Test
     fun evictingAChapterTakesItsSeamWithIt() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
+        eval("window.rkReader.appendChapter('99', '<p>next</p>', null, $SEAM)")
         eval("window.rkReader.evictChapter('99')")
         assertEquals("the chapter was not evicted", "1", chapterCount())
         assertEquals("its seam was left behind", "0", eval("document.querySelectorAll('.rk-seam').length"))
@@ -421,7 +440,7 @@ class NovelWebDocumentTest {
     @Test
     fun evictingTheFirstChapterTakesTheSeamBelowIt() {
         loadDocument()
-        eval("window.rkReader.prependChapter('7', 'Chapter 0', '<p>earlier</p>')")
+        eval("window.rkReader.prependChapter('7', '<p>earlier</p>', null, $SEAM)")
         eval("window.rkReader.evictChapter('7')")
         assertEquals(
             "0 seams, then rk-chapter",
@@ -440,7 +459,7 @@ class NovelWebDocumentTest {
     fun aChapterAddedByScrollingResolvesAgainstItsOwnBase() {
         loadDocument()
         val html = "<img src=\"/a.png\"><a href=\"b.html\">b</a><a href=\"#note\">note</a>"
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', ${JSONObject.quote(html)}, 'https://other.test/novel/')")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, 'https://other.test/novel/', $SEAM)")
         assertEquals(
             listOf("https://other.test/a.png", "https://other.test/novel/b.html", "#note"),
             evalList(
@@ -456,13 +475,40 @@ class NovelWebDocumentTest {
     fun tappingRetryIsTheButtonsTapNotTheReaders() {
         loadDocument()
         eval("window.rkReader.setSettings({ tapToScroll: false })")
-        eval("window.rkReader.setBoundaryFailure(false, 'no luck', 'Retry')")
+        eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
         tap("document.querySelector('.rk-chapter p')")
         assertTrue("a tap on the text did not toggle the menu", menuToggled.await(TIMEOUT_S, TimeUnit.SECONDS))
         tap("document.querySelector('.rk-failure-retry')")
         // The bridge calls back off the main thread, so a toggle that should not come is given time.
         Thread.sleep(1000)
         assertEquals("tapping Retry toggled the menu too", 1, menuToggles.get())
+    }
+
+    /** The heading stays when the source gave a reason, as the text renderer draws it: the reason alone
+     *  read as a stray line of the chapter. */
+    @Test
+    fun aFailureWithAReasonKeepsItsHeading() {
+        loadDocument()
+        eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
+        assertEquals(
+            "Couldn't load | no luck",
+            eval("[...document.querySelectorAll('.rk-failure > div')].map(e => e.textContent).join(' | ')"),
+        )
+    }
+
+    /** Retry turns into progress while the retry runs, where it used to only dim. */
+    @Test
+    fun tappingRetryShowsProgressInItsPlace() {
+        loadDocument()
+        eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
+        eval("document.querySelector('.rk-failure-retry').click()")
+        assertEquals(
+            "0 buttons, 1 progress",
+            eval(
+                "document.querySelectorAll('.rk-failure-retry').length + ' buttons, ' + " +
+                    "document.querySelectorAll('.rk-failure-progress').length + ' progress'",
+            ),
+        )
     }
 
     /** The token is in the engine's own text, and a chapter's script must not be able to read it. */
@@ -487,15 +533,15 @@ class NovelWebDocumentTest {
     @Test
     fun theSameChapterIsNeverAddedTwice() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p>')")
+        eval("window.rkReader.appendChapter('99', '<p>next</p>', null, $SEAM)")
+        eval("window.rkReader.appendChapter('99', '<p>next</p>', null, $SEAM)")
         assertEquals("the chapter was added twice", "2", chapterCount())
     }
 
     @Test
     fun aBoundaryFailureDrawsOutsideTheChapterContainer() {
         loadDocument()
-        eval("window.rkReader.setBoundaryFailure(false, 'no luck', 'Retry')")
+        eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
         assertEquals("the failure is missing", "1", eval("document.querySelectorAll('.rk-failure').length"))
         // Inside the container it would count as the last chapter's height and skew its progress.
         assertEquals(
@@ -503,7 +549,7 @@ class NovelWebDocumentTest {
             "0",
             eval("document.querySelectorAll('#rk-chapters .rk-failure').length"),
         )
-        eval("window.rkReader.setBoundaryFailure(false, null, 'Retry')")
+        eval("window.rkReader.setBoundaryFailure(false, null)")
         assertEquals("clearing left it behind", "0", eval("document.querySelectorAll('.rk-failure').length"))
     }
 
@@ -516,7 +562,7 @@ class NovelWebDocumentTest {
     fun aPrependAtTheTopDoesNotRenameTheChapterBeingRead() {
         loadDocument()
         visibleChapters.clear()
-        eval("window.rkReader.prependChapter('7', 'Chapter 0', '${"<p>earlier</p>".repeat(200)}')")
+        eval("window.rkReader.prependChapter('7', '${"<p>earlier</p>".repeat(200)}', null, $SEAM)")
         settleFrames()
         assertEquals(
             "the page named the chapter above the reader: ${visibleChapters.toList()}",
@@ -534,7 +580,7 @@ class NovelWebDocumentTest {
     @Test
     fun aReaderInsideASeamIsInTheChapterBelowIt() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '${"<p>next</p>".repeat(200)}')")
+        eval("window.rkReader.appendChapter('99', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
         visibleChapters.clear()
         // The seam's own last pixel, which is the far side of the boundary from the chapter above.
         eval(
@@ -555,7 +601,7 @@ class NovelWebDocumentTest {
     @Test
     fun aPercentSavedWithANeighbourRestoresToTheSamePlace() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '${"<p>next</p>".repeat(200)}')")
+        eval("window.rkReader.appendChapter('99', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
         settleFrames()
         eval("window.scrollTo({ top: 3000, behavior: 'instant' })")
         settleFrames()
@@ -583,7 +629,7 @@ class NovelWebDocumentTest {
     @Test
     fun aSeamlessChapterRunsItsOwnScripts() {
         loadDocument()
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>next</p><script>window.rkRan = 1;</script>')")
+        eval("window.rkReader.appendChapter('99', '<p>next</p><script>window.rkRan = 1;</script>', null, $SEAM)")
         assertEquals("the arriving chapter's script never ran", "1", eval("String(window.rkRan)"))
     }
 
@@ -593,7 +639,7 @@ class NovelWebDocumentTest {
         loadDocument()
         val html = "<script src=\"data:text/javascript,window.rkLib=1\"></script>" +
             "<script>window.rkSaw = typeof window.rkLib;</script>"
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', ${JSONObject.quote(html)})")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
         assertEquals("number", awaitEval("String(window.rkSaw)", "number"))
     }
 
@@ -602,7 +648,7 @@ class NovelWebDocumentTest {
     fun aSeamlessChaptersDocumentWriteLandsWhereItsScriptIs() {
         loadDocument()
         val html = "<p>before</p><script>document.write('<p id=\"rk-written\">written</p>');</script>"
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', ${JSONObject.quote(html)})")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
         assertEquals(
             "true",
             eval(
@@ -621,8 +667,8 @@ class NovelWebDocumentTest {
         loadDocument()
         eval("window.rkReader.setSettings({ bionic: true })")
         eval(
-            "window.rkReader.appendChapter('99', 'Chapter 2', " +
-                "'<style>.rk-probe { letter-spacing: 7px; }</style><p class=\"rk-probe\">styled</p>')",
+            "window.rkReader.appendChapter('99', " +
+                "'<style>.rk-probe { letter-spacing: 7px; }</style><p class=\"rk-probe\">styled</p>', null, $SEAM)",
         )
         assertEquals(
             "the chapter's own style block was emptied",
@@ -637,7 +683,7 @@ class NovelWebDocumentTest {
     fun footnoteMarkersStaySmallerThanTheText() {
         loadDocument()
         eval(
-            "window.rkReader.appendChapter('99', 'Chapter 2', '<p id=\"rk-body\">text<sup id=\"rk-note\">1</sup></p>')",
+            "window.rkReader.appendChapter('99', '<p id=\"rk-body\">text<sup id=\"rk-note\">1</sup></p>', null, $SEAM)",
         )
         val body = eval("parseFloat(getComputedStyle(document.getElementById('rk-body')).fontSize)").toDouble()
         val note = eval("parseFloat(getComputedStyle(document.getElementById('rk-note')).fontSize)").toDouble()
@@ -696,7 +742,7 @@ class NovelWebDocumentTest {
     fun bionicLeavesEscapedMarkupAsText() {
         loadDocument()
         eval("window.rkReader.setSettings({ bionic: true })")
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', '<p>x&lt;y and y&gt;z &lt;i&gt; here</p>')")
+        eval("window.rkReader.appendChapter('99', '<p>x&lt;y and y&gt;z &lt;i&gt; here</p>', null, $SEAM)")
         // Compared in the page, since the bridge's JSON escapes the very brackets being checked.
         assertEquals(
             "true",
@@ -718,7 +764,7 @@ class NovelWebDocumentTest {
         }
         loadDocument()
         eval("window.rkReader.setSettings({ bionic: true })")
-        eval("window.rkReader.appendChapter('99', 'Chapter 2', ${JSONObject.quote("<p>$text</p>")})")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote("<p>$text</p>")}, null, $SEAM)")
         assertEquals(
             native,
             evalList("[...document.querySelectorAll('[data-rk-chapter-id=\"99\"] b')].map(b => b.textContent)"),
@@ -852,6 +898,11 @@ class NovelWebDocumentTest {
     private fun awaitEndSeen(chapterId: String) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
         while (chapterId !in endsSeen && System.currentTimeMillis() < deadline) Thread.sleep(50)
+    }
+
+    private fun awaitFits(chapterId: String) {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        while (!fitsReports.containsKey(chapterId) && System.currentTimeMillis() < deadline) Thread.sleep(50)
     }
 
     private fun onePixelPng(): ByteArray = ByteArrayOutputStream().also {

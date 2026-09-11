@@ -23,22 +23,23 @@ import tachiyomi.presentation.core.i18n.stringResource
  * manga viewers use so a seam reads the same in either. Without it a chapter simply becomes the next
  * one mid-scroll, which is what it looked like before.
  *
- * [titles] is the chapter that finished, then the one below it; null hides the marker. Fixed at
- * construction, because the viewport swaps in a new view rather than re-binding one (its bindSeam).
+ * [seam] is what it says, or null to hide it. Fixed at construction, because the viewport swaps in a
+ * new view rather than re-binding one (its bindSeam).
  */
-class NovelChapterSeamView(context: Context, val titles: Pair<String, String>?) : AbstractComposeView(context) {
+class NovelChapterSeamView(context: Context, val seam: NovelSeam?) : AbstractComposeView(context) {
 
     init {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-        // WebtoonTransitionHolder's own padding, so a novel boundary is as tall as a manga one.
         val density = resources.displayMetrics.density
-        setPadding((32 * density).toInt(), (128 * density).toInt(), (32 * density).toInt(), (128 * density).toInt())
-        isVisible = titles != null
+        val vertical = (PADDING_VERTICAL_DP * density).toInt()
+        val horizontal = (PADDING_HORIZONTAL_DP * density).toInt()
+        setPadding(horizontal, vertical, horizontal, vertical)
+        isVisible = seam != null
     }
 
     @Composable
     override fun Content() {
-        val (finishedTitle, nextTitle) = titles ?: return
+        val shown = seam ?: return
         TachiyomiTheme {
             CompositionLocalProvider(
                 // ChapterTransition's own style, which the manga viewers draw this with.
@@ -50,19 +51,24 @@ class NovelChapterSeamView(context: Context, val titles: Pair<String, String>?) 
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     TransitionText(
                         topLabel = stringResource(MR.strings.transition_finished),
-                        topChapter = TransitionChapter(finishedTitle, subtitle = null),
-                        topChapterDownloaded = false,
+                        topChapter = TransitionChapter(shown.finishedTitle, subtitle = null),
+                        topChapterDownloaded = shown.finishedDownloaded,
                         bottomLabel = stringResource(MR.strings.transition_next),
-                        bottomChapter = TransitionChapter(nextTitle, subtitle = null),
-                        bottomChapterDownloaded = false,
+                        bottomChapter = TransitionChapter(shown.nextTitle, subtitle = null),
+                        bottomChapterDownloaded = shown.nextDownloaded,
                         // Both chapters are present, so the fallback is unreachable here.
                         fallbackLabel = "",
-                        // The reading order already skips what a gap would warn about, so there is none
-                        // to report: a novel's neighbour is whatever the order says comes next.
-                        chapterGap = 0,
+                        chapterGap = shown.missingChapters,
                     )
                 }
             }
         }
+    }
+
+    companion object {
+        /** WebtoonTransitionHolder's own padding, so a novel boundary is as tall as a manga one. The
+         *  WebView page takes the same two numbers from here (NovelWebDocument). */
+        const val PADDING_VERTICAL_DP = 128
+        const val PADDING_HORIZONTAL_DP = 32
     }
 }

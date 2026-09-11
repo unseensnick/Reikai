@@ -140,6 +140,7 @@ every release now also ships a foss build with neither in it.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
 - **A chapter you continue from History on another source of a merged series no longer appears twice in the reader.** The copy you opened takes that chapter's place, so the chapters before and after it are the right ones.
+- **On a merged novel, the Legacy reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
 
 ### Updates & History
 
@@ -199,7 +200,7 @@ every release now also ships a foss build with neither in it.
 - **The two in-development novel readers carry the reader's full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
 - **The two in-development novel readers now read straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
-- **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Each bundled or added font's row is set in that font; Serif, Sans serif and Monospace join the nine built-in faces, and what you add works in all three rendering modes.
+- **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in all three rendering modes.
 
 #### Changed
 
@@ -277,6 +278,7 @@ every release now also ships a foss build with neither in it.
 - **A novel's full-cover view now loads on sources that need a referer.** Opening it before the source finished resolving left the request without one for as long as the page stayed open.
 - **Settings -> Novel reader now has its own progress rail side and height, instead of taking both from the manga reader screen.** The two readers can be set up differently now, and the novel values start from the defaults.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
+- **A font whose name has a word starting with a digit, such as Source Sans 3, now applies in the Legacy novel reader.** The text fell back to the default font.
 
 ### Browse & sources
 

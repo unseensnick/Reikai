@@ -526,7 +526,10 @@ class NovelReaderScreenModel(
                 downloadManager.startDownloadNow(chapter.id)
             }
             ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-            ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
+            // The row reads as downloaded when any source's copy is on disk, so every copy goes.
+            ChapterDownloadAction.DELETE -> screenModelScope.launchIO {
+                downloadManager.deleteChapters(groupCopies(chapter.id))
+            }
         }
     }
 
@@ -542,18 +545,11 @@ class NovelReaderScreenModel(
         }
     }
 
-    /** Which of [chapters] are downloaded on disk (from NovelDownloadCache, via the manager). Re-queried by
-     *  the sheet whenever the download queue changes, so a completed download shows without reopening.
-     *  Resolves each chapter's owning novel (a merged read spans several). Replaces the old is_downloaded
-     *  flag on the row. */
-    suspend fun downloadedChapterIds(chapters: List<NovelChapter>): Set<Long> {
-        val novelsById = chapters.map { it.novelId }.distinct()
-            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
-            .toMap()
-        return chapters
-            .filter { ch -> novelsById[ch.novelId]?.let { downloadManager.isChapterDownloaded(it, ch) } == true }
-            .mapTo(HashSet()) { it.id }
-    }
+    /** The sheet's [chapters] as the merge group answers for them, the answer the new reader's sheet
+     *  and the details list give, so a row reads as its actions act. Re-asked by the sheet whenever
+     *  the download queue changes, so a finished download shows without reopening. */
+    suspend fun chapterSheetFlags(chapters: List<NovelChapter>): GroupChapterFlags<NovelChapter> =
+        groupFlags(memberIds.flatMap { chapterRepo.getByNovelId(it) }, chapters)
 
     private fun goTo(id: Long, markDepartedRead: Boolean = false) {
         // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->

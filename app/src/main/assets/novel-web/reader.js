@@ -6,7 +6,7 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __DOCUMENT_TOKEN__.
+ * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__.
  */
 (function () {
   // The token is in this script's own text. Removed while the engine still runs ahead of the chapter,
@@ -20,7 +20,6 @@
 
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
-  var CHAPTER_TITLE_ATTR = 'data-rk-chapter-title';
   // core.js's swipe distance, in CSS pixels. The document is initial-scale=1, so this is the same
   // unit the native renderer's SWIPE_MIN_DP resolves to and the gesture matches in all three.
   var SWIPE_MIN_PX = 180;
@@ -36,6 +35,7 @@
   var labels = {
     finished: '__LABEL_FINISHED__',
     next: '__LABEL_NEXT__',
+    downloaded: '__LABEL_DOWNLOADED__',
   };
 
   var settings = {
@@ -116,14 +116,14 @@
 
   /*
    * Whether each chapter fits on one screen, the test state() makes when it holds one at 0. The model
-   * reads such a chapter when the reader steps forward from it. Re-sent on change, since a chapter can
-   * measure short before its images land.
+   * reads such a chapter when the reader steps forward from it. Held while any of its images is still
+   * loading, as reportEnds is, since until they land a long illustrated chapter measures short.
    */
   function reportFits() {
     var viewport = viewportHeight();
     boundaries.forEach(function (b) {
       var fits = b.height <= viewport;
-      if (fitsReported[b.id] === fits) return;
+      if (fitsReported[b.id] === fits || !imagesLanded(b.el)) return;
       fitsReported[b.id] = fits;
       bridge().onChapterFits(b.id, fits);
     });
@@ -203,6 +203,9 @@
     }
 
     reportProgress(s);
+    // Here as well as on a rebuild, since an image landing without moving the layout reaches only
+    // this frame, and it is what releases a chapter either report is holding.
+    reportFits();
     reportEnds();
   }
 
@@ -363,8 +366,9 @@
         }
       }
       if (moved || elapsed > 400) return;
-      // A tap on a link or a button (the failure box's Retry) is that control's, not the reader's.
-      if (e.target && e.target.closest && e.target.closest('a, button')) return;
+      // A tap on a link, or anywhere on the failure box, is that control's, not the reader's. The
+      // whole box rather than just its Retry, as the native renderer draws the same line.
+      if (e.target && e.target.closest && e.target.closest('a, button, .rk-failure')) return;
 
       var zone = settings.tapToScroll ? tapZone(touch.clientY) : 'menu';
       if (zone === 'menu') {
@@ -476,37 +480,41 @@
         return;
       }
     },
-    /* baseUrl is the chapter's own, or absent for one with none (a download). */
-    appendChapter: function (id, title, html, baseUrl) {
-      insertChapter(id, title, html, baseUrl, false);
+    /*
+     * baseUrl is the chapter's own, or absent for one with none (a download). seam is the marker
+     * between it and the chapter it joins, as the host worked it out (NovelSeam), or null for none.
+     */
+    appendChapter: function (id, html, baseUrl, seam) {
+      insertChapter(id, html, baseUrl, false, seam);
     },
-    prependChapter: function (id, title, html, baseUrl) {
-      insertChapter(id, title, html, baseUrl, true);
+    prependChapter: function (id, html, baseUrl, seam) {
+      insertChapter(id, html, baseUrl, true, seam);
     },
     /*
-     * Why the window stops at an edge. Drawn outside the chapter container, so it can never be
-     * counted as chapter height and skew the progress of the chapter it sits against. Passing null
-     * clears that edge. The strings come from the host, since the page has no resources.
+     * Why the window stops at an edge, drawn as the text renderer draws it (NovelBoundaryFailureView):
+     * the heading, the source's own message under it when there is one, and Retry, which turns into
+     * progress once tapped. Outside the chapter container, so it can never be counted as chapter
+     * height. failure is { heading, message, retry } from the host, or null to clear that edge.
      */
-    setBoundaryFailure: function (atStart, message, retryLabel) {
+    setBoundaryFailure: function (atStart, failure) {
       var id = atStart ? 'rk-failure-start' : 'rk-failure-end';
       var existing = document.getElementById(id);
       if (existing) existing.parentNode.removeChild(existing);
-      if (message === null) return;
+      if (!failure) return;
       var box = document.createElement('div');
       box.id = id;
       box.className = 'rk-failure';
-      var text = document.createElement('div');
-      text.className = 'rk-failure-message';
-      text.textContent = message;
+      box.appendChild(textBlock('rk-failure-heading', failure.heading));
+      if (failure.message) box.appendChild(textBlock('rk-failure-message', failure.message));
       var button = document.createElement('button');
       button.className = 'rk-failure-retry';
-      button.textContent = retryLabel;
+      button.textContent = failure.retry;
       button.addEventListener('click', function () {
-        button.disabled = true;
+        var progress = document.createElement('div');
+        progress.className = 'rk-failure-progress';
+        button.parentNode.replaceChild(progress, button);
         bridge().onRetryBoundary(!atStart);
       });
-      box.appendChild(text);
       box.appendChild(button);
       var container = document.getElementById('rk-chapters');
       if (atStart) {
@@ -528,11 +536,10 @@
     },
   };
 
-  function buildChapter(id, title, html, baseUrl) {
+  function buildChapter(id, html, baseUrl) {
     var el = document.createElement('div');
     el.className = 'rk-chapter';
     el.setAttribute(CHAPTER_ID_ATTR, String(id));
-    el.setAttribute(CHAPTER_TITLE_ATTR, title);
     el.appendChild(chapterContent(html, baseUrl));
     if (settings.bionic) applyBionic(el);
     return el;
@@ -566,33 +573,50 @@
   }
 
   /*
-   * The marker between two chapters, in the shape Mihon's TransitionText draws: the finished
-   * chapter over the next one, each under its own label. Mirrored rather than invented so a seam
-   * reads the same in this renderer, the text renderer and the manga reader.
-   *
-   * It names both chapters, so it needs the one above as well as the one below; getting that pair
-   * backwards labels every boundary with the chapter the reader just left.
+   * The marker between two chapters, in the shape Mihon's TransitionText draws: the finished chapter
+   * over the next one, each under its own label and marked when it is on disk, with a warning between
+   * them when the numbering skips chapters. Mirrored rather than invented so a seam reads the same in
+   * this renderer, the text renderer and the manga reader. What it says comes from the host.
    */
-  function buildSeam(finishedTitle, nextTitle) {
-    var seam = document.createElement('div');
-    seam.className = 'rk-seam';
-    seam.appendChild(seamPart(labels.finished, finishedTitle));
-    seam.appendChild(seamPart(labels.next, nextTitle));
-    return seam;
+  function buildSeam(seam) {
+    var el = document.createElement('div');
+    el.className = 'rk-seam';
+    el.appendChild(seamPart(labels.finished, seam.finished));
+    if (seam.missing) {
+      var warning = textBlock('rk-seam-warning', seam.missing);
+      warning.insertBefore(icon('rk-icon-warning'), warning.firstChild);
+      el.appendChild(warning);
+    }
+    el.appendChild(seamPart(labels.next, seam.next));
+    return el;
   }
 
-  function seamPart(label, title) {
+  function seamPart(label, chapter) {
     var part = document.createElement('div');
     part.className = 'rk-seam-part';
-    var header = document.createElement('div');
-    header.className = 'rk-seam-label';
-    header.textContent = label;
-    var name = document.createElement('div');
-    name.className = 'rk-seam-title';
-    name.textContent = title;
-    part.appendChild(header);
+    part.appendChild(textBlock('rk-seam-label', label));
+    var name = textBlock('rk-seam-title', chapter.title);
+    if (chapter.downloaded) {
+      var mark = icon('rk-icon-downloaded');
+      mark.setAttribute('role', 'img');
+      mark.setAttribute('aria-label', labels.downloaded);
+      name.insertBefore(mark, name.firstChild);
+    }
     part.appendChild(name);
     return part;
+  }
+
+  function textBlock(className, text) {
+    var el = document.createElement('div');
+    el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  function icon(className) {
+    var el = document.createElement('span');
+    el.className = 'rk-icon ' + className;
+    return el;
   }
 
   /*
@@ -602,27 +626,23 @@
    * a backward load lands, so the position is taken back by hand there. Measured both ways in
    * WebViewSeamPositionTest.
    */
-  function insertChapter(id, title, html, baseUrl, atStart) {
+  function insertChapter(id, html, baseUrl, atStart, seam) {
     var container = document.getElementById('rk-chapters');
     if (!container || document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]')) {
       return;
     }
-    var chapter = buildChapter(id, title, html, baseUrl);
+    var chapter = buildChapter(id, html, baseUrl);
+    // Between the two chapters either way: below the arriving one on a prepend, above it on an append.
+    var marker = seam ? buildSeam(seam) : null;
     if (atStart) {
       var heightBefore = documentHeight();
       var topBefore = scrollTop();
-      // The arriving chapter is the one that finished; what was first is what comes next.
-      var below = container.querySelector(CHAPTER_SELECTOR);
-      var seam = buildSeam(title, below ? below.getAttribute(CHAPTER_TITLE_ATTR) : '');
-      container.insertBefore(seam, container.firstChild);
-      container.insertBefore(chapter, seam);
+      if (marker) container.insertBefore(marker, container.firstChild);
+      container.insertBefore(chapter, container.firstChild);
       var added = documentHeight() - heightBefore;
       if (topBefore === 0 && added > 0) window.scrollTo({ top: added, behavior: 'instant' });
     } else {
-      // What was last is what finished; the arriving chapter is what comes next.
-      var chapters = container.querySelectorAll(CHAPTER_SELECTOR);
-      var above = chapters[chapters.length - 1];
-      container.appendChild(buildSeam(above ? above.getAttribute(CHAPTER_TITLE_ATTR) : '', title));
+      if (marker) container.appendChild(marker);
       container.appendChild(chapter);
     }
     // After the prepend compensation, so a script that adds height lands under anchoring rather than
@@ -702,7 +722,7 @@
   }
 
   // An image that lands without changing the layout escapes the resize observer, and it is what
-  // releases a chapter reportEnds is holding. A broken one releases it the same way.
+  // releases a chapter reportFits or reportEnds is holding. A broken one releases it the same way.
   ['load', 'error'].forEach(function (type) {
     document.addEventListener(type, function (e) {
       if (e.target.tagName === 'IMG') onScroll();

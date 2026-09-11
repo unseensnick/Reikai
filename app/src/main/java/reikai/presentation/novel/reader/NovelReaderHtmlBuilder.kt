@@ -33,8 +33,8 @@ data class ReaderThemeColors(
  * and theme variables, `initialReaderConfig`, and the bundled `index.css` plus `core.js`. The in-page
  * chrome (`index.js` ToolWrapper, scrollbar, buttons) is deliberately not loaded, because every piece
  * of chrome is Compose and only the text canvas lives in the WebView. The bridge shims upstream's
- * react-native-webview `postMessage` onto `NativeReader`; `core.js` is otherwise upstream's, save one
- * `// RK` island that a re-vendor must carry or user fonts silently stop resolving.
+ * react-native-webview `postMessage` onto `NativeReader`; `core.js` is otherwise upstream's, save two
+ * `// RK` islands that a re-vendor must carry or user fonts silently stop resolving.
  */
 fun buildReaderHtml(
     chapterHtml: String,
@@ -96,7 +96,7 @@ fun buildReaderHtml(
           --readerSettings-textColor: ${cssTextColor(settings.textColor)};
           --readerSettings-textAlign: ${cssTextAlign(settings.textAlign)};
           --readerSettings-lineHeight: ${settings.lineHeight};
-          --readerSettings-fontFamily: ${webFontFamily(settings.fontFamily)};
+          --readerSettings-fontFamily: ${cssFontFamilyValue(settings.fontFamily)};
           --readerSettings-paragraphIndent: ${settings.paragraphIndent}em;
           --readerSettings-paragraphSpacing: ${settings.paragraphSpacing}em;
           --readerSettings-marginTop: ${settings.margins.top}px;
@@ -262,6 +262,9 @@ fun readerSettingsJson(settings: NovelReaderSettings): JSONObject = JSONObject()
     // drives the next-chapter button's side margins, which read the same variable.
     put("padding", settings.margins.left)
     put("fontFamily", webFontFamily(settings.fontFamily))
+    // What `core.js` writes into the family variable, quoted as the head writes it. `fontFamily` stays
+    // the bare name, since its FontFace call registers the face under that.
+    put("fontFamilyValue", cssFontFamilyValue(settings.fontFamily))
     // `core.js` builds an assets URL from the family, which only a bundled face has. A generic name
     // is a CSS family the browser already knows, and a user font is declared in the head.
     put("bundledFont", isBundledFont(settings.fontFamily))

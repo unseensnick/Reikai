@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
+import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -33,6 +34,7 @@ import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
 import reikai.presentation.reader.text.NovelBoundaryFailureView
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
 import reikai.presentation.reader.text.NovelWindowReach
@@ -163,7 +165,7 @@ class NovelTextViewport(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                onTap(e.y)
+                onReaderTap(e.x, e.y)
                 return false
             }
         },
@@ -635,6 +637,21 @@ class NovelTextViewport(
     }
 
     /**
+     * A tap on a boundary failure is that box's, as the WebView page treats it. The watcher sees a
+     * tap on its Retry as well as the button does, so without this one tap retried and also scrolled
+     * or toggled the chrome; a tap beside the button falls through to the item's click the same way.
+     */
+    private fun onReaderTap(x: Float, y: Float) {
+        val item = recycler.findChildViewUnder(x, y) as? ViewGroup
+        val onFailure = item?.children?.any {
+            it is NovelBoundaryFailureView && it.isVisible &&
+                x - item.left in it.left.toFloat()..it.right.toFloat() &&
+                y - item.top in it.top.toFloat()..it.bottom.toFloat()
+        } == true
+        if (!onFailure) onTap(y)
+    }
+
+    /**
      * A swipe between chapters, at `core.js`'s thresholds so the gesture behaves the same in either
      * renderer: mostly sideways, far enough not to be a stray, and started on the half it moves away
      * from, which is what makes it cross the middle rather than flick in a corner.
@@ -864,7 +881,7 @@ class NovelTextViewport(
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val head = NovelBoundaryFailureView(parent.context).apply { isVisible = false }
-            val seam = NovelChapterSeamView(parent.context, titles = null)
+            val seam = NovelChapterSeamView(parent.context, seam = null)
             val tail = NovelBoundaryFailureView(parent.context).apply { isVisible = false }
             val root = LinearLayout(parent.context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -898,7 +915,7 @@ class NovelTextViewport(
             holder.root.addView(container, CHAPTER_CHILD_INDEX)
             bindSeam(holder, position)
             bindBoundaries(holder, position)
-            if (!textSelectable) holder.root.setOnClickListener { onTap(touchDownY) }
+            if (!textSelectable) holder.root.setOnClickListener { onReaderTap(touchDownX, touchDownY) }
         }
 
         /** Lets go of the chapter, since a holder can sit in the pool long after its chapter left the
@@ -920,9 +937,9 @@ class NovelTextViewport(
          */
         private fun bindSeam(holder: Holder, position: Int) {
             val finished = shown.getOrNull(position - 1)?.chapter
-            val titles = finished?.let { it.title to shown[position].chapter.title }
-            if (titles == holder.seam.titles) return
-            holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, titles))
+            val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }
+            if (seam == holder.seam.seam) return
+            holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam))
         }
 
         /**

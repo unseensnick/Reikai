@@ -61,6 +61,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.openInBrowser
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.novel.download.toDownloadState
@@ -504,22 +505,22 @@ class NovelReaderScreen(
         if (chaptersOpen) {
             var chapters by remember { mutableStateOf<List<NovelChapter>?>(null) }
             var sourceNames by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
-            var downloadedChapterIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+            var flags by remember { mutableStateOf<GroupChapterFlags<NovelChapter>?>(null) }
             val downloadQueue by screenModel.downloadQueue.collectAsState()
             LaunchedEffect(Unit) {
                 val list = screenModel.chapterList()
                 sourceNames = screenModel.chapterSourceNames(list)
                 chapters = list
             }
-            // Re-derive the downloaded set whenever the queue changes (a finished download leaves it), so a
-            // chapter downloaded from the sheet flips to "downloaded" without reopening, like the manga sheet
-            // (whose row re-checks the disk on every recomposition the queue change triggers).
+            // Re-asked whenever the queue changes (a finished download leaves it), so a chapter downloaded
+            // from the sheet flips to "downloaded" without reopening, like the manga sheet.
             LaunchedEffect(chapters, downloadQueue) {
-                chapters?.let { downloadedChapterIds = screenModel.downloadedChapterIds(it) }
+                chapters?.let { flags = screenModel.chapterSheetFlags(it) }
             }
             // The shared reader sheet, over rows this screen maps because its model predates the
-            // provider seam. Nothing here decides how a row looks.
-            val rows = remember(chapters, downloadQueue, downloadedChapterIds) {
+            // provider seam. Nothing here decides how a row looks; the group decides what it says.
+            val rows = remember(chapters, downloadQueue, flags) {
+                val group = flags ?: return@remember emptyList()
                 chapters.orEmpty().map { ch ->
                     ReaderChapterRow(
                         id = ch.id,
@@ -527,12 +528,12 @@ class NovelReaderScreen(
                         subtitle = sourceNames[ch.novelId],
                         dateUpload = ch.dateUpload,
                         readProgress = (ch.lastTextProgress / 100L).toInt().takeIf { it > 0 }?.let { "$it%" },
-                        read = ch.read,
-                        bookmark = ch.bookmark,
+                        read = group.isRead(ch),
+                        bookmark = group.isBookmarked(ch),
                         downloadState = when {
                             downloadQueue.any { it.chapterId == ch.id } ->
                                 downloadQueue.first { it.chapterId == ch.id }.state.toDownloadState()
-                            ch.id in downloadedChapterIds -> Download.State.DOWNLOADED
+                            group.isDownloaded(ch) -> Download.State.DOWNLOADED
                             else -> Download.State.NOT_DOWNLOADED
                         },
                         downloadProgress = 0,

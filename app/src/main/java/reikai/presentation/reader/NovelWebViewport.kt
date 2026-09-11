@@ -23,9 +23,11 @@ import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.presentation.novel.reader.NovelChapterNavigationClient
 import reikai.presentation.novel.reader.NovelReaderSettings
+import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
+import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.UUID
@@ -99,6 +101,18 @@ class NovelWebViewport(
      * bridge too; either one opening it sent the new document's verbs to a page that dropped them.
      */
     private var documentToken: String? = null
+
+    /**
+     * The chapters the open document holds, in reading order, as the verbs sent to it leave them. A
+     * seam names the chapter either side of it, and one of the two is always the chapter already there,
+     * so its marker is worked out here from what was sent rather than read back off the page.
+     */
+    private val held = mutableListOf<NovelReaderViewModel.LoadedChapter>()
+
+    /** What each edge of the open document shows. A window change that leaves an edge alone must not
+     *  redraw it, or the Retry the reader just tapped comes back while that retry is still running. */
+    private var shownPrevious: NovelReaderViewModel.BoundaryFailure? = null
+    private var shownNext: NovelReaderViewModel.BoundaryFailure? = null
 
     /** What the open document's variables were last written from, so an inset that changes after the
      *  build can be written again. A document rebuilt before its window attached reads an inset of 0. */
@@ -225,6 +239,10 @@ class NovelWebViewport(
         // to a window that is being replaced.
         pageReady = false
         pendingWindowVerbs.clear()
+        held.clear()
+        held += chapter
+        shownPrevious = null
+        shownNext = null
         val token = UUID.randomUUID().toString()
         documentToken = token
         // The document is built with this family's face, and any swap still resolving is for the old page.
@@ -242,7 +260,6 @@ class NovelWebViewport(
                 context = context,
                 chapterId = chapter.chapterId,
                 documentToken = token,
-                chapterTitle = chapter.title,
                 chapterHtml = chapter.html,
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
@@ -340,6 +357,14 @@ class NovelWebViewport(
      * the page corrects for; both halves are measured in `WebViewSeamPositionTest`.
      */
     private fun insert(chapter: NovelReaderViewModel.LoadedChapter, atStart: Boolean) {
+        // The page drops a chapter it already holds, so this list does too.
+        if (held.any { it.chapterId == chapter.chapterId }) return
+        val seam = if (atStart) {
+            held.firstOrNull()?.let { NovelSeam.between(chapter, it) }
+        } else {
+            held.lastOrNull()?.let { NovelSeam.between(it, chapter) }
+        }
+        held.add(if (atStart) 0 else held.size, chapter)
         val verb = if (atStart) "prependChapter" else "appendChapter"
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
         // download or, in a merged series, another site.
@@ -347,13 +372,30 @@ class NovelWebViewport(
         runOrQueue(
             "rkReader.$verb(" +
                 "${JSONObject.quote(chapter.chapterId.toString())}, " +
-                "${JSONObject.quote(chapter.title)}, " +
                 "${JSONObject.quote(chapter.html)}, " +
-                "$baseUrl);",
+                "$baseUrl, " +
+                "${seam?.let(::seamJson) ?: "null"});",
         )
     }
 
+    /** The marker's text, resolved here since the page has no resources. The labels are the document's. */
+    private fun seamJson(seam: NovelSeam): JSONObject = JSONObject().apply {
+        put("finished", JSONObject().put("title", seam.finishedTitle).put("downloaded", seam.finishedDownloaded))
+        put("next", JSONObject().put("title", seam.nextTitle).put("downloaded", seam.nextDownloaded))
+        if (seam.missingChapters > 0) {
+            put(
+                "missing",
+                context.pluralStringResource(
+                    MR.plurals.missing_chapters_warning,
+                    seam.missingChapters,
+                    seam.missingChapters,
+                ),
+            )
+        }
+    }
+
     override fun evict(chapterId: Long) {
+        held.removeAll { it.chapterId == chapterId }
         runOrQueue("rkReader.evictChapter(${JSONObject.quote(chapterId.toString())});")
     }
 
@@ -378,15 +420,26 @@ class NovelWebViewport(
         previous: NovelReaderViewModel.BoundaryFailure?,
         next: NovelReaderViewModel.BoundaryFailure?,
     ) {
-        // The page has no resources, so the strings it draws are resolved here.
-        val retry = context.stringResource(MR.strings.action_retry)
-        val fallback = context.stringResource(MR.strings.chapter_load_failed)
-        listOf(true to previous, false to next).forEach { (atStart, failure) ->
-            val message = failure?.let { JSONObject.quote(it.message ?: fallback) } ?: "null"
-            runOrQueue(
-                "rkReader.setBoundaryFailure($atStart, $message, ${JSONObject.quote(retry)});",
-            )
+        if (previous != shownPrevious) {
+            shownPrevious = previous
+            pushBoundaryFailure(atStart = true, previous)
         }
+        if (next != shownNext) {
+            shownNext = next
+            pushBoundaryFailure(atStart = false, next)
+        }
+    }
+
+    /** The same heading, message and action NovelBoundaryFailureView draws, resolved here because the
+     *  page has no resources. */
+    private fun pushBoundaryFailure(atStart: Boolean, failure: NovelReaderViewModel.BoundaryFailure?) {
+        val json = failure?.let {
+            JSONObject()
+                .put("heading", context.stringResource(MR.strings.chapter_load_failed))
+                .put("message", it.message ?: JSONObject.NULL)
+                .put("retry", context.stringResource(MR.strings.action_retry))
+        }
+        runOrQueue("rkReader.setBoundaryFailure($atStart, ${json ?: "null"});")
     }
 
     private fun Double.toPercent(): Int = (this * 100).roundToInt().coerceIn(0, 100)

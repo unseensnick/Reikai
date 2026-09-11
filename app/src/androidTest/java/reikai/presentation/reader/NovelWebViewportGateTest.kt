@@ -162,6 +162,8 @@ class NovelWebViewportGateTest {
         html = "<p>lorem ipsum</p>".repeat(50),
         baseUrl = null,
         progressPercent = 0,
+        chapterNumber = id.toDouble(),
+        downloaded = false,
     )
 
     /** The page's chapter ids once they read [expected], or as they stand at the timeout. */

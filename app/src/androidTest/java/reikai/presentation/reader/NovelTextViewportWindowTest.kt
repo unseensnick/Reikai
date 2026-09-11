@@ -28,6 +28,7 @@ import reikai.domain.reader.ChapterProgress
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelChapterSeamView
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -48,6 +49,9 @@ class NovelTextViewportWindowTest {
 
     /** The last percent reported per chapter. */
     private val progress = ConcurrentHashMap<Long, Int>()
+
+    /** Every chapter the viewport named as the one being read, in order. */
+    private val visibleChapters = CopyOnWriteArrayList<Long>()
 
     /** What the host would read as the cutout inset, in dp. */
     @Volatile
@@ -86,7 +90,7 @@ class NovelTextViewportWindowTest {
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = {},
-                onVisibleChapter = {},
+                onVisibleChapter = { visibleChapters += it },
                 onRetryBoundary = {},
                 cutoutTopDp = { cutout },
                 onChapterFits = { id, fit -> fits[id] = fit },
@@ -143,6 +147,32 @@ class NovelTextViewportWindowTest {
         open(LONG, long("current"))
         prepend(PREVIOUS, long("previous"))
         assertEquals(listOf("Chapter $PREVIOUS" to "Chapter $LONG"), seamTitles())
+    }
+
+    /**
+     * A reader stopped inside a seam is in the chapter it introduces, since the screen below it is
+     * entirely that chapter. Here that holds by the seam sitting in the lower chapter's item, which
+     * a seam moved to the bottom of the upper one would break. The WebView page pins the same line.
+     */
+    @Test
+    fun aReaderInsideASeamIsInTheChapterBelowIt() {
+        open(LONG, long("current"))
+        append(NEXT, long("next"))
+        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(10_000)) }
+        settle()
+        // Half a screen on, so the seam below the chapter's last line is laid out and can be measured.
+        instrumentation.runOnMainSync { viewport.view.scrollBy(0, viewport.view.height / 2) }
+        settle()
+        visibleChapters.clear()
+        instrumentation.runOnMainSync {
+            val seam = descendants(viewport.view).first { it is NovelChapterSeamView && it.isVisible }
+            val origin = IntArray(2).also(viewport.view::getLocationOnScreen)
+            val at = IntArray(2).also(seam::getLocationOnScreen)
+            // The seam's own last pixel, which is the far side of the boundary from the chapter above.
+            viewport.view.scrollBy(0, at[1] - origin[1] + seam.height - 1)
+        }
+        settle()
+        assertEquals(NEXT, visibleChapters.lastOrNull())
     }
 
     /** The window changes as the reader crosses a seam, usually mid-fling, and putting the reading
@@ -337,6 +367,8 @@ class NovelTextViewportWindowTest {
         html = html,
         baseUrl = null,
         progressPercent = 0,
+        chapterNumber = id.toDouble(),
+        downloaded = false,
     )
 
     private fun open(id: Long, html: String, settings: NovelReaderSettings = readerTestSettings) {
@@ -427,7 +459,7 @@ class NovelTextViewportWindowTest {
             titles =
                 descendants(viewport.view).filterIsInstance<NovelChapterSeamView>().filter {
                     it.isVisible
-                }.map { it.titles }
+                }.map { view -> view.seam?.let { it.finishedTitle to it.nextTitle } }
         }
         return titles
     }

@@ -330,6 +330,10 @@ class NovelReaderViewModel(
         val html: String,
         val baseUrl: String?,
         val progressPercent: Int,
+        /** What the marker between two chapters reads (`NovelSeam`): the number its missing-chapters
+         *  count is taken from, and whether this chapter's own copy is on disk. */
+        val chapterNumber: Double,
+        val downloaded: Boolean,
     )
 
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
@@ -542,7 +546,7 @@ class NovelReaderViewModel(
 
     /** The last warm failure per chapter, which [NovelWarmPolicy] reads to decide whether the window
      *  may reach for that chapter again unprompted. An explicit open clears the lot. */
-    private val warmFailures: MutableMap<Long, NovelWarmPolicy.Failure> = Collections.synchronizedMap(mutableMapOf())
+    private val warmFailures = NovelWarmPolicy.Failures()
 
     /** Chapters with a warm already running, so two crossings in quick succession do not fetch the
      *  same chapter twice. */
@@ -765,13 +769,16 @@ class NovelReaderViewModel(
         publishWindow()
     }
 
-    private fun NovelChapter.toLoadedChapter(html: String, baseUrl: String?) = LoadedChapter(
+    private suspend fun NovelChapter.toLoadedChapter(html: String, baseUrl: String?) = LoadedChapter(
         chapterId = id,
         title = name,
         url = url,
         html = html,
         baseUrl = baseUrl,
         progressPercent = NovelResume.percent(read, lastTextProgress),
+        chapterNumber = chapterNumber,
+        // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
+        downloaded = novelRepo.getById(novelId)?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
     )
 
     /**
@@ -1144,7 +1151,7 @@ class NovelReaderViewModel(
     private fun warmNeighbour(chapterId: Long?) {
         val id = chapterId ?: return
         if (htmlCache.containsKey(id)) return
-        if (!NovelWarmPolicy.mayAutoWarm(warmFailures[id], SystemClock.elapsedRealtime())) return
+        if (!warmFailures.mayAutoWarm(id, SystemClock.elapsedRealtime())) return
         if (!warmsInFlight.add(id)) return
         viewModelScope.launchIO {
             try {
@@ -1157,7 +1164,7 @@ class NovelReaderViewModel(
                 // and leaving on the last chapter of a novel would then look like a broken one.
                 if (e is CancellationException) throw e
                 logcat(LogPriority.WARN, e) { "Failed to prefetch novel chapter $id" }
-                warmFailures[id] = NovelWarmPolicy.Failure(SystemClock.elapsedRealtime(), e.message)
+                warmFailures.record(id, SystemClock.elapsedRealtime(), e.message)
                 // The window is republished so the renderer can offer a retry at the edge the reader
                 // is about to reach, rather than the text simply stopping there.
                 rebuildWindow()

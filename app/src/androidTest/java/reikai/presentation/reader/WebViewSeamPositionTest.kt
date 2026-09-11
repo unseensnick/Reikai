@@ -405,7 +405,6 @@ class WebViewSeamPositionTest {
                 context = instrumentation.targetContext,
                 chapterId = 1L,
                 documentToken = "seam-test",
-                chapterTitle = "Chapter 1",
                 chapterHtml = chapterBody(marker = true),
                 initialFraction = 0f,
                 settings = readerTestSettings,
@@ -445,7 +444,12 @@ class WebViewSeamPositionTest {
         val verb = if (atStart) "prependChapter" else "appendChapter"
         val id = if (atStart) -(++insertedChapters) else 100 + insertedChapters++
         val before = evalDouble("return document.querySelectorAll('.rk-chapter').length")
-        eval("window.rkReader.$verb('$id', 'Chapter $id', '${chapterBody(marker = false)}'); return 'ok'")
+        // With a seam, as the viewport sends every insert once the document holds a chapter.
+        eval(
+            "window.rkReader.$verb('$id', '${chapterBody(marker = false)}', null, " +
+                "{ finished: { title: 'Above', downloaded: false }, next: { title: 'Below', downloaded: false } });" +
+                " return 'ok'",
+        )
         settle()
         // An insert the engine refuses adds no height, which would read as a drift of zero and pass.
         assertTrue(
