@@ -114,24 +114,4 @@ class MergedChapterProvider(
      */
     private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
         chapters.mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
-
-    /**
-     * Re-add the [opened] chapter when the cross-source dedup dropped it. Restamped, because the
-     * re-added row carries its own source's `sourceOrder` while the unified list was renumbered onto a
-     * single 0..N-1 scale, and the reader sorts on `sourceOrder` alone: two scales under one
-     * comparator drop it at an arbitrary index, breaking prev/next and leaving the reader describing a
-     * different chapter than it shows. Returns [unified] untouched when there is nothing to add, so a
-     * single-source list is never renumbered over its own source's ordering.
-     */
-    fun withOpenedChapter(unified: List<Chapter>, opened: Chapter?): List<Chapter> = when {
-        opened == null || unified.any { it.id == opened.id } -> unified
-        else -> {
-            // Placed by number rather than appended: the list is already in reading order, and this
-            // row is the only one whose position is not decided. Its own number is the best guess,
-            // since the source it came from is not being stitched here.
-            val at = unified.indexOfFirst { it.chapterNumber < opened.chapterNumber }
-                .takeIf { it >= 0 } ?: unified.size
-            restampReadingOrder(unified.toMutableList().apply { add(at, opened) })
-        }
-    }
 }

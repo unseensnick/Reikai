@@ -76,13 +76,17 @@ import logcat.LogPriority
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
-import reikai.domain.merge.flaggedOnAnotherSource
+import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
+import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.duplicatesOfRead
 import reikai.domain.reader.isChapterComplete
+import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.neighbourChapter
+import reikai.domain.reader.readerChapterFilters
 import reikai.domain.reader.removeDuplicateChapters
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -90,6 +94,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
@@ -146,6 +151,7 @@ class ReaderViewModel(
     private val mergedChapterProvider: MergedChapterProvider,
     private val mangaPreferences: MangaPreferences,
     private val setReadStatus: SetReadStatus,
+    private val getChapter: GetChapter,
     // RK <--
 ) : ViewModel() {
 
@@ -249,28 +255,20 @@ class ReaderViewModel(
 
     /** RK: read, bookmarked and on disk as the group answers them, for the rows in [shown]. Resolved
      *  against [shown] rather than reused from the group, whose own set names the rows the merged list
-     *  shows: in source scope those are not the rows here, and the answer came back empty. */
-    private class GroupFlags(val read: Set<Long>, val bookmarked: Set<Long>, downloaded: () -> Set<Long>) {
-        // Lazy because only a downloaded filter reads it, and answering probes the download cache once
-        // for every chapter of every grouped source.
-        val downloaded by lazy(downloaded)
-    }
-
-    private fun flagsInOtherSources(group: MergedChapterProvider.Group?, shown: List<Chapter>): GroupFlags {
-        val pooled = group?.pooledChapters ?: shown
-        val onDisk = { downloadManager.downloadedChapterIds(pooled) { mangaForChapterId(it.mangaId) } }
-        if (group == null) {
-            return GroupFlags(read = emptySet(), bookmarked = emptySet(), downloaded = onDisk)
-        }
-        return GroupFlags(
-            read = flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }, { it.read }),
-            bookmarked = flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }, { it.bookmark }),
-            downloaded = {
-                val downloaded = onDisk()
-                downloaded + flaggedOnAnotherSource(pooled, shown, group.stitch, { it.id }) { it.id in downloaded }
-            },
-        )
-    }
+     *  shows: in source scope those are not the rows here, and the answer came back empty. [pooled]
+     *  defaults to the chapters the group loaded, which a caller that must see this session's own
+     *  marks replaces with a fresh read. */
+    private fun groupFlags(
+        shown: List<Chapter>,
+        pooled: List<Chapter> = mergedGroup?.pooledChapters ?: shown,
+    ): GroupChapterFlags<Chapter> = GroupChapterFlags(
+        pooled = pooled,
+        shown = shown,
+        stitch = mergedGroup?.stitch.orEmpty(),
+        id = { it.id },
+        read = { it.read },
+        bookmark = { it.bookmark },
+    ) { downloadManager.downloadedChapterIds(pooled) { mangaForChapterId(it.mangaId) } }
 
     // RK: per-source "is this chapter downloaded" check for the transition card. Resolves the
     // chapter's OWN merged source, and uses the in-memory download cache (skipCache = false) instead
@@ -323,21 +321,25 @@ class ReaderViewModel(
         // RK: source scope shows only the opened source's own chapters; group scope (default) shows
         // the unified cross-source list resolved in init (falling back to the single-source list if
         // accessed before init). A group-scoped chapter opened from outside the merged view (history)
-        // can be deduped out of the unified list, so it is re-added via withOpenedChapter below, which
-        // restamps it into the list's own sourceOrder scale; appending it raw would misplace it once
-        // sorted, breaking prev/next. In source scope the opened chapter is always present, so that
-        // re-add is a no-op.
+        // can be deduped out of the unified list, so it is put back through withOpenedChapter, the
+        // kernel the novel readers share. In source scope the opened chapter is always present, so
+        // that is a no-op.
         val merged = if (sourceScoped) {
             runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
         } else {
             mergedGroup?.chapters
                 ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
         }
-        val chapters = mergedChapterProvider.withOpenedChapter(
-            merged,
-            merged.find { it.id == chapterId }
+        val chapters = withOpenedChapter(
+            unified = merged,
+            opened = merged.find { it.id == chapterId }
                 ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
                     .find { it.id == chapterId },
+            stitch = mergedGroup?.stitch.orEmpty(),
+            id = { it.id },
+            // A merged manga list runs newest-first, as its sources' own lists do.
+            byNumber = compareByDescending { it.chapterNumber },
+            restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
         )
 
         val selectedChapter = chapters.find { it.id == chapterId }
@@ -346,33 +348,20 @@ class ReaderViewModel(
         val chaptersForReader = when {
             applyReadFilter &&
                 (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
-                // RK: read, bookmarked and on disk are asked of the whole group here, the same rule the
-                // details list and the library badge apply, so a filter matches what the user is shown.
-                // The filter PREFS stay the opened manga's, which is the user's current context.
-                val flags = flagsInOtherSources(mergedGroup, chapters)
-                val filteredChapters = chapters.filterNot {
-                    val isRead = it.read || it.id in flags.read
-                    val isBookmarked = it.bookmark || it.id in flags.bookmarked
-                    when {
-                        readerPreferences.skipRead.get() && isRead -> true
-                        readerPreferences.skipFiltered.get() -> {
-                            // RK: flags.downloaded is read only behind a downloaded filter, so it stays unprobed.
-                            (manga.unreadFilterRaw == Manga.CHAPTER_SHOW_READ && !isRead) ||
-                                (manga.unreadFilterRaw == Manga.CHAPTER_SHOW_UNREAD && isRead) ||
-                                (
-                                    manga.downloadedFilterRaw == Manga.CHAPTER_SHOW_DOWNLOADED &&
-                                        it.id !in flags.downloaded
-                                    ) ||
-                                (
-                                    manga.downloadedFilterRaw == Manga.CHAPTER_SHOW_NOT_DOWNLOADED &&
-                                        it.id in flags.downloaded
-                                    ) ||
-                                (manga.bookmarkedFilterRaw == Manga.CHAPTER_SHOW_BOOKMARKED && !isBookmarked) ||
-                                (manga.bookmarkedFilterRaw == Manga.CHAPTER_SHOW_NOT_BOOKMARKED && isBookmarked)
-                        }
-                        else -> false
-                    }
+                // RK --> read, bookmarked and on disk are asked of the whole group here, through the one
+                // eligibility rule the novel readers share. The filter PREFS stay the opened manga's,
+                // which is the user's current context. On disk is probed only behind a downloaded filter.
+                val flags = groupFlags(chapters)
+                val filters = manga.readerChapterFilters()
+                val filteredChapters = chapters.filter {
+                    flags.isForwardEligible(
+                        it,
+                        skipRead = readerPreferences.skipRead.get(),
+                        skipFiltered = readerPreferences.skipFiltered.get(),
+                        filters = filters,
+                    )
                 }
+                // RK <--
 
                 if (filteredChapters.any { it.id == chapterId }) {
                     filteredChapters
@@ -555,6 +544,9 @@ class ReaderViewModel(
             fullChapterList.neighbourChapter(chapterPos, forward = false, eligible),
             fullChapterList.neighbourChapter(chapterPos, forward = true, eligible),
         )
+        // RK: the bar shows the group's answer, as the details list does: a bookmark on another
+        // source's copy of this chapter counts.
+        val bookmarked = isBookmarkedInGroup(chapter.chapter.id!!)
 
         withUIContext {
             mutableState.update {
@@ -565,7 +557,7 @@ class ReaderViewModel(
                 chapterToDownload = cancelQueuedDownloads(newChapters.currChapter)
                 it.copy(
                     viewerChapters = newChapters,
-                    bookmarked = newChapters.currChapter.chapter.bookmark,
+                    bookmarked = bookmarked, // RK
                 )
             }
         }
@@ -725,11 +717,14 @@ class ReaderViewModel(
                 !sourceScoped && it.isMerged && it.chapters.any { c -> c.id == nextChapter.id }
             }
             val chaptersToDownload = if (group != null) {
-                group.chapters.asReversed().asSequence()
-                    .dropWhile { it.id != nextChapter.id }
-                    .filterNot { it.read || it.id in group.readInOtherSources }
-                    .take(downloadAheadAmount)
-                    .toList()
+                // Reading order is oldest-first, the merged list newest-first.
+                val ahead = group.chapters.asReversed()
+                chaptersToDownloadAhead(
+                    ahead,
+                    from = ahead.indexOfFirst { it.id == nextChapter.id },
+                    count = downloadAheadAmount,
+                    isRead = groupFlags(group.chapters)::isRead,
+                )
             } else {
                 getNextChapters.await(nextChapterManga.id, nextChapter.id!!).run {
                     if (readerPreferences.skipDupe.get()) {
@@ -743,7 +738,10 @@ class ReaderViewModel(
                     } else {
                         this
                     }
-                }.take(downloadAheadAmount)
+                }
+                    // RK: a source-scoped session on a merged series skips what another source read too.
+                    .let { own -> own.filterNot(groupFlags(own)::isRead) }
+                    .take(downloadAheadAmount)
             }
 
             chaptersToDownload.groupBy { it.mangaId }.forEach { (ownerId, owned) ->
@@ -941,23 +939,12 @@ class ReaderViewModel(
      */
     fun toggleChapterBookmark() {
         val chapter = getCurrentChapter()?.chapter ?: return
-        val bookmarked = !chapter.bookmark
+        // RK --> flipped from the group's answer the bar shows, and written to every source's copy
+        // through the chapter sheet's verb, which also moves the bar.
+        val bookmarked = !state.value.bookmarked
         chapter.bookmark = bookmarked
-
-        viewModelScope.launchNonCancellable {
-            updateChapter.await(
-                ChapterUpdate(
-                    id = chapter.id!!,
-                    bookmark = bookmarked,
-                ),
-            )
-        }
-
-        mutableState.update {
-            it.copy(
-                bookmarked = bookmarked,
-            )
-        }
+        toggleBookmark(chapter.id!!, bookmarked)
+        // RK <--
     }
 
     /**
@@ -1109,8 +1096,8 @@ class ReaderViewModel(
     /** Snapshot of the reader's chapter list for the in-reader chapter dialog (Y10). */
     fun getChapters(): List<ReaderChapterItem> {
         manga ?: return emptyList()
-        // RK: in a merged group each row carries its OWN source's manga (so the download indicator is
-        // correct) and a source-name label; an unmerged manga gets no label, as before.
+        // RK: in a merged group each row carries its source's name as a label; an unmerged manga gets
+        // no label, as before. Its download state is the group's, from sheetFlags.
         val merged = mergedGroup?.isMerged == true
         // RK: the sheet lists every chapter, including ones the reader's skip-read navigation steps
         // over. Filtering them out here made already-read chapters look like they did not exist.
@@ -1118,7 +1105,6 @@ class ReaderViewModel(
             val dbChapter = it.chapter
             ReaderChapterItem(
                 chapter = dbChapter.toDomainChapter()!!,
-                manga = mangaForChapterId(dbChapter.manga_id),
                 sourceName = if (merged) mergedGroup?.sourceNameByMangaId?.get(dbChapter.manga_id) else null,
             )
         }
@@ -1165,9 +1151,32 @@ class ReaderViewModel(
         val copies = ids.flatMap { chapterCopies(it) }
         if (copies.isEmpty()) return
         copies.forEach { it.bookmark = bookmarked }
+        // Kept in step so the sheet and the app bar cannot disagree about the chapter being read.
+        if (getCurrentChapter()?.chapter?.id in ids) mutableState.update { it.copy(bookmarked = bookmarked) }
         viewModelScope.launchNonCancellable {
             updateChapter.awaitAll(ids.map { ChapterUpdate(id = it, bookmark = bookmarked) })
         }
+    }
+
+    /** Whether any source's copy of [chapterId] is bookmarked, read fresh: the copies the reader does
+     *  not list live only in the database. */
+    private suspend fun isBookmarkedInGroup(chapterId: Long): Boolean =
+        groupCopyIds(chapterId).any { getChapter.await(it)?.bookmark == true }
+
+    /**
+     * The group's read, bookmarked and on-disk answer for the chapter sheet's [rows]. The group's
+     * chapters are read fresh, because the ones loaded at open do not know what this session has
+     * marked since, and a copy the sheet does not list is only in the database.
+     */
+    suspend fun sheetFlags(rows: List<Chapter>): GroupChapterFlags<Chapter> {
+        val members = mergedGroup?.takeIf { it.isMerged }?.mangaById?.keys
+            ?: return groupFlags(rows, pooled = rows)
+        return groupFlags(
+            rows,
+            pooled = members.flatMap {
+                getChaptersByMangaId.await(it, applyScanlatorFilter = true)
+            },
+        )
     }
 
     /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
@@ -1197,11 +1206,16 @@ class ReaderViewModel(
                     downloadManager.cancelQueuedDownloads(listOf(download))
                 }
                 ChapterDownloadAction.DELETE -> {
-                    downloadManager.deleteChapters(
-                        listOf(chapter),
-                        chapterManga,
-                        sourceManager.getOrStub(chapterManga.source),
-                    )
+                    // The row reads as downloaded when any source's copy is on disk, so every copy
+                    // goes, each from its own source's folder, or the row would keep saying so.
+                    val copies = groupCopyIds(chapter.id).toSet()
+                    unfilteredChapterList.filter { it.id in copies }
+                        .ifEmpty { listOf(chapter) }
+                        .groupBy { it.mangaId }
+                        .forEach { (ownerId, owned) ->
+                            val owner = mangaForChapterId(ownerId)
+                            downloadManager.deleteChapters(owned, owner, sourceManager.getOrStub(owner.source))
+                        }
                 }
             }
         }

@@ -139,6 +139,7 @@ every release now also ships a foss build with neither in it.
 - **A merged row in Updates and History now shows the read and bookmarked state the series page shows.** It reported whichever source's copy the row happened to name.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
+- **A chapter you continue from History on another source of a merged series no longer appears twice in the reader.** The copy you opened takes that chapter's place, so the chapters before and after it are the right ones.
 
 ### Updates & History
 
@@ -221,6 +222,9 @@ every release now also ships a foss build with neither in it.
 - **Each chapter you open in the manga reader now starts where you left that chapter, not where you left the one before it.** Most visible right after jumping in from a page preview.
 - **The novel reader now moves through chapters in the order you sorted that novel's chapter list.** It always read by chapter number, so a novel sorted by source, upload date or name was read in a different order than it was shown in.
 - **Skip duplicate chapters now removes them from a novel's chapter list, instead of only stepping over them.** Download ahead and delete after reading counted the duplicates, so they fetched fewer chapters than asked and could delete the wrong one.
+- **Download ahead in the novel reader no longer fetches chapters you have already read.** It passes over them to the next unread ones, as the manga reader does.
+- **A novel chapter marked read by skipping past it now also deletes older downloads, as reading it to the end does.** On a merged novel its copies on the other sources are marked too.
+- **A novel chapter that fails to load no longer shows in History as the one you read last.**
 
 ### Light novels
 

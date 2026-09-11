@@ -17,6 +17,9 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.sortedAndFiltered
+import reikai.domain.reader.ChapterListFilters
+import reikai.domain.reader.isForwardEligible
+import reikai.domain.reader.readerChapterFilters
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.chapter.model.Chapter
@@ -25,14 +28,14 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * A merged series' details list shows one row per chapter, flagged read or bookmarked when any
  * source's copy is, so its chapter filters have to answer on that same group-wide flag. Pinned once
- * over both details lists: a filter reading only the row's own flag shows a chapter the row itself
- * draws as read. The readers apply the same rule and are not covered here.
+ * over both details lists and the readers' "skip filtered" pass, which all three readers run through
+ * one kernel: a filter reading only the row's own flag shows a chapter the row itself draws as read.
  */
 class MergedChapterFilterConformanceTest {
 
     enum class Filter { UNREAD, READ, BOOKMARKED, NOT_BOOKMARKED }
 
-    /** One details list's filter over a single chapter whose own row is unread and unbookmarked. */
+    /** One list's filter over a single chapter whose own row is unread and unbookmarked. */
     interface Probe {
         fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long>
     }
@@ -77,7 +80,7 @@ class MergedChapterFilterConformanceTest {
 
     private object MangaDetails : Probe {
         override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
-            val manga = Manga.create().copy(id = 1L, source = 100L, chapterFlags = flagOf(filter))
+            val manga = Manga.create().copy(id = 1L, source = 100L, chapterFlags = mangaFlagOf(filter))
             val item = ChapterList.Item(
                 chapter = Chapter.create().copy(id = CHAPTER_ID, mangaId = 1L),
                 downloadState = Download.State.NOT_DOWNLOADED,
@@ -88,60 +91,113 @@ class MergedChapterFilterConformanceTest {
             return listOf(item).applyFilters(manga).map { it.id }.toList()
         }
 
-        private fun flagOf(filter: Filter) = when (filter) {
+        override fun toString() = "manga details"
+    }
+
+    private object NovelDetails : Probe {
+        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> =
+            listOf(novelChapter(CHAPTER_ID)).sortedAndFiltered(
+                novel = novelWith(filter),
+                prefs = NovelPreferences(InMemoryPreferenceStore()),
+                downloadedChapterIds = emptySet(),
+                readInOtherSources = if (readElsewhere) setOf(CHAPTER_ID) else emptySet(),
+                bookmarkedInOtherSources = if (bookmarkedElsewhere) setOf(CHAPTER_ID) else emptySet(),
+            ).map { it.id }
+
+        override fun toString() = "novel details"
+    }
+
+    /**
+     * A reader's forward step under "skip filtered", over a real two-source stitch: the shown copy is
+     * unread and unbookmarked, the other source's copy carries the flags under test. Each type maps its
+     * own filter flags; all three readers then run the one eligibility kernel.
+     */
+    private abstract class Reader<T>(
+        private val name: String,
+        private val filtersOf: (Filter) -> ChapterListFilters,
+        private val chapter: (id: Long, read: Boolean, bookmark: Boolean) -> T,
+        private val id: (T) -> Long,
+        private val read: (T) -> Boolean,
+        private val bookmark: (T) -> Boolean,
+    ) : Probe {
+        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
+            val shown = chapter(CHAPTER_ID, false, false)
+            val flags = GroupChapterFlags(
+                pooled = listOf(shown, chapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere)),
+                shown = listOf(shown),
+                stitch = listOf(ChapterUnit(CHAPTER_ID, 0, 0), ChapterUnit(SIBLING_ID, 0, 1)),
+                id = id,
+                read = read,
+                bookmark = bookmark,
+            ) { emptySet() }
+            return listOf(shown)
+                .filter {
+                    flags.isForwardEligible(it, skipRead = false, skipFiltered = true, filters = filtersOf(filter))
+                }
+                .map(id)
+        }
+
+        override fun toString() = name
+    }
+
+    private object MangaReader : Reader<Chapter>(
+        name = "manga reader",
+        filtersOf = { Manga.create().copy(chapterFlags = mangaFlagOf(it)).readerChapterFilters() },
+        chapter = { id, read, bookmark -> Chapter.create().copy(id = id, read = read, bookmark = bookmark) },
+        id = { it.id },
+        read = { it.read },
+        bookmark = { it.bookmark },
+    )
+
+    private object NovelReader : Reader<NovelChapter>(
+        name = "novel reader",
+        filtersOf = { novelWith(it).readerChapterFilters(NovelPreferences(InMemoryPreferenceStore())) },
+        chapter = { id, read, bookmark -> novelChapter(id, read, bookmark) },
+        id = { it.id },
+        read = { it.read },
+        bookmark = { it.bookmark },
+    )
+
+    companion object {
+        private const val CHAPTER_ID = 1L
+        private const val SIBLING_ID = 2L
+        private const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
+
+        @JvmStatic
+        fun probes() = listOf(MangaDetails, NovelDetails, MangaReader, NovelReader)
+
+        fun mangaFlagOf(filter: Filter) = when (filter) {
             Filter.UNREAD -> Manga.CHAPTER_SHOW_UNREAD
             Filter.READ -> Manga.CHAPTER_SHOW_READ
             Filter.BOOKMARKED -> Manga.CHAPTER_SHOW_BOOKMARKED
             Filter.NOT_BOOKMARKED -> Manga.CHAPTER_SHOW_NOT_BOOKMARKED
         }
 
-        override fun toString() = "manga details"
-    }
-
-    private object NovelDetails : Probe {
-        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
-            // Local sort and filter bits, so the novel's own flags decide rather than the global defaults.
-            val novel = Novel.create().copy(
-                chapterFlags = NovelChapterFlags.FILTER_LOCAL or NovelChapterFlags.SORT_LOCAL or flagOf(filter),
-            )
-            val chapter = NovelChapter(
-                id = CHAPTER_ID,
-                novelId = 1L,
-                url = "/1",
-                name = "Chapter 1",
-                read = false,
-                bookmark = false,
-                lastTextProgress = 0L,
-                chapterNumber = 1.0,
-                sourceOrder = 0L,
-                dateFetch = 0L,
-                dateUpload = 0L,
-                page = "",
-            )
-            return listOf(chapter).sortedAndFiltered(
-                novel = novel,
-                prefs = NovelPreferences(InMemoryPreferenceStore()),
-                downloadedChapterIds = emptySet(),
-                readInOtherSources = if (readElsewhere) setOf(CHAPTER_ID) else emptySet(),
-                bookmarkedInOtherSources = if (bookmarkedElsewhere) setOf(CHAPTER_ID) else emptySet(),
-            ).map { it.id }
-        }
-
-        private fun flagOf(filter: Filter) = when (filter) {
+        fun novelFlagOf(filter: Filter) = when (filter) {
             Filter.UNREAD -> NovelChapterFlags.SHOW_UNREAD
             Filter.READ -> NovelChapterFlags.SHOW_READ
             Filter.BOOKMARKED -> NovelChapterFlags.SHOW_BOOKMARKED
             Filter.NOT_BOOKMARKED -> NovelChapterFlags.SHOW_NOT_BOOKMARKED
         }
 
-        override fun toString() = "novel details"
-    }
+        /** Local sort and filter bits, so the novel's own flags decide rather than the global defaults. */
+        fun novelWith(filter: Filter) = Novel.create().copy(
+            chapterFlags = NovelChapterFlags.FILTER_LOCAL or NovelChapterFlags.SORT_LOCAL or novelFlagOf(filter),
+        )
 
-    companion object {
-        private const val CHAPTER_ID = 1L
-        private const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
-
-        @JvmStatic
-        fun probes() = listOf(MangaDetails, NovelDetails)
+        fun novelChapter(id: Long, read: Boolean = false, bookmark: Boolean = false) = NovelChapter(
+            id = id,
+            novelId = id,
+            url = "/$id",
+            name = "Chapter 1",
+            read = read,
+            bookmark = bookmark,
+            lastTextProgress = 0L,
+            chapterNumber = 1.0,
+            sourceOrder = 0L,
+            dateFetch = 0L,
+            dateUpload = 0L,
+            page = "",
+        )
     }
 }

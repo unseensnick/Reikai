@@ -51,6 +51,15 @@ suspend fun resumeTarget(
  */
 fun firstUnreadOf(chapters: List<RecentsChapter>): Long? = chapters.firstOrNull { !it.read }?.id
 
+/**
+ * The chapter a newly added row opens: the group's first unread, else the entry's own. The second pass
+ * is for chapters the cross-source stitch drops, without which a merged row resolves nothing and the
+ * tap dies; only then does it pay [ownSource]'s query. Both lists carry what another source already
+ * read as read, so the fallback cannot reopen a chapter the group finished.
+ */
+suspend fun addedTarget(group: List<RecentsChapter>, ownSource: suspend () -> List<RecentsChapter>): Long? =
+    firstUnreadOf(group) ?: firstUnreadOf(ownSource())
+
 /** How far either side of a row's own chapter still counts as the same update burst. */
 const val BURST_WINDOW_MS: Long = 12 * 60 * 60 * 1000L
 

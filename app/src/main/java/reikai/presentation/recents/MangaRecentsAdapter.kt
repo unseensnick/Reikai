@@ -41,7 +41,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.getChapterSort
-import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
@@ -64,7 +63,6 @@ class MangaRecentsAdapter(
     private val sourcePreferences: ReikaiSourcePreferences,
     private val recentlyAdded: RecentlyAddedRepository,
     private val recentsUnread: RecentsUnreadRepository,
-    private val getNextChapters: GetNextChapters,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val downloadManager: DownloadManager,
     // Read from the preference rather than off the model, whose copy is a Compose State the engine
@@ -215,11 +213,9 @@ class MangaRecentsAdapter(
                 chapters = ownSource().map { it.toRecentsChapter(readElsewhere) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            RecentsLane.Added -> firstUnreadOf(groupChapters.map { it.toRecentsChapter(readElsewhere) })
-                ?: getNextChapters.await(mangaId, onlyUnread = true)
-                    .firstOrNull { it.id !in readElsewhere }
-                    ?.also { chapters[it.id] = it }
-                    ?.id
+            RecentsLane.Added -> addedTarget(groupChapters.map { it.toRecentsChapter(readElsewhere) }) {
+                ownSource().map { it.toRecentsChapter(readElsewhere) }
+            }
         } ?: return null
         return TargetResolution(
             chapterId = chapterId,

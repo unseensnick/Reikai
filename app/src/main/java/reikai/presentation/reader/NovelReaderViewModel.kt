@@ -33,9 +33,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
-import reikai.domain.merge.flaggedOnAnotherSource
-import reikai.domain.novel.NovelChapterAggregation
+import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
@@ -46,18 +46,18 @@ import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
-import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelHistoryUpdate
-import reikai.domain.novel.model.effectiveBookmarkedFilter
-import reikai.domain.novel.model.effectiveDownloadedFilter
-import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.isChapterComplete
+import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.neighbourChapter
+import reikai.domain.reader.readerChapterFilters
 import reikai.domain.reader.removeDuplicateChapters
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
@@ -96,8 +96,8 @@ class NovelReaderViewModel(
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
     private val setNovelReadStatus: SetNovelReadStatus,
-    // Merge-group resolution + the shared "mark duplicate read" pref, for marking same-numbered
-    // chapters across a merged novel's sources read on completion (parity with the manga reader).
+    // Merge-group resolution + the shared "mark duplicate read" pref, for marking a merged novel's
+    // copies of a finished chapter read (parity with the manga reader).
     private val mergeManager: NovelMergeManager,
     private val mergedChapterProvider: NovelMergedChapterProvider,
     private val libraryPreferences: LibraryPreferences,
@@ -136,12 +136,12 @@ class NovelReaderViewModel(
     private var incognitoMode: Boolean = false
 
     /** Owning novel of the current chapter. Defaults to the host (== owner for a standalone novel);
-     *  a merged session re-points it per chapter so the last-read stamp lands on the source read. */
+     *  a merged session re-points it per chapter so the web actions resolve the source being read. */
     @Volatile
     private var currentNovelId: Long = novelId
 
     /** When the current chapter began being read, for the novel-history session duration (the analog of
-     *  ReaderViewModel.chapterReadStartTime). Reset whenever a chapter loads. */
+     *  ReaderViewModel.chapterReadStartTime). Reset whenever a different chapter loads. */
     @Volatile
     private var chapterReadStartTime: Long? = null
 
@@ -430,6 +430,14 @@ class NovelReaderViewModel(
     @Volatile
     private var forwardEligibleIds: Set<Long> = emptySet()
 
+    /** The novels of the opened one's merge group, itself alone when ungrouped, and the group's stored
+     *  stitch (empty when ungrouped). Resolved with [orderedIds], in either scope. */
+    @Volatile
+    private var memberIds: List<Long> = listOf(novelId)
+
+    @Volatile
+    private var groupStitch: List<ChapterUnit> = emptyList()
+
     private val neighbours = MutableStateFlow(Neighbours())
 
     /** What the navigator's chapter buttons enable on. */
@@ -547,7 +555,7 @@ class NovelReaderViewModel(
             currentChapterId = arriving.chapterId
             currentNovelId = chapterRepo.getById(arriving.chapterId)?.novelId ?: currentNovelId
             chapterReadStartTime = System.currentTimeMillis()
-            bookmarkedState.value = chapterRepo.getById(arriving.chapterId)?.bookmark ?: false
+            bookmarkedState.value = isBookmarkedInGroup(arriving.chapterId)
             loadedChapter.value = arriving
             lastSavedPercent = -1
             // The window re-centres on where the reader now is, which warms the chapter beyond and
@@ -570,7 +578,7 @@ class NovelReaderViewModel(
                 if (currentChapterId in fitsOnScreen) {
                     persistProgress(currentChapterId, 100)
                 } else {
-                    markReadOnSkip(currentChapterId, currentNovelId)
+                    markReadOnSkip(currentChapterId)
                 }
             }
             pendingChapterId = chapterId
@@ -596,13 +604,18 @@ class NovelReaderViewModel(
                 if (orderedIds.isEmpty()) resolveReadingOrder()
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
                 val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row).also { htmlCache[row.id] = it }
+                val bookmarked = isBookmarkedInGroup(row.id)
                 // Committed only here, because everything above can throw and the reader goes on
                 // rendering the chapter it already had. Moving these any earlier pointed the bookmark
                 // and the web actions at a chapter that never appeared.
+                // A reload of the chapter already open, after a chapter-text setting changed, keeps
+                // its timer: restarting it dropped the time read so far from history.
+                if (row.id != currentChapterId || chapterReadStartTime == null) {
+                    chapterReadStartTime = System.currentTimeMillis()
+                }
                 currentChapterId = row.id
                 currentNovelId = row.novelId
-                chapterReadStartTime = System.currentTimeMillis()
-                bookmarkedState.value = row.bookmark
+                bookmarkedState.value = bookmarked
                 val opened = row.toLoadedChapter(html, baseUrl)
                 loadedChapter.value = opened
                 liveProgress.value = opened.progressPercent
@@ -651,44 +664,34 @@ class NovelReaderViewModel(
         if (incognitoMode) return
         viewModelScope.launchIO {
             chapterRepo.setLastTextProgress(id, clamped * 100L)
+            // Fetched before marking, so the shared interactor still sees it unread.
+            val chapter = chapterRepo.getById(id) ?: return@launchIO
             // Stamp the owning novel's last-read time so the LastRead library sort reflects this read.
-            novelRepo.setLastReadAt(currentNovelId, System.currentTimeMillis())
-            if (clamped.completesChapter()) {
-                // Fetch before marking so the shared interactor sees the chapter as still unread; it flips
-                // read + honors "delete after marked as read".
-                val chapter = chapterRepo.getById(id)
-                // Mark this chapter's copies across the merged group read too, mirroring the manga
-                // reader (ReaderViewModel.updateChapterProgressOnComplete), gated on the shared
-                // markDuplicateReadChapterAsRead pref. relatedIdsList returns just this novel when
-                // it isn't merged, so a single-source read is unchanged.
-                val markDupes = libraryPreferences.markDuplicateReadChapterAsRead.get()
-                    .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
-                val toMark = if (chapter != null && markDupes) {
-                    // The stored stitch decides which rows are this chapter, the same answer the list
-                    // and the badge read. Comparing chapter numbers marked the wrong one, because a
-                    // number is whatever its own source counted: two sources are routinely apart.
-                    val copies = expandToUnits(setOf(id), mergedChapterProvider.stitchOf(novelId)) - id
-                    val siblings = if (copies.isEmpty()) {
-                        emptyList()
-                    } else {
-                        mergeManager.relatedIdsList(novelId)
-                            .flatMap { chapterRepo.getByNovelId(it) }
-                            .filter { it.id in copies && !it.read }
-                    }
-                    listOf(chapter) + siblings
-                } else {
-                    listOfNotNull(chapter)
-                }
-                setNovelReadStatus.await(true, toMark)
-                // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead
-                if (trackPreferences.autoUpdateTrack.get()) {
-                    chapter?.let { trackNovelChapter.await(context, currentNovelId, it.chapterNumber) }
-                }
-                // After the mark, so the chapter being retired is already read. The manga reader trims
-                // its downloads at the same point (ReaderViewModel.deleteChapterIfNeeded).
-                deleteChaptersBehindReader.await(currentNovelId, orderedIds, id)
-            }
+            novelRepo.setLastReadAt(chapter.novelId, System.currentTimeMillis())
+            if (clamped.completesChapter()) markChapterRead(chapter)
         }
+    }
+
+    /**
+     * Finishing [chapter]: the mark, its merged copies under "mark duplicate read", the tracker push
+     * and the trim behind the reader. Reaching the end and mark-read-on-skip both land here, as manga's
+     * both go through updateChapterProgressOnComplete. Keyed on the chapter's own novel, never
+     * [currentNovelId]: a crossing re-points that while this runs, and a fling finishes chapters of
+     * another source than the one it lands on.
+     */
+    private suspend fun markChapterRead(chapter: NovelChapter) {
+        val markDupes = libraryPreferences.markDuplicateReadChapterAsRead.get()
+            .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
+        // The stored stitch decides which rows are this chapter, the answer the list and the badge read.
+        val copies = if (markDupes) groupCopies(chapter.id).filter { it.id != chapter.id } else emptyList()
+        // SetNovelReadStatus also honours "delete after marked as read".
+        setNovelReadStatus.await(true, listOf(chapter) + copies)
+        if (trackPreferences.autoUpdateTrack.get()) {
+            trackNovelChapter.await(context, chapter.novelId, chapter.chapterNumber)
+        }
+        // After the mark, so the chapter being retired is already read. The manga reader trims
+        // its downloads at the same point (ReaderViewModel.deleteChapterIfNeeded).
+        deleteChaptersBehindReader.await(chapter.novelId, orderedIds, chapter.id)
     }
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
@@ -747,19 +750,23 @@ class NovelReaderViewModel(
     }
 
     /**
-     * The chapter sheet's rows, in reading order. Cold, so the list is only built while the sheet is
-     * open, and re-emitted as downloads move or the reader changes chapter.
+     * The chapter sheet's rows, in reading order, each showing the merge group's read, bookmarked and
+     * on-disk state as the details list does. Cold, so the list is only built while the sheet is open,
+     * and re-emitted as downloads move or the reader changes chapter. Read fresh rather than from the
+     * session's opening, so a chapter this session marked shows as marked.
      */
     val chapterRows: Flow<List<ReaderChapterRow>> = flow {
         if (orderedIds.isEmpty()) resolveReadingOrder()
-        val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
-        val chapters = orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
+        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
+        val byId = pooled.associateBy { it.id }
+        val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
         val sourceNames = chapterSourceNames(chapters)
+        val novels = novelsOf(pooled + chapters)
         emitAll(
             combine(downloadManager.queueState, loadedChapter) { queue, _ ->
-                val downloaded = downloadedChapterIds(chapters)
+                val flags = groupFlags(pooled, chapters, novels)
                 val queued = queue.associateBy { it.chapterId }
-                chapters.map { it.toRow(sourceNames, queued, downloaded) }
+                chapters.map { it.toRow(sourceNames, queued, flags) }
             },
         )
     }.flowOn(Dispatchers.IO)
@@ -767,7 +774,7 @@ class NovelReaderViewModel(
     private fun NovelChapter.toRow(
         sourceNames: Map<Long, String>,
         queued: Map<Long, NovelDownload>,
-        downloaded: Set<Long>,
+        flags: GroupChapterFlags<NovelChapter>,
     ) = ReaderChapterRow(
         id = id,
         title = name,
@@ -775,11 +782,11 @@ class NovelReaderViewModel(
         subtitle = sourceNames[novelId],
         dateUpload = dateUpload,
         readProgress = (lastTextProgress / 100L).toInt().takeIf { it > 0 }?.let { "$it%" },
-        read = read,
-        bookmark = bookmark,
+        read = flags.isRead(this),
+        bookmark = flags.isBookmarked(this),
         downloadState = when {
             queued[id] != null -> queued.getValue(id).state.toDownloadState()
-            id in downloaded -> Download.State.DOWNLOADED
+            flags.isDownloaded(this) -> Download.State.DOWNLOADED
             else -> Download.State.NOT_DOWNLOADED
         },
         // A novel chapter is one request, so there is no percentage to report while it runs.
@@ -798,17 +805,25 @@ class NovelReaderViewModel(
         }
     }
 
+    /** Reaches every source's copy of the chapter, as the manga sheet and the details list do. */
     fun setChapterRead(chapterId: Long, read: Boolean) {
-        viewModelScope.launchIO {
-            chapterRepo.getById(chapterId)?.let { setNovelReadStatus.await(read, listOf(it)) }
-        }
+        viewModelScope.launchIO { setNovelReadStatus.await(read, groupCopies(chapterId)) }
     }
 
     fun setChapterBookmark(chapterId: Long, bookmarked: Boolean) {
+        val ids = expandToUnits(setOf(chapterId), groupStitch)
         // Kept in step so the sheet and the app bar cannot disagree about the chapter being read.
-        if (chapterId == currentChapterId) bookmarkedState.value = bookmarked
-        viewModelScope.launchIO { chapterRepo.setBookmark(chapterId, bookmarked) }
+        if (currentChapterId in ids) bookmarkedState.value = bookmarked
+        viewModelScope.launchIO { ids.forEach { chapterRepo.setBookmark(it, bookmarked) } }
     }
+
+    /** Every source's copy of [chapterId] the stored stitch places with it, itself included, as the
+     *  database holds them now. Just the chapter when the novel is ungrouped. */
+    private suspend fun groupCopies(chapterId: Long): List<NovelChapter> =
+        expandToUnits(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
+
+    /** The bar's answer, as the details list gives it: a bookmark on another source's copy counts. */
+    private suspend fun isBookmarkedInGroup(chapterId: Long): Boolean = groupCopies(chapterId).any { it.bookmark }
 
     /** The open chapter's bookmark state, seeded when it loads and flipped from the bar or the sheet. */
     private val bookmarkedState = MutableStateFlow(false)
@@ -834,7 +849,8 @@ class NovelReaderViewModel(
                     downloadManager.startDownloadNow(chapter.id)
                 }
                 ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
-                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
+                // The row reads as downloaded when any source's copy is on disk, so every copy goes.
+                ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(groupCopies(chapterId))
             }
         }
     }
@@ -842,8 +858,9 @@ class NovelReaderViewModel(
     /**
      * Builds the order the reader pages in, once per session. Source scope walks the opened novel's own
      * chapters; group scope aggregates the merge group, so History, Updates and the library need not
-     * pass a list. A group-scoped chapter can be deduped out of the unified list, so it is put back
-     * (placed by chapter number) rather than leaving prev and next with nowhere to step from.
+     * pass a list. A group-scoped chapter the unified list does not show is put back through
+     * [withOpenedChapter], the kernel the manga reader shares, rather than leaving prev and next with
+     * nowhere to step from.
      */
     private suspend fun resolveReadingOrder() {
         // Both scopes need the group behind the opened novel: source scope shows one source's rows, but
@@ -852,23 +869,34 @@ class NovelReaderViewModel(
         val ids = mergeManager.relatedIdsList(novelId)
         val pooled = if (ids.size <= 1) emptyList() else ids.flatMap { chapterRepo.getByNovelId(it) }
         val stitch = if (pooled.isEmpty()) emptyList() else mergedChapterProvider.stitchOf(novelId)
+        memberIds = ids.ifEmpty { listOf(novelId) }
+        groupStitch = stitch
         // The chapters stay chapters through both filters. Reducing to ids here meant re-reading every
         // one of them back out of the database a row at a time, before the first page could be drawn.
-        val resolved = if (sourceScoped) {
-            dedupIfEnabled(chapterRepo.getByNovelId(novelId).sortedWith(readingOrder()))
+        val chapters = if (sourceScoped) {
+            chapterRepo.getByNovelId(novelId)
         } else {
-            val chapters = resolveGroupChapters(ids, pooled, stitch)
-            if (chapters.any { it.id == currentChapterId }) {
-                chapters
+            val listed = if (pooled.isEmpty()) {
+                chapterRepo.getByNovelId(novelId)
             } else {
-                val current = chapterRepo.getById(currentChapterId)
-                if (current == null) chapters else (chapters + current).sortedWith(readingOrder())
+                mergedChapterProvider.merged(pooled, stitch)
             }
+            withOpenedChapter(
+                unified = listed,
+                opened = listed.find { it.id == currentChapterId }
+                    ?: pooled.find { it.id == currentChapterId }
+                    ?: chapterRepo.getById(currentChapterId),
+                stitch = stitch,
+                id = { it.id },
+                // A novel source lists its chapters oldest-first, so the merged list runs that way too.
+                byNumber = compareBy { it.chapterNumber },
+                restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
+            )
         }
-        val visible = filterHiddenChapters(resolved)
+        val visible = filterHiddenChapters(dedupIfEnabled(chapters.sortedWith(readingOrder())))
         orderedIds = visible.map { it.id }
-        val readElsewhere = flaggedOnAnotherSource(pooled, visible, stitch, { it.id }, { it.read })
-        forwardEligibleIds = resolveForwardEligible(visible, pooled, stitch, readElsewhere)
+        val members = pooled.ifEmpty { visible }
+        forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelsOf(members)))
     }
 
     /** The opened novel's own chapter sort, always ascending, so paging follows the order the user chose
@@ -878,35 +906,19 @@ class NovelReaderViewModel(
         return if (novel == null) compareBy { it.chapterNumber } else readingOrderComparator(novel, novelPreferences)
     }
 
-    /** The merge group's unified chapters, the novel twin of `MergedChapterProvider`. A non-merged novel
-     *  is just its own. The global preferred-source ranking picks the trunk, as details and library do. */
-    private suspend fun resolveGroupChapters(
-        ids: List<Long>,
-        pooled: List<NovelChapter>,
-        stitch: List<ChapterUnit>,
-    ): List<NovelChapter> {
-        if (ids.size <= 1) return chapterRepo.getByNovelId(novelId).sortedWith(readingOrder())
-        val sourceIdByNovel = ids.associateWith { novelRepo.getById(it)?.source.orEmpty() }
-        val merged = mergedChapterProvider.merged(pooled, stitch).sortedWith(readingOrder())
-        return dedupIfEnabled(merged, sourceIdByNovel)
-    }
-
     /**
      * Drops same-numbered duplicates from the list rather than stepping over them, so the chapter list,
-     * download-ahead and delete-after-read all count what the reader actually shows. A novel has no
-     * scanlator, so its source stands in as the origin the current chapter prefers.
+     * download-ahead and delete-after-read all count what the reader actually shows. Within one novel
+     * only, which makes the origin tie-break meaningless here: every chapter of it has the same source.
      */
-    private fun dedupIfEnabled(
-        chapters: List<NovelChapter>,
-        sourceIdByNovel: Map<Long, String> = emptyMap(),
-    ): List<NovelChapter> {
+    private fun dedupIfEnabled(chapters: List<NovelChapter>): List<NovelChapter> {
         if (!novelPreferences.readerSkipDuplicateChapters().get()) return chapters
         val current = chapters.find { it.id == currentChapterId } ?: return chapters
         return chapters.removeDuplicateChapters(
             current,
             numberOf = { it.chapterNumber },
             idOf = { it.id },
-            originOf = { sourceIdByNovel[it.novelId] },
+            originOf = { null },
             ownerOf = { it.novelId },
         )
     }
@@ -926,58 +938,42 @@ class NovelReaderViewModel(
         }
     }
 
-    /**
-     * Which chapters a forward step may stop on. "Skip read" drops read ones; "skip filtered" drops the
-     * ones this novel's own chapter-list filters hide, which is what makes the setting mean the same
-     * thing here as on the details screen. The open chapter stays eligible either way.
-     */
+    /** Which chapters a forward step may stop on, per the skip settings and this novel's own chapter-list
+     *  filters. The open chapter stays eligible either way. */
     private suspend fun resolveForwardEligible(
         chapters: List<NovelChapter>,
-        pooled: List<NovelChapter>,
-        stitch: List<ChapterUnit>,
-        readInOtherSources: Set<Long>,
+        flags: GroupChapterFlags<NovelChapter>,
     ): Set<Long> {
         val skipRead = novelPreferences.readerSkipRead().get()
         val skipFiltered = novelPreferences.readerSkipFiltered().get()
         if (!skipRead && !skipFiltered) return chapters.mapTo(HashSet()) { it.id }
         val novel = novelRepo.getById(novelId) ?: return chapters.mapTo(HashSet()) { it.id }
-        // Bookmarked and on disk are asked of the whole group, as read already is: the details list
-        // answers them that way, so a filter shared with it has to reach the same rows.
-        val onDisk = if (skipFiltered) downloadedChapterIds(pooled.ifEmpty { chapters }) else emptySet()
-        val downloaded = onDisk + flaggedOnAnotherSource(pooled, chapters, stitch, { it.id }) { it.id in onDisk }
-        val bookmarked = flaggedOnAnotherSource(pooled, chapters, stitch, { it.id }, { it.bookmark })
-        val readFilter = novel.effectiveReadFilter(novelPreferences)
-        val bookmarkFilter = novel.effectiveBookmarkedFilter(novelPreferences)
-        val downloadFilter = novel.effectiveDownloadedFilter(novelPreferences)
+        val filters = novel.readerChapterFilters(novelPreferences)
         return chapters.filterTo(HashSet()) { ch ->
-            val isRead = ch.read || ch.id in readInOtherSources
-            val isBookmarked = ch.bookmark || ch.id in bookmarked
-            when {
-                ch.id == currentChapterId -> true
-                skipRead && isRead -> false
-                !skipFiltered -> true
-                readFilter == NovelChapterFlags.SHOW_UNREAD && isRead -> false
-                readFilter == NovelChapterFlags.SHOW_READ && !isRead -> false
-                bookmarkFilter == NovelChapterFlags.SHOW_BOOKMARKED && !isBookmarked -> false
-                bookmarkFilter == NovelChapterFlags.SHOW_NOT_BOOKMARKED && isBookmarked -> false
-                downloadFilter == NovelChapterFlags.SHOW_DOWNLOADED && ch.id !in downloaded -> false
-                downloadFilter == NovelChapterFlags.SHOW_NOT_DOWNLOADED && ch.id in downloaded -> false
-                else -> true
-            }
+            ch.id == currentChapterId || flags.isForwardEligible(ch, skipRead, skipFiltered, filters)
         }.mapTo(HashSet()) { it.id }
     }
 
+    /** [shown] as the merge group answers for it, over [pooled], every member's chapters. */
+    private fun groupFlags(
+        pooled: List<NovelChapter>,
+        shown: List<NovelChapter>,
+        novels: Map<Long, Novel>,
+    ) = GroupChapterFlags(pooled, shown, groupStitch, { it.id }, { it.read }, { it.bookmark }) {
+        downloadedChapterIds(pooled, novels)
+    }
+
+    private suspend fun novelsOf(chapters: List<NovelChapter>): Map<Long, Novel> =
+        chapters.map { it.novelId }.distinct().mapNotNull { novelRepo.getById(it) }.associateBy { it.id }
+
     /** Grouped by novel so the cache resolves each novel's download folder once rather than per chapter,
      *  which is what a merged group's long list would otherwise pay for on every queue change. */
-    private suspend fun downloadedChapterIds(chapters: List<NovelChapter>): Set<Long> {
-        val novelsById = chapters.map { it.novelId }.distinct().mapNotNull { novelRepo.getById(it) }
-            .associateBy { it.id }
-        return chapters
+    private fun downloadedChapterIds(chapters: List<NovelChapter>, novels: Map<Long, Novel>): Set<Long> =
+        chapters
             .groupBy { it.novelId }
             .flatMapTo(HashSet()) { (novelId, owned) ->
-                novelsById[novelId]?.let { novelDownloadCache.downloadedChapterIds(it, owned) }.orEmpty()
+                novels[novelId]?.let { novelDownloadCache.downloadedChapterIds(it, owned) }.orEmpty()
             }
-    }
 
     /** Re-resolves both neighbours, then warms them and queues the download-ahead window. */
     private suspend fun resolveNeighbours() {
@@ -1089,32 +1085,30 @@ class NovelReaderViewModel(
         return warmFailures[id]?.let { BoundaryFailure(it.message, it.failedAtElapsedMs) }
     }
 
-    /** Enqueues the next N un-downloaded chapters in reading order, the novel twin of manga's
-     *  autoDownloadWhileReading. Off in incognito and when the setting is zero. */
+    /** Enqueues the next N unread, un-downloaded chapters in reading order, the novel twin of manga's
+     *  autoDownloadWhileReading, pinned to it by [chaptersToDownloadAhead]. Off in incognito and when
+     *  the setting is zero. Read fresh, so a chapter finished in this session is not queued again. */
     private suspend fun maybeDownloadAhead() {
         if (incognitoMode) return
         val ahead = novelPreferences.autoDownloadWhileReading().get()
         if (ahead <= 0) return
         val index = orderedIds.indexOf(currentChapterId)
         if (index < 0) return
-        val toDownload = orderedIds.drop(index + 1).take(ahead)
-            .mapNotNull { chapterRepo.getById(it) }
-            .filterNot { ch ->
-                val novel = novelRepo.getById(ch.novelId) ?: return@filterNot false
-                downloadManager.isChapterDownloaded(novel, ch)
-            }
+        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
+        val byId = pooled.associateBy { it.id }
+        val candidates = orderedIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+        val novels = novelsOf(pooled + candidates)
+        val flags = groupFlags(pooled, candidates, novels)
+        val toDownload = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
+            .filterNot { ch -> novels[ch.novelId]?.let { downloadManager.isChapterDownloaded(it, ch) } == true }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
     }
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on. */
-    private suspend fun markReadOnSkip(departedId: Long, departedNovelId: Long) {
+    private suspend fun markReadOnSkip(departedId: Long) {
         if (incognitoMode || !novelPreferences.readerMarkReadOnSkip().get()) return
         val chapter = chapterRepo.getById(departedId) ?: return
-        if (chapter.read) return
-        chapterRepo.setReadBulk(listOf(departedId), true)
-        if (trackPreferences.autoUpdateTrack.get()) {
-            trackNovelChapter.await(context, departedNovelId, chapter.chapterNumber)
-        }
+        if (!chapter.read) markChapterRead(chapter)
     }
 
     suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> = textLoader.load(chapter)

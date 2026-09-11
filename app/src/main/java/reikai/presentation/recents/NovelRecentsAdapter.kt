@@ -201,11 +201,9 @@ class NovelRecentsAdapter(
                 chapters = ownSource().map { it.toRecentsChapter(group.readInOtherSources) },
                 rowChapterId = lane.chapter.chapterId,
             )
-            // Same fallback as the manga twin: the cross-source stitch can drop this novel's own
-            // chapters, and without it a merged row on this lane resolves nothing and the tap dies.
-            RecentsLane.Added -> firstUnreadOf(group.chapters.map { it.toRecentsChapter(group.readInOtherSources) })
-                ?: getNextNovelChapter.awaitFirstUnread(novelId, group.readInOtherSources)
-                    ?.also { chapters[it.id] = it }?.id
+            RecentsLane.Added -> addedTarget(group.chapters.map { it.toRecentsChapter(group.readInOtherSources) }) {
+                ownSource().map { it.toRecentsChapter(group.readInOtherSources) }
+            }
         } ?: return null
         return TargetResolution(
             chapterId = chapterId,

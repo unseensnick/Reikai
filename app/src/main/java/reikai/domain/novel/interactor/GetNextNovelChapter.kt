@@ -30,14 +30,6 @@ class GetNextNovelChapter(
     private val mergedChapterProvider: NovelMergedChapterProvider,
 ) {
     /**
-     * The first unread chapter, for a row with no recorded chapter to resume from (the recents
-     * surface's newly-added lane). Twin of `GetNextChapters.await(mangaId, onlyUnread = true)`, which
-     * the manga side already had; without it the lane could only resolve a target for manga.
-     */
-    suspend fun awaitFirstUnread(novelId: Long, readInOtherSources: Set<Long>): NovelChapter? =
-        chapterRepository.getByNovelId(novelId).firstOrNull { !it.read && it.id !in readInOtherSources }
-
-    /**
      * The group's chapters as one cross-source list, the same one the details "All" view shows, plus
      * what counts as read on another source. An unmerged novel gets its own list in source order.
      */

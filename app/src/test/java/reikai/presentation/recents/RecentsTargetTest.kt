@@ -54,6 +54,25 @@ class RecentsTargetTest {
     }
 
     @Test
+    fun `a newly added row opens the group's first unread`() = runTest {
+        addedTarget(listOf(chapter(1, read = true), chapter(2))) { listOf(chapter(9)) } shouldBe 2L
+    }
+
+    @Test
+    fun `a newly added row falls back to the entry's own chapters when the group has none unread`() = runTest {
+        addedTarget(listOf(chapter(1, read = true))) { listOf(chapter(8, read = true), chapter(9)) } shouldBe 9L
+    }
+
+    @Test
+    fun `a newly added row does not fetch its own chapters while the group can answer`() = runTest {
+        var fetched = false
+
+        addedTarget(listOf(chapter(1))) { listOf(chapter(9)).also { fetched = true } }
+
+        fetched shouldBe false
+    }
+
+    @Test
     fun `the first unread of a group is the oldest one left`() {
         val chapters = listOf(chapter(1, read = true), chapter(2), chapter(3))
 

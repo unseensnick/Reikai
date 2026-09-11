@@ -21,7 +21,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.sample
-import tachiyomi.source.local.isLocal
+import reikai.domain.merge.GroupChapterFlags
+import tachiyomi.domain.chapter.model.Chapter
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -95,14 +96,15 @@ class MangaReaderProvider(
         /**
          * The disk check is the expensive half (a folder-name hash per chapter), so it runs once per
          * queue change, which is also when a finished download leaves the queue. Only the progress
-         * numbers refresh on the sampled tick, and they are read off the live queue entries.
+         * numbers refresh on the sampled tick, and they are read off the live queue entries. A row
+         * shows the merge group's read, bookmarked and on-disk state, as the details list does.
          */
         override val rows: Flow<List<ReaderChapterRow>> = downloadManager.queueState
             .flatMapLatest { queue ->
                 val chapters = viewModel.getChapters()
                 val queued = queue.associateBy { it.chapter.id }
-                val downloaded = chapters.filterTo(HashSet(), ::isDownloaded).mapTo(HashSet()) { it.chapter.id }
-                val build = { chapters.map { it.toRow(queued, downloaded) } }
+                val flags = viewModel.sheetFlags(chapters.map { it.chapter })
+                val build = { chapters.map { it.toRow(queued, flags) } }
                 if (queued.isEmpty()) {
                     flowOf(build())
                 } else {
@@ -134,16 +136,10 @@ class MangaReaderProvider(
             viewModel.getChapters().find { it.chapter.id == chapterId }?.chapter
     }
 
-    private fun isDownloaded(item: ReaderChapterItem) = item.manga.isLocal() ||
-        downloadManager.isChapterDownloaded(
-            item.chapter.name,
-            item.chapter.scanlator,
-            item.chapter.url,
-            item.manga.title,
-            item.manga.source,
-        )
-
-    private fun ReaderChapterItem.toRow(queued: Map<Long, Download>, downloaded: Set<Long>): ReaderChapterRow {
+    private fun ReaderChapterItem.toRow(
+        queued: Map<Long, Download>,
+        flags: GroupChapterFlags<Chapter>,
+    ): ReaderChapterRow {
         val active = queued[chapter.id]
         return ReaderChapterRow(
             id = chapter.id,
@@ -154,11 +150,11 @@ class MangaReaderProvider(
             dateUpload = chapter.dateUpload,
             // The page a manga chapter was left on is not shown here, as upstream does not show it.
             readProgress = null,
-            read = chapter.read,
-            bookmark = chapter.bookmark,
+            read = flags.isRead(chapter),
+            bookmark = flags.isBookmarked(chapter),
             downloadState = when {
                 active != null -> active.status
-                chapter.id in downloaded -> Download.State.DOWNLOADED
+                flags.isDownloaded(chapter) -> Download.State.DOWNLOADED
                 else -> Download.State.NOT_DOWNLOADED
             },
             downloadProgress = active?.progress ?: 0,
