@@ -1,8 +1,11 @@
 package reikai.presentation.reader.web
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import android.text.SpannableString
 import android.text.style.StyleSpan
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -61,6 +64,8 @@ class NovelWebDocumentTest {
         const val CHAPTER_ID = 4242L
         const val DOCUMENT_TOKEN = "test-document-token"
         const val TIMEOUT_S = 10L
+        const val DRAG_STEPS = 5
+        const val DRAG_STEP_MS = 16L
 
         /** A seam as the viewport sends one, for the cases about what a chapter arriving does. */
         const val SEAM =
@@ -844,6 +849,16 @@ class NovelWebDocumentTest {
         assertEquals("it stepped the wrong way", listOf(false), steps)
     }
 
+    /** A chapter's own script can build touch events, and the page's listeners would send its step. */
+    @Test
+    fun aSwipeAScriptBuildsStepsNoChapter() {
+        loadDocument()
+        val width = eval("window.innerWidth").toInt()
+        assertNoStep("a swipe built by a page script stepped a chapter") {
+            scriptSwipe(fromX = width - 20, toX = width - 20 - 200, y = 400)
+        }
+    }
+
     /** Runs [gesture] and gives the bridge, which calls back off the main thread, time to arrive. */
     private fun assertNoStep(message: String, gesture: () -> Unit) {
         steps.clear()
@@ -852,46 +867,69 @@ class NovelWebDocumentTest {
         assertTrue(message, !stepped.await(1, TimeUnit.SECONDS))
     }
 
-    /** A one-finger drag from ([fromX], [y]) to ([toX], [toY]), as the page's own listeners see it. */
+    /** A one-finger drag from ([fromX], [y]) to ([toX], [toY]) in CSS pixels, delivered through the
+     *  WebView as a finger's is: the page ignores touch events a script builds. */
     private fun swipe(fromX: Int, toX: Int, y: Int, toY: Int = y) {
+        val scale = eval("window.devicePixelRatio").toFloat()
+        instrumentation.runOnMainSync {
+            val down = SystemClock.uptimeMillis()
+            touch(MotionEvent.ACTION_DOWN, fromX * scale, y * scale, down, down)
+            (1..DRAG_STEPS).forEach { step ->
+                val fraction = step / DRAG_STEPS.toFloat()
+                touch(
+                    MotionEvent.ACTION_MOVE,
+                    (fromX + (toX - fromX) * fraction) * scale,
+                    (y + (toY - y) * fraction) * scale,
+                    down,
+                    down + step * DRAG_STEP_MS,
+                )
+            }
+            touch(MotionEvent.ACTION_UP, toX * scale, toY * scale, down, down + (DRAG_STEPS + 1) * DRAG_STEP_MS)
+        }
+    }
+
+    /** The same drag built by a script on the page, as a chapter's own script could build it. */
+    private fun scriptSwipe(fromX: Int, toX: Int, y: Int) {
         eval(
             """
             (function () {
-              function at(x, y) {
-                return new Touch({ identifier: 1, target: document.body, clientX: x, clientY: y });
+              function at(x) {
+                return new Touch({ identifier: 1, target: document.body, clientX: x, clientY: $y });
               }
-              function fire(type, x, y) {
+              function fire(type, x) {
                 document.dispatchEvent(new TouchEvent(type, {
-                  touches: type === 'touchend' ? [] : [at(x, y)],
-                  changedTouches: [at(x, y)],
+                  touches: type === 'touchend' ? [] : [at(x)],
+                  changedTouches: [at(x)],
                   bubbles: true,
                 }));
               }
-              fire('touchstart', $fromX, $y);
-              fire('touchmove', $toX, $toY);
-              fire('touchend', $toX, $toY);
+              fire('touchstart', $fromX);
+              fire('touchmove', $toX);
+              fire('touchend', $toX);
             })();
             """.trimIndent(),
         )
     }
 
-    /** A tap in the middle of the element [target] evaluates to, dispatched on that element. */
+    /** A finger's tap in the middle of the element [target] evaluates to, scrolled on screen first, at
+     *  once: the page scrolls smoothly, and a rect read mid-animation puts the tap on something else. */
     private fun tap(target: String) {
-        eval(
-            """
-            (function () {
-              var el = $target;
-              var r = el.getBoundingClientRect();
-              function at() {
-                return new Touch({
-                  identifier: 1, target: el, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
-                });
-              }
-              el.dispatchEvent(new TouchEvent('touchstart', { touches: [at()], changedTouches: [at()], bubbles: true }));
-              el.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [at()], bubbles: true }));
-            })();
-            """.trimIndent(),
-        )
+        eval("($target).scrollIntoView({ block: 'center', behavior: 'instant' })")
+        val scale = eval("window.devicePixelRatio").toFloat()
+        val x = eval("(function (r) { return r.left + r.width / 2; })(($target).getBoundingClientRect())")
+        val y = eval("(function (r) { return r.top + r.height / 2; })(($target).getBoundingClientRect())")
+        instrumentation.runOnMainSync {
+            val down = SystemClock.uptimeMillis()
+            touch(MotionEvent.ACTION_DOWN, x.toFloat() * scale, y.toFloat() * scale, down, down)
+            touch(MotionEvent.ACTION_UP, x.toFloat() * scale, y.toFloat() * scale, down, down + DRAG_STEP_MS)
+        }
+    }
+
+    private fun touch(action: Int, x: Float, y: Float, downAt: Long, at: Long) {
+        val event = MotionEvent.obtain(downAt, at, action, x, y, 0)
+        event.source = InputDevice.SOURCE_TOUCHSCREEN
+        webView.dispatchTouchEvent(event)
+        event.recycle()
     }
 
     // endregion

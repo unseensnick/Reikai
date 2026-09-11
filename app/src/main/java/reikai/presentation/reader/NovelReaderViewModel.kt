@@ -429,21 +429,15 @@ class NovelReaderViewModel(
     private var latestReport: Pair<Long, Int>? = null
 
     /**
-     * The chapter of [window] a renderer starting over on it lands on, with where in it: where the
-     * reader is now, which is the anchor, or the chapter below it when the anchor's end was on screen
-     * ([NovelResume.relanding]). An Activity rebuilt mid-chapter renders the same window again, and the
-     * position the chapter had when it was opened put the reader back there and let the next save
-     * overwrite theirs.
+     * The anchor of [window], at where the reader is now. An Activity rebuilt mid-chapter renders the
+     * same window again, and the position the chapter had when it was opened put the reader back there
+     * and let the next save overwrite theirs. Within a chapter's last screen every position reads 100,
+     * so a rebuild there lands its last line at the bottom: up to a screen back, never past text the
+     * reader has not seen, which landing on the chapter below would do.
      */
     fun landingOf(window: Window): LoadedChapter {
-        val index = window.chapters.indexOfFirst { it.chapterId == window.anchorId }
-        val anchor = window.chapters[index]
-        if (anchor.chapterId != currentChapterId) return anchor
-        // Only a renderer already on this window has a live position to go back to; an open lands on
-        // the chapter it names.
-        val next = window.chapters.getOrNull(index + 1)?.takeIf { rendererGeneration == window.generation }
-        val (id, percent) = NovelResume.relanding(anchor.chapterId, liveProgress.value, next?.chapterId)
-        return (if (id == next?.chapterId) next else anchor).copy(progressPercent = percent)
+        val anchor = window.chapters.first { it.chapterId == window.anchorId }
+        return if (anchor.chapterId == currentChapterId) anchor.copy(progressPercent = liveProgress.value) else anchor
     }
 
     /** The renderer has started over on [generation]'s anchor, so what it reports is the reader's again. */

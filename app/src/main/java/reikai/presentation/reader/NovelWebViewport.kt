@@ -146,13 +146,14 @@ class NovelWebViewport(
         }
         addJavascriptInterface(
             NovelWebBridge(
-                // Only the document built last is heard, once it has reported ready, which it does
-                // before anything else: the page being replaced goes on reporting until it unloads,
-                // about a window the model has already let go of. All on one thread, so a live
-                // progress report still queued cannot land after a settled one and overwrite it.
+                // Only the document built last is heard, and its reports only once it has reported
+                // ready, which it does before anything else: the page being replaced goes on reporting
+                // until it unloads, about a window the model has already let go of. All on one thread,
+                // so a live progress report still queued cannot land after a settled one.
                 fromDocument = { token, call ->
                     mainHandler.post { if (pageReady && token == documentToken) call() }
                 },
+                fromReader = { token, call -> mainHandler.post { if (token == documentToken) call() } },
                 onVisibleChapter = { id ->
                     visibleChapterId = id
                     onVisibleChapter(id)

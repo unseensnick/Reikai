@@ -9,9 +9,13 @@ import android.webkit.JavascriptInterface
  * chapter's script, a frame it creates, or the page being replaced can call it without holding one.
  */
 class NovelWebBridge(
-    /** Runs [call] if [documentToken] names the document the host built last. Every method arrives on
-     *  a WebView binder thread, so this is also where a call reaches the main thread. */
+    /** Runs a report's [call] if [documentToken] names the document the host built last and it has
+     *  reported ready. Every method arrives on a WebView binder thread, so this is also where a call
+     *  reaches the main thread. */
     private val fromDocument: (documentToken: String, call: () -> Unit) -> Unit,
+    /** The same for what the reader's own finger does, which needs the token only: a chapter script
+     *  holding up the parse holds up the ready report, and the menu has to open meanwhile. */
+    private val fromReader: (documentToken: String, call: () -> Unit) -> Unit,
     private val onVisibleChapter: (chapterId: Long) -> Unit,
     private val onProgress: (chapterId: Long, fraction: Double) -> Unit,
     private val onProgressSettled: (chapterId: Long, fraction: Double) -> Unit,
@@ -41,14 +45,14 @@ class NovelWebBridge(
 
     @JavascriptInterface
     fun onRetryBoundary(documentToken: String, forward: Boolean) =
-        fromDocument(documentToken) { onRetryBoundary.invoke(forward) }
+        fromReader(documentToken) { onRetryBoundary.invoke(forward) }
 
     @JavascriptInterface
-    fun onToggleMenu(documentToken: String) = fromDocument(documentToken) { onToggleMenu.invoke() }
+    fun onToggleMenu(documentToken: String) = fromReader(documentToken) { onToggleMenu.invoke() }
 
     @JavascriptInterface
     fun onStepChapter(documentToken: String, forward: Boolean) =
-        fromDocument(documentToken) { onStepChapter.invoke(forward) }
+        fromReader(documentToken) { onStepChapter.invoke(forward) }
 
     @JavascriptInterface
     fun onChapterFits(documentToken: String, chapterId: String, fits: Boolean) {
