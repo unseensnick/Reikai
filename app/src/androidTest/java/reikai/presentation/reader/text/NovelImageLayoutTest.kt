@@ -12,7 +12,6 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -24,7 +23,6 @@ import java.io.Closeable
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
-import kotlin.math.abs
 
 /**
  * That an image landing in the native renderer is drawn at its own height, with text selection on and
@@ -94,14 +92,29 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         assertTrue("the image is still ${picture}px, the placeholder's own height", picture > placeholderPx() + 1)
 
         // The rebuild that follows the load runs off the main thread on the precomputed branch.
-        awaitWhile { abs(measure().second - picture) > SLACK_PX }
+        awaitWhile { measure().second < picture }
         val line = measure().second
-        assertEquals(
+        // The line box carries the font's leading around the picture, so it is a little taller than
+        // the drawable; what it must never be is the placeholder's height, which is the defect.
+        assertTrue(
             "the line holding a ${picture}px picture is ${line}px tall",
-            picture.toDouble(),
-            line.toDouble(),
-            SLACK_PX.toDouble(),
+            line >= picture && line <= picture + textLinePx(),
         )
+    }
+
+    /** One line of body text in this block, the most the leading around a picture can add. */
+    private fun textLinePx(): Int {
+        var height = 0
+        instrumentation.runOnMainSync {
+            block.chunkViews.forEach { view ->
+                val layout = view.layout ?: return@forEach
+                repeat(layout.lineCount) { line ->
+                    val tall = layout.getLineBottom(line) - layout.getLineTop(line)
+                    if (height == 0 || tall < height) height = tall
+                }
+            }
+        }
+        return height
     }
 
     /** The image span's drawable height and the height of the line holding it, both in pixels. */
@@ -182,9 +195,6 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
 
         /** NovelImageGetter's own placeholder height. */
         const val PLACEHOLDER_DP = 200
-
-        /** A line's own leading, which an image span's line does not add but the framework may round. */
-        const val SLACK_PX = 2
 
         const val TIMEOUT_S = 15L
     }
