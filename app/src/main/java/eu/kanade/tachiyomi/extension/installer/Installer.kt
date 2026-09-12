@@ -1,21 +1,17 @@
 package eu.kanade.tachiyomi.extension.installer
 
 import android.app.Service
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.CallSuper
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 import java.util.Collections
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -40,12 +36,7 @@ abstract class Installer(private val service: Service) {
         service.stopSelf()
     }
 
-    private val cancelReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val downloadId = intent.getLongExtra(EXTRA_DOWNLOAD_ID, -1).takeIf { it >= 0 } ?: return
-            cancelQueue(downloadId)
-        }
-    }
+    private val cancelListener: (Long) -> Unit = { downloadId -> cancelQueue(downloadId) }
 
     /**
      * Installer readiness. If false, queue check will not run.
@@ -134,7 +125,7 @@ abstract class Installer(private val service: Service) {
      */
     @CallSuper
     open fun onDestroy() {
-        LocalBroadcastManager.getInstance(service).unregisterReceiver(cancelReceiver)
+        cancelListeners -= cancelListener
         stallHandler.removeCallbacks(giveUp)
         // RK: the one being installed counts too. Without this a give-up leaves its row reading
         //     "installing" with nothing left to finish it, until the app is restarted.
@@ -177,13 +168,11 @@ abstract class Installer(private val service: Service) {
     data class Entry(val downloadId: Long, val uri: Uri)
 
     init {
-        val filter = IntentFilter(ACTION_CANCEL_QUEUE)
-        LocalBroadcastManager.getInstance(service).registerReceiver(cancelReceiver, filter)
+        cancelListeners += cancelListener
     }
 
     companion object {
-        private const val ACTION_CANCEL_QUEUE = "Installer.action.CANCEL_QUEUE"
-        private const val EXTRA_DOWNLOAD_ID = "Installer.extra.DOWNLOAD_ID"
+        private val cancelListeners = CopyOnWriteArraySet<(Long) -> Unit>()
 
         /**
          * How long an install may sit unanswered before the queue is given up. Long enough that
@@ -195,12 +184,12 @@ abstract class Installer(private val service: Service) {
         /**
          * Attempts to cancel the installation entry for the provided download ID.
          *
+         * Runs on the calling thread, so the cancellation is done by the time this returns.
+         *
          * @param downloadId Download ID as known by [ExtensionManager]
          */
-        fun cancelInstallQueue(context: Context, downloadId: Long) {
-            val intent = Intent(ACTION_CANCEL_QUEUE)
-            intent.putExtra(EXTRA_DOWNLOAD_ID, downloadId)
-            LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+        fun cancelInstallQueue(downloadId: Long) {
+            cancelListeners.forEach { it(downloadId) }
         }
     }
 }

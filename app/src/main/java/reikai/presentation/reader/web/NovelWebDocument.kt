@@ -118,11 +118,13 @@ object NovelWebDocument {
     private fun chromeVariables(context: Context): String = buildString {
         append("--rk-seam-padding-vertical:").append(NovelChapterSeamView.PADDING_VERTICAL_DP).append("px;")
         append("--rk-seam-padding-horizontal:").append(NovelChapterSeamView.PADDING_HORIZONTAL_DP).append("px;")
-        val error = MaterialColors.getColor(context, com.google.android.material.R.attr.colorError, FALLBACK_ERROR)
+        // Both attrs are read off appcompat rather than material: material 1.14.0 stopped declaring
+        // colorError and colorPrimary in its own R, keeping only the ones it owns (colorOnBackground).
+        val error = MaterialColors.getColor(context, androidx.appcompat.R.attr.colorError, FALLBACK_ERROR)
         append("--rk-error:").append(cssHex(error)).append(';')
         val primary = MaterialColors.getColor(
             context,
-            com.google.android.material.R.attr.colorPrimary,
+            androidx.appcompat.R.attr.colorPrimary,
             FALLBACK_PRIMARY,
         )
         append("--rk-primary:").append(cssHex(primary)).append(';')
