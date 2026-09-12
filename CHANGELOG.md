@@ -475,6 +475,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- The app now compiles against Android SDK 37.1 (synced from Mihon).
 - Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer, Kim, and the benchmark and baseline-profile tooling were updated.
 - Added an on-device test that measures how a scrolling list holds its position when content is inserted above the reader, to settle a design question for the upcoming novel reader. Test only, nothing in the app changed.
 - The bottom navigation and the tablet side rail are now drawn by Material's own adaptive navigation component instead of hand-rolled copies (synced from Mihon, mihonapp/mihon#3834).
