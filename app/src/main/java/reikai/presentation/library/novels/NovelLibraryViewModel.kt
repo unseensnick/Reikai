@@ -580,6 +580,8 @@ class NovelLibraryViewModel(
                 val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
                 val targets = selectChaptersForDownloadAction(
                     group.chapters,
+                    // The interactor already hands them over in reading order.
+                    sortDescending = false,
                     action,
                     onDisk + queuedIds,
                     group.readInOtherSources,

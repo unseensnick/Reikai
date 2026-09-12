@@ -28,7 +28,7 @@ class NovelReadingOrderTest {
     private fun novel(sorting: Long, descending: Boolean = false) = Novel.create().copy(
         chapterFlags = NovelChapterFlags.SORT_LOCAL or
             sorting or
-            if (descending) NovelChapterFlags.SORT_ASC else NovelChapterFlags.SORT_DESC,
+            if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC,
     )
 
     private fun chapter(id: Long, name: String, number: Double, order: Long, upload: Long) = NovelChapter(

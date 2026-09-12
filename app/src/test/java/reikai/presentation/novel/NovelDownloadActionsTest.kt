@@ -14,13 +14,14 @@ class NovelDownloadActionsTest {
             dateFetch = 0L, dateUpload = 0L, page = "",
         )
 
-    // sourceOrder deliberately shuffled; unread in source order is [12, 10, 13].
+    // The rows as the chapter list shows them, sourceOrder deliberately disagreeing with that order:
+    // the caller hands over the shown list, so unread runs [12, 10, 13] here and source order would not.
     private val chapters = listOf(
-        chapter(id = 13, order = 4, bookmark = true),
         chapter(id = 11, order = 0, read = true, bookmark = true),
-        chapter(id = 10, order = 2),
-        chapter(id = 14, order = 3, read = true),
         chapter(id = 12, order = 1),
+        chapter(id = 14, order = 3, read = true),
+        chapter(id = 10, order = 2),
+        chapter(id = 13, order = 4, bookmark = true),
     )
 
     private fun select(
@@ -29,11 +30,13 @@ class NovelDownloadActionsTest {
         readElsewhere: Set<Long> = emptySet(),
         bookmarkedElsewhere: Set<Long> = emptySet(),
         from: List<NovelChapter> = chapters,
+        sortDescending: Boolean = false,
     ): List<Long> =
-        selectChaptersForDownloadAction(from, action, excluded, readElsewhere, bookmarkedElsewhere).map { it.id }
+        selectChaptersForDownloadAction(from, sortDescending, action, excluded, readElsewhere, bookmarkedElsewhere)
+            .map { it.id }
 
     @Test
-    fun `next 1 takes the first unread chapter in source order`() {
+    fun `next 1 takes the first unread chapter of the list as shown`() {
         select(DownloadAction.NEXT_1_CHAPTER) shouldBe listOf(12L)
     }
 
@@ -43,7 +46,12 @@ class NovelDownloadActionsTest {
     }
 
     @Test
-    fun `unread returns every unread chapter in source order`() {
+    fun `a newest-first list is queued from its end, the chapter the reader reaches next`() {
+        select(DownloadAction.NEXT_1_CHAPTER, sortDescending = true) shouldBe listOf(13L)
+    }
+
+    @Test
+    fun `unread returns every unread chapter in reading order`() {
         select(DownloadAction.UNREAD_CHAPTERS) shouldBe listOf(12L, 10L, 13L)
     }
 

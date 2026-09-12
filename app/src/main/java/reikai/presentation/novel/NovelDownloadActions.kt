@@ -1,24 +1,26 @@
 package reikai.presentation.novel
 
 import eu.kanade.presentation.manga.DownloadAction
+import reikai.domain.chapter.ReadingOrder
 import reikai.domain.novel.model.NovelChapter
 
 /**
  * Resolve a toolbar or library [DownloadAction] to the novel chapters it should enqueue, shared by the
- * novel library's multi-select and the details toolbar. Already-downloaded and already-queued chapters
- * are excluded BEFORE NEXT_N's take(N), as on manga: otherwise, once the first N are downloaded,
- * take(N) keeps returning them and repeated NEXT_N never advances. [excludedChapterIds] is that union,
- * resolved by the caller. The two "in other sources" sets carry a merge group's read and bookmark
- * state, so the next unread is the group's.
+ * novel library's multi-select and the details toolbar. [chapters] arrives in the order it is shown and
+ * [sortDescending] says which way, so "next N" queues the N the reader reaches next. Downloaded and
+ * queued chapters ([excludedChapterIds], resolved by the caller) drop out BEFORE take(N), as on manga:
+ * otherwise repeated NEXT_N keeps handing back the same first N. The "in other sources" sets carry a
+ * merge group's read and bookmark state, so the next unread is the group's.
  */
 fun selectChaptersForDownloadAction(
     chapters: List<NovelChapter>,
+    sortDescending: Boolean,
     action: DownloadAction,
     excludedChapterIds: Set<Long>,
     readInOtherSources: Set<Long>,
     bookmarkedInOtherSources: Set<Long>,
 ): List<NovelChapter> {
-    val sorted = chapters.sortedBy { it.sourceOrder }
+    val sorted = ReadingOrder.of(chapters, sortDescending)
     val unread = sorted.filterNot { it.read || it.id in readInOtherSources || it.id in excludedChapterIds }
     return when (action) {
         DownloadAction.NEXT_1_CHAPTER -> unread.take(1)

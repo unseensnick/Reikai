@@ -89,6 +89,7 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.category.resolveDefaultCategoryIds
+import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.GetTracksInGroup
@@ -1261,8 +1262,8 @@ class MangaViewModel(
 
     private fun getUnreadChaptersSorted(): List<Chapter> {
         val manga = successState?.manga ?: return emptyList()
-        val chaptersSorted = getUnreadChapters().sortedWith(getChapterSort(manga))
-        return if (manga.sortDescending()) chaptersSorted.reversed() else chaptersSorted
+        // RK: the shared reading-order rule, so a novel's "next N" queues the same way.
+        return ReadingOrder.of(getUnreadChapters().sortedWith(getChapterSort(manga)), manga.sortDescending())
     }
 
     private fun getBookmarkedChapters(): List<Chapter> {
@@ -1351,10 +1352,10 @@ class MangaViewModel(
 
     fun markPreviousChapterRead(pointer: Chapter) {
         val manga = successState?.manga ?: return
-        val chapters = filteredChapters.orEmpty().map { it.chapter }
-        val prevChapters = if (manga.sortDescending()) chapters.asReversed() else chapters
-        val pointerPos = prevChapters.indexOf(pointer)
-        if (pointerPos != -1) markChaptersRead(prevChapters.take(pointerPos), true)
+        val shown = filteredChapters.orEmpty().map { it.chapter }
+        // RK: the shared rule for "the rows above this one", which novels mark by too.
+        val previous = ReadingOrder.before(ReadingOrder.of(shown, manga.sortDescending())) { it == pointer }
+        if (previous.isNotEmpty()) markChaptersRead(previous, true)
     }
 
     /**

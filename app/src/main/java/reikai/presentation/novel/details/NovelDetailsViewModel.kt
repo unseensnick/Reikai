@@ -50,6 +50,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.vibrantColorKey
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -84,6 +85,7 @@ import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
+import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.track.TrackNovelChapter
@@ -541,9 +543,6 @@ class NovelDetailsViewModel(
         val view = resolveHiddenChapterView(chapters, hidden, showHiddenFlow.value, ::hiddenKey)
         val hasHiddenChapters = view.hasHidden
         val showHidden = view.showHidden
-        // Hidden chapters are always excluded from the resume target (and downloads); showing hidden only
-        // reveals them (dimmed) in the list so they can be unhidden.
-        val nonHidden = if (hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
         val display = view.visible.sortedAndFiltered(
             anchor,
             novelPreferences,
@@ -561,10 +560,12 @@ class NovelDetailsViewModel(
         } else {
             buildNovelChapterListEntries(display, sortDescending)
         }
-        val resume = nonHidden.sortedBy { it.sourceOrder }
-            .firstOrNull { !it.read && it.id !in readInOtherSources }
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
         val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, showHidden, ::hiddenKey) { it.id }
+        // Over the rows on screen, in the order the reader walks them, so the button opens what Next
+        // would reach. Hidden rows are never resumed into, even while they are being shown.
+        val resumable = ReadingOrder.of(display.filterNot { it.id in hiddenChapterIds }, sortDescending)
+        val resume = ReadingOrder.nextToRead(resumable) { it.read || it.id in readInOtherSources }
         val viewSource = siblingSources.value[viewNovel.id]
         state.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
@@ -1109,7 +1110,7 @@ class NovelDetailsViewModel(
         expandToGroup(chapters).forEach { chapterRepo.setBookmark(it.id, bookmark) }
     }
 
-    /** Mark every chapter before the earliest selected one (in source order) read/unread. Spans all
+    /** Mark every chapter the reader passes before the earliest selected one read/unread. Spans all
      *  fetched pages (operates on stored rows), not just the page on screen. */
     fun markPreviousRead(read: Boolean) {
         viewModelScope.launchIO {
@@ -1120,15 +1121,17 @@ class NovelDetailsViewModel(
             // span all fetched pages, not just what's on screen. expandToGroup folds across the group.
             val unifiedView = loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null
             val ascending = if (unifiedView) {
-                loaded.chapters.sortedBy { it.sourceOrder }
+                ReadingOrder.of(loaded.chapters, loaded.sortDescending)
             } else {
-                chapterRepo.getByNovelId(loaded.displayNovel.id).sortedBy { it.sourceOrder }
+                // Stored rows carry no display position, so they take the novel's sort directly.
+                chapterRepo.getByNovelId(loaded.displayNovel.id)
+                    .sortedWith(readingOrderComparator(loaded.novel, novelPreferences))
             }
-            val earliest = ascending.indexOfFirst { it.id in loaded.selection }
-            if (earliest > 0) {
-                val previous = expandToGroup(ascending.subList(0, earliest))
-                setNovelReadStatus.await(read, previous)
-                if (read) autoTrackOnMarkRead(previous)
+            val previous = ReadingOrder.before(ascending) { it.id in loaded.selection }
+            if (previous.isNotEmpty()) {
+                val expanded = expandToGroup(previous)
+                setNovelReadStatus.await(read, expanded)
+                if (read) autoTrackOnMarkRead(expanded)
             }
             clearSelection()
         }
@@ -1287,6 +1290,7 @@ class NovelDetailsViewModel(
             val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
             val targets = selectChaptersForDownloadAction(
                 available,
+                loaded.sortDescending,
                 action,
                 downloadedIds + queuedIds,
                 loaded.readInOtherSources,

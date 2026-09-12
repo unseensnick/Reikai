@@ -292,6 +292,7 @@ every release now also ships a foss build with neither in it.
 - **A font whose name has a word starting with a digit, such as Source Sans 3, now applies in the Legacy novel reader.** The text fell back to the default font.
 - **The Legacy novel reader now finishes a chapter once, instead of re-running tracker sync and download cleanup every time you scroll near its end.**
 - **The Black reader theme now draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** Pick the theme again to update a novel reader already set to it.
+- **Resuming a novel, and its next-chapter downloads, now follow the order you sorted its chapter list into.** Continue reading, the Resume button, Download next and Mark previous as read all walked the source's own order, so on a novel sorted by name or date they picked a chapter the reader reaches much later.
 
 ### Browse & sources
 

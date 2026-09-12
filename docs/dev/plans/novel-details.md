@@ -27,7 +27,7 @@ What it mirrors from manga details:
 Where it diverges:
 
 - **Different types and infra.** Novels use `Novel`/`NovelChapter`, `NovelRepository`/`NovelChapterRepository`, `NovelDownloadManager`, `NovelMergeManager`, and `NovelPreferences`, so the ScreenModel business logic is its own, not shared with the manga model. It follows the manga shape; it does not import the manga model.
-- **Reading-order routing.** A chapter tap hands the reader the chapters in reading order (ascending `sourceOrder`, the restamped cross-source order for a merged group), independent of the details display sort, so "next" always advances forward.
+- **Reading-order routing.** A chapter tap hands the reader the chapters in the novel's own chapter sort, always ascending (`readingOrderComparator`), so "next" always advances forward whichever way the list is displayed. A merged group is restamped to the stored stitch first, so the default "by source order" reads that cross-source order. Resume, "download next N" and "mark previous as read" ask the same order through the shared `reikai.domain.chapter.ReadingOrder`, which the manga sites call too.
 - **Paged sources.** Some LN sources expose chapters one page at a time. The header shows a "Page n / N" bar and a page-selector sheet; sort and filter are page-scoped. Manga has no equivalent.
 - **Notes on the anchor.** Per-novel notes attach to the favorited (anchor) row, not the viewed source's metadata, so a merged group's notes stay stable when you switch source chips.
 

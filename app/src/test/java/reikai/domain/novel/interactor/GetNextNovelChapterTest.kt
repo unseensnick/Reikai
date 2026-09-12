@@ -12,35 +12,50 @@ import reikai.domain.merge.renderStoredStitch
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
+import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelChapterFlags
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 class GetNextNovelChapterTest {
 
     private val chapterRepository = mockk<NovelChapterRepository>()
+    private val novelRepository = mockk<NovelRepository>()
     private val mergeManager = mockk<NovelMergeManager>(relaxed = true)
     private val mergedChapterProvider = mockk<NovelMergedChapterProvider>()
-    private val interactor = GetNextNovelChapter(chapterRepository, mergeManager, mergedChapterProvider)
+    private val interactor = GetNextNovelChapter(
+        chapterRepository,
+        novelRepository,
+        NovelPreferences(InMemoryPreferenceStore(sequenceOf())),
+        mergeManager,
+        mergedChapterProvider,
+    )
 
     @BeforeEach
     fun setUp() {
         // Unmerged unless a test says otherwise, which is what the repository returns for a lone entry.
         coEvery { mergeManager.computeRelatedIds(any()) } answers { longArrayOf(firstArg()) }
+        // Sorted by source order unless a test sets the novel's own sort.
+        coEvery { novelRepository.getById(any()) } returns Novel.create()
     }
 
-    private fun chapter(id: Long, order: Long, read: Boolean, novelId: Long = 1L) = NovelChapter(
-        id = id,
-        novelId = novelId,
-        url = "u$id",
-        name = "Ch $order",
-        read = read,
-        bookmark = false,
-        lastTextProgress = 0L,
-        chapterNumber = order.toDouble(),
-        sourceOrder = order,
-        dateFetch = 0L,
-        dateUpload = 0L,
-        page = "",
-    )
+    private fun chapter(id: Long, order: Long, read: Boolean, novelId: Long = 1L, name: String = "Ch $order") =
+        NovelChapter(
+            id = id,
+            novelId = novelId,
+            url = "u$id",
+            name = name,
+            read = read,
+            bookmark = false,
+            lastTextProgress = 0L,
+            chapterNumber = order.toDouble(),
+            sourceOrder = order,
+            dateFetch = 0L,
+            dateUpload = 0L,
+            page = "",
+        )
 
     // The group half: what a collapsed recents row and the library's continue button both resolve
     // through. Manga twin: LibraryViewModel.getNextUnreadChapter over MergedChapterProvider.
@@ -85,6 +100,21 @@ class GetNextNovelChapterTest {
         coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
             chapter(10, 0, read = true),
             chapter(11, 1, read = false),
+        )
+
+        interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
+    }
+
+    @Test
+    fun `the first unread follows the novel's own chapter sort`() = runTest {
+        // Alphabetically the order is Alpha, Beta, Gamma, so with Alpha read the answer is Beta (11),
+        // not the source's next listing (12). This is the order the reader pages in.
+        coEvery { novelRepository.getById(1L) } returns Novel.create()
+            .copy(chapterFlags = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET)
+        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
+            chapter(10, 0, read = true, name = "Alpha"),
+            chapter(12, 1, read = false, name = "Gamma"),
+            chapter(11, 2, read = false, name = "Beta"),
         )
 
         interactor.awaitFirstUnreadInGroup(novelId = 1L)?.id shouldBe 11L
