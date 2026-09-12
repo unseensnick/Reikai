@@ -11,11 +11,20 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import kotlin.math.roundToInt
+
+/**
+ * The size a slider position names. M3 works a tick's value out in float, so on most screen widths the
+ * tick for 14 arrives as 13.999999 and truncating it stores 13, which then snaps the thumb back a tick
+ * and leaves that size unpickable. Rounding is what makes every tick reachable, as `ChapterNavigator`'s
+ * own seek already does.
+ */
+internal fun readerTextSizeOf(sliderValue: Float): Int = sliderValue.roundToInt()
 
 /**
  * Text-size picker for the novel reader's bottom-bar text-size button: the same font-size slider as the
- * settings sheet's Display tab, reachable in one tap. Applies live (the caller's ScreenModel persists it
- * and the reader reflows the text in place).
+ * settings sheet's Display tab, reachable in one tap. Applies live (the caller's model persists it and
+ * the reader reflows the text in place).
  */
 @Composable
 fun ReaderTextSizeDialog(
@@ -31,7 +40,7 @@ fun ReaderTextSizeDialog(
             )
             Slider(
                 value = fontSize.toFloat(),
-                onValueChange = { onFontSize(it.toInt()) },
+                onValueChange = { onFontSize(readerTextSizeOf(it)) },
                 valueRange = 12f..32f,
                 steps = 19,
             )

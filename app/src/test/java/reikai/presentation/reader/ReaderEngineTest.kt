@@ -81,6 +81,55 @@ class ReaderEngineTest {
     }
 
     /**
+     * The load surface is the engine's, not the host's. The host raised it from a collector rebuilt
+     * on every Activity recreation, and a failure stays Failed until the next load, so a rotation
+     * reopened a failure the reader had cancelled.
+     */
+    @Test
+    fun `a failed load raises the failure it reports`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+
+        engine.dialog.value shouldBe ReaderDialog.LoadFailed("no connection", canKeepReading = true)
+    }
+
+    @Test
+    fun `a load in flight raises the loading dialog`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+
+        provider.loadState.value = ReaderLoadState.Loading
+
+        engine.dialog.value shouldBe ReaderDialog.Loading
+    }
+
+    @Test
+    fun `the chapter arriving clears the loading dialog`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        provider.loadState.value = ReaderLoadState.Loading
+
+        provider.loadState.value = ReaderLoadState.Idle
+
+        engine.dialog.value shouldBe null
+    }
+
+    /** The load clears only what it raised, or a chapter arriving would close the reader's own sheet. */
+    @Test
+    fun `the chapter arriving leaves a dialog the reader opened alone`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        provider.loadState.value = ReaderLoadState.Loading
+        engine.openDialog(ReaderDialog.ChapterList)
+
+        provider.loadState.value = ReaderLoadState.Idle
+
+        engine.dialog.value shouldBe ReaderDialog.ChapterList
+    }
+
+    /**
      * Page actions travel as the capability built for that page, so the engine hands back the same
      * instance it was given. Reading the page back out of the slot is what this replaces.
      */

@@ -44,6 +44,7 @@ import androidx.core.transition.doOnEnd
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -112,7 +113,6 @@ import reikai.presentation.reader.NovelReaderViewModel
 import reikai.presentation.reader.ReaderChapterListDialog
 import reikai.presentation.reader.ReaderDialog
 import reikai.presentation.reader.ReaderEngine
-import reikai.presentation.reader.ReaderLoadState
 import reikai.presentation.reader.ReaderOrientationDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
@@ -233,6 +233,9 @@ class ReaderActivity : BaseActivity() {
                         novelId = intent.entryId()?.rawId ?: -1L,
                         initialChapterId = intent.getLongExtra("chapter", -1L),
                         sourceScoped = intent.getBooleanExtra("source_scoped", false),
+                        // The model's own, as ReaderViewModel takes one off the graph's extras: a
+                        // process kill must reopen the chapter being read, not the launch chapter.
+                        savedState = createSavedStateHandle(),
                     )
             }
         }
@@ -353,11 +356,22 @@ class ReaderActivity : BaseActivity() {
 
         binding.setComposeOverlay()
 
-        NotificationReceiver.dismissNotification(
-            this,
-            viewModel.mangaId.hashCode(),
-            Notifications.ID_NEW_CHAPTERS,
-        )
+        // RK --> the new-chapters notification of whichever entry opened. Written for manga alone, it
+        // cancelled id 0 on a novel launch, which nothing posts, and left the novel's notice up.
+        // Each updater posts per entry under entryId.hashCode(), summarised by its own group id.
+        when (launchedEntry) {
+            is EntryId.Manga -> NotificationReceiver.dismissNotification(
+                this,
+                launchedEntry.rawId.hashCode(),
+                Notifications.ID_NEW_CHAPTERS,
+            )
+            is EntryId.Novel -> NotificationReceiver.dismissNotification(
+                this,
+                launchedEntry.rawId.hashCode(),
+                Notifications.ID_NOVEL_LIBRARY_RESULT,
+            )
+        }
+        // RK <--
 
         config = ReaderConfig()
         setMenuVisibility(viewModel.state.value.menuVisible)
@@ -373,15 +387,6 @@ class ReaderActivity : BaseActivity() {
             .distinctUntilChanged()
             .filterNotNull()
             .onEach(::setInitialChapterError)
-            .launchIn(lifecycleScope)
-
-        // RK: from the engine, so a novel session gets the spinner and the failure surface too. It
-        // had neither: a chapter that failed to load left the previous one on screen in silence.
-        engine.loadState
-            .onEach { state ->
-                setProgressDialog(state is ReaderLoadState.Loading)
-                if (state is ReaderLoadState.Failed) setChapterLoadError(state)
-            }
             .launchIn(lifecycleScope)
 
         // RK: registration order is load-bearing. This collector is what installs the viewer, and
@@ -904,7 +909,9 @@ class ReaderActivity : BaseActivity() {
             mangaTitle = chrome.entryTitle,
             chapterTitle = chrome.chapterTitle,
             navigateUp = onBackPressedDispatcher::onBackPressed,
-            onClickTopAppBar = ::openMangaScreen,
+            // RK: the entry that is open, not manga's model. A novel launch never fills that model,
+            // so the whole title row rippled and did nothing.
+            onClickTopAppBar = ::openEntryScreen,
             // RK: from the engine, so the control reflects the chapter this session has open. Reading
             // manga's model left it permanently empty and its tap a no-op for a novel.
             bookmarked = bookmarked,
@@ -1030,6 +1037,31 @@ class ReaderActivity : BaseActivity() {
         startPostponedEnterTransition()
     }
 
+    // RK -->
+
+    /**
+     * The app bar's title opens the entry's own details page. Two routes rather than one because the
+     * two screens are addressed differently: a manga by the row id the library route takes, a novel
+     * by its source and url, which is what its screen is pushed with. A novel with no row resolved
+     * yet falls through to manga's, which is a no-op in a novel session.
+     */
+    private fun openEntryScreen() {
+        val novelRoute = novelSession?.viewModel?.detailsRoute?.value
+        if (novelRoute == null) {
+            openMangaScreen()
+            return
+        }
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                action = Constants.SHORTCUT_NOVEL
+                putExtra(Constants.NOVEL_SOURCE_EXTRA, novelRoute.source)
+                putExtra(Constants.NOVEL_URL_EXTRA, novelRoute.url)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+        )
+    }
+    // RK <--
+
     private fun openMangaScreen() {
         viewModel.manga?.id?.let { id ->
             startActivity(
@@ -1096,27 +1128,6 @@ class ReaderActivity : BaseActivity() {
         logcat(LogPriority.ERROR, error)
         finish()
         toast(error.message)
-    }
-
-    // RK: unlike initError above, the reader stays: closing it would throw away the chapter the user
-    // was reading, and the failure is often one retry away. A novel's first chapter fails through
-    // here too, with nothing on screen, which is why giving up can still close the reader.
-    private fun setChapterLoadError(failure: ReaderLoadState.Failed) {
-        engine.openDialog(ReaderDialog.LoadFailed(failure.message, failure.canKeepReading))
-    }
-
-    /**
-     * Called from the presenter whenever it's loading the next or previous chapter. It shows or
-     * dismisses a non-cancellable dialog to prevent user interaction according to the value of
-     * [show]. This is only used when the next/previous buttons on the toolbar are clicked; the
-     * other cases are handled with chapter transitions on the viewers and chapter preloading.
-     */
-    private fun setProgressDialog(show: Boolean) {
-        if (show) {
-            engine.openDialog(ReaderDialog.Loading)
-        } else {
-            engine.dismissDialog()
-        }
     }
 
     /**

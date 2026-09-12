@@ -144,6 +144,31 @@ class ReaderEngine(
         mutableDialog.value = null
     }
 
+    // Raises the load surface as the load moves, from the engine's own scope. A failure is a one-shot
+    // over state that stays Failed until the next load, so the host raising it from a collector of its
+    // own reopened a dismissed failure on every Activity recreation: a rotation, a fold, a dark-mode
+    // switch. Here it is raised once per failure and dismissing it sticks. The reader stays open on a
+    // failure, unlike the initial-load error the host closes on.
+    init {
+        viewModelScope.launch {
+            loadState.collect { state ->
+                when (state) {
+                    ReaderLoadState.Loading -> openDialog(ReaderDialog.Loading)
+                    is ReaderLoadState.Failed ->
+                        openDialog(ReaderDialog.LoadFailed(state.message, state.canKeepReading))
+                    // Only what this raised: a chapter arriving must not close the sheet the reader
+                    // opened while waiting for it.
+                    ReaderLoadState.Idle -> dismissLoadDialog()
+                }
+            }
+        }
+    }
+
+    private fun dismissLoadDialog() {
+        val raised = mutableDialog.value
+        if (raised is ReaderDialog.Loading || raised is ReaderDialog.LoadFailed) dismissDialog()
+    }
+
     // Viewport: what is currently rendering the entry, whatever content type it is.
 
     private val mutableViewport = MutableStateFlow<ReaderViewport?>(null)

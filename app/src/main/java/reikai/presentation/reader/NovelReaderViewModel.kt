@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -95,6 +96,9 @@ class NovelReaderViewModel(
     @Assisted val initialChapterId: Long,
     /** Source scope walks only [novelId]'s own chapters; group scope aggregates the merge group. */
     @Assisted val sourceScoped: Boolean,
+    /** The host's, so the chapter being read survives a process kill. Assisted like the ids above,
+     *  since this model is built through the manual factory rather than off the graph's extras. */
+    @Assisted private val savedState: SavedStateHandle,
     private val novelRepo: NovelRepository,
     private val chapterRepo: NovelChapterRepository,
     private val sourceManager: NovelSourceManager,
@@ -121,7 +125,12 @@ class NovelReaderViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(novelId: Long, initialChapterId: Long, sourceScoped: Boolean): NovelReaderViewModel
+        fun create(
+            novelId: Long,
+            initialChapterId: Long,
+            sourceScoped: Boolean,
+            savedState: SavedStateHandle,
+        ): NovelReaderViewModel
     }
 
     // Building the manager restores the persisted queue and can start the download worker, so it is
@@ -151,6 +160,15 @@ class NovelReaderViewModel(
      *  ReaderViewModel.chapterReadStartTime). Reset whenever a different chapter loads. */
     @Volatile
     private var chapterReadStartTime: Long? = null
+
+    /**
+     * The chapter this session opens on: the one being read when the process was killed, or the one
+     * the launch named. Seamless crossing means a session spans many chapters with no open of their
+     * own, so the launch chapter can be several chapters behind by then. `ReaderViewModel` restores
+     * the same thing from its own handle. Declared above every reader of it, which would otherwise
+     * see 0 while this initializer had not run.
+     */
+    private val openingChapterId: Long = savedState.get<Long>(SAVED_CHAPTER_ID) ?: initialChapterId
 
     /** Loading until the first chapter renders, so the host shows a spinner rather than a blank page.
      *  Declared above the init block that calls load(), which would otherwise write it before it exists. */
@@ -353,6 +371,12 @@ class NovelReaderViewModel(
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
     internal val entryTitle = MutableStateFlow<String?>(null)
 
+    /** How the opened novel's details screen is reached, for the app bar's title tap. Its source and
+     *  url rather than its row id, since the screen is pushed with those. */
+    data class DetailsRoute(val source: String, val url: String)
+
+    internal val detailsRoute = MutableStateFlow<DetailsRoute?>(null)
+
     private val loadedChapter = MutableStateFlow<LoadedChapter?>(null)
 
     /**
@@ -416,7 +440,7 @@ class NovelReaderViewModel(
 
     /** Which chapter may be read while the renderer settles on the one it started on. */
     @Volatile
-    private var landing = NovelOpenLanding(initialChapterId) { false }
+    private var landing = NovelOpenLanding(openingChapterId) { false }
 
     /** The chapter the renderer named last, with the generation it was named in, which [cross] moves
      *  to. A report racing an open carries the old generation, so it cannot cross out of the open. */
@@ -518,14 +542,19 @@ class NovelReaderViewModel(
     }
 
     /** The chapter on screen, which a merged session moves across sources. Every bar verb acts on this
-     *  one, so it advances only once a chapter has actually rendered. */
+     *  one, so it advances only once a chapter has actually rendered. Saved on the way, so a process
+     *  kill mid-session reopens here rather than at [initialChapterId]. */
     @Volatile
-    private var currentChapterId: Long = initialChapterId
+    private var currentChapterId: Long = openingChapterId
+        set(value) {
+            savedState[SAVED_CHAPTER_ID] = value
+            field = value
+        }
 
     /** The chapter a load is aiming at, which is what a retry repeats. Separate from [currentChapterId]
      *  because a load that fails leaves the reader showing what it had. */
     @Volatile
-    private var pendingChapterId: Long = initialChapterId
+    private var pendingChapterId: Long = openingChapterId
 
     /** Every chapter this session can reach, in reading order, duplicates and hidden ones already gone. */
     @Volatile
@@ -614,6 +643,7 @@ class NovelReaderViewModel(
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
                 entryTitle.value = it.title
+                detailsRoute.value = DetailsRoute(it.source, it.url)
             }
         }
         // The cache holds pipeline output, so a chapter-text setting reaches the open chapter and the
@@ -1366,6 +1396,10 @@ internal fun NovelChapter.toReaderChapterRow(
     // A novel chapter is one request, so there is no percentage to report while it runs.
     downloadProgress = 0,
 )
+
+/** Where the chapter being read is kept for a process kill. Its own key, not the launch extra the
+ *  intent carries: a restored Activity is handed that same intent, naming the chapter it opened on. */
+private const val SAVED_CHAPTER_ID = "novel_chapter_id"
 
 /** Chapters held in the forward-prefetch cache. Small: it exists to make one step instant, not to
  *  keep a session's reading in memory. */
