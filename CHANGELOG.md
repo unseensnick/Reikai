@@ -195,7 +195,7 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transition animations, a display cutout mode, and a Min width slider that sets how much of the screen a long strip fills.
-- **Text in the two in-development novel readers can now be selected, copied and shared, switched on under Settings -> Novel reader.** In the native one, links stop responding to taps while it is on.
+- **Settings -> Novel reader can switch on selecting, copying and sharing text in the two in-development novel readers, which costs link taps in the native one.** Both readers keep every other gesture while it is on.
 - **Font, line spacing and text alignment are now under Settings -> Novel reader, so the new readers can set them.** They only had controls in the original reader, which meant switching rendering mode left your font stuck where it was.
 - **The two in-development novel readers carry the reader's full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
 - **The two in-development novel readers now read straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
