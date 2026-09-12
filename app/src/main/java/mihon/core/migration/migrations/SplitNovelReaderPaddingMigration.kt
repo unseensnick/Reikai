@@ -37,11 +37,7 @@ class SplitNovelReaderPaddingMigration(
             val padding = preferenceStore.getInt(DEAD_READER_PADDING_KEY, 0)
             if (!padding.isSet()) return@runCatching
 
-            val stored = padding.get()
-            novelPreferences.readerMarginTop().set(stored)
-            novelPreferences.readerMarginBottom().set(stored)
-            novelPreferences.readerMarginLeft().set(stored)
-            novelPreferences.readerMarginRight().set(stored)
+            novelPreferences.carryReaderPaddingToMargins(padding.get())
             padding.delete()
         }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to split the novel reader padding into margins" }

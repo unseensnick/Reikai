@@ -60,6 +60,11 @@ class GetNextNovelChapter(
         )
     }
 
+    /** One novel's own chapters, in the order its reader pages through them. The group's list above
+     *  spans every source; this is the single-source list a caller projects rows back onto. */
+    suspend fun ownSourceChapters(novelId: Long): List<NovelChapter> =
+        chapterRepository.getByNovelId(novelId).sortedWith(readingOrder(novelId))
+
     /** The group's first unread chapter, skipping what another of its sources has already read. */
     suspend fun awaitFirstUnreadInGroup(novelId: Long): NovelChapter? {
         val group = groupChapters(novelId)

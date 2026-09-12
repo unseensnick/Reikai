@@ -22,7 +22,6 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
-import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
@@ -68,7 +67,6 @@ class NovelRecentsAdapter(
     private val recentlyAdded: RecentlyAddedRepository,
     private val recentsUnread: RecentsUnreadRepository,
     private val getNextNovelChapter: GetNextNovelChapter,
-    private val chapterRepository: NovelChapterRepository,
     private val novelPreferences: NovelPreferences,
     private val novelRepository: NovelRepository,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
@@ -187,8 +185,11 @@ class NovelRecentsAdapter(
         // Every chapter a rule below could name, so the id it returns can be projected back into a
         // row: the stitch drops the copies another source stands in for, so the two lists differ.
         val chapters = group.chapters.associateByTo(mutableMapOf()) { it.id }
+
+        // In the novel's own reading order, which is what every rule below reads under; the stored
+        // rows arrive in whatever order the table hands them over.
         suspend fun ownSource(): List<NovelChapter> =
-            chapterRepository.getByNovelId(novelId).onEach { chapters[it.id] = it }
+            getNextNovelChapter.ownSourceChapters(novelId).onEach { chapters[it.id] = it }
         fun List<NovelChapter>.forRules() =
             recentsChapters(this, group.pooledChapters, group.stitch, { it.id }, { it.dateFetch }, { it.read })
 
