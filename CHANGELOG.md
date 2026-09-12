@@ -389,6 +389,7 @@ every release now also ships a foss build with neither in it.
 #### Fixed
 
 - **Start and finish dates pulled from MangaBaka no longer land a day early in timezones behind UTC (synced from Mihon, mihonapp/mihon#3711).**
+- **AniList tracking now stays under the service's request limit (synced from Mihon, mihonapp/mihon#3942).** The old ceiling sat above what AniList allows, so a burst of updates could come back rejected.
 - **A tracker set on one source of a merged series now shows and updates on all of its sources.** The chip, reading progress, mark-as-read and refresh all follow the whole group instead of the one source the tracker happens to be bound to.
 - **Reading an older chapter from another source of a merged series can no longer push your tracker's progress backwards.**
 - **Removing a tracker from a merged series now removes it everywhere.** It used to stay bound on the other sources and keep the series in the Tracked filter.
@@ -474,6 +475,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer, Kim, and the benchmark and baseline-profile tooling were updated.
 - Added an on-device test that measures how a scrolling list holds its position when content is inserted above the reader, to settle a design question for the upcoming novel reader. Test only, nothing in the app changed.
 - The bottom navigation and the tablet side rail are now drawn by Material's own adaptive navigation component instead of hand-rolled copies (synced from Mihon, mihonapp/mihon#3834).
 - The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).

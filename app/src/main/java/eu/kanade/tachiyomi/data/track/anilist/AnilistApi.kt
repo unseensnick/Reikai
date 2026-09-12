@@ -48,7 +48,7 @@ class AnilistApi(
 
     private val authClient = client.newBuilder()
         .addInterceptor(interceptor)
-        .rateLimit(permits = 85, period = 1.minutes)
+        .rateLimit(permits = 25, period = 1.minutes)
         .build()
 
     // RK: surface AniList GraphQL errors (downtime, expired token) with a clear message instead of a

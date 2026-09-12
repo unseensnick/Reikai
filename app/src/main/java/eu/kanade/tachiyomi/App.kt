@@ -25,7 +25,6 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.allowRgb565
 import coil3.request.crossfade
 import coil3.util.DebugLogger
-import dev.mihon.injekt.patchInjekt
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.createGraphFactory
 import eu.kanade.domain.DomainModule
@@ -122,8 +121,6 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             val process = getProcessName()
             if (packageName != process) WebView.setDataDirectorySuffix(process)
         }
-
-        patchInjekt()
 
         TelemetryConfig.init(applicationContext)
 
