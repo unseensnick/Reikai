@@ -94,7 +94,12 @@ object NovelWebDocument {
         append("--rk-font-size:").append(settings.fontSize).append("px;")
         append("--rk-line-height:").append(settings.lineHeight).append(';')
         append("--rk-text-align:").append(cssTextAlign(settings.textAlign)).append(';')
-        append("--rk-font-family:").append(cssFontFamilyValue(settings.fontFamily).ifEmpty { "serif" }).append(';')
+        // The Default font is the device's own, which is what the native renderer draws it as
+        // (Typeface.DEFAULT) and what its summary says. A serif fallback drew a different face in
+        // each rendering mode from one setting.
+        append("--rk-font-family:")
+            .append(cssFontFamilyValue(settings.fontFamily).ifEmpty { "sans-serif" })
+            .append(';')
         append("--rk-margin-top:").append(settings.margins.top).append("px;")
         append("--rk-margin-bottom:").append(settings.margins.bottom).append("px;")
         append("--rk-margin-left:").append(settings.margins.left).append("px;")

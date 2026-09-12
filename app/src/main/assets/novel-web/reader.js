@@ -32,6 +32,8 @@
   var SETTLE_MS = 400;
   // Sub-pixel slack when deciding which chapter a scroll position is in. See state().
   var EDGE_TOLERANCE = 2;
+  // How long a restore waits for the opening chapter's images before seeking anyway. See start().
+  var IMAGE_WAIT_MS = 3000;
 
   // Resolved by the host, since the page has no resources of its own.
   var labels = {
@@ -160,6 +162,33 @@
       if (!images[i].complete) return false;
     }
     return true;
+  }
+
+  /*
+   * Runs once el's images have landed, or once IMAGE_WAIT_MS has passed, plus a frame so the layout
+   * they changed has been through it. The cap is there because a request that never answers must not
+   * strand the reader at the top of the chapter.
+   */
+  function whenImagesLanded(el, run) {
+    if (imagesLanded(el)) {
+      run();
+      return;
+    }
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      document.removeEventListener('load', check, true);
+      document.removeEventListener('error', check, true);
+      run();
+    }
+    function check(e) {
+      if (e.target.tagName === 'IMG' && imagesLanded(el)) requestAnimationFrame(finish);
+    }
+    var timer = setTimeout(finish, IMAGE_WAIT_MS);
+    document.addEventListener('load', check, true);
+    document.addEventListener('error', check, true);
   }
 
   /* Which chapter the reader is in and how far through it, rather than through the document. */
@@ -825,13 +854,27 @@
       // against a document that has not laid out yet lands at zero and looks like a lost position.
       var initial = __INITIAL_FRACTION__;
       if (initial > 0 && boundaries.length > 0) {
-        window.rkReader.seekWithin(boundaries[0].id, initial);
+        // The saved fraction is of the chapter's height with its images in it, and reader.css gives
+        // every image `height: auto`, so before they land the chapter measures short by the whole
+        // image block and the seek drops the reader past unread text. Anchoring then holds them
+        // there and the next report saves that place over the one they left.
+        whenImagesLanded(boundaries[0].el, function () {
+          rebuildBoundaries();
+          window.rkReader.seekWithin(boundaries[0].id, initial);
+          reportReady();
+        });
+        return;
       }
-      bridge().onReady(DOCUMENT_TOKEN);
-      ready = true;
-      reportFits();
-      reportEnds();
+      reportReady();
     });
+  }
+
+  /* The host drops everything the page says before this, so it is the last thing a start does. */
+  function reportReady() {
+    bridge().onReady(DOCUMENT_TOKEN);
+    ready = true;
+    reportFits();
+    reportEnds();
   }
 
   if (document.readyState === 'loading') {

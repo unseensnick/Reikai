@@ -322,8 +322,13 @@ class NovelWebViewport(
         faceFamily = family
         faceJob?.cancel()
         faceJob = scope.launch {
-            val source = NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, family)
-            runOrQueue("rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});")
+            // The face travels as a data URI, so resolving it reads the file and escaping it copies
+            // megabytes for a CJK one; neither belongs on the thread the reader is scrolling on.
+            val js = withContext(Dispatchers.Default) {
+                val source = NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, family)
+                "rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});"
+            }
+            runOrQueue(js)
         }
     }
 
@@ -371,7 +376,7 @@ class NovelWebViewport(
      * keeps the reading position when content lands above it, except at scroll offset zero, which
      * the page corrects for; both halves are measured in `WebViewSeamPositionTest`.
      */
-    private fun insert(chapter: NovelReaderViewModel.LoadedChapter, atStart: Boolean) {
+    private suspend fun insert(chapter: NovelReaderViewModel.LoadedChapter, atStart: Boolean) {
         // The page drops a chapter it already holds, so this list does too.
         if (held.any { it.chapterId == chapter.chapterId }) return
         val seam = if (atStart) {
@@ -384,13 +389,17 @@ class NovelWebViewport(
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
         // download or, in a merged series, another site.
         val baseUrl = safeBaseUrl(chapter)?.let(JSONObject::quote) ?: "null"
-        runOrQueue(
+        val seamJs = seam?.let(::seamJson)?.toString() ?: "null"
+        // Off the main thread for the reason the document build is: a downloaded chapter carries its
+        // images inline, so escaping it and copying the result runs past a frame on the string alone.
+        val js = withContext(Dispatchers.Default) {
             "rkReader.$verb(" +
                 "${JSONObject.quote(chapter.chapterId.toString())}, " +
                 "${JSONObject.quote(chapter.html)}, " +
                 "$baseUrl, " +
-                "${seam?.let(::seamJson) ?: "null"});",
-        )
+                "$seamJs);"
+        }
+        runOrQueue(js)
         syncEnd()
     }
 

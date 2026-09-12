@@ -67,6 +67,12 @@ class NovelWebDocumentTest {
         const val DRAG_STEPS = 5
         const val DRAG_STEP_MS = 16L
 
+        /** The path the intercepted response answers with a tall picture rather than one pixel. */
+        const val TALL_IMAGE = "tall.png"
+
+        /** How long an image is held: past the seek's own frame, well inside the engine's own cap. */
+        const val IMAGE_DELAY_MS = 600L
+
         /** A seam as the viewport sends one, for the cases about what a chapter arriving does. */
         const val SEAM =
             "{ finished: { title: 'Above', downloaded: false }, next: { title: 'Below', downloaded: false } }"
@@ -154,12 +160,13 @@ class NovelWebDocumentTest {
         fontFamily: String = settings.fontFamily,
         fontSource: String? = null,
         chapterHtml: String = "<p>lorem ipsum</p>".repeat(200),
+        initialFraction: Float = 0f,
     ): String = NovelWebDocument.build(
         context = instrumentation.targetContext,
         chapterId = CHAPTER_ID,
         documentToken = DOCUMENT_TOKEN,
         chapterHtml = chapterHtml,
-        initialFraction = 0f,
+        initialFraction = initialFraction,
         settings = settings.copy(fontFamily = fontFamily),
         statusBarHeightPx = 0,
         fontSource = fontSource,
@@ -657,6 +664,37 @@ class NovelWebDocumentTest {
         assertEquals(findings, nativeFraction, fraction, 0.01)
     }
 
+    /**
+     * A saved percent is of the chapter's height with its images in it, so the restore has to wait for
+     * them. `reader.css` gives every image `height: auto`, overriding any size a source supplies, so
+     * before they land the chapter measures short by the whole image block and the seek drops the
+     * reader past text they have not read; anchoring then holds them there and the next report saves
+     * that place over the one they left.
+     */
+    @Test
+    fun anIllustratedChapterRestoresToWhereItWasSaved() {
+        // Held past the frame the seek runs in, so the chapter measures short at that point either way.
+        imageGate = CountDownLatch(1)
+        val release = Thread {
+            Thread.sleep(IMAGE_DELAY_MS)
+            imageGate?.countDown()
+        }
+        release.start()
+        val illustrated = "<img src=\"https://rk.test/$TALL_IMAGE\">" + "<p>lorem ipsum</p>".repeat(60)
+        loadDocument(document(chapterHtml = illustrated, initialFraction = 0.5f))
+        release.join()
+        awaitEval("String(document.querySelector('.rk-chapter img').complete)", "true")
+        settleFrames()
+
+        val picture = eval("String(document.querySelector('.rk-chapter img').getBoundingClientRect().height)")
+            .toDouble()
+        val landed = chapterFraction(CHAPTER_ID.toString())
+        // Without this the case would pass on an image that never took a height, which is the whole
+        // mechanism: the chapter would measure the same before and after.
+        assertTrue("the image drew ${picture}px tall, so nothing about the chapter's height moved", picture > 500)
+        assertEquals("the restore landed $landed through the chapter", 0.5, landed, 0.02)
+    }
+
     /** The chapter the page opened on runs its scripts as it loads; one arriving by scrolling has to too. */
     @Test
     fun aSeamlessChapterRunsItsOwnScripts() {
@@ -945,7 +983,8 @@ class NovelWebDocumentTest {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     val gate = imageGate ?: return null
                     gate.await(TIMEOUT_S, TimeUnit.SECONDS)
-                    return WebResourceResponse("image/png", null, ByteArrayInputStream(onePixelPng()))
+                    val png = if (request.url.toString().contains(TALL_IMAGE)) tallPng() else onePixelPng()
+                    return WebResourceResponse("image/png", null, ByteArrayInputStream(png))
                 }
             }
             webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
@@ -985,6 +1024,21 @@ class NovelWebDocumentTest {
     private fun onePixelPng(): ByteArray = ByteArrayOutputStream().also {
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
     }.toByteArray()
+
+    /** Tall and narrow, so `max-width: 100%` with `height: auto` draws it several screens high. */
+    private fun tallPng(): ByteArray = ByteArrayOutputStream().also {
+        Bitmap.createBitmap(400, 2000, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
+    }.toByteArray()
+
+    /** How far through [chapterId] the reader is, by the measure `state()` reports and `seekWithin`
+     *  inverts, so a landing is read in the same unit the percent was saved in. */
+    private fun chapterFraction(chapterId: String): Double = eval(
+        "var el = document.querySelector('[data-rk-chapter-id=\"$chapterId\"]');" +
+            "var r = el.getBoundingClientRect();" +
+            "var start = r.top + window.scrollY;" +
+            "var usable = Math.max(r.height - window.innerHeight, 1);" +
+            "String(Math.min(Math.max(window.scrollY - start, 0) / usable, 1))",
+    ).toDouble()
 
     /** [js] once it evaluates to [expected], or its last value at the timeout; the caller asserts. */
     private fun awaitEval(js: String, expected: String): String {

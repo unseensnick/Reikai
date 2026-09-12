@@ -1,16 +1,20 @@
 package reikai.presentation.reader.text
 
 /**
- * The values the chapter's spans are built from, paragraph shape and bionic emphasis alike.
+ * The values the chapter's spans are built from, paragraph shape, bionic emphasis and image bounds.
  *
- * Indent and spacing become pixels at build time and bionic emphasis becomes bold spans, so none of
- * them can be restyled into a view afterwards: the chapter has to be drawn again.
+ * Indent and spacing become pixels at build time, bionic emphasis becomes bold spans, and an image's
+ * bounds are fixed to the text column, so none of them can be restyled into a view afterwards: the
+ * chapter has to be drawn again.
  */
 data class ParagraphShape(
     val indent: Float,
     val spacing: Float,
     val fontSize: Int,
     val bionic: Boolean,
+    /** Left plus right, in dp: the text column width every image was bound to when the chapter was
+     *  built. A restyle re-pads the column but cannot re-fit a drawable, which would then overflow. */
+    val sideMargins: Int,
 ) {
 
     /**
@@ -23,6 +27,7 @@ data class ParagraphShape(
      */
     fun needsRedrawFor(next: ParagraphShape): Boolean {
         if (indent != next.indent || spacing != next.spacing || bionic != next.bionic) return true
+        if (sideMargins != next.sideMargins) return true
         val measuredAgainstSize = next.indent > 0f || next.spacing > 0f
         return measuredAgainstSize && fontSize != next.fontSize
     }

@@ -574,6 +574,9 @@ class NovelTextViewport(
         // Posted, since the list places the item only after the column has laid out.
         block.container.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             recycler.post {
+                // A share landing waits for the chapter's images, and their arrival is what lays the
+                // column out again, so this is where a held one is applied.
+                if (slot.landing is Landing.Share) land(slot)
                 reportFits(slot)
                 reportEnds()
             }
@@ -588,7 +591,7 @@ class NovelTextViewport(
             selectable = textSelectable,
             bionic = settings.bionicReading,
             contentWidth = columnWidthPx(settings),
-            refererUrl = chapter.baseUrl?.let { it.trimEnd('/') + "/" },
+            baseUrl = chapter.baseUrl,
             onTextSet = { join(slot) },
         ).join()
     }
@@ -812,6 +815,10 @@ class NovelTextViewport(
     private fun land(slot: ChapterSlot) {
         when (val landing = slot.landing ?: return) {
             is Landing.Share -> {
+                // The share is of the chapter's height with its images in it, and they land after the
+                // text, so seeking now would measure the chapter short and put the reader past text
+                // they have not read. Held until they arrive, which lays the column out again.
+                if (slot.block.imagesLoading) return
                 slot.landing = null
                 scrollWithin(slot, landing.fraction)
             }
@@ -1088,4 +1095,4 @@ class NovelTextViewport(
 }
 
 private fun NovelReaderSettings.paragraphShape() =
-    ParagraphShape(paragraphIndent, paragraphSpacing, fontSize, bionicReading)
+    ParagraphShape(paragraphIndent, paragraphSpacing, fontSize, bionicReading, margins.left + margins.right)

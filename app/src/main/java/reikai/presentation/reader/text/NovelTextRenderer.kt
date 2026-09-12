@@ -49,11 +49,14 @@ class NovelTextRenderer(
          * side margins.
          */
         contentWidth: Int,
-        /** The chapter's own site, sent as the Referer for an image some hosts would otherwise refuse. */
-        refererUrl: String?,
+        /**
+         * The chapter's own URL. Relative image sources and links are resolved against it, since
+         * `Html.fromHtml` has no base of its own and the link policy blocks anything not http(s), and
+         * it is sent as the Referer for an image some hosts would otherwise refuse.
+         */
+        baseUrl: String?,
         onTextSet: () -> Unit,
     ): Job {
-        val body = wrapParagraphs(html)
         val density = context.resources.displayMetrics.density
         val token = ++block.renderToken
 
@@ -62,7 +65,7 @@ class NovelTextRenderer(
                 context = context,
                 scope = scope,
                 contentWidthPx = contentWidth,
-                refererUrl = refererUrl,
+                refererUrl = baseUrl?.let { it.trimEnd('/') + "/" },
                 resolveView = block::chunkViewFor,
                 onImagesReady = { views ->
                     // A superseded render's images finishing says nothing about this render's.
@@ -74,8 +77,10 @@ class NovelTextRenderer(
             )
 
             val spannable = withContext(Dispatchers.Default) {
+                // The wrap walks and copies the whole chapter, which for a downloaded one with its
+                // images inlined is megabytes, so it belongs here rather than on the caller's thread.
                 val spanned = Html.fromHtml(
-                    normalizeHtmlForRendering(body),
+                    normalizeHtmlForRendering(wrapParagraphs(html), baseUrl),
                     Html.FROM_HTML_MODE_LEGACY,
                     imageGetter,
                     null,
@@ -133,9 +138,11 @@ class NovelTextRenderer(
     }
 
     /**
-     * An image arriving changes its span's height, and a precomputed layout was measured before that,
-     * so it has to be built again or the picture draws clipped into the space the placeholder took.
-     * A selectable view has no precomputed layout, so asking for one is enough.
+     * An image arriving changes its span's height, and the layout was measured before that, so the
+     * text has to be set again or the picture draws inside the space the placeholder took. Neither
+     * layout re-reads a drawable's bounds on its own: a `PrecomputedText` caches the measurement it
+     * was built from, and the `DynamicLayout` a selectable view uses reflows only on a text or span
+     * edit, while `TextView.onMeasure` keeps an existing layout while the width is unchanged.
      */
     private fun remeasureForImages(views: List<TextView>, selectable: Boolean, block: ChapterTextBlock) {
         views.forEach { view -> remeasureOne(view, selectable, block) }
@@ -146,8 +153,14 @@ class NovelTextRenderer(
     private fun remeasureOne(view: TextView, selectable: Boolean, block: ChapterTextBlock) {
         if (block.discarded) return
         val snapshot = view.text
-        if (selectable || snapshot == null) {
+        if (snapshot == null) {
             view.requestLayout()
+            return
+        }
+        if (selectable) {
+            // Copied rather than re-set as itself, so the framework treats it as new text; the copy
+            // keeps the chapter's emphasis, links, images and paragraph spans, as restyling does.
+            view.text = SpannableStringBuilder(snapshot)
             return
         }
         scope.launch {
@@ -174,20 +187,33 @@ class NovelTextRenderer(
      * `Html.fromHtml` has no CSS and no `picture` support, so the markup is reshaped into what it can
      * read. Failing open leaves the chapter as it was rather than blanking it.
      */
-    private fun normalizeHtmlForRendering(html: String): String = try {
-        val doc = Jsoup.parse(html)
+    private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
+        val doc = Jsoup.parse(html, baseUrl.orEmpty())
         doc.select("style, script").remove()
         unwrapPictureSources(doc)
         val targetWidth = context.resources.displayMetrics.widthPixels
         doc.select("img").forEach { img ->
             applySrcsetCandidate(img, targetWidth)
+            resolveAgainstBase(img, "src")
             if (img.parent()?.tagName() != "p" && img.parent()?.tagName() != "div") {
                 img.wrap("<p style=\"text-align:center;\"></p>")
             }
         }
+        // The WebView mode loads the chapter with this base, so its relative links arrive absolute and
+        // open in the browser. Left relative here they reach the link policy as a non-http URL, which
+        // it blocks, and the tap did nothing with nothing said.
+        doc.select("a[href]").forEach { resolveAgainstBase(it, "href") }
         doc.body().html()
     } catch (_: Exception) {
         html
+    }
+
+    /** Jsoup answers with the empty string when a value needs a base and there is none, so the
+     *  original is kept there. A `data:` source needs no base and is skipped rather than re-parsed. */
+    private fun resolveAgainstBase(element: Element, attribute: String) {
+        if (element.attr(attribute).startsWith("data:")) return
+        val resolved = element.absUrl(attribute)
+        if (resolved.isNotBlank()) element.attr(attribute, resolved)
     }
 
     /** Picks the narrowest candidate at least as wide as the screen, else the widest available. */
