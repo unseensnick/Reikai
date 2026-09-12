@@ -5,6 +5,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
@@ -13,6 +14,7 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelFontsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
@@ -236,6 +238,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val autoScrollSpeedPref = novelPreferences.readerAutoScrollSpeed()
         val autoScrollSpeed by autoScrollSpeedPref.collectAsState()
         val autoScroll by novelPreferences.readerAutoScroll().collectAsState()
+        val fullscreen by novelPreferences.readerFullscreen().collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
@@ -275,6 +278,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         .associate { it.flagValue to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_rotation_type),
                     subtitle = "%s",
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerFullscreen(),
+                    title = stringResource(MR.strings.pref_fullscreen),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerDrawUnderCutout(),
+                    title = stringResource(MR.strings.pref_cutout_short),
+                    enabled = LocalView.current.hasDisplayCutout() && fullscreen,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTapToScroll(),

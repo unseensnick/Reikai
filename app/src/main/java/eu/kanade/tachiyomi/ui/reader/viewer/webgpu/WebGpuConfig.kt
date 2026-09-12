@@ -80,8 +80,14 @@ class WebGpuConfig(
         readerPreferences.zoomStart
             .register({ zoomTypeFromPreference(it) }, { imagePropertyChangedListener?.invoke() })
 
-        readerPreferences.cropBorders
+        // RK --> crop borders is two settings, one per reading mode, and this viewer serves both: a
+        // continuous one is what long strip installs under the high quality renderer, so reading the
+        // paged key there left the button, its icon and both settings rows acting on nothing.
+        val cropBorders =
+            if (viewer.isContinuous) readerPreferences.cropBordersWebtoon else readerPreferences.cropBorders
+        cropBorders
             .register({ imageCropBorders = it }, { imagePropertyChangedListener?.invoke() })
+        // RK <--
 
         readerPreferences.navigateToPan
             .register({ navigateToPan = it })

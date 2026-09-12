@@ -196,6 +196,15 @@ class NovelPreferences(
      */
     fun readerRailOnLeft() = preferenceStore.getBoolean("ln_reader_rail_on_left", false)
 
+    /**
+     * Whether a novel session hides the system bars and draws under the cutout. Its own pair for the
+     * same reason the rail's is: the manga screen's switches are where a novel reader cannot find
+     * them, and the two readers are configured from different screens. Defaults match manga's.
+     */
+    fun readerFullscreen() = preferenceStore.getBoolean("ln_reader_fullscreen", true)
+
+    fun readerDrawUnderCutout() = preferenceStore.getBoolean("ln_reader_cutout_short", true)
+
     fun readerRailHeight() = preferenceStore.getInt("ln_reader_rail_height", 65)
 
     /** When on, tapping "next" marks the chapter you skipped away from as read (forward only), the novel

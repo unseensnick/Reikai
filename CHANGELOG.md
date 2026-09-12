@@ -232,6 +232,8 @@ every release now also ships a foss build with neither in it.
 - **Auto-scroll now carries on into the next novel chapter by itself.** You had to show and hide the toolbar again to restart it, and a rotation stopped it the same way.
 - **The novel reader's voice list now follows the read-aloud engine you pick.** It kept offering the previous engine's voices, so choosing one there left read-aloud speaking in the new engine's default.
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
+- **The light novel reader's own Fullscreen and Draw under cutout switches now sit on its settings screen.** They were only on the manga reader's screen, so they were set from there for both readers.
+- **Crop borders now works in Long strip with the high quality renderer on.** The button, its icon and both settings rows acted on a setting that renderer never read.
 - **Picking a chapter from the manga reader's chapter list now opens it at the right page.** The top bar moved to the chapter you picked while the pages stayed where they were.
 - **A manga chapter you finished earlier in the session now re-opens at its first page instead of its last.**
 - **Dragging the manga reader's progress rail now lands inside the chapter the rail is showing.** Dragging it while scrolling across a chapter boundary could jump back into the previous chapter or do nothing at all.
@@ -291,7 +293,7 @@ every release now also ships a foss build with neither in it.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 - **A font whose name has a word starting with a digit, such as Source Sans 3, now applies in the Legacy novel reader.** The text fell back to the default font.
 - **The Legacy novel reader now finishes a chapter once, instead of re-running tracker sync and download cleanup every time you scroll near its end.**
-- **The Black reader theme now draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** Pick the theme again to update a novel reader already set to it.
+- **Picking the Black reader theme again draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** A reader already set to it keeps the old colour until the theme is picked again.
 - **Resuming a novel, and its next-chapter downloads, now follow the order you sorted its chapter list into.** Continue reading, the Resume button, Download next and Mark previous as read all walked the source's own order, so on a novel sorted by name or date they picked a chapter the reader reaches much later.
 
 ### Browse & sources

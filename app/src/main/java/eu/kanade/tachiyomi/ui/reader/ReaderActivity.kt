@@ -336,7 +336,7 @@ class ReaderActivity : BaseActivity() {
         novelSession?.let { provider ->
             val viewport = provider.createViewport(this)
             engine.installViewport(viewport)
-            updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
+            updateViewerInset(fullscreenPref().get(), drawUnderCutoutPref().get())
             binding.viewerContainer.addView(viewport.view)
             // Asked for rather than cast: which text renderer is running is the provider's choice.
             // A novel viewport that does not answer would render an empty reader in silence, so say so.
@@ -704,10 +704,19 @@ class ReaderActivity : BaseActivity() {
      * viewports add it at the top of the page. The WebView one is initial-scale=1, so its CSS pixels
      * are dp.
      */
+    // Fullscreen and draw-under-cutout belong to the reader the session is in: a novel session is
+    // configured from the novel reader screen, where its own pair lives. The session's type is fixed
+    // at launch, so which pair answers cannot change under a running reader.
+    private fun fullscreenPref() =
+        if (novelSession != null) novelPreferences.readerFullscreen() else readerPreferences.fullscreen
+
+    private fun drawUnderCutoutPref() =
+        if (novelSession != null) novelPreferences.readerDrawUnderCutout() else readerPreferences.drawUnderCutout
+
     internal fun displayCutoutTopDp(): Int {
         // RK: applyInsetsPadding already keeps the container clear of the cutout unless the reader
         // draws under it; a page adding the inset on top of that padding cleared the cutout twice.
-        if (!readerPreferences.fullscreen.get() || !readerPreferences.drawUnderCutout.get()) return 0
+        if (!fullscreenPref().get() || !drawUnderCutoutPref().get()) return 0
         val insets = ViewCompat.getRootWindowInsets(binding.root)
             ?.getInsets(WindowInsetsCompat.Type.displayCutout())
         return ((insets?.top ?: 0) / resources.displayMetrics.density).roundToInt()
@@ -986,7 +995,7 @@ class ReaderActivity : BaseActivity() {
         viewModel.showMenus(visible)
         if (visible) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
-        } else if (readerPreferences.fullscreen.get()) {
+        } else if (fullscreenPref().get()) {
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         }
     }
@@ -1013,7 +1022,7 @@ class ReaderActivity : BaseActivity() {
         if (hadViewer) {
             binding.viewerContainer.removeAllViews()
         }
-        updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
+        updateViewerInset(fullscreenPref().get(), drawUnderCutoutPref().get())
         binding.viewerContainer.addView(newViewport.view)
 
         // RK --> auto-webtoon overrode the default, so say why. Deliberately not gated on
@@ -1333,8 +1342,8 @@ class ReaderActivity : BaseActivity() {
                 .launchIn(lifecycleScope)
 
             combine(
-                readerPreferences.fullscreen.changes(),
-                readerPreferences.drawUnderCutout.changes(),
+                fullscreenPref().changes(),
+                drawUnderCutoutPref().changes(),
             ) { fullscreen, drawUnderCutout -> fullscreen to drawUnderCutout }
                 .onEach { (fullscreen, drawUnderCutout) ->
                     updateViewerInset(fullscreen, drawUnderCutout)
