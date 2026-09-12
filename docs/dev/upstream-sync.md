@@ -71,6 +71,16 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 
 Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
 
+- **`SearchToolbar` ignores an incoming query while its field has focus.** Upstream's state-based
+  field reports every change outward and adopts whatever comes back, and what comes back is at least
+  one report behind, so a keystroke landing inside that round trip is overwritten and lost. Measured
+  2026-09-12: `shadowslave` typed at `adb input` speed arrived as `shwslav`. It needs no lagging
+  screen, so it is not a Reikai-side state problem: Recents, whose query is written synchronously,
+  dropped characters identically. The island is one focus flag plus a gate on the adopt branch; the
+  `searchQuery == null` branch stays ungated so closing search still clears the field. Upstream's
+  `AppBar.kt` was otherwise byte-identical, so re-apply the island rather than reverting to their
+  blob. Drop it only if upstream fixes the race itself.
+
 - **Backup create / validate / restore are streamed, not whole-file.** `BackupCreator`, `BackupFileValidator`, and `BackupRestorer` diverge from Mihon's `encodeToByteArray(Backup.serializer(), backup)` / `decode()` (which build the whole `Backup` in memory and OOM on a large library, unseensnick/Reikai#53). Reikai writes each top-level protobuf field to the gzip sink and reads it back one field at a time (`BackupProtoWriter` / `BackupProtoReader`), so a future sync of these three files is a hand-merge inside the `// RK` islands, never a verbatim copy. The wire format is unchanged (same field numbers), so backups stay cross-compatible with upstream.
 - **The shared `categories` table carries a `content_type` discriminator and `CategoryRepository` is content-type-aware.** Reikai folded its novel category stack into Mihon's shared `categories` table with a `content_type` column (0 universal / 1 manga / 2 novel), so `categories.sq` (the column, the seeded universal row 0, `getNovelCategories` / `getNovelCategoriesByNovelId`, the sort-override-clear), the `CategoryRepository` interface + `CategoryRepositoryImpl` (a `contentType` param on `getAll` / `getAllAsFlow` / `insert`, plus `getCategoriesByNovelId`), and `DeleteCategory` (delegates to Reikai's `deleteCategoryAndCleanup`) all diverge inside `// RK` / `-- RK` islands. A category-id preference cleanup rides on top: `PreferenceRestorer` and `BackupRestorer` remap category-id prefs by name on restore and skip a dead key, and a `188f` migration scrubs them on upgrade. A sync of any of these is a hand-merge inside the islands, never a verbatim copy; read [category-schema-unification.md](plans/category-schema-unification.md) first. The two junction tables (`mangas_categories`, `novels_categories`) are unchanged, so entry storage syncs normally.
 
