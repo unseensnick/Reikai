@@ -125,12 +125,25 @@ class NovelPreferences(
     /**
      * The four page margins, in dp, at tsundoku's defaults. The top is the odd one out on purpose:
      * it clears the status bar and the reader's own top bar. They replaced a single padding value,
-     * whose key [DEAD_READER_PADDING_KEY] is now read only by the migration that copies it into these.
+     * whose key [DEAD_READER_PADDING_KEY] is carried into these by [carryReaderPaddingToMargins].
      */
     fun readerMarginTop() = preferenceStore.getInt("ln_reader_margin_top", 50)
     fun readerMarginBottom() = preferenceStore.getInt("ln_reader_margin_bottom", 16)
     fun readerMarginLeft() = preferenceStore.getInt("ln_reader_margin_left", 16)
     fun readerMarginRight() = preferenceStore.getInt("ln_reader_margin_right", 16)
+
+    /**
+     * Carries a retired [DEAD_READER_PADDING_KEY] value into the four margins above: the old single
+     * value set every edge, so copying it to each keeps the page as it was. Shared, because a backup
+     * restore owes the same carry as the upgrade migration and can land the old key after that
+     * migration has already run.
+     */
+    fun carryReaderPaddingToMargins(padding: Int) {
+        readerMarginTop().set(padding)
+        readerMarginBottom().set(padding)
+        readerMarginLeft().set(padding)
+        readerMarginRight().set(padding)
+    }
 
     /**
      * First-line indent and the gap between paragraphs, both as a multiple of the font size so they

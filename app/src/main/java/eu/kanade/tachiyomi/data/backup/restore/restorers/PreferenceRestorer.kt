@@ -19,6 +19,7 @@ import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
@@ -34,6 +35,8 @@ class PreferenceRestorer(
     private val getCategories: GetCategories,
     private val preferenceStore: PreferenceStore,
     private val categoryIdPreferences: CategoryIdPreferences,
+    // RK: for the retired novel-reader padding key, which a restore has to carry over itself.
+    private val novelPreferences: NovelPreferences,
 ) {
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
@@ -106,6 +109,14 @@ class PreferenceRestorer(
                 key.startsWith(ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORY_SET_PREFIX) ||
                 key.startsWith(ReikaiSourcePreferences.DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX)
             ) {
+                return@forEach
+            }
+            // RK: the retired novel-reader page padding. The upgrade migration carries it into the four
+            // margins and deletes it, but a restore lands it afterwards (a fresh install marks every
+            // migration done without running it), where nothing would read it and the user's padding
+            // would be silently dropped. Carried here through the same kernel, then not written back.
+            if (key == DEAD_READER_PADDING_KEY) {
+                (value as? IntPreferenceValue)?.let { novelPreferences.carryReaderPaddingToMargins(it.value) }
                 return@forEach
             }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
