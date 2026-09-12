@@ -27,10 +27,16 @@ class NovelContentPipelineTest {
     private val preferences = NovelPreferences(InMemoryPreferenceStore())
     private val pipeline = NovelContentPipeline(preferences)
 
-    private fun config(chapterUrl: String?) = NovelContentConfig(
+    /**
+     * Built through `from`, the only constructor a production path uses, so a case named "by default"
+     * reads the preference defaults a fresh install gets rather than the data-class ones, which nothing
+     * in the app reads.
+     */
+    private fun config(chapterUrl: String?) = NovelContentConfig.from(
+        preferences = preferences,
+        target = RenderTarget.WEB_VIEW,
         chapterUrl = chapterUrl,
         chapterName = "Chapter 1",
-        target = RenderTarget.WEB_VIEW,
     )
 
     /**

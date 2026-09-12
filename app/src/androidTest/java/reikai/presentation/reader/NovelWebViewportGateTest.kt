@@ -54,6 +54,9 @@ class NovelWebViewportGateTest {
 
         /** Any token but the one the viewport built its document with, as every other caller has. */
         const val ANOTHER_DOCUMENT = "not-this-document"
+
+        /** A chapter no test opens, so it can only reach the host through a forged call. */
+        const val FORGED_CHAPTER = 99L
     }
 
     @Before
@@ -149,6 +152,23 @@ class NovelWebViewportGateTest {
         }
         Thread.sleep(REPORT_QUEUED_MS)
         assertEquals(emptyList<Long>(), endsSeen.toList())
+    }
+
+    /**
+     * On a page that is up, with nothing loading, so the token is the only thing refusing the call. The
+     * cases above forge theirs behind a load, which closes the ready gate and would drop them anyway.
+     */
+    @Test
+    fun aChapterNamedByACallerWithoutTheDocumentsTokenIsNotPassedOn() {
+        openAndAwaitReady(1L)
+        instrumentation.runOnMainSync {
+            webView.evaluateJavascript(
+                "window.ReikaiWeb.onVisibleChapter('$ANOTHER_DOCUMENT', '$FORGED_CHAPTER')",
+                null,
+            )
+        }
+        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(false, FORGED_CHAPTER in visibleReports)
     }
 
     /** A chapter's own script reaches the bridge, from the page or from a frame it makes, but not the

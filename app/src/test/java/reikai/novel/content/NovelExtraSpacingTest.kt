@@ -31,6 +31,24 @@ class NovelExtraSpacingTest {
         cleaned shouldNotContain "<br>"
     }
 
+    /** A pair with a paragraph on one side only, which the lone-break pass cannot clear on its own. */
+    @Test
+    @DisplayName("a pair of breaks after a paragraph is dropped even where bare text follows")
+    fun dropsBreakPairAfterAParagraph() {
+        val cleaned = NovelHtmlUtils.removeExtraParagraphSpacing("<p>One</p><br><br>Two")
+
+        cleaned shouldBe "<p>One</p>Two"
+    }
+
+    /** One break between paragraphs, which the pair pass cannot match. */
+    @Test
+    @DisplayName("a single break between paragraphs is dropped")
+    fun dropsLoneBreakBetweenParagraphs() {
+        val cleaned = NovelHtmlUtils.removeExtraParagraphSpacing("<p>One</p><br><p>Two</p>")
+
+        cleaned shouldBe "<p>One</p><p>Two</p>"
+    }
+
     @Test
     @DisplayName("a break between words is left alone, because it is the source's own line break")
     fun keepsBreaksInsideText() {

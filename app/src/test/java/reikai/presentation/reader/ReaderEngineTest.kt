@@ -186,15 +186,13 @@ class ReaderEngineTest {
      */
     @Test
     fun `stepping a chapter tells the session first and then the viewport`() {
-        val provider = FakeReaderProvider()
-        val engine = engine(provider)
-        val viewport = FakeViewport()
-        engine.installViewport(viewport)
+        val calls = mutableListOf<String>()
+        val engine = engine(FakeReaderProvider(calls))
+        engine.installViewport(FakeViewport(calls))
 
         engine.nextChapter()
 
-        provider.stepped shouldBe 1
-        viewport.chapterSteps shouldBe 1
+        calls shouldBe listOf("session", "viewport")
     }
 
     @Test
@@ -369,7 +367,11 @@ private class FakeAutoScroll : ReaderAutoScroll {
  * The engine only ever holds the provider for the host to build through, and no test here builds a
  * viewport, so this never has to answer. Building is the half that needs a real Activity.
  */
-private class FakeReaderProvider : ReaderProvider {
+private class FakeReaderProvider(
+    /** Shared with [FakeViewport] so the order the engine did the two in is readable, which counting
+     *  each side separately cannot show. */
+    private val calls: MutableList<String> = mutableListOf(),
+) : ReaderProvider {
     override val chrome = MutableStateFlow(ReaderChromeState())
 
     override val bottomButtons = MutableStateFlow(emptySet<String>())
@@ -419,10 +421,12 @@ private class FakeReaderProvider : ReaderProvider {
 
     override suspend fun previousChapter() {
         stepped--
+        calls += "session"
     }
 
     override suspend fun nextChapter() {
         stepped++
+        calls += "session"
     }
 
     override fun setKeepScreenOn(enabled: Boolean) {
@@ -450,7 +454,7 @@ private class FakeChapterList : ReaderChapterList {
     override fun download(chapterId: Long, action: ChapterDownloadAction) = Unit
 }
 
-private class FakeViewport : ReaderViewport {
+private class FakeViewport(private val calls: MutableList<String> = mutableListOf()) : ReaderViewport {
     var sought: ChapterProgress? = null
         private set
 
@@ -469,11 +473,8 @@ private class FakeViewport : ReaderViewport {
 
     override fun handleGenericMotionEvent(event: MotionEvent) = false
 
-    var chapterSteps = 0
-        private set
-
     override fun onChapterStepped() {
-        chapterSteps++
+        calls += "viewport"
     }
 
     override fun seekTo(progress: ChapterProgress) {
