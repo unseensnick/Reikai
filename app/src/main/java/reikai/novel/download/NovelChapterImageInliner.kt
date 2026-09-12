@@ -19,6 +19,10 @@ suspend fun inlineChapterImages(html: String, baseSite: String, client: OkHttpCl
     val document = Jsoup.parse(html, baseSite)
     val images = document.select("img")
     if (images.isEmpty()) return html
+    // Pretty-printing reflows the markup, which folds the line breaks inside a paragraph the source
+    // styles as preformatted; only the image sources are meant to change here. Same trap as the
+    // sanitiser's, in NovelHtmlUtils.
+    document.outputSettings().prettyPrint(false)
 
     for (img in images) {
         val src = img.attr("src")

@@ -415,6 +415,7 @@ every release now also ships a foss build with neither in it.
 - **Migrating a novel with "Delete downloaded" now stops the downloads it still had queued.** They used to keep downloading into the source you had just moved away from, and the files they wrote stayed behind.
 - **Cancel on the novel download notification now cancels instead of pausing.** The queue came back and carried on the next time you opened the app.
 - **A novel chapter that failed to download can be retried again.** Resume skipped it, so it sat in the queue as an error with no way to get it going short of queueing it afresh.
+- **A downloaded novel chapter with pictures now keeps the line breaks the source draws.** Saving it folded them into spaces, so a chapter laid out with its own breaks read as one run-on block offline.
 
 ### Backup & restore
 
