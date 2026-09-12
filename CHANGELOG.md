@@ -475,6 +475,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- The search bar and the tracker sign-in fields now use Compose's newer text-field implementation, and the reader's progress sliders its newer slider state, following a Compose bump synced from Mihon (mihonapp/mihon#3752).
 - Cancelling an extension install no longer goes through a local broadcast, which the Material library dropped at 1.14.0 (synced from Mihon, mihonapp/mihon#3226).
 - The app now compiles against Android SDK 37.1 (synced from Mihon).
 - Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer, Kim, and the benchmark and baseline-profile tooling were updated.

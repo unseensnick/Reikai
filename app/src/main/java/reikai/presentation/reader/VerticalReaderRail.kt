@@ -28,16 +28,18 @@ import tachiyomi.presentation.core.i18n.stringResource
 /**
  * The reader's vertical progress rail, shared by the manga reader (page-index slider) and the novel
  * reader (scroll-percent slider): a previous-chapter skip button, a labelled vertical slider pill,
- * and a next-chapter skip button. The caller owns the [SliderState] and the [topLabel]/[bottomLabel]
- * so each content type provides its own value semantics; the translucent chrome scrim and button
- * colours are computed here so neither reader has to re-copy them (keeping the two in visual sync).
+ * and a next-chapter skip button. The caller owns the [sliderState] and the [topLabel]/[bottomLabel]
+ * so each type provides its own value semantics; the chrome scrim and button colours are computed
+ * here so neither reader re-copies them. A null [sliderState] is a chapter with nowhere to scrub to,
+ * carried by the state rather than beside a flag a caller could set to disagree with it.
  */
 @Composable
 fun VerticalReaderRail(
-    sliderState: SliderState,
+    sliderState: SliderState?,
+    onSeek: (Float) -> Unit,
+    onSeekFinished: () -> Unit,
     topLabel: String,
     bottomLabel: String,
-    showSlider: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
     onNextChapter: () -> Unit,
@@ -70,7 +72,7 @@ fun VerticalReaderRail(
             )
         }
 
-        if (showSlider) {
+        if (sliderState != null) {
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -87,6 +89,8 @@ fun VerticalReaderRail(
                     modifier = Modifier
                         .weight(1f)
                         .padding(vertical = 8.dp),
+                    onValueChange = onSeek,
+                    onValueChangeFinished = onSeekFinished,
                     interactionSource = interactionSource,
                 )
 

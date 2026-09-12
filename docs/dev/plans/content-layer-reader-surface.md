@@ -378,6 +378,28 @@ Device verification finds what you thought to test, so the replaced stack was wa
 
 **Deferred, as planned.** Read-aloud is step 8, and until then a reader with it switched on gets no control on the host and no way to switch it off there. Brightness and the colour filter read manga's preferences, and the gear opens manga's sheet, until step 11.
 
+### The compose slider migration and what it took from upstream
+
+**The Compose bump to bom 2026.09.00 forced the reader's sliders onto the state-based API**, because
+`SliderState`'s old constructor, its `valueRange`, and its settable `onValueChange` /
+`onValueChangeFinished` all became `DeprecationLevel.HIDDEN`, which Kotlin source cannot reference.
+`ChapterNavigator`, `VerticalReaderRail` and the legacy novel reader's rail moved together: the state
+is built by `rememberSliderState(trackRange = 0f..1f)` under `key(steps)`, and the two callbacks are
+now parameters on `Slider` / `VerticalSlider` rather than fields the caller writes. The trap is that
+`VerticalReaderRail` compiles either way, so a rail whose callbacks are not threaded through drags
+and reports nothing; only its callers fail to build.
+
+**Upstream's follow-up `60e74b8d8` was split rather than taken or declined whole** (owner,
+2026-09-12). Its guard, making the state null below two pages, is unreachable here: upstream's
+`trackRange` is `1f..totalPages.toFloat()`, which inverts to an empty `1f..0f` when a page count is 0
+and throws inside `coerceIn` on their unconditional `state.value =`, while ours is the constant
+`0f..1f` fed by `ChapterProgress.fraction`, already coerced, over `stepCount`'s clamp. Both halves of
+their crash are closed in the position kernel for both content types, so the null branch would be
+dead code inviting someone to relax the clamp. What the same commit did carry was worth taking:
+`VerticalReaderRail` now takes one nullable `sliderState` instead of a state plus a `showSlider` flag
+that a caller could set to disagree with it. The rule is that a port decision is per idea, not per
+commit.
+
 ## Decisions & tradeoffs
 
 - **The host is one Activity and the engine sits above two providers.** The program's usual shape does not survive contact with a window-owning host, and pretending it does is how this surface would get mis-planned.

@@ -417,13 +417,9 @@ class NovelReaderScreen(
                 val railState = rememberSliderState(
                     value = progressPercent.toFloat().coerceIn(0f, SEEKBAR_MAX),
                     steps = SEEKBAR_STEPS,
-                    valueRange = 0f..100f,
+                    trackRange = 0f..100f,
                 )
                 railState.value = progressPercent.toFloat().coerceIn(0f, SEEKBAR_MAX)
-                railState.onValueChange = { v ->
-                    progressPercent = v.roundToInt()
-                    scrollToPercent?.invoke(v.roundToInt())
-                }
                 // Anchor to the bottom of the inter-bar region, matching the manga rail
                 // (ReaderAppBars uses Alignment.BottomCenter).
                 Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
@@ -432,9 +428,14 @@ class NovelReaderScreen(
                             .fillMaxHeight((settings.railHeightPercent / 100f).coerceIn(0f, 1f))
                             .padding(horizontal = 8.dp),
                         sliderState = railState,
+                        onSeek = { v ->
+                            progressPercent = v.roundToInt()
+                            scrollToPercent?.invoke(v.roundToInt())
+                        },
+                        // Nothing to commit on release: the scroll already landed on every step.
+                        onSeekFinished = {},
                         topLabel = progressPercent.toString(),
                         bottomLabel = "100",
-                        showSlider = true,
                         onPreviousChapter = { screenModel.prev() },
                         enabledPrevious = loaded?.hasPrev == true,
                         onNextChapter = { screenModel.next() },

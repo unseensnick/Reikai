@@ -19,11 +19,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -80,14 +82,15 @@ fun ChapterNavigator(
 
     // RK: the thumb runs 0..1 over a step count the position kernel clamps, so the page arithmetic
     // that used to hand Material a negative step count for a one-page chapter cannot arise here.
+    // Keep the range constant: a page-derived one inverts to an empty range at a page count of 0,
+    // and Material coerces into it on every value write.
     val fraction = progress?.fraction ?: 0f
     val steps = progress?.stepCount ?: 0
-    val state = remember(steps) {
-        SliderState(value = fraction, steps = steps, valueRange = 0f..1f)
+    val state = key(steps) {
+        rememberSliderState(value = fraction, steps = steps, trackRange = 0f..1f)
     }
     state.value = fraction
-    state.onValueChange = { value -> progress?.let { onSeek(it.seekTo(value)) } }
-    state.onValueChangeFinished = onSeekFinished
+    val onSeekFraction: (Float) -> Unit = { value -> progress?.let { onSeek(it.seekTo(value)) } }
 
     val interactionSource = remember { MutableInteractionSource() }
     val sliderDragged by interactionSource.collectIsDraggedAsState()
@@ -113,6 +116,8 @@ fun ChapterNavigator(
         HorizontalChapterNavigator(
             isRtl = type == ChapterNavigatorType.HORIZONTAL_RTL,
             state = state,
+            onSeekFraction = onSeekFraction,
+            onSeekFinished = onSeekFinished,
             onNextChapter = onNextChapter,
             enabledNext = enabledNext,
             onPreviousChapter = onPreviousChapter,
@@ -127,6 +132,8 @@ fun ChapterNavigator(
     } else {
         VerticalChapterNavigator(
             state = state,
+            onSeekFraction = onSeekFraction,
+            onSeekFinished = onSeekFinished,
             onNextChapter = onNextChapter,
             enabledNext = enabledNext,
             onPreviousChapter = onPreviousChapter,
@@ -142,6 +149,8 @@ fun ChapterNavigator(
 fun HorizontalChapterNavigator(
     isRtl: Boolean,
     state: SliderState,
+    onSeekFraction: (Float) -> Unit,
+    onSeekFinished: () -> Unit,
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
@@ -197,6 +206,8 @@ fun HorizontalChapterNavigator(
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp),
+                            onValueChange = onSeekFraction,
+                            onValueChangeFinished = onSeekFinished,
                             interactionSource = interactionSource,
                         )
 
@@ -228,6 +239,8 @@ fun HorizontalChapterNavigator(
 @Composable
 fun VerticalChapterNavigator(
     state: SliderState,
+    onSeekFraction: (Float) -> Unit,
+    onSeekFinished: () -> Unit,
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
@@ -237,10 +250,11 @@ fun VerticalChapterNavigator(
     modifier: Modifier = Modifier,
 ) {
     VerticalReaderRail(
-        sliderState = state,
+        sliderState = state.takeIf { progress?.isSeekable == true },
+        onSeek = onSeekFraction,
+        onSeekFinished = onSeekFinished,
         topLabel = progress?.leadingLabel.orEmpty(),
         bottomLabel = progress?.trailingLabel.orEmpty(),
-        showSlider = progress?.isSeekable == true,
         onPreviousChapter = onPreviousChapter,
         enabledPrevious = enabledPrevious,
         onNextChapter = onNextChapter,
