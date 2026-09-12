@@ -328,10 +328,17 @@ private fun TtsTab(
     SwitchRow("Enable text to speech", settings.ttsEnabled, onTtsEnabled)
     if (!settings.ttsEnabled) return
 
-    // The TTS backend initializes asynchronously, so poll briefly until its voices populate.
+    var selectedEngine by remember { mutableStateOf(currentTtsEngine) }
+    var selectedVoice by remember { mutableStateOf(currentTtsVoice) }
+    var selectedLanguages by remember { mutableStateOf(currentTtsLanguages) }
+    var dialog by remember { mutableStateOf(TtsDialog.None) }
+
+    // The TTS backend initializes asynchronously, so poll briefly until its voices populate. Re-run on
+    // an engine change: picking one rebuilds the backend, and the voice and language lists belong to
+    // the engine that offers them, so a voice picked out of the previous engine's list never applies.
     var engines by remember { mutableStateOf<List<TtsEngineInfo>>(emptyList()) }
     var voices by remember { mutableStateOf<List<TtsVoice>>(emptyList()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(selectedEngine) {
         repeat(12) {
             engines = ttsEngines()
             voices = ttsVoices()
@@ -339,11 +346,6 @@ private fun TtsTab(
             delay(300)
         }
     }
-
-    var selectedEngine by remember { mutableStateOf(currentTtsEngine) }
-    var selectedVoice by remember { mutableStateOf(currentTtsVoice) }
-    var selectedLanguages by remember { mutableStateOf(currentTtsLanguages) }
-    var dialog by remember { mutableStateOf(TtsDialog.None) }
 
     // Distinct base languages the engine offers (e.g. en, ja), shown by their display name.
     val languages = remember(voices) {

@@ -50,6 +50,14 @@ class NovelTtsController(
     /** Now-playing chapter title for the media notification. */
     private var nowPlaying: String = ""
 
+    /** The paragraph index `core.js` last asked to have spoken, -1 before it asks for one. Reported
+     *  on the WebView's binder thread. */
+    @Volatile
+    private var spokenIndex: Int = -1
+
+    /** The paragraph the next start resumes on, -1 to let the page pick by its viewport. */
+    private var resumeIndex: Int = -1
+
     fun setEvalJs(sink: (String) -> Unit) {
         evalJs = sink
     }
@@ -130,7 +138,9 @@ class NovelTtsController(
     private fun issueStart() {
         applyEngineSettings()
         suppressStopOnce = true
-        evalJs?.invoke(JS_START)
+        val index = resumeIndex
+        resumeIndex = -1
+        evalJs?.invoke(if (index >= 0) "if (window.reikaiTtsStartAt) reikaiTtsStartAt($index);" else JS_START)
     }
 
     fun pause() {
@@ -143,30 +153,43 @@ class NovelTtsController(
         startPending = false
         autoStartPending = false
         suppressStopOnce = false
+        spokenIndex = -1
+        resumeIndex = -1
         setPlayback(TtsPlayback.Stopped)
         engine?.stop()
         evalJs?.invoke(JS_STOP)
     }
 
-    /** A chapter's document finished loading (the bundled helper posts `reikai-ready`). Reset to
-     *  stopped, unless auto-page-advance asked us to keep reading into this chapter. */
+    /** A different chapter is loading, so its page must not pick playback back up. Auto-page-advance,
+     *  the one case that does read on across a chapter, has already flagged itself. */
+    fun onChapterChanging() {
+        if (!autoStartPending && _playback.value != TtsPlayback.Stopped) stop()
+    }
+
+    /** A chapter's document finished loading (the bundled helper posts `reikai-ready`). Two cases keep
+     *  reading: the auto-advance into a new chapter, from its top, and a page rebuilt under the reader
+     *  by a rotation or a settings reload, from the paragraph it was on, since the page's own scroll
+     *  to the reader's position lands after this ping. A chapter the reader asked for was already
+     *  stopped by [onChapterChanging]. */
     fun onReaderReady() {
         engine?.stop()
-        if (autoStartPending) {
-            autoStartPending = false
-            setPlayback(TtsPlayback.Stopped)
-            play()
-        } else {
-            setPlayback(TtsPlayback.Stopped)
-        }
+        val rebuilt = !autoStartPending && _playback.value == TtsPlayback.Playing
+        val resume = autoStartPending || rebuilt
+        resumeIndex = if (rebuilt) spokenIndex else -1
+        autoStartPending = false
+        setPlayback(TtsPlayback.Stopped)
+        if (resume) play()
     }
 
     /** Dispatch a TTS message `core.js` posted. Runs on the WebView's binder thread. */
     fun onWebMessage(type: String, json: JSONObject) {
         when (type) {
-            "speak" -> engine?.speak(json.optString("data")) {
-                mainHandler.post {
-                    if (_playback.value == TtsPlayback.Playing) evalJs?.invoke(JS_NEXT)
+            "speak" -> {
+                spokenIndex = json.optInt("index", -1)
+                engine?.speak(json.optString("data")) {
+                    mainHandler.post {
+                        if (_playback.value == TtsPlayback.Playing) evalJs?.invoke(JS_NEXT)
+                    }
                 }
             }
             "pause-speak" -> engine?.stop()

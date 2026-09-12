@@ -160,6 +160,17 @@ fun buildReaderHtml(
             tts.start(start || undefined);
           } catch (e) { tts.start(); }
         };
+        // Resume on a known paragraph. A page rebuilt under the reader (a rotation, a settings
+        // reload) reports itself ready before core.js scrolls to the reading position, so the
+        // viewport rule above would read from the chapter top.
+        window.reikaiTtsStartAt = function (index) {
+          if (!window.tts || !window.reader) return;
+          try {
+            var els = tts.getAllReadableElements(reader.chapterElement);
+            if (index >= 0 && index < els.length) { tts.start(els[index]); return; }
+          } catch (e) { /* fall through */ }
+          reikaiTtsStart();
+        };
         // Auto-scroll: a requestAnimationFrame loop nudging the page down at a rate, rather than by a
         // fixed step per frame, which ran at double speed on a 120Hz display. `instant` is
         // load-bearing: index.css sets scroll-behavior:smooth on html, so a plain scrollBy starts an

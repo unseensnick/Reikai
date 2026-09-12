@@ -43,7 +43,9 @@ fun NovelReaderWebView(
     baseUrl: String?,
     settings: NovelReaderSettings,
     chapterTitle: String,
-    initialProgressPercent: Int,
+    /** Read when a document is built, never a key: keying on it would rebuild the page on every
+     *  scroll, and reading it late is what lets a rebuild land where the reader actually is. */
+    landingPercent: () -> Int,
     hasPrev: Boolean,
     hasNext: Boolean,
     onToggleMenu: () -> Unit,
@@ -90,9 +92,13 @@ fun NovelReaderWebView(
     val onSave = rememberUpdatedState(onSaveProgress)
     val onProgressLive = rememberUpdatedState(onProgressChanged)
     val onNav = rememberUpdatedState(onNavigate)
+    val landing = rememberUpdatedState(landingPercent)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     // Held so the navigation policy can tell a footnote jump from the chapter trying to leave.
     val loadedBaseUrl = remember { mutableStateOf<String?>(null) }
+    // Bumped when the document reports itself up. Verbs injected into the page have to wait for it:
+    // this composable's first pass runs before the build, so they would land on about:blank.
+    val pageReady = remember { mutableStateOf(0) }
     val webView = remember {
         ProgressWebView(context).apply {
             setDefaultSettings()
@@ -107,7 +113,12 @@ fun NovelReaderWebView(
                     onSave = { percent -> mainHandler.post { onSave.value(percent) } },
                     onProgress = { percent -> mainHandler.post { onProgressLive.value(percent) } },
                     onTtsMessage = { type, json -> ttsController.onWebMessage(type, json) },
-                    onReaderReady = { mainHandler.post { ttsController.onReaderReady() } },
+                    onReaderReady = {
+                        mainHandler.post {
+                            pageReady.value++
+                            ttsController.onReaderReady()
+                        }
+                    },
                     onNavigate = { forward -> mainHandler.post { onNav.value(forward) } },
                 ),
                 "NativeReader",
@@ -147,8 +158,10 @@ fun NovelReaderWebView(
         onDispose {}
     }
 
-    // Auto-scroll: start/stop the injected scroller. Active only while enabled and the chrome is hidden.
-    LaunchedEffect(autoScrollActive, autoScrollSpeed) {
+    // Auto-scroll: start/stop the injected scroller. Active only while enabled and the chrome is
+    // hidden. Re-sent on every page because a chapter change or a rotation builds a new document with
+    // auto-scroll already on, and nothing else would ever start it there.
+    LaunchedEffect(autoScrollActive, autoScrollSpeed, pageReady.value) {
         val js = if (autoScrollActive) {
             "if (window.reikaiAutoScroll) reikaiAutoScroll.start($autoScrollSpeed);"
         } else {
@@ -160,16 +173,17 @@ fun NovelReaderWebView(
     // Keyed on chapter + app theme only (NOT settings): settings changes push live instead of
     // reloading, and the document bakes in whatever was set when it was built. The build is off the
     // main thread because a downloaded chapter has its images inlined, so the string runs to megabytes.
-    LaunchedEffect(html, themeColors, chapterTitle, initialProgressPercent, hasPrev, hasNext, topInsetDp, baseUrl) {
+    LaunchedEffect(html, themeColors, chapterTitle, hasPrev, hasNext, topInsetDp, baseUrl) {
         // Off the main thread with the build: resolving it copies the file out of the user's folder.
         val fontUrl = withContext(Dispatchers.IO) {
             context.appGraph.novelFontManager.webUrl(currentSettings.value.fontFamily)
         }
+        val landAt = landing.value()
         val document = withContext(Dispatchers.Default) {
             buildReaderHtml(
                 chapterHtml = html,
                 chapterName = chapterTitle,
-                progressPercent = initialProgressPercent,
+                progressPercent = landAt,
                 hasPrev = hasPrev,
                 hasNext = hasNext,
                 settings = currentSettings.value,

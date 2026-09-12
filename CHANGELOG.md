@@ -226,6 +226,12 @@ every release now also ships a foss build with neither in it.
 - **Download ahead in the novel reader no longer fetches chapters you have already read.** It passes over them to the next unread ones, as the manga reader does.
 - **A novel chapter marked read by skipping past it now also deletes older downloads, as reading it to the end does.** On a merged novel its copies on the other sources are marked too.
 - **A novel chapter that fails to load no longer shows in History as the one you read last.**
+- **Rotating the screen while reading a novel now keeps your place instead of jumping back to where the chapter opened.** Switching dark mode or changing a text setting keeps it too, and the place you had reached is no longer written over.
+- **Read-aloud now carries on when the novel reader rebuilds its page, from the paragraph it was on.** Rotating the screen or changing a text setting used to stop it and drop its notification.
+- **Skipping forward in a novel with "Mark read on skip" on no longer waits on your trackers before the next chapter loads.** The chapter you left is finished in the background instead.
+- **Auto-scroll now carries on into the next novel chapter by itself.** You had to show and hide the toolbar again to restart it, and a rotation stopped it the same way.
+- **The novel reader's voice list now follows the read-aloud engine you pick.** It kept offering the previous engine's voices, so choosing one there left read-aloud speaking in the new engine's default.
+- **The novel reader's chapter list now opens quickly on a grouped novel.**
 
 ### Light novels
 

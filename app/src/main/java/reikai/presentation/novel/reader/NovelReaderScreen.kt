@@ -275,16 +275,15 @@ class NovelReaderScreen(
                     Text("${s.message}\n\nTap to retry")
                 }
                 is NovelReaderState.Loaded -> {
-                    // Seed the seekbar from the chapter's resume position on (re)load.
-                    LaunchedEffect(s.chapterTitle, s.initialProgressPercent) {
-                        progressPercent = s.initialProgressPercent
-                    }
+                    // Seed the seekbar where the page is about to land: the chapter's resume position
+                    // on open, and where the reader was when a rotation rebuilds the composition.
+                    LaunchedEffect(s.chapterId) { progressPercent = screenModel.landingPercent() }
                     NovelReaderWebView(
                         html = s.html,
                         baseUrl = s.baseUrl,
                         settings = settings,
                         chapterTitle = s.chapterTitle,
-                        initialProgressPercent = s.initialProgressPercent,
+                        landingPercent = screenModel::landingPercent,
                         hasPrev = s.hasPrev,
                         hasNext = s.hasNext,
                         onToggleMenu = { menuVisible = !menuVisible },
@@ -300,7 +299,11 @@ class NovelReaderScreen(
                         autoScrollSpeed = settings.autoScrollSpeed,
                         onScrollHandleReady = { scrollToPercent = it },
                         onScrollByFractionReady = { scrollByFraction = it },
-                        onProgressChanged = { progressPercent = it.coerceIn(0, 100) },
+                        onProgressChanged = { pct ->
+                            val clamped = pct.coerceIn(0, 100)
+                            progressPercent = clamped
+                            screenModel.reportProgress(clamped)
+                        },
                         ttsController = screenModel.ttsController,
                         modifier = Modifier.fillMaxSize(),
                     )

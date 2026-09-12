@@ -59,6 +59,7 @@ import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.toReaderChapterRow
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -71,12 +72,11 @@ import uy.kohesive.injekt.injectLazy
 sealed interface NovelReaderState {
     data object Loading : NovelReaderState
     data class Loaded(
+        val chapterId: Long,
         val chapterTitle: String,
         val html: String,
         /** Base URL for resolving relative links/images in the chapter HTML. */
         val baseUrl: String?,
-        /** Resume position as a whole percent (0..100) for the web layer's initial scroll. */
-        val initialProgressPercent: Int,
         val hasPrev: Boolean,
         val hasNext: Boolean,
         /** This chapter's page on the source site (site + chapter path), for the WebView button; null
@@ -158,6 +158,10 @@ class NovelReaderScreenModel(
     // Captured once at reader open (mirrors ReaderViewModel). Global-only: novel sources are
     // String-keyed with no installed extension, so per-source incognito (await(sourceId)) can't apply.
     private var incognitoMode: Boolean = false
+
+    /** Where the page lands when it is built, which is not where the chapter opened once the reader
+     *  has moved: the WebView is rebuilt from scratch by a rotation or a theme switch. */
+    private val landing = NovelReaderLanding()
 
     private var currentId: Long = initialChapterId
 
@@ -415,13 +419,6 @@ class NovelReaderScreenModel(
 
     fun currentChapterId(): Long = currentId
 
-    /** Chapters in reading order, for the jump-to-chapter sheet. One query for the anchor novel covers
-     *  the non-merged case; a merged novel's cross-source siblings fall back to per-id lookups. */
-    private suspend fun chapterList(): List<NovelChapter> {
-        val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
-        return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
-    }
-
     /** The order the reader pages in: the opened novel's own chapter sort, always ascending, so prev and
      *  next follow the order the user chose on its chapter list rather than a fixed one. The manga reader
      *  resolves the same way, with getChapterSort(manga, sortDescending = false). */
@@ -555,11 +552,15 @@ class NovelReaderScreenModel(
      * shows without reopening.
      */
     val chapterRows: Flow<List<ReaderChapterRow>> = flow {
-        val chapters = chapterList()
+        // Every member's chapters in one query each: in a merged session the reading order holds
+        // sibling ids, and reading those back one row at a time is a query per shown chapter.
+        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
+        val byId = pooled.associateBy { it.id }
+        val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
         val sourceNames = chapterSourceNames(chapters)
         emitAll(
             downloadManager.queueState.map { queue ->
-                val flags = groupFlags(memberIds.flatMap { chapterRepo.getByNovelId(it) }, chapters)
+                val flags = groupFlags(pooled, chapters)
                 val queued = queue.associateBy { it.chapterId }
                 chapters.map { it.toReaderChapterRow(sourceNames, queued, flags) }
             },
@@ -599,6 +600,9 @@ class NovelReaderScreenModel(
         // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->
         // updateHistory + restartReadTimer), then load the new one (loadCurrent resets the timer).
         mutableState.value = NovelReaderState.Loading
+        // The arriving chapter's page must not pick this one's read-aloud back up; auto-page-advance,
+        // which does read on across a chapter, has already flagged itself.
+        ttsController.onChapterChanging()
         screenModelScope.launchIO {
             updateHistory()
             // mark-read-on-skip: the chapter that was on screen, before loadCurrent moves to the next.
@@ -610,11 +614,15 @@ class NovelReaderScreenModel(
 
     // mark-read-on-skip (opt-in): mark the chapter the user skipped away from as read (forward
     // only), the novel twin of ReaderViewModel.markChapterReadOnSkip. Finishes it the way reading to
-    // its end does, so the merged copies, the tracker and the downloads behind it all follow.
-    private suspend fun markReadOnSkip(departedId: Long) {
+    // its end does, so the merged copies, the tracker and the downloads behind it all follow. Not
+    // waited on, as both other readers do not wait on theirs: finishing it pushes to every bound
+    // tracker, and the next chapter would sit behind those round trips on every forward skip.
+    private fun markReadOnSkip(departedId: Long) {
         if (incognitoMode || !novelPreferences.readerMarkReadOnSkip().get()) return
-        val chapter = chapterRepo.getById(departedId) ?: return
-        if (!chapter.read) markChapterRead(chapter)
+        screenModelScope.launchNonCancellable {
+            val chapter = chapterRepo.getById(departedId) ?: return@launchNonCancellable
+            if (!chapter.read) markChapterRead(chapter)
+        }
     }
 
     /** Stamp the chapter on screen into novel history and accumulate this session's read time. Called on
@@ -747,12 +755,19 @@ class NovelReaderScreenModel(
     fun setColorFilterValue(value: Int) = novelPreferences.readerColorFilterValue().set(value)
     fun setColorFilterMode(mode: Int) = novelPreferences.readerColorFilterMode().set(mode)
 
+    /** Where a page built now should land, for the screen and the WebView. */
+    fun landingPercent(): Int = landing.percent
+
+    /** The live scroll position the web layer reports on every scroll frame; not persisted. */
+    fun reportProgress(percent: Int) = landing.reported(percent)
+
     /** Persist the reader's scroll position. The web layer reports a whole percent (0..100); store it
      *  as 0..10000 to match [NovelChapter.lastTextProgress]. Reaching the end auto-marks read. */
     fun saveProgress(percent: Int) {
+        val clamped = percent.coerceIn(0, 100)
+        landing.reported(clamped)
         if (incognitoMode) return
         val id = currentId
-        val clamped = percent.coerceIn(0, 100)
         screenModelScope.launchIO {
             chapterRepo.setLastTextProgress(id, clamped * 100L)
             // Fetched before marking, so the shared interactor still sees it unread (the in-RAM
@@ -827,13 +842,14 @@ class NovelReaderScreenModel(
             // must not be stamped into history. A reload of the chapter already open, after a
             // chapter-text setting changed, keeps its timer, or the time read so far would be lost.
             if (id != loadedId || chapterReadStartTime == null) chapterReadStartTime = System.currentTimeMillis()
+            landing.opened(id, NovelResume.percent(chapter.read, chapter.lastTextProgress))
             loadedId = id
             resolveBothNeighbors()
             NovelReaderState.Loaded(
+                chapterId = id,
                 chapterTitle = chapter.name,
                 html = html,
                 baseUrl = baseUrl,
-                initialProgressPercent = NovelResume.percent(chapter.read, chapter.lastTextProgress),
                 hasPrev = resolvedPrev != null,
                 hasNext = resolvedNext != null,
                 // Only from an already-resolved source (so offline downloaded reading stays instant).
