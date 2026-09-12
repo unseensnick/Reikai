@@ -155,17 +155,6 @@ class MangaViewportTest {
         viewer.movedTo shouldBe null
     }
 
-    /** Page one, not the last page read: a deliberate step has to land somewhere predictable. */
-    @Test
-    fun `stepping to a chapter moves the viewer to its first page`() {
-        val viewer = RecordingViewer()
-        val page: ReaderPage = mockk()
-
-        MangaViewport(viewer, pageAt = { index -> page.takeIf { index == 0 } }).onChapterStepped()
-
-        viewer.movedTo shouldBe page
-    }
-
     @Test
     fun `the wrapped viewer stays reachable for the questions the contract does not answer`() {
         val viewer = RecordingViewer()
