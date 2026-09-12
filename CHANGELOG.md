@@ -29,7 +29,7 @@ library, chapter clean-up rules, find and replace, and two in-development reader
 in the same reader manga uses. Legacy is still the default.
 
 Manga pages can be drawn by a new high quality renderer, bringing dual page view, page transition
-animations and a display cutout mode.
+animations, HDR and a display cutout mode.
 
 Crash reporting and anonymous usage data are opt-out under Settings -> Security and privacy, and
 every release now also ships a foss build with neither in it.
@@ -194,7 +194,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
-- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transition animations, a display cutout mode, and a Min width slider that sets how much of the screen a long strip fills.
+- **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transitions, a display cutout mode, HDR, a Min width slider for the long strip modes, and a page Gap slider for Continuous vertical.
 - **Settings -> Novel reader can switch on selecting, copying and sharing text in the two in-development novel readers, which costs link taps in the native one.** Both readers keep every other gesture while it is on.
 - **Font, line spacing and text alignment are now under Settings -> Novel reader, so the new readers can set them.** They only had controls in the original reader, which meant switching rendering mode left your font stuck where it was.
 - **The two in-development novel readers carry the reader's full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
@@ -234,6 +234,7 @@ every release now also ships a foss build with neither in it.
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
 - **The light novel reader's own Fullscreen and Draw under cutout switches now sit on its settings screen.** They were only on the manga reader's screen, so they were set from there for both readers.
 - **Crop borders now works in Long strip with the high quality renderer on.** The button, its icon and both settings rows acted on a setting that renderer never read.
+- **The high quality renderer's settings list now matches the mode you are reading in (synced from Mihon, mihonapp/mihon#3933).** Disable zoom out is offered in the long strip modes, where it now applies, and the settings that only affect paged modes are gone from them.
 - **Picking a chapter from the manga reader's chapter list now opens it at the right page.** The top bar moved to the chapter you picked while the pages stayed where they were.
 - **A manga chapter you finished earlier in the session now re-opens at its first page instead of its last.**
 - **Dragging the manga reader's progress rail now lands inside the chapter the rail is showing.** Dragging it while scrolling across a chapter boundary could jump back into the previous chapter or do nothing at all.
