@@ -3,6 +3,8 @@ package reikai.presentation.reader
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import eu.kanade.tachiyomi.data.database.models.ChapterImpl
+import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
@@ -24,7 +26,7 @@ class MangaViewportTest {
     fun `destroy reaches the viewer`() {
         val viewer = RecordingViewer()
 
-        MangaViewport(viewer, pageAt = { null }).destroy()
+        viewport(viewer).destroy()
 
         viewer.destroyed shouldBe true
     }
@@ -33,7 +35,7 @@ class MangaViewportTest {
     fun `a key event reaches the viewer and its answer comes back`() {
         val viewer = RecordingViewer(handlesKeys = true)
 
-        val handled = MangaViewport(viewer, pageAt = { null }).handleKeyEvent(KEY_EVENT)
+        val handled = viewport(viewer).handleKeyEvent(KEY_EVENT)
 
         handled shouldBe true
         viewer.keyEvents shouldBe 1
@@ -43,14 +45,14 @@ class MangaViewportTest {
     fun `a key event the viewer declines is reported as unhandled`() {
         val viewer = RecordingViewer(handlesKeys = false)
 
-        MangaViewport(viewer, pageAt = { null }).handleKeyEvent(KEY_EVENT) shouldBe false
+        viewport(viewer).handleKeyEvent(KEY_EVENT) shouldBe false
     }
 
     @Test
     fun `a motion event reaches the viewer and its answer comes back`() {
         val viewer = RecordingViewer(handlesMotion = true)
 
-        val handled = MangaViewport(viewer, pageAt = { null }).handleGenericMotionEvent(MOTION_EVENT)
+        val handled = viewport(viewer).handleGenericMotionEvent(MOTION_EVENT)
 
         handled shouldBe true
         viewer.motionEvents shouldBe 1
@@ -63,20 +65,20 @@ class MangaViewportTest {
     @Test
     fun `seeking to a page moves the viewer to that page`() {
         val viewer = RecordingViewer()
-        val page: ReaderPage = mockk()
+        val pages = pages(4)
 
-        MangaViewport(viewer, pageAt = { index -> page.takeIf { index == 3 } })
-            .seekTo(ChapterProgress.Pages(lastPageRead = 3L, pageCount = 10L))
+        viewport(viewer, visible = chapterOf(pages))
+            .seekTo(ChapterProgress.Pages(lastPageRead = 3L, pageCount = 4L))
 
-        viewer.movedTo shouldBe page
+        viewer.movedTo shouldBe pages[3]
     }
 
     @Test
     fun `seeking past the chapter's pages moves nothing`() {
         val viewer = RecordingViewer()
 
-        MangaViewport(viewer, pageAt = { null })
-            .seekTo(ChapterProgress.Pages(lastPageRead = 99L, pageCount = 10L))
+        viewport(viewer, visible = chapterOf(pages(4)))
+            .seekTo(ChapterProgress.Pages(lastPageRead = 99L, pageCount = 4L))
 
         viewer.movedTo shouldBe null
     }
@@ -85,9 +87,70 @@ class MangaViewportTest {
     @Test
     fun `seeking by percentage moves nothing`() {
         val viewer = RecordingViewer()
-        val page: ReaderPage = mockk()
 
-        MangaViewport(viewer, pageAt = { page }).seekTo(ChapterProgress.Percent(4200L))
+        viewport(viewer, visible = chapterOf(pages(4))).seekTo(ChapterProgress.Percent(4200L))
+
+        viewer.movedTo shouldBe null
+    }
+
+    /**
+     * The rail is drawn from the visible chapter's page count while the model is still swapping the
+     * active one, so resolving the drag against the active chapter lands it in the wrong chapter's
+     * list, which for a shorter one silently does nothing at all.
+     */
+    @Test
+    fun `seeking resolves the page inside the chapter the rail is describing`() {
+        val viewer = RecordingViewer()
+        val visiblePages = pages(4)
+
+        viewport(viewer, visible = chapterOf(visiblePages), active = chapterOf(pages(40)))
+            .seekTo(ChapterProgress.Pages(lastPageRead = 2L, pageCount = 4L))
+
+        viewer.movedTo shouldBe visiblePages[2]
+    }
+
+    /** Upstream starts a stepped-to chapter at its first page, whatever page it was last left on. */
+    @Test
+    fun `a step lands on the first page of the chapter that just became active`() {
+        val viewer = RecordingViewer()
+        val activePages = pages(10)
+
+        viewport(viewer, visible = chapterOf(pages(4)), active = chapterOf(activePages, requestedPage = 7))
+            .onChapterStepped()
+
+        viewer.movedTo shouldBe activePages[0]
+    }
+
+    /**
+     * A chapter picked from the sheet resumes instead, and the three image viewers each read that page
+     * only at a moment a jump has already passed, so the seek has to come from here.
+     */
+    @Test
+    fun `a picked chapter lands on the page it was left on`() {
+        val viewer = RecordingViewer()
+        val activePages = pages(10)
+
+        viewport(viewer, active = chapterOf(activePages, requestedPage = 7)).onChapterOpened()
+
+        viewer.movedTo shouldBe activePages[7]
+    }
+
+    /** A source that re-paginated shorter leaves a page index past the end, as the viewers assume too. */
+    @Test
+    fun `a picked chapter whose stored page is past its end lands on the last page`() {
+        val viewer = RecordingViewer()
+        val activePages = pages(3)
+
+        viewport(viewer, active = chapterOf(activePages, requestedPage = 99)).onChapterOpened()
+
+        viewer.movedTo shouldBe activePages[2]
+    }
+
+    @Test
+    fun `a picked chapter with no pages loaded moves nothing`() {
+        val viewer = RecordingViewer()
+
+        viewport(viewer, active = chapterOf(emptyList())).onChapterOpened()
 
         viewer.movedTo shouldBe null
     }
@@ -107,7 +170,28 @@ class MangaViewportTest {
     fun `the wrapped viewer stays reachable for the questions the contract does not answer`() {
         val viewer = RecordingViewer()
 
-        MangaViewport(viewer, pageAt = { null }).viewer shouldBe viewer
+        viewport(viewer).viewer shouldBe viewer
+    }
+}
+
+private fun viewport(
+    viewer: Viewer,
+    visible: ReaderChapter? = null,
+    active: ReaderChapter? = null,
+) = MangaViewport(viewer, visibleChapter = { visible }, activeChapter = { active })
+
+// Pages are stand-ins: their real constructor reaches Android through Page, and the adapter only
+// passes them through to the viewer.
+private fun pages(count: Int): List<ReaderPage> = List(count) { mockk() }
+
+private fun chapterOf(pages: List<ReaderPage>, requestedPage: Int = 0): ReaderChapter {
+    val chapter = ChapterImpl()
+    chapter.id = 1L
+    chapter.url = ""
+    chapter.name = ""
+    return ReaderChapter(chapter).also {
+        it.state = ReaderChapter.State.Loaded(pages)
+        it.requestedPage = requestedPage
     }
 }
 

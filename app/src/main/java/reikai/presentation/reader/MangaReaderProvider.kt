@@ -190,7 +190,11 @@ class MangaReaderProvider(
     override fun createViewport(host: ReaderActivity): ReaderViewport =
         MangaViewport(
             viewer = ReadingMode.toViewer(viewModel.getMangaReadingMode(), host),
-            pageAt = { index -> viewModel.state.value.currentChapter?.pages?.getOrNull(index) },
+            // A scrub is drawn from the visible chapter's page count, so it resolves its target there
+            // too. Resolving it against the active chapter paired one chapter's index with another's
+            // list for as long as the model took to swap, which is the tear the chrome comment names.
+            visibleChapter = { viewModel.state.value.visibleChapter },
+            activeChapter = { viewModel.state.value.currentChapter },
         )
 
     /**

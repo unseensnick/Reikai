@@ -10,13 +10,16 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import reikai.domain.reader.ChapterProgress
 
 /**
@@ -86,8 +89,30 @@ class ReaderEngine(
     // The step and the viewer's response to it are sequenced here, because the provider knows which
     // chapter is next and only the viewport can act on having arrived.
 
-    /** The chapter sheet's rows and verbs, for whichever content type this session is. */
-    val chapterList: ReaderChapterList get() = provider.chapterList
+    /**
+     * The chapter sheet's rows and verbs, for whichever content type this session is. Opening is the
+     * one verb the engine wraps: the provider only starts the load, and something has to land the
+     * viewport on the chapter once it arrives.
+     */
+    val chapterList: ReaderChapterList = object : ReaderChapterList by provider.chapterList {
+        override fun open(chapterId: Long) = openChapter(chapterId)
+    }
+
+    /** One pick at a time: a chapter that never loads would otherwise leave a wait behind per tap. */
+    private var openJob: Job? = null
+
+    private fun openChapter(chapterId: Long) {
+        openJob?.cancel()
+        openJob = viewModelScope.launch {
+            provider.chapterList.open(chapterId)
+            provider.chapterList.currentChapterId.first { it == chapterId }
+            // Yielded, because the host hands the new chapters to the viewer from its own collector on
+            // the same state update: a move issued before that delivery looks for a page the viewer
+            // does not hold yet and is silently dropped.
+            yield()
+            viewport.value?.onChapterOpened()
+        }
+    }
 
     /** Typography, or null where this session's pages are images. */
     val textSettings: ReaderTextSettings? get() = provider.textSettings

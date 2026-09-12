@@ -37,6 +37,14 @@ interface ReaderViewport {
      */
     fun onChapterStepped()
 
+    /**
+     * The user picked a chapter out of the list and the session now holds it. Unlike a step, which
+     * upstream lands at the first page, a pick resumes where that chapter was left. The default is the
+     * same no-op as [onChapterStepped] for the same reason: a viewer that re-renders per chapter has
+     * already placed itself by the time this is called.
+     */
+    fun onChapterOpened() = Unit
+
     fun destroy()
 
     fun handleKeyEvent(event: KeyEvent): Boolean

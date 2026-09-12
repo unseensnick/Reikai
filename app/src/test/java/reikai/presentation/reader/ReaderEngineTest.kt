@@ -10,8 +10,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -20,10 +23,13 @@ import reikai.domain.reader.ChapterProgress
 
 class ReaderEngineTest {
 
+    // Shared with runTest below, so a test can advance work the engine posted to the main thread.
+    private val scheduler = TestCoroutineScheduler()
+
     // The engine shares the provider's flows in its own scope, which is the main one.
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher(scheduler))
     }
 
     @AfterEach
@@ -379,6 +385,47 @@ class ReaderEngineTest {
         engine.autoScrollEnabled.value shouldBe false
     }
 
+    /**
+     * The provider only starts the load, so without this the sheet moved the model and the app bar to
+     * the picked chapter while the viewer kept rendering whatever page it was already on.
+     */
+    @Test
+    fun `picking a chapter lands the viewport on it once the session holds it`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+
+        engine.chapterList.open(7L)
+        advanceUntilIdle()
+
+        viewport.chapterOpens shouldBe 1
+    }
+
+    /** A chapter that never becomes current must not move the reader onto whatever is showing instead. */
+    @Test
+    fun `a pick the session never lands on moves nothing`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+
+        engine.chapterList.open(FakeChapterList.NEVER_LOADS)
+        advanceUntilIdle()
+
+        viewport.chapterOpens shouldBe 0
+    }
+
+    /** The sheet's other verbs are the provider's own, so wrapping open must not swallow them. */
+    @Test
+    fun `the sheet's remaining verbs still reach the provider`() {
+        val provider = FakeReaderProvider()
+
+        engine(provider).chapterList.setRead(7L, read = true)
+
+        provider.chapterList.readMarks shouldBe 1
+    }
+
     /** A session with no auto-scroll still scrubs, rather than the engine reaching through a null. */
     @Test
     fun `scrubbing a session without auto-scroll still moves the viewport`() {
@@ -482,25 +529,37 @@ private class FakeReaderProvider(
         keepScreenOn.value = enabled
     }
 
-    override val chapterList: ReaderChapterList = FakeChapterList()
+    override val chapterList = FakeChapterList()
 
     override fun createViewport(host: ReaderActivity): ReaderViewport =
         error("a unit test never builds a viewport")
 }
 
-/** The engine only hands this through, so it answers nothing beyond the type. */
+/** Opening reports the chapter as current, the way a load that finished would. */
 private class FakeChapterList : ReaderChapterList {
     override val rows = MutableStateFlow(emptyList<ReaderChapterRow>())
 
     override val currentChapterId = MutableStateFlow(-1L)
 
-    override fun open(chapterId: Long) = Unit
+    var readMarks = 0
+        private set
 
-    override fun setRead(chapterId: Long, read: Boolean) = Unit
+    override fun open(chapterId: Long) {
+        if (chapterId != NEVER_LOADS) currentChapterId.value = chapterId
+    }
+
+    override fun setRead(chapterId: Long, read: Boolean) {
+        readMarks++
+    }
 
     override fun setBookmark(chapterId: Long, bookmarked: Boolean) = Unit
 
     override fun download(chapterId: Long, action: ChapterDownloadAction) = Unit
+
+    companion object {
+        /** The id whose load never finishes, standing in for a chapter that failed to open. */
+        const val NEVER_LOADS = 99L
+    }
 }
 
 private class FakeViewport(private val calls: MutableList<String> = mutableListOf()) : ReaderViewport {
@@ -524,6 +583,13 @@ private class FakeViewport(private val calls: MutableList<String> = mutableListO
 
     override fun onChapterStepped() {
         calls += "viewport"
+    }
+
+    var chapterOpens = 0
+        private set
+
+    override fun onChapterOpened() {
+        chapterOpens++
     }
 
     override fun seekTo(progress: ChapterProgress) {

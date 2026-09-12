@@ -232,6 +232,11 @@ every release now also ships a foss build with neither in it.
 - **Auto-scroll now carries on into the next novel chapter by itself.** You had to show and hide the toolbar again to restart it, and a rotation stopped it the same way.
 - **The novel reader's voice list now follows the read-aloud engine you pick.** It kept offering the previous engine's voices, so choosing one there left read-aloud speaking in the new engine's default.
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
+- **Picking a chapter from the manga reader's chapter list now opens it at the right page.** The top bar moved to the chapter you picked while the pages stayed where they were.
+- **A manga chapter you finished earlier in the session now re-opens at its first page instead of its last.**
+- **Dragging the manga reader's progress rail now lands inside the chapter the rail is showing.** Dragging it while scrolling across a chapter boundary could jump back into the previous chapter or do nothing at all.
+- **On a grouped manga, Open in browser, Open in WebView and Share now use the site the chapter came from.** They built the link from the source you opened the series under, which often named a page that does not exist.
+- **Download ahead on a grouped manga now fetches the chapters the reader will actually reach next.** It followed the order the sources were stitched in rather than your chapter sort.
 
 ### Light novels
 

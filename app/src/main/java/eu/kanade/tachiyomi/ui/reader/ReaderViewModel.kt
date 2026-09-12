@@ -439,9 +439,14 @@ class ReaderViewModel(
                         currentChapter.requestedPage = chapterPageIndex
                         restorePending = false
                     }
-                    !currentChapter.chapter.read -> {
+                    !currentChapter.chapter.read || readerPreferences.preserveReadingPosition.get() -> {
                         currentChapter.requestedPage = currentChapter.chapter.last_page_read
                     }
+                    // A finished chapter opens at its start, the gate ChapterLoader applies when it
+                    // loads one. Reset rather than left alone, because the same instance serves the
+                    // whole session and every progress save rewrites this field, so the leftover
+                    // would be the page the chapter ended on.
+                    else -> currentChapter.requestedPage = 0
                 }
                 chapterId = currentChapter.chapter.id!!
             }
@@ -501,10 +506,10 @@ class ReaderViewModel(
                 )
                 // RK <--
 
-                memberSourceNames = group.mangaById.values
+                memberSources = group.mangaById.values
                     .map { it.source }
                     .distinct()
-                    .associateWith { sourceManager.getOrStub(it).name }
+                    .associateWith { sourceManager.getOrStub(it) }
 
                 val source = sourceManager.getOrStub(manga.source)
                 incognitoMode = getIncognitoState.await(manga.source)
@@ -717,8 +722,9 @@ class ReaderViewModel(
                 !sourceScoped && it.isMerged && it.chapters.any { c -> c.id == nextChapter.id }
             }
             val chaptersToDownload = if (group != null) {
-                // Reading order is oldest-first, the merged list newest-first.
-                val ahead = group.chapters.asReversed()
+                // Sorted the way the reader itself pages, not by stitch position: a group sorted by
+                // upload date or by name otherwise queues chapters the reader never steps into next.
+                val ahead = group.chapters.sortedWith(getChapterSort(manga, sortDescending = false))
                 chaptersToDownloadAhead(
                     ahead,
                     from = ahead.indexOfFirst { it.id == nextChapter.id },
@@ -920,7 +926,15 @@ class ReaderViewModel(
         return state.value.currentChapter
     }
 
-    fun getSource() = state.value.source as? HttpSource
+    // RK: the source of the chapter being read, not of the manga the reader was opened from. In a
+    // merged group the current chapter often comes from a sibling site, and the web, browser and share
+    // actions (plus the WebView's header source) have to resolve there. Falls back to the opened
+    // manga's source before the first chapter arrives and for an unmerged series.
+    fun getSource(): HttpSource? {
+        val chapter = getCurrentChapter()?.chapter ?: return state.value.source as? HttpSource
+        val owner = mangaForChapterId(chapter.manga_id)
+        return (memberSources[owner.source] ?: state.value.source) as? HttpSource
+    }
 
     fun getChapterUrl(): String? {
         val sChapter = getCurrentChapter()?.chapter ?: return null
@@ -964,10 +978,10 @@ class ReaderViewModel(
     // RK -->
     private var autoWebtoonMemo: Pair<Set<Long>, Int?>? = null
 
-    // RK: source names for every merged member, resolved once in init. The classifier runs on every
-    // app-bar recomposition and resolving a source now suspends, so the names are read where the
-    // merge group already is rather than blocking the render path.
-    private var memberSourceNames: Map<Long, String> = emptyMap()
+    // RK: the source behind every merged member, resolved once in init and keyed by source id.
+    // Resolving one suspends, and both the auto-webtoon classifier (on every app-bar recomposition)
+    // and the web actions ask for one off the render path.
+    private var memberSources: Map<Long, Source> = emptyMap()
 
     /**
      * The user's Edit info overrides, snapshotted in [init]. Editing needs the details screen, so
@@ -993,7 +1007,7 @@ class ReaderViewModel(
         // Edited genres win over the source's, so a source that never tags its series type can be
         // fixed by hand in Edit info. They belong to the opened entry, not to its siblings.
         val entries = members.map { if (it.id == manga.id) it.withCustomInfo(customInfo) else it }
-        return defaultReaderType(entries) { memberSourceNames[it.source] }
+        return defaultReaderType(entries) { memberSources[it.source]?.name }
             .also { autoWebtoonMemo = memberIds to it }
     }
     // RK <--
