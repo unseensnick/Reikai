@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -284,6 +285,8 @@ fun SearchToolbar(
     val searchFieldState = rememberTextFieldState(searchQuery.orEmpty())
     val currentOnChangeSearchQuery by rememberUpdatedState(onChangeSearchQuery)
     val searchOpen by rememberUpdatedState(searchQuery != null)
+    // RK: the field is authoritative while it holds focus, see the adopt branch below.
+    var searchFieldFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(searchFieldState) {
         snapshotFlow { searchFieldState.text.toString() }
@@ -293,7 +296,10 @@ fun SearchToolbar(
     LaunchedEffect(searchQuery) {
         when {
             searchQuery == null -> searchFieldState.clearText()
-            searchQuery != searchFieldState.text.toString() -> {
+            // RK: adopting an incoming query while the user is typing loses input. The value
+            //     arriving here is whatever the last report produced, so every keystroke landing
+            //     between that report and this write is overwritten and gone.
+            !searchFieldFocused && searchQuery != searchFieldState.text.toString() -> {
                 searchFieldState.setTextAndPlaceCursorAtEnd(searchQuery)
             }
         }
@@ -321,6 +327,7 @@ fun SearchToolbar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
+                    .onFocusChanged { searchFieldFocused = it.isFocused } // RK
                     .runOnEnterKeyPressed(action = searchAndClearFocus)
                     .showSoftKeyboard(remember { searchQuery.isEmpty() })
                     .clearFocusOnSoftKeyboardHide(),
