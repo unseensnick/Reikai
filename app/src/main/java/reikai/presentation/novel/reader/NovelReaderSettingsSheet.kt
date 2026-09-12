@@ -67,6 +67,7 @@ import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerLightPreset
+import reikai.presentation.reader.readerTextSizeOf
 import reikai.presentation.reader.readerThemePresets
 import tachiyomi.presentation.core.components.lockPagerSwipeWhileDragging
 import tachiyomi.presentation.core.i18n.stringResource
@@ -131,7 +132,7 @@ fun NovelReaderSettingsSheet(
             when (page) {
                 1 -> {
                     LabeledSlider("Font size", "${settings.fontSize}", settings.fontSize.toFloat(), 12f..32f, 19) {
-                        onFontSize(it.toInt())
+                        onFontSize(readerTextSizeOf(it))
                     }
                     LabeledSlider(
                         "Line height",

@@ -14,10 +14,10 @@ import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.roundToInt
 
 /**
- * The size a slider position names. M3 works a tick's value out in float, so on most screen widths the
- * tick for 14 arrives as 13.999999 and truncating it stores 13, which then snaps the thumb back a tick
- * and leaves that size unpickable. Rounding is what makes every tick reachable, as `ChapterNavigator`'s
- * own seek already does.
+ * The size a slider position names. M3 works a tick's value out in float and hands it over as one, so a
+ * tick arriving a hair under its size stores the size below it when truncated, which snaps the thumb
+ * back a tick. Rounding keeps every tick reachable whatever the arithmetic lands on, as
+ * `ChapterNavigator`'s own seek already does.
  */
 internal fun readerTextSizeOf(sliderValue: Float): Int = sliderValue.roundToInt()
 
