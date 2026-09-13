@@ -79,45 +79,57 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun setUp() {
         scenario = ActivityScenario.launch(WebViewHostActivity::class.java)
         scenario.onActivity { activity ->
-            viewport = when (renderer) {
-                Renderer.NATIVE -> NovelTextViewport(
-                    context = activity,
-                    textSelectable = false,
-                    volumeKeysActive = { false },
-                    volumeKeysInverted = false,
-                    volumeKeyScrollFraction = 0.75f,
-                    onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
-                    onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
-                    onToggleMenu = {},
-                    onStepChapter = { steps += it },
-                    onVisibleChapter = {},
-                    onRetryBoundary = {},
-                    cutoutTopDp = { 0 },
-                    onChapterFits = { id, fit -> fits[id] = fit },
-                    onChapterEndSeen = { endsSeen += it },
-                )
-                Renderer.WEB -> NovelWebViewport(
-                    context = activity,
-                    textSelectable = false,
-                    volumeKeysActive = { false },
-                    volumeKeysInverted = false,
-                    volumeKeyScrollFraction = 0.75f,
-                    useOriginalFonts = false,
-                    sourceCssPriority = false,
-                    onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
-                    onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
-                    onToggleMenu = {},
-                    onStepChapter = { steps += it },
-                    onVisibleChapter = {},
-                    onRetryBoundary = {},
-                    statusBarHeightPx = { 0 },
-                    onChapterFits = { id, fit -> fits[id] = fit },
-                    onChapterEndSeen = { endsSeen += it },
-                )
-            }
+            viewport = buildViewport(activity, textSelectable = false)
             activity.setContentView(view)
         }
     }
+
+    /** Swaps in a renderer whose text can be selected, which the page lays out and hit-tests differently. */
+    private fun useSelectableText() {
+        scenario.onActivity { activity ->
+            (viewport as ReaderViewport).destroy()
+            viewport = buildViewport(activity, textSelectable = true)
+            activity.setContentView(view)
+        }
+    }
+
+    private fun buildViewport(activity: WebViewHostActivity, textSelectable: Boolean): TextViewport =
+        when (renderer) {
+            Renderer.NATIVE -> NovelTextViewport(
+                context = activity,
+                textSelectable = textSelectable,
+                volumeKeysActive = { false },
+                volumeKeysInverted = false,
+                volumeKeyScrollFraction = 0.75f,
+                onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
+                onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
+                onToggleMenu = {},
+                onStepChapter = { steps += it },
+                onVisibleChapter = {},
+                onRetryBoundary = {},
+                cutoutTopDp = { 0 },
+                onChapterFits = { id, fit -> fits[id] = fit },
+                onChapterEndSeen = { endsSeen += it },
+            )
+            Renderer.WEB -> NovelWebViewport(
+                context = activity,
+                textSelectable = textSelectable,
+                volumeKeysActive = { false },
+                volumeKeysInverted = false,
+                volumeKeyScrollFraction = 0.75f,
+                useOriginalFonts = false,
+                sourceCssPriority = false,
+                onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
+                onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
+                onToggleMenu = {},
+                onStepChapter = { steps += it },
+                onVisibleChapter = {},
+                onRetryBoundary = {},
+                statusBarHeightPx = { 0 },
+                onChapterFits = { id, fit -> fits[id] = fit },
+                onChapterEndSeen = { endsSeen += it },
+            )
+        }
 
     @After
     fun tearDown() {
@@ -723,6 +735,23 @@ class TextViewportContractTest(private val renderer: Renderer) {
         settle()
         awaitScrollStill()
         Thread.sleep(QUIET_MS)
+        awaitScrollStill()
+        assertEquals(before, lineTop("second 1.", 0), HOLD_SLACK_PX)
+    }
+
+    /** Selectable text lets the page hit-test characters the reader could select, which is how the line is found. */
+    @Test
+    fun theLineAtTheTopStaysThereWhenTheTextGrowsLargerWithTextSelectable() {
+        useSelectableText()
+        assertTopLineHeldAcross(readerTestSettings.copy(fontSize = LARGER_FONT))
+    }
+
+    @Test
+    fun aChapterArrivingAboveLeavesTheOpenedChaptersFirstLineInPlaceWithTextSelectable() {
+        useSelectableText()
+        open(chapter(SECOND, long("second")))
+        val before = lineTop("second 1.", 0)
+        prepend(chapter(FIRST, long("first")))
         awaitScrollStill()
         assertEquals(before, lineTop("second 1.", 0), HOLD_SLACK_PX)
     }
