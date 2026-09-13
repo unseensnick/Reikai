@@ -43,4 +43,14 @@ data class TtsEngineInfo(val packageName: String, val label: String)
 
 /** A voice within an engine. [name] is the stable id passed back to select it; [displayName] and
  *  [locale] (a BCP-47 language tag) drive the picker UI and its language grouping. */
-data class TtsVoice(val name: String, val displayName: String, val locale: String)
+data class TtsVoice(val name: String, val displayName: String, val locale: String) {
+    /** The base language (`en` of `en-US`) the language filter works in. */
+    val baseLanguage: String get() = locale.substringBefore('-')
+}
+
+/** Base language codes the voices span, in first-seen order. */
+fun List<TtsVoice>.baseLanguages(): List<String> = map { it.baseLanguage }.filter { it.isNotBlank() }.distinct()
+
+/** The voices in [languages]; an empty set is no filter, which is the preference's default. */
+fun List<TtsVoice>.inLanguages(languages: Set<String>): List<TtsVoice> =
+    if (languages.isEmpty()) this else filter { it.baseLanguage in languages }

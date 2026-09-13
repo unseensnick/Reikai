@@ -1,8 +1,11 @@
 package eu.kanade.presentation.more.settings.screen
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -15,15 +18,28 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import mihon.app.di.appGraph
+import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.domain.novel.tts.TtsColorPreset
+import reikai.domain.novel.tts.TtsEngineInfo
+import reikai.domain.novel.tts.TtsHighlightColors
+import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.novel.tts.TtsVoice
+import reikai.domain.novel.tts.baseLanguages
+import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.novel.reader.readerFonts
 import reikai.presentation.novel.reader.readerGenericFonts
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import java.util.Locale
 import kotlin.math.roundToInt
 import tachiyomi.core.common.preference.Preference as PreferenceStoreEntry
 
@@ -50,9 +66,169 @@ object SettingsNovelReaderScreen : SearchableSettings {
             getTextDisplayGroup(novelPreferences = novelPref),
             getChapterTextGroup(novelPreferences = novelPref),
             getNavigationGroup(novelPreferences = novelPref),
+            getReadAloudGroup(novelPreferences = novelPref),
             getAccessibilityGroup(novelPreferences = novelPref),
         )
     }
+
+    /**
+     * Engine, voice, speed and following apply in every rendering mode, since the legacy reader reads
+     * the same preferences. The highlight rows only reach the shared host's renderers, so they are
+     * hidden under the legacy one.
+     */
+    @Composable
+    private fun getReadAloudGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
+        val enginePref = novelPreferences.readerTtsEngine()
+        val voicePref = novelPreferences.readerTtsVoice()
+        val ratePref = novelPreferences.readerTtsRate()
+        val pitchPref = novelPreferences.readerTtsPitch()
+        val engine by enginePref.collectAsState()
+        val selectedLanguages by novelPreferences.readerTtsLanguages().collectAsState()
+        val rate by ratePref.collectAsState()
+        val pitch by pitchPref.collectAsState()
+        val highlight by novelPreferences.readerTtsHighlight().collectAsState()
+        val highlightStyle by novelPreferences.readerTtsHighlightStyle().collectAsState()
+        val options by rememberTtsOptions(context, engine)
+
+        val defaultLabel = stringResource(MR.strings.label_default)
+        val languages = remember(options.voices) {
+            options.voices.baseLanguages()
+                .map { code -> code to Locale.forLanguageTag(code).displayLanguage.ifBlank { code } }
+                .sortedBy { it.second }
+                .toMap()
+        }
+        val voiceNames = remember(options.voices) { options.voices.associate { it.name to it.displayName } }
+        val shownVoices = remember(options.voices, selectedLanguages) {
+            options.voices.inLanguages(selectedLanguages).associate { it.name to it.displayName }
+        }
+        val isNewRenderer = renderingMode != NovelRenderingMode.LEGACY
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_read_aloud),
+            preferenceItems = listOfNotNull(
+                Preference.PreferenceItem.ListPreference(
+                    preference = enginePref,
+                    entries = mapOf("" to defaultLabel) + options.engines.associate { it.packageName to it.label },
+                    title = stringResource(MR.strings.pref_tts_engine),
+                    subtitleProvider = { value, entries -> entries[value] ?: value },
+                    // A voice belongs to the engine that offers it, so one kept across a switch never applies.
+                    onValueChanged = {
+                        if (it != engine) voicePref.set("")
+                        true
+                    },
+                ).takeIf { options.engines.size > 1 },
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = novelPreferences.readerTtsLanguages(),
+                    entries = languages,
+                    title = stringResource(MR.strings.pref_tts_languages),
+                    subtitleProvider = { values, entries ->
+                        values.mapNotNull { entries[it] }.joinToString().ifEmpty { stringResource(MR.strings.all) }
+                    },
+                ).takeIf { languages.size > 1 },
+                Preference.PreferenceItem.ListPreference(
+                    preference = voicePref,
+                    entries = mapOf("" to defaultLabel) + shownVoices,
+                    title = stringResource(MR.strings.pref_tts_voice),
+                    // Looked up in every voice, not the filtered ones: a voice picked before the filter
+                    // changed still plays, so it should still read by its name.
+                    subtitleProvider = { value, _ ->
+                        if (value.isEmpty()) defaultLabel else voiceNames[value] ?: value
+                    },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = (rate * TENTHS).roundToInt(),
+                    valueRange = 1..30,
+                    title = stringResource(MR.strings.pref_tts_rate),
+                    valueString = "%.1fx".format(rate),
+                    onValueChanged = { ratePref.set(it / TENTHS) },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = (pitch * TENTHS).roundToInt(),
+                    valueRange = 1..20,
+                    title = stringResource(MR.strings.pref_tts_pitch),
+                    valueString = "%.1f".format(pitch),
+                    onValueChanged = { pitchPref.set(it / TENTHS) },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTtsAutoPageAdvance(),
+                    title = stringResource(MR.strings.pref_tts_auto_page_advance),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTtsScrollToTop(),
+                    title = stringResource(MR.strings.pref_tts_scroll_to_top),
+                    subtitle = stringResource(MR.strings.pref_tts_scroll_to_top_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTtsKeepInView(),
+                    title = stringResource(MR.strings.pref_tts_keep_in_view),
+                ).takeIf { isNewRenderer },
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTtsHighlight(),
+                    title = stringResource(MR.strings.pref_tts_highlight),
+                ).takeIf { isNewRenderer },
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerTtsHighlightStyle(),
+                    entries = TtsHighlightStyle.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_tts_highlight_style),
+                ).takeIf { isNewRenderer && highlight },
+                colorRow(
+                    preference = novelPreferences.readerTtsHighlightColor(),
+                    presets = TtsHighlightColors.highlight,
+                    titleRes = MR.strings.pref_tts_highlight_color,
+                ).takeIf { isNewRenderer && highlight },
+                // Underline and outline leave the text's own colour alone.
+                colorRow(
+                    preference = novelPreferences.readerTtsHighlightTextColor(),
+                    presets = TtsHighlightColors.text,
+                    titleRes = MR.strings.pref_tts_highlight_text_color,
+                ).takeIf { isNewRenderer && highlight && highlightStyle == TtsHighlightStyle.BACKGROUND },
+            ),
+        )
+    }
+
+    /** A stored colour outside the presets (nothing writes one) still shows, as its hex value. */
+    @Composable
+    private fun colorRow(
+        preference: PreferenceStoreEntry<Int>,
+        presets: List<TtsColorPreset>,
+        titleRes: StringResource,
+    ) = Preference.PreferenceItem.ListPreference(
+        preference = preference,
+        entries = presets.associate { it.argb to stringResource(it.nameRes) },
+        title = stringResource(titleRes),
+        subtitleProvider = { value, entries -> entries[value] ?: "#%08X".format(value) },
+    )
+
+    /**
+     * The installed engines and the voices of [engine]. Needs a live [SystemTtsEngine], which is bound
+     * only while this is composed and rebuilt when the engine changes. Voices can arrive a little after
+     * the engine reports ready, so the lists are polled briefly.
+     */
+    @Composable
+    private fun rememberTtsOptions(context: Context, engine: String): State<TtsOptions> =
+        produceState(TtsOptions(), engine) {
+            value = value.copy(voices = emptyList())
+            val ready = CompletableDeferred<Boolean>()
+            val tts = SystemTtsEngine(context, engine) { ready.complete(it) }
+            try {
+                if (!ready.await()) return@produceState
+                for (attempt in 1..VOICE_POLLS) {
+                    value = withIOContext { TtsOptions(tts.availableEngines(), tts.availableVoices()) }
+                    if (value.voices.isNotEmpty()) break
+                    delay(VOICE_POLL_INTERVAL)
+                }
+                awaitCancellation()
+            } finally {
+                tts.shutdown()
+            }
+        }
+
+    private data class TtsOptions(
+        val engines: List<TtsEngineInfo> = emptyList(),
+        val voices: List<TtsVoice> = emptyList(),
+    )
 
     /**
      * How the page is set, applied by whichever renderer draws the chapter. Indent and paragraph
@@ -407,3 +583,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
 /** The slider rows are integers, so an em value rides across as tenths of one. */
 private const val TENTHS = 10f
+
+private const val VOICE_POLLS = 12
+private const val VOICE_POLL_INTERVAL = 300L

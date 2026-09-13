@@ -9,6 +9,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -267,10 +268,11 @@ class NovelPreferences(
         preferenceStore.getEnum("ln_reader_tts_highlight_style", TtsHighlightStyle.BACKGROUND)
 
     /** Packed ARGB: the mark itself, and the text drawn over a background mark. */
-    fun readerTtsHighlightColor() = preferenceStore.getInt("ln_reader_tts_highlight_color", 0xFFFFD54F.toInt())
+    fun readerTtsHighlightColor() =
+        preferenceStore.getInt("ln_reader_tts_highlight_color", TtsHighlightColors.DEFAULT_HIGHLIGHT)
 
     fun readerTtsHighlightTextColor() =
-        preferenceStore.getInt("ln_reader_tts_highlight_text_color", 0xFF1A1A1A.toInt())
+        preferenceStore.getInt("ln_reader_tts_highlight_text_color", TtsHighlightColors.DEFAULT_TEXT)
 
     /** Scroll the spoken paragraph back on screen when it is not fully on it. */
     fun readerTtsKeepInView() = preferenceStore.getBoolean("ln_reader_tts_keep_in_view", true)
