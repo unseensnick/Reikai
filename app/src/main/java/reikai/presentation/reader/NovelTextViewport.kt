@@ -37,7 +37,6 @@ import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
-import reikai.presentation.reader.text.ChunkTextView
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
 import reikai.presentation.reader.text.MarkForegroundSpan
 import reikai.presentation.reader.text.MarkUnderlineSpan
@@ -48,7 +47,7 @@ import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.text.ParagraphShape
-import reikai.presentation.reader.text.ReadAloudBoxSpan
+import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.readAloudParagraphs
 import kotlin.math.abs
@@ -232,8 +231,21 @@ class NovelTextViewport(
         override fun onRequestDisallowInterceptTouchEvent(disallow: Boolean) = Unit
     }
 
+    /** The spoken paragraph's box for the styles that draw one. Declared above the recycler that registers it. */
+    private val readAloudBox = ReadAloudBoxDecoration {
+        val (paragraph, view) = markedParagraph() ?: return@ReadAloudBoxDecoration null
+        val current = checkNotNull(settings)
+        val style = when (current.ttsHighlightStyle) {
+            TtsHighlightStyle.BACKGROUND -> Paint.Style.FILL
+            TtsHighlightStyle.OUTLINE -> Paint.Style.STROKE
+            TtsHighlightStyle.UNDERLINE -> return@ReadAloudBoxDecoration null
+        }
+        ReadAloudBoxDecoration.Box(view, paragraph.start, paragraph.end, current.ttsHighlightColor, style)
+    }
+
     private val recycler = RecyclerView(context).apply {
         layoutManager = LinearLayoutManager(context)
+        addItemDecoration(readAloudBox)
         adapter = this@NovelTextViewport.adapter
         // A chapter is one item; recycling it would throw away the laid-out text we just built.
         setItemViewCacheSize(WINDOW_SIZE)
@@ -351,7 +363,9 @@ class NovelTextViewport(
 
     /**
      * Takes every mark off and draws the one [spokenParagraph] names. Found by type rather than kept,
-     * since a restyle or an image landing copies the text with whatever marks it held at the time.
+     * since a restyle or an image landing copies the text with whatever marks it held at the time. The
+     * box behind the text is [readAloudBox]'s, redrawn here since a chunk's layout changing redraws only
+     * the chunk; every caller is a mark, its settings, or a chapter's text or images changing.
      */
     private fun drawSpokenParagraph() {
         slots.forEach { slot ->
@@ -363,22 +377,27 @@ class NovelTextViewport(
                 view.invalidate()
             }
         }
-        val position = spokenParagraph ?: return
-        val current = settings?.takeIf { it.ttsHighlight } ?: return
-        val slot = renderedSlot(position.chapterId) ?: return
-        val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return
-        val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return
+        recycler.invalidate()
+        val (paragraph, view) = markedParagraph() ?: return
         val text = view.text as? Spannable ?: return
+        val current = checkNotNull(settings)
         val marks = when (current.ttsHighlightStyle) {
-            TtsHighlightStyle.BACKGROUND -> listOf(
-                ReadAloudBoxSpan(current.ttsHighlightColor, Paint.Style.FILL),
-                MarkForegroundSpan(current.ttsHighlightTextColor),
-            )
+            TtsHighlightStyle.BACKGROUND -> listOf(MarkForegroundSpan(current.ttsHighlightTextColor))
             TtsHighlightStyle.UNDERLINE -> listOf(MarkUnderlineSpan())
-            TtsHighlightStyle.OUTLINE -> listOf(ReadAloudBoxSpan(current.ttsHighlightColor, Paint.Style.STROKE))
+            TtsHighlightStyle.OUTLINE -> return
         }
         marks.forEach { text.setSpan(it, paragraph.start, paragraph.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
         view.invalidate()
+    }
+
+    /** The spoken paragraph and the chunk view holding it, while highlighting is on and it is rendered. */
+    private fun markedParagraph(): Pair<ChunkParagraph, TextView>? {
+        val position = spokenParagraph ?: return null
+        if (settings?.ttsHighlight != true) return null
+        val slot = renderedSlot(position.chapterId) ?: return null
+        val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return null
+        val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return null
+        return paragraph to view
     }
 
     /**
@@ -1017,7 +1036,7 @@ class NovelTextViewport(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun createChunkView(settings: NovelReaderSettings): TextView =
-        ChunkTextView(context).apply {
+        TextView(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,

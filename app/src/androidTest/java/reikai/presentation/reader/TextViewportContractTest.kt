@@ -593,21 +593,63 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun anOutlineEnclosesTheParagraphsTextWithinItsPad() {
         open(chapter(FIRST, SPACED), spacedSettings.copy(ttsHighlightStyle = TtsHighlightStyle.OUTLINE))
         highlight(ReadAloudPosition(FIRST, SPACED_LONG))
-        awaitDrawnMark()
-        val lines = paragraphLines(SPACED_PARAGRAPHS[SPACED_LONG])
-        val text = RectF(lines.first()).apply { lines.forEach(::union) }
-        val painted = painted()
-        val pad = dp(OUTLINE_PAD_DP)
-        val outward = listOf(
-            text.left - painted.left,
-            text.top - painted.top,
-            painted.right - text.right,
-            painted.bottom - text.bottom,
-        )
-        Log.i(TAG, "$renderer outline: text $text, painted $painted, outward $outward, pad $pad")
+        awaitPainted()
+        val outward = outlineOutward(SPACED_PARAGRAPHS[SPACED_LONG])
+        assertTrue("outline reaches out by $outward", outward.all { abs(it - dp(OUTLINE_PAD_DP)) <= EDGE_SLACK_PX })
+    }
+
+    /** Native splits a chapter's text into chunk views, and a view clips what it draws to its own bounds. */
+    @Test
+    fun anOutlineAroundTheFirstParagraphOfALaterChunkKeepsItsPad() {
+        open(chapter(FIRST, long("first")), tightOutline)
+        val paragraph = checkNotNull(paragraphs(FIRST))[CHUNK_START_PARAGRAPH]
+        assertAtChunkEdge { chunks -> chunks[1].text.startsWith(paragraph) }
+        highlight(ReadAloudPosition(FIRST, CHUNK_START_PARAGRAPH))
+        awaitPainted()
+        val outward = outlineOutward(paragraph)
+        assertTrue("outline reaches out by $outward", outward.all { abs(it - dp(OUTLINE_PAD_DP)) <= EDGE_SLACK_PX })
+    }
+
+    @Test
+    fun anOutlineAroundTheLastParagraphOfAChunkKeepsItsPad() {
+        open(chapter(FIRST, long("first")), tightOutline)
+        val paragraph = checkNotNull(paragraphs(FIRST))[CHUNK_START_PARAGRAPH - 1]
+        assertAtChunkEdge { chunks -> chunks[0].text.trimEnd().endsWith(paragraph) }
+        highlight(ReadAloudPosition(FIRST, CHUNK_START_PARAGRAPH - 1))
+        awaitPainted()
+        val outward = outlineOutward(paragraph)
+        assertTrue("outline reaches out by $outward", outward.all { abs(it - dp(OUTLINE_PAD_DP)) <= EDGE_SLACK_PX })
+    }
+
+    /**
+     * With no top margin nothing inside the chapter makes room for the pad, which reaches over the seam above.
+     * A chapter below another: the first chapter's pad would sit above the page, off screen in either renderer.
+     */
+    @Test
+    fun anOutlineAroundAChaptersFirstParagraphWithNoTopMarginKeepsItsPad() {
+        open(chapter(FIRST, "<p>Before.</p>"), tightOutline.copy(margins = tightOutline.margins.copy(top = 0)))
+        append(chapter(SECOND, SPACED))
+        highlight(ReadAloudPosition(SECOND, 0))
+        awaitPainted()
+        val outward = outlineOutward(SPACED_PARAGRAPHS[0])
+        assertTrue("outline reaches out by $outward", outward.all { abs(it - dp(OUTLINE_PAD_DP)) <= EDGE_SLACK_PX })
+    }
+
+    /** Following off, so only the scroll this case makes moves the page. */
+    @Test
+    fun anOutlineMovesWithItsTextAsThePageScrolls() {
+        open(chapter(FIRST, long("first")), tightOutline.copy(ttsKeepInView = false))
+        val paragraph = checkNotNull(paragraphs(FIRST))[SCROLLED_PARAGRAPH]
+        highlight(ReadAloudPosition(FIRST, SCROLLED_PARAGRAPH))
+        awaitPainted()
+        val before = paragraphLines(paragraph).first().top
+        scrollBy(SCROLL_DP)
+        val moved = before - paragraphLines(paragraph).first().top
+        val outward = outlineOutward(paragraph)
         assertTrue(
-            "outline $painted around text $text reaches out by $outward, pad $pad",
-            outward.all { abs(it - pad) <= EDGE_SLACK_PX },
+            "text moved by $moved for a ${dp(SCROLL_DP)}px scroll, outline reaches out by $outward",
+            abs(moved - dp(SCROLL_DP)) <= FOLLOW_SLACK_PX &&
+                outward.all { abs(it - dp(OUTLINE_PAD_DP)) <= EDGE_SLACK_PX },
         )
     }
 
@@ -1188,6 +1230,47 @@ class TextViewportContractTest(private val renderer: Renderer) {
         settle()
     }
 
+    /** Until the mark is on screen and the follow that may bring it there has stopped. Read off the screen,
+     *  since an outline puts nothing into native's text for [awaitMark] to find. */
+    private fun awaitPainted() {
+        awaitWhile { paintedOrNull() == null }
+        awaitScrollStill()
+        settle()
+    }
+
+    /** How far the painted outline reaches past the paragraph reading [text]: left, top, right, bottom. */
+    private fun outlineOutward(text: String): List<Float> {
+        val lines = paragraphLines(text)
+        val box = RectF(lines.first()).apply { lines.forEach(::union) }
+        val painted = painted()
+        Log.i(TAG, "$renderer outline: text $box, painted $painted, pad ${dp(OUTLINE_PAD_DP)}")
+        return listOf(
+            box.left - painted.left,
+            box.top - painted.top,
+            painted.right - box.right,
+            painted.bottom - box.bottom,
+        )
+    }
+
+    /** That the paragraph a case measures sits where it names in native's chunks. The page has none. */
+    private fun assertAtChunkEdge(check: (List<TextView>) -> Boolean) {
+        if (renderer != Renderer.NATIVE) return
+        var holds = false
+        instrumentation.runOnMainSync { holds = check(descendants(view).filterIsInstance<TextView>()) }
+        assertTrue("the paragraph is not at the chunk edge the case measures", holds)
+    }
+
+    /** Scrolls the page down by [units] dp at once, a CSS pixel on the page. */
+    private fun scrollBy(units: Int) {
+        when (renderer) {
+            Renderer.NATIVE -> instrumentation.runOnMainSync {
+                (view as RecyclerView).scrollBy(0, dp(units).roundToInt())
+            }
+            Renderer.WEB -> eval("window.scrollBy({ top: $units, behavior: 'instant' })")
+        }
+        settle()
+    }
+
     /** The screen rows painted in the test's highlight colour, and the columns they reach. */
     private data class Painted(val rows: List<Int>, val left: Int, val right: Int) {
         val top get() = rows.first()
@@ -1201,7 +1284,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
      * Read off a screenshot rather than from either renderer's own geometry, so it is what the reader
      * sees. Only pixels exactly the colour count, which leaves out glyphs and antialiased edges.
      */
-    private fun painted(): Painted {
+    private fun painted(): Painted = checkNotNull(paintedOrNull()) {
+        "nothing on screen is painted in the mark's colour"
+    }
+
+    private fun paintedOrNull(): Painted? {
         val color = spacedSettings.ttsHighlightColor
         val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
         val at = IntArray(2)
@@ -1221,8 +1308,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             furthest = maxOf(furthest, hits.last() + 1)
         }
         shot.recycle()
-        check(rows.isNotEmpty()) { "nothing on screen is painted in the mark's colour" }
-        return Painted(rows, left, furthest)
+        return if (rows.isEmpty()) null else Painted(rows, left, furthest)
     }
 
     /** Each line of the paragraph reading [text], as the box its glyphs fill, in screen pixels. */
@@ -1240,7 +1326,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 (layout.getLineForOffset(start)..layout.getLineForOffset(start + text.length - 1)).forEach { line ->
                     val baseline = y + layout.getLineBaseline(line)
                     lines += RectF(
-                        x + layout.getLineLeft(line),
+                        // From the first character rather than the line's left, which leaves out an indent.
+                        x + layout.getPrimaryHorizontal(maxOf(start, layout.getLineStart(line))),
                         baseline + metrics.ascent,
                         x + layout.getLineRight(line),
                         baseline + metrics.descent,
@@ -1679,6 +1766,20 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** The page's `OUTLINE_PAD_PX`, one CSS pixel being one dp. */
         const val OUTLINE_PAD_DP = 4
+
+        /** No line or paragraph spacing, so a native chunk's edge is its first or last line's glyphs. */
+        val tightOutline = readerTestSettings.copy(
+            lineHeight = 1f,
+            paragraphSpacing = 0f,
+            ttsHighlightStyle = TtsHighlightStyle.OUTLINE,
+        )
+
+        /** The first paragraph of [long]'s second chunk, some 6000 characters in; the case checks it on native. */
+        const val CHUNK_START_PARAGRAPH = 27
+
+        /** A paragraph of [long] on screen near the top, with room below it to scroll it up by [SCROLL_DP]. */
+        const val SCROLLED_PARAGRAPH = 3
+        const val SCROLL_DP = 150
 
         /** A glyph's gaps leave at least this many pixels of the colour in any row the mark covers. */
         const val PAINTED_ROW_MIN_PIXELS = 3

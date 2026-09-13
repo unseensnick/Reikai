@@ -1,6 +1,5 @@
 package reikai.presentation.reader.text
 
-import android.graphics.Paint
 import android.text.Editable
 import android.text.Html
 import android.text.Spanned
@@ -88,12 +87,6 @@ internal object RubyReadingTagHandler : Html.TagHandler {
 
 /** Every span the read-aloud mark is drawn with, so clearing it finds them whatever copied the text. */
 internal interface ReadAloudMark
-
-/**
- * The range [ChunkTextView] draws a box behind, filled or stroked as [style] says. Carries no drawing
- * of its own, so a precomputed text accepts it.
- */
-internal class ReadAloudBoxSpan(val color: Int, val style: Paint.Style) : ReadAloudMark
 
 internal class MarkForegroundSpan(color: Int) : ForegroundColorSpan(color), ReadAloudMark
 

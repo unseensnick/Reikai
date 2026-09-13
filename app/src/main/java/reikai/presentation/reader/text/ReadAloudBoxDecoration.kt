@@ -1,7 +1,5 @@
 package reikai.presentation.reader.text
 
-import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -9,16 +7,22 @@ import android.text.Layout
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.MetricAffectingSpan
+import android.view.View
 import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 
 /**
- * A chunk of a chapter's text, drawing the read-aloud box ([ReadAloudBoxSpan]) behind its glyphs. A
- * span cannot draw it: the framework hands a background span the whole line box, which takes in the
- * line spacing and the paragraph spacing, so the box is measured here from the layout, over what
- * the page's highlight covers. Plain `TextView` rather than AppCompat's, as the chunks always were.
+ * Draws the read-aloud box behind the text: a band over each line's glyphs, or one outline around the
+ * paragraph. A span cannot, since the framework hands a background span the whole line box with its
+ * line and paragraph spacing, and neither can the chunk view, which clips what it draws to its bounds and
+ * so cut the outline's pad off a paragraph at a chunk's or a chapter's edge. The list draws its
+ * decorations before its items, so the box sits under the text and over the list's background only.
+ * Measured from the chunk's live layout on every draw, which a restyle, an image or a scroll leaves right.
  */
-@SuppressLint("AppCompatCustomView")
-internal class ChunkTextView(context: Context) : TextView(context) {
+internal class ReadAloudBoxDecoration(private val spoken: () -> Box?) : RecyclerView.ItemDecoration() {
+
+    /** Characters [start] to [end] of [view]'s text, filled or stroked as [style] says. */
+    class Box(val view: TextView, val start: Int, val end: Int, val color: Int, val style: Paint.Style)
 
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fontPaint = TextPaint()
@@ -26,29 +30,31 @@ internal class ChunkTextView(context: Context) : TextView(context) {
     private val lineBox = RectF()
     private val outline = RectF()
 
-    override fun onDraw(canvas: Canvas) {
-        drawReadAloudBox(canvas)
-        super.onDraw(canvas)
-    }
-
-    private fun drawReadAloudBox(canvas: Canvas) {
-        val text = text as? Spanned ?: return
-        val layout = layout ?: return
-        val box = text.getSpans(0, text.length, ReadAloudBoxSpan::class.java).firstOrNull() ?: return
-        val start = text.getSpanStart(box)
-        val end = text.getSpanEnd(box)
-        if (start >= end) return
+    override fun onDraw(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
+        val box = spoken() ?: return
+        val view = box.view
+        val text = view.text as? Spanned ?: return
+        val layout = view.layout ?: return
+        if (box.start >= box.end) return
+        // A chunk scrolled out of the list, or cached off it, has nowhere on screen to be drawn.
+        var left = view.totalPaddingLeft
+        var top = view.totalPaddingTop
+        var current: View = view
+        while (current !== parent) {
+            left += current.left
+            top += current.top
+            current = current.parent as? View ?: return
+        }
         boxPaint.color = box.color
         boxPaint.style = box.style
         canvas.save()
-        // Where TextView.onDraw puts the layout.
-        canvas.translate(totalPaddingLeft.toFloat(), totalPaddingTop.toFloat())
+        canvas.translate(left.toFloat(), top.toFloat())
         outline.setEmpty()
-        for (line in layout.getLineForOffset(start)..layout.getLineForOffset(end - 1)) {
-            if (!measureLine(layout, text, line, start, end)) continue
+        for (line in layout.getLineForOffset(box.start)..layout.getLineForOffset(box.end - 1)) {
+            if (!measureLine(view, layout, text, line, box.start, box.end)) continue
             if (box.style == Paint.Style.FILL) canvas.drawRect(lineBox, boxPaint) else outline.union(lineBox)
         }
-        if (!outline.isEmpty) drawOutline(canvas)
+        if (!outline.isEmpty) drawOutline(canvas, view)
         canvas.restore()
     }
 
@@ -56,7 +62,7 @@ internal class ChunkTextView(context: Context) : TextView(context) {
      * Puts in [lineBox] the part of [start] to [end] that [line] holds: across those characters, and
      * from the ascent to the descent of the fonts they are drawn in. False when the line holds none.
      */
-    private fun measureLine(layout: Layout, text: Spanned, line: Int, start: Int, end: Int): Boolean {
+    private fun measureLine(view: TextView, layout: Layout, text: Spanned, line: Int, start: Int, end: Int): Boolean {
         val from = maxOf(start, layout.getLineStart(line))
         val visibleEnd = layout.getLineVisibleEnd(line)
         val to = minOf(end, visibleEnd)
@@ -74,7 +80,7 @@ internal class ChunkTextView(context: Context) : TextView(context) {
         var run = from
         while (run < to) {
             val next = text.nextSpanTransition(run, to, MetricAffectingSpan::class.java)
-            fontPaint.set(paint)
+            fontPaint.set(view.paint)
             text.getSpans(run, next, MetricAffectingSpan::class.java).forEach { it.updateMeasureState(fontPaint) }
             fontPaint.getFontMetricsInt(fontMetrics)
             ascent = minOf(ascent, fontMetrics.ascent)
@@ -87,19 +93,10 @@ internal class ChunkTextView(context: Context) : TextView(context) {
     }
 
     /** The page's `.rk-tts-outline`: its outer edge [OUTLINE_PAD_DP] out from the text, stroke inside that. */
-    private fun drawOutline(canvas: Canvas) {
-        val density = resources.displayMetrics.density
+    private fun drawOutline(canvas: Canvas, view: View) {
+        val density = view.resources.displayMetrics.density
         val stroke = OUTLINE_STROKE_DP * density
-        outline.inset(-OUTLINE_PAD_DP * density, -OUTLINE_PAD_DP * density)
-        // Held inside the view, which clips what it draws past its bounds: a paragraph opening a chunk
-        // would otherwise lose its top edge.
-        outline.intersect(
-            -totalPaddingLeft.toFloat(),
-            -totalPaddingTop.toFloat(),
-            (width - totalPaddingLeft).toFloat(),
-            (height - totalPaddingTop).toFloat(),
-        )
-        outline.inset(stroke / 2, stroke / 2)
+        outline.inset(-OUTLINE_PAD_DP * density + stroke / 2, -OUTLINE_PAD_DP * density + stroke / 2)
         boxPaint.strokeWidth = stroke
         val radius = (OUTLINE_RADIUS_DP * density - stroke / 2).coerceAtLeast(0f)
         canvas.drawRoundRect(outline, radius, radius, boxPaint)
