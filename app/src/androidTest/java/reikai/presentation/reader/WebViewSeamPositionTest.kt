@@ -20,11 +20,9 @@ import kotlin.math.roundToInt
 
 /**
  * Where a WebView novel reader loses its place as its window grows, the counterpart to
- * [RecyclerPrependPositionTest] on the native renderer. Chromium anchors the scroll position itself,
- * so growth above the reader is free, including the late growth that is the native side's real
- * hazard, with one exception this pins: anchoring is suppressed at scroll offset zero, which is
- * exactly where a backward load lands. A correction is therefore needed only there. Numbers go to
- * logcat tag "WebSeamSpike". Findings: docs/dev/plans/content-layer-reader-surface.md.
+ * [RecyclerPrependPositionTest]. Chromium anchoring holds growth above the reader except at scroll
+ * offset zero, where a backward load lands; the real document turns anchoring off and holds the line
+ * itself. Numbers go to logcat tag "WebSeamSpike"; findings in content-layer-reader-surface.md.
  */
 @RunWith(AndroidJUnit4::class)
 class WebViewSeamPositionTest {
@@ -304,9 +302,8 @@ class WebViewSeamPositionTest {
     /**
      * The same measurements against the document the reader actually renders, driven through the
      * engine's own window verbs. The synthetic cases above measure Chromium; these say whether the
-     * real page still gets that behaviour once its stylesheet, its seams and its own ResizeObserver
-     * are in the way. `insertChapter` compensates only at scroll offset zero and relies on anchoring
-     * everywhere else, so a regression in either half shows up here as drift.
+     * page's own place-holding, which replaces Chromium's anchoring there, gives the same result with
+     * its stylesheet and seams in the way, so a regression shows up here as drift.
      */
     @Test
     fun theRealDocumentHoldsItsPlaceWhenTheWindowGrows() {

@@ -23,6 +23,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,6 +43,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * The rules both novel renderers answer through [TextViewport], run once against each real viewport
@@ -614,6 +617,248 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     // endregion
 
+    // region keeping the reader's place
+
+    @Test
+    fun theLineAtTheTopStaysThereWhenTheTextGrowsLarger() {
+        assertTopLineHeldAcross(readerTestSettings.copy(fontSize = LARGER_FONT))
+    }
+
+    @Test
+    fun theLineAtTheTopStaysThereWhenTheLinesGrowTaller() {
+        assertTopLineHeldAcross(readerTestSettings.copy(lineHeight = TALLER_LINES))
+    }
+
+    @Test
+    fun theLineAtTheTopStaysThereWhenParagraphsSpreadApart() {
+        assertTopLineHeldAcross(readerTestSettings.copy(paragraphSpacing = WIDER_SPACING))
+    }
+
+    /** With a larger size, since bold letters as wide as regular ones move nothing to hold on their own,
+     *  while the page's emphasis still replaces the text a held line is found in. */
+    @Test
+    fun theLineAtTheTopStaysThereWhenBionicReadingTurnsOnWithALargerSize() {
+        assertTopLineHeldAcross(readerTestSettings.copy(bionicReading = true, fontSize = LARGER_FONT))
+    }
+
+    /** Opens a long chapter part way, cuts a line through the top of the screen, and applies [settings]. */
+    private fun assertTopLineHeldAcross(settings: NovelReaderSettings) {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        val before = straddledTopLine()
+        applyAndAwaitReflow(settings)
+        val after = lineTop(before.paragraph, before.offset)
+        assertEquals("the line at ${before.paragraph} +${before.offset}", before.y, after, HOLD_SLACK_PX)
+    }
+
+    /**
+     * A reader who scrolls after a change has left the line that change held, so the next change holds
+     * the line they scrolled to rather than taking them back.
+     */
+    @Test
+    fun aChangeAfterTheReaderMovesHoldsTheLineTheyMovedTo() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        straddledTopLine()
+        val larger = readerTestSettings.copy(fontSize = LARGER_FONT)
+        applyAndAwaitReflow(larger)
+        drag(
+            fromX = view.width / 2f,
+            toX = view.width / 2f,
+            fromY = view.height * 0.8f,
+            toY = view.height * 0.3f,
+            holdMs = FLING_FREE_HOLD_MS,
+        )
+        awaitScrollStill()
+        val moved = straddledTopLine()
+        applyAndAwaitReflow(larger.copy(lineHeight = TALLER_LINES))
+        val after = lineTop(moved.paragraph, moved.offset)
+        assertEquals("the line at ${moved.paragraph} +${moved.offset}", moved.y, after, HOLD_SLACK_PX)
+    }
+
+    /** Sent together, so the page can take the new size before it has drawn the seek: the line held has to
+     *  be the one the seek landed on, not the one it left. */
+    @Test
+    fun aNewTextSizeSentWithASeekKeepsTheSeeksPlace() {
+        seekWithANewTextSize()
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), EARLY_REPORT_MARGIN_PERCENT.toFloat())
+    }
+
+    /** The page takes the size back within a frame, which must not report the offset it corrected away from. */
+    @Test
+    fun aNewTextSizeSentWithASeekReportsNoOtherPlace() {
+        seekWithANewTextSize()
+        Log.i(TAG, "$renderer reports: ${reports.toList()}")
+        assertEquals(
+            emptyList<ProgressReport>(),
+            reports.filter { abs(it.percent - SAVED_PERCENT) > EARLY_REPORT_MARGIN_PERCENT },
+        )
+    }
+
+    private fun seekWithANewTextSize() {
+        open(chapter(FIRST, long("first")))
+        reports.clear()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(SAVED_PERCENT * 100L))
+            viewport.applySettings(readerTestSettings.copy(fontSize = LARGER_FONT))
+        }
+        awaitWhile { paragraphTextSize() != largerFontPx() }
+        settle()
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        awaitScrollStill()
+    }
+
+    /**
+     * A backward load lands while the reader is at the very top of the chapter they opened, and the
+     * chapter it adds keeps growing above them as its pictures arrive, after the insert itself.
+     */
+    @Test
+    fun aChapterArrivingAboveWhosePicturesLandLaterLeavesTheOpenedChaptersFirstLineInPlace() {
+        open(chapter(SECOND, long("second")))
+        val before = lineTop("second 1.", 0)
+        prepend(illustratedChapter(0))
+        awaitWhile { checkNotNull(server).served.get() < IMAGE_DELAYS_MS.size }
+        assertEquals("pictures served", IMAGE_DELAYS_MS.size, checkNotNull(server).served.get())
+        settle()
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        awaitScrollStill()
+        assertEquals(before, lineTop("second 1.", 0), HOLD_SLACK_PX)
+    }
+
+    /** The first character of the line at the top of the screen: the marker opening its paragraph, how far
+     *  into that paragraph it is, its line's top and height, in the renderer's pixels. */
+    private data class TopLine(val paragraph: String, val offset: Int, val y: Float, val height: Float)
+
+    /**
+     * Scrolls so the line at the top of the screen is cut through its middle, then reads it. A line
+     * starting exactly at the top, or a gap between paragraphs there, would leave which line is "at the
+     * top" to rounding.
+     */
+    private fun straddledTopLine(): TopLine {
+        val line = checkNotNull(topLine()) { "no line at the top of the screen" }
+        val by = line.y + line.height / 2
+        when (renderer) {
+            Renderer.NATIVE -> instrumentation.runOnMainSync { (view as RecyclerView).scrollBy(0, by.roundToInt()) }
+            Renderer.WEB -> eval("window.scrollBy({ top: $by, behavior: 'instant' })")
+        }
+        settle()
+        return checkNotNull(topLine()) { "no line at the top of the screen" }
+    }
+
+    private fun topLine(): TopLine? = when (renderer) {
+        Renderer.NATIVE -> {
+            var line: TopLine? = null
+            instrumentation.runOnMainSync {
+                val origin = IntArray(2).also(view::getLocationOnScreen)
+                line = paragraphViews().firstNotNullOfOrNull { chunk ->
+                    val layout = chunk.layout ?: return@firstNotNullOfOrNull null
+                    val at = IntArray(2).also(chunk::getLocationOnScreen)
+                    val top = at[1] - origin[1] + chunk.totalPaddingTop
+                    if (top + layout.height <= 0) return@firstNotNullOfOrNull null
+                    val index = layout.getLineForVertical((-top).coerceAtLeast(0))
+                    val offset = layout.getLineStart(index)
+                    val marker = PARAGRAPH_MARKER.findAll(chunk.text).lastOrNull { it.range.first <= offset }
+                        ?: return@firstNotNullOfOrNull null
+                    TopLine(
+                        marker.value.trimEnd(),
+                        offset - marker.range.first,
+                        (top + layout.getLineTop(index)).toFloat(),
+                        (layout.getLineBottom(index) - layout.getLineTop(index)).toFloat(),
+                    )
+                }
+            }
+            line
+        }
+        Renderer.WEB -> eval(
+            "(function () { var ps = document.querySelectorAll('#rk-chapters .rk-chapter p');" +
+                " var range = document.createRange();" +
+                " for (var i = 0; i < ps.length; i++) { if (ps[i].getBoundingClientRect().bottom <= 0) continue;" +
+                " var walker = document.createTreeWalker(ps[i], NodeFilter.SHOW_TEXT), at = 0;" +
+                " while (walker.nextNode()) { var node = walker.currentNode;" +
+                " for (var k = 0; k < node.length; k++) { range.setStart(node, k); range.setEnd(node, k + 1);" +
+                " var rect = range.getClientRects()[0];" +
+                " if (rect && rect.bottom > 0) return [ps[i].textContent.match(/^\\S+ \\d+\\./)[0], at + k," +
+                " rect.top, rect.height]; }" +
+                " at += node.length; } } return null; })()",
+        ).takeIf { it != "null" }?.let(::JSONArray)?.let {
+            TopLine(it.getString(0), it.getInt(1), it.getDouble(2).toFloat(), it.getDouble(3).toFloat())
+        }
+    }
+
+    /** The top of the line holding character [offset] of the paragraph [paragraph] opens. */
+    private fun lineTop(paragraph: String, offset: Int): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var top = Float.NaN
+            instrumentation.runOnMainSync {
+                val origin = IntArray(2).also(view::getLocationOnScreen)
+                val chunk = paragraphViews().first { it.text.contains("$paragraph ") }
+                val start = chunk.text.indexOf("$paragraph ")
+                val layout = chunk.layout
+                val at = IntArray(2).also(chunk::getLocationOnScreen)
+                top = (
+                    at[1] - origin[1] + chunk.totalPaddingTop +
+                        layout.getLineTop(layout.getLineForOffset(start + offset))
+                    ).toFloat()
+            }
+            top
+        }
+        Renderer.WEB -> eval(
+            "(function () { var p = [...document.querySelectorAll('#rk-chapters .rk-chapter p')]" +
+                ".find(function (e) { return e.textContent.indexOf(${JSONObject.quote("$paragraph ")}) === 0; });" +
+                " var walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT), left = $offset;" +
+                " while (walker.nextNode()) { var node = walker.currentNode;" +
+                " if (left < node.length) { var range = document.createRange(); range.setStart(node, left);" +
+                " range.setEnd(node, left + 1); return range.getClientRects()[0].top; }" +
+                " left -= node.length; } return null; })()",
+        ).toFloatOrNull() ?: Float.NaN
+    }
+
+    /** The native chapter's text views, which are the ones holding a paragraph marker. */
+    private fun paragraphViews(): List<TextView> = descendants(view).filterIsInstance<TextView>()
+        .filter { it.isShown && PARAGRAPH_MARKER.containsMatchIn(it.text) }
+
+    /** The size the chapter's text is drawn at, in the renderer's pixels, or null while none is on screen. */
+    private fun paragraphTextSize(): Float? = when (renderer) {
+        Renderer.NATIVE -> {
+            var size: Float? = null
+            instrumentation.runOnMainSync { size = paragraphViews().firstOrNull()?.textSize }
+            size
+        }
+        Renderer.WEB -> eval(
+            "parseFloat(getComputedStyle(document.querySelector('#rk-chapters .rk-chapter p')).fontSize)",
+        )
+            .toFloatOrNull()
+    }
+
+    /** Applies [settings] and waits for the chapter's height to take it and the page to stop moving. */
+    private fun applyAndAwaitReflow(settings: NovelReaderSettings) {
+        val before = chapterHeight()
+        instrumentation.runOnMainSync { viewport.applySettings(settings) }
+        awaitWhile { chapterHeight().let { it == null || it == before } }
+        assertTrue("the chapter stayed $before tall", chapterHeight().let { it != null && it != before })
+        settle()
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        awaitScrollStill()
+    }
+
+    /** The one open chapter's text height, or null while a native redraw has none on screen. */
+    private fun chapterHeight(): Float? = when (renderer) {
+        Renderer.NATIVE -> {
+            var height: Float? = null
+            instrumentation.runOnMainSync {
+                height = (paragraphViews().firstOrNull()?.parent as? View)?.height?.toFloat()
+            }
+            height
+        }
+        Renderer.WEB -> eval("document.querySelector('#rk-chapters .rk-chapter').getBoundingClientRect().height")
+            .toFloatOrNull()
+    }
+
+    // endregion
+
     private data class ProgressReport(val chapterId: Long, val percent: Int, val settled: Boolean)
 
     /** The last percent either callback sent for [chapterId], logging the whole sequence for a failure. */
@@ -1120,6 +1365,14 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val STILL_SAMPLES = 3
         const val STILL_SAMPLE_MS = 150L
         const val LARGER_FONT = 24
+
+        /** Past what a line's first character and its line box differ by, far short of one line. */
+        const val HOLD_SLACK_PX = 3f
+        const val TALLER_LINES = 2.2f
+        const val WIDER_SPACING = 1.5f
+
+        /** What opens every paragraph [long] and the illustrated chapter write. */
+        val PARAGRAPH_MARKER = Regex("""(first|second) \d+\. """)
 
         const val SAVED_PERCENT = 40
         const val LATE_PERCENT = 80

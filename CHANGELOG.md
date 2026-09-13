@@ -246,6 +246,7 @@ every release now also ships a foss build with neither in it.
 - **Download ahead on a grouped manga now fetches the chapters the reader will actually reach next.** It followed the order the sources were stitched in rather than your chapter sort.
 - **Tables, definition lists, preformatted text and pictures inside a sentence now lay out the same in both in-development novel readers.** The native one used to run table cells and list terms together on one line.
 - **The two in-development novel readers now reopen a chapter at the place you left it, instead of sometimes at its start or short of it.** The native one could save the chapter's start over your place before moving there, or land short while pictures were still loading.
+- **The web-page novel reader now keeps the line you are reading in place when you change a text setting or a chapter loads above you.** A larger text size could drop you several screens further on.
 
 ### Light novels
 

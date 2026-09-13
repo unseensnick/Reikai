@@ -570,7 +570,7 @@ class NovelTextViewport(
 
     /**
      * Runs [change], which re-measures text already laid out, then puts the line at the top of the
-     * screen back where it was, the way the WebView's scroll anchoring holds a paragraph. The layout
+     * screen back where it was, the way the WebView page's `place` holds it. The layout
      * manager holds only an item's top, so growth above that line inside its chapter would carry the
      * reader off it. What the reader scrolled meanwhile is theirs and stays, as in [BlockAdapter.show].
      */

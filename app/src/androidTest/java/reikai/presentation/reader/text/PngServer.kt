@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Serves one PNG over loopback. The native renderer fetches through the app's own Coil loader, which
@@ -16,6 +17,9 @@ internal class PngServer(private val png: ByteArray) : Closeable {
     private val socket = ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
 
     val url = url("picture")
+
+    /** Pictures written out in full, which is all a renderer that never lays a chapter out can be waited on by. */
+    val served = AtomicInteger()
 
     /** A distinct address per [name], so no cache answers one for another, served after [delayMs]. */
     fun url(name: String, delayMs: Long = 0) = "http://127.0.0.1:${socket.localPort}/$name.png?delay=$delayMs"
@@ -47,6 +51,7 @@ internal class PngServer(private val png: ByteArray) : Closeable {
             write(png)
             flush()
         }
+        served.incrementAndGet()
     }
 
     override fun close() = socket.close()

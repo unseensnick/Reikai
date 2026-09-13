@@ -12,6 +12,8 @@
 html {
   /* A smooth scroll here is why auto-scroll has to ask for an instant one; see reader.js. */
   scroll-behavior: smooth;
+  /* reader.js holds the reader's line itself, and Chromium's anchoring on top would correct twice. */
+  overflow-anchor: none;
   -webkit-text-size-adjust: 100%;
   /* A source's fixed-width block would otherwise let the whole page pan sideways. */
   overflow-x: hidden;

@@ -386,11 +386,8 @@ class NovelWebViewport(
     override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) =
         insert(chapter, atStart = true)
 
-    /**
-     * The page holds the chapter's own scroll anchoring, so nothing is compensated here. Chromium
-     * keeps the reading position when content lands above it, except at scroll offset zero, which
-     * the page corrects for; both halves are measured in `WebViewSeamPositionTest`.
-     */
+    /** Nothing is compensated here: the page holds the reader's line itself when content lands above it,
+     *  at scroll offset zero as anywhere else (`place` in reader.js). */
     private suspend fun insert(chapter: NovelReaderViewModel.LoadedChapter, atStart: Boolean) {
         // The page drops a chapter it already holds, so this list does too.
         if (held.any { it.chapterId == chapter.chapterId }) return

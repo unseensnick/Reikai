@@ -88,11 +88,9 @@
     return window.scrollY || document.documentElement.scrollTop || 0;
   }
 
-  function documentHeight() {
-    return Math.max(
-      document.documentElement.scrollHeight,
-      document.body ? document.body.scrollHeight : 0
-    );
+  /* The status-bar inset the chapter's own padding clears, which the screen's top is taken to be. */
+  function insetTop() {
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top')) || 0;
   }
 
   /*
@@ -101,6 +99,9 @@
    * offset every reading. Cheap enough to redo on any DOM or size change, coalesced to one a frame.
    */
   function rebuildBoundaries() {
+    // First, so the ends and fits below are measured where the reader is rather than where the change
+    // left the page for a moment.
+    place.sync();
     var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
     var top = scrollTop();
     var next = [];
@@ -237,10 +238,122 @@
 
   // endregion
 
+  // region holding the reader's place
+
+  /*
+   * The line at the top of the screen, put back at the same height whenever the layout moves it, as the
+   * native renderer's holdingReader does. Chromium's own scroll anchoring is off (reader.css): a new text
+   * size changes every paragraph's em spacing, which suspends it, where it acts it holds a paragraph
+   * rather than the line inside it, and at offset zero it does nothing. Left on, it would correct twice,
+   * since its scroll reads here as the reader's own. Every scroll is theirs or made for them (a seek, a
+   * glide, a follow), so it moves the held line with the page, and the line is taken afresh after it.
+   */
+  var place = (function () {
+    // { node, offset, y, scrollY }: a character or element, its top on screen, and the offset it was read at.
+    var held = null;
+
+    /* The first character of the line at the top of the screen, or the element there when it holds none. */
+    function pick() {
+      var caret = document.caretRangeFromPoint(0, Math.min(insetTop() + 1, viewportHeight() - 1));
+      if (!caret) return null;
+      var node = caret.startContainer;
+      var offset = caret.startOffset;
+      if (node.nodeType !== Node.TEXT_NODE) {
+        node = node.childNodes[offset] || node;
+        offset = 0;
+      }
+      if (node === document.body || node === document.documentElement) return null;
+      var top = topOf(node, offset);
+      return top === null ? null : { node: node, offset: offset, y: top, scrollY: scrollTop() };
+    }
+
+    function topOf(node, offset) {
+      if (!node.isConnected) return null;
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (node.length > 0) {
+          var range = document.createRange();
+          var at = Math.min(offset, node.length - 1);
+          range.setStart(node, at);
+          range.setEnd(node, at + 1);
+          var rect = range.getClientRects()[0];
+          if (rect) return rect.top;
+        }
+        node = node.parentElement;
+      }
+      return node ? node.getBoundingClientRect().top : null;
+    }
+
+    /* Scrolls by whatever moved the held line other than the page's own scrolling since it was read, and
+       says whether it did. */
+    function restore() {
+      if (!held) return false;
+      var top = topOf(held.node, held.offset);
+      if (top === null) {
+        held = null;
+        return false;
+      }
+      var shift = top - (held.y - (scrollTop() - held.scrollY));
+      if (Math.abs(shift) <= 0.5) return false;
+      window.scrollBy({ top: shift, behavior: 'instant' });
+      return true;
+    }
+
+    function textWalker(chapter) {
+      return document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT);
+    }
+
+    /* How many characters of chapter's text come before node, and back: the one way to name a place in
+       text whose nodes are about to be replaced. */
+    function offsetOf(chapter, node) {
+      var walker = textWalker(chapter);
+      var count = 0;
+      while (walker.nextNode() && walker.currentNode !== node) count += walker.currentNode.length;
+      return count;
+    }
+
+    function nodeAt(chapter, count) {
+      var walker = textWalker(chapter);
+      while (walker.nextNode()) {
+        if (count < walker.currentNode.length) return { node: walker.currentNode, offset: count };
+        count -= walker.currentNode.length;
+      }
+      return null;
+    }
+
+    return {
+      /* Puts the held line back, then holds the line now at the top, saying whether the page moved. Safe
+         at any point: nothing moved reads as a shift of zero. */
+      sync: function () {
+        var moved = restore();
+        held = pick();
+        return moved;
+      },
+      /* Around a change that replaces the text nodes a held line is found in: bionic emphasis. */
+      across: function (change) {
+        this.sync();
+        var inText = held && held.node.nodeType === Node.TEXT_NODE;
+        var chapter = inText ? held.node.parentElement.closest(CHAPTER_SELECTOR) : null;
+        var at = chapter ? offsetOf(chapter, held.node) + held.offset : -1;
+        change();
+        var found = at >= 0 && !held.node.isConnected ? nodeAt(chapter, at) : null;
+        if (found) {
+          held.node = found.node;
+          held.offset = found.offset;
+        }
+        this.sync();
+      },
+    };
+  })();
+
+  // endregion
+
   // region reporting
 
   function onFrame() {
     framePending = false;
+    // A layout change this frame has not rebuilt the boundaries for yet, and measured against the old
+    // ones the corrected offset read as a place far down the chapter.
+    if (place.sync()) rebuildBoundaries();
     var s = state();
     if (s.id === null) return;
 
@@ -444,7 +557,7 @@
   /*
    * A smooth scroll made of relative steps, one a frame. The browser's own heads for a position
    * fixed when it starts, and crossing a boundary adds or drops a chapter above the reader
-   * mid-animation, so it finished a whole chapter away. Relative steps ride on the scroll anchoring
+   * mid-animation, so it finished a whole chapter away. Relative steps ride on the place-holding
    * that keeps the text still, as the native renderer's smoothScrollBy does. Tsundoku avoids the
    * question by jumping without animating.
    */
@@ -581,11 +694,6 @@
       return cache[id];
     }
 
-    /* The status-bar inset the chapter's own padding clears, which the screen's top is taken to be. */
-    function insetTop() {
-      return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top')) || 0;
-    }
-
     /* The spoken paragraph's range, dropping the position once its chapter has left the page. */
     function spokenRange() {
       if (!spoken) return null;
@@ -659,7 +767,7 @@
     /*
      * The native renderer's rule: nothing moves while the paragraph is fully on screen, and otherwise
      * it goes to the top or the middle of the screen below the inset. Through the page's own relative
-     * glide, which scroll anchoring keeps on target while a chapter arrives or leaves above it.
+     * glide, which the place-holding keeps on target while a chapter arrives or leaves above it.
      */
     function follow() {
       var options = settings.readAloud;
@@ -729,7 +837,7 @@
       var wasBionic = settings.bionic;
       Object.keys(next).forEach(function (k) { settings[k] = next[k]; });
       if (settings.bionic && !wasBionic) {
-        document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
+        place.across(function () { document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic); });
       }
       syncBionic();
       if (next.readAloud) readAloud.redraw();
@@ -755,6 +863,9 @@
         var usable = Math.max(boundaries[i].height - viewportHeight(), 1);
         // Rounded, so a seek to a chapter's own start lands on it rather than a fraction below.
         window.scrollTo({ top: Math.round(boundaries[i].start + usable * fraction), behavior: 'instant' });
+        // Holds the line landed on at once, so a change arriving before the next frame is not measured
+        // against the line the seek left.
+        place.sync();
         // The reader is now in this chapter by construction, so the next frame must not report the
         // one above and hand the rest of a rail drag a target the reader has already left.
         lastChapterSeen = String(chapterId);
@@ -773,8 +884,8 @@
     },
     /*
      * Replaces the marker that introduces chapter id with seam, or removes it for null: the host
-     * re-decides every seam when the setting that hides them changes. Scroll anchoring holds the
-     * reader, as it does for a chapter arriving above.
+     * re-decides every seam when the setting that hides them changes. The place-holding keeps the
+     * reader still, as it does for a chapter arriving above.
      */
     setSeam: function (id, seam) {
       var el = document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
@@ -948,13 +1059,8 @@
     return el;
   }
 
-  /*
-   * Chromium anchors the scroll position itself when content lands above the reader, so a prepend
-   * needs no correction, with one exception it does not cover: at scroll offset exactly zero
-   * anchoring is suppressed and the page shifts by the whole inserted height. That offset is where
-   * a backward load lands, so the position is taken back by hand there. Measured both ways in
-   * WebViewSeamPositionTest.
-   */
+  /* A chapter landing above the reader, and anything its pictures or scripts add later, is taken back
+     by the place-holding, at scroll offset zero as anywhere else. */
   function insertChapter(id, html, baseUrl, atStart, seam) {
     var container = document.getElementById('rk-chapters');
     if (!container || document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]')) {
@@ -964,18 +1070,12 @@
     // Between the two chapters either way: below the arriving one on a prepend, above it on an append.
     var marker = seam ? buildSeam(seam) : null;
     if (atStart) {
-      var heightBefore = documentHeight();
-      var topBefore = scrollTop();
       if (marker) container.insertBefore(marker, container.firstChild);
       container.insertBefore(chapter, container.firstChild);
-      var added = documentHeight() - heightBefore;
-      if (topBefore === 0 && added > 0) window.scrollTo({ top: added, behavior: 'instant' });
     } else {
       if (marker) container.appendChild(marker);
       container.appendChild(chapter);
     }
-    // After the prepend compensation, so a script that adds height lands under anchoring rather than
-    // inside the measurement.
     runScripts(chapter);
     window.rkReader.refresh();
   }
