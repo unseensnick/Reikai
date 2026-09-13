@@ -113,8 +113,9 @@ class NovelTextViewport(
         /** What the chunk views are styled with, so a restyle that landed mid-render is caught on join. */
         var styledWith: NovelReaderSettings,
     ) {
-        /** Applied once this chapter's text has a height to land in, and cleared only once it has
-         *  landed, so a redraw starting in between still knows where the chapter was headed. */
+        /** Applied once this chapter's text has a height to land in, and cleared only once it has landed
+         *  or the reader moves the page ([readerMoved]), so a redraw starting in between still knows where
+         *  the chapter was headed. */
         var landing: Landing? = null
 
         /** Before the text is set there is nothing to be a percentage of. */
@@ -244,10 +245,17 @@ class NovelTextViewport(
             }
 
             override fun onScrollStateChanged(view: RecyclerView, state: Int) {
+                // Only a finger drags: the viewport's own scrolls settle without it.
+                if (state == RecyclerView.SCROLL_STATE_DRAGGING) readerMoved()
                 if (state == RecyclerView.SCROLL_STATE_IDLE) report(onProgressSettled)
             }
         })
         addOnItemTouchListener(tapWatcher)
+        // A mouse wheel scrolls without a drag state; returning false leaves the scroll to the recycler.
+        setOnGenericMotionListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_SCROLL) readerMoved()
+            false
+        }
         if (textSelectable) addOnAttachStateChangeListener(focusableWhileAttached)
         // Passed on untouched: the recycler draws nothing from them, it only needs to know they came.
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
@@ -513,11 +521,12 @@ class NovelTextViewport(
             redraw = null
             // Posted behind the last join's own landing. Every chapter the redraw adds has joined, so a line
             // still short of room gets none, and waiting on would move the reader when the window next grows.
+            // A share still waiting on its images or its layout is not short of room, so it waits on.
             val rebuilt = joined()
             recycler.post {
                 rebuilt.forEach { slot ->
                     land(slot)
-                    slot.landing = null
+                    if (slot.landing is Landing.Line) slot.landing = null
                 }
             }
         }
@@ -706,8 +715,8 @@ class NovelTextViewport(
         // Posted, since the list places the item only after the column has laid out.
         block.container.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             recycler.post {
-                // A share landing waits for the chapter's images, and their arrival is what lays the
-                // column out again, so this is where a held one is applied.
+                // A share landing waits for the chapter's images and for a layout to measure it in, and
+                // each arrives as a layout of the column, so this is where a held one is applied.
                 if (slot.landing is Landing.Share) land(slot)
                 // The chapter's text was just set, which a redraw does afresh without the mark, or an image
                 // re-set it from a copy that can carry a mark the reader has since moved past.
@@ -775,6 +784,7 @@ class NovelTextViewport(
             event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
         if (!isVolumeKey || !volumeKeysActive()) return false
         if (event.action == KeyEvent.ACTION_DOWN) {
+            readerMoved()
             val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != volumeKeysInverted
             val fraction = volumeKeyScrollFraction.coerceIn(0.1f, 1f)
             val step = (recycler.height * fraction).roundToInt()
@@ -796,10 +806,12 @@ class NovelTextViewport(
         if (settings?.tapToScroll == true && height > 0) {
             val step = (height * TAP_SCROLL_FRACTION).roundToInt()
             if (y < height / 3f) {
+                readerMoved()
                 recycler.smoothScrollBy(0, -step)
                 return
             }
             if (y > height * 2f / 3f) {
+                readerMoved()
                 recycler.smoothScrollBy(0, step)
                 return
             }
@@ -838,11 +850,27 @@ class NovelTextViewport(
         if (dx > 0 && touchDownX <= middle) onStepChapter(false)
     }
 
-    /** Hands [sink] the chapter being read and how far through it the reader is. */
+    /**
+     * Hands [sink] the chapter being read and how far through it the reader is, unless that chapter is still
+     * headed for a landing: until then the screen shows where the list put it, its start, and the model
+     * saves whatever it is told over the position being landed. Another chapter on screen is where the
+     * reader really is. The chapter named is right either way, so [reportVisibleChapter] is not held; nor
+     * is a fit, which is height alone, or [reportEnds], since a chapter's start shows no end its landing hides.
+     */
     private fun report(sink: (Long, Int) -> Unit) {
         val slot = visibleSlot() ?: return
-        sink(slot.chapter.chapterId, percentOf(slot))
+        if (slot.landing == null) sink(slot.chapter.chapterId, percentOf(slot))
         reportFits(slot)
+    }
+
+    /**
+     * The reader moved the page themselves, which ends every landing still to come: applied later, it would
+     * take them back from what they scrolled to, and until it was gone nothing they read was reported. Only
+     * what they ask for counts. Auto-scroll, a read-aloud follow and a seek move the page on the reader's
+     * behalf, and a seek names a landing of its own.
+     */
+    private fun readerMoved() {
+        slots.forEach { it.landing = null }
     }
 
     /** The last fit answer sent per chapter, so a scroll that changes nothing says nothing. */
@@ -943,17 +971,22 @@ class NovelTextViewport(
     }
 
     /**
-     * Puts the reader where [slot]'s landing names and clears it. A line near the chapter's end can need
-     * the chapter below it for room, which a redraw adds after this one, so a line the list stops short
-     * of stays until then. A share of zero is a real position: the first line, below the item's marker.
+     * Puts the reader where [slot]'s landing names and clears it, and only then: one that cannot be applied
+     * yet stays for the column's next layout. A line near the chapter's end can need the chapter below it
+     * for room, which a redraw adds after this one, so a line the list stops short of stays until then.
+     * A share of zero is a real position: the first line, below the item's marker.
      */
     private fun land(slot: ChapterSlot) {
+        // A layout still to come moves the text, so what it measures now is where the chapter was.
+        if (slot.block.container.isLayoutRequested) return
         when (val landing = slot.landing ?: return) {
             is Landing.Share -> {
                 // The share is of the chapter's height with its images in it, and they land after the
                 // text, so seeking now would measure the chapter short and put the reader past text
-                // they have not read. Held until they arrive, which lays the column out again.
-                if (slot.block.imagesLoading) return
+                // they have not read. Held until they arrive, which lays the column out again. A chapter
+                // the list has not laid out has nowhere to scroll, and laying it out comes back here.
+                if (slot.block.imagesLoading || boundsOf(slot) == null) return
+                // Before the scroll, so the report the scroll sends is the landed position's.
                 slot.landing = null
                 scrollWithin(slot, landing.fraction)
             }

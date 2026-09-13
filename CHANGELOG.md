@@ -245,6 +245,7 @@ every release now also ships a foss build with neither in it.
 - **On a grouped manga, Open in browser, Open in WebView and Share now use the site the chapter came from.** They built the link from the source you opened the series under, which often named a page that does not exist.
 - **Download ahead on a grouped manga now fetches the chapters the reader will actually reach next.** It followed the order the sources were stitched in rather than your chapter sort.
 - **Tables, definition lists, preformatted text and pictures inside a sentence now lay out the same in both in-development novel readers.** The native one used to run table cells and list terms together on one line.
+- **The two in-development novel readers now reopen a chapter at the place you left it, instead of sometimes at its start or short of it.** The native one could save the chapter's start over your place before moving there, or land short while pictures were still loading.
 
 ### Light novels
 

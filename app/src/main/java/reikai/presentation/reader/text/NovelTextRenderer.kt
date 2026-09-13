@@ -10,6 +10,7 @@ import androidx.core.widget.TextViewCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
@@ -69,11 +70,16 @@ class NovelTextRenderer(
                 refererUrl = baseUrl?.let { it.trimEnd('/') + "/" },
                 resolveView = block::chunkViewFor,
                 onImagesReady = { views ->
-                    // A superseded render's images finishing says nothing about this render's.
-                    if (token == block.renderToken) block.imagesLoading = false
-                    remeasureForImages(views, selectable, block)
-                    // Nothing arrived, so nothing re-lays out; this does, which is what re-checks the chapter.
-                    if (views.isEmpty()) block.container.requestLayout()
+                    scope.launch {
+                        remeasureForImages(views, selectable, block)
+                        // Only now, since a saved position is landed as soon as this clears, and the chapter
+                        // is still growing while any picture's chunk waits on its re-measure. A superseded
+                        // render's images finishing says nothing about this render's.
+                        if (token == block.renderToken) block.imagesLoading = false
+                        // A layout is what re-checks the chapter, and none may follow: nothing arrived, or a
+                        // re-set text kept its height, which a TextView only redraws.
+                        block.container.requestLayout()
+                    }
                 },
             )
 
@@ -144,14 +150,15 @@ class NovelTextRenderer(
      * layout re-reads a drawable's bounds on its own: a `PrecomputedText` caches the measurement it
      * was built from, and the `DynamicLayout` a selectable view uses reflows only on a text or span
      * edit, while `TextView.onMeasure` keeps an existing layout while the width is unchanged.
+     * Returns once every view holds its re-measured text.
      */
-    private fun remeasureForImages(views: List<TextView>, selectable: Boolean, block: ChapterTextBlock) {
-        views.forEach { view -> remeasureOne(view, selectable, block) }
+    private suspend fun remeasureForImages(views: List<TextView>, selectable: Boolean, block: ChapterTextBlock) {
+        coroutineScope { views.forEach { view -> launch { remeasureOne(view, selectable, block) } } }
     }
 
     /** Gated on the block rather than the view being attached, for the same reason the render is: a
      *  chapter waiting below the reader has to finish measuring before it can be scrolled into. */
-    private fun remeasureOne(view: TextView, selectable: Boolean, block: ChapterTextBlock) {
+    private suspend fun remeasureOne(view: TextView, selectable: Boolean, block: ChapterTextBlock) {
         if (block.discarded) return
         val snapshot = view.text
         if (snapshot == null) {
@@ -164,17 +171,15 @@ class NovelTextRenderer(
             view.text = SpannableStringBuilder(snapshot)
             return
         }
-        scope.launch {
-            val params = TextViewCompat.getTextMetricsParams(view)
-            val precomputed = withContext(Dispatchers.Default) {
-                PrecomputedTextCompat.create(SpannableStringBuilder(snapshot), params)
-            }
-            if (block.discarded) return@launch
-            try {
-                TextViewCompat.setPrecomputedText(view, precomputed)
-            } catch (_: IllegalArgumentException) {
-                view.requestLayout()
-            }
+        val params = TextViewCompat.getTextMetricsParams(view)
+        val precomputed = withContext(Dispatchers.Default) {
+            PrecomputedTextCompat.create(SpannableStringBuilder(snapshot), params)
+        }
+        if (block.discarded) return
+        try {
+            TextViewCompat.setPrecomputedText(view, precomputed)
+        } catch (_: IllegalArgumentException) {
+            view.requestLayout()
         }
     }
 

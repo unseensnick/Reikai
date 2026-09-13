@@ -34,6 +34,8 @@
   var EDGE_TOLERANCE = 2;
   // How long a restore waits for the opening chapter's images before seeking anyway. See start().
   var IMAGE_WAIT_MS = 3000;
+  // The keys a browser scrolls a page with, so pressing one is the reader moving it.
+  var SCROLL_KEYS = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '];
   // How far the read-aloud outline stands off its paragraph's text, in CSS pixels.
   var OUTLINE_PAD_PX = 4;
 
@@ -64,6 +66,9 @@
   // The host drops everything this page says before its ready report, and a fit or an end is said only
   // once, so neither is sent before then.
   var ready = false;
+  // Whether the reader has moved the page, and whether the opening seek is still waiting on images.
+  var readerMoved = false;
+  var seekWaiting = false;
 
   // Held from before the chapter's scripts run, so one of them replacing the global cannot stand in
   // for the bridge and read what the engine sends.
@@ -386,7 +391,16 @@
       if (!e.isTrusted || e.touches.length !== 1) return;
       if (Math.abs(e.touches[0].clientX - startX) > 10 ||
         Math.abs(e.touches[0].clientY - startY) > 10) moved = true;
+      if (moved) onReaderMove();
     }, { passive: true });
+
+    document.addEventListener('wheel', function (e) {
+      if (e.isTrusted) onReaderMove();
+    }, { passive: true });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.isTrusted && SCROLL_KEYS.indexOf(e.key) >= 0) onReaderMove();
+    });
 
     document.addEventListener('touchend', function (e) {
       if (!e.isTrusted) return;
@@ -421,6 +435,7 @@
         bridge().onToggleMenu(DOCUMENT_TOKEN);
       } else {
         var by = viewportHeight() * 0.75;
+        onReaderMove();
         glide.by(zone === 'up' ? -by : by);
       }
     }, { passive: true });
@@ -724,7 +739,10 @@
       document.getElementById('rk-font-face').textContent = css;
     },
     /* The volume keys' page step, through the same relative animation as a tap. */
-    scrollSmoothlyBy: function (dy) { glide.by(dy); },
+    scrollSmoothlyBy: function (dy) {
+      onReaderMove();
+      glide.by(dy);
+    },
     autoScrollStart: function (perFrame) { autoScroll.start(perFrame); },
     autoScrollStop: function () { autoScroll.stop(); },
     /* Scrolls so a chapter's own fraction is the reading position, which is how a restore and the
@@ -1073,24 +1091,60 @@
       document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
     }
     requestAnimationFrame(function () {
-      rebuildBoundaries();
-      // Where the chapter was left. Applied here rather than by the host, because a scroll issued
-      // against a document that has not laid out yet lands at zero and looks like a lost position.
-      var initial = __INITIAL_FRACTION__;
-      if (initial > 0 && boundaries.length > 0) {
-        // The saved fraction is of the chapter's height with its images in it, and reader.css gives
-        // every image `height: auto`, so before they land the chapter measures short by the whole
-        // image block and the seek drops the reader past unread text. Anchoring then holds them
-        // there and the next report saves that place over the one they left.
-        whenImagesLanded(boundaries[0].el, function () {
-          rebuildBoundaries();
-          window.rkReader.seekWithin(boundaries[0].id, initial);
-          reportReady();
-        });
-        return;
-      }
-      reportReady();
+      whenViewportHasHeight(landAndReportReady);
     });
+  }
+
+  /*
+   * A WebView can start the page before it has been laid out, and a seek against no height scrolls by
+   * the whole chapter, which the height arriving then clamps to its end. Ready waits too, since every
+   * report and queued seek after it measures against the viewport.
+   */
+  function whenViewportHasHeight(run) {
+    if (viewportHeight() > 0) {
+      run();
+      return;
+    }
+    window.addEventListener('resize', function onResize() {
+      if (viewportHeight() <= 0) return;
+      window.removeEventListener('resize', onResize);
+      run();
+    });
+  }
+
+  function landAndReportReady() {
+    rebuildBoundaries();
+    // Where the chapter was left. Applied here rather than by the host, because a scroll issued
+    // against a document that has not laid out yet lands at zero and looks like a lost position.
+    var initial = __INITIAL_FRACTION__;
+    if (initial > 0 && boundaries.length > 0 && !readerMoved) {
+      // The saved fraction is of the chapter's height with its images in it, and reader.css gives
+      // every image `height: auto`, so before they land the chapter measures short by the whole
+      // image block and the seek drops the reader past unread text. Anchoring then holds them
+      // there and the next report saves that place over the one they left.
+      seekWaiting = true;
+      whenImagesLanded(boundaries[0].el, function () {
+        if (!seekWaiting) return;
+        seekWaiting = false;
+        rebuildBoundaries();
+        window.rkReader.seekWithin(boundaries[0].id, initial);
+        reportReady();
+      });
+      return;
+    }
+    reportReady();
+  }
+
+  /*
+   * The reader moved the page themselves, which ends the opening seek: made later, it would take them
+   * back from what they scrolled to, and the host hears nothing of their reading before ready. Only what
+   * they ask for counts; auto-scroll, a read-aloud follow and a host seek move the page on their behalf.
+   */
+  function onReaderMove() {
+    readerMoved = true;
+    if (!seekWaiting) return;
+    seekWaiting = false;
+    reportReady();
   }
 
   /* The host drops everything the page says before this, so it is the last thing a start does. */

@@ -38,8 +38,8 @@ class ChapterTextBlock(
      */
     var renderToken: Int = 0
 
-    /** True while a network image of the current render is still loading, when the chapter's height
-     *  is still the placeholders' rather than its own. */
+    /** True until every network image of the current render has loaded and its chunk been re-measured,
+     *  which is when the chapter's height stops being the placeholders' and becomes its own. */
     var imagesLoading: Boolean = false
 
     /**

@@ -1,6 +1,5 @@
 package reikai.presentation.reader.text
 
-import android.graphics.Bitmap
 import android.text.Spanned
 import android.text.style.ImageSpan
 import android.widget.LinearLayout
@@ -18,10 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.presentation.reader.WebViewHostActivity
-import java.io.ByteArrayOutputStream
-import java.io.Closeable
-import java.net.InetAddress
-import java.net.ServerSocket
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 
 /**
@@ -102,6 +98,54 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         )
     }
 
+    /**
+     * The viewport lands a saved position once the block says its images are in, so that has to mean
+     * every picture's line is at its own height. The second picture shares its chunk with a paragraph
+     * long enough that re-measuring it takes frames, while the first chunk's lays out long before.
+     */
+    @Test
+    fun imagesStopLoadingOnlyOnceEveryPictureIsMeasured() {
+        val laidOutShort = CopyOnWriteArrayList<Int>()
+        // Watched from the text being set, since the empty block before it has no loading to be done with.
+        val watch = {
+            block.container.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                if (!block.imagesLoading) laidOutShort += shortPictureLines()
+            }
+        }
+        runBlocking(Dispatchers.Main) {
+            renderer.render(
+                block = block,
+                html = "<img src=\"${server.url("first")}\">" + "<p>lorem ipsum dolor sit amet</p>".repeat(300) +
+                    "<img src=\"${server.url("second")}\"><p>" + "lorem ipsum dolor sit amet ".repeat(12_000) + "</p>",
+                fontSize = 18,
+                paragraphSpacing = 0f,
+                paragraphIndent = 0f,
+                selectable = selectable,
+                bionic = false,
+                contentWidth = COLUMN_PX,
+                baseUrl = null,
+                onTextSet = { watch() },
+            ).join()
+        }
+        // Until a layout has seen the images in, so a case with no such layout cannot pass on nothing.
+        awaitWhile { laidOutShort.isEmpty() }
+        assertTrue("the pictures sit in ${block.chunkViews.size} chunks", block.chunkViews.size >= 2)
+        assertTrue(
+            "laid out with pictures still short: $laidOutShort",
+            laidOutShort.isNotEmpty() && laidOutShort.all { it == 0 },
+        )
+    }
+
+    /** How many image spans sit on a line shorter than their picture. */
+    private fun shortPictureLines(): Int = block.chunkViews.sumOf { view ->
+        val text = view.text as? Spanned ?: return@sumOf 0
+        val layout = view.layout ?: return@sumOf 0
+        text.getSpans(0, text.length, ImageSpan::class.java).count { span ->
+            val line = layout.getLineForOffset(text.getSpanStart(span))
+            layout.getLineBottom(line) - layout.getLineTop(line) < span.drawable.bounds.height()
+        }
+    }
+
     /** One line of body text in this block, the most the leading around a picture can add. */
     private fun textLinePx(): Int {
         var height = 0
@@ -142,48 +186,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         while (condition() && System.currentTimeMillis() < deadline) Thread.sleep(50)
     }
 
-    private fun tallPng(): ByteArray = ByteArrayOutputStream().also {
-        Bitmap.createBitmap(400, 2000, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
-    }.toByteArray()
-
-    /**
-     * Serves [png] over loopback. The renderer fetches through the app's own Coil loader, which has no
-     * seam a test can stand in at the way a WebView's client is one, so the image comes off a socket.
-     */
-    private class PngServer(private val png: ByteArray) : Closeable {
-
-        private val socket = ServerSocket(0, 4, InetAddress.getByName("127.0.0.1"))
-
-        val url = "http://127.0.0.1:${socket.localPort}/picture.png"
-
-        init {
-            Thread {
-                while (!socket.isClosed) {
-                    runCatching {
-                        socket.accept().use { client ->
-                            val reader = client.getInputStream().bufferedReader()
-                            while (true) {
-                                val line = reader.readLine() ?: break
-                                if (line.isEmpty()) break
-                            }
-                            client.getOutputStream().apply {
-                                write(
-                                    (
-                                        "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\n" +
-                                            "Content-Length: ${png.size}\r\nConnection: close\r\n\r\n"
-                                        ).toByteArray(),
-                                )
-                                write(png)
-                                flush()
-                            }
-                        }
-                    }
-                }
-            }.apply { isDaemon = true }.start()
-        }
-
-        override fun close() = socket.close()
-    }
+    private fun tallPng(): ByteArray = pngOf(400, 2000)
 
     companion object {
         @JvmStatic

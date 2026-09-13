@@ -1,7 +1,9 @@
 package reikai.presentation.reader
 
+import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
 import android.text.Spanned
+import android.text.style.ImageSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.InputDevice
@@ -21,14 +23,18 @@ import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.novel.reader.NovelReaderSettings
+import reikai.presentation.reader.text.DrawableWrapper
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.ReadAloudMark
+import reikai.presentation.reader.text.pngOf
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -56,6 +62,10 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private val endsSeen = CopyOnWriteArrayList<Long>()
     private val steps = CopyOnWriteArrayList<Boolean>()
 
+    /** Every progress report either callback sent, in order, so a case can read what was reported. */
+    private val reports = CopyOnWriteArrayList<ProgressReport>()
+    private var server: PngServer? = null
+
     @Before
     fun setUp() {
         scenario = ActivityScenario.launch(WebViewHostActivity::class.java)
@@ -67,8 +77,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
                     volumeKeysActive = { false },
                     volumeKeysInverted = false,
                     volumeKeyScrollFraction = 0.75f,
-                    onProgressChanged = { _, _ -> },
-                    onProgressSettled = { _, _ -> },
+                    onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
+                    onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
                     onToggleMenu = {},
                     onStepChapter = { steps += it },
                     onVisibleChapter = {},
@@ -85,8 +95,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
                     volumeKeyScrollFraction = 0.75f,
                     useOriginalFonts = false,
                     sourceCssPriority = false,
-                    onProgressChanged = { _, _ -> },
-                    onProgressSettled = { _, _ -> },
+                    onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
+                    onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
                     onToggleMenu = {},
                     onStepChapter = { steps += it },
                     onVisibleChapter = {},
@@ -104,6 +114,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun tearDown() {
         if (::viewport.isInitialized) instrumentation.runOnMainSync { (viewport as ReaderViewport).destroy() }
         if (::scenario.isInitialized) scenario.close()
+        server?.close()
     }
 
     // region the seam
@@ -410,6 +421,262 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     // endregion
 
+    // region opening at a saved position
+
+    @Test
+    fun aChapterOpenedPartWayLandsAtItsSavedPosition() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
+    @Test
+    fun aChapterOpenedPartWayLastReportsItsSavedPosition() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        assertEquals(SAVED_PERCENT.toFloat(), lastReported(FIRST), LANDING_SLACK_PERCENT)
+    }
+
+    /** The model moves the rail and saves on the first report, so it has to be the landed position. */
+    @Test
+    fun aChapterOpenedPartWayFirstReportsItsSavedPosition() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        assertEquals(SAVED_PERCENT.toFloat(), firstReported(FIRST), LANDING_SLACK_PERCENT)
+    }
+
+    /**
+     * Opened into a viewport with no height, as a view not laid out yet is, then given its height. Native
+     * has tried its landing once its load returns. The page is held there until it reports a fit, which a
+     * start at no height sends; one that waits for a height sends none, and the wait runs out instead.
+     */
+    @Test
+    fun aChapterOpenedBeforeItCanBeLaidOutLandsAtItsSavedPositionOnceItCan() {
+        setViewHeight(0)
+        runBlocking(Dispatchers.Main) {
+            viewport.load(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT), readerTestSettings)
+        }
+        instrumentation.waitForIdleSync()
+        if (renderer == Renderer.WEB) awaitWhile { !fits.containsKey(FIRST) }
+        setViewHeight(ViewGroup.LayoutParams.MATCH_PARENT)
+        awaitWhile { !fits.containsKey(FIRST) }
+        settle()
+        awaitScrollStill()
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
+    /** A report from the chapter's top, sent before the landing, would be saved over the position. */
+    @Test
+    fun aChapterOpenedPartWayNeverReportsItsTop() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        assertEquals(emptyList<ProgressReport>(), reportsShortOf(FIRST, SAVED_PERCENT))
+    }
+
+    @Test
+    fun anIllustratedChapterOpenedPartWayLandsAtItsSavedPositionOnceItsImagesArrive() {
+        openIllustrated(SAVED_PERCENT)
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
+    @Test
+    fun anIllustratedChapterOpenedPartWayLastReportsItsSavedPosition() {
+        openIllustrated(SAVED_PERCENT)
+        assertEquals(SAVED_PERCENT.toFloat(), lastReported(FIRST), LANDING_SLACK_PERCENT)
+    }
+
+    @Test
+    fun anIllustratedChapterOpenedPartWayNeverReportsItsTop() {
+        openIllustrated(SAVED_PERCENT)
+        assertEquals(emptyList<ProgressReport>(), reportsShortOf(FIRST, SAVED_PERCENT))
+    }
+
+    /** A new text size rebuilds the native chapter while its pictures are still on their way, and the
+     *  position it was headed for has to survive the rebuild rather than end with it. */
+    @Test
+    fun anIllustratedChapterRedrawnBeforeItsImagesArriveStillLandsAtItsSavedPosition() {
+        assumeTrue(
+            "the page holds a settings push until it is ready, which is after its landing, so none is pending",
+            renderer == Renderer.NATIVE,
+        )
+        runBlocking(Dispatchers.Main) { viewport.load(illustratedChapter(SAVED_PERCENT), readerTestSettings) }
+        instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(fontSize = LARGER_FONT)) }
+        awaitIllustratedLanding()
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
+    /**
+     * A reader who scrolls while the pictures are still on their way has taken over from the saved
+     * position: what they scroll to is reported as they go, and the pictures arriving does not take them
+     * back. The pictures outwait the page's own image cap, so its late seek is covered too.
+     */
+    @Test
+    fun aReaderWhoScrollsBeforeThePicturesArriveIsNotMovedBackWhenTheyDo() {
+        runBlocking(Dispatchers.Main) {
+            viewport.load(illustratedChapter(SAVED_PERCENT, STALLED_IMAGE_DELAYS_MS), readerTestSettings)
+        }
+        awaitWhile { !textShown() }
+        drag(
+            fromX = view.width / 2f,
+            toX = view.width / 2f,
+            fromY = view.height * 0.8f,
+            toY = view.height * 0.3f,
+            holdMs = FLING_FREE_HOLD_MS,
+        )
+        awaitScrollStill()
+        val reportedWhileWaiting = !imagesArrived() && reports.any { it.chapterId == FIRST }
+        awaitIllustratedLanding()
+        val landed = landedPercent()
+        assertTrue(
+            "reported while the pictures loaded: $reportedWhileWaiting, landed at $landed%",
+            reportedWhileWaiting && landed < SAVED_PERCENT - EARLY_REPORT_MARGIN_PERCENT,
+        )
+    }
+
+    /** Whether the opened chapter's text is on screen, before anything has said it rendered. */
+    private fun textShown(): Boolean = when (renderer) {
+        Renderer.NATIVE -> {
+            var shown = false
+            instrumentation.runOnMainSync {
+                shown = descendants(view).filterIsInstance<TextView>().any { it.isShown && it.height > 0 }
+            }
+            shown
+        }
+        Renderer.WEB -> eval("document.querySelectorAll('#rk-chapters .rk-chapter p').length > 0") == "true"
+    }
+
+    /** Further in, where a landing measured against the placeholders would fall further short. */
+    @Test
+    fun anIllustratedChapterOpenedNearItsEndLandsAtItsSavedPosition() {
+        openIllustrated(LATE_PERCENT)
+        assertEquals(LATE_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
+    // endregion
+
+    private data class ProgressReport(val chapterId: Long, val percent: Int, val settled: Boolean)
+
+    /** The last percent either callback sent for [chapterId], logging the whole sequence for a failure. */
+    private fun lastReported(chapterId: Long): Float {
+        Log.i(TAG, "$renderer reports: ${reports.toList()}")
+        return reports.lastOrNull { it.chapterId == chapterId }?.percent?.toFloat() ?: Float.NaN
+    }
+
+    private fun firstReported(chapterId: Long): Float {
+        Log.i(TAG, "$renderer reports: ${reports.toList()}")
+        return reports.firstOrNull { it.chapterId == chapterId }?.percent?.toFloat() ?: Float.NaN
+    }
+
+    private fun setViewHeight(height: Int) {
+        instrumentation.runOnMainSync { view.layoutParams = view.layoutParams.apply { this.height = height } }
+        instrumentation.waitForIdleSync()
+    }
+
+    /** The reports for [chapterId] further short of [percent] than a landing's rounding explains. */
+    private fun reportsShortOf(chapterId: Long, percent: Int): List<ProgressReport> {
+        Log.i(TAG, "$renderer reports: ${reports.toList()}")
+        return reports.filter { it.chapterId == chapterId && it.percent < percent - EARLY_REPORT_MARGIN_PERCENT }
+    }
+
+    /**
+     * Opens a long chapter at [percent] with tall network pictures in several of its chunks, arriving
+     * apart, then waits for all of them and for the chapter to stop moving. Asserted that they arrived,
+     * since a case passing on placeholders would say nothing about the pictures.
+     */
+    private fun openIllustrated(percent: Int) {
+        open(illustratedChapter(percent))
+        awaitIllustratedLanding()
+    }
+
+    private fun illustratedChapter(
+        percent: Int,
+        delaysMs: List<Long> = IMAGE_DELAYS_MS,
+    ): NovelReaderViewModel.LoadedChapter {
+        val pictures = PngServer(pngOf(400, 1600)).also { server = it }
+        val urls = delaysMs.mapIndexed { index, delay -> pictures.url("picture$index", delay) }
+        val html = (1..120).joinToString("") { paragraph ->
+            val picture = IMAGE_AFTER_PARAGRAPH.indexOf(paragraph).takeIf {
+                it >= 0
+            }?.let { "<img src=\"${urls[it]}\">" }
+            "<p>first $paragraph. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" + picture.orEmpty()
+        }
+        return chapter(FIRST, html, progressPercent = percent)
+    }
+
+    private fun awaitIllustratedLanding() {
+        awaitWhile { !imagesArrived() }
+        assertTrue("the pictures never arrived", imagesArrived())
+        if (renderer == Renderer.NATIVE) {
+            assertTrue("the pictures sit in ${pictureChunks()} chunks", pictureChunks() >= 3)
+        }
+        settle()
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        awaitScrollStill()
+    }
+
+    private fun imagesArrived(): Boolean = when (renderer) {
+        Renderer.NATIVE -> {
+            var arrived = false
+            instrumentation.runOnMainSync {
+                val pictures = imageSpans().map { it.drawable as DrawableWrapper }
+                arrived = pictures.size == IMAGE_DELAYS_MS.size && pictures.none { it.innerDrawable is ColorDrawable }
+            }
+            arrived
+        }
+        Renderer.WEB -> eval(
+            "(function () { var i = [...document.images]; return i.length === ${IMAGE_DELAYS_MS.size} &&" +
+                " i.every(function (m) { return m.complete && m.naturalHeight > 0; }); })()",
+        ) == "true"
+    }
+
+    private fun imageSpans(): List<ImageSpan> = descendants(view).filterIsInstance<TextView>().flatMap { chunk ->
+        val text = chunk.text as? Spanned ?: return@flatMap emptyList()
+        text.getSpans(0, text.length, ImageSpan::class.java).toList()
+    }
+
+    private fun pictureChunks(): Int {
+        var count = 0
+        instrumentation.runOnMainSync {
+            count = descendants(view).filterIsInstance<TextView>().count { chunk ->
+                (chunk.text as? Spanned)?.let { it.getSpans(0, it.length, ImageSpan::class.java).isNotEmpty() } == true
+            }
+        }
+        return count
+    }
+
+    /**
+     * How far through the one open chapter the screen sits, in percent, read off its laid-out text rather
+     * than either renderer's own report: its top against the viewport, over the height that scrolls, the
+     * measure both renderers share (ChapterScrollProgress, reader.js `state`).
+     */
+    private fun landedPercent(): Float {
+        val (top, height, viewport) = when (renderer) {
+            Renderer.NATIVE -> {
+                var bounds = Triple(0f, 0f, 0f)
+                instrumentation.runOnMainSync {
+                    val text = descendants(view).filterIsInstance<TextView>().first().parent as View
+                    val origin = IntArray(2).also(view::getLocationOnScreen)
+                    val at = IntArray(2).also(text::getLocationOnScreen)
+                    bounds = Triple((at[1] - origin[1]).toFloat(), text.height.toFloat(), view.height.toFloat())
+                }
+                bounds
+            }
+            Renderer.WEB -> JSONArray(
+                eval(
+                    "(function () { var r = document.querySelector('#rk-chapters .rk-chapter')" +
+                        ".getBoundingClientRect(); return [r.top, r.height, window.innerHeight]; })()",
+                ),
+            ).let { Triple(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
+        }
+        Log.i(TAG, "$renderer landed: top $top, height $height, viewport $viewport, reports ${reports.toList()}")
+        assertTrue("the chapter is $height tall on a $viewport screen", height > viewport * 2)
+        return (-top).coerceIn(0f, height - viewport) / (height - viewport) * 100f
+    }
+
     private fun paragraphs(chapterId: Long): List<String>? =
         runBlocking(Dispatchers.Main) { viewport.readAloud.paragraphs(chapterId) }
 
@@ -634,13 +901,14 @@ class TextViewportContractTest(private val renderer: Renderer) {
         number: Double = id.toDouble(),
         downloaded: Boolean = false,
         isLast: Boolean = false,
+        progressPercent: Int = 0,
     ) = NovelReaderViewModel.LoadedChapter(
         chapterId = id,
         title = "Chapter $number",
         url = "/chapter/$id",
         html = html,
         baseUrl = null,
-        progressPercent = 0,
+        progressPercent = progressPercent,
         chapterNumber = number,
         downloaded = downloaded,
         isLast = isLast,
@@ -690,10 +958,12 @@ class TextViewportContractTest(private val renderer: Renderer) {
         Renderer.WEB -> eval("document.querySelectorAll('#rk-chapters .rk-chapter').length").toInt()
     }
 
-    /** A one-finger drag through the view, as a finger delivers it to either renderer. */
-    private fun drag(fromX: Float, toX: Float, fromY: Float = view.height / 2f, toY: Float = fromY) {
+    /** A one-finger drag through the view, as a finger delivers it to either renderer. [holdMs] keeps the
+     *  finger still before it lifts, which leaves no speed for a fling to carry the page on with. */
+    private fun drag(fromX: Float, toX: Float, fromY: Float = view.height / 2f, toY: Float = fromY, holdMs: Long = 0) {
+        var down = 0L
         instrumentation.runOnMainSync {
-            val down = SystemClock.uptimeMillis()
+            down = SystemClock.uptimeMillis()
             touch(MotionEvent.ACTION_DOWN, fromX, fromY, down, down)
             (1..DRAG_STEPS).forEach { step ->
                 val fraction = step / DRAG_STEPS.toFloat()
@@ -705,7 +975,16 @@ class TextViewportContractTest(private val renderer: Renderer) {
                     down + step * DRAG_STEP_MS,
                 )
             }
-            touch(MotionEvent.ACTION_UP, toX, toY, down, down + (DRAG_STEPS + 1) * DRAG_STEP_MS)
+            if (holdMs == 0L) touch(MotionEvent.ACTION_UP, toX, toY, down, down + (DRAG_STEPS + 1) * DRAG_STEP_MS)
+        }
+        if (holdMs == 0L) return
+        // Held in real time, since the WebView measures a fling by when a move reaches it, and a pixel on,
+        // since it drops a move that goes nowhere.
+        Thread.sleep(holdMs)
+        instrumentation.runOnMainSync {
+            val now = SystemClock.uptimeMillis()
+            touch(MotionEvent.ACTION_MOVE, toX, toY + 1, down, now)
+            touch(MotionEvent.ACTION_UP, toX, toY + 1, down, now + DRAG_STEP_MS)
         }
     }
 
@@ -771,6 +1050,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val DRAG_STEPS = 8
         const val DRAG_STEP_MS = 10L
 
+        /** Longer than the stretch of recent movement either renderer measures a fling's speed over. */
+        const val FLING_FREE_HOLD_MS = 500L
+
         const val TAG = "TextViewportContract"
 
         /** A paragraph of [long] several screens below its start in either renderer. */
@@ -781,6 +1063,28 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val STILL_SAMPLES = 3
         const val STILL_SAMPLE_MS = 150L
         const val LARGER_FONT = 24
+
+        const val SAVED_PERCENT = 40
+        const val LATE_PERCENT = 80
+
+        /**
+         * A stored percent is whole, so an exact landing sits within half a point of it and its report
+         * rounds the same way; two points leaves room for pixel rounding, while a landing measured before
+         * the pictures arrived misses by far more (each is several screens tall against a 200dp stand-in).
+         */
+        const val LANDING_SLACK_PERCENT = 2f
+
+        /** Short of the saved position by more than a landing's rounding: a report from the top. */
+        const val EARLY_REPORT_MARGIN_PERCENT = 5
+
+        /** Arriving apart, so a landing applied at the first arrival measures the chapter short. */
+        val IMAGE_DELAYS_MS = listOf(300L, 900L, 1_500L, 2_100L)
+
+        /** Past the page's three-second image cap, and inside the ten seconds a wait here allows. */
+        val STALLED_IMAGE_DELAYS_MS = List(IMAGE_DELAYS_MS.size) { 6_000L }
+
+        /** A chunk is about 6000 characters, some 27 of these paragraphs, so each picture has its own. */
+        val IMAGE_AFTER_PARAGRAPH = listOf(10, 40, 70, 100)
 
         /** A paragraph's Range under either way the page can draw a mark: a highlight, or its boxes. */
         const val MARKED_BOX_JS =
