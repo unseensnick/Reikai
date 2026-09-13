@@ -67,7 +67,7 @@ From the same audit, apart from the Cloudflare solver item.
 
 - **Collapse the two in-reader settings sheets, and rework how the options are presented** `[M]` - manga and novels each carry their own gear sheet, so every setting in one is added twice; collapsing them is also the moment to answer the in-reader half of `unseensnick/Reikai#55` with grouping and progressive disclosure (the complaint is hunting for an option, not just sheet height). Runs after the reader takeover, which changes what the two sheets even are. [Plan](docs/dev/plans/content-layer-reader-surface.md).
 - **Hold the novel reader's exact line across a rotation** `[M]` - a rebuilt renderer restores a percent of the chapter, so the top line moves by a paragraph or so, and within a chapter's last screen it lands up to a screen back. The fix is a line position both renderers report and land on; native's redraw already keeps one. [Plan](docs/dev/plans/content-layer-reader-surface.md).
-- **Native TTS with in-text highlight for novels** `[L]` - upgrade novel TTS to follow along in the text (per-chunk highlight) with clean cross-chapter handoff, matching tsundoku's `TtsController`; the current core.js TTS has no in-text follow. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
+- **Sentence-level read-aloud highlight for novels** `[M]` - mark the sentence being spoken rather than the whole paragraph; the shared reader's read-aloud marks and follows paragraphs only. [Plan](docs/dev/plans/content-layer-reader-surface.md).
 
 ### Novel sources & LN plugins
 
