@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.TextNode
 
 /**
  * Turns a processed chapter into styled text across [ChapterTextBlock]'s chunk views.
@@ -77,10 +78,10 @@ class NovelTextRenderer(
             )
 
             val spannable = withContext(Dispatchers.Default) {
-                // The wrap walks and copies the whole chapter, which for a downloaded one with its
+                // The normalising walks and copies the whole chapter, which for a downloaded one with its
                 // images inlined is megabytes, so it belongs here rather than on the caller's thread.
                 val spanned = Html.fromHtml(
-                    normalizeHtmlForRendering(wrapParagraphs(html), baseUrl),
+                    normalizeHtmlForRendering(html, baseUrl),
                     Html.FROM_HTML_MODE_LEGACY,
                     imageGetter,
                     null,
@@ -177,25 +178,24 @@ class NovelTextRenderer(
         }
     }
 
-    private fun wrapParagraphs(html: String): String {
-        val content = html.replace(leadingSpaceInParagraph, "<p>")
-        if (content.contains("<p>", ignoreCase = true)) return content
-        return "<p>" + content.replace("\r\n\r\n", "</p><p>").replace("\n\n", "</p><p>") + "</p>"
-    }
-
     /**
      * `Html.fromHtml` has no CSS and no `picture` support, so the markup is reshaped into what it can
-     * read. Failing open leaves the chapter as it was rather than blanking it.
+     * read. Failing open leaves the chapter as it was rather than blanking it. It also ignores table,
+     * definition-list and `pre` layout, which are rebuilt here into the lines a WebView shows for them.
      */
     private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
         val doc = Jsoup.parse(html, baseUrl.orEmpty())
         doc.select("style, script").remove()
         unwrapPictureSources(doc)
+        rebuildBlockLayout(doc)
         val targetWidth = context.resources.displayMetrics.widthPixels
         doc.select("img").forEach { img ->
             applySrcsetCandidate(img, targetWidth)
             resolveAgainstBase(img, "src")
-            if (img.parent()?.tagName() != "p" && img.parent()?.tagName() != "div") {
+            val parent = img.parent()
+            if (parent?.tagName() == "p" || parent?.tagName() == "div") {
+                liftOutOfText(img, parent)
+            } else {
                 img.wrap("<p style=\"text-align:center;\"></p>")
             }
         }
@@ -206,6 +206,36 @@ class NovelTextRenderer(
         doc.body().html()
     } catch (_: Exception) {
         html
+    }
+
+    /** A table row, a term and its definition each take a line, cells a space apart, and a `pre` keeps
+     *  its line breaks, as they lay out in a WebView. */
+    private fun rebuildBlockLayout(doc: Document) {
+        doc.select("td, th").forEach { cell ->
+            if (cell.previousElementSibling() != null) cell.before(" ")
+            cell.tagName("span")
+        }
+        doc.select("tr, dt, dd").tagName("div")
+        doc.select("pre").forEach { it.html(it.html().replace("\n", "<br>")) }
+    }
+
+    /**
+     * The WebView's stylesheet lays every image out as a block, so text either side of one reads as its
+     * own line there. The paragraph is split around it to match, the image taking the centred block an
+     * image outside a paragraph gets; a side left with nothing to show is dropped.
+     */
+    private fun liftOutOfText(img: Element, parent: Element) {
+        val siblings = parent.childNodes()
+        val showsSomethingElse = siblings.any {
+            it !== img && ((it is TextNode && !it.isBlank) || (it is Element && it.hasText()))
+        }
+        if (!showsSomethingElse) return
+        val after = parent.shallowClone().appendChildren(siblings.drop(siblings.indexOf(img) + 1))
+        parent.after(after)
+        parent.after(Element("p").attr("style", "text-align:center;").appendChild(img))
+        listOf(parent, after)
+            .filter { !it.hasText() && it.selectFirst("img") == null }
+            .forEach(Element::remove)
     }
 
     /** Jsoup answers with the empty string when a value needs a base and there is none, so the
@@ -310,7 +340,6 @@ class NovelTextRenderer(
             }
         }
 
-        private val leadingSpaceInParagraph = Regex("<p>(?: |&#160;|&nbsp;)+")
         private val whitespace = Regex("\\s+")
         private val widthDescriptor = Regex("^(\\d+)w$")
 

@@ -30,6 +30,9 @@ object NovelHtmlUtils {
     private val closingTagRegex = Regex("</\\s*[a-z][a-z0-9:-]*\\s*>", RegexOption.IGNORE_CASE)
     private val stripTagsRegex = Regex("<[^>]+>")
     private val paragraphBreakRegex = Regex("\n{2,}")
+    private val leadingSpaceInParagraph = Regex("<p>(?: |&#160;|&nbsp;)+")
+    private val paragraphTagRegex = Regex("<p[\\s>]", RegexOption.IGNORE_CASE)
+    private val blankLineRegex = Regex("\r?\n\r?\n")
 
     private val titlePatterns = listOf(
         Regex("""<h[1-6][^>]*>.*?</h[1-6]>""", RegexOption.IGNORE_CASE) to true,
@@ -201,6 +204,17 @@ object NovelHtmlUtils {
             prefix = "<div data-reikai-plain-text=\"1\">",
             postfix = "</div>",
         ) { "<p>${escapeHtml(it).replace("\n", "<br>")}</p>" }
+    }
+
+    /**
+     * Turns the blank lines of an HTML chapter with no paragraphs of its own into paragraphs, for both
+     * renderers alike: a WebView collapses a blank line to a space, so leaving it to the text renderer
+     * showed one paragraph there and two in the native mode.
+     */
+    fun wrapBareParagraphs(content: String): String {
+        val trimmed = content.replace(leadingSpaceInParagraph, "<p>")
+        if (paragraphTagRegex.containsMatchIn(trimmed) || !blankLineRegex.containsMatchIn(trimmed)) return trimmed
+        return "<p>" + trimmed.replace("\r\n\r\n", "</p><p>").replace("\n\n", "</p><p>") + "</p>"
     }
 
     private fun escapeHtml(text: String): String {

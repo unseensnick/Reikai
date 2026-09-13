@@ -241,6 +241,7 @@ every release now also ships a foss build with neither in it.
 - **Dragging the manga reader's progress rail now lands inside the chapter the rail is showing.** Dragging it while scrolling across a chapter boundary could jump back into the previous chapter or do nothing at all.
 - **On a grouped manga, Open in browser, Open in WebView and Share now use the site the chapter came from.** They built the link from the source you opened the series under, which often named a page that does not exist.
 - **Download ahead on a grouped manga now fetches the chapters the reader will actually reach next.** It followed the order the sources were stitched in rather than your chapter sort.
+- **Tables, definition lists, preformatted text and pictures inside a sentence now lay out the same in both in-development novel readers.** The native one used to run table cells and list terms together on one line.
 
 ### Light novels
 
@@ -274,6 +275,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **A novel chapter that separates its paragraphs only with blank lines now shows them as paragraphs in every reading mode.** The web page readers ran them together into one block.
 - **Time spent reading a novel now keeps counting after you switch away and come back.** It was recorded as none from that point until the next chapter.
 - **Read aloud in a novel no longer skips a very long paragraph.** It reads the whole thing, broken at its sentences, where the voice engine used to reject anything past its own size limit and move on in silence.
 - **Novel auto-scroll now moves at the speed you set, rather than creeping along at a fraction of it in visible jerks.** The reader page's own stylesheet was animating every step of the scroll.

@@ -130,6 +130,21 @@ class NovelContentPipelineTest {
         stripped shouldContain "First line<br>second line"
     }
 
+    /** In the pipeline rather than one renderer, so both reading modes show the same paragraphs. */
+    @Test
+    fun `a blank line in an HTML chapter with no paragraphs starts a new paragraph`() = runTest {
+        val processed = pipeline.process("Para <b>one</b>.\n\nPara two.", config("/book/ch1"))
+
+        processed.text shouldBe "<p>Para <b>one</b>.</p><p>Para two.</p>"
+    }
+
+    @Test
+    fun `a chapter that has its own paragraphs keeps them as they are`() = runTest {
+        val processed = pipeline.process("<p>One</p>\n\n<p class=\"x\">Two</p>", config("/book/ch1"))
+
+        processed.text shouldBe "<p>One</p>\n\n<p class=\"x\">Two</p>"
+    }
+
     @Test
     fun `a script block is stripped from an HTML chapter by default`() = runTest {
         val processed = pipeline.process("<p>a</p><script>evil()</script>", config("/book/ch1.html"))

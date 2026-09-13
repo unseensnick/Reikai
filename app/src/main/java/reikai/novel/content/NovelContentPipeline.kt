@@ -62,6 +62,8 @@ class NovelContentPipeline(private val preferences: NovelPreferences) {
         if (translator != null) content = translator(content)
 
         if (!pre.isPlainText) {
+            // Before the sanitiser, which must see the markup it lets through as the final markup.
+            content = NovelHtmlUtils.wrapBareParagraphs(content)
             content = NovelHtmlUtils.sanitizeForRender(
                 content,
                 target = config.target,
