@@ -63,6 +63,7 @@ class NovelTtsService : Service() {
     private var foreground = false
     private var lastStartId = 0
     private var noisyRegistered = false
+    private val mediaButtonClaim = TtsMediaButtonClaim()
 
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -179,6 +180,7 @@ class NovelTtsService : Service() {
     private fun render(state: NovelTtsSession.State) {
         carryOut(focusPolicy.onPlayback(state.playback))
         setNoisyReceiver(state.playback == TtsPlayback.Playing)
+        mediaButtonClaim.hold(state.playback == TtsPlayback.Playing)
         if (state.playback == TtsPlayback.Stopped) {
             // Before the first start command there is nothing to stop yet; that command stops instead.
             if (foreground) stopForegroundAndSelf()
@@ -357,6 +359,7 @@ class NovelTtsService : Service() {
 
     override fun onDestroy() {
         setNoisyReceiver(false)
+        mediaButtonClaim.release()
         AudioManagerCompat.abandonAudioFocusRequest(audioManager, focusRequest)
         mediaSession.isActive = false
         mediaSession.release()
