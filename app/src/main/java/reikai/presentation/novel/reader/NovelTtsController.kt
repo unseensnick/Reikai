@@ -90,16 +90,31 @@ class NovelTtsController(
         NovelTtsService.start(context)
     }
 
-    private fun ensureEngine(): NovelTtsEngine =
-        engine ?: SystemTtsEngine(context, preferences.readerTtsEngine().get()) {
+    private fun ensureEngine(): NovelTtsEngine {
+        engine?.let { return it }
+        lateinit var built: NovelTtsEngine
+        built = SystemTtsEngine(context, preferences.readerTtsEngine().get()) { ready ->
             mainHandler.post {
+                // Dropped rather than kept, so the next play builds a fresh engine instead of waiting on
+                // this one forever. Only if it is still the current one: an engine change replaced it.
+                if (!ready) {
+                    if (engine === built) {
+                        built.shutdown()
+                        engine = null
+                        if (_playback.value != TtsPlayback.Stopped) stop()
+                    }
+                    return@post
+                }
                 applyEngineSettings()
                 if (startPending) {
                     startPending = false
                     issueStart()
                 }
             }
-        }.also { engine = it }
+        }
+        engine = built
+        return built
+    }
 
     private fun applyEngineSettings() {
         val e = engine ?: return

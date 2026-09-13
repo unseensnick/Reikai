@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.expandToUnits
@@ -655,6 +656,24 @@ class NovelReaderViewModel(
         }
     }
 
+    /** Above the init block, whose first load can fail and report it here. */
+    val readAloud = ReadAloudController(
+        scope = viewModelScope,
+        preferences = novelPreferences,
+        createEngine = { enginePackage, onInit -> SystemTtsEngine(context, enginePackage, onInit) },
+        navigation = object : ReadAloudNavigation {
+            override fun chapterAfter(chapterId: Long) = this@NovelReaderViewModel.chapterAfter(chapterId)
+
+            // Forward, so it finishes the chapter it leaves the way the next-chapter button does.
+            override fun openForReadAloud(chapterId: Long) = goTo(chapterId, markDepartedRead = true)
+
+            override fun titleOf(chapterId: Long) =
+                windowState.value.chapters.firstOrNull { it.chapterId == chapterId }?.title
+                    ?: loadedChapter.value?.title.orEmpty()
+        },
+        transport = NovelTtsSessionTransport(context),
+    )
+
     init {
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
@@ -681,13 +700,20 @@ class NovelReaderViewModel(
     /** Jump to [chapterId] from the chapter list. A no-op on the chapter already open. */
     fun open(chapterId: Long) {
         if (chapterId == currentChapterId && loadedChapter.value != null) return
+        readAloud.onUserNavigated()
         goTo(chapterId)
     }
 
     /** Forward only, so it is the step that can mark the departed chapter read. */
-    fun nextChapter() = neighbours.value.next?.let { goTo(it, markDepartedRead = true) } ?: Unit
+    fun nextChapter() = neighbours.value.next?.let {
+        readAloud.onUserNavigated()
+        goTo(it, markDepartedRead = true)
+    } ?: Unit
 
-    fun previousChapter() = neighbours.value.previous?.let { goTo(it) } ?: Unit
+    fun previousChapter() = neighbours.value.previous?.let {
+        readAloud.onUserNavigated()
+        goTo(it)
+    } ?: Unit
 
     /**
      * The renderer scrolled into a different chapter of the window. Not a step: nothing is fetched
@@ -819,6 +845,7 @@ class NovelReaderViewModel(
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
                 if (loadedChapter.value != null && chapterReadStartTime == null) restartReadTimer()
                 loadState.value = ReaderLoadState.Failed(e.message, canKeepReading = loadedChapter.value != null)
+                readAloud.onChapterLoadFailed()
             }
         }
     }
@@ -1345,6 +1372,10 @@ class NovelReaderViewModel(
     }
 
     suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> = textLoader.load(chapter)
+
+    override fun onCleared() {
+        readAloud.shutdown()
+    }
 
     private data class TypePrefs(
         val fontSize: Int,

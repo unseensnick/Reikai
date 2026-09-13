@@ -11,8 +11,8 @@ import java.util.Locale
 
 /**
  * [NovelTtsEngine] backed by Android's [TextToSpeech]. Initialization is asynchronous, so callers
- * must wait for [onReady] (or check [isReady]) before [speak]; a speak before then no-ops its
- * `onDone` so the caller does not spin the chapter forward silently. One utterance is in flight at a
+ * must wait for [onInit] (or check [isReady]) before [speak]; [onInit] reports failure too, since an
+ * engine that never starts would otherwise leave the caller waiting. One utterance is in flight at a
  * time (each [speak] flushes the previous), so a single pending callback slot is enough.
  * [TextToSpeech] fires its progress callbacks on a binder thread, and the caller marshals to the main
  * thread itself before touching the WebView.
@@ -20,7 +20,7 @@ import java.util.Locale
 class SystemTtsEngine(
     context: Context,
     enginePackage: String,
-    private val onReady: () -> Unit,
+    private val onInit: (ready: Boolean) -> Unit,
 ) : NovelTtsEngine {
 
     @Volatile
@@ -34,7 +34,7 @@ class SystemTtsEngine(
         context.applicationContext,
         { status ->
             isReady = status == TextToSpeech.SUCCESS
-            if (isReady) onReady()
+            onInit(isReady)
         },
         enginePackage.ifBlank { null },
     ).apply {

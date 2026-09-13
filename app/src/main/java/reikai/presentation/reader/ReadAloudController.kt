@@ -1,0 +1,338 @@
+package reikai.presentation.reader
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.tts.NovelTtsEngine
+import reikai.domain.novel.tts.TtsPlayback
+import kotlin.math.abs
+
+data class ReadAloudState(
+    val playback: TtsPlayback = TtsPlayback.Stopped,
+    val position: ReadAloudPosition? = null,
+    /** How many paragraphs the chapter being read has, 0 while nothing is. */
+    val paragraphCount: Int = 0,
+)
+
+/** The chapters read-aloud can move through, answered by the reader model. */
+interface ReadAloudNavigation {
+
+    /** The chapter a forward step from [chapterId] lands on, null when there is none. */
+    fun chapterAfter(chapterId: Long): Long?
+
+    /** Opens [chapterId] as a forward step that is not the reader navigating away from read-aloud. */
+    fun openForReadAloud(chapterId: Long)
+
+    fun titleOf(chapterId: Long): String
+}
+
+/** The media notification's side of playback. */
+interface ReadAloudTransport {
+
+    /** Routes the notification's controls to these and brings the notification up. */
+    fun connect(onPlay: () -> Unit, onPause: () -> Unit, onStop: () -> Unit)
+
+    fun publish(playback: TtsPlayback, title: String)
+
+    /** Takes the notification down, unless another reader has connected since. */
+    fun release()
+}
+
+/**
+ * Read-aloud on the shared reader host: which paragraph is spoken, over [NovelTtsEngine] for the voice
+ * and a [ReadAloudSurface] for the text. Speech outlives the renderer, which the Activity rebuilds, so
+ * the surface comes and goes through [attach] and [detach]. Everything runs on [scope], so call from
+ * its thread; engine callbacks arrive on a binder thread and are moved onto it.
+ */
+class ReadAloudController(
+    private val scope: CoroutineScope,
+    private val preferences: NovelPreferences,
+    private val createEngine: (enginePackage: String, onInit: (ready: Boolean) -> Unit) -> NovelTtsEngine,
+    private val navigation: ReadAloudNavigation,
+    private val transport: ReadAloudTransport,
+) {
+
+    val state: StateFlow<ReadAloudState>
+        field = MutableStateFlow(ReadAloudState())
+
+    private var surface: ReadAloudSurface? = null
+
+    private var engine: NovelTtsEngine? = null
+    private var enginePackage = ""
+    private var engineReady = false
+
+    /** Raised whenever an engine is dropped, so a late init from it is not taken for the current one's. */
+    private var engineGeneration = 0
+
+    /** A paragraph is waiting for the engine to finish starting. */
+    private var awaitingInit = false
+
+    private var playback = TtsPlayback.Stopped
+    private var chapterId: Long? = null
+    private var paragraphs: List<String> = emptyList()
+    private var position: ReadAloudPosition? = null
+
+    /** The chapter opened for read-aloud to carry on in once the renderer lands on it. */
+    private var pendingChapter: Long? = null
+
+    /** Raised by every speak and every command, so a finish from speech since replaced is ignored. */
+    private var token = 0
+    private var job: Job? = null
+
+    private val remotePlay = { play() }
+    private val remotePause = { pause() }
+    private val remoteStop = { stop() }
+
+    init {
+        preferences.readerTtsRate().changes().onEach { readyEngine()?.setRate(it) }.launchIn(scope)
+        preferences.readerTtsPitch().changes().onEach { readyEngine()?.setPitch(it) }.launchIn(scope)
+        preferences.readerTtsVoice().changes().onEach { readyEngine()?.setVoice(it) }.launchIn(scope)
+        preferences.readerTtsEngine().changes()
+            .onEach {
+                if (engine == null || it == enginePackage) return@onEach
+                discardEngine()
+                if (playback != TtsPlayback.Stopped) stop()
+            }
+            .launchIn(scope)
+    }
+
+    fun attach(surface: ReadAloudSurface) {
+        this.surface = surface
+    }
+
+    fun detach(surface: ReadAloudSurface) {
+        if (this.surface === surface) this.surface = null
+    }
+
+    fun play() {
+        when (playback) {
+            TtsPlayback.Playing -> Unit
+            TtsPlayback.Paused -> command { playAt(position?.paragraph ?: 0) }
+            TtsPlayback.Stopped -> readFromHere()
+        }
+    }
+
+    fun readFromHere() = command { startFromViewport() }
+
+    fun pause() {
+        if (playback != TtsPlayback.Playing) return
+        token++
+        job?.cancel()
+        awaitingInit = false
+        engine?.stop()
+        setPlayback(TtsPlayback.Paused)
+    }
+
+    fun nextParagraph() = step(1)
+
+    fun previousParagraph() = step(-1)
+
+    fun seekToParagraph(index: Int) {
+        if (chapterId == null || paragraphs.isEmpty()) return
+        command { playAt(index.coerceIn(0, paragraphs.lastIndex)) }
+    }
+
+    fun stop() {
+        token++
+        job?.cancel()
+        job = null
+        pendingChapter = null
+        awaitingInit = false
+        engine?.stop()
+        chapterId = null
+        paragraphs = emptyList()
+        position = null
+        playback = TtsPlayback.Stopped
+        surface?.highlight(null)
+        publish()
+    }
+
+    fun shutdown() {
+        stop()
+        discardEngine()
+        transport.release()
+    }
+
+    /** The reader opened a chapter itself, which read-aloud does not follow. */
+    fun onUserNavigated() {
+        if (playback != TtsPlayback.Stopped) stop()
+    }
+
+    /** Safe from any thread, since a load fails on the loader's. */
+    fun onChapterLoadFailed() {
+        scope.launch { if (pendingChapter != null) stop() }
+    }
+
+    /**
+     * The renderer started over on a window anchored at [landedId]. Either that is the chapter read-aloud
+     * opened, or the same text was laid out again (a rotation, a mode switch, a setting reload), where
+     * the paragraphs may have shifted and speech already going must not restart.
+     */
+    fun onRendererLanded(landedId: Long) {
+        if (pendingChapter == landedId) {
+            command {
+                val landed = ask { paragraphs(landedId) } ?: return@command stop()
+                if (playback == TtsPlayback.Paused) holdAt(landedId, landed) else beginChapter(landedId, landed, 0)
+            }
+            return
+        }
+        if (playback != TtsPlayback.Stopped) scope.launch { relocate() }
+    }
+
+    private fun step(delta: Int) {
+        if (position == null) return readFromHere()
+        command { playAt(((position?.paragraph ?: 0) + delta).coerceAtLeast(0)) }
+    }
+
+    /** Replaces whatever was in progress, including the paragraph being spoken, with [block]. */
+    private fun command(block: suspend () -> Unit) {
+        token++
+        pendingChapter = null
+        job?.cancel()
+        job = scope.launch { block() }
+    }
+
+    private suspend fun startFromViewport() {
+        val at = ask { firstVisibleParagraph() } ?: return stop()
+        val shown = ask { paragraphs(at.chapterId) } ?: return stop()
+        beginChapter(at.chapterId, shown, at.paragraph)
+    }
+
+    private suspend fun beginChapter(id: Long, chapter: List<String>, index: Int) {
+        chapterId = id
+        paragraphs = chapter
+        if (chapter.isEmpty()) return endChapter()
+        playAt(index.coerceIn(0, chapter.lastIndex))
+    }
+
+    private suspend fun playAt(index: Int) {
+        val id = chapterId ?: return stop()
+        if (index > paragraphs.lastIndex) return endChapter()
+        position = ReadAloudPosition(id, index)
+        setPlayback(TtsPlayback.Playing)
+        speakCurrent()
+    }
+
+    private suspend fun endChapter() {
+        val ended = chapterId ?: return stop()
+        if (!preferences.readerTtsAutoPageAdvance().get()) return stop()
+        val next = navigation.chapterAfter(ended) ?: return stop()
+        // A renderer holding a window already has it, and carrying on there keeps the reader's scroll.
+        val held = ask { paragraphs(next) }
+        if (held != null) return beginChapter(next, held, 0)
+        pendingChapter = next
+        navigation.openForReadAloud(next)
+    }
+
+    /** Paused across a chapter handoff: take the new chapter up without speaking it. */
+    private fun holdAt(id: Long, chapter: List<String>) {
+        chapterId = id
+        paragraphs = chapter
+        position = ReadAloudPosition(id, 0)
+        surface?.highlight(position)
+        publish()
+    }
+
+    private fun speakCurrent() {
+        val at = position ?: return
+        surface?.highlight(at)
+        val speaker = engine ?: buildEngine()
+        // Building can fail at once, which has already stopped playback and dropped the engine.
+        if (playback != TtsPlayback.Playing || engine !== speaker) return
+        if (!engineReady) {
+            awaitingInit = true
+            return
+        }
+        val spoken = ++token
+        speaker.speak(paragraphs[at.paragraph]) { scope.launch { onParagraphDone(spoken) } }
+    }
+
+    private fun onParagraphDone(spoken: Int) {
+        if (spoken != token || playback != TtsPlayback.Playing) return
+        command { playAt((position?.paragraph ?: 0) + 1) }
+    }
+
+    private suspend fun relocate() {
+        val id = chapterId ?: return
+        val laidOut = ask { paragraphs(id) }?.takeIf { it.isNotEmpty() } ?: return
+        // Read after the query, since speech may have moved on while the renderer answered.
+        val at = position?.takeIf { it.chapterId == id } ?: return
+        val spokenText = paragraphs.getOrNull(at.paragraph)
+        val index = laidOut.indices
+            .filter { laidOut[it] == spokenText }
+            .minByOrNull { abs(it - at.paragraph) }
+            ?: at.paragraph.coerceIn(0, laidOut.lastIndex)
+        paragraphs = laidOut
+        position = ReadAloudPosition(id, index)
+        surface?.highlight(position)
+        publish()
+    }
+
+    private fun buildEngine(): NovelTtsEngine {
+        val generation = ++engineGeneration
+        enginePackage = preferences.readerTtsEngine().get()
+        engineReady = false
+        val built = createEngine(enginePackage) { ready -> scope.launch { onEngineInit(generation, ready) } }
+        // An init that failed before the constructor returned has already discarded this generation.
+        if (generation == engineGeneration) engine = built else built.shutdown()
+        return built
+    }
+
+    private fun onEngineInit(generation: Int, ready: Boolean) {
+        if (generation != engineGeneration) return
+        if (!ready) {
+            discardEngine()
+            stop()
+            return
+        }
+        engineReady = true
+        engine?.let {
+            it.setRate(preferences.readerTtsRate().get())
+            it.setPitch(preferences.readerTtsPitch().get())
+            it.setVoice(preferences.readerTtsVoice().get())
+        }
+        if (awaitingInit) {
+            awaitingInit = false
+            if (playback == TtsPlayback.Playing) speakCurrent()
+        }
+    }
+
+    private fun discardEngine() {
+        engineGeneration++
+        engine?.shutdown()
+        engine = null
+        engineReady = false
+        awaitingInit = false
+    }
+
+    private fun readyEngine() = engine?.takeIf { engineReady }
+
+    /** A WebView torn down mid-query may never answer, so no question waits on it for long. */
+    private suspend fun <T> ask(query: suspend ReadAloudSurface.() -> T?): T? {
+        val asked = surface ?: return null
+        return withTimeoutOrNull(SURFACE_TIMEOUT_MS) { asked.query() }
+    }
+
+    private fun setPlayback(value: TtsPlayback) {
+        if (value == TtsPlayback.Playing && playback != TtsPlayback.Playing) {
+            transport.connect(remotePlay, remotePause, remoteStop)
+        }
+        playback = value
+        publish()
+    }
+
+    private fun publish() {
+        state.value = ReadAloudState(playback, position, paragraphs.size)
+        transport.publish(playback, chapterId?.let(navigation::titleOf).orEmpty())
+    }
+
+    private companion object {
+        const val SURFACE_TIMEOUT_MS = 3_000L
+    }
+}
