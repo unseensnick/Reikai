@@ -311,6 +311,15 @@
     <string name="ln_no_sources">No light novel sources installed. Install one from the Extensions tab.</string>
     <string name="channel_ln_plugin_updates">Light novel plugin updates</string>
     <string name="channel_novel_tts">Novel read aloud</string>
+    <!-- RK: novel read-aloud notification and sleep timer -->
+    <string name="tts_reading_aloud">Reading aloud</string>
+    <string name="tts_novel_read_aloud">Novel read aloud</string>
+    <string name="tts_stop">Stop</string>
+    <string name="tts_previous_paragraph">Previous paragraph</string>
+    <string name="tts_next_paragraph">Next paragraph</string>
+    <string name="tts_sleep_timer">Sleep timer</string>
+    <string name="tts_sleep_timer_end_of_chapter">End of chapter</string>
+    <string name="tts_sleep_timer_ends_with_chapter">Stops at the end of this chapter</string>
     <string name="ln_plugins_update_available">%d light novel plugin update(s) available</string>
     <!-- RK: light-novel chapter updates (P5 S7) -->
     <string name="novel_library_update">Light novel updates</string>

@@ -13,17 +13,31 @@ class NovelTtsSessionTransport(private val context: Context) : ReadAloudTranspor
 
     private var installed: (() -> Unit)? = null
 
-    override fun connect(onPlay: () -> Unit, onPause: () -> Unit, onStop: () -> Unit) {
+    override fun connect(
+        onPlay: () -> Unit,
+        onPause: () -> Unit,
+        onStop: () -> Unit,
+        onNext: () -> Unit,
+        onPrevious: () -> Unit,
+        onSeek: (paragraph: Int) -> Unit,
+    ) {
         NovelTtsSession.onPlay = onPlay
         NovelTtsSession.onPause = onPause
         NovelTtsSession.onStop = onStop
+        NovelTtsSession.onNext = onNext
+        NovelTtsSession.onPrevious = onPrevious
+        NovelTtsSession.onSeek = onSeek
         installed = onPlay
         NovelTtsService.start(context)
     }
 
-    override fun publish(playback: TtsPlayback, title: String) {
-        if (owns()) NovelTtsSession.state.value = NovelTtsSession.State(playback, title)
+    override fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int) {
+        if (!owns()) return
+        val capability = NovelTtsSession.Capability.Paragraphs(paragraph, paragraphCount)
+        NovelTtsSession.publish(NovelTtsSession.State(playback, title, capability))
     }
+
+    override fun takeStopAtChapterEnd() = owns() && NovelTtsSession.sleepTimer.takeEndOfChapter()
 
     override fun release() {
         if (owns()) NovelTtsSession.reset()

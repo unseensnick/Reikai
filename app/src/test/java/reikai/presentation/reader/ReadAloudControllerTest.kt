@@ -74,6 +74,40 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `playing publishes the paragraph and how many the chapter has`() = runTest {
+        playing()
+
+        transport.paragraph shouldBe (1 to 3)
+    }
+
+    @Test
+    fun `the notification's next steps a paragraph on`() = runTest {
+        playing()
+
+        act { transport.onNext() }
+
+        engine.spoken shouldBe listOf("b", "c")
+    }
+
+    @Test
+    fun `the notification's previous steps a paragraph back`() = runTest {
+        playing()
+
+        act { transport.onPrevious() }
+
+        engine.spoken shouldBe listOf("b", "a")
+    }
+
+    @Test
+    fun `the notification's seek speaks the paragraph sought`() = runTest {
+        playing()
+
+        act { transport.onSeek(0) }
+
+        engine.spoken shouldBe listOf("b", "a")
+    }
+
+    @Test
     fun `nothing is spoken before the engine has started`() = runTest {
         val controller = controller()
 
@@ -336,6 +370,33 @@ class ReadAloudControllerTest {
         act { engine.finishLast() }
 
         engine.spoken shouldBe listOf("c", "x")
+    }
+
+    @Test
+    fun `a sleep timer set for the chapter end stops there instead of reading on`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.chapters[2L] = listOf("x", "y")
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        transport.stopAtChapterEnd = true
+
+        act { engine.finishLast() }
+
+        (controller.state.value.playback to engine.spoken) shouldBe (TtsPlayback.Stopped to listOf("c"))
+    }
+
+    @Test
+    fun `a sleep timer set for the chapter end does not open the next chapter`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        playing()
+        transport.stopAtChapterEnd = true
+
+        act { engine.finishLast() }
+
+        navigation.opened shouldBe emptyList()
     }
 
     @Test
@@ -620,15 +681,33 @@ class ReadAloudControllerTest {
     private class FakeTransport : ReadAloudTransport {
         var connects = 0
         var published: TtsPlayback? = null
+        var paragraph: Pair<Int, Int>? = null
         var released = false
+        var stopAtChapterEnd = false
+        var onNext: () -> Unit = {}
+        var onPrevious: () -> Unit = {}
+        var onSeek: (Int) -> Unit = {}
 
-        override fun connect(onPlay: () -> Unit, onPause: () -> Unit, onStop: () -> Unit) {
+        override fun connect(
+            onPlay: () -> Unit,
+            onPause: () -> Unit,
+            onStop: () -> Unit,
+            onNext: () -> Unit,
+            onPrevious: () -> Unit,
+            onSeek: (paragraph: Int) -> Unit,
+        ) {
             connects++
+            this.onNext = onNext
+            this.onPrevious = onPrevious
+            this.onSeek = onSeek
         }
 
-        override fun publish(playback: TtsPlayback, title: String) {
+        override fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int) {
             published = playback
+            this.paragraph = paragraph to paragraphCount
         }
+
+        override fun takeStopAtChapterEnd() = stopAtChapterEnd.also { stopAtChapterEnd = false }
 
         override fun release() {
             released = true

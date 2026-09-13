@@ -36,9 +36,19 @@ interface ReadAloudNavigation {
 interface ReadAloudTransport {
 
     /** Routes the notification's controls to these and brings the notification up. */
-    fun connect(onPlay: () -> Unit, onPause: () -> Unit, onStop: () -> Unit)
+    fun connect(
+        onPlay: () -> Unit,
+        onPause: () -> Unit,
+        onStop: () -> Unit,
+        onNext: () -> Unit,
+        onPrevious: () -> Unit,
+        onSeek: (paragraph: Int) -> Unit,
+    )
 
-    fun publish(playback: TtsPlayback, title: String)
+    fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int)
+
+    /** True once when the sleep timer is set to stop at this chapter's end instead of reading on. */
+    fun takeStopAtChapterEnd(): Boolean
 
     /** Takes the notification down, unless another reader has connected since. */
     fun release()
@@ -88,6 +98,9 @@ class ReadAloudController(
     private val remotePlay = { play() }
     private val remotePause = { pause() }
     private val remoteStop = { stop() }
+    private val remoteNext = { nextParagraph() }
+    private val remotePrevious = { previousParagraph() }
+    private val remoteSeek = { index: Int -> seekToParagraph(index) }
 
     init {
         preferences.readerTtsRate().changes().onEach { readyEngine()?.setRate(it) }.launchIn(scope)
@@ -221,6 +234,7 @@ class ReadAloudController(
 
     private suspend fun endChapter() {
         val ended = chapterId ?: return stop()
+        if (transport.takeStopAtChapterEnd()) return stop()
         if (!preferences.readerTtsAutoPageAdvance().get()) return stop()
         val next = navigation.chapterAfter(ended) ?: return stop()
         // A renderer holding a window already has it, and carrying on there keeps the reader's scroll.
@@ -321,7 +335,7 @@ class ReadAloudController(
 
     private fun setPlayback(value: TtsPlayback) {
         if (value == TtsPlayback.Playing && playback != TtsPlayback.Playing) {
-            transport.connect(remotePlay, remotePause, remoteStop)
+            transport.connect(remotePlay, remotePause, remoteStop, remoteNext, remotePrevious, remoteSeek)
         }
         playback = value
         publish()
@@ -329,7 +343,8 @@ class ReadAloudController(
 
     private fun publish() {
         state.value = ReadAloudState(playback, position, paragraphs.size)
-        transport.publish(playback, chapterId?.let(navigation::titleOf).orEmpty())
+        val title = chapterId?.let(navigation::titleOf).orEmpty()
+        transport.publish(playback, title, position?.paragraph ?: 0, paragraphs.size)
     }
 
     private companion object {

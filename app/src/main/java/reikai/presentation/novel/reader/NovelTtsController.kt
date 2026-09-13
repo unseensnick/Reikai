@@ -78,7 +78,7 @@ class NovelTtsController(
     }
 
     private fun publishSession() {
-        NovelTtsSession.state.value = NovelTtsSession.State(_playback.value, nowPlaying)
+        NovelTtsSession.publish(NovelTtsSession.State(_playback.value, nowPlaying))
     }
 
     /** Point the shared session's transport actions at this controller and bring up the foreground
