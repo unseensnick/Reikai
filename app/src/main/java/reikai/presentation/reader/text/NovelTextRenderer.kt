@@ -84,7 +84,7 @@ class NovelTextRenderer(
                     normalizeHtmlForRendering(html, baseUrl),
                     Html.FROM_HTML_MODE_LEGACY,
                     imageGetter,
-                    null,
+                    RubyReadingTagHandler,
                 )
                 SpannableStringBuilder(spanned)
                     .also { collapseBlankLines(it) }

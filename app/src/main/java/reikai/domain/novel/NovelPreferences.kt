@@ -9,6 +9,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.tts.TtsHighlightStyle
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -258,6 +259,21 @@ class NovelPreferences(
 
     /** Scroll the spoken paragraph near the top (vs centering it) as TTS advances. */
     fun readerTtsScrollToTop() = preferenceStore.getBoolean("ln_reader_tts_scroll_to_top", true)
+
+    /** Mark the paragraph being spoken. Off still follows it on screen when [readerTtsKeepInView] is on. */
+    fun readerTtsHighlight() = preferenceStore.getBoolean("ln_reader_tts_highlight", true)
+
+    fun readerTtsHighlightStyle() =
+        preferenceStore.getEnum("ln_reader_tts_highlight_style", TtsHighlightStyle.BACKGROUND)
+
+    /** Packed ARGB: the mark itself, and the text drawn over a background mark. */
+    fun readerTtsHighlightColor() = preferenceStore.getInt("ln_reader_tts_highlight_color", 0xFFFFD54F.toInt())
+
+    fun readerTtsHighlightTextColor() =
+        preferenceStore.getInt("ln_reader_tts_highlight_text_color", 0xFF1A1A1A.toInt())
+
+    /** Scroll the spoken paragraph back on screen when it is not fully on it. */
+    fun readerTtsKeepInView() = preferenceStore.getBoolean("ln_reader_tts_keep_in_view", true)
 
     /** Persisted floating-puck position (dp offsets within the reader). [Int.MIN_VALUE] = not yet
      *  placed, so the puck uses its default anchor. */

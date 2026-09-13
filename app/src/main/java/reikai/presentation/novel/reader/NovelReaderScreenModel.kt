@@ -39,6 +39,7 @@ import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.isChapterComplete
@@ -287,7 +288,16 @@ class NovelReaderScreenModel(
                 novelPreferences.readerVolumeButtonsInverted().changes(),
                 novelPreferences.readerVolumeButtonsFraction().changes(),
             ) { enabled, inverted, fraction -> VolumePrefs(enabled, inverted, fraction) },
-        ) { tts, flags, scroll, volume -> ReaderExtraPrefs(tts, flags, scroll, volume) },
+            combine(
+                novelPreferences.readerTtsHighlight().changes(),
+                novelPreferences.readerTtsHighlightStyle().changes(),
+                novelPreferences.readerTtsHighlightColor().changes(),
+                novelPreferences.readerTtsHighlightTextColor().changes(),
+                novelPreferences.readerTtsKeepInView().changes(),
+            ) { highlight, style, color, textColor, keepInView ->
+                TtsHighlightPrefs(highlight, style, color, textColor, keepInView)
+            },
+        ) { tts, flags, scroll, volume, highlight -> ReaderExtraPrefs(tts, flags, scroll, volume, highlight) },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
             fontSize = display.type.fontSize,
@@ -308,6 +318,11 @@ class NovelReaderScreenModel(
             ttsPitch = extra.tts.pitch,
             ttsAutoPageAdvance = extra.tts.autoPageAdvance,
             ttsScrollToTop = extra.tts.scrollToTop,
+            ttsHighlight = extra.highlight.enabled,
+            ttsHighlightStyle = extra.highlight.style,
+            ttsHighlightColor = extra.highlight.color,
+            ttsHighlightTextColor = extra.highlight.textColor,
+            ttsKeepInView = extra.highlight.keepInView,
             bionicReading = extra.flags.bionicReading,
             removeExtraSpacing = extra.flags.removeExtraSpacing,
             tapToScroll = extra.flags.tapToScroll,
@@ -350,6 +365,11 @@ class NovelReaderScreenModel(
             ttsPitch = novelPreferences.readerTtsPitch().get(),
             ttsAutoPageAdvance = novelPreferences.readerTtsAutoPageAdvance().get(),
             ttsScrollToTop = novelPreferences.readerTtsScrollToTop().get(),
+            ttsHighlight = novelPreferences.readerTtsHighlight().get(),
+            ttsHighlightStyle = novelPreferences.readerTtsHighlightStyle().get(),
+            ttsHighlightColor = novelPreferences.readerTtsHighlightColor().get(),
+            ttsHighlightTextColor = novelPreferences.readerTtsHighlightTextColor().get(),
+            ttsKeepInView = novelPreferences.readerTtsKeepInView().get(),
             bionicReading = novelPreferences.readerBionicReading().get(),
             removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
             tapToScroll = novelPreferences.readerTapToScroll().get(),
@@ -912,11 +932,19 @@ class NovelReaderScreenModel(
         val railOnLeft: Boolean,
     )
     private data class VolumePrefs(val enabled: Boolean, val inverted: Boolean, val fraction: Float)
+    private data class TtsHighlightPrefs(
+        val enabled: Boolean,
+        val style: TtsHighlightStyle,
+        val color: Int,
+        val textColor: Int,
+        val keepInView: Boolean,
+    )
     private data class ReaderExtraPrefs(
         val tts: TtsPrefs,
         val flags: FlagPrefs,
         val scroll: ScrollPrefs,
         val volume: VolumePrefs,
+        val highlight: TtsHighlightPrefs,
     )
 
     override fun onDispose() {

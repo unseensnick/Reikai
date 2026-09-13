@@ -6,8 +6,8 @@
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
  * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
- * __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_NO_NEXT__, __LABEL_DOWNLOADED__,
- * __DOCUMENT_TOKEN__.
+ * __READ_ALOUD__, __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_NO_NEXT__,
+ * __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__.
  */
 (function () {
   // The token is in this script's own text. Removed while the engine still runs ahead of the chapter,
@@ -34,6 +34,8 @@
   var EDGE_TOLERANCE = 2;
   // How long a restore waits for the opening chapter's images before seeking anyway. See start().
   var IMAGE_WAIT_MS = 3000;
+  // How far the read-aloud outline stands off its paragraph's text, in CSS pixels.
+  var OUTLINE_PAD_PX = 4;
 
   // Resolved by the host, since the page has no resources of its own.
   var labels = {
@@ -47,6 +49,8 @@
     tapToScroll: __TAP_TO_SCROLL__,
     swipe: __SWIPE__,
     bionic: __BIONIC__,
+    // { highlight, style, color, textColor, keepInView, scrollToTop }, from NovelWebDocument.readAloudJson.
+    readAloud: __READ_ALOUD__,
   };
 
   var boundaries = [];
@@ -117,6 +121,7 @@
     boundaries = next;
     reportFits();
     reportEnds();
+    readAloud.reposition();
   }
 
   /* The last answer sent per chapter, so a rebuild that changes nothing says nothing. */
@@ -481,9 +486,225 @@
 
   // endregion
 
+  // region read-aloud
+
+  /*
+   * The chapter as read-aloud counts it, by the rule the native renderer applies (ReadAloudText.kt): a
+   * paragraph is a non-blank line of what the page shows, ruby readings left out. innerText is what the
+   * page shows, so it is read with the readings hidden for that one synchronous read, which never
+   * paints. Each paragraph also gets a Range over its text nodes, found by matching its non-space
+   * characters in order, which the mark is drawn over and the follow measures.
+   */
+  var readAloud = (function () {
+    var OBJECT_REPLACEMENT = String.fromCharCode(0xFFFC);
+    var SPACE = /\s/;
+    var MARKS = ['rk-tts-background', 'rk-tts-underline'];
+    // Per chapter id, dropped whenever the chapters' DOM changes, since a Range over a replaced text
+    // node collapses: bionic emphasis, an insert and a chapter's own script all replace some.
+    var cache = {};
+    var spoken = null;
+    var overlay = null;
+
+    function chapterElement(id) {
+      return document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
+    }
+
+    function normalise(line) {
+      return line.split(OBJECT_REPLACEMENT).join('').replace(/\s+/g, ' ').trim();
+    }
+
+    function build(el) {
+      var root = document.documentElement;
+      root.classList.add('rk-readings-hidden');
+      var shown;
+      try {
+        shown = el.innerText;
+      } finally {
+        root.classList.remove('rk-readings-hidden');
+      }
+      var texts = shown.split('\n').map(normalise).filter(function (line) { return line.length > 0; });
+      var chars = [], nodes = [], offsets = [];
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          var parent = node.parentElement;
+          return parent && parent.closest('rt, rp, script, style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      while (walker.nextNode()) {
+        var node = walker.currentNode;
+        var value = node.nodeValue;
+        for (var i = 0; i < value.length; i++) {
+          if (SPACE.test(value[i])) continue;
+          chars.push(value[i]);
+          nodes.push(node);
+          offsets.push(i);
+        }
+      }
+      var flat = chars.join('');
+      var cursor = 0;
+      // Searched rather than walked in step, so text the page hides (and innerText leaves out) is skipped.
+      var ranges = texts.map(function (text) {
+        var key = text.replace(/\s/g, '');
+        var at = flat.indexOf(key, cursor);
+        if (at < 0) return null;
+        cursor = at + key.length;
+        var last = at + key.length - 1;
+        var range = document.createRange();
+        range.setStart(nodes[at], offsets[at]);
+        range.setEnd(nodes[last], offsets[last] + 1);
+        return range;
+      });
+      return { texts: texts, ranges: ranges };
+    }
+
+    function entry(id) {
+      if (!cache[id]) {
+        var el = chapterElement(id);
+        if (!el) return null;
+        cache[id] = build(el);
+      }
+      return cache[id];
+    }
+
+    /* The status-bar inset the chapter's own padding clears, which the screen's top is taken to be. */
+    function insetTop() {
+      return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top')) || 0;
+    }
+
+    /* The spoken paragraph's range, dropping the position once its chapter has left the page. */
+    function spokenRange() {
+      if (!spoken) return null;
+      var found = entry(spoken.id);
+      if (!found) {
+        spoken = null;
+        return null;
+      }
+      return found.ranges[spoken.index] || null;
+    }
+
+    function clear() {
+      if (window.CSS && CSS.highlights) MARKS.forEach(function (name) { CSS.highlights.delete(name); });
+      if (overlay) overlay.textContent = '';
+    }
+
+    /*
+     * The Custom Highlight API draws background and underline in the text's own layout, so they move
+     * with it. It cannot draw a box, and an old WebView has no such API, so both of those are boxes
+     * laid over the page from the range's rectangles and laid again whenever the layout changes.
+     */
+    function draw() {
+      clear();
+      var range = spokenRange();
+      var options = settings.readAloud;
+      if (!range || !options.highlight) return;
+      if (options.style !== 'OUTLINE' && window.CSS && CSS.highlights && typeof Highlight === 'function') {
+        markStyle(options);
+        CSS.highlights.set('rk-tts-' + options.style.toLowerCase(), new Highlight(range));
+        return;
+      }
+      drawBoxes(range, options);
+    }
+
+    // Literal colours rather than custom properties, which a highlight pseudo-element does not reliably
+    // inherit from the page.
+    function markStyle(options) {
+      var el = document.getElementById('rk-tts-style');
+      if (!el) {
+        el = document.createElement('style');
+        el.id = 'rk-tts-style';
+        document.head.appendChild(el);
+      }
+      el.textContent =
+        '::highlight(rk-tts-background) { background-color: ' + options.color + '; color: ' + options.textColor + '; }' +
+        '::highlight(rk-tts-underline) { text-decoration: underline; }';
+    }
+
+    function drawBoxes(range, options) {
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'rk-tts-overlay';
+        document.body.appendChild(overlay);
+      }
+      var outline = options.style === 'OUTLINE';
+      var rects = outline ? [range.getBoundingClientRect()] : range.getClientRects();
+      var pad = outline ? OUTLINE_PAD_PX : 0;
+      for (var i = 0; i < rects.length; i++) {
+        var box = document.createElement('div');
+        box.className = 'rk-tts-box rk-tts-' + options.style.toLowerCase();
+        box.style.left = (rects[i].left + window.scrollX - pad) + 'px';
+        box.style.top = (rects[i].top + window.scrollY - pad) + 'px';
+        box.style.width = (rects[i].width + pad * 2) + 'px';
+        box.style.height = (rects[i].height + pad * 2) + 'px';
+        box.style.borderColor = options.color;
+        if (options.style === 'BACKGROUND') box.style.backgroundColor = options.color;
+        overlay.appendChild(box);
+      }
+    }
+
+    /*
+     * The native renderer's rule: nothing moves while the paragraph is fully on screen, and otherwise
+     * it goes to the top or the middle of the screen below the inset. Through the page's own relative
+     * glide, which scroll anchoring keeps on target while a chapter arrives or leaves above it.
+     */
+    function follow() {
+      var options = settings.readAloud;
+      var range = spokenRange();
+      if (!range || !options.keepInView) return;
+      var rect = range.getBoundingClientRect();
+      var inset = insetTop();
+      var height = viewportHeight();
+      if (rect.top >= inset - EDGE_TOLERANCE && rect.bottom <= height + EDGE_TOLERANCE) return;
+      var available = height - inset;
+      var target = options.scrollToTop || rect.height >= available ? inset : inset + (available - rect.height) / 2;
+      glide.stop();
+      glide.by(Math.round(rect.top - target));
+    }
+
+    return {
+      paragraphs: function (id) {
+        var found = entry(String(id));
+        return found ? found.texts : null;
+      },
+      firstVisible: function () {
+        var inset = insetTop();
+        var height = viewportHeight();
+        var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
+        for (var c = 0; c < chapters.length; c++) {
+          var bounds = chapters[c].getBoundingClientRect();
+          if (bounds.bottom <= inset || bounds.top >= height) continue;
+          var id = chapters[c].getAttribute(CHAPTER_ID_ATTR);
+          var ranges = entry(id).ranges;
+          for (var i = 0; i < ranges.length; i++) {
+            if (!ranges[i]) continue;
+            var rect = ranges[i].getBoundingClientRect();
+            if (rect.bottom > inset && rect.top < height) return { id: id, paragraph: i };
+          }
+        }
+        return null;
+      },
+      highlight: function (id, index) {
+        spoken = id === null ? null : { id: String(id), index: index };
+        draw();
+        follow();
+      },
+      redraw: draw,
+      /* Boxes sit at fixed page coordinates, so a layout change lays them again; a highlight moves itself. */
+      reposition: function () {
+        if (overlay && overlay.firstChild) draw();
+      },
+      invalidate: function () {
+        cache = {};
+        if (spoken) draw();
+      },
+    };
+  })();
+
+  // endregion
+
   // region the host's handle
 
   window.rkReader = {
+    readAloud: readAloud,
     /* Called after any insert, so the next frame measures the shape the reader is actually in. */
     refresh: function () {
       rebuildBoundaries();
@@ -496,6 +717,7 @@
         document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
       }
       syncBionic();
+      if (next.readAloud) readAloud.redraw();
     },
     /* The face for a font picked while this page is open; the family itself arrives as a variable. */
     setFontFace: function (css) {
@@ -845,6 +1067,8 @@
         rebuildBoundaries();
       }).observe(document.body);
     }
+    new MutationObserver(readAloud.invalidate)
+      .observe(document.getElementById('rk-chapters'), { childList: true, subtree: true, characterData: true });
     if (settings.bionic) {
       document.querySelectorAll(CHAPTER_SELECTOR).forEach(applyBionic);
     }

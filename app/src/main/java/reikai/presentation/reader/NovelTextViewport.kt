@@ -3,7 +3,9 @@ package reikai.presentation.reader
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.text.Spannable
 import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.method.ArrowKeyMovementMethod
 import android.view.Choreographer
 import android.view.GestureDetector
@@ -25,13 +27,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
+import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
+import reikai.presentation.reader.text.ChunkParagraph
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
+import reikai.presentation.reader.text.MarkBackgroundSpan
+import reikai.presentation.reader.text.MarkForegroundSpan
+import reikai.presentation.reader.text.MarkOutlineSpan
+import reikai.presentation.reader.text.MarkUnderlineSpan
 import reikai.presentation.reader.text.NovelBoundaryFailureView
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.NovelSeam
@@ -39,6 +48,8 @@ import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.text.ParagraphShape
+import reikai.presentation.reader.text.ReadAloudMark
+import reikai.presentation.reader.text.readAloudParagraphs
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -108,7 +119,13 @@ class NovelTextViewport(
 
         /** Before the text is set there is nothing to be a percentage of. */
         var rendered = false
+
+        /** Read once the text is set, which nothing changes afterwards: a restyle keeps the characters. */
+        val paragraphs: List<ChunkParagraph> by lazy { readAloudParagraphs(block.chunkViews.map { it.text }) }
     }
+
+    /** The paragraph being read aloud, kept while highlighting is off so it is still followed. */
+    private var spokenParagraph: ReadAloudPosition? = null
 
     /** Where a chapter is put once its text has a height. */
     private sealed interface Landing {
@@ -255,11 +272,120 @@ class NovelTextViewport(
         // being left are not the ones around the one being opened, so a redraw of those stops too.
         redrawJob?.cancel()
         redraw = null
+        spokenParagraph = null
         evictAll()
         add(chapter, atEnd = true, landing = Landing.Share(chapter.progressPercent / 100f))
     }
 
     override val window: ChapterWindow get() = this
+
+    /** Every answer waits out a redraw, which empties the window while it rebuilds the same chapters. */
+    override val readAloud: ReadAloudSurface = object : ReadAloudSurface {
+        override suspend fun paragraphs(chapterId: Long): List<String>? = withContext(Dispatchers.Main.immediate) {
+            redrawJob?.join()
+            renderedSlot(chapterId)?.paragraphs?.map { it.text }
+        }
+
+        override suspend fun firstVisibleParagraph(): ReadAloudPosition? = withContext(Dispatchers.Main.immediate) {
+            redrawJob?.join()
+            firstParagraphOnScreen()
+        }
+
+        override fun highlight(position: ReadAloudPosition?) {
+            spokenParagraph = position
+            drawSpokenParagraph()
+            position?.let(::followSpokenParagraph)
+        }
+    }
+
+    private fun renderedSlot(chapterId: Long) = slots.firstOrNull { it.rendered && it.chapter.chapterId == chapterId }
+
+    private fun firstParagraphOnScreen(): ReadAloudPosition? {
+        joined().forEach { slot ->
+            val (top, height) = boundsOf(slot) ?: return@forEach
+            if (top + height <= topInsetPx || top >= recycler.height) return@forEach
+            slot.paragraphs.forEachIndexed { index, paragraph ->
+                val (paragraphTop, paragraphBottom) = boundsOf(slot, paragraph) ?: return@forEachIndexed
+                if (paragraphBottom > topInsetPx && paragraphTop < recycler.height) {
+                    return ReadAloudPosition(slot.chapter.chapterId, index)
+                }
+            }
+        }
+        return null
+    }
+
+    /** Where [paragraph] starts and ends in the recycler's coordinates, null while it is out of layout. */
+    private fun boundsOf(slot: ChapterSlot, paragraph: ChunkParagraph): Pair<Int, Int>? {
+        val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return null
+        val top = lineTopOf(view, paragraph.start) ?: return null
+        val layout = view.layout ?: return null
+        val bottom = top - layout.getLineTop(layout.getLineForOffset(paragraph.start)) +
+            layout.getLineBottom(layout.getLineForOffset(paragraph.end - 1))
+        return top to bottom
+    }
+
+    /**
+     * Takes every mark off and draws the one [spokenParagraph] names. Found by type rather than kept,
+     * since a restyle or an image landing copies the text with whatever marks it held at the time.
+     */
+    private fun drawSpokenParagraph() {
+        slots.forEach { slot ->
+            slot.block.chunkViews.forEach { view ->
+                val text = view.text as? Spannable ?: return@forEach
+                val marks = text.getSpans(0, text.length, ReadAloudMark::class.java)
+                if (marks.isEmpty()) return@forEach
+                marks.forEach(text::removeSpan)
+                view.invalidate()
+            }
+        }
+        val position = spokenParagraph ?: return
+        val current = settings?.takeIf { it.ttsHighlight } ?: return
+        val slot = renderedSlot(position.chapterId) ?: return
+        val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return
+        val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return
+        val text = view.text as? Spannable ?: return
+        val density = context.resources.displayMetrics.density
+        val marks = when (current.ttsHighlightStyle) {
+            TtsHighlightStyle.BACKGROUND -> listOf(
+                MarkBackgroundSpan(current.ttsHighlightColor),
+                MarkForegroundSpan(current.ttsHighlightTextColor),
+            )
+            TtsHighlightStyle.UNDERLINE -> listOf(MarkUnderlineSpan())
+            TtsHighlightStyle.OUTLINE -> listOf(
+                MarkOutlineSpan(current.ttsHighlightColor, OUTLINE_STROKE_DP * density, OUTLINE_RADIUS_DP * density),
+            )
+        }
+        marks.forEach { text.setSpan(it, paragraph.start, paragraph.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        view.invalidate()
+    }
+
+    /**
+     * Brings the spoken paragraph fully on screen when it is not, top at the inset or centred as the
+     * setting says. A chapter out of the recycler's layout has no line to measure, so it is jumped to
+     * first and measured once laid out.
+     */
+    private fun followSpokenParagraph(position: ReadAloudPosition, retry: Boolean = true) {
+        val current = settings?.takeIf { it.ttsKeepInView } ?: return
+        val slot = renderedSlot(position.chapterId) ?: return
+        val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return
+        val bounds = boundsOf(slot, paragraph)
+        if (bounds == null) {
+            val item = adapter.positionOf(slot).takeIf { it >= 0 && retry } ?: return
+            (recycler.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(item, 0)
+            recycler.post { if (spokenParagraph == position) followSpokenParagraph(position, retry = false) }
+            return
+        }
+        val (top, bottom) = bounds
+        if (top >= topInsetPx && bottom <= recycler.height) return
+        val available = recycler.height - topInsetPx
+        val target = if (current.ttsScrollToTop || bottom - top >= available) {
+            topInsetPx
+        } else {
+            topInsetPx + (available - (bottom - top)) / 2
+        }
+        recycler.stopScroll()
+        recycler.smoothScrollBy(0, top - target)
+    }
 
     override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
         grow(chapter, atEnd = true)
@@ -302,6 +428,7 @@ class NovelTextViewport(
 
     override fun evict(chapterId: Long) {
         redraw?.chapters?.removeAll { it.chapterId == chapterId }
+        if (spokenParagraph?.chapterId == chapterId) spokenParagraph = null
         val index = slots.indexOfFirst { it.chapter.chapterId == chapterId }
         if (index < 0) return
         slots.removeAt(index).block.discarded = true
@@ -329,6 +456,10 @@ class NovelTextViewport(
         paragraphIndent, paragraphSpacing, bionicReading,
     )
 
+    /** What the read-aloud mark is drawn from, which changes the spans on one paragraph and nothing else. */
+    private fun NovelReaderSettings.markShape() =
+        listOf(ttsHighlight, ttsHighlightStyle, ttsHighlightColor, ttsHighlightTextColor)
+
     override fun applySettings(settings: NovelReaderSettings) {
         val previous = this.settings
         this.settings = settings
@@ -336,6 +467,7 @@ class NovelTextViewport(
         if (previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition) {
             adapter.refreshSeams()
         }
+        if (previous?.markShape() != settings.markShape()) drawSpokenParagraph()
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         if (previous != null && previous.paragraphShape().needsRedrawFor(settings.paragraphShape())) {
             startRedraw()
@@ -577,6 +709,9 @@ class NovelTextViewport(
                 // A share landing waits for the chapter's images, and their arrival is what lays the
                 // column out again, so this is where a held one is applied.
                 if (slot.landing is Landing.Share) land(slot)
+                // The chapter's text was just set, which a redraw does afresh without the mark, or an image
+                // re-set it from a copy that can carry a mark the reader has since moved past.
+                drawSpokenParagraph()
                 reportFits(slot)
                 reportEnds()
             }
@@ -1091,6 +1226,10 @@ class NovelTextViewport(
 
         /** How far sideways a swipe must run to count, in dp, also `core.js`'s number. */
         const val SWIPE_MIN_DP = 180f
+
+        /** The read-aloud outline's line and corner, in dp. */
+        const val OUTLINE_STROKE_DP = 2f
+        const val OUTLINE_RADIUS_DP = 6f
     }
 }
 

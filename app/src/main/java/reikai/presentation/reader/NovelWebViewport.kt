@@ -8,6 +8,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ValueCallback
 import android.webkit.WebView
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import kotlinx.coroutines.CoroutineScope
@@ -16,8 +17,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
+import org.json.JSONArray
 import org.json.JSONObject
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
@@ -31,6 +34,7 @@ import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.UUID
+import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 /**
@@ -93,7 +97,10 @@ class NovelWebViewport(
      * would find no engine and be dropped without a trace. Held in order and flushed on ready.
      */
     private var pageReady = false
-    private val pendingWindowVerbs = mutableListOf<String>()
+    private val pendingWindowVerbs = mutableListOf<PendingCall>()
+
+    /** A call held for the page, with where its result goes when the caller wants one. */
+    private class PendingCall(val js: String, val onResult: ((String?) -> Unit)?)
 
     /**
      * The document built last, the only one whose calls the host hears and whose ready report opens the
@@ -202,6 +209,7 @@ class NovelWebViewport(
     override fun onChapterStepped() = Unit
 
     override fun destroy() {
+        dropPendingCalls()
         scope.cancel()
         webView.stopLoading()
         // The bridge captures the host and is called off the main thread, so drop it before teardown.
@@ -237,7 +245,7 @@ class NovelWebViewport(
         // A new document has no engine until it says so, and whatever the old one had queued belongs
         // to a window that is being replaced.
         pageReady = false
-        pendingWindowVerbs.clear()
+        dropPendingCalls()
         held.clear()
         held += chapter
         shownPrevious = null
@@ -440,18 +448,54 @@ class NovelWebViewport(
     }
 
     /** Runs [js] against the page, or holds it in order until the page says it has an engine. */
-    private fun runOrQueue(js: String) {
+    private fun runOrQueue(js: String, onResult: ((String?) -> Unit)? = null) {
         if (pageReady) {
-            webView.evaluateJavascript("if (window.rkReader) $js", null)
+            evaluate(PendingCall(js, onResult))
         } else {
-            pendingWindowVerbs += js
+            pendingWindowVerbs += PendingCall(js, onResult)
+        }
+    }
+
+    private fun evaluate(call: PendingCall) {
+        webView.evaluateJavascript("if (window.rkReader) ${call.js}", call.onResult?.let { ValueCallback(it) })
+    }
+
+    /** A document being replaced will never answer, so whoever waits on one of its calls hears null. */
+    private fun dropPendingCalls() {
+        pendingWindowVerbs.forEach { it.onResult?.invoke(null) }
+        pendingWindowVerbs.clear()
+    }
+
+    /** What [js] evaluates to in the page, as JSON, or null for a null or a page that never answers. */
+    private suspend fun query(js: String): String? = withContext(Dispatchers.Main.immediate) {
+        suspendCancellableCoroutine { continuation ->
+            runOrQueue(js) { result -> if (continuation.isActive) continuation.resume(result.takeIf { it != "null" }) }
+        }
+    }
+
+    override val readAloud: ReadAloudSurface = object : ReadAloudSurface {
+        override suspend fun paragraphs(chapterId: Long): List<String>? {
+            val json = query("rkReader.readAloud.paragraphs(${JSONObject.quote(chapterId.toString())});") ?: return null
+            val array = JSONArray(json)
+            return List(array.length(), array::getString)
+        }
+
+        override suspend fun firstVisibleParagraph(): ReadAloudPosition? {
+            val json = query("rkReader.readAloud.firstVisible();") ?: return null
+            val position = JSONObject(json)
+            return ReadAloudPosition(position.getString("id").toLong(), position.getInt("paragraph"))
+        }
+
+        override fun highlight(position: ReadAloudPosition?) {
+            val id = position?.let { JSONObject.quote(it.chapterId.toString()) } ?: "null"
+            runOrQueue("rkReader.readAloud.highlight($id, ${position?.paragraph ?: -1});")
         }
     }
 
     private fun onPageReady(token: String) {
         if (token != documentToken) return
         pageReady = true
-        pendingWindowVerbs.forEach { webView.evaluateJavascript("if (window.rkReader) $it", null) }
+        pendingWindowVerbs.forEach(::evaluate)
         pendingWindowVerbs.clear()
         pushAutoScroll()
     }

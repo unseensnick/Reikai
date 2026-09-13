@@ -1,11 +1,15 @@
 package reikai.presentation.reader
 
 import android.os.SystemClock
+import android.text.Spanned
+import android.util.Log
+import android.util.TypedValue
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.widget.TextView
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
@@ -24,6 +28,7 @@ import org.junit.runners.Parameterized
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.ReadAloudMark
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -298,6 +303,212 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     // endregion
 
+    // region read-aloud
+
+    @Test
+    fun paragraphsAreTheLinesShownWithRubyReadingsLeftOut() {
+        open(chapter(FIRST, MIXED))
+        assertEquals(MIXED_PARAGRAPHS, paragraphs(FIRST))
+    }
+
+    @Test
+    fun aChapterTheWindowDoesNotHoldHasNoParagraphs() {
+        open(chapter(FIRST, "<p>first</p>"))
+        assertEquals(null, paragraphs(SECOND))
+    }
+
+    @Test
+    fun anAppendedChapterHasItsOwnParagraphs() {
+        open(chapter(FIRST, "<p>first</p>"))
+        append(chapter(SECOND, "<p>second a</p><p>second b</p>"))
+        assertEquals(listOf("second a", "second b"), paragraphs(SECOND))
+    }
+
+    @Test
+    fun theFirstVisibleParagraphOfAChapterJustOpenedIsItsFirst() {
+        open(chapter(FIRST, long("first")))
+        assertEquals(ReadAloudPosition(FIRST, 0), firstVisibleParagraph())
+    }
+
+    /** Measured off the marks, with following off, so each renderer answers in its own geometry. */
+    @Test
+    fun theFirstVisibleParagraphAfterASeekIsTheFirstOnScreen() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsKeepInView = false))
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(5_000)) }
+        settle()
+        val position = checkNotNull(firstVisibleParagraph())
+        highlight(position)
+        val (top, bottom) = checkNotNull(awaitMark())
+        highlight(position.copy(paragraph = position.paragraph - 1))
+        val (_, previousBottom) = checkNotNull(awaitMark())
+        assertTrue(
+            "paragraph ${position.paragraph} spans $top..$bottom, the one before ends at $previousBottom",
+            position.paragraph > 0 && bottom > 0 && top < viewportHeight() && previousBottom <= EDGE_SLACK_PX,
+        )
+    }
+
+    @Test
+    fun followingAParagraphOffScreenPutsItsTopAtTheTopWhenSetTo() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsScrollToTop = true))
+        highlight(ReadAloudPosition(FIRST, FAR_PARAGRAPH))
+        awaitScrollStill()
+        val (top, _) = checkNotNull(awaitMark())
+        assertEquals(0f, top, FOLLOW_SLACK_PX)
+    }
+
+    @Test
+    fun followingAParagraphOffScreenCentresIt() {
+        open(chapter(FIRST, long("first")))
+        highlight(ReadAloudPosition(FIRST, FAR_PARAGRAPH))
+        awaitScrollStill()
+        val (top, bottom) = checkNotNull(awaitMark())
+        assertEquals(viewportHeight() / 2, (top + bottom) / 2, FOLLOW_SLACK_PX)
+    }
+
+    /** Set to the top, so a follow that ignored the paragraph already being on screen would move it. */
+    @Test
+    fun aParagraphAlreadyOnScreenIsNotScrolledTo() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsScrollToTop = true))
+        val before = scrollOffset()
+        highlight(ReadAloudPosition(FIRST, 2))
+        Thread.sleep(QUIET_MS)
+        assertEquals(before to true, scrollOffset() to (awaitMark() != null))
+    }
+
+    @Test
+    fun withKeepInViewOffAParagraphOffScreenIsNotScrolledTo() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsKeepInView = false))
+        val before = scrollOffset()
+        highlight(ReadAloudPosition(FIRST, FAR_PARAGRAPH))
+        Thread.sleep(QUIET_MS)
+        assertEquals(before to true, scrollOffset() to (awaitMark() != null))
+    }
+
+    @Test
+    fun highlightingNothingClearsTheMark() {
+        open(chapter(FIRST, long("first")))
+        if (renderer == Renderer.WEB) {
+            Log.i(TAG, "CSS.highlights available in this WebView: ${eval("!!(window.CSS && CSS.highlights)")}")
+        }
+        highlight(ReadAloudPosition(FIRST, 1))
+        checkNotNull(awaitMark())
+        highlight(null)
+        settle()
+        assertEquals(null, markBounds())
+    }
+
+    /** A new text size rebuilds the native chapter's text, which has to carry the mark over. */
+    @Test
+    fun theMarkSurvivesARedrawForANewTextSize() {
+        open(chapter(FIRST, long("first")))
+        highlight(ReadAloudPosition(FIRST, 1))
+        checkNotNull(awaitMark())
+        instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(fontSize = LARGER_FONT)) }
+        awaitWhile { markedTextSize() != largerFontPx() }
+        assertEquals(largerFontPx(), markedTextSize())
+    }
+
+    // endregion
+
+    private fun paragraphs(chapterId: Long): List<String>? =
+        runBlocking(Dispatchers.Main) { viewport.readAloud.paragraphs(chapterId) }
+
+    private fun firstVisibleParagraph(): ReadAloudPosition? =
+        runBlocking(Dispatchers.Main) { viewport.readAloud.firstVisibleParagraph() }
+
+    private fun highlight(position: ReadAloudPosition?) {
+        instrumentation.runOnMainSync { viewport.readAloud.highlight(position) }
+    }
+
+    /** The marked paragraph's top and bottom once there is a mark, or null at the timeout. */
+    private fun awaitMark(): Pair<Float, Float>? {
+        awaitWhile { markBounds() == null }
+        return markBounds()
+    }
+
+    /** The marked paragraph's top and bottom from the top of the viewport, in the renderer's pixels. */
+    private fun markBounds(): Pair<Float, Float>? = when (renderer) {
+        Renderer.NATIVE -> {
+            var bounds: Pair<Float, Float>? = null
+            instrumentation.runOnMainSync {
+                val (chunk, marks) = markedChunk() ?: return@runOnMainSync
+                val text = chunk.text as Spanned
+                val layout = chunk.layout
+                val origin = IntArray(2).also(view::getLocationOnScreen)
+                val at = IntArray(2).also(chunk::getLocationOnScreen)
+                val top = at[1] - origin[1] + chunk.totalPaddingTop
+                bounds =
+                    (top + layout.getLineTop(layout.getLineForOffset(text.getSpanStart(marks.first())))).toFloat() to
+                    (top + layout.getLineBottom(layout.getLineForOffset(text.getSpanEnd(marks.first()) - 1))).toFloat()
+            }
+            bounds
+        }
+        Renderer.WEB -> {
+            val array = eval(
+                "(function () { var box = $MARKED_BOX_JS; if (!box) return null;" +
+                    " var rect = box.getBoundingClientRect(); return [rect.top, rect.bottom]; })()",
+            ).takeIf { it != "null" }?.let(::JSONArray)
+            array?.let { it.getDouble(0).toFloat() to it.getDouble(1).toFloat() }
+        }
+    }
+
+    /** The chunk view holding the mark, and the mark's spans. */
+    private fun markedChunk(): Pair<TextView, Array<ReadAloudMark>>? = descendants(view)
+        .filterIsInstance<TextView>()
+        .firstNotNullOfOrNull { chunk ->
+            val text = chunk.text as? Spanned ?: return@firstNotNullOfOrNull null
+            text.getSpans(0, text.length, ReadAloudMark::class.java).takeIf { it.isNotEmpty() }?.let { chunk to it }
+        }
+
+    /** The size the marked text is drawn at, in the renderer's pixels. */
+    private fun markedTextSize(): Float? = when (renderer) {
+        Renderer.NATIVE -> {
+            var size: Float? = null
+            instrumentation.runOnMainSync { size = markedChunk()?.first?.textSize }
+            size
+        }
+        Renderer.WEB -> eval(
+            "(function () { var box = $MARKED_BOX_JS; if (!box || !box.startContainer) return null;" +
+                " return parseFloat(getComputedStyle(box.startContainer.parentElement).fontSize); })()",
+        ).toFloatOrNull()
+    }
+
+    private fun largerFontPx(): Float = when (renderer) {
+        Renderer.NATIVE -> TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            LARGER_FONT.toFloat(),
+            instrumentation.targetContext.resources.displayMetrics,
+        )
+        Renderer.WEB -> LARGER_FONT.toFloat()
+    }
+
+    private fun viewportHeight(): Float = when (renderer) {
+        Renderer.NATIVE -> view.height.toFloat()
+        Renderer.WEB -> eval("window.innerHeight").toFloat()
+    }
+
+    private fun scrollOffset(): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var offset = 0
+            instrumentation.runOnMainSync { offset = (view as RecyclerView).computeVerticalScrollOffset() }
+            offset.toFloat()
+        }
+        Renderer.WEB -> eval("window.scrollY").toFloat()
+    }
+
+    /** Until the offset has held still across a few samples, since both follows animate. */
+    private fun awaitScrollStill() {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        var last = scrollOffset()
+        var stillFor = 0
+        while (stillFor < STILL_SAMPLES && System.currentTimeMillis() < deadline) {
+            Thread.sleep(STILL_SAMPLE_MS)
+            val now = scrollOffset()
+            stillFor = if (now == last) stillFor + 1 else 0
+            last = now
+        }
+    }
+
     /** What one seam on screen says, whichever renderer drew it. */
     private data class DrawnSeam(
         val finished: String,
@@ -559,5 +770,31 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val EDGE_PX = 40f
         const val DRAG_STEPS = 8
         const val DRAG_STEP_MS = 10L
+
+        const val TAG = "TextViewportContract"
+
+        /** A paragraph of [long] several screens below its start in either renderer. */
+        const val FAR_PARAGRAPH = 60
+
+        /** A follow's rounding: native centres in whole pixels, the page in CSS ones. */
+        const val FOLLOW_SLACK_PX = 3f
+        const val STILL_SAMPLES = 3
+        const val STILL_SAMPLE_MS = 150L
+        const val LARGER_FONT = 24
+
+        /** A paragraph's Range under either way the page can draw a mark: a highlight, or its boxes. */
+        const val MARKED_BOX_JS =
+            "(window.CSS && CSS.highlights && ['rk-tts-background', 'rk-tts-underline']" +
+                ".map(function (n) { var h = CSS.highlights.get(n); return h && Array.from(h)[0]; })" +
+                ".filter(Boolean)[0]) || document.querySelector('#rk-tts-overlay .rk-tts-box')"
+
+        /** Every kind of line a chapter can hold that read-aloud has to count the same in both renderers. */
+        const val MIXED = "<h2>Heading</h2><p>First para.</p><p>Line a<br>Line b</p>" +
+            "<ul><li>One</li><li>Two</li></ul><blockquote><p>Quoted</p></blockquote>" +
+            "<table><tr><td>c1</td><td>c2</td></tr></table>" +
+            "<p>漢<ruby>字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby>です。</p>"
+        val MIXED_PARAGRAPHS = listOf(
+            "Heading", "First para.", "Line a", "Line b", "One", "Two", "Quoted", "c1 c2", "漢字です。",
+        )
     }
 }

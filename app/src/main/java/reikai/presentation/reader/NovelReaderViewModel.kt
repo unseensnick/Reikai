@@ -55,6 +55,7 @@ import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.model.readingOrderComparator
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.isChapterComplete
@@ -280,14 +281,25 @@ class NovelReaderViewModel(
         ) { override, default -> OrientationPrefs(override, default) },
         combine(
             combine(
-                novelPreferences.readerTtsEnabled().changes(),
-                novelPreferences.readerTtsRate().changes(),
-                novelPreferences.readerTtsPitch().changes(),
-                novelPreferences.readerTtsAutoPageAdvance().changes(),
-                novelPreferences.readerTtsScrollToTop().changes(),
-            ) { enabled, rate, pitch, autoAdvance, scrollTop ->
-                TtsPrefs(enabled, rate, pitch, autoAdvance, scrollTop)
-            },
+                combine(
+                    novelPreferences.readerTtsEnabled().changes(),
+                    novelPreferences.readerTtsRate().changes(),
+                    novelPreferences.readerTtsPitch().changes(),
+                    novelPreferences.readerTtsAutoPageAdvance().changes(),
+                    novelPreferences.readerTtsScrollToTop().changes(),
+                ) { enabled, rate, pitch, autoAdvance, scrollTop ->
+                    TtsVoicePrefs(enabled, rate, pitch, autoAdvance, scrollTop)
+                },
+                combine(
+                    novelPreferences.readerTtsHighlight().changes(),
+                    novelPreferences.readerTtsHighlightStyle().changes(),
+                    novelPreferences.readerTtsHighlightColor().changes(),
+                    novelPreferences.readerTtsHighlightTextColor().changes(),
+                    novelPreferences.readerTtsKeepInView().changes(),
+                ) { highlight, style, color, textColor, keepInView ->
+                    TtsHighlightPrefs(highlight, style, color, textColor, keepInView)
+                },
+            ) { voice, highlight -> TtsPrefs(voice, highlight) },
             combine(
                 novelPreferences.readerBionicReading().changes(),
                 novelPreferences.readerRemoveExtraSpacing().changes(),
@@ -329,11 +341,16 @@ class NovelReaderViewModel(
             keepScreenOn = keepScreenOn,
             orientation = orient.override,
             resolvedOrientation = orient.resolved,
-            ttsEnabled = extra.tts.enabled,
-            ttsRate = extra.tts.rate,
-            ttsPitch = extra.tts.pitch,
-            ttsAutoPageAdvance = extra.tts.autoPageAdvance,
-            ttsScrollToTop = extra.tts.scrollToTop,
+            ttsEnabled = extra.tts.voice.enabled,
+            ttsRate = extra.tts.voice.rate,
+            ttsPitch = extra.tts.voice.pitch,
+            ttsAutoPageAdvance = extra.tts.voice.autoPageAdvance,
+            ttsScrollToTop = extra.tts.voice.scrollToTop,
+            ttsHighlight = extra.tts.highlight.enabled,
+            ttsHighlightStyle = extra.tts.highlight.style,
+            ttsHighlightColor = extra.tts.highlight.color,
+            ttsHighlightTextColor = extra.tts.highlight.textColor,
+            ttsKeepInView = extra.tts.highlight.keepInView,
             bionicReading = extra.flags.bionicReading,
             removeExtraSpacing = extra.flags.removeExtraSpacing,
             tapToScroll = extra.flags.tapToScroll,
@@ -936,6 +953,11 @@ class NovelReaderViewModel(
             ttsPitch = novelPreferences.readerTtsPitch().get(),
             ttsAutoPageAdvance = novelPreferences.readerTtsAutoPageAdvance().get(),
             ttsScrollToTop = novelPreferences.readerTtsScrollToTop().get(),
+            ttsHighlight = novelPreferences.readerTtsHighlight().get(),
+            ttsHighlightStyle = novelPreferences.readerTtsHighlightStyle().get(),
+            ttsHighlightColor = novelPreferences.readerTtsHighlightColor().get(),
+            ttsHighlightTextColor = novelPreferences.readerTtsHighlightTextColor().get(),
+            ttsKeepInView = novelPreferences.readerTtsKeepInView().get(),
             bionicReading = novelPreferences.readerBionicReading().get(),
             removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
             tapToScroll = novelPreferences.readerTapToScroll().get(),
@@ -1337,12 +1359,20 @@ class NovelReaderViewModel(
         val paragraphSpacing: Float,
     )
     private data class ThemePrefs(val followSystem: Boolean, val background: String, val textColor: String)
-    private data class TtsPrefs(
+    private data class TtsPrefs(val voice: TtsVoicePrefs, val highlight: TtsHighlightPrefs)
+    private data class TtsVoicePrefs(
         val enabled: Boolean,
         val rate: Float,
         val pitch: Float,
         val autoPageAdvance: Boolean,
         val scrollToTop: Boolean,
+    )
+    private data class TtsHighlightPrefs(
+        val enabled: Boolean,
+        val style: TtsHighlightStyle,
+        val color: Int,
+        val textColor: Int,
+        val keepInView: Boolean,
     )
     private data class FlagPrefs(
         val bionicReading: Boolean,

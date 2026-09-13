@@ -48,6 +48,7 @@ object NovelWebDocument {
                 "__TAP_TO_SCROLL__" to settings.tapToScroll.toString(),
                 "__SWIPE__" to settings.swipeGestures.toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
+                "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
                 "__DOCUMENT_TOKEN__" to jsString(documentToken),
                 // The seam names both chapters under these, the way TransitionText does. Resolved
@@ -189,7 +190,27 @@ object NovelWebDocument {
         put("tapToScroll", settings.tapToScroll)
         put("swipe", settings.swipeGestures)
         put("bionic", settings.bionicReading)
+        put("readAloud", readAloudJson(settings))
     }
+
+    /** How the page marks and follows the spoken paragraph. The colours are CSS built from packed ints,
+     *  so nothing a preference holds reaches the page's stylesheet as text. */
+    private fun readAloudJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {
+        put("highlight", settings.ttsHighlight)
+        put("style", settings.ttsHighlightStyle.name)
+        put("color", cssRgba(settings.ttsHighlightColor))
+        put("textColor", cssRgba(settings.ttsHighlightTextColor))
+        put("keepInView", settings.ttsKeepInView)
+        put("scrollToTop", settings.ttsScrollToTop)
+    }
+
+    private fun cssRgba(argb: Int): String = "rgba(%d,%d,%d,%.3f)".format(
+        Locale.ROOT,
+        (argb shr 16) and 0xFF,
+        (argb shr 8) and 0xFF,
+        argb and 0xFF,
+        ((argb ushr 24) and 0xFF) / 255f,
+    )
 
     /**
      * The face behind the chosen family, bundled or the user's own. None for a generic family. Its

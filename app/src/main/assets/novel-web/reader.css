@@ -50,6 +50,35 @@ html:not(.rk-bionic-on) .rk-bionic b {
 }
 
 /*
+ * Set on the root only for the one synchronous read of a chapter's paragraphs; see readAloud in
+ * reader.js. Qualified by the root for weight, since "source CSS priority" promises no important rules.
+ */
+html.rk-readings-hidden rt,
+html.rk-readings-hidden rp {
+  display: none;
+}
+
+/* The read-aloud mark where the Custom Highlight API cannot draw it. The colours are set per box. */
+.rk-tts-box {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.rk-tts-background {
+  opacity: 0.4;
+}
+
+.rk-tts-underline {
+  border-bottom: 2px solid;
+}
+
+.rk-tts-outline {
+  border: 2px solid;
+  border-radius: 6px;
+}
+
+/*
  * A plain-text chapter is rebuilt into paragraphs with no styling of its own, so a long unbroken run
  * breaks rather than widening the page. Its line breaks arrive as <br>, so white space collapses here
  * as it does in the native renderer; keeping it drew runs of spaces and indents that one drops.

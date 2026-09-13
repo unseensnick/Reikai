@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.novel.reader.ReaderMargins
 
@@ -27,6 +28,11 @@ internal val readerTestSettings = NovelReaderSettings(
     ttsPitch = 1f,
     ttsAutoPageAdvance = false,
     ttsScrollToTop = false,
+    ttsHighlight = true,
+    ttsHighlightStyle = TtsHighlightStyle.BACKGROUND,
+    ttsHighlightColor = 0xFFFFD54F.toInt(),
+    ttsHighlightTextColor = 0xFF1A1A1A.toInt(),
+    ttsKeepInView = true,
     bionicReading = false,
     removeExtraSpacing = false,
     tapToScroll = true,

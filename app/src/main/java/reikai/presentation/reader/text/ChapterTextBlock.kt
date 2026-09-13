@@ -14,8 +14,8 @@ import android.widget.TextView
  *
  * One view makes layout, span lookup and selection hit-testing cost O(chapter); tsundoku measured
  * constant garbage collection and multi-second touch handling on large chapters before chunking.
- * Ported from tsundoku (`textview/ChapterTextBlock.kt`); its selection and placeholder members and
- * its chunk-offset index are left out until the steps that need them (quotes and read-aloud).
+ * Ported from tsundoku (`textview/ChapterTextBlock.kt`) without its selection, placeholder and
+ * chunk-offset members; read-aloud addresses a paragraph by chunk and offset (`ReadAloudText.kt`).
  */
 class ChapterTextBlock(
     context: Context,

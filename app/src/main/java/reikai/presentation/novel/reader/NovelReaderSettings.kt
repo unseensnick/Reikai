@@ -1,6 +1,7 @@
 package reikai.presentation.novel.reader
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerLightPreset
@@ -39,6 +40,14 @@ data class NovelReaderSettings(
     val ttsPitch: Float,
     val ttsAutoPageAdvance: Boolean,
     val ttsScrollToTop: Boolean,
+    // How the new renderers mark and follow the spoken paragraph (ReadAloudSurface); core.js reads none.
+    val ttsHighlight: Boolean,
+    val ttsHighlightStyle: TtsHighlightStyle,
+    /** Packed ARGB. */
+    val ttsHighlightColor: Int,
+    /** Packed ARGB, the text over a [TtsHighlightStyle.BACKGROUND] mark. */
+    val ttsHighlightTextColor: Int,
+    val ttsKeepInView: Boolean,
     // Reading extras each renderer applies itself; extra spacing is stripped by the content pipeline instead.
     val bionicReading: Boolean,
     val removeExtraSpacing: Boolean,

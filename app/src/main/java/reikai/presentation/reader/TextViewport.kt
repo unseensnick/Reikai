@@ -37,6 +37,9 @@ interface TextViewport {
 
     /** How this renderer holds more than one chapter, which is how the host grows it across a seam. */
     val window: ChapterWindow
+
+    /** How read-aloud reads this renderer's paragraphs and marks the one it is speaking. */
+    val readAloud: ReadAloudSurface
 }
 
 /**
