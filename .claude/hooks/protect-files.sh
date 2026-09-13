@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Blocks edits to sensitive or generated files.
 # PreToolUse hook for Edit|Write operations.
-# Exit 2 = block. Exit 0 = allow.
+# Exit 2 = block (deny). Exit 0 = allow, or ask when it prints an "ask" decision.
 
 set -uo pipefail
 
@@ -10,6 +10,9 @@ emit() {
   local decision="$1"
   local reason="${2//\"/\\\"}"
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' "$decision" "$reason"
+  # Exit 2 blocks whatever the JSON says, so an "ask" has to exit 0 or it hard-blocks instead of
+  # prompting. A deny exits 2 either way, and Claude Code still takes its reason from the JSON.
+  [ "$decision" = "ask" ] && exit 0
   exit 2
 }
 
