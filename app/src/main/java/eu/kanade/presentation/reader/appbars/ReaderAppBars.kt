@@ -24,8 +24,18 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -98,13 +108,41 @@ fun ReaderAppBars(
     onPlayPause: () -> Unit,
     onNextParagraph: () -> Unit,
     onClickSleepTimer: () -> Unit,
+    // The chrome's inner edges in window pixels, null for an end with nothing showing: the top bar's
+    // bottom, and the top of the bottom bar or the read-aloud controls, whichever is higher.
+    onCoverChanged: (topBarBottom: Float?, bottomChromeTop: Float?) -> Unit,
     // RK <--
 ) {
     val backgroundColor = readerChromeColor() // RK: shared scrim (see ReaderChrome)
 
+    // RK --> measured on the bars' slots, which take their full size as they start to enter, so a text
+    // renderer gets where they settle rather than every frame of the slide. A slot sliding out is not
+    // listened to and reports nothing once it is gone, so hiding clears it here.
+    val showing by rememberUpdatedState(visible)
+    var topBarBottom by remember { mutableStateOf<Float?>(null) }
+    var bottomBarTop by remember { mutableStateOf<Float?>(null) }
+    var controlsTop by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(visible) {
+        if (!visible) {
+            topBarBottom = null
+            bottomBarTop = null
+        }
+    }
+    val reportCover by rememberUpdatedState(onCoverChanged)
+    LaunchedEffect(Unit) {
+        snapshotFlow { topBarBottom to listOfNotNull(bottomBarTop, controlsTop).minOrNull() }
+            .collect { (top, bottom) -> reportCover(top, bottom) }
+    }
+    // RK <--
+
     Column(modifier = Modifier.fillMaxHeight()) {
         AnimatedVisibility(
             visible = visible,
+            // RK -->
+            modifier = Modifier.onGloballyPositioned {
+                if (showing) topBarBottom = it.boundsInWindow().bottom
+            },
+            // RK <--
             // RK: shared top-bar transition (see ReaderChrome)
             enter = readerBarEnter(fromBottom = false),
             exit = readerBarExit(fromBottom = false),
@@ -169,6 +207,7 @@ fun ReaderAppBars(
         // so they sit over the reader without taking layout space from it, and ride down to the screen
         // edge once the bar is gone.
         if (readAloudControlsVisible && onClickReadAloud != null) {
+            DisposableEffect(Unit) { onDispose { controlsTop = null } }
             Box(
                 modifier = Modifier.fillMaxWidth().height(0.dp),
                 contentAlignment = Alignment.BottomCenter,
@@ -193,7 +232,9 @@ fun ReaderAppBars(
                                     .windowInsetsPadding(WindowInsets.navigationBars)
                                     .padding(bottom = MaterialTheme.padding.large)
                             },
-                        ),
+                        )
+                        // Last, so the padding below the controls is not counted as covering the text.
+                        .onGloballyPositioned { controlsTop = it.boundsInWindow().top },
                 )
             }
         }
@@ -201,6 +242,11 @@ fun ReaderAppBars(
 
         AnimatedVisibility(
             visible = visible,
+            // RK -->
+            modifier = Modifier.onGloballyPositioned {
+                if (showing) bottomBarTop = it.boundsInWindow().top
+            },
+            // RK <--
             // RK: shared bottom-bar transition (see ReaderChrome)
             enter = readerBarEnter(fromBottom = true),
             exit = readerBarExit(fromBottom = true),

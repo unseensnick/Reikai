@@ -40,6 +40,13 @@ interface TextViewport {
 
     /** How read-aloud reads this renderer's paragraphs and marks the one it is speaking. */
     val readAloud: ReadAloudSurface
+
+    /**
+     * How far the reader's chrome reaches over this viewport from its [top] and [bottom] edges, in
+     * pixels, zero where nothing covers it. Only read-aloud's choice of paragraph and where it scrolls
+     * one to take it, so the text never moves when the chrome comes or goes; the next decision uses it.
+     */
+    fun setObscured(top: Int, bottom: Int)
 }
 
 /**

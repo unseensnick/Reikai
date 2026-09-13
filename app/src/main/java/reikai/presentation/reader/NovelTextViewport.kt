@@ -186,6 +186,10 @@ class NovelTextViewport(
      *  has any and reads zero. */
     private var topInsetPx = 0
 
+    /** What the chrome covers from each edge ([setObscured]), which only read-aloud's choices read. */
+    private var obscuredTopPx = 0
+    private var obscuredBottomPx = 0
+
     /** Where the touch went down, in viewport coordinates: a click carries no position of its own, and
      *  a swipe is measured from here. */
     private var touchDownX = 0f
@@ -306,15 +310,27 @@ class NovelTextViewport(
         }
     }
 
+    override fun setObscured(top: Int, bottom: Int) {
+        obscuredTopPx = top
+        obscuredBottomPx = bottom
+    }
+
+    /** Where the text read aloud can be seen from: below the cutout and below whatever chrome covers it. */
+    private fun uncoveredTop() = maxOf(topInsetPx, obscuredTopPx)
+
+    private fun uncoveredBottom() = recycler.height - obscuredBottomPx
+
     private fun renderedSlot(chapterId: Long) = slots.firstOrNull { it.rendered && it.chapter.chapterId == chapterId }
 
     private fun firstParagraphOnScreen(): ReadAloudPosition? {
+        val visibleTop = uncoveredTop()
+        val visibleBottom = uncoveredBottom()
         joined().forEach { slot ->
             val (top, height) = boundsOf(slot) ?: return@forEach
-            if (top + height <= topInsetPx || top >= recycler.height) return@forEach
+            if (top + height <= visibleTop || top >= visibleBottom) return@forEach
             slot.paragraphs.forEachIndexed { index, paragraph ->
                 val (paragraphTop, paragraphBottom) = boundsOf(slot, paragraph) ?: return@forEachIndexed
-                if (paragraphBottom > topInsetPx && paragraphTop < recycler.height) {
+                if (paragraphBottom > visibleTop && paragraphTop < visibleBottom) {
                     return ReadAloudPosition(slot.chapter.chapterId, index)
                 }
             }
@@ -368,9 +384,9 @@ class NovelTextViewport(
     }
 
     /**
-     * Brings the spoken paragraph fully on screen when it is not, top at the inset or centred as the
-     * setting says. A chapter out of the recycler's layout has no line to measure, so it is jumped to
-     * first and measured once laid out.
+     * Brings the spoken paragraph fully into the uncovered part of the screen when it is not, top at its
+     * top edge or centred in it as the setting says. A chapter out of the recycler's layout has no line
+     * to measure, so it is jumped to first and measured once laid out.
      */
     private fun followSpokenParagraph(position: ReadAloudPosition, retry: Boolean = true) {
         val current = settings?.takeIf { it.ttsKeepInView } ?: return
@@ -384,12 +400,14 @@ class NovelTextViewport(
             return
         }
         val (top, bottom) = bounds
-        if (top >= topInsetPx && bottom <= recycler.height) return
-        val available = recycler.height - topInsetPx
+        val visibleTop = uncoveredTop()
+        val visibleBottom = uncoveredBottom()
+        if (top >= visibleTop && bottom <= visibleBottom) return
+        val available = visibleBottom - visibleTop
         val target = if (current.ttsScrollToTop || bottom - top >= available) {
-            topInsetPx
+            visibleTop
         } else {
-            topInsetPx + (available - (bottom - top)) / 2
+            visibleTop + (available - (bottom - top)) / 2
         }
         recycler.stopScroll()
         recycler.smoothScrollBy(0, top - target)

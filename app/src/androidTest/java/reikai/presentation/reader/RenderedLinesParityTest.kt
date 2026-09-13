@@ -126,7 +126,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 onStepChapter = {},
                 onVisibleChapter = {},
                 onRetryBoundary = {},
-                statusBarHeightPx = { 0 },
+                cutoutTopDp = { 0 },
                 onChapterFits = { _, _ -> rendered.countDown() },
                 onChapterEndSeen = {},
             )

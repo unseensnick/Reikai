@@ -16,7 +16,8 @@ interface ReadAloudSurface {
     /** The chapter's paragraphs as this renderer shows them, or null when it does not hold the chapter. */
     suspend fun paragraphs(chapterId: Long): List<String>?
 
-    /** The first paragraph at least partly on screen, or null while nothing is rendered. */
+    /** The first paragraph at least partly on screen and clear of the chrome ([TextViewport.setObscured]),
+     *  or null while nothing is rendered. */
     suspend fun firstVisibleParagraph(): ReadAloudPosition?
 
     /**

@@ -632,6 +632,13 @@
     var cache = {};
     var spoken = null;
     var overlay = null;
+    // What the reader's chrome covers from each edge, in CSS pixels, from the host's setObscured.
+    var obscured = { top: 0, bottom: 0 };
+
+    /* The part of the screen the reader can see text in: below the inset and clear of the chrome. */
+    function uncovered() {
+      return { top: Math.max(insetTop(), obscured.top), bottom: viewportHeight() - obscured.bottom };
+    }
 
     function chapterElement(id) {
       return document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
@@ -766,19 +773,20 @@
 
     /*
      * The native renderer's rule: nothing moves while the paragraph is fully on screen, and otherwise
-     * it goes to the top or the middle of the screen below the inset. Through the page's own relative
-     * glide, which the place-holding keeps on target while a chapter arrives or leaves above it.
+     * it goes to the top or the middle of the uncovered screen. Through the page's own relative glide,
+     * which the place-holding keeps on target while a chapter arrives or leaves above it.
      */
     function follow() {
       var options = settings.readAloud;
       var range = spokenRange();
       if (!range || !options.keepInView) return;
       var rect = range.getBoundingClientRect();
-      var inset = insetTop();
-      var height = viewportHeight();
-      if (rect.top >= inset - EDGE_TOLERANCE && rect.bottom <= height + EDGE_TOLERANCE) return;
-      var available = height - inset;
-      var target = options.scrollToTop || rect.height >= available ? inset : inset + (available - rect.height) / 2;
+      var visible = uncovered();
+      if (rect.top >= visible.top - EDGE_TOLERANCE && rect.bottom <= visible.bottom + EDGE_TOLERANCE) return;
+      var available = visible.bottom - visible.top;
+      var target = options.scrollToTop || rect.height >= available
+        ? visible.top
+        : visible.top + (available - rect.height) / 2;
       glide.stop();
       glide.by(Math.round(rect.top - target));
     }
@@ -789,18 +797,17 @@
         return found ? found.texts : null;
       },
       firstVisible: function () {
-        var inset = insetTop();
-        var height = viewportHeight();
+        var visible = uncovered();
         var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
         for (var c = 0; c < chapters.length; c++) {
           var bounds = chapters[c].getBoundingClientRect();
-          if (bounds.bottom <= inset || bounds.top >= height) continue;
+          if (bounds.bottom <= visible.top || bounds.top >= visible.bottom) continue;
           var id = chapters[c].getAttribute(CHAPTER_ID_ATTR);
           var ranges = entry(id).ranges;
           for (var i = 0; i < ranges.length; i++) {
             if (!ranges[i]) continue;
             var rect = ranges[i].getBoundingClientRect();
-            if (rect.bottom > inset && rect.top < height) return { id: id, paragraph: i };
+            if (rect.bottom > visible.top && rect.top < visible.bottom) return { id: id, paragraph: i };
           }
         }
         return null;
@@ -809,6 +816,10 @@
         spoken = id === null ? null : { id: String(id), index: index };
         draw();
         follow();
+      },
+      /* Read by the next choice only: following here would move the text as the chrome comes up. */
+      setObscured: function (top, bottom) {
+        obscured = { top: top, bottom: bottom };
       },
       redraw: draw,
       /* Boxes sit at fixed page coordinates, so a layout change lays them again; a highlight moves itself. */

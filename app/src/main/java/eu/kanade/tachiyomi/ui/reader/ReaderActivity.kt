@@ -653,7 +653,8 @@ class ReaderActivity : BaseActivity() {
         readingModeToast?.cancel()
     }
 
-    // RK --> the novel session's host side: the window protocol with the model, and the cutout inset.
+    // RK --> the novel session's host side: the window protocol with the model, the cutout inset and
+    // what the chrome covers of the text.
 
     /**
      * Hands each chapter the novel model loads to whichever text renderer is installed. How that
@@ -751,6 +752,21 @@ class ReaderActivity : BaseActivity() {
         val insets = ViewCompat.getRootWindowInsets(binding.root)
             ?.getInsets(WindowInsetsCompat.Type.displayCutout())
         return ((insets?.top ?: 0) / resources.displayMetrics.density).roundToInt()
+    }
+
+    /**
+     * Turns the chrome's edges in the window into how far it reaches over the viewport from each of its
+     * edges, which the container's inset padding makes differ. Only a text renderer hears it, since only
+     * it reads aloud; an image viewer has no paragraph to choose or keep in view.
+     */
+    private fun coverText(topBarBottom: Float?, bottomChromeTop: Float?) {
+        val viewport = engine.viewport.value ?: return
+        if (viewport !is TextViewport) return
+        val view = viewport.view
+        val viewTop = IntArray(2).also(view::getLocationInWindow)[1]
+        val top = topBarBottom?.let { (it - viewTop).roundToInt().coerceAtLeast(0) } ?: 0
+        val bottom = bottomChromeTop?.let { (viewTop + view.height - it).roundToInt().coerceAtLeast(0) } ?: 0
+        viewport.setObscured(top, bottom)
     }
     // RK <--
 
@@ -1029,6 +1045,7 @@ class ReaderActivity : BaseActivity() {
             },
             onNextParagraph = { readAloud?.nextParagraph() },
             onClickSleepTimer = { readAloud?.let { engine.openDialog(ReaderDialog.SleepTimerSelect(it)) } },
+            onCoverChanged = ::coverText,
             // RK <--
         )
     }

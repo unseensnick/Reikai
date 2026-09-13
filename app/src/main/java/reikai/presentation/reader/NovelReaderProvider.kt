@@ -204,7 +204,7 @@ class NovelReaderProvider(
             onStepChapter = { forward -> if (forward) host.engine.nextChapter() else host.engine.previousChapter() },
             onVisibleChapter = viewModel::reportVisibleChapter,
             onRetryBoundary = viewModel::retryBoundary,
-            statusBarHeightPx = host::displayCutoutTopDp,
+            cutoutTopDp = host::displayCutoutTopDp,
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
         )

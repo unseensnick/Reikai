@@ -125,7 +125,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 onStepChapter = { steps += it },
                 onVisibleChapter = {},
                 onRetryBoundary = {},
-                statusBarHeightPx = { 0 },
+                cutoutTopDp = { 0 },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
             )
@@ -456,6 +456,65 @@ class TextViewportContractTest(private val renderer: Renderer) {
         highlight(ReadAloudPosition(FIRST, 2))
         Thread.sleep(QUIET_MS)
         assertEquals(before to true, scrollOffset() to (awaitMark() != null))
+    }
+
+    /** The chrome covering the top of the text is not the screen, so reading from here starts below it. */
+    @Test
+    fun theFirstVisibleParagraphIsTheFirstBelowTheCoveredTop() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsKeepInView = false))
+        highlight(ReadAloudPosition(FIRST, 2))
+        val (top, bottom) = checkNotNull(awaitMark())
+        obscure(top = devicePx((top + bottom) / 2), bottom = 0)
+        assertEquals(ReadAloudPosition(FIRST, 2), firstVisibleParagraph())
+    }
+
+    @Test
+    fun followingAParagraphOffScreenPutsItsTopBelowTheCoveredTopWhenSetTo() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsScrollToTop = true))
+        obscure(top = devicePx(COVERED_UNITS), bottom = 0)
+        highlight(ReadAloudPosition(FIRST, FAR_PARAGRAPH))
+        awaitScrollStill()
+        val (top, _) = checkNotNull(awaitMark())
+        assertEquals(COVERED_UNITS, top, FOLLOW_SLACK_PX)
+    }
+
+    /** Wholly on the screen but half under the covered bottom, so it is followed, here to the top. */
+    @Test
+    fun aParagraphPartlyUnderTheCoveredBottomIsScrolledTo() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsScrollToTop = true))
+        highlight(ReadAloudPosition(FIRST, 2))
+        val (top, bottom) = checkNotNull(awaitMark())
+        obscure(top = 0, bottom = devicePx(viewportHeight() - (top + bottom) / 2))
+        highlight(ReadAloudPosition(FIRST, 2))
+        awaitScrollStill()
+        val (followedTop, _) = checkNotNull(awaitMark())
+        assertEquals(0f, followedTop, FOLLOW_SLACK_PX)
+    }
+
+    @Test
+    fun followingAParagraphOffScreenCentresItBetweenTheCoveredEdges() {
+        open(chapter(FIRST, long("first")))
+        obscure(top = devicePx(COVERED_UNITS), bottom = devicePx(COVERED_UNITS * 2))
+        highlight(ReadAloudPosition(FIRST, FAR_PARAGRAPH))
+        awaitScrollStill()
+        val (top, bottom) = checkNotNull(awaitMark())
+        assertEquals((COVERED_UNITS + viewportHeight() - COVERED_UNITS * 2) / 2, (top + bottom) / 2, FOLLOW_SLACK_PX)
+    }
+
+    /**
+     * The chrome coming up over the paragraph being spoken moves nothing: the reader may be reading it.
+     * Part way in, so a follow the cover set off would have room to scroll either way.
+     */
+    @Test
+    fun coveringTheTextMovesNothing() {
+        open(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        highlight(checkNotNull(firstVisibleParagraph()))
+        awaitScrollStill()
+        val before = scrollOffset() to awaitMark()
+        obscure(top = devicePx(viewportHeight() / 2), bottom = devicePx(viewportHeight() / 3))
+        Thread.sleep(QUIET_MS)
+        assertEquals(before, scrollOffset() to awaitMark())
     }
 
     @Test
@@ -1018,6 +1077,17 @@ class TextViewportContractTest(private val renderer: Renderer) {
         instrumentation.runOnMainSync { viewport.readAloud.highlight(position) }
     }
 
+    private fun obscure(top: Int, bottom: Int) {
+        instrumentation.runOnMainSync { viewport.setObscured(top, bottom) }
+        settle()
+    }
+
+    /** [value] in the renderer's own pixels as the device pixels the host measures the chrome in. */
+    private fun devicePx(value: Float): Int = when (renderer) {
+        Renderer.NATIVE -> value.roundToInt()
+        Renderer.WEB -> (value * instrumentation.targetContext.resources.displayMetrics.density).roundToInt()
+    }
+
     /** The marked paragraph's top and bottom once there is a mark, or null at the timeout. */
     private fun awaitMark(): Pair<Float, Float>? {
         awaitWhile { markBounds() == null }
@@ -1391,6 +1461,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** A follow's rounding: native centres in whole pixels, the page in CSS ones. */
         const val FOLLOW_SLACK_PX = 3f
+
+        /** How far a case's chrome covers, in the renderer's own pixels, a whole number in either. */
+        const val COVERED_UNITS = 120f
         const val STILL_SAMPLES = 3
         const val STILL_SAMPLE_MS = 150L
         const val LARGER_FONT = 24

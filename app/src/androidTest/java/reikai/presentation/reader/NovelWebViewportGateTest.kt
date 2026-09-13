@@ -77,7 +77,7 @@ class NovelWebViewportGateTest {
                 onStepChapter = { steps += it },
                 onVisibleChapter = { visibleReports += it },
                 onRetryBoundary = {},
-                statusBarHeightPx = { inset },
+                cutoutTopDp = { inset },
                 onChapterFits = { _, _ -> },
                 onChapterEndSeen = { endsSeen += it },
             )

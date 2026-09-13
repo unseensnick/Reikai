@@ -71,8 +71,9 @@ class NovelWebViewport(
     private val onVisibleChapter: (chapterId: Long) -> Unit,
     /** Asking again for the neighbour whose failure is drawn at an edge. */
     private val onRetryBoundary: (forward: Boolean) -> Unit,
-    /** Read per load rather than once: the cutout inset is only known after the window has one. */
-    private val statusBarHeightPx: () -> Int,
+    /** The cutout inset in dp, which the page's CSS pixels are. Read per load rather than once: it is
+     *  only known after the window has one. */
+    private val cutoutTopDp: () -> Int,
     /** Whether a chapter fits on one screen, whenever that answer changes, as the native viewport
      *  reports it. */
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
@@ -90,6 +91,10 @@ class NovelWebViewport(
     /** The last auto-scroll state the host asked for, so a freshly built document can be given it. */
     private var autoScrollRunning = false
     private var autoScrollPixelsPerFrame = 0f
+
+    /** What the chrome covers from each edge in CSS pixels, held for the same reason. */
+    private var obscuredTop = 0f
+    private var obscuredBottom = 0f
 
     /**
      * Window verbs the page was not up to receive yet. Loading a document is asynchronous, so the
@@ -188,7 +193,7 @@ class NovelWebViewport(
         // system bars; comparing first keeps an unchanged one from rewriting the page.
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val settings = documentSettings
-            if (settings != null && statusBarHeightPx() != documentInset) applySettings(settings)
+            if (settings != null && cutoutTopDp() != documentInset) applySettings(settings)
         }
     }
 
@@ -263,9 +268,9 @@ class NovelWebViewport(
         // The document is built with this family's face, and any swap still resolving is for the old page.
         faceJob?.cancel()
         faceFamily = settings.fontFamily
-        val statusBarPx = statusBarHeightPx()
+        val inset = cutoutTopDp()
         documentSettings = settings
-        documentInset = statusBarPx
+        documentInset = inset
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
@@ -280,7 +285,7 @@ class NovelWebViewport(
                 // to exist before it has anywhere to scroll and the load is asynchronous.
                 initialFraction = chapter.progressPercent / 100f,
                 settings = settings,
-                statusBarHeightPx = statusBarPx,
+                statusBarHeightPx = inset,
                 fontSource = fontSource,
                 useOriginalFonts = useOriginalFonts,
                 sourceCssPriority = sourceCssPriority,
@@ -308,7 +313,7 @@ class NovelWebViewport(
     override fun applySettings(settings: NovelReaderSettings) {
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         documentSettings = settings
-        documentInset = statusBarHeightPx()
+        documentInset = cutoutTopDp()
         val variables = NovelWebDocument.variables(settings, documentInset)
         val behaviour = NovelWebDocument.behaviourJson(settings).toString()
         // A block, since runOrQueue's guard would otherwise cover only the first of the two.
@@ -506,9 +511,26 @@ class NovelWebViewport(
         }
     }
 
+    override fun setObscured(top: Int, bottom: Int) {
+        val density = context.resources.displayMetrics.density
+        obscuredTop = top / density
+        obscuredBottom = bottom / density
+        pushObscured()
+    }
+
+    /** Pushed straight rather than queued, since the ready report pushes it again to each new page. */
+    private fun pushObscured() {
+        webView.evaluateJavascript(
+            "if (window.rkReader) rkReader.readAloud.setObscured($obscuredTop, $obscuredBottom);",
+            null,
+        )
+    }
+
     private fun onPageReady(token: String) {
         if (token != documentToken) return
         pageReady = true
+        // Ahead of the held calls, which can be read-aloud questions the covered edges answer.
+        pushObscured()
         pendingWindowVerbs.forEach(::evaluate)
         pendingWindowVerbs.clear()
         pushAutoScroll()
