@@ -17,8 +17,11 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -56,6 +59,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var viewport: TextViewport
     private val view: View get() = (viewport as ReaderViewport).view
+
+    /** Set by a case that destroys the viewport itself, which the teardown must not do again. */
+    private var destroyed = false
 
     /** The last fit answer per chapter, which is also each renderer's sign that a chapter has rendered. */
     private val fits = ConcurrentHashMap<Long, Boolean>()
@@ -112,7 +118,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     @After
     fun tearDown() {
-        if (::viewport.isInitialized) instrumentation.runOnMainSync { (viewport as ReaderViewport).destroy() }
+        if (::viewport.isInitialized && !destroyed) {
+            instrumentation.runOnMainSync { (viewport as ReaderViewport).destroy() }
+        }
         if (::scenario.isInitialized) scenario.close()
         server?.close()
     }
@@ -333,6 +341,55 @@ class TextViewportContractTest(private val renderer: Renderer) {
         open(chapter(FIRST, "<p>first</p>"))
         append(chapter(SECOND, "<p>second a</p><p>second b</p>"))
         assertEquals(listOf("second a", "second b"), paragraphs(SECOND))
+    }
+
+    /** The WebView's load returns before its page is ready, so this question is held for the page. */
+    @Test
+    fun paragraphsAskedWhileTheChapterLoadsAreAnsweredOnceItHasRendered() {
+        val answer = runBlocking(Dispatchers.Main) {
+            viewport.load(chapter(FIRST, "<p>first a</p><p>first b</p>"), readerTestSettings)
+            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { viewport.readAloud.paragraphs(FIRST) }
+        }
+        assertEquals(listOf("first a", "first b"), answer)
+    }
+
+    /** Native's load returns with the chapter rendered and answers as it is asked, so only the page holds
+     *  a question or has one in flight. */
+    @Test
+    fun paragraphsHeldForAPageStillLoadingAreAnsweredNullWhenAnotherChapterReplacesIt() {
+        assumeTrue("only the page answers asynchronously", renderer == Renderer.WEB)
+        val answer = runBlocking(Dispatchers.Main) {
+            viewport.load(chapter(FIRST, long("first")), readerTestSettings)
+            val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
+            viewport.load(chapter(SECOND, "<p>second</p>"), readerTestSettings)
+            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+        }
+        assertEquals(null, answer)
+    }
+
+    @Test
+    fun paragraphsThePageIsAnsweringAreAnsweredNullWhenAnotherChapterReplacesIt() {
+        assumeTrue("only the page answers asynchronously", renderer == Renderer.WEB)
+        open(chapter(FIRST, long("first")))
+        val answer = runBlocking(Dispatchers.Main) {
+            val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
+            viewport.load(chapter(SECOND, "<p>second</p>"), readerTestSettings)
+            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+        }
+        assertEquals(null, answer)
+    }
+
+    @Test
+    fun paragraphsThePageIsAnsweringAreAnsweredNullWhenTheViewportIsDestroyed() {
+        assumeTrue("only the page answers asynchronously", renderer == Renderer.WEB)
+        open(chapter(FIRST, long("first")))
+        val answer = runBlocking(Dispatchers.Main) {
+            val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
+            (viewport as ReaderViewport).destroy()
+            destroyed = true
+            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+        }
+        assertEquals(null, answer)
     }
 
     @Test

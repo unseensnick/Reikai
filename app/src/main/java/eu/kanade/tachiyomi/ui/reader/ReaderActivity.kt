@@ -696,6 +696,8 @@ class ReaderActivity : BaseActivity() {
                     }
                 }
                 rendered = wanted
+                // After the verbs, since the chapter being read aloud may be one they just added.
+                model.readAloud.onWindowChanged()
                 // After the verbs, so an edge is never marked failed on a window that is one append
                 // away from reaching past it.
                 window.setBoundaryFailures(state.failedPrevious, state.failedNext)

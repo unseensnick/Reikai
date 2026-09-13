@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.NovelTtsEngine
 import reikai.domain.novel.tts.TtsPlayback
@@ -88,6 +87,12 @@ class ReadAloudController(
     private var paragraphs: List<String> = emptyList()
     private var position: ReadAloudPosition? = null
 
+    /**
+     * The renderer started over and [position] has not been found in its layout yet. Kept until it is,
+     * since the chapter being read can join the window only after the landing.
+     */
+    private var unplaced = false
+
     /** The chapter opened for read-aloud to carry on in once the renderer lands on it. */
     private var pendingChapter: Long? = null
 
@@ -161,6 +166,7 @@ class ReadAloudController(
         chapterId = null
         paragraphs = emptyList()
         position = null
+        unplaced = false
         playback = TtsPlayback.Stopped
         surface?.highlight(null)
         publish()
@@ -195,7 +201,17 @@ class ReadAloudController(
             }
             return
         }
-        if (playback != TtsPlayback.Stopped) scope.launch { relocate() }
+        if (playback == TtsPlayback.Stopped) return
+        unplaced = true
+        // Drawn as soon as the renderer can, since a layout that did not shift needs no relocation.
+        surface?.highlight(position)
+        scope.launch { relocate() }
+    }
+
+    /** The renderer's window gained or lost chapters, which can bring in the one being read. */
+    fun onWindowChanged() {
+        // Only while unplaced: the page rebuilds a chapter's paragraph map for a question after any change.
+        if (unplaced) scope.launch { relocate() }
     }
 
     private fun step(delta: Int) {
@@ -220,6 +236,7 @@ class ReadAloudController(
     private suspend fun beginChapter(id: Long, chapter: List<String>, index: Int) {
         chapterId = id
         paragraphs = chapter
+        unplaced = false
         if (chapter.isEmpty()) return endChapter()
         playAt(index.coerceIn(0, chapter.lastIndex))
     }
@@ -248,6 +265,7 @@ class ReadAloudController(
     private fun holdAt(id: Long, chapter: List<String>) {
         chapterId = id
         paragraphs = chapter
+        unplaced = false
         position = ReadAloudPosition(id, 0)
         surface?.highlight(position)
         publish()
@@ -272,11 +290,13 @@ class ReadAloudController(
         command { playAt((position?.paragraph ?: 0) + 1) }
     }
 
+    /** Finds [position] in the renderer's layout, or leaves it unplaced while the window lacks its chapter. */
     private suspend fun relocate() {
         val id = chapterId ?: return
         val laidOut = ask { paragraphs(id) }?.takeIf { it.isNotEmpty() } ?: return
         // Read after the query, since speech may have moved on while the renderer answered.
-        val at = position?.takeIf { it.chapterId == id } ?: return
+        val at = position?.takeIf { it.chapterId == id && unplaced } ?: return
+        unplaced = false
         val spokenText = paragraphs.getOrNull(at.paragraph)
         val index = laidOut.indices
             .filter { laidOut[it] == spokenText }
@@ -327,11 +347,8 @@ class ReadAloudController(
 
     private fun readyEngine() = engine?.takeIf { engineReady }
 
-    /** A WebView torn down mid-query may never answer, so no question waits on it for long. */
-    private suspend fun <T> ask(query: suspend ReadAloudSurface.() -> T?): T? {
-        val asked = surface ?: return null
-        return withTimeoutOrNull(SURFACE_TIMEOUT_MS) { asked.query() }
-    }
+    /** Waits as long as the renderer takes: it answers every question, with null once it is replaced. */
+    private suspend fun <T> ask(query: suspend ReadAloudSurface.() -> T?): T? = surface?.query()
 
     private fun setPlayback(value: TtsPlayback) {
         if (value == TtsPlayback.Playing && playback != TtsPlayback.Playing) {
@@ -345,9 +362,5 @@ class ReadAloudController(
         state.value = ReadAloudState(playback, position, paragraphs.size)
         val title = chapterId?.let(navigation::titleOf).orEmpty()
         transport.publish(playback, title, position?.paragraph ?: 0, paragraphs.size)
-    }
-
-    private companion object {
-        const val SURFACE_TIMEOUT_MS = 3_000L
     }
 }

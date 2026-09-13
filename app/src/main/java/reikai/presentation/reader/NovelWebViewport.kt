@@ -103,6 +103,13 @@ class NovelWebViewport(
     private class PendingCall(val js: String, val onResult: ((String?) -> Unit)?)
 
     /**
+     * Every call still owed a result, held or already handed to the page. A page replaced or destroyed
+     * never answers what it was handed, so these are answered null then, and a result that still
+     * arrives afterwards finds its call gone.
+     */
+    private val awaitingResult = mutableSetOf<PendingCall>()
+
+    /**
      * The document built last, the only one whose calls the host hears and whose ready report opens the
      * gate. The page being replaced can still report after the next load has begun, and a chapter's own
      * script can reach the bridge too; either one opening it sent the new document's verbs to a page
@@ -449,24 +456,34 @@ class NovelWebViewport(
 
     /** Runs [js] against the page, or holds it in order until the page says it has an engine. */
     private fun runOrQueue(js: String, onResult: ((String?) -> Unit)? = null) {
+        val call = PendingCall(js, onResult)
+        if (onResult != null) awaitingResult += call
         if (pageReady) {
-            evaluate(PendingCall(js, onResult))
+            evaluate(call)
         } else {
-            pendingWindowVerbs += PendingCall(js, onResult)
+            pendingWindowVerbs += call
         }
     }
 
     private fun evaluate(call: PendingCall) {
-        webView.evaluateJavascript("if (window.rkReader) ${call.js}", call.onResult?.let { ValueCallback(it) })
+        val answer = call.onResult?.let { onResult ->
+            ValueCallback<String> { if (awaitingResult.remove(call)) onResult(it) }
+        }
+        webView.evaluateJavascript("if (window.rkReader) ${call.js}", answer)
     }
 
-    /** A document being replaced will never answer, so whoever waits on one of its calls hears null. */
+    /**
+     * A document being replaced will never answer, so whoever waits on one of its calls hears null.
+     * Cleared before anyone hears it, since a caller resumed here can queue a call for the next document.
+     */
     private fun dropPendingCalls() {
-        pendingWindowVerbs.forEach { it.onResult?.invoke(null) }
         pendingWindowVerbs.clear()
+        val unanswered = awaitingResult.toList()
+        awaitingResult.clear()
+        unanswered.forEach { it.onResult?.invoke(null) }
     }
 
-    /** What [js] evaluates to in the page, as JSON, or null for a null or a page that never answers. */
+    /** What [js] evaluates to in the page, as JSON, or null for a null or a page replaced before it answered. */
     private suspend fun query(js: String): String? = withContext(Dispatchers.Main.immediate) {
         suspendCancellableCoroutine { continuation ->
             runOrQueue(js) { result -> if (continuation.isActive) continuation.resume(result.takeIf { it != "null" }) }

@@ -3,7 +3,7 @@ package reikai.presentation.reader
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -148,13 +148,15 @@ class ReadAloudControllerTest {
     }
 
     @Test
-    fun `a surface that never answers leaves playback stopped`() = runTest {
-        surface.hang = true
-        val controller = controller()
+    fun `a read from here replaced before the surface answers does not move to the screen's paragraph`() = runTest {
+        val controller = playing()
+        surface.firstVisible = ReadAloudPosition(1L, 0)
+        surface.answerDelayMs = SLOW_ANSWER_MS
+        controller.readFromHere()
 
-        act { controller.play() }
+        act { controller.seekToParagraph(2) }
 
-        controller.state.value.playback shouldBe TtsPlayback.Stopped
+        surface.highlights.last() shouldBe ReadAloudPosition(1L, 2)
     }
 
     @Test
@@ -496,6 +498,93 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `a renderer slow to lay the chapter out again still finds the paragraph once it answers`() = runTest {
+        val controller = playing()
+        surface.chapters[1L] = listOf("new", "a", "b", "c")
+        surface.answerDelayMs = SLOW_ANSWER_MS
+
+        act { controller.onRendererLanded(1L) }
+
+        surface.highlights.last() shouldBe ReadAloudPosition(1L, 2)
+    }
+
+    @Test
+    fun `a rebuilt renderer is shown the spoken paragraph before its layout answers`() = runTest {
+        val controller = playing()
+        surface.answerDelayMs = SLOW_ANSWER_MS
+        val before = surface.highlights.size
+
+        controller.onRendererLanded(1L)
+
+        surface.highlights.drop(before) shouldBe listOf(ReadAloudPosition(1L, 1))
+    }
+
+    @Test
+    fun `a chapter being read that joins the window after the landing is highlighted when it joins`() = runTest {
+        val controller = playing()
+        surface.chapters.remove(1L)
+        surface.chapters[2L] = listOf("x")
+        act { controller.onRendererLanded(2L) }
+        surface.chapters[1L] = listOf("new", "a", "b", "c")
+
+        act { controller.onWindowChanged() }
+
+        surface.highlights.last() shouldBe ReadAloudPosition(1L, 2)
+    }
+
+    /** A highlight follows its paragraph back on screen, so one sent again would undo the reader's scroll.
+     *  The host reports both in one window update. */
+    @Test
+    fun `a landing and its window change place the paragraph once`() = runTest {
+        val controller = playing()
+        surface.chapters[1L] = listOf("new", "a", "b", "c")
+        val before = surface.highlights.size
+
+        act {
+            controller.onRendererLanded(1L)
+            controller.onWindowChanged()
+        }
+
+        surface.highlights.drop(before) shouldBe listOf(ReadAloudPosition(1L, 1), ReadAloudPosition(1L, 2))
+    }
+
+    @Test
+    fun `a chapter read on from the window leaves no earlier paragraph to place`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        surface.chapters.remove(1L)
+        act { controller.onRendererLanded(3L) }
+        surface.chapters[2L] = listOf("x", "y")
+        act { engine.finishLast() }
+        val before = surface.highlights.size
+
+        act { controller.onWindowChanged() }
+
+        surface.highlights.size shouldBe before
+    }
+
+    @Test
+    fun `a chapter taken up paused leaves no earlier paragraph to place`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        surface.chapters.remove(1L)
+        act { controller.onRendererLanded(3L) }
+        act { engine.finishLast() }
+        act { controller.pause() }
+        surface.chapters[2L] = listOf("x", "y")
+        act { controller.onRendererLanded(2L) }
+        val before = surface.highlights.size
+
+        act { controller.onWindowChanged() }
+
+        surface.highlights.size shouldBe before
+    }
+
+    @Test
     fun `a renderer laying the chapter out again does not restart speech`() = runTest {
         val controller = playing()
         surface.chapters[1L] = listOf("new", "a", "b", "c")
@@ -651,12 +740,17 @@ class ReadAloudControllerTest {
         var firstVisible: ReadAloudPosition?,
     ) : ReadAloudSurface {
         val highlights = mutableListOf<ReadAloudPosition?>()
-        var hang = false
 
-        override suspend fun paragraphs(chapterId: Long): List<String>? = chapters[chapterId]
+        /** How long each question takes to answer, in virtual time, as a page still starting up does. */
+        var answerDelayMs = 0L
+
+        override suspend fun paragraphs(chapterId: Long): List<String>? {
+            delay(answerDelayMs)
+            return chapters[chapterId]
+        }
 
         override suspend fun firstVisibleParagraph(): ReadAloudPosition? {
-            if (hang) awaitCancellation()
+            delay(answerDelayMs)
             return firstVisible
         }
 
@@ -712,5 +806,10 @@ class ReadAloudControllerTest {
         override fun release() {
             released = true
         }
+    }
+
+    private companion object {
+        /** Past the page's own three-second wait for images, which a rebuilt page reports ready after. */
+        const val SLOW_ANSWER_MS = 10_000L
     }
 }

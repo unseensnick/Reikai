@@ -8,7 +8,8 @@ data class ReadAloudPosition(val chapterId: Long, val paragraph: Int)
  * mark on the paragraph being spoken. Both renderers count paragraphs by one rule, so a position saved
  * in one names the same text in the other: a non-blank line of the text as shown, with whitespace runs
  * collapsed to one space, trimmed, object-replacement characters removed and ruby readings left out.
- * `TextViewportContractTest` holds both renderers to it.
+ * `TextViewportContractTest` holds both renderers to it. Every question is answered, with null once the
+ * document it was asked of is replaced or destroyed, so a caller waits on none with a timeout.
  */
 interface ReadAloudSurface {
 
