@@ -1,13 +1,10 @@
 package reikai.presentation.reader.text
 
-import android.graphics.Canvas
 import android.graphics.Paint
 import android.text.Editable
 import android.text.Html
 import android.text.Spanned
-import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
-import android.text.style.LineBackgroundSpan
 import android.text.style.UnderlineSpan
 import org.xml.sax.XMLReader
 
@@ -92,60 +89,13 @@ internal object RubyReadingTagHandler : Html.TagHandler {
 /** Every span the read-aloud mark is drawn with, so clearing it finds them whatever copied the text. */
 internal interface ReadAloudMark
 
-internal class MarkBackgroundSpan(color: Int) : BackgroundColorSpan(color), ReadAloudMark
+/**
+ * The range [ChunkTextView] draws a box behind, filled or stroked as [style] says. Carries no drawing
+ * of its own, so a precomputed text accepts it.
+ */
+internal class ReadAloudBoxSpan(val color: Int, val style: Paint.Style) : ReadAloudMark
 
 internal class MarkForegroundSpan(color: Int) : ForegroundColorSpan(color), ReadAloudMark
 
+/** Drawn by the framework at the font's underline position, which the line's spacing never moves. */
 internal class MarkUnderlineSpan : UnderlineSpan(), ReadAloudMark
-
-/**
- * A rounded box around the whole paragraph, drawn line by line. Each line clips a box that runs past
- * it on any side the paragraph continues, so only the paragraph's own ends get a top, a bottom and
- * corners. A line background rather than a metric-affecting span, which a precomputed text rejects.
- */
-internal class MarkOutlineSpan(
-    private val color: Int,
-    private val strokePx: Float,
-    private val radiusPx: Float,
-) : LineBackgroundSpan, ReadAloudMark {
-
-    override fun drawBackground(
-        canvas: Canvas,
-        paint: Paint,
-        left: Int,
-        right: Int,
-        top: Int,
-        baseline: Int,
-        bottom: Int,
-        text: CharSequence,
-        start: Int,
-        end: Int,
-        lineNumber: Int,
-    ) {
-        val spanned = text as? Spanned ?: return
-        val first = start <= spanned.getSpanStart(this)
-        val last = end >= spanned.getSpanEnd(this)
-        val half = strokePx / 2
-        val style = paint.style
-        val paintColor = paint.color
-        val width = paint.strokeWidth
-        paint.style = Paint.Style.STROKE
-        paint.color = color
-        paint.strokeWidth = strokePx
-        canvas.save()
-        canvas.clipRect(left, top, right, bottom)
-        canvas.drawRoundRect(
-            left + half,
-            if (first) top + half else top - radiusPx * 2,
-            right - half,
-            if (last) bottom - half else bottom + radiusPx * 2,
-            radiusPx,
-            radiusPx,
-            paint,
-        )
-        canvas.restore()
-        paint.style = style
-        paint.color = paintColor
-        paint.strokeWidth = width
-    }
-}

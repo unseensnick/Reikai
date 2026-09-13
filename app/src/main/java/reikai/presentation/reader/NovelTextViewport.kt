@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Paint
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -36,10 +37,9 @@ import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
+import reikai.presentation.reader.text.ChunkTextView
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
-import reikai.presentation.reader.text.MarkBackgroundSpan
 import reikai.presentation.reader.text.MarkForegroundSpan
-import reikai.presentation.reader.text.MarkOutlineSpan
 import reikai.presentation.reader.text.MarkUnderlineSpan
 import reikai.presentation.reader.text.NovelBoundaryFailureView
 import reikai.presentation.reader.text.NovelChapterSeamView
@@ -48,6 +48,7 @@ import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.text.ParagraphShape
+import reikai.presentation.reader.text.ReadAloudBoxSpan
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.readAloudParagraphs
 import kotlin.math.abs
@@ -368,16 +369,13 @@ class NovelTextViewport(
         val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return
         val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return
         val text = view.text as? Spannable ?: return
-        val density = context.resources.displayMetrics.density
         val marks = when (current.ttsHighlightStyle) {
             TtsHighlightStyle.BACKGROUND -> listOf(
-                MarkBackgroundSpan(current.ttsHighlightColor),
+                ReadAloudBoxSpan(current.ttsHighlightColor, Paint.Style.FILL),
                 MarkForegroundSpan(current.ttsHighlightTextColor),
             )
             TtsHighlightStyle.UNDERLINE -> listOf(MarkUnderlineSpan())
-            TtsHighlightStyle.OUTLINE -> listOf(
-                MarkOutlineSpan(current.ttsHighlightColor, OUTLINE_STROKE_DP * density, OUTLINE_RADIUS_DP * density),
-            )
+            TtsHighlightStyle.OUTLINE -> listOf(ReadAloudBoxSpan(current.ttsHighlightColor, Paint.Style.STROKE))
         }
         marks.forEach { text.setSpan(it, paragraph.start, paragraph.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
         view.invalidate()
@@ -1019,7 +1017,7 @@ class NovelTextViewport(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun createChunkView(settings: NovelReaderSettings): TextView =
-        TextView(context).apply {
+        ChunkTextView(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1277,10 +1275,6 @@ class NovelTextViewport(
 
         /** How far sideways a swipe must run to count, in dp, also `core.js`'s number. */
         const val SWIPE_MIN_DP = 180f
-
-        /** The read-aloud outline's line and corner, in dp. */
-        const val OUTLINE_STROKE_DP = 2f
-        const val OUTLINE_RADIUS_DP = 6f
     }
 }
 

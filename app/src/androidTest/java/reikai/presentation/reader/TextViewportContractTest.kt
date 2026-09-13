@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
 import android.text.Spanned
@@ -32,6 +33,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.DrawableWrapper
@@ -548,6 +550,65 @@ class TextViewportContractTest(private val renderer: Renderer) {
         instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(fontSize = LARGER_FONT)) }
         awaitWhile { markedTextSize() != largerFontPx() }
         assertEquals(largerFontPx(), markedTextSize())
+    }
+
+    /** Line height and paragraph spacing well above one, so a mark drawn over the line box shows. */
+    @Test
+    fun aOneLineParagraphsMarkCoversItsGlyphsAndNotItsSpacing() {
+        open(chapter(FIRST, SPACED), spacedSettings)
+        highlight(ReadAloudPosition(FIRST, SPACED_ONE_LINE))
+        awaitDrawnMark()
+        val text = paragraphLines(SPACED_PARAGRAPHS[SPACED_ONE_LINE]).single()
+        val next = paragraphLines(SPACED_PARAGRAPHS[SPACED_ONE_LINE + 1]).first()
+        val painted = painted()
+        Log.i(TAG, "$renderer one line: glyphs $text, next line top ${next.top}, painted $painted")
+        assertTrue(
+            "painted $painted over glyphs $text, next line at ${next.top}",
+            painted.height <= text.height() * GLYPH_SLACK &&
+                painted.bottom <= next.top &&
+                painted.right <= text.right + EDGE_SLACK_PX,
+        )
+    }
+
+    @Test
+    fun aBackgroundMarkLeavesTheGapBetweenLinesUnpainted() {
+        open(chapter(FIRST, SPACED), spacedSettings)
+        highlight(ReadAloudPosition(FIRST, SPACED_LONG))
+        awaitDrawnMark()
+        val lines = paragraphLines(SPACED_PARAGRAPHS[SPACED_LONG])
+        val painted = painted()
+        val gaps = lines.zipWithNext { above, below ->
+            (above.bottom.roundToInt() + 1) until below.top.roundToInt() - 1
+        }
+        val paintedGapRows = gaps.flatMap { gap -> painted.rows.filter { it in gap } }
+        val unpaintedLines = lines.filter { line -> painted.rows.none { it >= line.top && it < line.bottom } }
+        Log.i(TAG, "$renderer lines: glyphs $lines, painted $painted, painted gap rows ${paintedGapRows.size}")
+        assertTrue(
+            "lines $lines, painted gap rows $paintedGapRows, lines left unpainted $unpaintedLines",
+            lines.size >= 3 && paintedGapRows.isEmpty() && unpaintedLines.isEmpty(),
+        )
+    }
+
+    @Test
+    fun anOutlineEnclosesTheParagraphsTextWithinItsPad() {
+        open(chapter(FIRST, SPACED), spacedSettings.copy(ttsHighlightStyle = TtsHighlightStyle.OUTLINE))
+        highlight(ReadAloudPosition(FIRST, SPACED_LONG))
+        awaitDrawnMark()
+        val lines = paragraphLines(SPACED_PARAGRAPHS[SPACED_LONG])
+        val text = RectF(lines.first()).apply { lines.forEach(::union) }
+        val painted = painted()
+        val pad = dp(OUTLINE_PAD_DP)
+        val outward = listOf(
+            text.left - painted.left,
+            text.top - painted.top,
+            painted.right - text.right,
+            painted.bottom - text.bottom,
+        )
+        Log.i(TAG, "$renderer outline: text $text, painted $painted, outward $outward, pad $pad")
+        assertTrue(
+            "outline $painted around text $text reaches out by $outward, pad $pad",
+            outward.all { abs(it - pad) <= EDGE_SLACK_PX },
+        )
     }
 
     // endregion
@@ -1120,6 +1181,103 @@ class TextViewportContractTest(private val renderer: Renderer) {
         }
     }
 
+    /** Until the mark is drawn and the follow that may bring it on screen has stopped. */
+    private fun awaitDrawnMark() {
+        checkNotNull(awaitMark())
+        awaitScrollStill()
+        settle()
+    }
+
+    /** The screen rows painted in the test's highlight colour, and the columns they reach. */
+    private data class Painted(val rows: List<Int>, val left: Int, val right: Int) {
+        val top get() = rows.first()
+        val bottom get() = rows.last() + 1
+        val height get() = bottom - top
+
+        override fun toString() = "Painted($left, $top, $right, $bottom over ${rows.size} rows)"
+    }
+
+    /**
+     * Read off a screenshot rather than from either renderer's own geometry, so it is what the reader
+     * sees. Only pixels exactly the colour count, which leaves out glyphs and antialiased edges.
+     */
+    private fun painted(): Painted {
+        val color = spacedSettings.ttsHighlightColor
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val bottom = minOf(shot.height, at[1] + view.height)
+        val right = minOf(shot.width, at[0] + view.width)
+        val row = IntArray(shot.width)
+        val rows = mutableListOf<Int>()
+        var left = Int.MAX_VALUE
+        var furthest = Int.MIN_VALUE
+        for (y in maxOf(0, at[1]) until bottom) {
+            shot.getPixels(row, 0, shot.width, 0, y, shot.width, 1)
+            val hits = (maxOf(0, at[0]) until right).filter { row[it] == color }
+            if (hits.size < PAINTED_ROW_MIN_PIXELS) continue
+            rows += y
+            left = minOf(left, hits.first())
+            furthest = maxOf(furthest, hits.last() + 1)
+        }
+        shot.recycle()
+        check(rows.isNotEmpty()) { "nothing on screen is painted in the mark's colour" }
+        return Painted(rows, left, furthest)
+    }
+
+    /** Each line of the paragraph reading [text], as the box its glyphs fill, in screen pixels. */
+    private fun paragraphLines(text: String): List<RectF> = when (renderer) {
+        Renderer.NATIVE -> {
+            val lines = mutableListOf<RectF>()
+            instrumentation.runOnMainSync {
+                val chunk = descendants(view).filterIsInstance<TextView>().first { it.text.contains(text) }
+                val layout = chunk.layout
+                val start = chunk.text.indexOf(text)
+                val metrics = chunk.paint.fontMetricsInt
+                val at = IntArray(2).also(chunk::getLocationOnScreen)
+                val x = (at[0] + chunk.totalPaddingLeft).toFloat()
+                val y = (at[1] + chunk.totalPaddingTop).toFloat()
+                (layout.getLineForOffset(start)..layout.getLineForOffset(start + text.length - 1)).forEach { line ->
+                    val baseline = y + layout.getLineBaseline(line)
+                    lines += RectF(
+                        x + layout.getLineLeft(line),
+                        baseline + metrics.ascent,
+                        x + layout.getLineRight(line),
+                        baseline + metrics.descent,
+                    )
+                }
+            }
+            lines
+        }
+        Renderer.WEB -> {
+            val at = IntArray(2)
+            instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+            val density = instrumentation.targetContext.resources.displayMetrics.density
+            val boxes = JSONArray(
+                eval(
+                    "(function () { var text = ${JSONObject.quote(text)};" +
+                        " var p = Array.from(document.querySelectorAll('#rk-chapters .rk-chapter p'))" +
+                        ".find(function (e) { return e.textContent.trim() === text; });" +
+                        " var range = document.createRange(); range.selectNodeContents(p); var lines = {};" +
+                        " Array.from(range.getClientRects()).forEach(function (r) { if (r.width <= 0) return;" +
+                        " var key = Math.round(r.top); var l = lines[key];" +
+                        " lines[key] = l ? [Math.min(l[0], r.left), Math.min(l[1], r.top), Math.max(l[2], r.right)," +
+                        " Math.max(l[3], r.bottom)] : [r.left, r.top, r.right, r.bottom]; });" +
+                        " return Object.keys(lines).map(function (k) { return lines[k]; }); })()",
+                ),
+            )
+            (0 until boxes.length()).map { i ->
+                val box = boxes.getJSONArray(i)
+                RectF(
+                    at[0] + box.getDouble(0).toFloat() * density,
+                    at[1] + box.getDouble(1).toFloat() * density,
+                    at[0] + box.getDouble(2).toFloat() * density,
+                    at[1] + box.getDouble(3).toFloat() * density,
+                )
+            }.sortedBy { it.top }
+        }
+    }
+
     /** The chunk view holding the mark, and the mark's spans. */
     private fun markedChunk(): Pair<TextView, Array<ReadAloudMark>>? = descendants(view)
         .filterIsInstance<TextView>()
@@ -1503,6 +1661,27 @@ class TextViewportContractTest(private val renderer: Renderer) {
             "(window.CSS && CSS.highlights && ['rk-tts-background', 'rk-tts-underline']" +
                 ".map(function (n) { var h = CSS.highlights.get(n); return h && Array.from(h)[0]; })" +
                 ".filter(Boolean)[0]) || document.querySelector('#rk-tts-overlay .rk-tts-box')"
+
+        /** Spacing a mark over the whole line box would take in, and the chapter it is measured on. */
+        val spacedSettings = readerTestSettings.copy(paragraphSpacing = 1.5f, lineHeight = 1.8f)
+        val SPACED_PARAGRAPHS = listOf(
+            "Opening line.",
+            "lorem ipsum dolor sit amet ".repeat(8).trim(),
+            "One short line.",
+            "Closing line.",
+        )
+        val SPACED = SPACED_PARAGRAPHS.joinToString("") { "<p>$it</p>" }
+        const val SPACED_LONG = 1
+        const val SPACED_ONE_LINE = 2
+
+        /** A font's ascent to descent against the mark over it: a line box with this spacing is far past it. */
+        const val GLYPH_SLACK = 1.3f
+
+        /** The page's `OUTLINE_PAD_PX`, one CSS pixel being one dp. */
+        const val OUTLINE_PAD_DP = 4
+
+        /** A glyph's gaps leave at least this many pixels of the colour in any row the mark covers. */
+        const val PAINTED_ROW_MIN_PIXELS = 3
 
         /** Every kind of line a chapter can hold that read-aloud has to count the same in both renderers. */
         const val MIXED = "<h2>Heading</h2><p>First para.</p><p>Line a<br>Line b</p>" +
