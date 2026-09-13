@@ -82,6 +82,9 @@ interface ReaderProvider {
     /** Bionic reading, or null for a type whose pages are images and so have no words to bold. */
     val bionicReading: ReaderBionicReading?
 
+    /** Read-aloud, or null for a type whose pages are images and so have no text to read. */
+    val readAloud: ReaderReadAloud?
+
     /**
      * The entry's own rotation flag, a [eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation]
      * `flagValue` where 0 means follow that content type's global default. Both types store one per

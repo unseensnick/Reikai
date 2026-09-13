@@ -38,6 +38,9 @@ sealed interface ReaderDialog {
     data class TextSize(val settings: ReaderTextSettings) : ReaderDialog
 
     data class ThemeSelect(val settings: ReaderTextSettings) : ReaderDialog
+
+    /** Carries the read-aloud capability, so a session without one cannot raise it. */
+    data class SleepTimerSelect(val readAloud: ReaderReadAloud) : ReaderDialog
 }
 
 /**

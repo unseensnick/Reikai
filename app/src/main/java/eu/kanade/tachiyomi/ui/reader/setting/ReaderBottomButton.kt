@@ -25,6 +25,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
     BionicReading("bi", MR.strings.pref_bionic_reading, Scope.Novel),
     Theme("th", MR.strings.pref_category_theme, Scope.Novel),
     TextSize("ts", MR.strings.pref_reader_text_size, Scope.Novel),
+    ReadAloud("ra", MR.strings.pref_category_read_aloud, Scope.Novel),
     ;
 
     enum class Scope { Manga, Novel, Both }
@@ -53,6 +54,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
             Rotation,
             TextSize,
             Theme,
+            ReadAloud,
         ).map { it.value }.toSet()
     }
 }

@@ -5,6 +5,8 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import reikai.data.novel.tts.NovelTtsSession
+import reikai.data.novel.tts.SleepTimer
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
@@ -104,6 +106,40 @@ class NovelReaderProvider(
         override val enabled: Flow<Boolean> = viewModel.settings.map { it.bionicReading }
 
         override fun toggle() = viewModel.setBionicReading(!viewModel.settings.value.bionicReading)
+    }
+
+    override val readAloud: ReaderReadAloud = object : ReaderReadAloud {
+        private val controller = viewModel.readAloud
+        private val controlsVisible = novelPreferences.readerTtsControlsVisible()
+        private val sleepTimer = NovelTtsSession.sleepTimer
+
+        override val state: Flow<ReaderReadAloudState> = combine(
+            controller.state,
+            controlsVisible.changes(),
+            sleepTimer.timer,
+        ) { speech, visible, timer -> ReaderReadAloudState(speech.playback, visible, timer) }
+
+        override fun play() = controller.play()
+
+        override fun pause() = controller.pause()
+
+        override fun stop() = controller.stop()
+
+        override fun readFromHere() = controller.readFromHere()
+
+        override fun previousParagraph() = controller.previousParagraph()
+
+        override fun nextParagraph() = controller.nextParagraph()
+
+        override fun toggleControls() = controlsVisible.set(!controlsVisible.get())
+
+        override fun setSleepTimer(minutes: Int) = sleepTimer.setMinutes(minutes)
+
+        override fun setSleepTimerEndOfChapter() = sleepTimer.setEndOfChapter()
+
+        override fun clearSleepTimer() = sleepTimer.clear()
+
+        override fun minutesLeft(timer: SleepTimer.At) = sleepTimer.minutesLeft(timer)
     }
 
     override val orientation: Flow<Int> = viewModel.settings.map { it.orientation }

@@ -277,6 +277,9 @@ class NovelPreferences(
     /** Scroll the spoken paragraph back on screen when it is not fully on it. */
     fun readerTtsKeepInView() = preferenceStore.getBoolean("ln_reader_tts_keep_in_view", true)
 
+    /** Whether the read-aloud controls float over the reader. Hiding them leaves playback running. */
+    fun readerTtsControlsVisible() = preferenceStore.getBoolean("ln_reader_tts_controls_visible", false)
+
     /** Persisted floating-puck position (dp offsets within the reader). [Int.MIN_VALUE] = not yet
      *  placed, so the puck uses its default anchor. */
     fun readerTtsButtonX() = preferenceStore.getInt("ln_reader_tts_button_x", Int.MIN_VALUE)

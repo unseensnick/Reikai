@@ -315,6 +315,8 @@
     <string name="tts_reading_aloud">Reading aloud</string>
     <string name="tts_novel_read_aloud">Novel read aloud</string>
     <string name="tts_stop">Stop</string>
+    <string name="tts_play">Play</string>
+    <string name="tts_read_from_here">Read from here</string>
     <string name="tts_previous_paragraph">Previous paragraph</string>
     <string name="tts_next_paragraph">Next paragraph</string>
     <string name="tts_sleep_timer">Sleep timer</string>

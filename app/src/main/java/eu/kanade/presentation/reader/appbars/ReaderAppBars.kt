@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -32,6 +34,7 @@ import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.ReadAloudControls
 import reikai.presentation.reader.ReaderBarsFadeSpec
 import reikai.presentation.reader.ReaderBarsSlideSpec
 import reikai.presentation.reader.readerBarEnter
@@ -84,6 +87,17 @@ fun ReaderAppBars(
     onClickAutoScroll: (() -> Unit)?,
     bionicActive: Boolean,
     onClickBionic: (() -> Unit)?,
+    // Null where the session cannot read aloud, which keeps both the bar button and the controls away.
+    onClickReadAloud: (() -> Unit)?,
+    onLongClickReadAloud: () -> Unit,
+    readAloudControlsVisible: Boolean,
+    readAloudPlaying: Boolean,
+    sleepTimerActive: Boolean,
+    onReadFromHere: () -> Unit,
+    onPreviousParagraph: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNextParagraph: () -> Unit,
+    onClickSleepTimer: () -> Unit,
     // RK <--
 ) {
     val backgroundColor = readerChromeColor() // RK: shared scrim (see ReaderChrome)
@@ -151,6 +165,40 @@ fun ReaderAppBars(
             Spacer(Modifier.weight(1f))
         }
 
+        // RK --> the read-aloud controls hang upward from a zero-height anchor on top of the bottom bar,
+        // so they sit over the reader without taking layout space from it, and ride down to the screen
+        // edge once the bar is gone.
+        if (readAloudControlsVisible && onClickReadAloud != null) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(0.dp),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                ReadAloudControls(
+                    playing = readAloudPlaying,
+                    sleepTimerActive = sleepTimerActive,
+                    onReadFromHere = onReadFromHere,
+                    onPreviousParagraph = onPreviousParagraph,
+                    onPlayPause = onPlayPause,
+                    onNextParagraph = onNextParagraph,
+                    onClickSleepTimer = onClickSleepTimer,
+                    modifier = Modifier
+                        .wrapContentHeight(Alignment.Bottom, unbounded = true)
+                        .then(
+                            // Without the bar, the system navigation bar and the progress readout along
+                            // the bottom edge are what it has to clear.
+                            if (visible) {
+                                Modifier.padding(bottom = MaterialTheme.padding.small)
+                            } else {
+                                Modifier
+                                    .windowInsetsPadding(WindowInsets.navigationBars)
+                                    .padding(bottom = MaterialTheme.padding.large)
+                            },
+                        ),
+                )
+            }
+        }
+        // RK <--
+
         AnimatedVisibility(
             visible = visible,
             // RK: shared bottom-bar transition (see ReaderChrome)
@@ -199,6 +247,9 @@ fun ReaderAppBars(
                     onClickAutoScroll = onClickAutoScroll,
                     bionicActive = bionicActive,
                     onClickBionic = onClickBionic,
+                    readAloudControlsVisible = readAloudControlsVisible,
+                    onClickReadAloud = onClickReadAloud,
+                    onLongClickReadAloud = onLongClickReadAloud,
                     // RK <--
                 )
             }

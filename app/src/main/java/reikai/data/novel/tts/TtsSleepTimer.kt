@@ -7,8 +7,11 @@ sealed interface SleepTimer {
 
     data object Off : SleepTimer
 
-    /** Pauses once the clock reaches [endsAt], in elapsed-realtime millis so a clock change cannot move it. */
-    data class At(val endsAt: Long) : SleepTimer
+    /**
+     * Pauses once the clock reaches [endsAt], in elapsed-realtime millis so a clock change cannot move it.
+     * [minutes] is the option it was set from, which the time left cannot recover once some has passed.
+     */
+    data class At(val endsAt: Long, val minutes: Int) : SleepTimer
 
     /** Stops where the chapter being read ends. */
     data object EndOfChapter : SleepTimer
@@ -24,7 +27,7 @@ class TtsSleepTimer(private val clock: () -> Long) {
         field = MutableStateFlow<SleepTimer>(SleepTimer.Off)
 
     fun setMinutes(minutes: Int) {
-        timer.value = SleepTimer.At(clock() + minutes * MINUTE_MS)
+        timer.value = SleepTimer.At(clock() + minutes * MINUTE_MS, minutes)
     }
 
     /** Only for an owner that reports chapter ends; [onPublished] drops it for one that does not. */

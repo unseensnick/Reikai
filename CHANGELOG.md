@@ -201,6 +201,9 @@ every release now also ships a foss build with neither in it.
 - **The two in-development novel readers carry the reader's full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
 - **The two in-development novel readers now read straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
+- **The two in-development novel readers can now read a chapter aloud, from a Read aloud button on the button bar.** Its floating controls read from the paragraph on screen, step between paragraphs and set a sleep timer whose time left shows in the notification.
+- **The two in-development novel readers highlight the paragraph being read aloud, in a style and colours you set under Settings -> Novel reader.** Keep paragraph in view scrolls back to it once it leaves the screen.
+- **Read-aloud's engine, voice, speed and pitch are now under Settings -> Novel reader, for every rendering mode.**
 - **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in all three rendering modes.
 
 #### Changed
@@ -259,6 +262,7 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader can now tidy up a chapter before you read it.** Hide a heading that just repeats the chapter name, block images and video, split walls of text into paragraphs, force lowercase, and choose whether a chapter's own styling runs.
 - **Settings -> Novel reader -> Rendering mode can now open novels in one of two in-development readers, with Legacy still the default.** Both render novels in the same reader manga uses, one as a web page and one as real text; a change applies the next time you open a chapter.
 - **Settings -> Novel reader can now skip chapters marked read and skip filtered chapters going forward, like manga.** The previous-chapter button still reaches the chapter you just finished.
+- **Novel read-aloud now pauses for calls, other apps' audio and unplugged headphones, and answers headset buttons, in every rendering mode.** It resumes by itself only after a short interruption.
 - **Settings -> Novel reader -> Text display now sets your page margins, paragraph indent and paragraph spacing.** Each of the four margins moves on its own, indent and spacing are multiples of your text size, and every reader honours them.
 
 #### Changed

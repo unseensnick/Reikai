@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The glyphs Reikai draws that Mihon's Material Symbols set does not ship, because Mihon has none of
- * the surfaces using them (novel reader typography, the reader action row, gallery ratings).
+ * the surfaces using them (novel reader typography, the reader action row, read-aloud controls, gallery ratings).
  *
  * Path data and both helpers are copied verbatim from androidx.compose.material material-icons
  * (Apache 2.0), Rounded variants. Never redraw one by hand; copy it. See upstream-sync.md.
@@ -551,3 +551,176 @@ val ReikaiIcons.UTurnRight: ImageVector
     }
 
 private var uTurnRightCache: ImageVector? = null
+
+val ReikaiIcons.Bedtime: ImageVector
+    get() {
+        if (bedtimeCache != null) {
+            return bedtimeCache!!
+        }
+        bedtimeCache = materialIcon(name = "Reikai.Bedtime") {
+            materialPath {
+                moveTo(11.65f, 3.46f)
+                curveToRelative(0.27f, -0.71f, -0.36f, -1.45f, -1.12f, -1.34f)
+                curveToRelative(-5.52f, 0.8f, -9.47f, 6.07f, -8.34f, 11.88f)
+                curveToRelative(0.78f, 4.02f, 4.09f, 7.21f, 8.14f, 7.87f)
+                curveToRelative(3.74f, 0.61f, 7.16f, -0.87f, 9.32f, -3.44f)
+                curveToRelative(0.48f, -0.57f, 0.19f, -1.48f, -0.55f, -1.62f)
+                curveTo(13.08f, 15.66f, 9.42f, 9.27f, 11.65f, 3.46f)
+                close()
+            }
+        }
+        return bedtimeCache!!
+    }
+
+private var bedtimeCache: ImageVector? = null
+
+val ReikaiIcons.FastForward: ImageVector
+    get() {
+        if (fastForwardCache != null) {
+            return fastForwardCache!!
+        }
+        fastForwardCache = materialIcon(name = "Reikai.FastForward") {
+            materialPath {
+                moveTo(5.58f, 16.89f)
+                lineToRelative(5.77f, -4.07f)
+                curveToRelative(0.56f, -0.4f, 0.56f, -1.24f, 0.0f, -1.63f)
+                lineTo(5.58f, 7.11f)
+                curveTo(4.91f, 6.65f, 4.0f, 7.12f, 4.0f, 7.93f)
+                verticalLineToRelative(8.14f)
+                curveToRelative(0.0f, 0.81f, 0.91f, 1.28f, 1.58f, 0.82f)
+                close()
+                moveTo(13.0f, 7.93f)
+                verticalLineToRelative(8.14f)
+                curveToRelative(0.0f, 0.81f, 0.91f, 1.28f, 1.58f, 0.82f)
+                lineToRelative(5.77f, -4.07f)
+                curveToRelative(0.56f, -0.4f, 0.56f, -1.24f, 0.0f, -1.63f)
+                lineToRelative(-5.77f, -4.07f)
+                curveToRelative(-0.67f, -0.47f, -1.58f, 0.0f, -1.58f, 0.81f)
+                close()
+            }
+        }
+        return fastForwardCache!!
+    }
+
+private var fastForwardCache: ImageVector? = null
+
+val ReikaiIcons.FastRewind: ImageVector
+    get() {
+        if (fastRewindCache != null) {
+            return fastRewindCache!!
+        }
+        fastRewindCache = materialIcon(name = "Reikai.FastRewind") {
+            materialPath {
+                moveTo(11.0f, 16.07f)
+                lineTo(11.0f, 7.93f)
+                curveToRelative(0.0f, -0.81f, -0.91f, -1.28f, -1.58f, -0.82f)
+                lineToRelative(-5.77f, 4.07f)
+                curveToRelative(-0.56f, 0.4f, -0.56f, 1.24f, 0.0f, 1.63f)
+                lineToRelative(5.77f, 4.07f)
+                curveToRelative(0.67f, 0.47f, 1.58f, 0.0f, 1.58f, -0.81f)
+                close()
+                moveTo(12.66f, 12.82f)
+                lineToRelative(5.77f, 4.07f)
+                curveToRelative(0.66f, 0.47f, 1.58f, -0.01f, 1.58f, -0.82f)
+                lineTo(20.01f, 7.93f)
+                curveToRelative(0.0f, -0.81f, -0.91f, -1.28f, -1.58f, -0.82f)
+                lineToRelative(-5.77f, 4.07f)
+                curveToRelative(-0.57f, 0.4f, -0.57f, 1.24f, 0.0f, 1.64f)
+                close()
+            }
+        }
+        return fastRewindCache!!
+    }
+
+private var fastRewindCache: ImageVector? = null
+
+val ReikaiIcons.RecordVoiceOver: ImageVector
+    get() {
+        if (recordVoiceOverCache != null) {
+            return recordVoiceOverCache!!
+        }
+        recordVoiceOverCache = materialIcon(name = "Reikai.RecordVoiceOver") {
+            materialPath {
+                moveTo(9.0f, 9.0f)
+                moveToRelative(-4.0f, 0.0f)
+                arcToRelative(4.0f, 4.0f, 0.0f, true, true, 8.0f, 0.0f)
+                arcToRelative(4.0f, 4.0f, 0.0f, true, true, -8.0f, 0.0f)
+            }
+            materialPath {
+                moveTo(9.0f, 15.0f)
+                curveToRelative(-2.67f, 0.0f, -8.0f, 1.34f, -8.0f, 4.0f)
+                verticalLineToRelative(1.0f)
+                curveToRelative(0.0f, 0.55f, 0.45f, 1.0f, 1.0f, 1.0f)
+                horizontalLineToRelative(14.0f)
+                curveToRelative(0.55f, 0.0f, 1.0f, -0.45f, 1.0f, -1.0f)
+                verticalLineToRelative(-1.0f)
+                curveToRelative(0.0f, -2.66f, -5.33f, -4.0f, -8.0f, -4.0f)
+                close()
+                moveTo(15.47f, 7.77f)
+                curveToRelative(0.32f, 0.79f, 0.32f, 1.67f, 0.0f, 2.46f)
+                curveToRelative(-0.19f, 0.47f, -0.11f, 1.0f, 0.25f, 1.36f)
+                lineToRelative(0.03f, 0.03f)
+                curveToRelative(0.58f, 0.58f, 1.57f, 0.46f, 1.95f, -0.27f)
+                curveToRelative(0.76f, -1.45f, 0.76f, -3.15f, -0.02f, -4.66f)
+                curveToRelative(-0.38f, -0.74f, -1.38f, -0.88f, -1.97f, -0.29f)
+                lineToRelative(-0.01f, 0.01f)
+                curveToRelative(-0.34f, 0.35f, -0.42f, 0.89f, -0.23f, 1.36f)
+                close()
+                moveTo(19.18f, 2.89f)
+                curveToRelative(-0.4f, 0.4f, -0.46f, 1.02f, -0.13f, 1.48f)
+                curveToRelative(1.97f, 2.74f, 1.96f, 6.41f, -0.03f, 9.25f)
+                curveToRelative(-0.32f, 0.45f, -0.25f, 1.07f, 0.14f, 1.46f)
+                lineToRelative(0.03f, 0.03f)
+                curveToRelative(0.49f, 0.49f, 1.32f, 0.45f, 1.74f, -0.1f)
+                curveToRelative(2.75f, -3.54f, 2.76f, -8.37f, 0.0f, -12.02f)
+                curveToRelative(-0.42f, -0.55f, -1.26f, -0.59f, -1.75f, -0.1f)
+                close()
+            }
+        }
+        return recordVoiceOverCache!!
+    }
+
+private var recordVoiceOverCache: ImageVector? = null
+
+val ReikaiIcons.VolumeUp: ImageVector
+    get() {
+        if (volumeUpCache != null) {
+            return volumeUpCache!!
+        }
+        volumeUpCache = materialIcon(name = "Reikai.VolumeUp") {
+            materialPath {
+                moveTo(3.0f, 10.0f)
+                verticalLineToRelative(4.0f)
+                curveToRelative(0.0f, 0.55f, 0.45f, 1.0f, 1.0f, 1.0f)
+                horizontalLineToRelative(3.0f)
+                lineToRelative(3.29f, 3.29f)
+                curveToRelative(0.63f, 0.63f, 1.71f, 0.18f, 1.71f, -0.71f)
+                lineTo(12.0f, 6.41f)
+                curveToRelative(0.0f, -0.89f, -1.08f, -1.34f, -1.71f, -0.71f)
+                lineTo(7.0f, 9.0f)
+                lineTo(4.0f, 9.0f)
+                curveToRelative(-0.55f, 0.0f, -1.0f, 0.45f, -1.0f, 1.0f)
+                close()
+                moveTo(16.5f, 12.0f)
+                curveToRelative(0.0f, -1.77f, -1.02f, -3.29f, -2.5f, -4.03f)
+                verticalLineToRelative(8.05f)
+                curveToRelative(1.48f, -0.73f, 2.5f, -2.25f, 2.5f, -4.02f)
+                close()
+                moveTo(14.0f, 4.45f)
+                verticalLineToRelative(0.2f)
+                curveToRelative(0.0f, 0.38f, 0.25f, 0.71f, 0.6f, 0.85f)
+                curveTo(17.18f, 6.53f, 19.0f, 9.06f, 19.0f, 12.0f)
+                reflectiveCurveToRelative(-1.82f, 5.47f, -4.4f, 6.5f)
+                curveToRelative(-0.36f, 0.14f, -0.6f, 0.47f, -0.6f, 0.85f)
+                verticalLineToRelative(0.2f)
+                curveToRelative(0.0f, 0.63f, 0.63f, 1.07f, 1.21f, 0.85f)
+                curveTo(18.6f, 19.11f, 21.0f, 15.84f, 21.0f, 12.0f)
+                reflectiveCurveToRelative(-2.4f, -7.11f, -5.79f, -8.4f)
+                curveToRelative(-0.58f, -0.23f, -1.21f, 0.22f, -1.21f, 0.85f)
+                close()
+            }
+        }
+        return volumeUpCache!!
+    }
+
+private var volumeUpCache: ImageVector? = null

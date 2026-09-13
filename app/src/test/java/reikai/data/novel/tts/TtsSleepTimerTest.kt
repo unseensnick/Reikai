@@ -14,7 +14,7 @@ class TtsSleepTimerTest {
     fun `a countdown ends its minutes from now`() {
         sleepTimer.setMinutes(15)
 
-        sleepTimer.timer.value shouldBe SleepTimer.At(now + 15 * 60_000L)
+        sleepTimer.timer.value shouldBe SleepTimer.At(now + 15 * 60_000L, 15)
     }
 
     @Test

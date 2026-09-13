@@ -31,6 +31,9 @@ fun ReaderBottomBar(
     onClickAutoScroll: (() -> Unit)?,
     bionicActive: Boolean,
     onClickBionic: (() -> Unit)?,
+    readAloudControlsVisible: Boolean,
+    onClickReadAloud: (() -> Unit)?,
+    onLongClickReadAloud: () -> Unit,
     // RK <--
     modifier: Modifier = Modifier,
 ) {
@@ -51,6 +54,9 @@ fun ReaderBottomBar(
         onClickAutoScroll = onClickAutoScroll,
         bionicActive = bionicActive,
         onClickBionic = onClickBionic,
+        readAloudControlsVisible = readAloudControlsVisible,
+        onClickReadAloud = onClickReadAloud,
+        onLongClickReadAloud = onLongClickReadAloud,
         orientation = orientation,
         onClickOrientation = onClickOrientation,
         onClickSettings = onClickSettings,

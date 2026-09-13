@@ -103,8 +103,10 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.presentation.novel.reader.resolvedForSystemTheme
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
@@ -114,6 +116,7 @@ import reikai.presentation.reader.ReaderChapterListDialog
 import reikai.presentation.reader.ReaderDialog
 import reikai.presentation.reader.ReaderEngine
 import reikai.presentation.reader.ReaderOrientationDialog
+import reikai.presentation.reader.ReaderSleepTimerDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.TextViewport
@@ -341,7 +344,11 @@ class ReaderActivity : BaseActivity() {
             // Asked for rather than cast: which text renderer is running is the provider's choice.
             // A novel viewport that does not answer would render an empty reader in silence, so say so.
             when (viewport) {
-                is TextViewport -> loadNovelChapters(provider, viewport)
+                is TextViewport -> {
+                    // Before the first load, which is what reports the renderer landing to read-aloud.
+                    provider.viewModel.readAloud.attach(viewport.readAloud)
+                    loadNovelChapters(provider, viewport)
+                }
                 else -> logcat(LogPriority.ERROR) { "Novel viewport renders no text: ${viewport::class}" }
             }
             // Manga locks the window from setViewer, deferred behind the shared-element transition;
@@ -588,6 +595,19 @@ class ReaderActivity : BaseActivity() {
                         )
                     }
                 }
+                is ReaderDialog.SleepTimerSelect -> {
+                    val readAloud by dialog.readAloud.state.collectAsState(null)
+                    readAloud?.let {
+                        ReaderSleepTimerDialog(
+                            timer = it.sleepTimer,
+                            minutesLeft = dialog.readAloud::minutesLeft,
+                            onOff = dialog.readAloud::clearSleepTimer,
+                            onMinutes = dialog.readAloud::setSleepTimer,
+                            onEndOfChapter = dialog.readAloud::setSleepTimerEndOfChapter,
+                            onDismiss = onDismissRequest,
+                        )
+                    }
+                }
                 // RK: over the session's own chapter list, so a novel gets its chapters here too.
                 is ReaderDialog.ChapterList -> {
                     val chapterList = engine.chapterList
@@ -621,7 +641,13 @@ class ReaderActivity : BaseActivity() {
         super.onDestroy()
         // RK: a rejected launch never built the engine, and reading it here would build one (and a model
         // under it) against a store that is already cleared, for a session that never opened.
-        if (!launchRejected) engine.destroyViewport()
+        // RK -->
+        if (!launchRejected) {
+            // Speech outlives this Activity, so the renderer it marks is let go of before it is destroyed.
+            (engine.viewport.value as? TextViewport)?.let { novelSession?.viewModel?.readAloud?.detach(it.readAloud) }
+            engine.destroyViewport()
+        }
+        // RK <--
         config = null
         menuToggleToast?.cancel()
         readingModeToast?.cancel()
@@ -657,6 +683,7 @@ class ReaderActivity : BaseActivity() {
                     viewport.load(anchor, settings)
                     // The renderer has let go of the window it had, so its reports count again.
                     model.rendererLanded(state.generation)
+                    model.readAloud.onRendererLanded(anchor.chapterId)
                     rendered = listOf(anchor.chapterId)
                 }
                 val wanted = state.chapters.map { it.chapterId }
@@ -686,13 +713,15 @@ class ReaderActivity : BaseActivity() {
         // Auto-scroll pauses while the chrome is showing and while the reader is off screen, both of
         // which are the host's own state rather than settings, so the decision is made once here and
         // each renderer only starts and stops. Off screen matters because the loop is not lifecycle
-        // aware: left running it advances the chapter behind whatever the reader is looking at.
+        // aware: left running it advances the chapter behind whatever the reader is looking at. Speech
+        // pauses it too, since read-aloud keeps its own paragraph in view and the two would fight.
         combine(
             resolvedSettings,
             viewModel.state.map { it.menuVisible },
             isOnScreen,
-        ) { settings, menuVisible, onScreen ->
-            (settings.autoScroll && !menuVisible && onScreen) to settings.autoScrollSpeed
+            engine.readAloudState.map { it.playback == TtsPlayback.Playing },
+        ) { settings, menuVisible, onScreen, speaking ->
+            (settings.autoScroll && !menuVisible && onScreen && !speaking) to settings.autoScrollSpeed
         }
             .distinctUntilChanged()
             .onEach { (running, speed) -> viewport.setAutoScroll(running, speed) }
@@ -910,6 +939,8 @@ class ReaderActivity : BaseActivity() {
         val keepScreenOn by engine.keepScreenOn.collectAsState()
         val autoScrollActive by engine.autoScrollEnabled.collectAsState()
         val bionicActive by engine.bionicReadingEnabled.collectAsState()
+        val readAloudState by engine.readAloudState.collectAsState()
+        val readAloud = engine.readAloud
 
         ReaderAppBars(
             visible = state.menuVisible,
@@ -984,6 +1015,18 @@ class ReaderActivity : BaseActivity() {
             onClickAutoScroll = engine.autoScroll?.let { auto -> { auto.toggle() } },
             bionicActive = bionicActive,
             onClickBionic = engine.bionicReading?.let { bionic -> { bionic.toggle() } },
+            onClickReadAloud = readAloud?.let { { it.toggleControls() } },
+            onLongClickReadAloud = { readAloud?.stop() },
+            readAloudControlsVisible = readAloudState.controlsVisible,
+            readAloudPlaying = readAloudState.playback == TtsPlayback.Playing,
+            sleepTimerActive = readAloudState.sleepTimer != SleepTimer.Off,
+            onReadFromHere = { readAloud?.readFromHere() },
+            onPreviousParagraph = { readAloud?.previousParagraph() },
+            onPlayPause = {
+                if (readAloudState.playback == TtsPlayback.Playing) readAloud?.pause() else readAloud?.play()
+            },
+            onNextParagraph = { readAloud?.nextParagraph() },
+            onClickSleepTimer = { readAloud?.let { engine.openDialog(ReaderDialog.SleepTimerSelect(it)) } },
             // RK <--
         )
     }

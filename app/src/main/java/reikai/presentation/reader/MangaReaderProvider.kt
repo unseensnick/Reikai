@@ -173,6 +173,9 @@ class MangaReaderProvider(
     // Same reason as the typography above: an image has no words whose openings could be bolded.
     override val bionicReading: ReaderBionicReading? = null
 
+    // A manga page is an image, so there is no text to read aloud.
+    override val readAloud: ReaderReadAloud? = null
+
     // Unresolved, because the picker's "use default" action has to be able to tell a series following
     // the default from one pinned to the same value the default happens to be.
     override val orientation: Flow<Int> = viewModel.state

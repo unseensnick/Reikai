@@ -132,6 +132,14 @@ class ReaderEngine(
         (provider.bionicReading?.enabled ?: flowOf(false))
             .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Read-aloud, or null where this session's pages are images. */
+    val readAloud: ReaderReadAloud? get() = provider.readAloud
+
+    /** Eager like the rest, because the host pauses auto-scroll off it whether or not the bar is composed. */
+    val readAloudState: StateFlow<ReaderReadAloudState> =
+        (provider.readAloud?.state ?: flowOf(ReaderReadAloudState()))
+            .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderReadAloudState())
+
     fun previousChapter() = stepChapter { provider.previousChapter() }
 
     fun nextChapter() = stepChapter { provider.nextChapter() }

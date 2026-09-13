@@ -1,17 +1,26 @@
 package reikai.presentation.reader
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
@@ -26,8 +35,10 @@ import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.Share
 import reikai.presentation.icons.FormatSize
 import reikai.presentation.icons.Lightbulb
+import reikai.presentation.icons.RecordVoiceOver
 import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.icons.SwipeVertical
+import reikai.presentation.icons.VolumeUp
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -35,7 +46,7 @@ import tachiyomi.presentation.core.i18n.stringResource
  * Shared reader bottom action row for the manga and novel readers. The manga [ReaderBottomBar] and the
  * novel reader both delegate here, so the two bottom bars can't drift. Which buttons appear is driven by
  * [enabledButtons] (the [ReaderBottomButton] selection), and each button also gates on its callback being
- * non-null, so per-type buttons (manga: reading mode / crop; novel: auto-scroll / keep-screen-on / bionic)
+ * non-null, so per-type buttons (manga: reading mode / crop; novel: auto-scroll / keep-screen-on / bionic / read-aloud)
  * simply pass null from the other reader. The Settings gear is always shown.
  */
 @Composable
@@ -64,6 +75,10 @@ fun ReaderActionRow(
     // Novel-only pickers: open a small chooser (theme / text size), like the rotation button.
     onClickTheme: (() -> Unit)? = null,
     onClickTextSize: (() -> Unit)? = null,
+    // Novel-only: tap shows or hides the read-aloud controls, long-press stops speech.
+    readAloudControlsVisible: Boolean = false,
+    onClickReadAloud: (() -> Unit)? = null,
+    onLongClickReadAloud: () -> Unit = {},
 ) {
     Row(
         modifier = modifier
@@ -182,12 +197,49 @@ fun ReaderActionRow(
             }
         }
 
+        if (ReaderBottomButton.ReadAloud.isIn(enabledButtons) && onClickReadAloud != null) {
+            ReadAloudActionButton(
+                controlsVisible = readAloudControlsVisible,
+                onClick = onClickReadAloud,
+                onLongClick = onLongClickReadAloud,
+            )
+        }
+
         IconButton(onClick = onClickSettings) {
             Icon(
                 imageVector = MaterialSymbols.Rounded.Settings,
                 contentDescription = stringResource(MR.strings.action_settings),
             )
         }
+    }
+}
+
+/** A container rather than a tint while the controls show, since they are a panel this button opened. */
+@Composable
+private fun ReadAloudActionButton(
+    controlsVisible: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .size(40.dp)
+            .clip(MaterialTheme.shapes.small)
+            .background(if (controlsVisible) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = stringResource(MR.strings.tts_stop),
+                role = Role.Button,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = if (controlsVisible) ReikaiIcons.VolumeUp else ReikaiIcons.RecordVoiceOver,
+            contentDescription = stringResource(MR.strings.pref_category_read_aloud),
+            tint = if (controlsVisible) MaterialTheme.colorScheme.onPrimaryContainer else LocalContentColor.current,
+        )
     }
 }
 

@@ -19,6 +19,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.data.novel.tts.SleepTimer
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
 
 class ReaderEngineTest {
@@ -367,6 +369,28 @@ class ReaderEngineTest {
         engine(provider).bionicReading shouldBe bionic
     }
 
+    /** The manga shape: nothing to read, so the host never pauses auto-scroll for speech. */
+    @Test
+    fun `a session without read-aloud reports it stopped`() {
+        val engine = engine()
+
+        engine.readAloud shouldBe null
+        engine.readAloudState.value shouldBe ReaderReadAloudState()
+    }
+
+    /** Eager, because the host's auto-scroll decision reads it with nothing composed. */
+    @Test
+    fun `read-aloud state follows the session that offers it`() {
+        val provider = FakeReaderProvider()
+        val readAloud = FakeReadAloud()
+        provider.readAloudSlot = readAloud
+        val engine = engine(provider)
+
+        readAloud.play()
+
+        engine.readAloudState.value.playback shouldBe TtsPlayback.Playing
+    }
+
     /**
      * A scrub is an explicit position choice, and a running auto-scroll would carry the reader off it
      * within a frame, so the engine stops it before the viewport moves.
@@ -439,6 +463,34 @@ class ReaderEngineTest {
     }
 }
 
+private class FakeReadAloud : ReaderReadAloud {
+    override val state = MutableStateFlow(ReaderReadAloudState())
+
+    override fun play() {
+        state.value = state.value.copy(playback = TtsPlayback.Playing)
+    }
+
+    override fun pause() = Unit
+
+    override fun stop() = Unit
+
+    override fun readFromHere() = Unit
+
+    override fun previousParagraph() = Unit
+
+    override fun nextParagraph() = Unit
+
+    override fun toggleControls() = Unit
+
+    override fun setSleepTimer(minutes: Int) = Unit
+
+    override fun setSleepTimerEndOfChapter() = Unit
+
+    override fun clearSleepTimer() = Unit
+
+    override fun minutesLeft(timer: SleepTimer.At) = 0
+}
+
 private class FakeBionicReading : ReaderBionicReading {
     override val enabled = MutableStateFlow(false)
 
@@ -486,6 +538,10 @@ private class FakeReaderProvider(
     var bionicReadingSlot: ReaderBionicReading? = null
 
     override val bionicReading: ReaderBionicReading? get() = bionicReadingSlot
+
+    var readAloudSlot: ReaderReadAloud? = null
+
+    override val readAloud: ReaderReadAloud? get() = readAloudSlot
 
     override val navigator = MutableStateFlow(ReaderNavigatorState())
 
