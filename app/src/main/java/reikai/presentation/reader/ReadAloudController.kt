@@ -131,7 +131,13 @@ class ReadAloudController(
     fun play() {
         when (playback) {
             TtsPlayback.Playing -> Unit
-            TtsPlayback.Paused -> command { playAt(position?.paragraph ?: 0) }
+            // Paused while the next chapter opens: the landing starts it, where a command would drop the
+            // handoff and speak the last chapter's final paragraph again.
+            TtsPlayback.Paused -> if (pendingChapter != null) {
+                setPlayback(TtsPlayback.Playing)
+            } else {
+                command { playAt(position?.paragraph ?: 0) }
+            }
             TtsPlayback.Stopped -> readFromHere()
         }
     }

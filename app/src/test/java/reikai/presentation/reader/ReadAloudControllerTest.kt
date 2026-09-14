@@ -428,6 +428,36 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `play after a pause while the next chapter opens does not repeat the last paragraph`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        act { engine.finishLast() }
+        act { controller.pause() }
+
+        act { controller.play() }
+
+        engine.spoken shouldBe listOf("c")
+    }
+
+    @Test
+    fun `play after a pause while the next chapter opens starts it once the renderer lands`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        act { engine.finishLast() }
+        act { controller.pause() }
+        act { controller.play() }
+        surface.chapters[2L] = listOf("x", "y")
+
+        act { controller.onRendererLanded(2L) }
+
+        engine.spoken shouldBe listOf("c", "x")
+    }
+
+    @Test
     fun `a chapter that fails to load while awaited stops playback`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
         navigation.after[1L] = 2L
