@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import reikai.data.coil.NovelCover
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
@@ -379,6 +380,9 @@ class NovelReaderViewModel(
 
     internal val detailsRoute = MutableStateFlow<DetailsRoute?>(null)
 
+    /** The opened novel's cover, which tints the chrome. Null until the row loads, and for no cover. */
+    internal val cover = MutableStateFlow<NovelCover?>(null)
+
     private val loadedChapter = MutableStateFlow<LoadedChapter?>(null)
 
     /**
@@ -664,6 +668,15 @@ class NovelReaderViewModel(
                 orientationOverride.value = it.readerOrientation.toInt()
                 entryTitle.value = it.title
                 detailsRoute.value = DetailsRoute(it.source, it.url)
+                cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let { url ->
+                    NovelCover(
+                        url = url,
+                        site = sourceManager.get(it.source)?.site,
+                        isNovelFavorite = it.favorite,
+                        lastModified = it.coverLastModified,
+                        novelId = it.id,
+                    )
+                }
             }
         }
         // The cache holds pipeline output, so a chapter-text setting reaches the open chapter and the

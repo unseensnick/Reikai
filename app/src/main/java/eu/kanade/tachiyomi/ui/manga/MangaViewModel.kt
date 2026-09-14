@@ -9,11 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.palette.graphics.Palette
-import coil3.asDrawable
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import coil3.request.allowHardware
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -43,7 +38,6 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.data.cache.CoverCache
-import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -61,7 +55,6 @@ import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
-import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
@@ -88,6 +81,8 @@ import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.coil.extractCoverColor
+import reikai.data.coil.seedColor
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
@@ -319,30 +314,15 @@ class MangaViewModel(
     val recommendationsInMenu = recommendationPreferences.enableRelatedMangas.get() &&
         recommendationPreferences.relatedPlacement.get() == RelatedPlacement.MENU
 
-    /**
-     * Seed the details theme from the cover's vibrant color. Reuses the color a prior Library/Browse
-     * load already cached; otherwise loads the cover through Coil and extracts it, so a non-library
-     * manga opened straight from browsing still tints on first open (mirrors Komikku setPaletteColor).
-     */
+    /** Seed the details theme from the cover, through the kernel novels use too (mirrors Komikku setPaletteColor). */
     fun updateSeedColor() {
         // Computed regardless of the themeCoverBased pref: the page only applies it when the pref is on
         // (MangaScreen), but the shared edit-info dialog always tints from the cover, so the seed must be
         // available either way.
-        val cover = manga?.asMangaCover() ?: return
-        cover.vibrantCoverColor?.let { color ->
-            updateSuccessState { it.copy(seedColor = Color(color)) }
-            return
-        }
+        val manga = manga ?: return
         viewModelScope.launchIO {
-            val request = ImageRequest.Builder(context)
-                .data(cover)
-                .allowHardware(false) // Palette can't read hardware bitmaps
-                .build()
-            val bitmap = context.imageLoader.execute(request).image
-                ?.asDrawable(context.resources)
-                ?.getBitmapOrNull() ?: return@launchIO
-            val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
-            cover.vibrantCoverColor = color
+            val color = EntryId.Manga(manga.id).seedColor { context.extractCoverColor(manga.asMangaCover()) }
+                ?: return@launchIO
             updateSuccessState { it.copy(seedColor = Color(color)) }
         }
     }

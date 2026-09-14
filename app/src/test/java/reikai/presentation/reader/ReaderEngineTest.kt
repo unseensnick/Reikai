@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.content.Context
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -12,7 +13,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -587,6 +590,8 @@ private class FakeReaderProvider(
     var readAloudSlot: ReaderReadAloud? = null
 
     override val readAloud: ReaderReadAloud? get() = readAloudSlot
+
+    override fun seedColor(context: Context): Flow<Int?> = flowOf(null)
 
     override val navigator = MutableStateFlow(ReaderNavigatorState())
 

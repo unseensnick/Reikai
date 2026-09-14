@@ -77,7 +77,11 @@ class NovelScreen(
             is NovelDetailsState.Failed -> Scaffold(
                 topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
             ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }
-            is NovelDetailsState.Loaded -> TachiyomiTheme(seedColor = s.seedColor) {
+            is NovelDetailsState.Loaded -> TachiyomiTheme(
+                seedColor = s.seedColor.takeIf {
+                    viewModel.themeCoverBased
+                },
+            ) {
                 // Back clears an active chapter selection before popping the screen (mirrors MangaScreen).
                 BackHandler(enabled = s.selectionMode) { viewModel.clearSelection() }
 

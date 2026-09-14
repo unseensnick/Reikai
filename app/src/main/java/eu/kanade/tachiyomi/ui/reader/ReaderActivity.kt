@@ -465,9 +465,9 @@ class ReaderActivity : BaseActivity() {
         }
 
         // RK -->
-        val seedColor = state.manga?.asMangaCover()?.vibrantCoverColor
-            ?.takeIf { uiPreferences.themeCoverBased.get() }
-            ?.let { ComposeColor(it) }
+        // Both sessions answer through one kernel, so a novel's chrome tints as a manga's does.
+        val coverSeed by remember { engine.provider.seedColor(applicationContext) }.collectAsState(null)
+        val seedColor = coverSeed?.takeIf { uiPreferences.themeCoverBased.get() }?.let { ComposeColor(it) }
         TachiyomiTheme(seedColor = seedColor) {
             // RK <--
             Box(modifier = Modifier.fillMaxSize()) {

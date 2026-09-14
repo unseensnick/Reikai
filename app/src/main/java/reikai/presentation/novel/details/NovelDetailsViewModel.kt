@@ -7,11 +7,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.palette.graphics.Palette
-import coil3.asDrawable
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import coil3.request.allowHardware
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -24,12 +19,10 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.cache.CoverCache
-import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
-import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +37,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import reikai.data.coil.NovelCover
+import reikai.data.coil.extractCoverColor
+import reikai.data.coil.seedColor
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.mergeRefreshedNovel
 import reikai.data.novel.refreshNovelFromSource
@@ -52,7 +47,6 @@ import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.vibrantColorKey
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
@@ -125,7 +119,6 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.data.Database
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 
@@ -613,43 +606,27 @@ class NovelDetailsViewModel(
         updateSeedColor(viewNovel)
     }
 
-    /** Extract the cover's vibrant color once and seed the header tint. */
+    /** Whether the screen takes its tint from the cover. Read once, like manga's. */
+    val themeCoverBased = uiPreferences.themeCoverBased.get()
+
+    /**
+     * Seed the header tint from the cover once. Computed whatever [themeCoverBased] says, as manga's is,
+     * because the edit-info dialog tints from the cover either way.
+     */
     private fun updateSeedColor(novel: Novel) {
-        if (seedExtracted || !uiPreferences.themeCoverBased.get()) return
+        if (seedExtracted) return
         val url = novel.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
         if (novel.id <= 0L) return
         seedExtracted = true
-        val cover = MangaCover(
-            mangaId = EntryId.Novel(novel.id).vibrantColorKey(),
-            sourceId = 0L,
-            isMangaFavorite = false,
+        val cover = NovelCover(
             url = url,
+            site = source?.site,
+            isNovelFavorite = novel.favorite,
             lastModified = novel.coverLastModified,
+            novelId = novel.id,
         )
-        cover.vibrantCoverColor?.let { color ->
-            state.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
-            return
-        }
         viewModelScope.launchIO {
-            // Load through NovelCoverFetcher (it sends the site Referer some LN cover hosts require) so a
-            // non-library novel opened from browsing still tints on first open. Mirrors the manga re-extract.
-            val request = ImageRequest.Builder(context)
-                .data(
-                    NovelCover(
-                        url = url,
-                        site = source?.site,
-                        isNovelFavorite = novel.favorite,
-                        lastModified = novel.coverLastModified,
-                        novelId = novel.id,
-                    ),
-                )
-                .allowHardware(false) // Palette can't read hardware bitmaps
-                .build()
-            val bitmap = context.imageLoader.execute(request).image
-                ?.asDrawable(context.resources)
-                ?.getBitmapOrNull() ?: return@launchIO
-            val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
-            cover.vibrantCoverColor = color
+            val color = EntryId.Novel(novel.id).seedColor { context.extractCoverColor(cover) } ?: return@launchIO
             state.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
         }
     }

@@ -1,13 +1,18 @@
 package reikai.presentation.reader
 
+import android.content.Context
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import reikai.data.coil.extractCoverColor
+import reikai.data.coil.seedColor
 import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.novel.tts.SleepTimer
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
@@ -32,6 +37,10 @@ class NovelReaderProvider(
         novelPreferences.readerBottomButtonOrder(),
         ReaderBottomButton.Scope.Novel,
     )
+
+    override fun seedColor(context: Context): Flow<Int?> = viewModel.cover
+        .filterNotNull()
+        .map { cover -> EntryId.Novel(cover.novelId).seedColor { context.extractCoverColor(cover) } }
 
     override val displayFilters = ReaderDisplayFilters(
         customBrightness = novelPreferences.readerCustomBrightness(),

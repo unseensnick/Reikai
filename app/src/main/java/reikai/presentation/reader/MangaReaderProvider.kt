@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.content.Context
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -16,14 +17,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.sample
+import reikai.data.coil.extractCoverColor
+import reikai.data.coil.seedColor
+import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.manga.model.asMangaCover
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -46,6 +53,11 @@ class MangaReaderProvider(
         readerPreferences.readerBottomButtonOrder,
         ReaderBottomButton.Scope.Manga,
     )
+
+    override fun seedColor(context: Context): Flow<Int?> = viewModel.state
+        .mapNotNull { it.manga }
+        .distinctUntilChangedBy { it.id }
+        .map { manga -> EntryId.Manga(manga.id).seedColor { context.extractCoverColor(manga.asMangaCover()) } }
 
     override val displayFilters = ReaderDisplayFilters(
         customBrightness = readerPreferences.customBrightness,

@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.content.Context
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,12 @@ interface ReaderProvider {
      * own selection and order, so a manga action cannot surface in a novel session or the reverse.
      */
     val bottomButtons: Flow<List<ReaderBottomButton>>
+
+    /**
+     * The colour the entry's cover tints the chrome with, null until found or where the cover gives none.
+     * [context] loads the cover and is passed per call, like the host, so the flow holds no Activity.
+     */
+    fun seedColor(context: Context): Flow<Int?>
 
     /** This content type's own brightness and colour treatment, which the host applies to the page. */
     val displayFilters: ReaderDisplayFilters
