@@ -198,7 +198,7 @@ every release now also ships a foss build with neither in it.
 - **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transitions, a display cutout mode, HDR, a Min width slider for the long strip modes, and a page Gap slider for Continuous vertical.
 - **Settings -> Novel reader can switch on selecting, copying and sharing text in the novel reader, which costs link taps in native text mode.** Both readers keep every other gesture while it is on.
 - **Font, line spacing and text alignment are now under Settings -> Novel reader.**
-- **The novel reader carries the full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
+- **The novel reader carries the full option set: bionic reading, Remove extra spacing, tap zones, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
 - **The novel reader now reads straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
 - **The novel reader can now read a chapter aloud, from a Read aloud button on the button bar.** Its floating controls read from the paragraph on screen, step between paragraphs and set a sleep timer whose time left shows in the notification.
@@ -270,17 +270,18 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader can now skip chapters marked read and skip filtered chapters going forward, like manga.** The previous-chapter button still reaches the chapter you just finished.
 - **Novel read-aloud now pauses for calls, other apps' audio and unplugged headphones, and answers headset buttons, in every rendering mode.** It resumes by itself only after a short interruption.
 - **Settings -> Novel reader -> Text display now sets your page margins, paragraph indent and paragraph spacing.** Each of the four margins moves on its own, indent and spacing are multiples of your text size, and every reader honours them.
-- **The novel reader has a new, darker theme, and its page background and text can each be set to any color from the reader's settings.**
-- **The read-aloud highlight and its text can now be any color, from Custom under Settings -> Novel reader.**
+- **The novel reader has a new near-black theme, and its page background and text can each be set to any colour from the reader's Appearance tab.**
+- **The read-aloud highlight and its text can now be any colour, from Custom under Settings -> Novel reader.**
 - **The novel reader's bar can now name a chapter by its number, or by number and name, under Settings -> Novel reader or the reader's Appearance tab.** A number the chapter's name already opens with is not shown twice.
 - **Settings -> Novel reader can now swap the vertical chapter navigator for a horizontal slider above the bar's buttons.**
-- **Both readers can now put a Scroll to top button on the bar, and edit the bar from the reader's menu.** Scroll to top returns a novel to the chapter's start and manga to its first page.
-- **The novel reader now offers the manga reader's tap zones, plus top and bottom, center and bottom-only layouts, with inverting.** Pick them in the reader's Controls tab or under Settings -> Novel reader; a center or bottom layout leaves taps elsewhere to the page.
+- **Both readers can now put a Scroll to top button on the bottom bar.** It returns a novel to the chapter's start and manga to the chapter's first page.
+- **Both readers' bottom bar can now be edited without leaving the reader, from Edit bottom bar in the top bar's menu.**
+- **The novel reader now has the manga reader's tap zones plus top and bottom, center and bottom-only layouts, in its Controls tab and Settings -> Novel reader.** Zones can be inverted, and a center or bottom layout leaves a tap anywhere else to the page.
 
 #### Changed
 
-- **Tap edges to scroll in the novel reader is now the Top and bottom tap zone layout, and your choice carries over.**
-- **Novel text size now goes from 10 to 40 and line spacing from 0.8x to 5x, with paragraph indent up to 10em.** Split walls of text can also wait for up to 2000 words.
+- **The novel reader's Tap edges to scroll switch is now the Top and bottom tap zone layout, and a reader who had it on keeps it.**
+- **Novel text size now goes from 10 to 40, line spacing from 0.8x to 5x, paragraph indent up to 10em, and Split walls of text up to 2000 words.**
 - **Sorting a chapter list "By source" now really follows that source's own listing, on manga and novels.** It was quietly sorting by chapter number instead, so a source that lists its chapters out of numeric order looked tidier than it is; pick "By chapter number" for the old result.
 - **The novel reader now starts with Skip filtered chapters switched on, matching manga; turn it off under Settings -> Novel reader.** With a filtered chapter list, the next-chapter button steps past what the filter hides.
 - **A novel page padding you had already set is carried into all four margins, whether you update or restore an older backup.** The single padding setting is replaced by separate top, bottom, left and right margins.
