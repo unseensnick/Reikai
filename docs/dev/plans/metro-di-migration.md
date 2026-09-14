@@ -553,7 +553,7 @@ ruled, and they are the two `hasCustomCover` twins. The download-queue model was
 by mistake: it takes a plain constructor parameter and holds no Injekt reference at all.
 `MetadataSource` has three more reified `Injekt.get()` reads, but they are property getters rather
 than constructor defaults, so the keep-analysis covers them while this count does not. Of the
-delegates, 17 are the novel reader's and the rest are `source-api`, `source-local`, `DebugToggles`
+delegates, 17 were the novel reader's, which left with it at the reader cutover; the rest are `source-api`, `source-local`, `DebugToggles`
 and the tracker files upstream carries too.
 
 ### ViewModels

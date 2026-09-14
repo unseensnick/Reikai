@@ -236,7 +236,7 @@ every release now also ships a foss build with neither in it.
 - **Auto-scroll now carries on into the next novel chapter by itself.** You had to show and hide the toolbar again to restart it, and a rotation stopped it the same way.
 - **The novel reader's voice list now follows the read-aloud engine you pick.** It kept offering the previous engine's voices, so choosing one there left read-aloud speaking in the new engine's default.
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
-- **The light novel reader's own Fullscreen and Draw under cutout switches now sit on its settings screen.** They were only on the manga reader's screen, so they were set from there for both readers.
+- **The light novel reader's own Fullscreen and Show content in cutout area switches now sit on its settings screen.** They were only on the manga reader's screen, so they were set from there for both readers.
 - **Crop borders now works in Long strip with the high quality renderer on.** The button, its icon and both settings rows acted on a setting that renderer never read.
 - **The high quality renderer's settings list now matches the mode you are reading in (synced from Mihon, mihonapp/mihon#3933).** Disable zoom out is offered in the long strip modes, where it now applies, and the settings that only affect paged modes are gone from them.
 - **Picking a chapter from the manga reader's chapter list now opens it at the right page.** The top bar moved to the chapter you picked while the pages stayed where they were.
