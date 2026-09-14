@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -24,6 +25,8 @@ import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
+import reikai.novel.content.NovelCodeSnippet
+import reikai.novel.content.NovelSnippets
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.interactor.GetCategories
 
@@ -106,6 +109,24 @@ class PreferenceRestorerTest {
         )
 
         store.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false).isSet() shouldBe false
+    }
+
+    /** A shared backup is someone else's code, so none of it runs until the user switches it on. */
+    @Test
+    @DisplayName("a restored javascript snippet comes back switched off")
+    fun restoredJavaScriptIsSwitchedOff() = runTest {
+        val snippet = NovelCodeSnippet(title = "x", code = "alert(1)", enabled = true, id = "a")
+        restorer.restoreApp(
+            listOf(
+                BackupPreference(
+                    NovelPreferences.JS_SNIPPETS_KEY,
+                    StringPreferenceValue(NovelSnippets.encode(listOf(snippet))),
+                ),
+            ),
+            backupCategories = null,
+        )
+
+        NovelSnippets.decode(novelPreferences.readerJsSnippets().get()) shouldBe listOf(snippet.copy(enabled = false))
     }
 
     /** The switch comes before the bar in the backup, so the bar restored after it must still gain the button. */

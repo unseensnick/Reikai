@@ -15,6 +15,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelFontsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -36,6 +37,7 @@ import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.novel.tts.TtsVoice
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
+import reikai.novel.content.NovelSnippetKind
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
@@ -423,6 +425,17 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_novel_regex_rules_summary),
                     onClick = { navigator.push(NovelRegexRulesScreen()) },
                 ),
+                // Only a WebView page has a stylesheet and a script to add them to.
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_novel_css_snippets),
+                    subtitle = stringResource(MR.strings.pref_novel_css_snippets_summary),
+                    onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.CSS)) },
+                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_novel_js_snippets),
+                    subtitle = stringResource(MR.strings.pref_novel_js_snippets_summary),
+                    onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.JS)) },
+                ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW },
             ),
         )
     }

@@ -7,7 +7,7 @@
  *
  * Tokens substituted at build time by NovelWebAssets: __SWIPE__, __BIONIC__,
  * __READ_ALOUD__, __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_NO_NEXT__,
- * __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__.
+ * __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__, __CSS_SNIPPETS__.
  */
 (function () {
   // The token is in this script's own text. Removed while the engine still runs ahead of the chapter,
@@ -46,6 +46,14 @@
     noNext: '__LABEL_NO_NEXT__',
     downloaded: '__LABEL_DOWNLOADED__',
   };
+
+  // The user's stylesheet, set as text so nothing in it is parsed as markup. It follows the reader's own
+  // styles in the head, so it wins a tie with them.
+  function setSnippetCss(css) {
+    var style = document.getElementById('rk-snippets');
+    if (style) style.textContent = css;
+  }
+  setSnippetCss(__CSS_SNIPPETS__);
 
   var settings = {
     swipe: __SWIPE__,
@@ -839,6 +847,7 @@
       syncBionic();
       if (next.readAloud) readAloud.redraw();
     },
+    setSnippetCss: setSnippetCss,
     /* The face for a font picked while this page is open; the family itself arrives as a variable. */
     setFontFace: function (css) {
       document.getElementById('rk-font-face').textContent = css;

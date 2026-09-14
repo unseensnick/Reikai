@@ -274,6 +274,7 @@ every release now also ships a foss build with neither in it.
 - **The read-aloud highlight and its text can now be any colour, from Custom under Settings -> Novel reader.**
 - **Settings -> Novel reader can now set how far into a chapter a novel counts it as read, from 50% to 100%.** It stays at 97% until you change it.
 - **Settings -> Novel reader can now show a chapter's raw HTML as text, in either rendering mode.** It helps tell a source's broken markup apart from a reader problem.
+- **The novel web page reader can now add your own CSS and JavaScript snippets to every chapter, under Settings -> Novel reader.** JavaScript snippets restored from a backup come back switched off.
 - **The novel reader's bar can now name a chapter by its number, or by number and name, under Settings -> Novel reader or the reader's Appearance tab.** A number the chapter's name already opens with is not shown twice.
 - **Settings -> Novel reader can now swap the vertical chapter navigator for a horizontal slider above the bar's buttons.**
 - **Both readers can now put a Scroll to top button on the bottom bar.** It returns a novel to the chapter's start and manga to the chapter's first page.

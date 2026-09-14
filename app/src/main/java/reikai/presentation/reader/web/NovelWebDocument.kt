@@ -50,6 +50,9 @@ object NovelWebDocument {
                 "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
                 "__LABEL_NO_NEXT__" to jsString(context.stringResource(MR.strings.transition_no_next)),
                 "__LABEL_DOWNLOADED__" to jsString(context.stringResource(MR.strings.label_downloaded)),
+                // Last, because the tokens are replaced in order and a stylesheet naming one of the
+                // tokens above would otherwise have it filled in, the document token included.
+                "__CSS_SNIPPETS__" to NovelWebSnippets.jsLiteral(settings.webSnippets.css),
             ),
         )
         // The engine is in the head so it runs before the chapter: it holds the bridge and its token
@@ -67,6 +70,7 @@ object NovelWebDocument {
             ${overrides(useOriginalFonts, sourceCssPriority)}
             ${if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }"}
             </style>
+            <style id="rk-snippets"></style>
             <script>$js</script>
             </head>
             <body>

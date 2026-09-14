@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.presentation.reader.web.NovelWebSnippets
 
 /**
  * Resolved reader display settings, read by both rendering modes: the WebView mode reads the CSS
@@ -56,6 +57,8 @@ data class NovelReaderSettings(
     /** Whether the marker between two consecutive chapters shows (`NovelSeam.isShown`). Carried here
      *  so the host's settings push redraws an open window. */
     val alwaysShowChapterTransition: Boolean = true,
+    /** The user's CSS and JavaScript, which only the WebView renderer applies. */
+    val webSnippets: NovelWebSnippets = NovelWebSnippets(),
 )
 
 /**

@@ -25,6 +25,7 @@ import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.content.NovelSnippets
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
@@ -122,6 +123,15 @@ class PreferenceRestorer(
             // would be silently dropped. Carried here through the same kernel, then not written back.
             if (key == DEAD_READER_PADDING_KEY) {
                 (value as? IntPreferenceValue)?.let { novelPreferences.carryReaderPaddingToMargins(it.value) }
+                return@forEach
+            }
+            // RK: JavaScript runs in the chapter page with the reader's bridge beside it, so a backup
+            // someone else made must not run code the moment a chapter opens. Restored switched off.
+            if (key == NovelPreferences.JS_SNIPPETS_KEY) {
+                (value as? StringPreferenceValue)?.let { stored ->
+                    val snippets = NovelSnippets.decode(stored.value).map { it.copy(enabled = false) }
+                    novelPreferences.readerJsSnippets().set(NovelSnippets.encode(snippets))
+                }
                 return@forEach
             }
             // RK: the retired novel tap-to-scroll switch, carried into the tap layout for the same reason.

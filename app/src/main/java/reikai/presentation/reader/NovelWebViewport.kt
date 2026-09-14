@@ -24,11 +24,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
+import reikai.novel.content.NovelCodeSnippet
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
+import reikai.presentation.reader.web.NovelWebSnippets
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -251,6 +253,8 @@ class NovelWebViewport(
         shownNext = null
         shownEnd = null
         val token = gate.open()
+        // A new page has run none of them.
+        snippetsRan.clear()
         // The document is built with this family's face, and any swap still resolving is for the old page.
         faceJob?.cancel()
         faceFamily = settings.fontFamily
@@ -297,6 +301,7 @@ class NovelWebViewport(
      * would otherwise find no engine and be dropped with no trace until the next chapter.
      */
     override fun applySettings(settings: NovelReaderSettings) {
+        val previous = documentSettings
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         documentSettings = settings
         documentInset = cutoutTopDp()
@@ -309,6 +314,19 @@ class NovelWebViewport(
         )
         if (settings.fontFamily != faceFamily) swapFontFace(settings.fontFamily)
         if (seamsMoved) redrawSeams()
+        if (settings.webSnippets.css != previous?.webSnippets?.css) {
+            runOrQueue("rkReader.setSnippetCss(${NovelWebSnippets.jsLiteral(settings.webSnippets.css)});")
+        }
+        // Before the page is up, the ready report runs them all; after, only an added or edited one.
+        if (gate.isReady) runSnippets(settings.webSnippets.jsChangedSince(snippetsRan))
+    }
+
+    /** Code of each JavaScript snippet as it last ran in this page, by id, so an edit runs it again. */
+    private val snippetsRan = mutableMapOf<String, String>()
+
+    private fun runSnippets(snippets: List<NovelCodeSnippet>) {
+        NovelWebSnippets.runner(snippets)?.let { webView.evaluateJavascript(it, null) }
+        snippets.forEach { snippetsRan[it.id] = it.code }
     }
 
     /** Re-decides every seam the document holds, each named by the chapter it introduces, since the
@@ -413,6 +431,7 @@ class NovelWebViewport(
                 "$seamJs);"
         }
         runOrQueue(js)
+        documentSettings?.webSnippets?.js?.filter { it.runOnAppend }?.let(NovelWebSnippets::runner)?.let(::runOrQueue)
         syncEnd()
     }
 
@@ -529,6 +548,8 @@ class NovelWebViewport(
         pendingWindowVerbs.forEach(::evaluate)
         pendingWindowVerbs.clear()
         pushAutoScroll()
+        // After the held calls, so a snippet finds every chapter that arrived while the page loaded.
+        documentSettings?.let { runSnippets(it.webSnippets.js) }
     }
 
     override fun setBoundaryFailures(

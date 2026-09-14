@@ -683,6 +683,15 @@
     <string name="novel_regex_removes">nothing</string>
     <string name="novel_regex_delete_confirmation">Do you wish to delete the rule \"%1$s\"?</string>
     <string name="information_empty_novel_regex_rules">No rules yet. Add one to rewrite chapter text as it loads.</string>
+    <!-- RK: the WebView reader's CSS and JavaScript snippets -->
+    <string name="pref_novel_css_snippets">CSS snippets</string>
+    <string name="pref_novel_css_snippets_summary">Add your own styles to every chapter page</string>
+    <string name="pref_novel_js_snippets">JavaScript snippets</string>
+    <string name="pref_novel_js_snippets_summary">Run your own code on every chapter page. Restored backups bring these back switched off</string>
+    <string name="information_empty_novel_snippets">No snippets yet</string>
+    <string name="novel_snippet_code">Code</string>
+    <string name="novel_snippet_run_on_append">Run again for each chapter added to the page</string>
+    <string name="novel_snippet_delete_confirmation">Do you wish to delete the snippet \"%1$s\"?</string>
     <string name="pref_novel_text_align_left">Left</string>
     <string name="pref_novel_text_align_center">Center</string>
     <string name="pref_novel_text_align_justify">Justify</string>

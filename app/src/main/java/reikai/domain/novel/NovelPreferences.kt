@@ -13,6 +13,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
+import reikai.novel.content.NovelSnippetKind
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -416,6 +417,17 @@ class NovelPreferences(
     /** User find/replace rules, a JSON array of [reikai.novel.content.NovelRegexReplacement]. */
     fun readerRegexReplacements() = preferenceStore.getString("ln_reader_regex_replacements", "[]")
 
+    /** CSS the WebView reader adds to every chapter page, a JSON array of [reikai.novel.content.NovelCodeSnippet]. */
+    fun readerCssSnippets() = preferenceStore.getString(CSS_SNIPPETS_KEY, "[]")
+
+    /** JavaScript the WebView reader runs on every chapter page, in the same shape as [readerCssSnippets]. */
+    fun readerJsSnippets() = preferenceStore.getString(JS_SNIPPETS_KEY, "[]")
+
+    fun readerSnippets(kind: NovelSnippetKind) = when (kind) {
+        NovelSnippetKind.CSS -> readerCssSnippets()
+        NovelSnippetKind.JS -> readerJsSnippets()
+    }
+
     // Library.
 
     /** Category a newly favorited novel auto-lands in, the novel twin of manga's
@@ -520,6 +532,11 @@ class NovelPreferences(
         private val seenSourcesMapSerializer =
             MapSerializer(String.serializer(), LnSourceIdentity.serializer())
         private val metadataJson = Json { ignoreUnknownKeys = true }
+
+        const val CSS_SNIPPETS_KEY = "ln_reader_css_snippets"
+
+        /** Named for the restorer, which switches every restored JavaScript snippet off. */
+        const val JS_SNIPPETS_KEY = "ln_reader_js_snippets"
     }
 }
 

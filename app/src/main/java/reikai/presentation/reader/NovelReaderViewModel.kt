@@ -78,6 +78,7 @@ import reikai.presentation.reader.text.NovelOpenLanding
 import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWarmPolicy
 import reikai.presentation.reader.text.NovelWindowReach
+import reikai.presentation.reader.web.NovelWebSnippets
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -321,9 +322,13 @@ class NovelReaderViewModel(
                 novelPreferences.readerVolumeButtonsInverted().changes(),
                 novelPreferences.readerVolumeButtonsFraction().changes(),
             ) { enabled, inverted, fraction -> VolumePrefs(enabled, inverted, fraction) },
-            novelPreferences.readerAlwaysShowChapterTransition().changes(),
-        ) { tts, flags, scroll, volume, alwaysShowTransition ->
-            ReaderExtraPrefs(tts, flags, scroll, volume, alwaysShowTransition)
+            combine(
+                novelPreferences.readerAlwaysShowChapterTransition().changes(),
+                novelPreferences.readerCssSnippets().changes(),
+                novelPreferences.readerJsSnippets().changes(),
+            ) { alwaysShowTransition, css, js -> alwaysShowTransition to NovelWebSnippets.from(css, js) },
+        ) { tts, flags, scroll, volume, page ->
+            ReaderExtraPrefs(tts, flags, scroll, volume, page.first, page.second)
         },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
@@ -359,6 +364,7 @@ class NovelReaderViewModel(
             volumeButtonsInverted = extra.volume.inverted,
             volumeButtonsFraction = extra.volume.fraction,
             alwaysShowChapterTransition = extra.alwaysShowTransition,
+            webSnippets = extra.webSnippets,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -1432,6 +1438,7 @@ class NovelReaderViewModel(
         val scroll: ScrollPrefs,
         val volume: VolumePrefs,
         val alwaysShowTransition: Boolean,
+        val webSnippets: NovelWebSnippets,
     )
 
     /** Per-novel orientation [override] + the global [default]; [resolved] is what the reader applies
