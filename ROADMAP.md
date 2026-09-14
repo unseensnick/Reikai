@@ -8,12 +8,11 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters. Remaining: the reader takeover below, then the download unification, which closes the program. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary with thin per-type adapters. Remaining: the download unification below, which closes the program. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Next
 
 - **Convert the light-novel plugin manager to collect only while subscribed** `[S]` (open gap) - `LnPluginManagerViewModel` is the novel twin of Mihon's converted `ExtensionsViewModel` and still holds two always-on `init` collectors. Not a straight port: its `refresh()` does network work and writes `isRefreshing` / `inProgress` / `errors` imperatively, so the shape has to be redesigned rather than moved. The campaign's record is the Pending row in [upstream-sync.md](docs/dev/upstream-sync.md). The browse takeover's Extensions step wrapped this model in a provider without touching those collectors, so it no longer rides along and needs its own redesign.
-- **Reader surface takeover, with novels on two rendering modes** `[XL]` - one host Activity and a shared engine over two providers, with novels on a native text renderer and a first-party WebView mode picked by a setting. What remains is the behaviour inventory that closes it (step 12); step progress is in the plan. [Plan](docs/dev/plans/content-layer-reader-surface.md).
 - **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift. It also owns Mihon's `DownloadQueueViewModel` conversion (mihonapp/mihon#3727, see the sync doc's Pending row) and the queue screen reading both models with a plain `collectAsState` while only the novel one shares while subscribed. A code merge, not a data migration; touches Mihon's download files (`// RK`). It is the last phase of the content-layer program, running after the reader takeover, since its upstream churn is the heaviest and nothing else waits on it. Tsundoku is not the reference: it gets one subsystem by making novels manga rows and branching inside the engine, both ruled out here. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Later
