@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import android.content.Context
+import android.content.Intent
 import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -339,15 +340,13 @@ class MangaRecentsAdapter(
     override suspend fun detailsScreen(entry: EntryId): Screen? =
         (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
 
-    override suspend fun open(item: RecentsItem): RecentsOpen? {
+    override suspend fun open(item: RecentsItem): Intent? {
         val target = targetChapter(item) ?: return null
-        return RecentsOpen.ReaderIntent(
-            ReaderActivity.newIntent(
-                application,
-                item.entryId.rawId,
-                target.chapterId,
-                sourceScoped = item.lane.sourceScoped,
-            ),
+        return ReaderActivity.newIntent(
+            application,
+            item.entryId.rawId,
+            target.chapterId,
+            sourceScoped = item.lane.sourceScoped,
         )
     }
 

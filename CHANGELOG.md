@@ -25,8 +25,8 @@ Updates and History can merge into a single Recents tab under Settings -> Appear
 Feed, History and Updates views, search, swipe actions and category filtering.
 
 Light novels gained three trackers built for novels, a font picker spanning the whole Google Fonts
-library, chapter clean-up rules, find and replace, and two in-development readers that draw novels
-in the same reader manga uses. Legacy is still the default.
+library, chapter clean-up rules, find and replace, and a new reader: novels now open in the same
+reader manga uses, drawn as real text or as a web page.
 
 Manga pages can be drawn by a new high quality renderer, bringing dual page view, page transition
 animations, HDR and a display cutout mode.
@@ -141,7 +141,7 @@ every release now also ships a foss build with neither in it.
 - **A merged series' library update now announces a new chapter once, not once per source that carries it.**
 - **The Updates widget now draws one cover per merged series.** It drew one per source, so a grouped series filled the grid.
 - **A chapter you continue from History on another source of a merged series no longer appears twice in the reader.** The copy you opened takes that chapter's place, so the chapters before and after it are the right ones.
-- **On a merged novel, the Legacy reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
+- **On a merged novel, the reader's chapter list now shows a chapter as read, bookmarked or downloaded when any source's copy is.** Deleting a download from it removes every source's copy, so the row stops reading as downloaded.
 
 ### Updates & History
 
@@ -196,15 +196,15 @@ every release now also ships a foss build with neither in it.
 #### Added
 
 - **Manga pages can now be drawn by a new high quality renderer, switched on under Settings -> Advanced (synced from Mihon, mihonapp/mihon#3388).** It brings dual page view, page transitions, a display cutout mode, HDR, a Min width slider for the long strip modes, and a page Gap slider for Continuous vertical.
-- **Settings -> Novel reader can switch on selecting, copying and sharing text in the two in-development novel readers, which costs link taps in the native one.** Both readers keep every other gesture while it is on.
-- **Font, line spacing and text alignment are now under Settings -> Novel reader, so the new readers can set them.** They only had controls in the original reader, which meant switching rendering mode left your font stuck where it was.
-- **The two in-development novel readers carry the reader's full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
-- **The two in-development novel readers now read straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
+- **Settings -> Novel reader can switch on selecting, copying and sharing text in the novel reader, which costs link taps in native text mode.** Both readers keep every other gesture while it is on.
+- **Font, line spacing and text alignment are now under Settings -> Novel reader.**
+- **The novel reader carries the full option set: bionic reading, Remove extra spacing, Tap edges to scroll, Swipe between chapters, volume-key scrolling and auto-scroll.** Settings -> Novel reader gains a Scroll speed slider for the last of them.
+- **The novel reader now reads straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
-- **The two in-development novel readers can now read a chapter aloud, from a Read aloud button on the button bar.** Its floating controls read from the paragraph on screen, step between paragraphs and set a sleep timer whose time left shows in the notification.
-- **The two in-development novel readers highlight the paragraph being read aloud, in a style and colours you set under Settings -> Novel reader.** Keep paragraph in view scrolls back to it once it leaves the screen.
-- **Read-aloud's engine, voice, speed and pitch are now under Settings -> Novel reader, for every rendering mode.**
-- **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in all three rendering modes.
+- **The novel reader can now read a chapter aloud, from a Read aloud button on the button bar.** Its floating controls read from the paragraph on screen, step between paragraphs and set a sleep timer whose time left shows in the notification.
+- **The novel reader highlights the paragraph being read aloud, in a style and colours you set under Settings -> Novel reader.** Keep paragraph in view scrolls back to it once it leaves the screen.
+- **Read-aloud's engine, voice, speed and pitch are now under Settings -> Novel reader.**
+- **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in both rendering modes.
 
 #### Changed
 
@@ -244,8 +244,8 @@ every release now also ships a foss build with neither in it.
 - **Dragging the manga reader's progress rail now lands inside the chapter the rail is showing.** Dragging it while scrolling across a chapter boundary could jump back into the previous chapter or do nothing at all.
 - **On a grouped manga, Open in browser, Open in WebView and Share now use the site the chapter came from.** They built the link from the source you opened the series under, which often named a page that does not exist.
 - **Download ahead on a grouped manga now fetches the chapters the reader will actually reach next.** It followed the order the sources were stitched in rather than your chapter sort.
-- **Tables, definition lists, preformatted text and pictures inside a sentence now lay out the same in both in-development novel readers.** The native one used to run table cells and list terms together on one line.
-- **The two in-development novel readers now reopen a chapter at the place you left it, instead of sometimes at its start or short of it.** The native one could save the chapter's start over your place before moving there, or land short while pictures were still loading.
+- **Tables, definition lists, preformatted text and pictures inside a sentence now lay out the same in both novel rendering modes.** The native one used to run table cells and list terms together on one line.
+- **The novel reader now reopens a chapter at the place you left it, instead of sometimes at its start or short of it.** The native one could save the chapter's start over your place before moving there, or land short while pictures were still loading.
 - **The web-page novel reader now keeps the line you are reading in place when you change a text setting or a chapter loads above you.** A larger text size could drop you several screens further on.
 
 ### Light novels
@@ -262,7 +262,7 @@ every release now also ships a foss build with neither in it.
 - **Long-pressing an installed light-novel plugin in Browse -> Extensions now offers to remove it.** It asks first, since Android has no uninstall prompt of its own for a plugin.
 - **A novel's chapter list can now be sorted alphabetically, the fourth sort manga already had.**
 - **Settings -> Novel reader can now tidy up a chapter before you read it.** Hide a heading that just repeats the chapter name, block images and video, split walls of text into paragraphs, force lowercase, and choose whether a chapter's own styling runs.
-- **Settings -> Novel reader -> Rendering mode can now open novels in one of two in-development readers, with Legacy still the default.** Both render novels in the same reader manga uses, one as a web page and one as real text; a change applies the next time you open a chapter.
+- **Novels now open in the same reader manga uses, drawn as real text, or as a web page under Settings -> Novel reader -> Rendering mode.** The previous novel reader is gone; a mode change applies the next time you open a chapter.
 - **Settings -> Novel reader can now skip chapters marked read and skip filtered chapters going forward, like manga.** The previous-chapter button still reaches the chapter you just finished.
 - **Novel read-aloud now pauses for calls, other apps' audio and unplugged headphones, and answers headset buttons, in every rendering mode.** It resumes by itself only after a short interruption.
 - **Settings -> Novel reader -> Text display now sets your page margins, paragraph indent and paragraph spacing.** Each of the four margins moves on its own, indent and spacing are multiples of your text size, and every reader honours them.
@@ -301,8 +301,6 @@ every release now also ships a foss build with neither in it.
 - **A novel's full-cover view now loads on sources that need a referer.** Opening it before the source finished resolving left the request without one for as long as the page stayed open.
 - **Settings -> Novel reader now has its own progress rail side and height, instead of taking both from the manga reader screen.** The two readers can be set up differently now, and the novel values start from the defaults.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
-- **A font whose name has a word starting with a digit, such as Source Sans 3, now applies in the Legacy novel reader.** The text fell back to the default font.
-- **The Legacy novel reader now finishes a chapter once, instead of re-running tracker sync and download cleanup every time you scroll near its end.**
 - **Picking the Black reader theme again draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** A reader already set to it keeps the old colour until the theme is picked again.
 - **Resuming a novel, and its next-chapter downloads, now follow the order you sorted its chapter list into.** Continue reading, the Resume button, Download next and Mark previous as read all walked the source's own order, so on a novel sorted by name or date they picked a chapter the reader reaches much later.
 

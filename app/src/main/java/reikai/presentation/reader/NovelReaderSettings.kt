@@ -1,13 +1,11 @@
 package reikai.presentation.reader
 
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import reikai.domain.novel.tts.TtsHighlightStyle
 
 /**
- * Resolved reader display settings, read by every rendering mode: the legacy reader hands `core.js`
- * its LNReader settings objects ([readerSettingsJson], [generalSettingsJson]), the WebView mode reads
- * only the CSS variables and behaviour flags `NovelWebDocument` builds, and the native renderer styles
- * its text views off the same fields. [followSystemTheme] is carried only so a sheet can show the
+ * Resolved reader display settings, read by both rendering modes: the WebView mode reads the CSS
+ * variables and behaviour flags `NovelWebDocument` builds, and the native renderer styles its text
+ * views off the same fields. [followSystemTheme] is carried only so a sheet can show the
  * "Auto" state; it is already resolved into [backgroundColor] and [textColor] by the time a renderer
  * sees it.
  */
@@ -30,13 +28,8 @@ data class NovelReaderSettings(
     val orientation: Int,
     /** [orientation] resolved against the global default: the concrete orientation the reader applies. */
     val resolvedOrientation: Int,
-    // Text-to-speech: the subset the legacy reader's `core.js` reads (general `TTSEnable` + the `tts` block).
-    val ttsEnabled: Boolean,
-    val ttsRate: Float,
-    val ttsPitch: Float,
-    val ttsAutoPageAdvance: Boolean,
+    // How the renderers place, mark and follow the spoken paragraph (ReadAloudSurface).
     val ttsScrollToTop: Boolean,
-    // How the new renderers mark and follow the spoken paragraph (ReadAloudSurface); core.js reads none.
     val ttsHighlight: Boolean,
     val ttsHighlightStyle: TtsHighlightStyle,
     /** Packed ARGB. */
@@ -49,12 +42,10 @@ data class NovelReaderSettings(
     val removeExtraSpacing: Boolean,
     val tapToScroll: Boolean,
     val swipeGestures: Boolean,
-    /** Always-on reading percentage overlay while reading (chrome hidden). Native Compose, not core.js. */
+    /** Always-on reading percentage overlay while reading (chrome hidden). */
     val showProgressPercentage: Boolean,
-    // Driven natively (not by core.js): auto-scroll runs an injected scroller.
     val autoScroll: Boolean,
     val autoScrollSpeed: Float,
-    // Driven natively: hardware volume keys scroll the chapter, intercepted at the host window.
     val useVolumeButtons: Boolean,
     val volumeButtonsInverted: Boolean,
     val volumeButtonsFraction: Float,
@@ -62,8 +53,7 @@ data class NovelReaderSettings(
     val railHeightPercent: Int,
     val railOnLeft: Boolean,
     /** Whether the marker between two consecutive chapters shows (`NovelSeam.isShown`). Carried here
-     *  so the host's settings push redraws an open window. Defaulted because the legacy reader builds
-     *  this object too and draws no marker. */
+     *  so the host's settings push redraws an open window. */
     val alwaysShowChapterTransition: Boolean = true,
 )
 
@@ -80,24 +70,6 @@ data class ReaderMargins(
     val left: Int,
     val right: Int,
 )
-
-/**
- * Brightness + colour-filter overlay settings. Kept separate from [NovelReaderSettings] because they
- * render as a native Compose overlay (plus the host window's brightness) and never touch the WebView,
- * so changing them must not trigger a settings re-push to the web layer.
- */
-data class NovelReaderOverlaySettings(
-    val customBrightness: Boolean,
-    val customBrightnessValue: Int,
-    val colorFilter: Boolean,
-    val colorFilterValue: Int,
-    val colorFilterMode: Int,
-)
-
-/** Per-novel orientation choices in the reader sheet: Default (follow the global default) plus the
- *  concrete locks. Reverse-portrait is dropped (rarely wanted); the global-default Settings list
- *  additionally drops Default. */
-val readerOrientations = ReaderOrientation.entries.filter { it != ReaderOrientation.REVERSE_PORTRAIT }
 
 /**
  * Applies the "Auto" theme option, which every reader owes before it renders. The stored colours are

@@ -28,8 +28,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Theme picker for the novel reader's bottom-bar theme button: the follow-system toggle plus the reader
- * color presets, the same controls as the settings sheet's Display tab but reachable in one tap. Changes
- * apply live (the caller's ScreenModel persists them and the reader re-themes in place).
+ * color presets, reachable in one tap. Changes apply live (the caller persists them and the reader
+ * re-themes in place).
  */
 @Composable
 fun ReaderThemeDialog(

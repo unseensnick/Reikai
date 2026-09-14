@@ -2,34 +2,16 @@ package reikai.presentation.recents
 
 import android.content.Context
 import android.content.Intent
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 
 /**
- * How a row's tap reaches a reader. The two engines launch differently, so the seam answers what to
- * open and the caller does the opening; a neutral `Screen` cannot carry the manga side, whose reader
- * is an Activity.
+ * Opens the reader a provider resolved. One definition because a row's tap and a tab's reselect both
+ * land here, and both say so when there is nothing left to open.
  */
-sealed interface RecentsOpen {
-    data class ReaderIntent(val intent: Intent) : RecentsOpen
-
-    data class ReaderScreen(val screen: Screen) : RecentsOpen
-}
-
-/**
- * Opens whatever the seam resolved. One definition because a row's tap and a tab's reselect both land
- * here, and the two cases are not interchangeable: manga reads in an Activity, novels in a screen.
- */
-internal suspend fun RecentsOpen?.launch(
+internal suspend fun Intent?.launch(
     context: Context,
-    navigator: Navigator,
     onNothingToOpen: suspend () -> Unit,
 ) {
-    when (this) {
-        null -> onNothingToOpen()
-        is RecentsOpen.ReaderIntent -> context.startActivity(intent)
-        is RecentsOpen.ReaderScreen -> navigator.push(screen)
-    }
+    if (this == null) onNothingToOpen() else context.startActivity(this)
 }
 
 /**

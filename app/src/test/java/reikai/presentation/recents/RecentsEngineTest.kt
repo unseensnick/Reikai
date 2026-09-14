@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import android.content.Intent
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -1377,7 +1378,7 @@ private class FakeRecentsProvider(
     var openedItem: RecentsItem? = null
         private set
 
-    override suspend fun open(item: RecentsItem): RecentsOpen? {
+    override suspend fun open(item: RecentsItem): Intent? {
         openedItem = item
         return null
     }

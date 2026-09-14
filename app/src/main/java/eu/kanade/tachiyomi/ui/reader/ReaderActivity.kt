@@ -1147,7 +1147,7 @@ class ReaderActivity : BaseActivity() {
 
     // RK: the URL is the session's answer rather than manga's, so a novel opens its own chapter page.
     // The source id is manga's only: it lets the WebView reuse that source's headers, and a novel
-    // source has no numeric id, so it opens without one exactly as the standalone reader did.
+    // source has no numeric id, so it opens without one.
     private fun openChapterInWebView(url: String?) {
         val target = url ?: return
         val title = engine.chrome.value.entryTitle

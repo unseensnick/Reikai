@@ -165,12 +165,9 @@ class NovelPreferences(
     fun readerDefaultOrientation() =
         preferenceStore.getInt("ln_reader_default_orientation", ReaderOrientation.FREE.flagValue)
 
-    /**
-     * Which reader a novel opens in. Defaults to the standalone reader while the shared host is
-     * built out, so the half-finished one is opt-in rather than what everyone lands in.
-     */
+    /** Which renderer a novel opens in. Native is the default, as it is in tsundoku. */
     fun readerRenderingMode() =
-        preferenceStore.getEnum("ln_reader_rendering_mode", NovelRenderingMode.LEGACY)
+        preferenceStore.getEnum("ln_reader_rendering_mode", NovelRenderingMode.NATIVE)
 
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
@@ -285,9 +282,6 @@ class NovelPreferences(
     fun readerTtsButtonX() = preferenceStore.getInt("ln_reader_tts_button_x", Int.MIN_VALUE)
     fun readerTtsButtonY() = preferenceStore.getInt("ln_reader_tts_button_y", Int.MIN_VALUE)
 
-    // Reader engine extras (round 2). Flags the bundled `core.js` applies to the chapter text; toggling
-    // one re-pushes the general settings block, which reflows the text in place.
-
     /** Bold the start of each word (bionic reading) to ease skimming. */
     fun readerBionicReading() = preferenceStore.getBoolean("ln_reader_bionic_reading", false)
 
@@ -357,9 +351,9 @@ class NovelPreferences(
      *  otherwise overrides the theme the reader chose. */
     fun readerSourceCssPriority() = preferenceStore.getBoolean("ln_reader_source_css_priority", false)
 
-    /** Let a long-press select the chapter text in the native and WebView renderers; the legacy
-     *  reader never reads it. The native one gives up following links for it, because selection
-     *  needs the movement method that dispatches the drag. The WebView one keeps its links. */
+    /** Let a long-press select the chapter text. The native renderer gives up following links for it,
+     *  because selection needs the movement method that dispatches the drag. The WebView one keeps its
+     *  links. */
     fun readerTextSelectable() = preferenceStore.getBoolean("ln_reader_text_selectable", false)
 
     /** Keep the neighbouring chapters loaded so reading runs on past a chapter's end. Off makes each

@@ -7,9 +7,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import dev.zacsweers.metrox.viewmodel.metroViewModel
@@ -50,7 +48,6 @@ data object HistoryTab : Tab {
 
     @Composable
     override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val engine = rememberHistoryEngine()
         // RK: both models stay resolved for their event channels, which report a failed write and a
@@ -89,7 +86,7 @@ data object HistoryTab : Tab {
                 // RK: resume the newest read the chip is showing. The engine asks only the providers
                 //     the chip selects, each through its own unfiltered query, so a search or a
                 //     category filter still cannot move what resume opens.
-                engine.resumeLatest().launch(context, navigator) {
+                engine.resumeLatest().launch(context) {
                     snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
                 }
             }

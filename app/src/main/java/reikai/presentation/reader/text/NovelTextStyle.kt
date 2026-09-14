@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
  * Net-new rather than ported: tsundoku's renderer styles nothing, and the equivalent lives in the
  * host viewer we deliberately did not take, reading its own preferences directly. This reads the
  * settings the session already resolved, so the native renderer and the WebView answer to one
- * source. The bundled faces are the same nine files `core.js` loaded over `file:///android_asset`.
+ * source. The bundled faces are the nine files under `assets/fonts`, which the WebView mode reads too.
  */
 object NovelTextStyle {
 

@@ -14,10 +14,10 @@
 # without actual type information". Debug builds aren't minified, so it is invisible there.
 -keep,allowoptimization class exh.**
 
-# RK: keep @JavascriptInterface bridge methods. They are invoked only from JS (the novel reader's
-# core.js -> window.NativeReader), so R8's shrinker sees them as unreachable and strips them in minified
-# builds (preview/release), silently killing the whole bridge: tap-to-toggle-chrome, scroll-save, live
-# progress, and TTS all stop working. Debug builds aren't minified, so it is invisible in the dev loop.
+# RK: keep @JavascriptInterface bridge methods. They are invoked only from JS (the WebView novel
+# renderer's reader.js -> window.ReikaiWeb), so R8's shrinker sees them as unreachable and strips them in
+# minified builds (nightly/release), silently killing the whole bridge: taps, position, progress and
+# read-aloud all stop working. Debug builds aren't minified, so it is invisible in the dev loop.
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }

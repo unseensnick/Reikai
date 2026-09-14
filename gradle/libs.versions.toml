@@ -196,7 +196,6 @@ swipe = { module = "me.saket.swipe:swipe", version.ref = "swipe" }
 tapmoc-gradle = { module = "com.gradleup.tapmoc:tapmoc-gradle-plugin", version.ref = "tapmoc" }
 unifile = { module = "com.github.mihon:unifile", version.ref = "unifile" }
 voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
-voyager-screenModel = { module = "cafe.adriel.voyager:voyager-screenmodel", version.ref = "voyager" }
 voyager-tabNavigator = { module = "cafe.adriel.voyager:voyager-tab-navigator", version.ref = "voyager" }
 voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
 webgpuviewer = { module = "ca.mpreg:webgpuviewer", version.ref = "webgpuviewer" }
@@ -233,4 +232,4 @@ serialization = ["kotlinx-serialization-json", "kotlinx-serialization-jsonOkio",
 shizuku = ["shizuku-api", "shizuku-provider"]
 sqldelight = ["sqldelight-androidxDriver", "sqldelight-async", "sqldelight-coroutines", "sqldelight-androidxPaging"]
 test = ["junit-jupiter", "kotest-assertions", "mockk"]
-voyager = ["voyager-navigator", "voyager-screenModel", "voyager-tabNavigator", "voyager-transitions"]
+voyager = ["voyager-navigator", "voyager-tabNavigator", "voyager-transitions"]

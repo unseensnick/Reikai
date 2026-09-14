@@ -6,7 +6,7 @@ package reikai.domain.novel.tts
  * without touching the reader, the WebView bridge, or the playback service.
  *
  * The contract is deliberately small: speak one chunk of text and report when it finishes. The
- * "what to speak next" and the highlight live in the WebView's `core.js`; this only produces sound.
+ * "what to speak next" and the highlight live in `ReadAloudController`; this only produces sound.
  */
 interface NovelTtsEngine {
 

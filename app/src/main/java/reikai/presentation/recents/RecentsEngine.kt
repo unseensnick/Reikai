@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import android.content.Intent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -518,7 +519,7 @@ class RecentsEngine(
         providersByType[entry.contentType]?.detailsScreen(entry)
 
     /** How a tap on [item] opens its chapter, or null when there is nothing left to open. */
-    suspend fun open(item: RecentsItem): RecentsOpen? =
+    suspend fun open(item: RecentsItem): Intent? =
         providersByType[item.entryId.contentType]?.open(item)
 
     /**
@@ -527,7 +528,7 @@ class RecentsEngine(
      * a check after the fact would have to be repeated by every caller, and was missing from the one
      * that existed. Ordering is the feed's own, so the tie-break is not a second opinion.
      */
-    suspend fun resumeLatest(): RecentsOpen? {
+    suspend fun resumeLatest(): Intent? {
         val latest = orderRecents(activeProviders().mapNotNull { it.latestRead() }).firstOrNull()
         return latest?.let { open(it) }
     }

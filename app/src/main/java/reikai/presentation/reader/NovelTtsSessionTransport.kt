@@ -6,8 +6,8 @@ import reikai.data.novel.tts.NovelTtsSession
 import reikai.domain.novel.tts.TtsPlayback
 
 /**
- * [ReadAloudTransport] over the app-wide [NovelTtsSession]. The legacy reader drives that singleton
- * too, so this only writes to it while the callbacks it installed are still the session's.
+ * [ReadAloudTransport] over the app-wide [NovelTtsSession]. It only writes to that singleton while the
+ * callbacks it installed are still the session's.
  */
 class NovelTtsSessionTransport(private val context: Context) : ReadAloudTransport {
 

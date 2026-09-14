@@ -287,7 +287,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     // endregion
 
-    // region swiping between chapters (core.js's rule, which both implement)
+    // region swiping between chapters (one rule, which both renderers implement)
 
     @Test
     fun aLongSwipeFromTheRightHalfStepsForward() {

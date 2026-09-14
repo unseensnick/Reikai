@@ -19,6 +19,7 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
@@ -42,8 +43,6 @@ import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
-import reikai.presentation.reader.novelReaderTarget
-import reikai.presentation.reader.open
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -115,12 +114,14 @@ class NovelScreen(
                                 // Route to the chapter's own source (a unified-list row keeps its owning
                                 // novelId). The All chip opens group scope; a source chip opens source scope.
                                 s.chapters.firstOrNull { it.id == chapterId }?.let { ch ->
-                                    novelReaderTarget(
-                                        context = context,
-                                        novelId = ch.novelId,
-                                        chapterId = ch.id,
-                                        sourceScoped = s.selectedSourceNovelId != null,
-                                    ).open(context, navigator)
+                                    context.startActivity(
+                                        ReaderActivity.newNovelIntent(
+                                            context = context,
+                                            novelId = ch.novelId,
+                                            chapterId = ch.id,
+                                            sourceScoped = s.selectedSourceNovelId != null,
+                                        ),
+                                    )
                                 }
                             },
                             // A non-global search (the source-name tap) scopes to the shown source,

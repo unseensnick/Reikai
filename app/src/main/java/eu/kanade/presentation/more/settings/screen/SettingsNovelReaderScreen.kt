@@ -71,15 +71,9 @@ object SettingsNovelReaderScreen : SearchableSettings {
         )
     }
 
-    /**
-     * Engine, voice, speed and following apply in every rendering mode, since the legacy reader reads
-     * the same preferences. The highlight rows only reach the shared host's renderers, so they are
-     * hidden under the legacy one.
-     */
     @Composable
     private fun getReadAloudGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
-        val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val enginePref = novelPreferences.readerTtsEngine()
         val voicePref = novelPreferences.readerTtsVoice()
         val ratePref = novelPreferences.readerTtsRate()
@@ -103,8 +97,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val shownVoices = remember(options.voices, selectedLanguages) {
             options.voices.inLanguages(selectedLanguages).associate { it.name to it.displayName }
         }
-        val isNewRenderer = renderingMode != NovelRenderingMode.LEGACY
-
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_read_aloud),
             preferenceItems = listOfNotNull(
@@ -163,27 +155,27 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTtsKeepInView(),
                     title = stringResource(MR.strings.pref_tts_keep_in_view),
-                ).takeIf { isNewRenderer },
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTtsHighlight(),
                     title = stringResource(MR.strings.pref_tts_highlight),
-                ).takeIf { isNewRenderer },
+                ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTtsHighlightStyle(),
                     entries = TtsHighlightStyle.entries.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_tts_highlight_style),
-                ).takeIf { isNewRenderer && highlight },
+                ).takeIf { highlight },
                 colorRow(
                     preference = novelPreferences.readerTtsHighlightColor(),
                     presets = TtsHighlightColors.highlight,
                     titleRes = MR.strings.pref_tts_highlight_color,
-                ).takeIf { isNewRenderer && highlight },
+                ).takeIf { highlight },
                 // Underline and outline leave the text's own colour alone.
                 colorRow(
                     preference = novelPreferences.readerTtsHighlightTextColor(),
                     presets = TtsHighlightColors.text,
                     titleRes = MR.strings.pref_tts_highlight_text_color,
-                ).takeIf { isNewRenderer && highlight && highlightStyle == TtsHighlightStyle.BACKGROUND },
+                ).takeIf { highlight && highlightStyle == TtsHighlightStyle.BACKGROUND },
             ),
         )
     }
@@ -381,9 +373,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_keep_embedded_js),
                     subtitle = stringResource(MR.strings.pref_keep_embedded_js_summary),
                 ).takeIf { renderingMode != NovelRenderingMode.NATIVE },
-                // Only the shared host's WebView renderer honours these two. The legacy reader is a
-                // WebView as well but renders through the vendored engine, which has no answer for
-                // either, so showing them there would be a switch that does nothing.
+                // Only the WebView renderer honours these two.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSourceCssPriority(),
                     title = stringResource(MR.strings.pref_source_css_priority),
@@ -426,27 +416,24 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     entries = NovelRenderingMode.entries.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_novel_rendering_mode),
                 ),
-                // Both renderers on the shared host read this; the standalone reader never did. Only the
-                // native one gives up link taps for it, so only it carries the warning.
+                // Only the native renderer gives up link taps for it, so only it carries the warning.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTextSelectable(),
                     title = stringResource(MR.strings.pref_novel_text_selectable),
                     subtitle = stringResource(MR.strings.pref_novel_text_selectable_summary)
                         .takeIf { renderingMode == NovelRenderingMode.NATIVE },
-                ).takeIf { renderingMode != NovelRenderingMode.LEGACY },
-                // Both renderers on the shared host hold a window; the standalone reader is the one
-                // that cannot, which is the same line NovelReaderViewModel.windowedReading draws.
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSeamlessChapters(),
                     title = stringResource(MR.strings.pref_novel_seamless_chapters),
                     subtitle = stringResource(MR.strings.pref_novel_seamless_chapters_summary),
-                ).takeIf { renderingMode != NovelRenderingMode.LEGACY },
+                ),
                 // Only a window has a marker between two chapters to hide, and the end-of-novel marker
                 // shows whatever this says.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerAlwaysShowChapterTransition(),
                     title = stringResource(MR.strings.pref_always_show_chapter_transition),
-                ).takeIf { renderingMode != NovelRenderingMode.LEGACY && seamless },
+                ).takeIf { seamless },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerDefaultOrientation(),
                     entries = ReaderOrientation.entries

@@ -831,8 +831,8 @@ class NovelTextViewport(
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
 
     /**
-     * The tap zones, at `core.js`'s thirds and its three-quarter-screen step, so a tap does the same
-     * thing whichever renderer is running. The middle band, and every tap while the setting is off,
+     * The tap zones, in thirds with a three-quarter-screen step, the same as the WebView renderer's so a
+     * tap does the same thing whichever renderer is running. The middle band, and every tap while the setting is off,
      * toggles the chrome. Read from the live settings, so switching it takes effect at once.
      */
     private fun onTap(y: Float) {
@@ -869,9 +869,9 @@ class NovelTextViewport(
     }
 
     /**
-     * A swipe between chapters, at `core.js`'s thresholds so the gesture behaves the same in either
-     * renderer: mostly sideways, far enough not to be a stray, and started on the half it moves away
-     * from, which is what makes it cross the middle rather than flick in a corner.
+     * A swipe between chapters, at the WebView renderer's thresholds so the gesture behaves the same
+     * in either renderer: mostly sideways, far enough not to be a stray, and started on the half it
+     * moves away from, which is what makes it cross the middle rather than flick in a corner.
      */
     private fun onPointerUp(x: Float, y: Float) {
         if (settings?.swipeGestures != true) return
@@ -1288,7 +1288,7 @@ class NovelTextViewport(
         const val FRAMES_PER_SECOND = 60f
         const val NANOS_PER_SECOND = 1_000_000_000f
 
-        /** A tap in an outer zone moves by this much of the screen, matching `core.js`. */
+        /** A tap in an outer zone moves by this much of the screen, matching the WebView renderer. */
         const val TAP_SCROLL_FRACTION = 0.75f
 
         /** How far sideways a swipe must run to count, in dp, also `core.js`'s number. */

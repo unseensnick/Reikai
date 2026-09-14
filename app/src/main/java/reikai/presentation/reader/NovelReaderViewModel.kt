@@ -280,15 +280,7 @@ class NovelReaderViewModel(
         ) { override, default -> OrientationPrefs(override, default) },
         combine(
             combine(
-                combine(
-                    novelPreferences.readerTtsEnabled().changes(),
-                    novelPreferences.readerTtsRate().changes(),
-                    novelPreferences.readerTtsPitch().changes(),
-                    novelPreferences.readerTtsAutoPageAdvance().changes(),
-                    novelPreferences.readerTtsScrollToTop().changes(),
-                ) { enabled, rate, pitch, autoAdvance, scrollTop ->
-                    TtsVoicePrefs(enabled, rate, pitch, autoAdvance, scrollTop)
-                },
+                novelPreferences.readerTtsScrollToTop().changes(),
                 combine(
                     novelPreferences.readerTtsHighlight().changes(),
                     novelPreferences.readerTtsHighlightStyle().changes(),
@@ -298,7 +290,7 @@ class NovelReaderViewModel(
                 ) { highlight, style, color, textColor, keepInView ->
                     TtsHighlightPrefs(highlight, style, color, textColor, keepInView)
                 },
-            ) { voice, highlight -> TtsPrefs(voice, highlight) },
+            ) { scrollToTop, highlight -> TtsPrefs(scrollToTop, highlight) },
             combine(
                 novelPreferences.readerBionicReading().changes(),
                 novelPreferences.readerRemoveExtraSpacing().changes(),
@@ -340,11 +332,7 @@ class NovelReaderViewModel(
             keepScreenOn = keepScreenOn,
             orientation = orient.override,
             resolvedOrientation = orient.resolved,
-            ttsEnabled = extra.tts.voice.enabled,
-            ttsRate = extra.tts.voice.rate,
-            ttsPitch = extra.tts.voice.pitch,
-            ttsAutoPageAdvance = extra.tts.voice.autoPageAdvance,
-            ttsScrollToTop = extra.tts.voice.scrollToTop,
+            ttsScrollToTop = extra.tts.scrollToTop,
             ttsHighlight = extra.tts.highlight.enabled,
             ttsHighlightStyle = extra.tts.highlight.style,
             ttsHighlightColor = extra.tts.highlight.color,
@@ -922,7 +910,7 @@ class NovelReaderViewModel(
     }
 
     /**
-     * Finishing [chapter] through [NovelChapterFinish], the legacy reader's path too. Reaching the end
+     * Finishing [chapter] through [NovelChapterFinish]. Reaching the end
      * and mark-read-on-skip both land here, as manga's both go through updateChapterProgressOnComplete.
      * The trim is manga's ReaderViewModel.deleteChapterIfNeeded, at the same point.
      */
@@ -973,10 +961,6 @@ class NovelReaderViewModel(
             keepScreenOn = novelPreferences.readerKeepScreenOn().get(),
             orientation = override,
             resolvedOrientation = OrientationPrefs(override, default).resolved,
-            ttsEnabled = novelPreferences.readerTtsEnabled().get(),
-            ttsRate = novelPreferences.readerTtsRate().get(),
-            ttsPitch = novelPreferences.readerTtsPitch().get(),
-            ttsAutoPageAdvance = novelPreferences.readerTtsAutoPageAdvance().get(),
             ttsScrollToTop = novelPreferences.readerTtsScrollToTop().get(),
             ttsHighlight = novelPreferences.readerTtsHighlight().get(),
             ttsHighlightStyle = novelPreferences.readerTtsHighlightStyle().get(),
@@ -1230,13 +1214,8 @@ class NovelReaderViewModel(
         viewModelScope.launchIO { maybeDownloadAhead() }
     }
 
-    /**
-     * Whether the renderer holds more than one chapter, which decides how wide a window to publish.
-     * The legacy standalone reader is the one that cannot, so it would only pay for neighbours it
-     * has nowhere to draw; the two renderers on the shared host both hold a window.
-     */
-    private fun windowedReading() = novelPreferences.readerSeamlessChapters().get() &&
-        novelPreferences.readerRenderingMode().get() != NovelRenderingMode.LEGACY
+    /** Whether seamless chapters is on, which decides whether the window holds more than one chapter. */
+    private fun windowedReading() = novelPreferences.readerSeamlessChapters().get()
 
     /**
      * One speculative request per neighbour, so crossing into it needs no round trip and the source
@@ -1388,14 +1367,7 @@ class NovelReaderViewModel(
         val paragraphSpacing: Float,
     )
     private data class ThemePrefs(val followSystem: Boolean, val background: String, val textColor: String)
-    private data class TtsPrefs(val voice: TtsVoicePrefs, val highlight: TtsHighlightPrefs)
-    private data class TtsVoicePrefs(
-        val enabled: Boolean,
-        val rate: Float,
-        val pitch: Float,
-        val autoPageAdvance: Boolean,
-        val scrollToTop: Boolean,
-    )
+    private data class TtsPrefs(val scrollToTop: Boolean, val highlight: TtsHighlightPrefs)
     private data class TtsHighlightPrefs(
         val enabled: Boolean,
         val style: TtsHighlightStyle,

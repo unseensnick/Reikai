@@ -138,7 +138,7 @@ fun Screen.RecentsScreen(
             withUIContext {
                 // Every path that opens a chapter says so when there is none left; this one is the
                 // only one a recents row has.
-                target.launch(context, navigator) {
+                target.launch(context) {
                     snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
                 }
             }

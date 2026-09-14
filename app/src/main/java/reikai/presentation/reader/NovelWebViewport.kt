@@ -152,8 +152,8 @@ class NovelWebViewport(
     private val webView = WebView(context).apply {
         setDefaultSettings()
         webViewClient = NovelChapterNavigationClient(context) { loadedBaseUrl }
-        // The stylesheet and engine are inlined into the document, so unlike the legacy reader this
-        // mode needs no file origin at all and the flag stays off.
+        // The stylesheet and engine are inlined into the document, so this mode needs no file origin at
+        // all and the flag stays off.
         settings.allowFileAccess = false
         isLongClickable = textSelectable
         if (textSelectable) {

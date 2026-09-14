@@ -124,7 +124,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
                 // Reselect resumes wherever there is reading to resume. Updates is the one mode with
                 // no read lane, and it keeps the download-queue shortcut it has always had.
                 if (RecentsLaneKind.READ in engine.mode.value.lanes) {
-                    engine.resumeLatest().launch(context, navigator) {
+                    engine.resumeLatest().launch(context) {
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
                     }
                 } else {

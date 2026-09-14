@@ -1,5 +1,6 @@
 package reikai.presentation.recents
 
+import android.content.Intent
 import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -144,5 +145,5 @@ interface RecentsProvider : RecentsBehavior {
      * How a tap on [item] opens whatever [targetChapter] resolved, or null when nothing is left to
      * open. The provider builds it because only it knows which reader its content type has.
      */
-    suspend fun open(item: RecentsItem): RecentsOpen?
+    suspend fun open(item: RecentsItem): Intent?
 }
