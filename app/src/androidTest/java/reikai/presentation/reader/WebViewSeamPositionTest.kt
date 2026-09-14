@@ -406,6 +406,35 @@ class WebViewSeamPositionTest {
         assertTrue("a smooth scroll up ended $drift px from its target", abs(drift) <= FREE)
     }
 
+    /**
+     * The window drops the chapter above before it adds the one below, so for a moment the document
+     * ends above where the screen did and the browser pulls the page back. That pull is not the
+     * reader scrolling; read as one, it moved them up a second time, into the chapter above.
+     */
+    @Test
+    fun aChapterDroppedAboveWithNothingBelowDoesNotMoveTheReader() {
+        loadReal()
+        val above = insertReal(atStart = true)
+        scrollMarkerToMidScreenInstantly()
+        val before = markerTop()
+        val height = evalDouble(
+            "return document.querySelector('.rk-chapter[data-rk-chapter-id=\"$above\"]').getBoundingClientRect().height",
+        )
+        // Without the pull back there is nothing to misread, and the case would pass on any code.
+        assertTrue(
+            "the drop does not shorten the document past the screen",
+            evalDouble(
+                "return window.scrollY + window.innerHeight - (document.documentElement.scrollHeight - $height)",
+            ) >
+                0,
+        )
+        eval("window.rkReader.evictChapter('$above'); return 'ok'")
+        settle()
+        val drift = (markerTop() - before).roundToInt()
+        Log.i(TAG, "real/evict-above-nothing-below drift=$drift")
+        assertTrue("dropping the chapter above moved the reader by $drift px", abs(drift) <= FREE)
+    }
+
     /** The chapter body the real document is built around, carrying the marker the drift is read off. */
     private fun chapterBody(marker: Boolean) = buildString {
         append("<div style=\"height:${CHAPTER_PX / 2}px\"></div>")

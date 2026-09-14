@@ -299,7 +299,13 @@
         held = null;
         return false;
       }
-      var shift = top - (held.y - (scrollTop() - held.scrollY));
+      var scrolled = scrollTop() - held.scrollY;
+      // Height leaving can end the document above where the screen did, and the browser pulls the page
+      // back to its bottom. That is not the reader, who cannot scroll up onto the bottom edge; counted
+      // as theirs, it moved them up a second time.
+      var maxTop = document.documentElement.scrollHeight - viewportHeight();
+      if (scrolled < 0 && scrollTop() >= maxTop - 1) scrolled = 0;
+      var shift = top - (held.y - scrolled);
       if (Math.abs(shift) <= 0.5) return false;
       window.scrollBy({ top: shift, behavior: 'instant' });
       return true;
