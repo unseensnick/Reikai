@@ -1,5 +1,7 @@
 # Novel reader
 
+> **Retired.** The reader this doc describes (the Voyager `NovelReaderScreen`, `NovelReaderScreenModel`, the WebView host and the vendored LNReader `assets/lnreader-web/`) was deleted at the reader takeover's cutover (`d6904484d`). Every novel now opens in the shared `ReaderActivity`, drawn as native text by default or as Reikai's own WebView document; that design is [content-layer-reader-surface.md](content-layer-reader-surface.md). The body below is kept as the record of the replaced behaviour, which that takeover's behaviour inventory walks against, and every path it names is gone from the tree.
+
 The light-novel reading surface: a WebView renders the chapter text and the rest of the screen (toolbar, prev/next, settings, immersive bars) is Compose, with per-chapter scroll resume, read-state syncing, and per-novel display settings.
 
 This is the developer-facing record for the novel reader. It explains how the reader is built and why; for the broader rebase context see [rebase-overview.md](rebase-overview.md), and for the surrounding reader direction and plumbing see the cross-links at the end.
@@ -98,7 +100,7 @@ Read-aloud (TTS) lives in its own files:
 
 ## Status
 
-Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6). Round 3 (chrome + chapter-list parity: the chapters sheet, orientation picker, top-bar WebView + bookmark, seekbar percent labels, translucent chrome) shipped in `23ed2a2e4` / `d8faad579`; compiles, on-device verification of the chapter-list sheet pending.
+Retired: deleted in `d6904484d` and replaced by the shared reader ([content-layer-reader-surface.md](content-layer-reader-surface.md)). Before that it shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6). Round 3 (chrome + chapter-list parity: the chapters sheet, orientation picker, top-bar WebView + bookmark, seekbar percent labels, translucent chrome) shipped in `23ed2a2e4` / `d8faad579`; compiles, on-device verification of the chapter-list sheet pending.
 
 ## Decisions & tradeoffs
 
@@ -116,4 +118,4 @@ One `core.js` gotcha the extras surfaced: reassigning `reader.generalSettings.va
 
 **Live settings over reload.** Display changes push through `reader.readerSettings.val` instead of rebuilding the document, so font/size/spacing/theme adjustments are instant and never lose scroll position. The document rebuilds only on a chapter change or an app-theme change.
 
-The broader direction of folding the manga and novel readers toward a shared Compose reader shell is tracked separately in [unified-reader.md](unified-reader.md); this doc describes the novel reader as it stands today, not that target.
+The broader direction of folding the manga and novel readers toward a shared Compose reader shell is tracked separately in [unified-reader.md](unified-reader.md); this doc describes the retired novel reader, not that target.

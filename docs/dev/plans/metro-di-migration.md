@@ -1,12 +1,11 @@
 # Metro DI migration (Injekt to Metro)
 
-> **Status: all eight phases have landed and the ledger has advanced past `b2015d1ef`
-> (`f674e77bf`), but the port is not finished.** A tail stays behind, gated on the tsundoku reader
-> migration rather than open in its own right: the novel reader is still on Injekt, six of
-> `DomainModule`'s twelve registrations exist only for it, `MetroInteropModule` still hands its
-> subgraph back. The proguard keeps are NOT part of this tail: none of the five goes (see below). Only
-> `source-api` and `source-local` are permanent. Nothing here is actionable on its own: it closes when
-> the reader does. Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
+> **Status: complete.** All eight phases have landed, the ledger has advanced past `b2015d1ef`
+> (`f674e77bf`), and the novel reader tail closed with the reader takeover's cutover (`d6904484d`):
+> the legacy reader was deleted, `DomainModule` keeps only `source-api`'s three `MetadataSource`
+> contracts, and `MetroInteropModule` hands back fifteen types. What stays on Injekt is permanent:
+> `source-api`, `source-local`, those three contracts, and the ruled holdouts below. The proguard
+> keeps were never part of the tail: none of the five goes (see below). Research completed 2026-08-16 against upstream `b2015d1ef`; re-verified 2026-08-17
 > before phase 0; re-measured against current code 2026-08-20.
 >
 > **Counts age fast here.** Everything under Inventory is a 2026-08-16 snapshot kept as the record of
@@ -47,21 +46,18 @@ so it outlives the reader. So the keep list is not part of this port's tail at a
 
 ### What is left, in order (the authoritative list)
 
-**No phase remains, but a gated tail does.** Phase 7 landed on 2026-08-20: `DomainModule` shrank from
+**Nothing remains.** Phase 7 landed on 2026-08-20: `DomainModule` shrank from
 125 registrations to the twelve that still have a consumer, behind a resolution test that builds all
 twelve for real (`DomainModuleTest`, mutation-verified); three files that asked for `Application`
 where upstream asks for `Context` were corrected, leaving the novel reader as the only thing keeping
 that registration alive; `App` moved its last two reads onto an injected field and the graph; the
 rules and docs that still described Injekt as the DI system were rewritten; and the ledger advanced.
 
-**What the tsundoku reader migration still has to close**, none of it worth doing before then:
-
-| Left | Why it waits |
-|---|---|
-| `NovelReaderScreenModel` on Injekt, 18 types | It is deleted by that migration; converting it first is work with a shorter life than the work |
-| Six of `DomainModule`'s twelve, plus the `Application` registration | Their only consumer is that model |
-| The reader's subgraph in `MetroInteropModule` | Same: it exists to hand those types back |
-| The `voyager-screenModel` dependency | Already its own roadmap line, gated the same way |
+**The reader tail closed at the reader takeover's step 9** (`d6904484d`), which deleted
+`NovelReaderScreenModel` rather than converting it. Nine `DomainModule` registrations went with it,
+leaving the three `MetadataSource` contracts `DomainModuleTest` resolves; `MetroInteropModule` lost
+sixteen entries and hands back fifteen types, which `di-interop-check.ps1` passes against; and
+`voyager-screenModel` left the catalog. The novel reader resolves nothing through Injekt.
 
 `source-api` and `source-local` are the permanent half and close never: they are the contract
 installed extensions compile against. The table below is the landed record and the original phase
@@ -212,8 +208,8 @@ is expressed in the type: `NovelDownloadManager` in `MigrateNovelUseCase`, `Repa
 `BatchAddViewModel`. The manager is the one that matters: constructing it restores the persisted
 download queue and can start the download worker.
 
-**Three ruled holdouts.** `NovelReaderScreenModel` stays by design until the tsundoku migration.
-`Novel.hasCustomCover` keeps its `CoverCache = Injekt.get()` default because upstream's
+**Three ruled holdouts, two left.** `NovelReaderScreenModel` stayed by design until the reader
+takeover deleted it. `Novel.hasCustomCover` keeps its `CoverCache = Injekt.get()` default because upstream's
 `Manga.hasCustomCover` twin is byte-identical, so converting one would fork the pair. `DebugToggles`
 is an enum whose dependency hangs off its companion, and its only callers are `EHentai`, which
 `AndroidSourceManager` constructs by hand: it belongs to the source-construction family that

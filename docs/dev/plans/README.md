@@ -44,7 +44,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 
 - [Novel browse & sources](novel-browse.md): how LN plugins install, fold into the unified Browse, fan out across global search, and reach manga-browse parity per source.
 - [Novel details screen](novel-details.md): the light-novel detail hub at manga parity (tinted backdrop, chapter list, downloads, overflow actions), built on a Voyager `NovelScreen` + `NovelDetailsViewModel`.
-- [Novel reader](novel-reader.md): WebView text canvas rendering plugin HTML inside native Compose chrome, with scroll resume, read-state sync, and per-novel display settings. Read-aloud (TTS) shipped with background playback and a lock-screen media notification.
+- [Novel reader](novel-reader.md): the retired standalone WebView novel reader, removed at the reader cutover and kept as the behaviour record the shared reader was inventoried against.
 - [Novel reader: tsundoku as the foundation](novel-reader-tsundoku.md): evaluation of tsundoku (a maintained, Apache-2.0 Mihon-fork novel reader) as the basis for replacing the novel reader. The migration plan and the feature harvest both moved to the reader surface doc, which takes the portable layers under both of tsundoku's novel viewers: their own viewers are welded to their forked `ReaderActivity`.
 - [Headless LN plugin host (QuickJS)](novel-plugin-host.md): why and how novel sources run in a headless QuickJS runtime instead of a WebView, so they work in the background, with polyfill completeness as the make-or-break constraint.
 - [Novel categories & hopper](novel-categories.md): the Novels tab gains its own categories, the shared category hopper + jump-to-category sheet, a tab-aware Display sheet, and LN plugin update detection.

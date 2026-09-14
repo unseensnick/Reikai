@@ -175,13 +175,13 @@ SQLDelight-row mappers live in `reikai/data/novel/` (`NovelRepositoryImpl`, `Nov
 
 ### Presentation (`app/src/main/java/reikai/presentation/`)
 
-LN screens follow Mihon's Voyager `Screen` + AndroidX `ViewModel` conventions. The reader is the one holdout still on `ScreenModel`, pending the tsundoku reader migration.
+LN screens follow Mihon's Voyager `Screen` + AndroidX `ViewModel` conventions. Novels read in the shared `ReaderActivity`, not a screen of their own.
 
 | Path | Purpose |
 |---|---|
 | `presentation/novel/browse/` | Browse + search a source (`NovelBrowseScreen` + `NovelBrowseViewModel`), grid cell, filter/settings sheets, library-add. The duplicate dialog is shared with manga (`presentation/browse/components/EntryDuplicateDialog`). |
 | `presentation/novel/details/` | Novel details (`NovelScreen` + `NovelDetailsViewModel`), cover dialog, merge-source chips, manage-sources / page-selector. |
-| `presentation/novel/reader/` | Chapter reader (`NovelReaderScreen` + `NovelReaderScreenModel`), the WebView-based rendering surface (`NovelReaderWebView` / `NovelReaderHtmlBuilder` / `NovelReaderWebInterface`), reader settings. |
+| `presentation/reader/` | The novel side of the shared reader: `NovelReaderViewModel` under `NovelReaderProvider`, `NovelReaderSettings`, the native text renderer (`text/`, `NovelTextViewport`) and the WebView mode (`web/`, `NovelWebViewport`). Record: [content-layer-reader-surface.md](plans/content-layer-reader-surface.md). |
 | `presentation/novel/globalsearch/` | Cross-source global search. |
 | `presentation/novel/migrate/` | Migrate a novel between sources. |
 | `presentation/novel/track/` | Tracker info dialog. |
@@ -211,8 +211,8 @@ interactors. `LnPluginHost` is app-scoped because the headless engine has no Act
 it takes `NetworkHelper` rather than a bare `OkHttpClient`, which the graph could not tell apart from
 any other client.
 
-The Injekt-era `AppModule` is gone. `DomainModule` survives with twelve registrations, and the novel
-ones among them are there for the reader alone; nothing new belongs in it.
+The Injekt-era `AppModule` is gone. `DomainModule` survives with three registrations, `source-api`'s
+`MetadataSource` contracts, none of them novel types; nothing new belongs in it.
 
 ## Build and run
 

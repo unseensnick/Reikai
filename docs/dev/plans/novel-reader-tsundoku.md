@@ -10,7 +10,7 @@ Give the novel reader seamless chapter-to-chapter reading (scroll out of one cha
 
 ## Why
 
-Reikai's current novel reader ([novel-reader.md](novel-reader.md)) is net-new `reikai.*` code: a Voyager screen hosting a WebView plus a **verbatim-vendored LNReader `core.js`** that this session established we cannot easily update. The Kotlin↔JS contract is fragile (the progress-% formula mismatch, the `generalSettings` DOM-rebuild gotcha, the polyfill-parity concern), so every novel-reader feature is bespoke hand-work with no upstream to sync from. The manga webtoon reader has seamless chapter transitions that novels lack.
+Reikai's former novel reader ([novel-reader.md](novel-reader.md), deleted at the reader cutover) was net-new `reikai.*` code: a Voyager screen hosting a WebView plus a **verbatim-vendored LNReader `core.js`** that this session established we cannot easily update. The Kotlin↔JS contract is fragile (the progress-% formula mismatch, the `generalSettings` DOM-rebuild gotcha, the polyfill-parity concern), so every novel-reader feature is bespoke hand-work with no upstream to sync from. The manga webtoon reader has seamless chapter transitions that novels lack.
 
 Tsundoku is a Mihon fork whose novel reader is **native, folded into Mihon's own `ReaderActivity`, and far richer than LNReader**, and it is actively maintained (Apache-2.0; roughly three commits a day, latest 2026-07-10 at review). That makes it both a feature reference and a candidate upstream.
 
@@ -31,7 +31,7 @@ Symbols below are in `refs/tsundoku` at review time.
 
 ## Recommendation
 
-**Superseded 2026-08-07: Option 3 only, and it lands in 0.4.0.** Option 1 is dropped rather than done first. Its whole justification was shipping value while Option 3 stayed distant, and that gap has closed: Option 3 is now committed to the same release, so Option 1 would be medium work on a reader that gets deleted before it ever shipped in a stable build, and the migration carries the feature anyway. The reader also keeps its `ScreenModel` for the same reason: the ViewModel migration deliberately skipped it rather than migrating a file Option 3 deletes ([viewmodel-migration.md](viewmodel-migration.md)). The tsundoku-health contingency below was re-checked on 2026-08-15 and holds comfortably: head `d47f7c1aa` tagged **v0.3.1** dated 2026-08-14, with 379 commits in the preceding 90 days (previously checked 2026-08-07 at v0.3.0 and around 300).
+**Superseded 2026-08-07: Option 3 only, and it lands in 0.4.0.** Option 1 is dropped rather than done first. Its whole justification was shipping value while Option 3 stayed distant, and that gap has closed: Option 3 is now committed to the same release, so Option 1 would be medium work on a reader that gets deleted before it ever shipped in a stable build, and the migration carries the feature anyway. The reader also kept its `ScreenModel` until its deletion for the same reason: the ViewModel migration deliberately skipped it rather than migrating a file Option 3 deletes ([viewmodel-migration.md](viewmodel-migration.md)). The tsundoku-health contingency below was re-checked on 2026-08-15 and holds comfortably: head `d47f7c1aa` tagged **v0.3.1** dated 2026-08-14, with 379 commits in the preceding 90 days (previously checked 2026-08-07 at v0.3.0 and around 300).
 
 **One input the migration scout must account for, new since this doc was written:** `ReadingMode.toViewer` no longer has a single branch per mode. Mihon's high quality WebGPU renderer (mihonapp/mihon#3388, synced 2026-08-14) puts an opt-in fork ahead of the stock viewers, so the function now returns `WebGpuViewer` / `WebGpuViewerContinuous` when `BasePreferences.highQualityRenderer` is on and the pager or webtoon viewers otherwise. Routing novels to a text viewer means fitting a third case around that fork rather than the two-way switch the original plan assumed, and `ReaderActivity` reads the WebGPU viewer's `isReversed` when it picks the chapter-navigator direction. The original recommendation follows, kept because its reasoning for Option 3 is unchanged.
 
@@ -39,10 +39,11 @@ Symbols below are in `refs/tsundoku` at review time.
 
 ## Status
 
-Evaluated and recommended (2026-07-11), rescoped 2026-08-07. **Option 3 is the work, queued in 0.4.0; Option 1 is not being built.** Option 3 was absorbed into the reader takeover, whose step progress lives in [its record's Status](content-layer-reader-surface.md#status) rather than here. The native renderer and the shared content pipeline are ported from tsundoku and in; the WebView mode renders Reikai's own document. Option 1 has not started and is not going to. Backlog lines in [ROADMAP.md](../../../ROADMAP.md), where Option 3 sits under Next and Option 1 under Parked / not building.
+Evaluated and recommended (2026-07-11), rescoped 2026-08-07. **Option 3 is the work, queued in 0.4.0; Option 1 is not being built.** Option 3 was absorbed into the reader takeover, whose step progress lives in [its record's Status](content-layer-reader-surface.md#status) rather than here. The native renderer and the shared content pipeline are ported from tsundoku and in; the WebView mode renders Reikai's own document; and the old reader is deleted, so every novel opens in the shared reader with native text as the default, which is tsundoku's default too (`ReaderPreferences.novelRenderingMode`). Option 1 has not started and is not going to. Backlog lines in [ROADMAP.md](../../../ROADMAP.md), where Option 3 sits under Next and Option 1 under Parked / not building.
 
-**Two things the migration inherits, found by the DI audit (2026-08-21) rather than by planning this
-work.** The TTS transport is wired only by the reader model: `NovelTtsService` routes its MediaSession,
+**Two things the migration inherited, found by the DI audit (2026-08-21) rather than by planning this
+work, both since resolved:** the reader takeover's step 8 gave the transport a new owner, and step 9
+removed `NovelVolumeKeyHost` from `MainActivity`. As found: the TTS transport was wired only by the reader model: `NovelTtsService` routes its MediaSession,
 lock-screen and notification actions through `NovelTtsSession`'s callbacks, which nothing but
 `NovelTtsController` writes and nothing but `NovelReaderScreenModel` constructs. Replacing the model
 compiles clean and leaves those buttons as silent no-ops, so the transport needs an owner in the new
