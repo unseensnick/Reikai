@@ -34,6 +34,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import kotlin.math.roundToInt
 
 /*
  * The in-reader settings sheet's controls that Mihon's settings items do not have, ported from
@@ -42,7 +43,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * A label with - and + either side of the value, stepping by [step] within [valueRange]. Tapping the
- * value asks for one directly. [valueString] is what is shown, for a value stored scaled (tenths).
+ * value asks for one directly. A value stored scaled (tenths) passes [scale], so it is typed as it reads,
+ * and [valueString] for how it is shown.
  */
 @Composable
 fun StepperItem(
@@ -52,6 +54,7 @@ fun StepperItem(
     valueRange: IntRange,
     step: Int = 1,
     defaultValue: Int? = null,
+    scale: Int = 1,
     valueString: String = value.toString(),
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -59,6 +62,7 @@ fun StepperItem(
         StepperInputDialog(
             value = value,
             valueRange = valueRange,
+            scale = scale,
             defaultValue = defaultValue,
             onDismiss = { showDialog = false },
             onConfirm = {
@@ -105,23 +109,34 @@ fun StepperItem(
 private fun StepperInputDialog(
     value: Int,
     valueRange: IntRange,
+    scale: Int,
     defaultValue: Int?,
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit,
 ) {
-    var input by remember { mutableStateOf(value.toString()) }
-    val parsed = input.toIntOrNull()?.takeIf { it in valueRange }
+    var input by remember { mutableStateOf(unscaled(value, scale)) }
+    val parsed = parseStepperInput(input, scale, valueRange)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.reader_settings_value_range, valueRange.first, valueRange.last)) },
+        title = {
+            Text(
+                stringResource(
+                    MR.strings.reader_settings_value_range,
+                    unscaled(valueRange.first, scale),
+                    unscaled(valueRange.last, scale),
+                ),
+            )
+        },
         text = {
             OutlinedTextField(
                 value = input,
-                onValueChange = { input = it.filter(Char::isDigit) },
+                onValueChange = { text -> input = text.filter { it.isDigit() || (scale > 1 && it == '.') } },
                 singleLine = true,
                 isError = parsed == null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (scale > 1) KeyboardType.Decimal else KeyboardType.Number,
+                ),
             )
         },
         confirmButton = {
@@ -143,6 +158,13 @@ private fun StepperInputDialog(
         },
     )
 }
+
+/** What a person types for a stepper holding [range] in units of 1/[scale], or null for anything outside it. */
+internal fun parseStepperInput(input: String, scale: Int, range: IntRange): Int? =
+    input.toFloatOrNull()?.let { (it * scale).roundToInt() }?.takeIf { it in range }
+
+private fun unscaled(value: Int, scale: Int): String =
+    if (scale == 1) value.toString() else (value.toFloat() / scale).toString()
 
 /** A label with its chips on the same line, for a choice short enough to fit beside it. */
 @Composable

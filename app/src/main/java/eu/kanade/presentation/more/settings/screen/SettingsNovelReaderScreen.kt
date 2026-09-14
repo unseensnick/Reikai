@@ -5,8 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -33,6 +35,9 @@ import reikai.domain.novel.tts.TtsVoice
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.fontDisplayName
+import reikai.presentation.components.ColorPickerDialog
+import reikai.presentation.components.toHexRgb
+import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
@@ -48,8 +53,8 @@ import tachiyomi.core.common.preference.Preference as PreferenceStoreEntry
  * Light-novel reader settings, a top-level Settings entry beside [SettingsMangaReaderScreen]. Settings
  * of the same name on the two screens are deliberately separate values; see that screen's note.
  *
- * Text size and the page colours stay in the in-reader controls, which preview them as you change
- * them. Everything else lives here, because the shared reader has no sheet of its own yet.
+ * Text size and the page colours stay in the reader's settings sheet, which previews them as you change
+ * them.
  */
 object SettingsNovelReaderScreen : SearchableSettings {
 
@@ -181,18 +186,38 @@ object SettingsNovelReaderScreen : SearchableSettings {
         )
     }
 
-    /** A stored colour outside the presets (nothing writes one) still shows, as its hex value. */
+    /** The presets plus Custom, which opens the picker rather than storing itself. */
     @Composable
     private fun colorRow(
         preference: PreferenceStoreEntry<Int>,
         presets: List<TtsColorPreset>,
         titleRes: StringResource,
-    ) = Preference.PreferenceItem.ListPreference(
-        preference = preference,
-        entries = presets.associate { it.argb to stringResource(it.nameRes) },
-        title = stringResource(titleRes),
-        subtitleProvider = { value, entries -> entries[value] ?: "#%08X".format(value) },
-    )
+    ): Preference.PreferenceItem.ListPreference<Int> {
+        val title = stringResource(titleRes)
+        val customLabel = stringResource(MR.strings.color_custom)
+        var picking by remember { mutableStateOf(false) }
+        if (picking) {
+            ColorPickerDialog(
+                title = title,
+                initialColor = preference.get(),
+                onDismiss = { picking = false },
+                onConfirm = {
+                    preference.set(it)
+                    picking = false
+                },
+            )
+        }
+        return Preference.PreferenceItem.ListPreference(
+            preference = preference,
+            entries = presets.associate { it.argb to stringResource(it.nameRes) } + (CUSTOM_COLOR to customLabel),
+            title = title,
+            subtitleProvider = { value, entries -> entries[value] ?: "$customLabel (${value.toHexRgb()})" },
+            onValueChanged = {
+                if (it == CUSTOM_COLOR) picking = true
+                it != CUSTOM_COLOR
+            },
+        )
+    }
 
     /**
      * The installed engines and the voices of [engine]. Needs a live [SystemTtsEngine], which is bound
@@ -263,7 +288,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (lineSpacing * TENTHS).roundToInt(),
-                    valueRange = 10..25,
+                    valueRange = NovelTextRanges.lineHeightTenths,
                     title = stringResource(MR.strings.pref_novel_line_spacing),
                     valueString = "%.1fx".format(lineSpacing),
                     onValueChanged = { lineSpacingPref.set(it / TENTHS) },
@@ -284,7 +309,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 marginRow(novelPreferences.readerMarginRight(), MR.strings.pref_margin_right),
                 Preference.PreferenceItem.SliderPreference(
                     value = (indent * TENTHS).roundToInt(),
-                    valueRange = 0..50,
+                    valueRange = NovelTextRanges.paragraphIndentTenths,
                     title = stringResource(MR.strings.pref_paragraph_indent),
                     subtitle = stringResource(MR.strings.pref_paragraph_indent_summary),
                     valueString = "%.1fem".format(indent),
@@ -292,9 +317,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (spacing * TENTHS).roundToInt(),
-                    // Past tsundoku's own 3em ceiling, because their renderer draws a blank line
-                    // under the setting that ours removes, so their top end is not ours.
-                    valueRange = 0..40,
+                    valueRange = NovelTextRanges.paragraphSpacingTenths,
                     title = stringResource(MR.strings.pref_paragraph_spacing),
                     subtitle = stringResource(MR.strings.pref_paragraph_spacing_summary),
                     valueString = "%.1fem".format(spacing),
@@ -304,8 +327,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         )
     }
 
-    /** One page margin, in dp. The ceiling is a third of a phone's short edge, past which a column
-     *  of text stops being readable. */
+    /** One page margin, in dp. */
     @Composable
     private fun marginRow(
         preference: PreferenceStoreEntry<Int>,
@@ -314,7 +336,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val value by preference.collectAsState()
         return Preference.PreferenceItem.SliderPreference(
             value = value,
-            valueRange = 0..64,
+            valueRange = NovelTextRanges.marginDp,
             title = stringResource(titleRes),
             valueString = "${value}dp",
             onValueChanged = { preference.set(it) },
@@ -358,10 +380,9 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = autoSplitWordCount,
-                    valueRange = 20..200,
-                    steps = 17,
+                    valueRange = NovelTextRanges.autoSplitWords,
+                    steps = 0,
                     title = stringResource(MR.strings.pref_auto_split_word_count),
-                    subtitle = "%s",
                     onValueChanged = { novelPreferences.readerAutoSplitWordCount().set(it) },
                 ).takeIf { autoSplitEnabled },
                 Preference.PreferenceItem.SwitchPreference(
@@ -567,6 +588,9 @@ object SettingsNovelReaderScreen : SearchableSettings {
             ),
         )
 }
+
+/** Custom's key in a colour list. Fully transparent, so no colour the picker writes can equal it. */
+private const val CUSTOM_COLOR = 0
 
 /** The slider rows are integers, so an em value rides across as tenths of one. */
 private const val TENTHS = 10f

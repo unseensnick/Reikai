@@ -10,15 +10,19 @@ package reikai.presentation.reader
  */
 data class ReaderThemePreset(val name: String, val background: String, val textColor: String)
 
-/** The five presets from LNReader (light, sepia, mint, dark, black). */
+/** LNReader's five presets, its dark one named Grey as tsundoku names it, plus tsundoku's Dark. */
 val readerThemePresets = listOf(
     ReaderThemePreset("Light", "#f5f5fa", "#111111"),
     ReaderThemePreset("Sepia", "#F7DFC6", "#593100"),
     ReaderThemePreset("Mint", "#dce5e2", "#000000"),
-    ReaderThemePreset("Dark", "#292832", "#CCCCCC"),
+    ReaderThemePreset("Grey", "#292832", "#CCCCCC"),
+    ReaderThemePreset("Dark", "#121212", "#E0E0E0"),
     ReaderThemePreset("Black", "#000000", "#B3B3B3"),
 )
 
-/** Presets the "Auto" (follow-system) option resolves to for light and dark system modes. */
+/**
+ * Presets the "Auto" (follow-system) option resolves to for light and dark system modes. Dark mode keeps
+ * Grey, which it resolved to before Dark was added, so nobody's page changes shade on update.
+ */
 val readerLightPreset = readerThemePresets.first { it.name == "Light" }
-val readerDarkPreset = readerThemePresets.first { it.name == "Dark" }
+val readerDarkPreset = readerThemePresets.first { it.name == "Grey" }

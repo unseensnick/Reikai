@@ -7,8 +7,8 @@ import tachiyomi.i18n.MR
 data class TtsColorPreset(val argb: Int, val nameRes: StringResource)
 
 /**
- * The colours the settings offer, since the app has no colour picker. The mark colours are light
- * tints so the default dark text stays readable over a background mark.
+ * The named colours the settings offer beside Custom. The mark colours are light tints so the default
+ * dark text stays readable over a background mark.
  */
 object TtsHighlightColors {
     const val DEFAULT_HIGHLIGHT = 0xFFFFD54F.toInt()

@@ -41,8 +41,8 @@ fun ReaderTextSizeDialog(
             Slider(
                 value = fontSize.toFloat(),
                 onValueChange = { onFontSize(readerTextSizeOf(it)) },
-                valueRange = 12f..32f,
-                steps = 19,
+                valueRange = NovelTextRanges.fontSize.first.toFloat()..NovelTextRanges.fontSize.last.toFloat(),
+                steps = NovelTextRanges.fontSize.last - NovelTextRanges.fontSize.first - 1,
             )
         }
     }

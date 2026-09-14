@@ -4,7 +4,9 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.readerDarkPreset
+import reikai.presentation.reader.readerThemePresets
 
 /**
  * A restored backup writes these preference keys, and they land inside the reader document's
@@ -18,10 +20,21 @@ class NovelReaderCssValuesTest {
         cssBackgroundColor("#292832") shouldBe "#292832"
     }
 
-    /** The Black preset's text colour, which is where the eight-digit form comes from. */
+    /** An old backup can still carry the eight-digit form Black's text colour once had. */
     @Test
     fun `a colour with an alpha channel is passed through`() {
         cssTextColor("#FFFFFFB3") shouldBe "#FFFFFFB3"
+    }
+
+    @Test
+    fun `a colour from the picker is passed through`() {
+        cssBackgroundColor(0xFF1B2A3C.toInt().toHexRgb()) shouldBe "#1B2A3C"
+    }
+
+    @Test
+    fun `every preset colour is passed through`() {
+        readerThemePresets.flatMap { listOf(it.background, it.textColor) }
+            .map(::cssTextColor) shouldBe readerThemePresets.flatMap { listOf(it.background, it.textColor) }
     }
 
     @Test

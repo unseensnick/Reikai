@@ -1,14 +1,21 @@
 package reikai.presentation.reader.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconToggleButton
@@ -24,21 +31,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.font.NovelFont
 import reikai.novel.font.fontDisplayName
+import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.StepperItem
+import reikai.presentation.components.toHexRgb
 import reikai.presentation.icons.FormatAlignCenter
 import reikai.presentation.icons.FormatAlignJustify
 import reikai.presentation.icons.FormatAlignLeft
 import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
+import reikai.presentation.reader.ReaderThemePreset
+import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
+import reikai.presentation.reader.readerLightPreset
 import reikai.presentation.reader.readerThemePresets
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
@@ -99,12 +115,27 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
         label = stringResource(MR.strings.pref_reader_text_size),
         value = fontSize,
         onChange = pages.textSettings::setFontSize,
-        valueRange = 12..32,
+        valueRange = NovelTextRanges.fontSize,
         defaultValue = preferences.readerFontSize().defaultValue(),
     )
-    TenthsStepper(preferences.readerLineSpacing(), MR.strings.pref_novel_line_spacing, 10..25, "%.1fx")
-    TenthsStepper(preferences.readerParagraphIndent(), MR.strings.pref_paragraph_indent, 0..50, "%.1fem")
-    TenthsStepper(preferences.readerParagraphSpacing(), MR.strings.pref_paragraph_spacing, 0..40, "%.1fem")
+    TenthsStepper(
+        preferences.readerLineSpacing(),
+        MR.strings.pref_novel_line_spacing,
+        NovelTextRanges.lineHeightTenths,
+        "%.1fx",
+    )
+    TenthsStepper(
+        preferences.readerParagraphIndent(),
+        MR.strings.pref_paragraph_indent,
+        NovelTextRanges.paragraphIndentTenths,
+        "%.1fem",
+    )
+    TenthsStepper(
+        preferences.readerParagraphSpacing(),
+        MR.strings.pref_paragraph_spacing,
+        NovelTextRanges.paragraphSpacingTenths,
+        "%.1fem",
+    )
     MarginStepper(preferences.readerMarginTop(), MR.strings.pref_margin_top)
     MarginStepper(preferences.readerMarginBottom(), MR.strings.pref_margin_bottom)
     MarginStepper(preferences.readerMarginLeft(), MR.strings.pref_margin_left)
@@ -117,6 +148,13 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     val preferences = pages.preferences
     val followSystem by preferences.readerFollowSystemTheme().collectAsState()
     val background by preferences.readerBackgroundColor().collectAsState()
+    val text by preferences.readerTextColor().collectAsState()
+    // What the page shows, which under Follow system is the preset it resolves to, not what is stored.
+    val shown = when {
+        !followSystem -> ReaderThemePreset("", background, text)
+        isSystemInDarkTheme() -> readerDarkPreset
+        else -> readerLightPreset
+    }
 
     HeadingItem(MR.strings.pref_category_theme)
     // A radio, not a checkbox: following the system is left by picking a swatch, never by unticking it.
@@ -125,17 +163,25 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         selected = followSystem,
         onClick = pages.textSettings::followSystemTheme,
     )
-    Row(
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         readerThemePresets.forEach { preset ->
             PresetSwatch(preset, selected = !followSystem && background.equals(preset.background, ignoreCase = true)) {
                 pages.textSettings.setThemeColors(preset.background, preset.textColor)
             }
         }
+    }
+    // Either colour picked by hand is the custom theme; the other keeps what the page shows now.
+    PageColorRow(MR.strings.pref_novel_background_color, shown.background) {
+        pages.textSettings.setThemeColors(it, shown.textColor)
+    }
+    PageColorRow(MR.strings.pref_novel_text_color, shown.textColor) {
+        pages.textSettings.setThemeColors(shown.background, it)
     }
 
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.readerKeepScreenOn())
@@ -188,6 +234,44 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
     }
 }
 
+/** One page colour with its swatch and hex, picked by hand; [onPick] gets six hex digits. */
+@Composable
+private fun PageColorRow(labelRes: StringResource, hex: String, onPick: (String) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
+    val label = stringResource(labelRes)
+    val color =
+        remember(hex) { runCatching { android.graphics.Color.parseColor(hex) }.getOrDefault(Color.Gray.toArgb()) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { picking = true }
+            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(text = color.toHexRgb(), style = MaterialTheme.typography.bodyMedium)
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(Color(color))
+                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+        )
+    }
+    if (picking) {
+        ColorPickerDialog(
+            title = label,
+            initialColor = color,
+            onDismiss = { picking = false },
+            onConfirm = {
+                onPick(it.toHexRgb())
+                picking = false
+            },
+        )
+    }
+}
+
 /** A setting stored as a float and stepped in tenths, shown through [format]. */
 @Composable
 private fun TenthsStepper(pref: Preference<Float>, labelRes: StringResource, tenths: IntRange, format: String) {
@@ -198,6 +282,7 @@ private fun TenthsStepper(pref: Preference<Float>, labelRes: StringResource, ten
         onChange = { pref.set(it / TENTHS) },
         valueRange = tenths,
         defaultValue = (pref.defaultValue() * TENTHS).roundToInt(),
+        scale = TENTHS.toInt(),
         valueString = format.format(value),
     )
 }
@@ -209,7 +294,7 @@ private fun MarginStepper(pref: Preference<Int>, labelRes: StringResource) {
         label = stringResource(labelRes),
         value = value,
         onChange = pref::set,
-        valueRange = 0..64,
+        valueRange = NovelTextRanges.marginDp,
         step = 2,
         defaultValue = pref.defaultValue(),
         valueString = "${value}dp",

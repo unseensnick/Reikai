@@ -43,7 +43,7 @@ object NovelTextStyle {
             (settings.margins.left * density).toInt(),
             0,
             (settings.margins.right * density).toInt(),
-            lineExtra.roundToInt(),
+            lineExtra.coerceAtLeast(0f).roundToInt(),
         )
         view.setTextColor(parseColor(settings.textColor, Color.BLACK))
         applyAlignment(view, settings.textAlign)
@@ -62,17 +62,16 @@ object NovelTextStyle {
     }
 
     /**
-     * The setting is a multiplier, but it is applied here as the equivalent number of pixels.
-     *
-     * A multiplier scales every line by its own height, and a line holding an image is as tall as the
+     * The setting is a multiplier, but it is applied here as the equivalent number of pixels. A multiplier scales every line by its own height, and a line holding an image is as tall as the
      * image, so a full-width picture gained half its height again in blank space above it. The same
      * spacing expressed as a fixed amount leaves text looking identical and leaves images alone.
-     * Requires the size and typeface to be set first, since it measures them. Returns the pixels added.
+     * Requires the size and typeface to be set first, since it measures them. Returns the pixels added,
+     * negative for a multiplier under 1, which draws the lines closer as the WebView's line-height does.
      */
     private fun applyLineSpacing(view: TextView, multiplier: Float): Float {
         val metrics = view.paint.fontMetricsInt
         val textLineHeight = (metrics.bottom - metrics.top).toFloat()
-        val extra = ((multiplier - 1f) * textLineHeight).coerceAtLeast(0f)
+        val extra = (multiplier - 1f) * textLineHeight
         view.setLineSpacing(extra, 1f)
         return extra
     }

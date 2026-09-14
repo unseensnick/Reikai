@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -53,9 +54,10 @@ fun ReaderThemeDialog(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 readerThemePresets.forEach { preset ->
                     val selected = !followSystemTheme && backgroundColor.equals(preset.background, ignoreCase = true)

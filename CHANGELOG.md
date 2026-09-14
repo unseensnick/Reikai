@@ -270,9 +270,12 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader can now skip chapters marked read and skip filtered chapters going forward, like manga.** The previous-chapter button still reaches the chapter you just finished.
 - **Novel read-aloud now pauses for calls, other apps' audio and unplugged headphones, and answers headset buttons, in every rendering mode.** It resumes by itself only after a short interruption.
 - **Settings -> Novel reader -> Text display now sets your page margins, paragraph indent and paragraph spacing.** Each of the four margins moves on its own, indent and spacing are multiples of your text size, and every reader honours them.
+- **The novel reader has a new, darker theme, and its page background and text can each be set to any color from the reader's settings.**
+- **The read-aloud highlight and its text can now be any color, from Custom under Settings -> Novel reader.**
 
 #### Changed
 
+- **Novel text size now goes from 10 to 40 and line spacing from 0.8x to 5x, with paragraph indent up to 10em.** Split walls of text can also wait for up to 2000 words.
 - **Sorting a chapter list "By source" now really follows that source's own listing, on manga and novels.** It was quietly sorting by chapter number instead, so a source that lists its chapters out of numeric order looked tidier than it is; pick "By chapter number" for the old result.
 - **The novel reader now starts with Skip filtered chapters switched on, matching manga; turn it off under Settings -> Novel reader.** With a filtered chapter list, the next-chapter button steps past what the filter hides.
 - **A novel page padding you had already set is carried into all four margins, whether you update or restore an older backup.** The single padding setting is replaced by separate top, bottom, left and right margins.

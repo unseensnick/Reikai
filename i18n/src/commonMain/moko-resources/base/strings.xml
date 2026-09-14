@@ -633,11 +633,16 @@
     <!-- RK: the in-reader settings sheet's +/- steppers -->
     <string name="action_decrease">Decrease</string>
     <string name="action_increase">Increase</string>
-    <string name="reader_settings_value_range">Enter a value from %1$d to %2$d</string>
+    <string name="reader_settings_value_range">Enter a value from %1$s to %2$s</string>
     <!-- RK: the in-reader settings sheet's tab labels, read out for its icon tabs -->
     <string name="reader_settings_controls">Controls</string>
     <string name="reader_settings_filters">Filters</string>
     <string name="pref_novel_theme_follow_system">Follow system</string>
+    <string name="pref_novel_background_color">Background color</string>
+    <string name="pref_novel_text_color">Text color</string>
+    <!-- RK: the colour picker the reader's page colours and the read-aloud highlight share -->
+    <string name="color_custom">Custom</string>
+    <string name="color_hex">Hex</string>
     <!-- RK: novel reader settings, surfaced as content-type sub-groups on the shared Reader screen -->
     <!-- RK: which reader a novel opens in. The second option is the shared host being built out, so it
          says so; it becomes a plain renderer name once the old reader goes. -->
