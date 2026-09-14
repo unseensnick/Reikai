@@ -2,11 +2,14 @@ package reikai.presentation.reader.settings
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -16,7 +19,9 @@ import androidx.compose.ui.window.DialogWindowProvider
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import kotlinx.coroutines.flow.Flow
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Palette
@@ -28,6 +33,7 @@ import reikai.presentation.icons.TouchApp
 import reikai.presentation.reader.ReaderDisplayFilters
 import reikai.presentation.reader.ReaderTextSettings
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
@@ -46,6 +52,9 @@ sealed interface ReaderSettingsPages {
         val preferences: NovelPreferences,
         val textSettings: ReaderTextSettings,
         override val filters: ReaderDisplayFilters,
+        /** The novel's own rotation flag and its setter, as the session answers them. */
+        val orientation: Flow<Int>,
+        val onChangeOrientation: (Int) -> Unit,
         /** The fonts the user added, listed off the main thread when the font picker opens. */
         val installedFonts: suspend () -> List<NovelFont>,
     ) : ReaderSettingsPages
@@ -118,6 +127,21 @@ fun ReaderSettingsSheet(
                     ReaderSettingsTab.Filters -> ReaderFiltersPage(pages.filters)
                 }
             }
+        }
+    }
+}
+
+/** The entry's own rotation, which both readers store per entry and offer first on the Reading tab. */
+@Composable
+internal fun ColumnScope.EntryRotationRow(flagValue: Int?, onChange: (ReaderOrientation) -> Unit) {
+    val selected = ReaderOrientation.fromPreference(flagValue)
+    SettingsChipRow(MR.strings.rotation_type) {
+        ReaderOrientation.entries.map {
+            FilterChip(
+                selected = it == selected,
+                onClick = { onChange(it) },
+                label = { Text(stringResource(it.stringRes)) },
+            )
         }
     }
 }

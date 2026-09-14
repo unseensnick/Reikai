@@ -83,16 +83,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel) {
             )
         }
     }
-    val orientation = remember(manga) { ReaderOrientation.fromPreference(manga?.readerOrientation?.toInt()) }
-    SettingsChipRow(MR.strings.rotation_type) {
-        ReaderOrientation.entries.map {
-            FilterChip(
-                selected = it == orientation,
-                onClick = { viewModel.onChangeOrientation(it) },
-                label = { Text(stringResource(it.stringRes)) },
-            )
-        }
-    }
+    EntryRotationRow(manga?.readerOrientation?.toInt(), viewModel.onChangeOrientation)
 
     when (val running = viewer.running()) {
         RunningViewer.Pager -> {

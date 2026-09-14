@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -74,15 +75,20 @@ import kotlin.math.roundToInt
 
 /*
  * The novel half of the reader's settings sheet, in tsundoku's look: the rows a reader adjusts while
- * looking at the page. Every one is also on Settings -> Novel reader, and both write the same values.
+ * looking at the page. Every one but the novel's own rotation is also on Settings -> Novel reader, and
+ * both write the same values.
  */
 
 private const val TENTHS = 10f
 
-/** Font, size, alignment, spacing and margins. */
+/** This novel's rotation, then font, size, alignment, spacing, margins and how the text is treated. */
 @Composable
 internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     val preferences = pages.preferences
+
+    HeadingItem(MR.strings.pref_category_for_this_series)
+    val orientation by pages.orientation.collectAsState(null)
+    EntryRotationRow(orientation) { pages.onChangeOrientation(it.flagValue) }
 
     FontRow(preferences.readerFontFamily(), pages.installedFonts)
 
@@ -145,6 +151,11 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     MarginStepper(preferences.readerMarginBottom(), MR.strings.pref_margin_bottom)
     MarginStepper(preferences.readerMarginLeft(), MR.strings.pref_margin_left)
     MarginStepper(preferences.readerMarginRight(), MR.strings.pref_margin_right)
+    CheckboxItem(label = stringResource(MR.strings.pref_bionic_reading), pref = preferences.readerBionicReading())
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_remove_extra_spacing),
+        pref = preferences.readerRemoveExtraSpacing(),
+    )
 }
 
 /** The page's colours and keeping the screen awake. */

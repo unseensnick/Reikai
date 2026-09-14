@@ -535,7 +535,13 @@ class ReaderActivity : BaseActivity() {
                     // RK: one sheet for both readers; a session with text settings is a novel one.
                     val filters = engine.provider.displayFilters
                     val pages = engine.textSettings?.let { text ->
-                        ReaderSettingsPages.Novel(novelPreferences, text, filters) {
+                        ReaderSettingsPages.Novel(
+                            novelPreferences,
+                            text,
+                            filters,
+                            engine.orientation,
+                            engine::setOrientation,
+                        ) {
                             appGraph.novelFontManager.installed()
                         }
                     } ?: ReaderSettingsPages.Manga(settingsViewModel, filters)
