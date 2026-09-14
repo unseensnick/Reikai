@@ -4,6 +4,7 @@ import android.content.Context
 import android.text.Html
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.util.TypedValue
 import android.widget.TextView
 import androidx.core.text.PrecomputedTextCompat
 import androidx.core.widget.TextViewCompat
@@ -59,7 +60,12 @@ class NovelTextRenderer(
         baseUrl: String?,
         onTextSet: () -> Unit,
     ): Job {
-        val density = context.resources.displayMetrics.density
+        // In sp, as the text is, so spacing keeps its proportion to the text at any system font size.
+        val textSizePx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            fontSize.toFloat(),
+            context.resources.displayMetrics,
+        )
         val token = ++block.renderToken
 
         return scope.launch {
@@ -98,8 +104,8 @@ class NovelTextRenderer(
                     .also { if (bionic) NovelBionicSpans.apply(it) }
             }
 
-            val spacingPx = (paragraphSpacing * fontSize * density).toInt()
-            val indentPx = (paragraphIndent * fontSize * density).toInt()
+            val spacingPx = (paragraphSpacing * textSizePx).toInt()
+            val indentPx = (paragraphIndent * textSizePx).toInt()
 
             val chunks = withContext(Dispatchers.Default) {
                 chunkRanges(spannable).map { (start, end) ->

@@ -840,6 +840,34 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     // endregion
 
+    // region typography
+
+    /** The line height setting is a multiple of the text size, as CSS reads it, in both renderers. */
+    @Test
+    fun aParagraphsLinesAreTheLineHeightTimesTheTextSizeApart() {
+        open(chapter(FIRST, "<p>$WRAPPING_PARAGRAPH</p>"))
+        val tops = paragraphLines(WRAPPING_PARAGRAPH).map { it.top }
+        assertTrue("the paragraph wraps", tops.size >= 3)
+        assertEquals(readerTestSettings.lineHeight * textSizePx(), tops[2] - tops[1], TYPE_SLACK_PX)
+    }
+
+    @Test
+    fun paragraphsAreOneLineAndTheParagraphSpacingApart() {
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><p>$WRAPPING_PARAGRAPH</p>"))
+        val gap = paragraphLines(WRAPPING_PARAGRAPH).first().top - paragraphLines(SHORT_PARAGRAPH).last().top
+        val expected = (readerTestSettings.lineHeight + readerTestSettings.paragraphSpacing) * textSizePx()
+        assertEquals(expected, gap, TYPE_SLACK_PX)
+    }
+
+    /** The test settings' text size on screen, which each renderer scales by the system font size. */
+    private fun textSizePx(): Float = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_SP,
+        readerTestSettings.fontSize.toFloat(),
+        instrumentation.targetContext.resources.displayMetrics,
+    )
+
+    // endregion
+
     // region keeping the reader's place
 
     @Test
@@ -1733,6 +1761,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** A seek's rounding, in either renderer's pixels. */
         const val EDGE_SLACK_PX = 2f
+
+        /** Whole-pixel line placement in native and CSS-pixel rounding in the page. */
+        const val TYPE_SLACK_PX = 2f
+        const val SHORT_PARAGRAPH = "A short paragraph."
+        val WRAPPING_PARAGRAPH = "A paragraph long enough to wrap across several lines of the screen. ".repeat(6).trim()
 
         val transitionsOff = readerTestSettings.copy(alwaysShowChapterTransition = false)
 

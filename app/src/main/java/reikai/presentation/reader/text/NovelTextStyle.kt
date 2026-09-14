@@ -62,16 +62,16 @@ object NovelTextStyle {
     }
 
     /**
-     * The setting is a multiplier, but it is applied here as the equivalent number of pixels. A multiplier scales every line by its own height, and a line holding an image is as tall as the
-     * image, so a full-width picture gained half its height again in blank space above it. The same
-     * spacing expressed as a fixed amount leaves text looking identical and leaves images alone.
-     * Requires the size and typeface to be set first, since it measures them. Returns the pixels added,
-     * negative for a multiplier under 1, which draws the lines closer as the WebView's line-height does.
+     * The setting is a multiple of the text size, as CSS `line-height` reads it, applied as the pixels
+     * that take a line from the font's own height to that. A multiplier would scale a line holding an
+     * image by the image's height. Against the font's height, which is larger, lines stood a quarter
+     * further apart than the WebView page draws the same setting.
+     * Requires the size and typeface to be set first. Returns the pixels added, negative when the
+     * setting is tighter than the font's own height.
      */
     private fun applyLineSpacing(view: TextView, multiplier: Float): Float {
         val metrics = view.paint.fontMetricsInt
-        val textLineHeight = (metrics.bottom - metrics.top).toFloat()
-        val extra = (multiplier - 1f) * textLineHeight
+        val extra = multiplier * view.textSize - (metrics.descent - metrics.ascent)
         view.setLineSpacing(extra, 1f)
         return extra
     }
