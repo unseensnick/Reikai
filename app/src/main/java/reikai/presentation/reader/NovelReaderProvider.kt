@@ -1,9 +1,11 @@
 package reikai.presentation.reader
 
 import android.content.Context
+import android.graphics.Color
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import eu.kanade.tachiyomi.util.system.isNightMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
@@ -16,6 +18,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.NovelTextStyle
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
@@ -64,6 +67,10 @@ class NovelReaderProvider(
         grayscale = novelPreferences.readerGrayscale(),
         invertedColors = novelPreferences.readerInvertedColors(),
     )
+
+    override fun pageBackground(context: Context): Flow<Int> = viewModel.settings.map {
+        NovelTextStyle.parseColor(it.resolvedForSystemTheme(context.isNightMode()).backgroundColor, Color.WHITE)
+    }
 
     // Hundredths, because that is the unit the stored progress is in.
     override val navigator: Flow<ReaderNavigatorState> = combine(

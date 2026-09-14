@@ -40,6 +40,12 @@ interface ReaderProvider {
     val displayFilters: ReaderDisplayFilters
 
     /**
+     * The colour behind the page, which shows while a chapter loads or fails. Each type has its own
+     * theme setting. [context] resolves a follow-system theme against its night mode.
+     */
+    fun pageBackground(context: Context): Flow<Int>
+
+    /**
      * Where the reader is in the open chapter and which navigator shows it. Both are the session's to
      * answer: a novel picks the rail with a setting of its own, while manga offers it per reading mode.
      */

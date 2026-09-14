@@ -81,7 +81,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
 import eu.kanade.tachiyomi.util.system.openInBrowser
-import eu.kanade.tachiyomi.util.system.readerBackgroundColor
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
@@ -269,7 +268,6 @@ class ReaderActivity : BaseActivity() {
     }
 
     // RK <--
-    private var assistUrl: String? = null
 
     /**
      * Configuration at reader level, like background color or forced orientation.
@@ -850,7 +848,8 @@ class ReaderActivity : BaseActivity() {
 
     override fun onProvideAssistContent(outContent: AssistContent) {
         super.onProvideAssistContent(outContent)
-        assistUrl?.let { outContent.webUri = it.toUri() }
+        // RK: the session's URL, which a novel answers too; upstream's was set from manga's chapter only.
+        engine.webUrl.value?.let { outContent.webUri = it.toUri() }
     }
 
     /**
@@ -1198,12 +1197,6 @@ class ReaderActivity : BaseActivity() {
         // is unwrapped rather than on the neutral contract, because ViewerChapters is manga-shaped.
         binding.readerContainer.removeView(loadingIndicator)
         (engine.viewport.value as? MangaViewport)?.viewer?.setChapters(viewerChapters)
-
-        lifecycleScope.launchIO {
-            viewModel.getChapterUrl()?.let { url ->
-                assistUrl = url
-            }
-        }
     }
 
     /**
@@ -1393,10 +1386,9 @@ class ReaderActivity : BaseActivity() {
          * Initializes the reader subscriptions.
          */
         init {
-            readerPreferences.readerTheme.changes()
-                .onEach { theme ->
-                    binding.readerContainer.setBackgroundColor(baseContext.readerBackgroundColor(theme))
-                }
+            // RK: the session's own page colour, since a novel's theme is not manga's reader theme.
+            engine.provider.pageBackground(this@ReaderActivity)
+                .onEach(binding.readerContainer::setBackgroundColor)
                 .launchIn(lifecycleScope)
 
             // RK: off the engine, since each content type keeps its own flag and novels can flip it

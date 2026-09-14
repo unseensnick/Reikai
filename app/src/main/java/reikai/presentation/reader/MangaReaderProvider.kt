@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import eu.kanade.tachiyomi.util.system.readerBackgroundColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -70,6 +71,9 @@ class MangaReaderProvider(
         grayscale = readerPreferences.grayscale,
         invertedColors = readerPreferences.invertedColors,
     )
+
+    override fun pageBackground(context: Context): Flow<Int> =
+        readerPreferences.readerTheme.changes().map(context::readerBackgroundColor)
 
     override val navigator: Flow<ReaderNavigatorState> = combine(
         viewModel.state,

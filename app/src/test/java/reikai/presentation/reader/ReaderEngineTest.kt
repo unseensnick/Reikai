@@ -619,6 +619,8 @@ private class FakeReaderProvider(
 
     override fun seedColor(context: Context): Flow<Int?> = flowOf(null)
 
+    override fun pageBackground(context: Context): Flow<Int> = flowOf(0)
+
     override val bottomButtonScope = ReaderBottomButton.Scope.Manga
 
     override val navigator = MutableStateFlow(ReaderNavigatorState())
