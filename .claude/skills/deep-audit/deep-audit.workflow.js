@@ -175,6 +175,8 @@ function planTasks(map, lenses) {
         `User-visible changes:\n${map.userVisibleChanges.map(c => `- ${c.summary} (source: ${c.source}; content types: ${c.contentTypes})`).join('\n') || '(none)'}\n\nFix commits:\n${map.fixCommits.map(c => `- ${c.sha} ${c.subject}`).join('\n') || '(none)'}`))
     }
     if (on.has('tests') && tests.length) add('tests', 'all test slices', findingsPrompt(LENS_BRIEFS.tests.brief, tests.map(sliceText).join('\n')))
+    const docs = map.slices.filter(x => x.kind === 'docs')
+    if (on.has('docs') && docs.length) add('docs', 'all docs slices', findingsPrompt(LENS_BRIEFS.docs.brief, docs.map(sliceText).join('\n')), LENS_BRIEFS.docs.agentType)
     if (on.has('upstream') && map.surfaces.length) {
       add('upstream', 'all taken-over or deleted surfaces', findingsPrompt(LENS_BRIEFS.upstream.brief,
         map.surfaces.map(s => `Surface: ${s.surface}. Plan doc: ${s.planDoc}. Replaced files: ${s.replacedFiles.join(', ')}`).join('\n')))

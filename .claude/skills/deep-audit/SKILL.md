@@ -37,7 +37,7 @@ raised to match, it is "Dynamic workflow size" in the app's config.
   treat it as a path scope. If it resolves to nothing, ask.
 - **`--quick`**: every agent on Opus. One map agent at medium effort; one sweep per code slice covering correctness,
   async, security, dead code and the slice's own wiring; one agent each for wiring, all rule files,
-  parity with sibling sites, tests and replaced behaviour; one agent per traced value, at most five.
+  parity with sibling sites, tests, docs and replaced behaviour; one agent per traced value, at most five.
   Only high findings are verified, by one Opus skeptic each; medium findings are listed unverified. No
   critic round. It still reads the whole range.
 - **`--lenses a,b`**: run only these lenses (names below). In quick mode correctness, async, security
