@@ -59,7 +59,6 @@ import eu.kanade.presentation.reader.ReaderPageIndicator
 import eu.kanade.presentation.reader.ReadingModeSelectDialog
 import eu.kanade.presentation.reader.appbars.ReaderAppBars
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
-import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
@@ -102,6 +101,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.AppGraph
+import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
@@ -122,6 +122,8 @@ import reikai.presentation.reader.TextViewport
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
 import reikai.presentation.reader.resolvedForSystemTheme
+import reikai.presentation.reader.settings.ReaderSettingsPages
+import reikai.presentation.reader.settings.ReaderSettingsSheet
 import reikai.presentation.reader.text.NovelWindowDiff
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
@@ -531,11 +533,18 @@ class ReaderActivity : BaseActivity() {
                     )
                 }
                 is ReaderDialog.Settings -> {
-                    ReaderSettingsDialog(
+                    // RK: one sheet for both readers; a session with text settings is a novel one.
+                    val filters = engine.provider.displayFilters
+                    val pages = engine.textSettings?.let { text ->
+                        ReaderSettingsPages.Novel(novelPreferences, text, filters) {
+                            appGraph.novelFontManager.installed()
+                        }
+                    } ?: ReaderSettingsPages.Manga(settingsViewModel, filters)
+                    ReaderSettingsSheet(
+                        pages = pages,
                         onDismissRequest = onDismissRequest,
                         onShowMenus = { setMenuVisibility(true) },
                         onHideMenus = { setMenuVisibility(false) },
-                        viewModel = settingsViewModel,
                     )
                 }
                 is ReaderDialog.ReadingModeSelect -> {
