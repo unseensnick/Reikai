@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -26,7 +27,11 @@ class NovelReaderProvider(
             ReaderChromeState(title, chapter?.title)
         }
 
-    override val bottomButtons: Flow<Set<String>> = novelPreferences.readerBottomButtons().changes()
+    override val bottomButtons: Flow<List<ReaderBottomButton>> = ReaderBottomButton.orderedChanges(
+        novelPreferences.readerBottomButtons(),
+        novelPreferences.readerBottomButtonOrder(),
+        ReaderBottomButton.Scope.Novel,
+    )
 
     // Always the rail: a chapter is one continuous page, so there is nothing for a horizontal bar to
     // step through. Hundredths, because that is the unit the stored progress is in.

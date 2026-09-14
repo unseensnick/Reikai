@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.reader.components.ChapterNavigator
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import reikai.domain.reader.ChapterProgress
@@ -87,7 +88,7 @@ fun ReaderAppBars(
     onClickCropBorder: () -> Unit,
     onClickSettings: () -> Unit,
     // RK -->
-    bottomButtons: Set<String>,
+    bottomButtons: List<ReaderBottomButton>,
     onClickChapterList: () -> Unit,
     keepScreenOn: Boolean,
     onClickKeepScreenOn: () -> Unit,

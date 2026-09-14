@@ -2,6 +2,7 @@ package eu.kanade.presentation.reader.appbars
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import reikai.presentation.reader.ReaderActionRow
@@ -9,7 +10,7 @@ import reikai.presentation.reader.ReaderActionRow
 @Composable
 fun ReaderBottomBar(
     // RK -->
-    enabledButtons: Set<String>,
+    enabledButtons: List<ReaderBottomButton>,
     // RK <--
     readingMode: ReadingMode,
     onClickReadingMode: () -> Unit,

@@ -21,10 +21,10 @@ interface ReaderProvider {
     val chrome: Flow<ReaderChromeState>
 
     /**
-     * The bottom-bar buttons this content type offers, as [ReaderBottomButton] value codes. Each type
-     * stores its own selection, so a manga action cannot surface in a novel session or the reverse.
+     * The bottom-bar buttons this content type draws, in the order it draws them. Each type stores its
+     * own selection and order, so a manga action cannot surface in a novel session or the reverse.
      */
-    val bottomButtons: Flow<Set<String>>
+    val bottomButtons: Flow<List<ReaderBottomButton>>
 
     /**
      * Where the reader is in the open chapter and which navigator shows it. Both are the session's to

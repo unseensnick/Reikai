@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -40,7 +41,11 @@ class MangaReaderProvider(
     override val chrome: Flow<ReaderChromeState> = viewModel.state
         .map { ReaderChromeState(it.manga?.title, it.visibleChapter?.chapter?.name) }
 
-    override val bottomButtons: Flow<Set<String>> = readerPreferences.readerBottomButtons.changes()
+    override val bottomButtons: Flow<List<ReaderBottomButton>> = ReaderBottomButton.orderedChanges(
+        readerPreferences.readerBottomButtons,
+        readerPreferences.readerBottomButtonOrder,
+        ReaderBottomButton.Scope.Manga,
+    )
 
     override val navigator: Flow<ReaderNavigatorState> = combine(
         viewModel.state,

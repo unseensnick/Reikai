@@ -9,6 +9,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,8 +57,8 @@ class ReaderEngine(
         provider.chrome.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderChromeState())
 
     /** The bottom-bar buttons this session offers, likewise its own rather than manga's. */
-    val bottomButtons: StateFlow<Set<String>> =
-        provider.bottomButtons.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+    val bottomButtons: StateFlow<List<ReaderBottomButton>> =
+        provider.bottomButtons.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Where the reader is in the chapter, and which navigator shows it. */
     val navigator: StateFlow<ReaderNavigatorState> =

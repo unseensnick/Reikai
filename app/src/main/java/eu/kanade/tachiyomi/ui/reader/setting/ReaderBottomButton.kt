@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.ui.reader.setting
 
 import dev.icerock.moko.resources.StringResource
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 
 /**
@@ -30,11 +33,34 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
 
     enum class Scope { Manga, Novel, Both }
 
-    fun isIn(buttons: Collection<String>) = value in buttons
-
     companion object {
         /** Buttons a given reader is allowed to offer (its own scope plus the shared [Scope.Both]). */
         fun offeredIn(scope: Scope) = entries.filter { it.scope == scope || it.scope == Scope.Both }
+
+        /**
+         * The buttons a reader draws: those [selected] that [scope] offers, in the stored [order]. Order and
+         * selection are separate preferences so the selection's stored set, and the carries that add to
+         * it, stay as they were; a selected button the order does not name follows in declaration order,
+         * which is also the order the bar drew before it could be arranged.
+         */
+        fun ordered(selected: Set<String>, order: List<String>, scope: Scope): List<ReaderBottomButton> =
+            arranged(order, scope).filter { it.value in selected }
+
+        /** Every button [scope] offers, in the stored [order], so a button switched off keeps its place. */
+        fun arranged(order: List<String>, scope: Scope): List<ReaderBottomButton> {
+            val offered = offeredIn(scope)
+            val byValue = offered.associateBy { it.value }
+            val placed = order.distinct().mapNotNull(byValue::get)
+            return placed + (offered - placed.toSet())
+        }
+
+        /** [ordered], kept current as either preference changes. Both readers draw their bar through it. */
+        fun orderedChanges(
+            selected: Preference<Set<String>>,
+            order: Preference<List<String>>,
+            scope: Scope,
+        ): Flow<List<ReaderBottomButton>> =
+            combine(selected.changes(), order.changes()) { buttons, arranged -> ordered(buttons, arranged, scope) }
 
         /** Manga reader defaults. */
         val BUTTONS_DEFAULTS = setOf(

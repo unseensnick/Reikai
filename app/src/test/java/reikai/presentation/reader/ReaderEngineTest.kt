@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import android.view.View
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
@@ -186,9 +187,9 @@ class ReaderEngineTest {
         val provider = FakeReaderProvider()
         val engine = engine(provider)
 
-        provider.bottomButtons.value = setOf("as", "th")
+        provider.bottomButtons.value = listOf(ReaderBottomButton.Theme, ReaderBottomButton.Autoscroll)
 
-        engine.bottomButtons.value shouldBe setOf("as", "th")
+        engine.bottomButtons.value shouldBe listOf(ReaderBottomButton.Theme, ReaderBottomButton.Autoscroll)
     }
 
     /**
@@ -557,7 +558,7 @@ private class FakeReaderProvider(
 ) : ReaderProvider {
     override val chrome = MutableStateFlow(ReaderChromeState())
 
-    override val bottomButtons = MutableStateFlow(emptySet<String>())
+    override val bottomButtons = MutableStateFlow(emptyList<ReaderBottomButton>())
 
     override val orientation = MutableStateFlow(0)
 

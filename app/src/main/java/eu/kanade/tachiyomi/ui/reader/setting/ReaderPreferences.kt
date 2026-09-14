@@ -116,6 +116,14 @@ class ReaderPreferences(
     val readerBottomButtons: Preference<Set<String>> =
         preferenceStore.getStringSet("reader_bottom_buttons", ReaderBottomButton.BUTTONS_DEFAULTS)
 
+    /** The order of [readerBottomButtons], as codes; empty draws them in declaration order. */
+    val readerBottomButtonOrder: Preference<List<String>> = preferenceStore.getObjectFromString(
+        key = "reader_bottom_button_order",
+        defaultValue = emptyList(),
+        serializer = { it.joinToString("\n") },
+        deserializer = { it.split("\n").filter(String::isNotBlank) },
+    )
+
     val preserveReadingPosition: Preference<Boolean> = preferenceStore.getBoolean("preserve_reading_position", false)
 
     val preloadSize: Preference<Int> = preferenceStore.getInt("reader_preload_size", 4)

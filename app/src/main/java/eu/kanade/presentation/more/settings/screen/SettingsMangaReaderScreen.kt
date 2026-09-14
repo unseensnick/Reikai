@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
+import reikai.presentation.reader.readerBottomButtonsPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
@@ -212,11 +213,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_auto_webtoon_mode),
                     subtitle = stringResource(MR.strings.pref_auto_webtoon_mode_summary),
                 ),
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = readerPreferences.readerBottomButtons,
-                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Manga)
-                        .associate { it.value to stringResource(it.stringRes) },
-                    title = stringResource(MR.strings.pref_reader_bottom_buttons),
+                readerBottomButtonsPreference(
+                    selection = readerPreferences.readerBottomButtons,
+                    order = readerPreferences.readerBottomButtonOrder,
+                    scope = ReaderBottomButton.Scope.Manga,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.preserveReadingPosition,

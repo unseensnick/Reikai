@@ -205,6 +205,7 @@ every release now also ships a foss build with neither in it.
 - **The novel reader highlights the paragraph being read aloud, in a style and colours you set under Settings -> Novel reader.** Keep paragraph in view scrolls back to it once it leaves the screen.
 - **Read-aloud's engine, voice, speed and pitch are now under Settings -> Novel reader.**
 - **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in both rendering modes.
+- **Bottom bar buttons under Settings -> Manga reader and Settings -> Novel reader now set the order of the reader's buttons, not just which ones show.** Drag a button by its handle; the settings button stays last.
 
 #### Changed
 

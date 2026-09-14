@@ -33,6 +33,7 @@ import reikai.domain.novel.tts.TtsVoice
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.fontDisplayName
+import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
 import tachiyomi.core.common.util.lang.withIOContext
@@ -486,11 +487,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     valueString = "%.1fx".format(autoScrollSpeed),
                     onValueChanged = { autoScrollSpeedPref.set(it / TENTHS) },
                 ).takeIf { autoScroll },
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = novelPreferences.readerBottomButtons(),
-                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
-                        .associate { it.value to stringResource(it.stringRes) },
-                    title = stringResource(MR.strings.pref_reader_bottom_buttons),
+                readerBottomButtonsPreference(
+                    selection = novelPreferences.readerBottomButtons(),
+                    order = novelPreferences.readerBottomButtonOrder(),
+                    scope = ReaderBottomButton.Scope.Novel,
                 ),
             ),
         )
