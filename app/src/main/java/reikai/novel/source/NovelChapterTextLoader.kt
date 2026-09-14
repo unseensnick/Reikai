@@ -51,6 +51,7 @@ class NovelChapterTextLoader(
         preferences.readerAutoSplitText().changes(),
         preferences.readerAutoSplitWordCount().changes(),
         preferences.readerRegexReplacements().changes(),
+        preferences.readerShowRawHtml().changes(),
     )
         .merge()
         .map { pipelineSnapshot() }
@@ -68,6 +69,7 @@ class NovelChapterTextLoader(
         preferences.readerAutoSplitText().get(),
         preferences.readerAutoSplitWordCount().get(),
         preferences.readerRegexReplacements().get(),
+        preferences.readerShowRawHtml().get(),
     )
 
     private val sourcesByNovel: MutableMap<Long, NovelSource> =
@@ -103,10 +105,11 @@ class NovelChapterTextLoader(
         // A plain-text chapter leaves the pipeline unescaped and unsanitised, because a text renderer
         // takes it verbatim. Both readers are HTML sinks, so it is escaped here or a `.txt` chapter's
         // markup becomes live document.
-        val html = if (processed.isPlainText) {
-            NovelHtmlUtils.plainTextToHtml(processed.text)
-        } else {
-            processed.text
+        val html = when {
+            processed.isPlainText -> NovelHtmlUtils.plainTextToHtml(processed.text)
+            // Here rather than in a renderer, so both draw the same escaped text from one switch.
+            preferences.readerShowRawHtml().get() -> NovelHtmlUtils.htmlAsText(processed.text)
+            else -> processed.text
         }
         return html to baseUrl
     }

@@ -30,6 +30,7 @@ object NovelHtmlUtils {
     private val closingTagRegex = Regex("</\\s*[a-z][a-z0-9:-]*\\s*>", RegexOption.IGNORE_CASE)
     private val stripTagsRegex = Regex("<[^>]+>")
     private val paragraphBreakRegex = Regex("\n{2,}")
+    private val adjacentTagsRegex = Regex(">\\s*<")
     private val leadingSpaceInParagraph = Regex("<p>(?: |&#160;|&nbsp;)+")
     private val paragraphTagRegex = Regex("<p[\\s>]", RegexOption.IGNORE_CASE)
     private val blankLineRegex = Regex("\r?\n\r?\n")
@@ -209,6 +210,17 @@ object NovelHtmlUtils {
             postfix = "</div>",
         ) { "<p>${escapeHtml(it).replace("\n", "<br>")}</p>" }
     }
+
+    /** [html] as the markup it is, escaped for an HTML sink, one line per tag that follows another so a
+     *  chapter sent as a single line does not show as one paragraph. Entities stay as written. */
+    fun htmlAsText(html: String): String = html
+        .replace(adjacentTagsRegex, ">\n<")
+        .lines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .joinToString(separator = "", prefix = "<div data-reikai-plain-text=\"1\">", postfix = "</div>") {
+            "<p>${escapeHtml(it)}</p>"
+        }
 
     /**
      * Turns the blank lines of an HTML chapter with no paragraphs of its own into paragraphs, for both

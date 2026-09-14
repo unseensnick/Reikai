@@ -411,6 +411,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_use_original_fonts),
                     subtitle = stringResource(MR.strings.pref_use_original_fonts_summary),
                 ).takeIf { renderingMode == NovelRenderingMode.WEBVIEW && !sourceCssPriority },
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowRawHtml(),
+                    title = stringResource(MR.strings.pref_novel_show_raw_html),
+                    subtitle = stringResource(MR.strings.pref_novel_show_raw_html_summary),
+                ),
                 // Its own screen rather than a row: a rule is five fields plus a preview, and the
                 // list has no useful upper bound.
                 Preference.PreferenceItem.TextPreference(

@@ -271,6 +271,9 @@ class NovelPreferences(
     /** Bold the start of each word (bionic reading) to ease skimming. */
     fun readerBionicReading() = preferenceStore.getBoolean("ln_reader_bionic_reading", false)
 
+    /** Show a chapter as the markup it carries, as text, to see what a source actually sends. */
+    fun readerShowRawHtml() = preferenceStore.getBoolean("ln_reader_show_raw_html", false)
+
     /** Collapse large runs of blank space between paragraphs. */
     fun readerRemoveExtraSpacing() = preferenceStore.getBoolean("ln_reader_remove_extra_spacing", false)
 
