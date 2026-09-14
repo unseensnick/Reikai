@@ -65,7 +65,7 @@ interface MergeGroupRepository {
      */
     suspend fun getRankedMangaMembers(): List<RankedMember<Long>>
 
-    /** Novel twin of [getRankedMangaMembers]; novel source ids are strings. */
+    /** [getRankedMangaMembers] for novel groups, whose source ids are strings. */
     suspend fun getRankedNovelMembers(): List<RankedMember<String>>
 
     /**

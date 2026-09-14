@@ -930,7 +930,7 @@ class NovelReaderViewModel(
     }
 
     /** The host calls this on resume, since leaving the reader stamped [updateHistory] and stopped the
-     *  clock. The twin of ReaderViewModel.restartReadTimer. */
+     *  clock. ReaderActivity.onResume calls this in place of ReaderViewModel.restartReadTimer. */
     fun restartReadTimer() {
         chapterReadStartTime = System.currentTimeMillis()
     }
