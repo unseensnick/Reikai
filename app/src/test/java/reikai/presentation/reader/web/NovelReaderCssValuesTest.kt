@@ -1,4 +1,4 @@
-package reikai.presentation.novel.reader
+package reikai.presentation.reader.web
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test

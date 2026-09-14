@@ -51,7 +51,10 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.reader.NovelReaderOverlaySettings
+import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.ReaderChapterRow
+import reikai.presentation.reader.ReaderMargins
 import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerLightPreset

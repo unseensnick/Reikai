@@ -1,11 +1,7 @@
-package reikai.presentation.novel.reader
+package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import reikai.domain.novel.tts.TtsHighlightStyle
-import reikai.presentation.reader.ReaderThemePreset
-import reikai.presentation.reader.readerDarkPreset
-import reikai.presentation.reader.readerLightPreset
-import reikai.presentation.reader.readerThemePresets
 
 /**
  * Resolved reader display settings, read by every rendering mode: the legacy reader hands `core.js`

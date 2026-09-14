@@ -4,6 +4,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
+import reikai.presentation.reader.NovelReaderSettings
+import reikai.presentation.reader.web.cssBackgroundColor
+import reikai.presentation.reader.web.cssFontFamilyValue
+import reikai.presentation.reader.web.cssFontName
+import reikai.presentation.reader.web.cssTextAlign
+import reikai.presentation.reader.web.cssTextColor
+import reikai.presentation.reader.web.isSafeInCssUrl
 
 /** Asset root for the bundled LNReader web layer (CSS/JS copied verbatim from lnreader-main). */
 private const val ASSET_BASE = "file:///android_asset/lnreader-web"

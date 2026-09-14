@@ -35,7 +35,6 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
-import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.DrawableWrapper
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer

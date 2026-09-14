@@ -63,10 +63,14 @@ import reikai.presentation.icons.FormatAlignJustify
 import reikai.presentation.icons.FormatAlignLeft
 import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.reader.NovelReaderOverlaySettings
+import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderThemePreset
 import reikai.presentation.reader.readerDarkPreset
+import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerLightPreset
+import reikai.presentation.reader.readerOrientations
 import reikai.presentation.reader.readerTextSizeOf
 import reikai.presentation.reader.readerThemePresets
 import tachiyomi.presentation.core.components.lockPagerSwipeWhileDragging

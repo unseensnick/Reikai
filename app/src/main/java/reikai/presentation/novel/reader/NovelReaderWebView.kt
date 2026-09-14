@@ -26,6 +26,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.logcat
 import mihon.app.di.appGraph
+import reikai.presentation.reader.NovelChapterNavigationClient
+import reikai.presentation.reader.NovelReaderSettings
 import kotlin.math.roundToInt
 
 /**

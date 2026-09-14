@@ -1,4 +1,4 @@
-package reikai.presentation.novel.reader
+package reikai.presentation.reader.web
 
 import reikai.novel.font.fontDisplayName
 import reikai.novel.font.isGenericFont

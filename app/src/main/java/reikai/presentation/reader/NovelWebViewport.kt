@@ -24,8 +24,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
-import reikai.presentation.novel.reader.NovelChapterNavigationClient
-import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument

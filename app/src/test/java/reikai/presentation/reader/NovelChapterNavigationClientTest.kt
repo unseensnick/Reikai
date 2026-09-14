@@ -1,9 +1,9 @@
-package reikai.presentation.novel.reader
+package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import reikai.presentation.novel.reader.NovelChapterNavigationClient.Companion.decide
-import reikai.presentation.novel.reader.NovelChapterNavigationClient.Decision
+import reikai.presentation.reader.NovelChapterNavigationClient.Companion.decide
+import reikai.presentation.reader.NovelChapterNavigationClient.Decision
 
 /**
  * The reader's WebView holds the native bridge and the app's cookie jar, so what a chapter's markup

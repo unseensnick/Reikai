@@ -33,7 +33,6 @@ import mihon.app.di.appGraph
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
-import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph

@@ -33,8 +33,8 @@ import reikai.domain.novel.tts.TtsVoice
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.fontDisplayName
-import reikai.presentation.novel.reader.readerFonts
-import reikai.presentation.novel.reader.readerGenericFonts
+import reikai.presentation.reader.readerFonts
+import reikai.presentation.reader.readerGenericFonts
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource

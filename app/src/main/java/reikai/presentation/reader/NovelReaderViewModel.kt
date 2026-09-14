@@ -71,8 +71,6 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.novel.reader.NovelReaderSettings
-import reikai.presentation.novel.reader.ReaderMargins
 import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelLeaveRule
 import reikai.presentation.reader.text.NovelOpenLanding

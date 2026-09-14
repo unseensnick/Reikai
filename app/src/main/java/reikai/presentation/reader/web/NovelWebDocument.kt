@@ -3,13 +3,7 @@ package reikai.presentation.reader.web
 import android.content.Context
 import com.google.android.material.color.MaterialColors
 import org.json.JSONObject
-import reikai.presentation.novel.reader.NovelReaderSettings
-import reikai.presentation.novel.reader.cssBackgroundColor
-import reikai.presentation.novel.reader.cssFontFamilyValue
-import reikai.presentation.novel.reader.cssFontName
-import reikai.presentation.novel.reader.cssTextAlign
-import reikai.presentation.novel.reader.cssTextColor
-import reikai.presentation.novel.reader.isSafeInCssUrl
+import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelChapterSeamView
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR

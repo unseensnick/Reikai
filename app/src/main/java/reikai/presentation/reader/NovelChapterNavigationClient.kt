@@ -1,4 +1,4 @@
-package reikai.presentation.novel.reader
+package reikai.presentation.reader
 
 import android.content.Context
 import android.net.Uri

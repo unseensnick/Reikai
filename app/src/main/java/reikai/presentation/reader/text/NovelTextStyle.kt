@@ -12,7 +12,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
-import reikai.presentation.novel.reader.NovelReaderSettings
+import reikai.presentation.reader.NovelReaderSettings
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.roundToInt
 

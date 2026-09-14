@@ -70,6 +70,7 @@ import reikai.presentation.reader.VerticalReaderRail
 import reikai.presentation.reader.readerBarEnter
 import reikai.presentation.reader.readerBarExit
 import reikai.presentation.reader.readerChromeColor
+import reikai.presentation.reader.resolvedForSystemTheme
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor

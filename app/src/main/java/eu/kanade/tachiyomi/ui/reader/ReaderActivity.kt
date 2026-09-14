@@ -107,7 +107,6 @@ import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.TtsPlayback
-import reikai.presentation.novel.reader.resolvedForSystemTheme
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
 import reikai.presentation.reader.NovelReaderProvider
@@ -122,6 +121,7 @@ import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.TextViewport
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
+import reikai.presentation.reader.resolvedForSystemTheme
 import reikai.presentation.reader.text.NovelWindowDiff
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource

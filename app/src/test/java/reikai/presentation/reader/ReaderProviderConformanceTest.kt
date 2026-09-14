@@ -12,7 +12,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.NovelPreferences
-import reikai.presentation.novel.reader.NovelReaderSettings
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import tachiyomi.domain.manga.model.Manga

@@ -1,7 +1,5 @@
 package reikai.presentation.reader
 
-import reikai.presentation.novel.reader.NovelReaderSettings
-
 /**
  * What a viewport answers when it renders text rather than images, so the host drives the WebView
  * and the native renderer the same way. Kept off [ReaderViewport] so an image viewer is

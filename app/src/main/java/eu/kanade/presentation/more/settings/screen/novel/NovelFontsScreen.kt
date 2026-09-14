@@ -49,8 +49,8 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import reikai.novel.font.GoogleFont
-import reikai.presentation.novel.reader.readerFonts
-import reikai.presentation.novel.reader.readerGenericFonts
+import reikai.presentation.reader.readerFonts
+import reikai.presentation.reader.readerGenericFonts
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding

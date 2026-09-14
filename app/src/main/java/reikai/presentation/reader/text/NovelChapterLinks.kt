@@ -7,7 +7,7 @@ import android.text.style.URLSpan
 import android.view.View
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.util.system.openInBrowser
-import reikai.presentation.novel.reader.NovelChapterNavigationClient
+import reikai.presentation.reader.NovelChapterNavigationClient
 
 /**
  * Replaces the `URLSpan`s `Html.fromHtml` produces with spans that route a tap through the reader's

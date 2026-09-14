@@ -25,7 +25,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.reader.ChapterProgress
-import reikai.presentation.novel.reader.NovelReaderSettings
 import reikai.presentation.reader.text.NovelChapterSeamView
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList

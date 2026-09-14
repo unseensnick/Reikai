@@ -1,8 +1,6 @@
 package reikai.presentation.reader
 
 import reikai.domain.novel.tts.TtsHighlightStyle
-import reikai.presentation.novel.reader.NovelReaderSettings
-import reikai.presentation.novel.reader.ReaderMargins
 
 /**
  * A plain settings value for the tests that render a real chapter, in the WebView and the native
