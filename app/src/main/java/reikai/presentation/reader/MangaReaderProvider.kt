@@ -47,6 +47,16 @@ class MangaReaderProvider(
         ReaderBottomButton.Scope.Manga,
     )
 
+    override val displayFilters = ReaderDisplayFilters(
+        customBrightness = readerPreferences.customBrightness,
+        customBrightnessValue = readerPreferences.customBrightnessValue,
+        colorFilter = readerPreferences.colorFilter,
+        colorFilterValue = readerPreferences.colorFilterValue,
+        colorFilterMode = readerPreferences.colorFilterMode,
+        grayscale = readerPreferences.grayscale,
+        invertedColors = readerPreferences.invertedColors,
+    )
+
     override val navigator: Flow<ReaderNavigatorState> = combine(
         viewModel.state,
         readerPreferences.verticalNavigator.changes(),

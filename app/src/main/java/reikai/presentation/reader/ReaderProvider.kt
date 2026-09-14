@@ -26,6 +26,9 @@ interface ReaderProvider {
      */
     val bottomButtons: Flow<List<ReaderBottomButton>>
 
+    /** This content type's own brightness and colour treatment, which the host applies to the page. */
+    val displayFilters: ReaderDisplayFilters
+
     /**
      * Where the reader is in the open chapter and which navigator shows it. Both are the session's to
      * answer: a novel scrolls one continuous page, so it always uses the rail, while manga offers it

@@ -920,9 +920,11 @@ class ReaderActivity : BaseActivity() {
     private fun ContentOverlay(state: ReaderViewModel.State) {
         val flashOnPageChange by readerPreferences.flashOnPageChange.collectAsState()
 
-        val colorOverlayEnabled by readerPreferences.colorFilter.collectAsState()
-        val colorOverlay by readerPreferences.colorFilterValue.collectAsState()
-        val colorOverlayMode by readerPreferences.colorFilterMode.collectAsState()
+        // RK: the open session's own filter, so a novel and a manga keep separate values.
+        val filters = engine.provider.displayFilters
+        val colorOverlayEnabled by filters.colorFilter.collectAsState()
+        val colorOverlay by filters.colorFilterValue.collectAsState()
+        val colorOverlayMode by filters.colorFilterMode.collectAsState()
         val colorOverlayBlendMode = remember(colorOverlayMode) {
             ReaderPreferences.ColorFilterMode.getOrNull(colorOverlayMode)?.second
         }
@@ -1390,13 +1392,14 @@ class ReaderActivity : BaseActivity() {
                 .onEach(::setKeepScreenOn)
                 .launchIn(lifecycleScope)
 
-            readerPreferences.customBrightness.changes()
+            // RK: brightness, grayscale and invert are the open session's own values, as the overlay is.
+            engine.provider.displayFilters.customBrightness.changes()
                 .onEach(::setCustomBrightness)
                 .launchIn(lifecycleScope)
 
             combine(
-                readerPreferences.grayscale.changes(),
-                readerPreferences.invertedColors.changes(),
+                engine.provider.displayFilters.grayscale.changes(),
+                engine.provider.displayFilters.invertedColors.changes(),
             ) { grayscale, invertedColors -> grayscale to invertedColors }
                 .onEach { (grayscale, invertedColors) ->
                     setLayerPaint(grayscale, invertedColors)
@@ -1429,7 +1432,7 @@ class ReaderActivity : BaseActivity() {
          */
         private fun setCustomBrightness(enabled: Boolean) {
             if (enabled) {
-                readerPreferences.customBrightnessValue.changes()
+                engine.provider.displayFilters.customBrightnessValue.changes() // RK: the session's own
                     .sample(0.1.seconds)
                     .onEach(::setCustomBrightnessValue)
                     .launchIn(lifecycleScope)

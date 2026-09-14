@@ -33,6 +33,16 @@ class NovelReaderProvider(
         ReaderBottomButton.Scope.Novel,
     )
 
+    override val displayFilters = ReaderDisplayFilters(
+        customBrightness = novelPreferences.readerCustomBrightness(),
+        customBrightnessValue = novelPreferences.readerCustomBrightnessValue(),
+        colorFilter = novelPreferences.readerColorFilter(),
+        colorFilterValue = novelPreferences.readerColorFilterValue(),
+        colorFilterMode = novelPreferences.readerColorFilterMode(),
+        grayscale = novelPreferences.readerGrayscale(),
+        invertedColors = novelPreferences.readerInvertedColors(),
+    )
+
     // Always the rail: a chapter is one continuous page, so there is nothing for a horizontal bar to
     // step through. Hundredths, because that is the unit the stored progress is in.
     override val navigator: Flow<ReaderNavigatorState> = combine(

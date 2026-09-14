@@ -7,8 +7,10 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 class ReaderEngineTest {
 
@@ -559,6 +562,12 @@ private class FakeReaderProvider(
     override val chrome = MutableStateFlow(ReaderChromeState())
 
     override val bottomButtons = MutableStateFlow(emptyList<ReaderBottomButton>())
+
+    override val displayFilters = MangaReaderProvider(
+        mockk(relaxed = true),
+        ReaderPreferences(InMemoryPreferenceStore()),
+        mockk(relaxed = true),
+    ).displayFilters
 
     override val orientation = MutableStateFlow(0)
 

@@ -174,6 +174,16 @@ class NovelPreferences(
     fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
     fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", "#CCCCCC")
 
+    // The page's brightness and colour treatment (ReaderDisplayFilters), the novel reader's own values.
+    // The first five keys are the old novel reader's, so what a user set there carries over.
+    fun readerCustomBrightness() = preferenceStore.getBoolean("ln_reader_custom_brightness", false)
+    fun readerCustomBrightnessValue() = preferenceStore.getInt("ln_reader_custom_brightness_value", 0)
+    fun readerColorFilter() = preferenceStore.getBoolean("ln_reader_color_filter", false)
+    fun readerColorFilterValue() = preferenceStore.getInt("ln_reader_color_filter_value", 0)
+    fun readerColorFilterMode() = preferenceStore.getInt("ln_reader_color_filter_mode", 0)
+    fun readerGrayscale() = preferenceStore.getBoolean("ln_reader_grayscale", false)
+    fun readerInvertedColors() = preferenceStore.getBoolean("ln_reader_inverted_colors", false)
+
     /** When on, the reader's next/previous skip a chapter whose number matches the one just read (the
      *  same-number duplicates a cross-source merge produces). Reading-navigation only, non-destructive. */
     fun readerSkipDuplicateChapters() = preferenceStore.getBoolean("ln_reader_skip_duplicate_chapters", false)
