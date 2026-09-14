@@ -22,8 +22,8 @@ import kotlin.math.roundToInt
 internal fun readerTextSizeOf(sliderValue: Float): Int = sliderValue.roundToInt()
 
 /**
- * Text-size picker for the novel reader's bottom-bar text-size button: the same font-size slider as the
- * settings sheet's Display tab, reachable in one tap. Applies live (the caller's model persists it and
+ * Text-size picker for the novel reader's bottom-bar text-size button: the same font size the settings
+ * sheet's Reading tab steps, reachable in one tap. Applies live (the caller's model persists it and
  * the reader reflows the text in place).
  */
 @Composable

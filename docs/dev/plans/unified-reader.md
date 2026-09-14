@@ -26,11 +26,9 @@ The manga reader stays a View-based screen (`ReaderActivity`) that hosts the exi
 
 The mechanism:
 
-- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. **The novel reader consumes only two of them today**, `ReaderTopBar` and `ReaderContentOverlay`; its bottom bar is a hand-rolled Material3 `BottomAppBar`, so `ReaderAppBars`, `ReaderBottomBar`, `ChapterNavigator` and `ReaderPageIndicator` remain manga-only. That gap is the real remainder of this plan.
+- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. Since the reader takeover both content types render them, from the one `ReaderActivity` host.
 
-- **The settings sheets are NOT shared yet.** Each reader has its own: Mihon's `ReaderSettingsDialog` (with `ReadingModePage` / `GeneralSettingsPage` / `ColorFilterPage`, all still byte-identical to upstream) for manga, and Reikai's `NovelReaderSettingsSheet` for novels. The only thing the two have in common is the `TabbedDialog` host. Settings sharing is a goal of this plan, not a shipped part of it. Which track collapses the two sheets is undecided: it can ride this chrome work, or wait for the content-layer reader phase ([content-layer-architecture.md](content-layer-architecture.md)).
-
-  Two facts that shape whatever does it. The manga sheet is still byte-identical to upstream apart from one rename, so a Reikai-owned sheet is the first divergence on those files and inherits the upstream churn (Mihon touched them roughly nine times in the last year, mostly adding new rows). And the two sides are plumbed differently: the manga pages take a `ReaderSettingsViewModel` (an androidx `ViewModel`) and read preferences themselves, while the novel sheet is pure UI driven by a callback per setting.
+- **The settings sheets are shared now**, settled by the reader takeover rather than this plan: one `ReaderSettingsSheet` with the same four tabs for both readers, each content type answering its own pages. See step 11 of [content-layer-reader-surface.md](content-layer-reader-surface.md).
 
 - **The manga reader stays View-based.** `ReaderActivity` remains the manga host. The image viewers (`PagerViewer`, `WebtoonViewer`) take a concrete `ReaderActivity` reference, so leaving the activity in place means the viewers stay byte-identical to upstream and keep porting cleanly on each Mihon sync. No viewer decoupling is required.
 
@@ -42,8 +40,8 @@ The mechanism:
 
 - Manga reader (View host, stays): `app/src/main/java/eu/kanade/tachiyomi/ui/reader/ReaderActivity.kt`.
 - Shared chrome composables: `app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderAppBars.kt`, `.../appbars/ReaderTopBar.kt`, `.../appbars/ReaderBottomBar.kt`, `.../components/ChapterNavigator.kt`, `.../ReaderPageIndicator.kt`, and `.../ReaderContentOverlay.kt`.
-- Per-reader settings sheets (separate, not shared): `app/src/main/java/eu/kanade/presentation/reader/settings/` for manga, `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt` for novels.
-- Novel reader (Compose shell + WebView canvas): `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreen.kt`, `.../NovelReaderWebView.kt`, with `NovelReaderHtmlBuilder.kt`, `NovelReaderWebInterface.kt`, `NovelReaderScreenModel.kt`, and `NovelReaderSettingsSheet.kt`.
+- Shared in-reader settings sheet: `app/src/main/java/reikai/presentation/reader/settings/`.
+- Novel reader, since the takeover: `NovelReaderProvider`, `NovelTextViewport` and `NovelWebViewport` under `app/src/main/java/reikai/presentation/reader/`, in the shared `ReaderActivity` host.
 
 ## Status
 

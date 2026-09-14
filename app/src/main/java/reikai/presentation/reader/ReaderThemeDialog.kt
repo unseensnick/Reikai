@@ -48,7 +48,10 @@ fun ReaderThemeDialog(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 RadioButton(selected = followSystemTheme, onClick = null)
-                Text("Follow system (auto light / dark)", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(MR.strings.pref_novel_theme_follow_system),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
