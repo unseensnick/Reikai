@@ -3,8 +3,11 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 import android.content.Context
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
+import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.interactor.GetCategories
@@ -78,6 +82,37 @@ class PreferenceRestorerTest {
         restore(DEAD_READER_PADDING_KEY, 32)
 
         store.getInt(DEAD_READER_PADDING_KEY, 0).isSet() shouldBe false
+    }
+
+    /** The switch comes before the bar in the backup, so the bar restored after it must still gain the button. */
+    @Test
+    @DisplayName("a backup with read-aloud on and a customised bar keeps the read-aloud button")
+    fun retiredReadAloudSwitchReachesTheBar() = runTest {
+        val customised = setOf(ReaderBottomButton.ViewChapters.value)
+        restorer.restoreApp(
+            listOf(
+                BackupPreference(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
+                BackupPreference(novelPreferences.readerBottomButtons().key(), StringSetPreferenceValue(customised)),
+            ),
+            backupCategories = null,
+        )
+
+        novelPreferences.readerBottomButtons().get() shouldBe customised + ReaderBottomButton.ReadAloud.value
+    }
+
+    @Test
+    @DisplayName("a backup with read-aloud off keeps its customised bar as it was")
+    fun readAloudOffLeavesTheBar() = runTest {
+        val customised = setOf(ReaderBottomButton.ViewChapters.value)
+        restorer.restoreApp(
+            listOf(
+                BackupPreference(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(false)),
+                BackupPreference(novelPreferences.readerBottomButtons().key(), StringSetPreferenceValue(customised)),
+            ),
+            backupCategories = null,
+        )
+
+        novelPreferences.readerBottomButtons().get() shouldBe customised
     }
 
     @Test

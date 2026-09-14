@@ -291,6 +291,16 @@ class NovelPreferences(
     fun readerBottomButtons() =
         preferenceStore.getStringSet("ln_reader_bottom_buttons", ReaderBottomButton.NOVEL_BUTTONS_DEFAULTS)
 
+    /**
+     * Puts the read-aloud button on a customised bar, for someone whose retired read-aloud switch was on:
+     * a stored bar never sees a new default. Shared, because a backup restore owes the same carry as
+     * the upgrade migration and can land the old switch after that migration has already run.
+     */
+    fun addReadAloudButtonToCustomisedBar() {
+        val buttons = readerBottomButtons()
+        if (buttons.isSet()) buttons.set(buttons.get() + ReaderBottomButton.ReadAloud.value)
+    }
+
     // Chapter text pipeline. Applied to the chapter body before it is rendered, in the order
     // [reikai.novel.content.NovelContentPipeline] runs its stages.
 

@@ -70,6 +70,8 @@ class PreferenceRestorer(
         val categoriesByName = allCategories.associateBy { it.name }
         val backupCategoriesById = backupCategories?.associateBy { it.id.toString() }.orEmpty()
         val prefs = preferenceStore.getAll()
+        // RK: carried once every key is back, since the bar the switch applies to may restore after it.
+        var readAloudWasOn = false
         toRestore.forEach { (key, value) ->
             // RK: the merge prefs store entry IDs, which change on restore. MangaRestorer / NovelRestorer
             // rebuild them from the backup's {url, source} refs, so skip the raw values here to avoid
@@ -122,8 +124,13 @@ class PreferenceRestorer(
                 return@forEach
             }
             // RK: keys only the retired standalone novel reader wrote; skip so an old backup can't
-            // resurrect them after the cleanup migration removed them.
-            if (key == DEAD_READER_TTS_ENABLED_KEY || key in DEAD_READER_TTS_BUTTON_KEYS) {
+            // resurrect them after the cleanup migration removed them. The read-aloud switch still owes
+            // the bar its button, as the upgrade migration gives it, which a restore lands after.
+            if (key == DEAD_READER_TTS_ENABLED_KEY) {
+                readAloudWasOn = (value as? BooleanPreferenceValue)?.value == true
+                return@forEach
+            }
+            if (key in DEAD_READER_TTS_BUTTON_KEYS) {
                 return@forEach
             }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
@@ -183,6 +190,7 @@ class PreferenceRestorer(
                 Log.e("PreferenceRestorer", "Failed to restore preference <$key>", e)
             }
         }
+        if (readAloudWasOn) novelPreferences.addReadAloudButtonToCustomisedBar()
     }
 
     // RK: the remapped key list comes from the shared CategoryIdPreferences registry (manga side), so

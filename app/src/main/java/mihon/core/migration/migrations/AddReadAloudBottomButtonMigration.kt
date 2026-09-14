@@ -3,7 +3,6 @@ package mihon.core.migration.migrations
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -33,10 +32,9 @@ class AddReadAloudBottomButtonMigration(
         if (migrationContext.previousVersion == 0) return@withIOContext true // fresh install: defaults apply
 
         runCatching {
-            val buttons = novelPreferences.readerBottomButtons()
-            val readAloudWasOn = preferenceStore.getBoolean(DEAD_READER_TTS_ENABLED_KEY, false).get()
-            if (!readAloudWasOn || !buttons.isSet()) return@runCatching
-            buttons.set(buttons.get() + ReaderBottomButton.ReadAloud.value)
+            if (preferenceStore.getBoolean(DEAD_READER_TTS_ENABLED_KEY, false).get()) {
+                novelPreferences.addReadAloudButtonToCustomisedBar()
+            }
         }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to add the read-aloud button to the novel reader bar" }
         }
