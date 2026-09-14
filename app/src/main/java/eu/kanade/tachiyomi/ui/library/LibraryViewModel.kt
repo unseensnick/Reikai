@@ -63,6 +63,7 @@ import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.flaggedOnAnotherSource
+import reikai.domain.merge.stitchInputChanges
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.MangaMergeCollapse
@@ -295,13 +296,11 @@ class LibraryViewModel(
         //     unread count would be wrong until something wrote them. Reconciling off the membership
         //     flow covers every merge and unmerge from one place, instead of hooking each action, and
         //     costs one indexed query when nothing changed. Stays always-on rather than riding the
-        //     shared state: a restore can regroup entries while the library renders nothing.
+        //     shared state: a restore can regroup entries while the library renders nothing. The
+        //     preferred-source list rides along, since it picks each group's trunk.
         viewModelScope.launchIO {
-            mergeGroupRepository.getAllMembershipsAsFlow(ContentType.MANGA)
-                .distinctUntilChanged()
-                .collectLatest {
-                    reconcileMergedChapters.await()
-                }
+            stitchInputChanges(ContentType.MANGA, mergeGroupRepository, reikaiLibraryPreferences)
+                .collectLatest { reconcileMergedChapters.await() }
         }
     }
 
