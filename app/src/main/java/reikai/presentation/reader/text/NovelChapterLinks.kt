@@ -5,6 +5,7 @@ import android.text.Spannable
 import android.text.style.ClickableSpan
 import android.text.style.URLSpan
 import android.view.View
+import android.widget.TextView
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import reikai.presentation.reader.NovelChapterNavigationClient
@@ -19,25 +20,30 @@ import reikai.presentation.reader.NovelChapterNavigationClient
  */
 object NovelChapterLinks {
 
-    fun apply(spannable: Spannable, context: Context) {
+    fun apply(spannable: Spannable, context: Context, onAnchor: (TextView, Int) -> Unit) {
         val urls = spannable.getSpans(0, spannable.length, URLSpan::class.java)
         urls.forEach { span ->
             val start = spannable.getSpanStart(span)
             val end = spannable.getSpanEnd(span)
             val flags = spannable.getSpanFlags(span)
             spannable.removeSpan(span)
-            spannable.setSpan(PolicyLinkSpan(span.url, context), start, end, flags)
+            spannable.setSpan(PolicyLinkSpan(span.url, context, onAnchor), start, end, flags)
         }
     }
 
     private class PolicyLinkSpan(
         private val url: String,
         private val context: Context,
+        private val onAnchor: (TextView, Int) -> Unit,
     ) : ClickableSpan() {
 
         override fun onClick(widget: View) {
-            // No document URL to be same-document with: the renderer holds no anchors to scroll to,
-            // so an in-chapter jump is simply not offered rather than sent anywhere.
+            // A jump within the chapter was rewritten to an anchor the renderer placed, so it never
+            // reaches the policy, which has no document URL to call it same-document against.
+            if (url.startsWith(NovelChapterTags.ANCHOR_HREF)) {
+                url.removePrefix(NovelChapterTags.ANCHOR_HREF).toIntOrNull()?.let { onAnchor(widget as TextView, it) }
+                return
+            }
             val decision = NovelChapterNavigationClient.decide(url, baseUrl = null, hasGesture = true)
             if (decision == NovelChapterNavigationClient.Decision.OPEN_EXTERNALLY) {
                 context.openInBrowser(url.toUri())

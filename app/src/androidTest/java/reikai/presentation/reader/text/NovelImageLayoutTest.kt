@@ -52,7 +52,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
                     )
                 }
             }
-            renderer = NovelTextRenderer(activity, scope)
+            renderer = NovelTextRenderer(activity, scope) { _, _ -> }
             activity.setContentView(block.container)
         }
     }

@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
+import android.text.Layout
 import android.text.Spanned
 import android.text.style.ImageSpan
 import android.util.Log
@@ -40,6 +41,7 @@ import reikai.presentation.reader.text.DrawableWrapper
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.ReadAloudMark
+import reikai.presentation.reader.text.RubySpan
 import reikai.presentation.reader.text.pngOf
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -857,6 +859,173 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val gap = paragraphLines(WRAPPING_PARAGRAPH).first().top - paragraphLines(SHORT_PARAGRAPH).last().top
         val expected = (readerTestSettings.lineHeight + readerTestSettings.paragraphSpacing) * textSizePx()
         assertEquals(expected, gap, TYPE_SLACK_PX)
+    }
+
+    @Test
+    fun aLinkIsDrawnInTheTextColour() {
+        open(chapter(FIRST, "<p>See <a href=\"https://example.com/\">the site</a>.</p>"))
+        val expected = android.graphics.Color.parseColor(readerTestSettings.textColor)
+        assertEquals(Integer.toHexString(expected), Integer.toHexString(linkColour()))
+    }
+
+    @Test
+    fun aSuperscriptIsSetSmallerThanItsText() {
+        open(chapter(FIRST, "<p>Mass 88<sup>77</sup> kilograms.</p>"))
+        assertTrue(runWidth("77") < runWidth("88") * SCRIPT_MAX_RATIO)
+    }
+
+    @Test
+    fun aRuleStandsAtLeastALineBetweenTheParagraphsAroundIt() {
+        open(chapter(FIRST, "<p>$ABOVE_RULE</p><p>$BELOW_RULE</p>"))
+        val plain = textBox(BELOW_RULE).top - textBox(ABOVE_RULE).top
+        open(chapter(SECOND, "<p>$ABOVE_RULE</p><hr><p>$BELOW_RULE</p>"))
+        val ruled = textBox(BELOW_RULE).top - textBox(ABOVE_RULE).top
+        assertTrue("$ruled against $plain", ruled - plain >= readerTestSettings.lineHeight * textSizePx())
+    }
+
+    /** The space alone once passed while the line itself had been dropped. */
+    @Test
+    fun aRuleIsDrawnAcrossTheColumn() {
+        open(chapter(FIRST, "<p>$ABOVE_RULE</p><hr><p>$BELOW_RULE</p>"))
+        val from = textBox(ABOVE_RULE).bottom.roundToInt()
+        val to = textBox(BELOW_RULE).top.roundToInt()
+        val background = android.graphics.Color.parseColor(readerTestSettings.backgroundColor)
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val row = IntArray(shot.width)
+        val drawn = (from until to).any { y ->
+            shot.getPixels(row, 0, shot.width, 0, y, shot.width, 1)
+            row.count { it != background } > shot.width / 2
+        }
+        shot.recycle()
+        assertTrue("no rule between y $from and $to", drawn)
+    }
+
+    /** Wider than its reading, so a reading set beside the base would widen the run by its own width. */
+    @Test
+    fun aRubyReadingIsSetAboveItsBaseRatherThanBesideIt() {
+        // The plain run comes first, since the box found is the first one reading it.
+        val ruby = "<ruby>$RUBY_REFERENCE<rt>reading</rt></ruby>"
+        open(chapter(FIRST, "<p>A $RUBY_REFERENCE alone.</p><p>xx${ruby}yy after it.</p>"))
+        assertEquals(runWidth(RUBY_REFERENCE), rubyWidth(), TYPE_SLACK_PX)
+    }
+
+    @Test
+    fun aLinkToAPlaceInTheChapterScrollsThere() {
+        val target = "<p id=\"note\">$NOTE</p>"
+        open(chapter(FIRST, "<p><a href=\"#note\">$JUMP_LINK</a></p>${long("filler")}$target${long("after")}"))
+        val link = textBox(JUMP_LINK)
+        val at = IntArray(2).also { a -> instrumentation.runOnMainSync { view.getLocationOnScreen(a) } }
+        tap(link.centerX() - at[0], link.centerY() - at[1])
+        awaitWhile { abs(textBox(NOTE).top - at[1]) > textSizePx() * 3 }
+        // Past any scroll the same tap could start as a tap zone, which is how a link tap once undid its jump.
+        awaitScrollStill()
+        assertEquals(at[1].toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
+    private fun tap(x: Float, y: Float) {
+        instrumentation.runOnMainSync {
+            val down = SystemClock.uptimeMillis()
+            touch(MotionEvent.ACTION_DOWN, x, y, down, down)
+            touch(MotionEvent.ACTION_UP, x, y, down, down + DRAG_STEP_MS)
+        }
+    }
+
+    /** The on-screen box of the first run reading [text] in the chapter, a line's height tall. */
+    private fun textBox(text: String): RectF = when (renderer) {
+        Renderer.NATIVE -> {
+            lateinit var box: RectF
+            instrumentation.runOnMainSync {
+                val chunk = textViews().first { it.text.contains(text) }
+                val start = chunk.text.indexOf(text)
+                val layout = chunk.layout
+                val line = layout.getLineForOffset(start)
+                val at = IntArray(2).also(chunk::getLocationOnScreen)
+                val x = (at[0] + chunk.totalPaddingLeft).toFloat()
+                val y = (at[1] + chunk.totalPaddingTop).toFloat()
+                box = RectF(
+                    x + layout.getPrimaryHorizontal(start),
+                    y + layout.getLineTop(line),
+                    x + layout.getPrimaryHorizontal(start + text.length),
+                    y + layout.getLineBottom(line),
+                )
+            }
+            box
+        }
+        Renderer.WEB -> {
+            val at = IntArray(2)
+            instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+            val density = instrumentation.targetContext.resources.displayMetrics.density
+            val rect = JSONArray(
+                eval(
+                    "(function () { var t = ${JSONObject.quote(text)};" +
+                        " var root = document.getElementById('rk-chapters');" +
+                        " var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);" +
+                        " var n; while ((n = w.nextNode())) { var i = n.data.indexOf(t); if (i < 0) continue;" +
+                        " var r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + t.length);" +
+                        " var b = r.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }" +
+                        " return [0, 0, 0, 0]; })()",
+                ),
+            )
+            RectF(
+                at[0] + rect.getDouble(0).toFloat() * density,
+                at[1] + rect.getDouble(1).toFloat() * density,
+                at[0] + rect.getDouble(2).toFloat() * density,
+                at[1] + rect.getDouble(3).toFloat() * density,
+            )
+        }
+    }
+
+    /**
+     * How wide the first run reading [text] is set. Native measures the characters with their spans,
+     * since a precomputed layout reports positions only at word boundaries.
+     */
+    private fun runWidth(text: String): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var width = 0f
+            instrumentation.runOnMainSync {
+                val chunk = textViews().first { it.text.contains(text) }
+                val start = chunk.text.indexOf(text)
+                width = Layout.getDesiredWidth(chunk.text, start, start + text.length, chunk.paint)
+            }
+            width
+        }
+        Renderer.WEB -> textBox(text).width()
+    }
+
+    /** How wide the chapter's ruby is set, its reading included. */
+    private fun rubyWidth(): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var width = 0f
+            instrumentation.runOnMainSync {
+                val chunk = textViews().first { it.text.contains(RUBY_REFERENCE + "reading") }
+                val text = chunk.text as Spanned
+                val ruby = text.getSpans(0, text.length, RubySpan::class.java).single()
+                width = Layout.getDesiredWidth(text, text.getSpanStart(ruby), text.getSpanEnd(ruby), chunk.paint)
+            }
+            width
+        }
+        Renderer.WEB -> {
+            val density = instrumentation.targetContext.resources.displayMetrics.density
+            eval("document.querySelector('.rk-chapter ruby').getBoundingClientRect().width").toFloat() * density
+        }
+    }
+
+    /** Every text view the viewport shows, whatever it reads. */
+    private fun textViews(): List<TextView> = descendants(view).filterIsInstance<TextView>().filter { it.isShown }
+
+    private fun linkColour(): Int = when (renderer) {
+        Renderer.NATIVE -> {
+            var colour = 0
+            instrumentation.runOnMainSync { colour = textViews().first().linkTextColors.defaultColor }
+            colour
+        }
+        Renderer.WEB -> {
+            val rgb = eval("getComputedStyle(document.querySelector('.rk-chapter a')).color")
+                .trim('"')
+                .removePrefix("rgb(").removeSuffix(")")
+                .split(",").map { it.trim().toInt() }
+            android.graphics.Color.rgb(rgb[0], rgb[1], rgb[2])
+        }
     }
 
     /** The test settings' text size on screen, which each renderer scales by the system font size. */
@@ -1766,6 +1935,14 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val TYPE_SLACK_PX = 2f
         const val SHORT_PARAGRAPH = "A short paragraph."
         val WRAPPING_PARAGRAPH = "A paragraph long enough to wrap across several lines of the screen. ".repeat(6).trim()
+
+        /** Under the 0.7 both renderers set a script at, over a glyph's rounding. */
+        const val SCRIPT_MAX_RATIO = 0.85f
+        const val ABOVE_RULE = "The paragraph above the rule."
+        const val BELOW_RULE = "The paragraph below the rule."
+        const val RUBY_REFERENCE = "WWWW"
+        const val JUMP_LINK = "Jump to the note"
+        const val NOTE = "The note the link names."
 
         val transitionsOff = readerTestSettings.copy(alwaysShowChapterTransition = false)
 

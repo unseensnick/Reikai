@@ -45,7 +45,10 @@ object NovelTextStyle {
             (settings.margins.right * density).toInt(),
             lineExtra.coerceAtLeast(0f).roundToInt(),
         )
-        view.setTextColor(parseColor(settings.textColor, Color.BLACK))
+        val textColor = parseColor(settings.textColor, Color.BLACK)
+        view.setTextColor(textColor)
+        // Underlined in the text colour, as the WebView page draws a link, not the theme's accent.
+        view.setLinkTextColor(textColor)
         applyAlignment(view, settings.textAlign)
     }
 

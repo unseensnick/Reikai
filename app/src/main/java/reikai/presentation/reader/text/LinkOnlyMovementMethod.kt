@@ -34,7 +34,11 @@ object LinkOnlyMovementMethod : MovementMethod {
         val offset = layout.getOffsetForHorizontal(line, x.toFloat())
         val links = buffer.getSpans(offset, offset, ClickableSpan::class.java)
         if (links.isEmpty()) return false
-        if (action == MotionEvent.ACTION_UP) links[0].onClick(widget)
+        if (action == MotionEvent.ACTION_UP) {
+            // The view queued its own click before this ran, and the reader takes a click as a tap zone.
+            widget.cancelPendingInputEvents()
+            links[0].onClick(widget)
+        }
         return true
     }
 }

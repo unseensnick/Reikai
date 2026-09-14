@@ -85,7 +85,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                     )
                 }
             }
-            renderer = NovelTextRenderer(activity, scope)
+            renderer = NovelTextRenderer(activity, scope) { _, _ -> }
             activity.setContentView(block.container)
         }
         runBlocking(Dispatchers.Main) {

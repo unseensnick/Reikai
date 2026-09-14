@@ -33,6 +33,7 @@ import mihon.app.di.appGraph
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
+import reikai.presentation.reader.text.AnchorSpan
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
@@ -91,7 +92,7 @@ class NovelTextViewport(
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val renderer = NovelTextRenderer(context, scope)
+    private val renderer = NovelTextRenderer(context, scope, ::jumpToAnchor)
 
     /** The latest settings the viewport was given, which every chapter is built with. The host hands
      *  the window verbs the value it read when the window changed, and a change may have landed since. */
@@ -671,6 +672,18 @@ class NovelTextViewport(
         return LineAnchor(view, offset, y)
     }
 
+    /** Puts the line holding anchor [index] of [widget]'s chapter at the top, as the page jumps to a fragment. */
+    private fun jumpToAnchor(widget: TextView, index: Int) {
+        val block = slots.firstOrNull { widget in it.block.chunkViews }?.block ?: return
+        for (view in block.chunkViews) {
+            val text = view.text as? Spanned ?: continue
+            val anchor = text.getSpans(0, text.length, AnchorSpan::class.java).firstOrNull { it.index == index }
+                ?: continue
+            lineTopOf(view, text.getSpanStart(anchor))?.let { recycler.scrollBy(0, it) }
+            return
+        }
+    }
+
     /** Where the line holding [offset] starts, in the recycler's coordinates. */
     private fun lineTopOf(view: TextView, offset: Int): Int? {
         val layout = view.layout ?: return null
@@ -1074,7 +1087,7 @@ class NovelTextViewport(
             // Selectable text has one tap owner, the watcher, so a click listener here would double
             // every tap: the Editor swallows a click on the text but not one past its last line.
             // Without selection the click is the owner instead, because LinkOnlyMovementMethod
-            // declines a tap that is not on a link and only then lets it through to here.
+            // cancels the click a tap on a link queued and lets every other tap through to here.
             if (!textSelectable) setOnClickListener { onTap(touchDownX, touchDownY) }
             // Off on both branches: the click is dispatched by the movement method below, so leaving
             // it on would let the framework fire its own unchecked intent for the same tap.

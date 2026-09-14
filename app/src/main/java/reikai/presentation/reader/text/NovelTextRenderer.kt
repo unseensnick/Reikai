@@ -4,6 +4,9 @@ import android.content.Context
 import android.text.Html
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.RelativeSizeSpan
+import android.text.style.SubscriptSpan
+import android.text.style.SuperscriptSpan
 import android.util.TypedValue
 import android.widget.TextView
 import androidx.core.text.PrecomputedTextCompat
@@ -30,6 +33,8 @@ import org.jsoup.nodes.TextNode
 class NovelTextRenderer(
     private val context: Context,
     private val scope: CoroutineScope,
+    /** A link to a place in its own chapter was tapped: [AnchorSpan] [Int] of the chunk view's text. */
+    private val onAnchor: (widget: TextView, index: Int) -> Unit,
 ) {
 
     /**
@@ -96,11 +101,13 @@ class NovelTextRenderer(
                     normalizeHtmlForRendering(html, baseUrl),
                     Html.FROM_HTML_MODE_LEGACY,
                     imageGetter,
-                    RubyReadingTagHandler,
+                    NovelChapterTags,
                 )
                 SpannableStringBuilder(spanned)
                     .also { collapseBlankLines(it) }
-                    .also { NovelChapterLinks.apply(it, context) }
+                    .also { NovelChapterTags.placeRules(it) }
+                    .also { shrinkScripts(it) }
+                    .also { NovelChapterLinks.apply(it, context, onAnchor) }
                     .also { if (bionic) NovelBionicSpans.apply(it) }
             }
 
@@ -197,6 +204,7 @@ class NovelTextRenderer(
     private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
         val doc = Jsoup.parse(html, baseUrl.orEmpty())
         doc.select("style, script").remove()
+        NovelChapterTags.prepare(doc)
         unwrapPictureSources(doc)
         rebuildBlockLayout(doc)
         val targetWidth = context.resources.displayMetrics.widthPixels
@@ -213,7 +221,9 @@ class NovelTextRenderer(
         // The WebView mode loads the chapter with this base, so its relative links arrive absolute and
         // open in the browser. Left relative here they reach the link policy as a non-http URL, which
         // it blocks, and the tap did nothing with nothing said.
-        doc.select("a[href]").forEach { resolveAgainstBase(it, "href") }
+        doc.select("a[href]")
+            .filterNot { it.attr("href").startsWith(NovelChapterTags.ANCHOR_HREF) }
+            .forEach { resolveAgainstBase(it, "href") }
         doc.body().html()
     } catch (_: Exception) {
         html
@@ -350,6 +360,19 @@ class NovelTextRenderer(
                 i--
             }
         }
+
+        /** `Html.fromHtml` raises `sup` and lowers `sub` at full size; the WebView page sets both at 0.7em. */
+        internal fun shrinkScripts(text: SpannableStringBuilder) {
+            val scripts: List<Any> = text.getSpans(0, text.length, SuperscriptSpan::class.java).toList() +
+                text.getSpans(0, text.length, SubscriptSpan::class.java)
+            scripts.forEach { script ->
+                val start = text.getSpanStart(script)
+                val end = text.getSpanEnd(script)
+                text.setSpan(RelativeSizeSpan(SCRIPT_SCALE), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+
+        private const val SCRIPT_SCALE = 0.7f
 
         private val whitespace = Regex("\\s+")
         private val widthDescriptor = Regex("^(\\d+)w$")

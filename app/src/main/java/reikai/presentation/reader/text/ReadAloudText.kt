@@ -1,11 +1,8 @@
 package reikai.presentation.reader.text
 
-import android.text.Editable
-import android.text.Html
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.UnderlineSpan
-import org.xml.sax.XMLReader
 
 /**
  * A paragraph of one chunk, as read-aloud counts it (`ReadAloudSurface`). [start] and [end] bound its
@@ -60,30 +57,6 @@ private fun Char.isReadAloudSpace() =
 
 /** A ruby reading (`rt`, `rp`): drawn with the text, never spoken as part of it. */
 internal class RubyReadingSpan
-
-/**
- * Marks what `Html.fromHtml` reads inside `rt` and `rp`, which it passes to a tag handler as unknown
- * tags and otherwise keeps as plain text. The open tag's position rides on the output as a mark span,
- * so the handler holds no state and one instance serves every render.
- */
-internal object RubyReadingTagHandler : Html.TagHandler {
-
-    private class Open
-
-    override fun handleTag(opening: Boolean, tag: String, output: Editable, xmlReader: XMLReader) {
-        if (!tag.equals("rt", ignoreCase = true) && !tag.equals("rp", ignoreCase = true)) return
-        if (opening) {
-            output.setSpan(Open(), output.length, output.length, Spanned.SPAN_MARK_MARK)
-            return
-        }
-        val open = output.getSpans(0, output.length, Open::class.java).lastOrNull() ?: return
-        val start = output.getSpanStart(open)
-        output.removeSpan(open)
-        if (start < output.length) {
-            output.setSpan(RubyReadingSpan(), start, output.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        }
-    }
-}
 
 /** Every span the read-aloud mark is drawn with, so clearing it finds them whatever copied the text. */
 internal interface ReadAloudMark
