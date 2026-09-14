@@ -270,6 +270,25 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(listOf(FIRST), endsSeen.toList())
     }
 
+    /** The model can drop a report (an open still landing), so reopening is its one chance to hear it. */
+    @Test
+    fun reopeningAChapterSaysItsEndWasSeenAgain() {
+        open(chapter(FIRST, "<p>short</p>"))
+        awaitWhile { endsSeen.isEmpty() }
+        endsSeen.clear()
+        open(chapter(FIRST, "<p>short</p>"))
+        awaitWhile { endsSeen.isEmpty() }
+        assertEquals(listOf(FIRST), endsSeen.toList())
+    }
+
+    @Test
+    fun reopeningAChapterSaysWhetherItFitsAgain() {
+        open(chapter(FIRST, "<p>short</p>"))
+        fits.clear()
+        open(chapter(FIRST, "<p>short</p>"))
+        assertEquals(true, fits[FIRST])
+    }
+
     @Test
     fun aLongChapterSaysNothingWhileItsEndIsOffScreen() {
         open(chapter(FIRST, long("first")))

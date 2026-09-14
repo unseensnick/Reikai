@@ -298,6 +298,9 @@ class NovelTextViewport(
         redraw = null
         spokenParagraph = null
         evictAll()
+        // A new window reports afresh, as the web page does, since the model may have dropped the last.
+        reportedFits.clear()
+        reportedEnds.clear()
         add(chapter, atEnd = true, landing = Landing.Share(chapter.progressPercent / 100f))
     }
 
