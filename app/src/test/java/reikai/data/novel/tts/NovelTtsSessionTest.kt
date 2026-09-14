@@ -4,7 +4,6 @@ import android.support.v4.media.session.PlaybackStateCompat
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import reikai.data.novel.tts.NovelTtsSession.Capability
 import reikai.domain.novel.tts.TtsPlayback
 
 class NovelTtsSessionTest {
@@ -18,34 +17,15 @@ class NovelTtsSessionTest {
     }
 
     @Test
-    fun `a state published without a capability offers only play, pause and stop`() {
-        NovelTtsSession.State(TtsPlayback.Playing, "").capability shouldBe Capability.PlayPauseStop
+    fun `read-aloud offers the system step and seek`() {
+        MEDIA_SESSION_ACTIONS and stepAndSeek shouldBe stepAndSeek
     }
 
     @Test
-    fun `an owner that only plays offers the system no step or seek`() {
-        mediaSessionActions(Capability.PlayPauseStop) and stepAndSeek shouldBe 0L
-    }
-
-    @Test
-    fun `an owner reading by paragraph offers the system step and seek`() {
-        mediaSessionActions(Capability.Paragraphs(index = 1, count = 3)) and stepAndSeek shouldBe stepAndSeek
-    }
-
-    @Test
-    fun `an owner that only plays cannot hold the end of chapter timer`() {
+    fun `reading on holds the end of chapter timer`() {
         NovelTtsSession.sleepTimer.setEndOfChapter()
 
-        NovelTtsSession.publish(NovelTtsSession.State(TtsPlayback.Playing, "title"))
-
-        NovelTtsSession.sleepTimer.timer.value shouldBe SleepTimer.Off
-    }
-
-    @Test
-    fun `an owner reading by paragraph holds the end of chapter timer`() {
-        NovelTtsSession.sleepTimer.setEndOfChapter()
-
-        NovelTtsSession.publish(NovelTtsSession.State(TtsPlayback.Playing, "title", Capability.Paragraphs(0, 3)))
+        NovelTtsSession.publish(NovelTtsSession.State(TtsPlayback.Playing, "title", paragraph = 0, paragraphCount = 3))
 
         NovelTtsSession.sleepTimer.timer.value shouldBe SleepTimer.EndOfChapter
     }
@@ -54,7 +34,7 @@ class NovelTtsSessionTest {
     fun `publishing stopped clears the sleep timer`() {
         NovelTtsSession.sleepTimer.setEndOfChapter()
 
-        NovelTtsSession.publish(NovelTtsSession.State(TtsPlayback.Stopped, "", Capability.Paragraphs(0, 0)))
+        NovelTtsSession.publish(NovelTtsSession.State(TtsPlayback.Stopped, ""))
 
         NovelTtsSession.sleepTimer.timer.value shouldBe SleepTimer.Off
     }

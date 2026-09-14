@@ -28,7 +28,6 @@ internal val readerTestSettings = NovelReaderSettings(
     ttsHighlightTextColor = 0xFF1A1A1A.toInt(),
     ttsKeepInView = true,
     bionicReading = false,
-    removeExtraSpacing = false,
     tapToScroll = true,
     swipeGestures = true,
     showProgressPercentage = false,

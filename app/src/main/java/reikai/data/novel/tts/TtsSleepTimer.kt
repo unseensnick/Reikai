@@ -67,8 +67,8 @@ class TtsSleepTimer(private val clock: () -> Long) {
         return true
     }
 
-    fun onPublished(stopped: Boolean, reportsChapterEnd: Boolean) {
-        if (stopped || (!reportsChapterEnd && timer.value == SleepTimer.EndOfChapter)) clear()
+    fun onPublished(stopped: Boolean) {
+        if (stopped) clear()
     }
 
     companion object {

@@ -14,19 +14,12 @@ import reikai.domain.novel.tts.TtsPlayback
  */
 object NovelTtsSession {
 
-    /** What the owner playing can do beyond play, pause and stop, so no control it cannot answer is shown. */
-    sealed interface Capability {
-
-        data object PlayPauseStop : Capability
-
-        /** Reads paragraph by paragraph, so it can step, seek, and stop at a chapter's end. */
-        data class Paragraphs(val index: Int, val count: Int) : Capability
-    }
-
+    /** Read-aloud steps by paragraph, so the service shows [paragraph] of [paragraphCount] as its seek bar. */
     data class State(
         val playback: TtsPlayback,
         val title: String,
-        val capability: Capability = Capability.PlayPauseStop,
+        val paragraph: Int = 0,
+        val paragraphCount: Int = 0,
     )
 
     val state: StateFlow<State>
@@ -43,10 +36,7 @@ object NovelTtsSession {
 
     fun publish(value: State) {
         state.value = value
-        sleepTimer.onPublished(
-            stopped = value.playback == TtsPlayback.Stopped,
-            reportsChapterEnd = value.capability is Capability.Paragraphs,
-        )
+        sleepTimer.onPublished(stopped = value.playback == TtsPlayback.Stopped)
     }
 
     fun reset() {

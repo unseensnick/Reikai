@@ -293,12 +293,11 @@ class NovelReaderViewModel(
             ) { scrollToTop, highlight -> TtsPrefs(scrollToTop, highlight) },
             combine(
                 novelPreferences.readerBionicReading().changes(),
-                novelPreferences.readerRemoveExtraSpacing().changes(),
                 novelPreferences.readerTapToScroll().changes(),
                 novelPreferences.readerSwipeGestures().changes(),
                 novelPreferences.readerShowProgressPercentage().changes(),
-            ) { bionic, spacing, tapScroll, swipe, showProgress ->
-                FlagPrefs(bionic, spacing, tapScroll, swipe, showProgress)
+            ) { bionic, tapScroll, swipe, showProgress ->
+                FlagPrefs(bionic, tapScroll, swipe, showProgress)
             },
             combine(
                 novelPreferences.readerAutoScroll().changes(),
@@ -339,7 +338,6 @@ class NovelReaderViewModel(
             ttsHighlightTextColor = extra.tts.highlight.textColor,
             ttsKeepInView = extra.tts.highlight.keepInView,
             bionicReading = extra.flags.bionicReading,
-            removeExtraSpacing = extra.flags.removeExtraSpacing,
             tapToScroll = extra.flags.tapToScroll,
             swipeGestures = extra.flags.swipeGestures,
             showProgressPercentage = extra.flags.showProgressPercentage,
@@ -968,7 +966,6 @@ class NovelReaderViewModel(
             ttsHighlightTextColor = novelPreferences.readerTtsHighlightTextColor().get(),
             ttsKeepInView = novelPreferences.readerTtsKeepInView().get(),
             bionicReading = novelPreferences.readerBionicReading().get(),
-            removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
             tapToScroll = novelPreferences.readerTapToScroll().get(),
             swipeGestures = novelPreferences.readerSwipeGestures().get(),
             showProgressPercentage = novelPreferences.readerShowProgressPercentage().get(),
@@ -1377,7 +1374,6 @@ class NovelReaderViewModel(
     )
     private data class FlagPrefs(
         val bionicReading: Boolean,
-        val removeExtraSpacing: Boolean,
         val tapToScroll: Boolean,
         val swipeGestures: Boolean,
         val showProgressPercentage: Boolean,

@@ -78,7 +78,7 @@ class TtsSleepTimerTest {
     fun `stopping clears a countdown`() {
         sleepTimer.setMinutes(30)
 
-        sleepTimer.onPublished(stopped = true, reportsChapterEnd = true)
+        sleepTimer.onPublished(stopped = true)
 
         sleepTimer.timer.value shouldBe SleepTimer.Off
     }
@@ -87,7 +87,7 @@ class TtsSleepTimerTest {
     fun `playing on keeps a countdown`() {
         sleepTimer.setMinutes(30)
 
-        sleepTimer.onPublished(stopped = false, reportsChapterEnd = false)
+        sleepTimer.onPublished(stopped = false)
 
         sleepTimer.timer.value shouldBe at
     }
@@ -115,19 +115,10 @@ class TtsSleepTimerTest {
     }
 
     @Test
-    fun `an owner that cannot report chapter ends drops the end of chapter timer`() {
+    fun `playing on keeps the end of chapter timer`() {
         sleepTimer.setEndOfChapter()
 
-        sleepTimer.onPublished(stopped = false, reportsChapterEnd = false)
-
-        sleepTimer.timer.value shouldBe SleepTimer.Off
-    }
-
-    @Test
-    fun `an owner that reports chapter ends keeps the end of chapter timer`() {
-        sleepTimer.setEndOfChapter()
-
-        sleepTimer.onPublished(stopped = false, reportsChapterEnd = true)
+        sleepTimer.onPublished(stopped = false)
 
         sleepTimer.timer.value shouldBe SleepTimer.EndOfChapter
     }

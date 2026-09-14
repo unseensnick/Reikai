@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import reikai.data.novel.tts.NovelTtsSession.Capability
 import reikai.domain.novel.tts.TtsPlayback
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -135,14 +134,10 @@ class NovelTtsService : Service() {
         override fun onSkipToNext() = next()
         override fun onSkipToPrevious() = previous()
 
-        override fun onSeekTo(pos: Long) {
-            if (NovelTtsSession.state.value.capability is Capability.Paragraphs) {
-                NovelTtsSession.onSeek((pos / PARAGRAPH_MS).toInt())
-            }
-        }
+        override fun onSeekTo(pos: Long) = NovelTtsSession.onSeek((pos / PARAGRAPH_MS).toInt())
 
         // Mapped here rather than by the default, which holds a headset tap back to watch for a double
-        // tap and reads that as skip even for an owner that cannot step.
+        // tap before acting on it and reads that as skip.
         override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
             val event = IntentCompat.getParcelableExtra(mediaButtonEvent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
                 ?: return false
@@ -169,13 +164,9 @@ class NovelTtsService : Service() {
         NovelTtsSession.onPause()
     }
 
-    private fun next() {
-        if (NovelTtsSession.state.value.capability is Capability.Paragraphs) NovelTtsSession.onNext()
-    }
+    private fun next() = NovelTtsSession.onNext()
 
-    private fun previous() {
-        if (NovelTtsSession.state.value.capability is Capability.Paragraphs) NovelTtsSession.onPrevious()
-    }
+    private fun previous() = NovelTtsSession.onPrevious()
 
     private fun render(state: NovelTtsSession.State) {
         carryOut(focusPolicy.onPlayback(state.playback))
@@ -263,26 +254,23 @@ class NovelTtsService : Service() {
     }
 
     private fun updateMediaSession(state: NovelTtsSession.State) {
-        val paragraphs = state.capability as? Capability.Paragraphs
         mediaSession.setMetadata(
             MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, contentTitle(state))
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, stringResource(MR.strings.tts_novel_read_aloud))
-                .apply {
-                    paragraphs?.let { putLong(MediaMetadataCompat.METADATA_KEY_DURATION, it.count * PARAGRAPH_MS) }
-                }
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, state.paragraphCount * PARAGRAPH_MS)
                 .build(),
         )
         mediaSession.setPlaybackState(
             PlaybackStateCompat.Builder()
-                .setActions(mediaSessionActions(state.capability))
+                .setActions(MEDIA_SESSION_ACTIONS)
                 .setState(
                     if (state.playback == TtsPlayback.Playing) {
                         PlaybackStateCompat.STATE_PLAYING
                     } else {
                         PlaybackStateCompat.STATE_PAUSED
                     },
-                    paragraphs?.let { it.index * PARAGRAPH_MS } ?: PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                    state.paragraph * PARAGRAPH_MS,
                     0f,
                 )
                 .build(),
@@ -303,19 +291,16 @@ class NovelTtsService : Service() {
             action(R.drawable.ic_play_arrow_24dp, stringResource(MR.strings.action_resume), ACTION_PLAY)
         }
         val stop = action(R.drawable.ic_close_24dp, stringResource(MR.strings.tts_stop), ACTION_STOP)
-        val steps = state.capability is Capability.Paragraphs
-        val actions = if (steps) {
-            val previous = stringResource(MR.strings.tts_previous_paragraph)
-            val next = stringResource(MR.strings.tts_next_paragraph)
-            listOf(
-                action(R.drawable.ic_skip_previous_24dp, previous, ACTION_PREVIOUS),
-                playPause,
-                action(R.drawable.ic_skip_next_24dp, next, ACTION_NEXT),
-                stop,
-            )
-        } else {
-            listOf(playPause, stop)
-        }
+        val actions = listOf(
+            action(
+                R.drawable.ic_skip_previous_24dp,
+                stringResource(MR.strings.tts_previous_paragraph),
+                ACTION_PREVIOUS,
+            ),
+            playPause,
+            action(R.drawable.ic_skip_next_24dp, stringResource(MR.strings.tts_next_paragraph), ACTION_NEXT),
+            stop,
+        )
         return NotificationCompat.Builder(this, Notifications.CHANNEL_NOVEL_TTS)
             .setSmallIcon(R.drawable.ic_reikai)
             .setContentTitle(contentTitle(state))
@@ -324,7 +309,7 @@ class NovelTtsService : Service() {
             .setStyle(
                 MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
-                    .setShowActionsInCompactView(*if (steps) intArrayOf(0, 1, 2) else intArrayOf(0, 1)),
+                    .setShowActionsInCompactView(0, 1, 2),
             )
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(playing)
@@ -386,14 +371,8 @@ class NovelTtsService : Service() {
  */
 internal const val PARAGRAPH_MS = 1_000L
 
-/** Only controls the owner can answer, so the system never shows one that does nothing. */
-internal fun mediaSessionActions(capability: Capability): Long {
-    val playback = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
-        PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_STOP
-    return when (capability) {
-        Capability.PlayPauseStop -> playback
-        is Capability.Paragraphs ->
-            playback or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_SEEK_TO
-    }
-}
+/** Every control read-aloud answers: it steps and seeks by paragraph as well as playing. */
+internal val MEDIA_SESSION_ACTIONS = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
+    PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_STOP or
+    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+    PlaybackStateCompat.ACTION_SEEK_TO

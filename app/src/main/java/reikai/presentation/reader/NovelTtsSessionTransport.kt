@@ -33,8 +33,7 @@ class NovelTtsSessionTransport(private val context: Context) : ReadAloudTranspor
 
     override fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int) {
         if (!owns()) return
-        val capability = NovelTtsSession.Capability.Paragraphs(paragraph, paragraphCount)
-        NovelTtsSession.publish(NovelTtsSession.State(playback, title, capability))
+        NovelTtsSession.publish(NovelTtsSession.State(playback, title, paragraph, paragraphCount))
     }
 
     override fun takeStopAtChapterEnd() = owns() && NovelTtsSession.sleepTimer.takeEndOfChapter()
