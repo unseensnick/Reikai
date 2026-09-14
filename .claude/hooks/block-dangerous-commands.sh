@@ -120,14 +120,15 @@ fi
 
 # ── PowerShell destructive operations ───────────────────────────────────
 # PowerShell has its own spelling for everything above and the POSIX patterns
-# see none of it. Parameter names may be truncated (-Recurse accepts -Rec), so
-# the recurse switch is matched loosely.
-PS_DEL='(^|[;&|(){}[:space:]])(Remove-Item|Remove-ItemProperty|ri|rmdir|rd|del|erase)[[:space:]]'
+# see none of it. `rm` is PowerShell's own alias for Remove-Item, and a parameter
+# name may be cut to any unambiguous prefix (-Recurse accepts -r), so the
+# recurse switch is matched from its first letter.
+PS_DEL='(^|[;&|(){}[:space:]])(Remove-Item|Remove-ItemProperty|ri|rm|rmdir|rd|del|erase)[[:space:]]'
 PS_ROOT='([A-Za-z]:\\?([[:space:]*]|$)|~([[:space:]\\/]|$)|\$HOME|\$env:USERPROFILE|\$env:HOMEDRIVE|\$env:SystemRoot|\$[A-Za-z_][A-Za-z0-9_]*([[:space:]]|$)|\.\.[\\/]\.\.)'
 PS_SYSDIR='[A-Za-z]:\\(Windows|Program Files|Program Files \(x86\)|Users|ProgramData)([[:space:]\\]|$)'
 
 if printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_DEL"; then
-  if printf '%s' "$CMD_NOQUOTE" | grep -qiE -- '-Rec(u|ur|urs|urse)?([[:space:]]|$)' \
+  if printf '%s' "$CMD_NOQUOTE" | grep -qiE -- '-R(e(c(u(r(s(e)?)?)?)?)?)?([[:space:]]|$)' \
      && printf '%s' "$CMD_NOQUOTE" | grep -qiE "$PS_ROOT"; then
     emit_deny "Blocked: recursive PowerShell delete on a drive root, home, or unresolved \$variable. Specify a concrete safe target."
   fi

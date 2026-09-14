@@ -1,0 +1,5 @@
+{
+  "name": "allow PowerShell rm alias recursive delete of a scoped subdirectory",
+  "stdin": { "tool_input": { "command": "rm -r -Force .\\build\\cache" } },
+  "expect_exit": 0
+}

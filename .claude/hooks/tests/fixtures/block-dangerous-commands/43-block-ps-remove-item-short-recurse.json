@@ -1,0 +1,6 @@
+{
+  "name": "block Remove-Item with the recurse switch cut to -r on home",
+  "stdin": { "tool_input": { "command": "Remove-Item -r -Force ~" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "recursive PowerShell delete"]
+}

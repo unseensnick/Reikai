@@ -1,0 +1,6 @@
+{
+  "name": "block PowerShell rm alias recursive delete of home",
+  "stdin": { "tool_input": { "command": "rm -Recurse -Force ~" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "recursive PowerShell delete"]
+}

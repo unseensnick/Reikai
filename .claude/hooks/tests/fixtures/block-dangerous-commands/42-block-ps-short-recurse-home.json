@@ -1,0 +1,6 @@
+{
+  "name": "block PowerShell recursive delete of $HOME with the switch cut to -r",
+  "stdin": { "tool_input": { "command": "rm -r -fo $HOME" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny"]
+}
