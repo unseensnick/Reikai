@@ -25,13 +25,13 @@ import org.json.JSONObject
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.presentation.reader.text.NovelSeam
+import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
-import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
@@ -99,7 +99,6 @@ class NovelWebViewport(
      * host's first append and prepend arrive while the page is still an empty frame, where the call
      * would find no engine and be dropped without a trace. Held in order and flushed on ready.
      */
-    private var pageReady = false
     private val pendingWindowVerbs = mutableListOf<PendingCall>()
 
     /** A call held for the page, with where its result goes when the caller wants one. */
@@ -112,13 +111,9 @@ class NovelWebViewport(
      */
     private val awaitingResult = mutableSetOf<PendingCall>()
 
-    /**
-     * The document built last, the only one whose calls the host hears and whose ready report opens the
-     * gate. The page being replaced can still report after the next load has begun, and a chapter's own
-     * script can reach the bridge too; either one opening it sent the new document's verbs to a page
-     * that dropped them.
-     */
-    private var documentToken: String? = null
+    /** Which document the host hears, and whether it has reported ready. A stale ready opening it sent
+     *  the new document's verbs to a page that dropped them. */
+    private val gate = NovelDocumentGate()
 
     /**
      * The chapters the open document holds, in reading order, as the verbs sent to it leave them. A
@@ -163,14 +158,9 @@ class NovelWebViewport(
         }
         addJavascriptInterface(
             NovelWebBridge(
-                // Only the document built last is heard, and its reports only once it has reported
-                // ready, which it does before anything else: the page being replaced goes on reporting
-                // until it unloads, about a window the model has already let go of. All on one thread,
-                // so a live progress report still queued cannot land after a settled one.
-                fromDocument = { token, call ->
-                    mainHandler.post { if (pageReady && token == documentToken) call() }
-                },
-                fromReader = { token, call -> mainHandler.post { if (token == documentToken) call() } },
+                // All on one thread, so a live progress report still queued cannot land after a settled one.
+                fromDocument = { token, call -> mainHandler.post { if (gate.admitsReport(token)) call() } },
+                fromReader = { token, call -> mainHandler.post { if (gate.admitsReaderCall(token)) call() } },
                 onVisibleChapter = { id ->
                     visibleChapterId = id
                     onVisibleChapter(id)
@@ -254,15 +244,13 @@ class NovelWebViewport(
         visibleChapterId = chapter.chapterId
         // A new document has no engine until it says so, and whatever the old one had queued belongs
         // to a window that is being replaced.
-        pageReady = false
         dropPendingCalls()
         held.clear()
         held += chapter
         shownPrevious = null
         shownNext = null
         shownEnd = null
-        val token = UUID.randomUUID().toString()
-        documentToken = token
+        val token = gate.open()
         // The document is built with this family's face, and any swap still resolving is for the old page.
         faceJob?.cancel()
         faceFamily = settings.fontFamily
@@ -458,7 +446,7 @@ class NovelWebViewport(
     private fun runOrQueue(js: String, onResult: ((String?) -> Unit)? = null) {
         val call = PendingCall(js, onResult)
         if (onResult != null) awaitingResult += call
-        if (pageReady) {
+        if (gate.isReady) {
             evaluate(call)
         } else {
             pendingWindowVerbs += call
@@ -525,8 +513,7 @@ class NovelWebViewport(
     }
 
     private fun onPageReady(token: String) {
-        if (token != documentToken) return
-        pageReady = true
+        if (!gate.markReady(token)) return
         // Ahead of the held calls, which can be read-aloud questions the covered edges answer.
         pushObscured()
         pendingWindowVerbs.forEach(::evaluate)
