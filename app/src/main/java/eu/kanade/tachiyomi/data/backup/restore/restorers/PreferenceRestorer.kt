@@ -20,6 +20,8 @@ import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
+import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
+import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
@@ -117,6 +119,11 @@ class PreferenceRestorer(
             // would be silently dropped. Carried here through the same kernel, then not written back.
             if (key == DEAD_READER_PADDING_KEY) {
                 (value as? IntPreferenceValue)?.let { novelPreferences.carryReaderPaddingToMargins(it.value) }
+                return@forEach
+            }
+            // RK: keys only the retired standalone novel reader wrote; skip so an old backup can't
+            // resurrect them after the cleanup migration removed them.
+            if (key == DEAD_READER_TTS_ENABLED_KEY || key in DEAD_READER_TTS_BUTTON_KEYS) {
                 return@forEach
             }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that

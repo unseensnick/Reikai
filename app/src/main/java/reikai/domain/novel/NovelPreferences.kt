@@ -210,31 +210,7 @@ class NovelPreferences(
      *  twin of the manga reader's mark-read-on-skip. Opt-in. */
     fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)
 
-    // Brightness + colour filter. Novel-specific (independent of the manga reader's global
-    // ReaderPreferences, so each reader keeps its own); the shared ReaderContentOverlay renders them
-    // and brightness also drives the host window's screenBrightness.
-
-    /** Override the screen brightness while reading instead of following the system. */
-    fun readerCustomBrightness() = preferenceStore.getBoolean("ln_reader_custom_brightness", false)
-
-    /** Custom brightness, -75..100: positive sets the window brightness, negative dims via a black
-     *  overlay (below the system minimum), 0 = system brightness. */
-    fun readerCustomBrightnessValue() = preferenceStore.getInt("ln_reader_custom_brightness_value", 0)
-
-    /** Tint the reading surface with a colour overlay. */
-    fun readerColorFilter() = preferenceStore.getBoolean("ln_reader_color_filter", false)
-
-    /** Packed ARGB colour for the filter overlay. */
-    fun readerColorFilterValue() = preferenceStore.getInt("ln_reader_color_filter_value", 0)
-
-    /** Blend-mode index into `ReaderPreferences.ColorFilterMode`. */
-    fun readerColorFilterMode() = preferenceStore.getInt("ln_reader_color_filter_mode", 0)
-
-    // Text-to-speech (reader engine extras, round 2). The bundled `core.js` posts `speak` messages we
-    // voice with Android TextToSpeech; these prefs drive the engine + the WebView's `tts` settings block.
-
-    /** Master switch: show the floating play control and let `core.js` run TTS. Off by default. */
-    fun readerTtsEnabled() = preferenceStore.getBoolean("ln_reader_tts_enabled", false)
+    // Text-to-speech, read by ReadAloudController and the settings screen.
 
     /** Chosen `TextToSpeech` engine package (e.g. `com.google.android.tts`); empty = system default. */
     fun readerTtsEngine() = preferenceStore.getString("ln_reader_tts_engine", "")
@@ -276,11 +252,6 @@ class NovelPreferences(
 
     /** Whether the read-aloud controls float over the reader. Hiding them leaves playback running. */
     fun readerTtsControlsVisible() = preferenceStore.getBoolean("ln_reader_tts_controls_visible", false)
-
-    /** Persisted floating-puck position (dp offsets within the reader). [Int.MIN_VALUE] = not yet
-     *  placed, so the puck uses its default anchor. */
-    fun readerTtsButtonX() = preferenceStore.getInt("ln_reader_tts_button_x", Int.MIN_VALUE)
-    fun readerTtsButtonY() = preferenceStore.getInt("ln_reader_tts_button_y", Int.MIN_VALUE)
 
     /** Bold the start of each word (bionic reading) to ease skimming. */
     fun readerBionicReading() = preferenceStore.getBoolean("ln_reader_bionic_reading", false)
@@ -489,3 +460,12 @@ class NovelPreferences(
  * customised value into the four that replaced it.
  */
 const val DEAD_READER_PADDING_KEY = "ln_reader_padding"
+
+/**
+ * Keys only the retired standalone novel reader wrote: its read-aloud master switch and the floating
+ * play control's position. [mihon.core.migration.migrations.AddReadAloudBottomButtonMigration] still
+ * reads the switch before [mihon.core.migration.migrations.RetireLegacyNovelReaderKeysMigration] deletes
+ * all three.
+ */
+const val DEAD_READER_TTS_ENABLED_KEY = "ln_reader_tts_enabled"
+val DEAD_READER_TTS_BUTTON_KEYS = listOf("ln_reader_tts_button_x", "ln_reader_tts_button_y")

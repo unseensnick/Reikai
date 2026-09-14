@@ -7,7 +7,9 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
+import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 
@@ -21,6 +23,7 @@ import tachiyomi.core.common.util.system.logcat
 @Inject
 @ContributesIntoSet(AppScope::class)
 class AddReadAloudBottomButtonMigration(
+    private val preferenceStore: PreferenceStore,
     private val novelPreferences: NovelPreferences,
 ) : Migration {
     // RK: fires once when the shipped versionCode crosses 192, the version the read-aloud button ships in.
@@ -31,7 +34,8 @@ class AddReadAloudBottomButtonMigration(
 
         runCatching {
             val buttons = novelPreferences.readerBottomButtons()
-            if (!novelPreferences.readerTtsEnabled().get() || !buttons.isSet()) return@runCatching
+            val readAloudWasOn = preferenceStore.getBoolean(DEAD_READER_TTS_ENABLED_KEY, false).get()
+            if (!readAloudWasOn || !buttons.isSet()) return@runCatching
             buttons.set(buttons.get() + ReaderBottomButton.ReadAloud.value)
         }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to add the read-aloud button to the novel reader bar" }
