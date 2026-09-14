@@ -487,14 +487,14 @@ every release now also ships a foss build with neither in it.
 - The search bar and the tracker sign-in fields now use Compose's newer text-field implementation, and the reader's progress sliders its newer slider state, following a Compose bump synced from Mihon (mihonapp/mihon#3752).
 - Cancelling an extension install no longer goes through a local broadcast, which the Material library dropped at 1.14.0 (synced from Mihon, mihonapp/mihon#3226).
 - The app now compiles against Android SDK 37.1 (synced from Mihon).
-- Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer, Kim, and the benchmark and baseline-profile tooling were updated.
+- Dependency bumps synced from Mihon: Injekt, FlexibleAdapter and the SQLDelight AndroidX driver moved to their upstream releases, and the markdown renderer and the benchmark and baseline-profile tooling were updated.
 - Added an on-device test that measures how a scrolling list holds its position when content is inserted above the reader, to settle a design question for the upcoming novel reader. Test only, nothing in the app changed.
 - The bottom navigation and the tablet side rail are now drawn by Material's own adaptive navigation component instead of hand-rolled copies (synced from Mihon, mihonapp/mihon#3834).
 - The in-app browser and the Cloudflare bypass now present a consistent browser identity, so a site checking both the user agent and its client hints no longer sees them disagree (synced from Mihon, mihonapp/mihon#3678).
 - The tracker sign-in browser now presents that same identity, so a Cloudflare clearance earned while signing in stays valid for the requests that follow.
 - Category renames, reorders and flag changes each write through their own query instead of one update that touched every column (synced from Mihon, mihonapp/mihon#3693).
 - Looking up a source now waits for the extension scan instead of reading a half-built list, so a screen opened during startup gets a slow answer rather than a wrong one (synced from Mihon, mihonapp/mihon#3869). Novel sources changed the same way.
-- Translated strings refreshed across 56 locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677 and mihonapp/mihon#3701).
+- Translated strings refreshed across most locales (synced from Mihon, mihonapp/mihon#3563, mihonapp/mihon#3677, mihonapp/mihon#3701 and mihonapp/mihon#3938).
 - A shared crash log now carries verbose lines when verbose logging is on, instead of always filtering to errors (synced from Mihon, mihonapp/mihon#3682).
 - Extensions are now class-loaded through the platform's own delegate-last loader rather than a hand-rolled one (synced from Mihon, mihonapp/mihon#3874).
 - Dates and times are now handled by the Kotlin standard library and kotlinx-datetime rather than java.time, matching Mihon (synced from Mihon, mihonapp/mihon#3001).
@@ -512,7 +512,7 @@ every release now also ships a foss build with neither in it.
 - The pre-release channel is now called nightly rather than preview, matching Mihon (synced from Mihon, mihonapp/mihon#3760). The About screen and the release title say Nightly; downloads keep their file names and installs are unaffected.
 - The migration source list now saves its order off the UI thread, once per change instead of possibly twice.
 - Every list screen now stops querying a few seconds after you leave it, instead of running as long as the app does: the library, Recents, the source and extension lists, and the category, migration, cover and upcoming screens (synced from Mihon, mihonapp/mihon#3716 through mihonapp/mihon#3762).
-- Dependency updates: appcompat, paging, webkit, okhttp, kim, Firebase, the rich text editor behind manga notes, the image decoder, the subsampling image view and the baseline-profile plugin, plus the Kotlin, Android Gradle, dependency-injection and formatting build plugins (synced from Mihon).
+- Dependency updates: appcompat, paging, webkit, okhttp, Firebase, the rich text editor behind manga notes, the image decoder, the subsampling image view and the baseline-profile plugin, plus the Kotlin, Android Gradle, dependency-injection and formatting build plugins (synced from Mihon).
 - Installed extensions are now read off the main thread, so they no longer hold up a cold start (synced from Mihon, mihonapp/mihon#3788).
 - Extension trust is re-checked from the repo list itself rather than by the two screens that happened to change it, so adding or removing a repo anywhere re-checks straight away, and a re-check can no longer be undone by the startup scan finishing after it.
 - The app now wires its components together at build time instead of looking them up while running, closing a class of crash that only showed up in release builds (synced from Mihon, mihonapp/mihon#3608). The light-novel reader keeps the old wiring until it is rebuilt.

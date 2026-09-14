@@ -239,19 +239,14 @@
     <string name="ext_untrusted">अविश्वस्त</string>
     <string name="ext_uninstall">स्थापना रद्द करें</string>
     <string name="untrusted_extension">अविश्वस्त एक्सटेंशन</string>
-    <string name="untrusted_extension_message">यह एक्सटेंशन एक अविश्वस्त प्रमाणपत्र के साथ हस्ताक्षरित हुआ था और सक्रिय नहीं हुआ था।
-\n
-\nदुर्भावनापूर्ण विस्तार, किसी भी लॉगिन क्रेडेंशियल्स को ताचियोमी में संग्रहीत या मनमाना कोड निष्पादित कर सकता है
-\n
-\nइस प्रमाणपत्र पर विश्वास करके आप इन जोखिमों को स्वीकार करते हैं।</string>
+    <string name="untrusted_extension_message">यह एक्सटेंशन एक अविश्वस्त प्रमाणपत्र के साथ हस्ताक्षरित हुआ था और सक्रिय नहीं हुआ था। \n \nदुर्भावनापूर्ण विस्तार, किसी भी लॉगिन क्रेडेंशियल्स को ताचियोमी में संग्रहीत या मनमाना कोड निष्पादित कर सकता है \n \nइस प्रमाणपत्र पर विश्वास करके आप इन जोखिमों को स्वीकार करते हैं।</string>
     <string name="pref_double_tap_anim_speed">डबल टैप एनीमेशन गति</string>
     <string name="double_tap_anim_speed_0">कोई एनीमेशन नहीं</string>
     <string name="double_tap_anim_speed_normal">साधारण</string>
     <string name="double_tap_anim_speed_fast">तेज</string>
     <string name="manga_added_library">पुस्तकालय में जोड़ा गया</string>
     <string name="manga_removed_library">लाइब्रेरी से निकाला गया</string>
-    <string name="copied_to_clipboard">क्लिपबोर्ड पर नकल:
-\n%1$s</string>
+    <string name="copied_to_clipboard">क्लिपबोर्ड पर नकल: \n%1$s</string>
     <string name="migration_dialog_what_to_include">शामिल करने के लिए डेटा का चयन करें</string>
     <string name="migrate">प्रवास</string>
     <string name="copy">नकल</string>
@@ -284,8 +279,8 @@
     <string name="action_webview_forward">आगे की ओर</string>
     <string name="action_webview_refresh">रीफ़्रेश करें</string>
     <string name="pref_category_library">पुस्तकालय</string>
-    <string name="ext_obsolete">अप्रचलित</string>
-    <string name="obsolete_extension_message">यह एक्सटेंशन अब उपलब्ध नहीं है। यह अब शायद ठीक से काम न करे और मसला खड़ा करे। इसे अनइंस्टॉल करने की सलाह दी गई है।</string>
+    <string name="ext_obsolete">अनाथ</string>
+    <string name="obsolete_extension_message">यह एक्सटेंशन किसी भी स्टोर से संबद्ध नहीं है। इसे अपडेट नहीं मिलेंगे, यह ठीक से काम नहीं कर सकता और ऐप में समस्याएँ पैदा कर सकता है। इसे अनइंस्टॉल करने की सलाह दी जाती है।</string>
     <string name="pref_date_format">दिनांक स्वरूप</string>
     <string name="pref_category_library_update">वैश्विक अपडेट</string>
     <string name="logout_title">%1$s से लॉगआउट करें?</string>
@@ -649,7 +644,7 @@
     <string name="pref_update_only_in_release_period">अपेक्षित रिलीज़ अवधि से बाहर</string>
     <string name="pref_chapter_swipe_start">अध्यााय: बाएँ स्वाइप करें</string>
     <string name="library_sync_complete">लाइब्रेरी सिंक पूरा</string>
-    <string name="download_cache_invalidated">डाउनलोड अनुक्रमणिका अमान्य</string>
+    <string name="download_cache_invalidated">डाउनलोड इंडेक्स को पुनः बनाया जा रहा है</string>
     <string name="action_ok">ठीक है</string>
     <string name="pref_invalidate_download_cache">डाउनलोड फिर से अनुक्रमित करें</string>
     <string name="copied_to_clipboard_plain">क्लिपबोर्ड पर कॉपी हो गया है</string>
@@ -878,4 +873,52 @@
     <string name="pref_download_concurrent_sources">एक साथ स्रोत डाउनलोड</string>
     <string name="pref_download_concurrent_pages">एक साथ पेज डाउनलोड</string>
     <string name="pref_download_concurrent_pages_summary">प्रति स्रोत एक साथ डाउनलोड किए जाने वाले पृष्ठ</string>
+    <string name="transition_animation_flip_right">पेज फ्लिप (दाएँ)</string>
+    <string name="webgpu_viewer">वेबजीपीयू</string>
+    <string name="extensionStoresScreen.deleteStore.body">क्या आप एक्सटेंशन स्टोर \"%1$s\" (%2$s) को हटाना चाहते हैं?</string>
+    <string name="transition_animation_cube_inside">क्यूब (अंदर)</string>
+    <string name="transition_animation_cube_outside">क्यूब (बाहर)</string>
+    <string name="pref_vertical_navigator">वर्टिकल चैप्टर नेविगेटर का उपयोग करें</string>
+    <string name="downloading_with_progress">डाउनलोड हो रहा है… (%d%%)</string>
+    <string name="extensionStoresScreen.addStore.processing">प्रोसेसिंग…</string>
+    <string name="cutout_mode_avoid">बचें</string>
+    <string name="transition_animation_sphere">गोला</string>
+    <string name="considering">विचाराधीन</string>
+    <string name="transition_animation_stack_down">स्टैक (नीचे)</string>
+    <string name="extensionStores">एक्सटेंशन स्टोर्स</string>
+    <string name="pref_continuous_gap">अंतर</string>
+    <string name="transition_animation_basic">बेसिक</string>
+    <string name="download_bookmarked">बुकमार्क किया गया</string>
+    <string name="pref_continuous_minwidth">न्यूनतम चौड़ाई</string>
+    <string name="transition_animation_flip_left">पेज फ्लिप (बाएँ)</string>
+    <string name="cutout_mode_ignore">अनदेखा करें</string>
+    <string name="transition_animation_stack_right">स्टैक (दाएँ)</string>
+    <string name="transition_animation_fade">फेड</string>
+    <string name="transition_animation_none">कोई नहीं</string>
+    <string name="extensionStoresScreen.addStoreInput.inputLabel">स्टोर इंडेक्स URL</string>
+    <string name="dual_page_view_never">कभी नहीं</string>
+    <string name="transition_animation_stack_up">स्टैक (ऊपर)</string>
+    <string name="pref_filter_upcoming_categories_details">बहिष्कृत श्रेणियों के शीर्षक नहीं दिखाए जाते, भले ही वे किसी शामिल श्रेणी में भी हों।</string>
+    <string name="dual_page_view_wide">चौड़ी स्क्रीन होने पर</string>
+    <string name="pref_transition_animation_dual">ट्रांज़िशन एनीमेशन (ड्युअल)</string>
+    <string name="transition_animation_flip">पेज फ्लिप</string>
+    <string name="dual_page_view_always">हमेशा</string>
+    <string name="extensionStoresScreen.addStoreDeeplink.bodyText">क्या आप नीचे दिए गए एक्सटेंशन स्टोर को जोड़ना चाहते हैं?</string>
+    <string name="action.addExtensionStore">एक्सटेंशन स्टोर जोड़ें</string>
+    <string name="action_filter_excluded_scanlators">बहिष्कृत स्कैनलेटर्स को फ़िल्टर करें</string>
+    <string name="pref_webtoon_vertical_navigator_on_left">वर्टिकल नेविगेटर को बाईं ओर रखें</string>
+    <string name="extensionStoresScreen.deleteStore.title">एक्सटेंशन स्टोर हटाएँ</string>
+    <string name="theme_tokyonight">टोक्यो नाइट</string>
+    <string name="extensionStoresScreen.addStore.alreadyExists">यह एक्सटेंशन स्टोर पहले से मौजूद है</string>
+    <string name="transition_animation_fade_white">सफेद रंग में फेड</string>
+    <string name="pref_high_quality_renderer">उच्च गुणवत्ता वाले रेंडरर का उपयोग करें</string>
+    <string name="pref_dual_page_view">दो पृष्ठों का दृश्य</string>
+    <string name="pref_transition_animation">ट्रांज़िशन एनीमेशन</string>
+    <string name="pref_vertical_navigator_height">वर्टिकल नेविगेटर की ऊँचाई</string>
+    <string name="extensionStoresScreen.addStore.title">एक्सटेंशन स्टोर जोड़ें</string>
+    <string name="pref_cutout_mode">डिस्प्ले कटआउट मोड</string>
+    <string name="transition_animation_stack_left">स्टैक (बाएँ)</string>
+    <string name="pref_cutout_mode_dual">डिस्प्ले कटआउट मोड (ड्युअल)</string>
+    <string name="cutout_mode_shift">स्थानांतरित करें</string>
+    <string name="extensionStoresScreen.emptyLabel">आपने अभी तक कोई एक्सटेंशन स्टोर नहीं जोड़ा है</string>
 </resources>
