@@ -8,6 +8,39 @@ headlines() {
   sed -E 's/^- \*\*([^*]+)\*\*.*/- \1/'
 }
 
+# The [Unreleased] entries in <current> whose headline is not in <previous>, as release-note lines
+# under the "### Area" / "#### Added" headings they sit in. An entry is known by its bold headline,
+# so editing its trailing sentence does not republish it; an entry with no bold (Other) is known by
+# its whole text. Headings print only above an entry that prints, and prose such as Highlights never
+# does, since it describes the whole release rather than one nightly. POSIX awk only: CI runs mawk.
+new_changelog_entries() {
+  awk '
+    function key(line) {
+      if (match(line, /^- \*\*[^*]+\*\*/)) return substr(line, 5, RLENGTH - 6)
+      return substr(line, 3)
+    }
+    function heading(text) {
+      if (printed) print ""
+      print text
+      printed = 1
+      last = "heading"
+    }
+    FILENAME == ARGV[1] { if ($0 ~ /^- /) seen[key($0)] = 1; next }
+    /^### / { area = $0; cat = ""; next }
+    /^#### / { cat = $0; next }
+    /^- / {
+      k = key($0)
+      if (k in seen) next
+      if (area != shown_area) { heading(area); shown_area = area; shown_cat = "" }
+      if (cat != "" && cat != shown_cat) { heading(cat); shown_cat = cat }
+      if (last == "heading") print ""
+      print "- " k
+      printed = 1
+      last = "entry"
+    }
+  ' "$1" "$2"
+}
+
 # Reads back the Reikai commit a published nightly was built from. Every nightly tag points at a
 # stamp commit whose message records it, in the shape nightly.yml writes; keep the two in step.
 # Prints nothing when the release, the stamp or the commit cannot be found.

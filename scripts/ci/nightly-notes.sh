@@ -2,8 +2,8 @@
 # Builds the nightly release body and writes COMMIT_COUNT and RELEASE_BODY to $GITHUB_ENV.
 #
 # Nightly notes are the entries ADDED to CHANGELOG.md's [Unreleased] since the previous nightly, so
-# the running list is not repeated every build. When the changelog was not touched in that range,
-# they fall back to the commit subjects.
+# the running list is not repeated every build (new_changelog_entries in lib.sh decides what counts
+# as added). When no entry is new in that range, they fall back to the commit subjects.
 #
 # Environment: PREVIEW_REPO, GH_TOKEN, REPO_URL, HEAD_SHA. Safe to run locally: without GITHUB_ENV
 # the values are printed instead.
@@ -48,13 +48,12 @@ if [ -n "$prev_ref" ]; then
     && parse-changelog /tmp/prevchg.md Unreleased > /tmp/prev.txt 2>/dev/null || true
 fi
 
-new_lines=$(grep -vxF -f /tmp/prev.txt /tmp/cur.txt 2>/dev/null | sed '/^[[:space:]]*$/d' || true)
-new_lines=$(printf '%s\n' "$new_lines" | headlines)
+new_lines=$(new_changelog_entries /tmp/prev.txt /tmp/cur.txt)
 
 {
   echo "RELEASE_BODY<<__EOF__"
   if [ -n "$new_lines" ]; then
-    echo "### New since the last nightly"
+    echo "## New since the last nightly"
     echo ""
     echo "$new_lines"
     echo ""

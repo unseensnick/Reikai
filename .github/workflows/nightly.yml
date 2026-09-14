@@ -117,6 +117,10 @@ jobs:
       - name: Install parse-changelog
         uses: taiki-e/install-action@parse-changelog
 
+      # A notes rule that stops holding only shows up as a messy published release, so check it first.
+      - name: Check the release-body rules
+        run: bash scripts/ci/nightly-notes-test.sh
+
       - name: Prepare release body
         env:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
