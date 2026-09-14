@@ -86,6 +86,10 @@ abstract class BaseSourcePagingSource(
             throw e
         } catch (e: Exception) {
             LoadResult.Error(e)
+        } catch (e: LinkageError) {
+            // RK: an extension built against a class or method the app no longer ships throws a
+            //     LinkageError; uncaught, it crashes the app instead of showing a load error.
+            LoadResult.Error(e)
         }
     }
 
