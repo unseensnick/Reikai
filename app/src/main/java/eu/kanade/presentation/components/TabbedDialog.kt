@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import kotlinx.coroutines.launch
@@ -45,6 +46,8 @@ fun TabbedDialog(
     modifier: Modifier = Modifier,
     tabOverflowMenuContent: (@Composable ColumnScope.(() -> Unit) -> Unit)? = null,
     pagerState: PagerState = rememberPagerState { tabTitles.size },
+    // RK: icon tabs, one per title, as tsundoku's reader sheet draws them; the titles become their labels.
+    tabIcons: List<ImageVector>? = null,
     content: @Composable (Int) -> Unit,
 ) {
     AdaptiveSheet(
@@ -64,7 +67,14 @@ fun TabbedDialog(
                         Tab(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { TabText(text = tab) },
+                            // RK -->
+                            text = if (tabIcons == null) ({ TabText(text = tab) }) else null,
+                            icon = if (tabIcons != null) {
+                                { Icon(imageVector = tabIcons[index], contentDescription = tab) }
+                            } else {
+                                null
+                            },
+                            // RK <--
                             unselectedContentColor = MaterialTheme.colorScheme.onSurface,
                         )
                     }
