@@ -427,6 +427,19 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(null, answer)
     }
 
+    /** A text-size drag redraws on every step, so the question can outlive the redraw it waited on. */
+    @Test
+    fun paragraphsAskedDuringATextSizeDragAreAnsweredOnceTheLastStepHasRedrawn() {
+        open(chapter(FIRST, "<p>one</p><p>two</p>"))
+        val answer = runBlocking(Dispatchers.Main) {
+            viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 2))
+            val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
+            viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 4))
+            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+        }
+        assertEquals(listOf("one", "two"), answer)
+    }
+
     @Test
     fun theFirstVisibleParagraphOfAChapterJustOpenedIsItsFirst() {
         open(chapter(FIRST, long("first")))

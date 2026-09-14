@@ -309,12 +309,12 @@ class NovelTextViewport(
     /** Every answer waits out a redraw, which empties the window while it rebuilds the same chapters. */
     override val readAloud: ReadAloudSurface = object : ReadAloudSurface {
         override suspend fun paragraphs(chapterId: Long): List<String>? = withContext(Dispatchers.Main.immediate) {
-            redrawJob?.join()
+            awaitRedraws()
             renderedSlot(chapterId)?.paragraphs?.map { it.text }
         }
 
         override suspend fun firstVisibleParagraph(): ReadAloudPosition? = withContext(Dispatchers.Main.immediate) {
-            redrawJob?.join()
+            awaitRedraws()
             firstParagraphOnScreen()
         }
 
@@ -334,6 +334,28 @@ class NovelTextViewport(
     private fun uncoveredTop() = maxOf(topInsetPx, obscuredTopPx)
 
     private fun uncoveredBottom() = recycler.height - obscuredBottomPx
+
+    /**
+     * Until the window's redraw plan is done, across every redraw that takes it over. Cancelling the one
+     * joined here resumes this inline, before its successor is assigned, so a finished job with the plan
+     * still open is looked at again once the main thread has moved on. A second look finding the same is
+     * a redraw that died, and waiting longer would never end.
+     */
+    private suspend fun awaitRedraws() {
+        var lookedAgain = false
+        while (redraw != null) {
+            val job = redrawJob
+            if (job != null && !job.isCompleted) {
+                job.join()
+                lookedAgain = false
+            } else if (lookedAgain) {
+                return
+            } else {
+                withContext(Dispatchers.Main) {}
+                lookedAgain = true
+            }
+        }
+    }
 
     private fun renderedSlot(chapterId: Long) = slots.firstOrNull { it.rendered && it.chapter.chapterId == chapterId }
 
