@@ -63,10 +63,9 @@ class NovelTextViewport(
     /** Selection and clickable links are exclusive: the movement method that drags cannot click. */
     private val textSelectable: Boolean,
     /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
-     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. */
+     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. Which
+     *  way and how far a press scrolls come from the settings pushed last. */
     private val volumeKeysActive: () -> Boolean,
-    private val volumeKeysInverted: Boolean,
-    private val volumeKeyScrollFraction: Float,
     /** Both carry the chapter measured, not just the number: at a boundary the reader is already in
      *  the next chapter while the model still has the previous one, and an unnamed percentage lands
      *  on whichever the model happens to hold. */
@@ -842,10 +841,11 @@ class NovelTextViewport(
         val isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
             event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
         if (!isVolumeKey || !volumeKeysActive()) return false
+        val current = settings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN) {
             readerMoved()
-            val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != volumeKeysInverted
-            val fraction = volumeKeyScrollFraction.coerceIn(0.1f, 1f)
+            val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != current.volumeButtonsInverted
+            val fraction = current.volumeButtonsFraction.coerceIn(0.1f, 1f)
             val step = (recycler.height * fraction).roundToInt()
             recycler.smoothScrollBy(0, if (forward) step else -step)
         }

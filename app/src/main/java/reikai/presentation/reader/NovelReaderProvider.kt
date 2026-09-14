@@ -166,26 +166,23 @@ class NovelReaderProvider(
     override fun setKeepScreenOn(enabled: Boolean) = viewModel.setKeepScreenOn(enabled)
 
     /**
-     * The volume-key values and text-selectability are read once here, because the viewport takes them
-     * as plain values so it can be built without the graph. Nothing rebuilds a novel viewport
-     * mid-session, so a change lands on the next open. That is only acceptable while none of them is
-     * reachable from the in-reader sheet: putting one there needs a viewport rebuild, and for
-     * text-selectability also a re-bind, since it decides which of the two tap owners is installed.
+     * Text-selectability, the rendering mode and the two WebView font settings are read once here, because
+     * the viewport takes them as plain values so it can be built without the graph. Nothing rebuilds a
+     * novel viewport mid-session, so a change lands on the next open. That is only acceptable while none
+     * of them is reachable from the in-reader sheet: text-selectability would also need a re-bind, since
+     * it decides which of the two tap owners is installed. The volume keys are live, because the sheet
+     * does reach them: the switch is read each press and the rest arrives with every settings push.
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
-        val settings = viewModel.settings.value
         val textSelectable = novelPreferences.readerTextSelectable().get()
         // One rule for both renderers: the keys are the reader's only while the menu is down, as they
         // are for manga. Read from the host each press, since the menu opens and closes mid-session.
-        val volumeKeys = settings.useVolumeButtons
-        val volumeKeysActive = { volumeKeys && !host.isMenuVisible }
+        val volumeKeysActive = { viewModel.settings.value.useVolumeButtons && !host.isMenuVisible }
         if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
                 textSelectable = textSelectable,
                 volumeKeysActive = volumeKeysActive,
-                volumeKeysInverted = settings.volumeButtonsInverted,
-                volumeKeyScrollFraction = settings.volumeButtonsFraction,
                 onProgressChanged = viewModel::reportProgress,
                 onProgressSettled = viewModel::saveProgress,
                 onToggleMenu = host::toggleMenu,
@@ -203,8 +200,6 @@ class NovelReaderProvider(
             context = host,
             textSelectable = textSelectable,
             volumeKeysActive = volumeKeysActive,
-            volumeKeysInverted = settings.volumeButtonsInverted,
-            volumeKeyScrollFraction = settings.volumeButtonsFraction,
             useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
             sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
             // Both persist: the live percent debounced, since an auto-scrolled or scrubbed read never

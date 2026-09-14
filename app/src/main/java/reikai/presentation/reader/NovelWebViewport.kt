@@ -50,12 +50,11 @@ class NovelWebViewport(
      *  which the native one cannot offer alongside selection. */
     private val textSelectable: Boolean,
     /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
-     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. */
+     *  builds it once for both viewports, so they cannot disagree on when the keys are theirs. Which
+     *  way and how far a press scrolls come from the settings pushed last. */
     private val volumeKeysActive: () -> Boolean,
-    private val volumeKeysInverted: Boolean,
-    private val volumeKeyScrollFraction: Float,
     /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. Read
-     *  once like the volume-key values above, so a change lands on the next open. */
+     *  once, so a change lands on the next open. */
     private val useOriginalFonts: Boolean,
     private val sourceCssPriority: Boolean,
     /** Named with its chapter, matching the native viewport, so the model never has to assume which
@@ -223,9 +222,10 @@ class NovelWebViewport(
         val isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
             event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
         if (!isVolumeKey || !volumeKeysActive()) return false
+        val current = documentSettings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN) {
-            val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != volumeKeysInverted
-            val fraction = volumeKeyScrollFraction.coerceIn(0.1f, 1f)
+            val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != current.volumeButtonsInverted
+            val fraction = current.volumeButtonsFraction.coerceIn(0.1f, 1f)
             scrollByFraction(if (forward) fraction else -fraction)
         }
         // Consume the key-up too, so the system volume UI never shows during a press.

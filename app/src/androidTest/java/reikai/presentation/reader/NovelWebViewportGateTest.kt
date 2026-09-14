@@ -67,8 +67,6 @@ class NovelWebViewportGateTest {
                 context = activity,
                 textSelectable = false,
                 volumeKeysActive = { false },
-                volumeKeysInverted = false,
-                volumeKeyScrollFraction = 0.75f,
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 onProgressChanged = { _, _ -> },

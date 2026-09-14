@@ -79,8 +79,6 @@ class NovelTextViewportWindowTest {
                 context = activity,
                 textSelectable = false,
                 volumeKeysActive = { false },
-                volumeKeysInverted = false,
-                volumeKeyScrollFraction = 0.75f,
                 onProgressChanged = { _, _ -> },
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},

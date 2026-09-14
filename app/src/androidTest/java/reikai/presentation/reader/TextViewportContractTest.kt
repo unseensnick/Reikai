@@ -8,6 +8,7 @@ import android.text.style.ImageSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.InputDevice
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -67,6 +68,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** Set by a case that destroys the viewport itself, which the teardown must not do again. */
     private var destroyed = false
 
+    /** Whether a volume key is the reader's, which the host decides; off unless a case turns it on. */
+    private var volumeKeysOn = false
+
     /** The last fit answer per chapter, which is also each renderer's sign that a chapter has rendered. */
     private val fits = ConcurrentHashMap<Long, Boolean>()
     private val endsSeen = CopyOnWriteArrayList<Long>()
@@ -99,9 +103,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             Renderer.NATIVE -> NovelTextViewport(
                 context = activity,
                 textSelectable = textSelectable,
-                volumeKeysActive = { false },
-                volumeKeysInverted = false,
-                volumeKeyScrollFraction = 0.75f,
+                volumeKeysActive = { volumeKeysOn },
                 onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
                 onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
                 onToggleMenu = {},
@@ -115,9 +117,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             Renderer.WEB -> NovelWebViewport(
                 context = activity,
                 textSelectable = textSelectable,
-                volumeKeysActive = { false },
-                volumeKeysInverted = false,
-                volumeKeyScrollFraction = 0.75f,
+                volumeKeysActive = { volumeKeysOn },
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
@@ -444,6 +444,24 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun theFirstVisibleParagraphOfAChapterJustOpenedIsItsFirst() {
         open(chapter(FIRST, long("first")))
         assertEquals(ReadAloudPosition(FIRST, 0), firstVisibleParagraph())
+    }
+
+    /** The in-reader sheet changes the volume keys mid-session, so a press reads the settings pushed last. */
+    @Test
+    fun aVolumeKeyScrollsTheWayTheLatestSettingsSay() {
+        volumeKeysOn = true
+        open(chapter(FIRST, long("first")))
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(5_000)) }
+        awaitScrollStill()
+        instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(volumeButtonsInverted = true)) }
+        settle()
+        val before = scrollOffset()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN))
+        }
+        awaitScrollStill()
+        val after = scrollOffset()
+        assertTrue("an inverted volume-down moved the page from $before to $after", after < before)
     }
 
     /** Measured off the marks, with following off, so each renderer answers in its own geometry. */
