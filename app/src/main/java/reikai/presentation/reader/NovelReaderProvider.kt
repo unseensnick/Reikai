@@ -223,6 +223,7 @@ class NovelReaderProvider(
             volumeKeysActive = volumeKeysActive,
             useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),
             sourceCssPriority = novelPreferences.readerSourceCssPriority().get(),
+            devTools = novelPreferences.readerWebViewDevTools().get(),
             // Both persist: the live percent debounced, since an auto-scrolled or scrubbed read never
             // settles, and the settled one at once. Either one finishing a chapter marks it read.
             onProgressChanged = viewModel::reportProgress,

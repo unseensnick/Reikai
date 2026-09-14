@@ -272,6 +272,12 @@ class NovelPreferences(
     /** Bold the start of each word (bionic reading) to ease skimming. */
     fun readerBionicReading() = preferenceStore.getBoolean("ln_reader_bionic_reading", false)
 
+    /**
+     * Opens the WebView reader to Chrome's remote inspector and shows its script errors as toasts. Off by
+     * default: the inspector switch is process-wide, so it opens every WebView in the app while on.
+     */
+    fun readerWebViewDevTools() = preferenceStore.getBoolean("ln_reader_webview_dev_tools", false)
+
     /** Show a chapter as the markup it carries, as text, to see what a source actually sends. */
     fun readerShowRawHtml() = preferenceStore.getBoolean("ln_reader_show_raw_html", false)
 

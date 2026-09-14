@@ -8,9 +8,12 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
 import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +62,8 @@ class NovelWebViewport(
      *  once, so a change lands on the next open. */
     private val useOriginalFonts: Boolean,
     private val sourceCssPriority: Boolean,
+    /** Chrome's inspector and a toast per script error, for the user's own snippets and a source's scripts. */
+    private val devTools: Boolean = false,
     /** Named with its chapter, matching the native viewport, so the model never has to assume which
      *  chapter a percentage belongs to. */
     private val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
@@ -147,6 +152,20 @@ class NovelWebViewport(
 
     private val webView = WebView(context).apply {
         setDefaultSettings()
+        if (devTools) {
+            // Only ever switched on: it is process-wide, and switching it off here would also close the
+            // debug build's inspector on every other WebView.
+            WebView.setWebContentsDebuggingEnabled(true)
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                    if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                        context.toast(message.message().take(CONSOLE_TOAST_CHARS))
+                    }
+                    // Not consumed, so the message still reaches logcat and the inspector's console.
+                    return false
+                }
+            }
+        }
         webViewClient = NovelChapterNavigationClient(context) { loadedBaseUrl }
         // The stylesheet and engine are inlined into the document, so this mode needs no file origin at
         // all and the flag stays off.
@@ -580,3 +599,6 @@ class NovelWebViewport(
 
     private fun Double.toPercent(): Int = (this * 100).roundToInt().coerceIn(0, 100)
 }
+
+/** How much of a script error a toast shows, which is enough to find it in the inspector. */
+private const val CONSOLE_TOAST_CHARS = 120

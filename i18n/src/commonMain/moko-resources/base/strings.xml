@@ -771,6 +771,8 @@
     <string name="pref_novel_mark_read_percent">Mark chapter read at</string>
     <string name="pref_novel_show_raw_html">Show raw HTML</string>
     <string name="pref_novel_show_raw_html_summary">Shows a chapter's markup as text</string>
+    <string name="pref_novel_webview_dev_tools">Novel web page developer tools</string>
+    <string name="pref_novel_webview_dev_tools_summary">Shows script errors and lets a connected computer inspect every web page in the app. Takes effect on the next chapter opened</string>
     <string name="novel_chapter_title_number">Number</string>
     <string name="novel_chapter_title_number_and_name">Number and name</string>
     <string name="novel_chapter_title_numbered">Ch. %1$s: %2$s</string>

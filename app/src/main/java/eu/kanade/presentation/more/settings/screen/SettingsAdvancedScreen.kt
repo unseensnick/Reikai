@@ -55,6 +55,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.RepairNovelDetails
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -139,7 +140,7 @@ object SettingsAdvancedScreen : SearchableSettings {
             getDataGroup(),
             getNetworkGroup(networkPreferences = networkPreferences),
             getLibraryGroup(libraryPreferences = libraryPreferences),
-            getReaderGroup(basePreferences = basePreferences),
+            getReaderGroup(basePreferences = basePreferences, novelPreferences = remember { graph.novelPreferences }),
             getExtensionsGroup(basePreferences = basePreferences),
         )
     }
@@ -507,6 +508,8 @@ object SettingsAdvancedScreen : SearchableSettings {
     @Composable
     private fun getReaderGroup(
         basePreferences: BasePreferences,
+        // RK
+        novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reader),
@@ -515,6 +518,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                     preference = basePreferences.highQualityRenderer,
                     title = stringResource(MR.strings.pref_high_quality_renderer),
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerWebViewDevTools(),
+                    title = stringResource(MR.strings.pref_novel_webview_dev_tools),
+                    subtitle = stringResource(MR.strings.pref_novel_webview_dev_tools_summary),
+                ),
+                // RK <--
             ),
         )
     }
