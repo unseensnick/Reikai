@@ -30,6 +30,7 @@ import reikai.presentation.migrate.PickMember
 import reikai.presentation.migrate.memberSubtitle
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * The adapter-owned novel candidate: the raw search hit, the source's site (the cover Referer), and
@@ -53,6 +54,7 @@ class NovelMigrationFlowAdapter(
     private val novelRepository: NovelRepository,
     private val chapterRepository: NovelChapterRepository,
     private val database: Database,
+    private val libraryPreferences: LibraryPreferences,
     private val coverCache: CoverCache,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
@@ -256,6 +258,7 @@ class NovelMigrationFlowAdapter(
             chapterRepository,
             novelRepository,
             database,
+            libraryPreferences,
             novelDownloadManager = downloadManager,
         )
         val resolved = novelRepository.getByUrlAndSource(handle.item.path, source.id) ?: return null

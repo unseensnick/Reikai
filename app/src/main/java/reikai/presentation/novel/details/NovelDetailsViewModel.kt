@@ -692,6 +692,7 @@ class NovelDetailsViewModel(
                 chapterRepo,
                 novelRepo,
                 database,
+                libraryPreferences,
                 page = pageTag,
                 novelDownloadManager = downloadManager,
             )
@@ -721,6 +722,7 @@ class NovelDetailsViewModel(
                         chapterRepo,
                         novelRepo,
                         database,
+                        libraryPreferences,
                         page = pageKey,
                         novelDownloadManager = downloadManager,
                     )
@@ -847,7 +849,15 @@ class NovelDetailsViewModel(
      *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel. */
     private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel =
         runCatching {
-            refreshNovelFromSource(novel, src, chapterRepo, novelRepo, database, novelDownloadManager = downloadManager)
+            refreshNovelFromSource(
+                novel,
+                src,
+                chapterRepo,
+                novelRepo,
+                database,
+                libraryPreferences,
+                novelDownloadManager = downloadManager,
+            )
         }.getOrNull()
             ?: novel
 
@@ -866,6 +876,7 @@ class NovelDetailsViewModel(
                         chapterRepo,
                         novelRepo,
                         database,
+                        libraryPreferences,
                         page = key,
                         novelDownloadManager = downloadManager,
                     )

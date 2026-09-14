@@ -27,6 +27,8 @@ import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 import java.io.File
 
 class MigrateNovelUseCaseTest {
@@ -77,6 +79,7 @@ class MigrateNovelUseCaseTest {
         sourceManager = sourceManager,
         novelRepository = novelRepository,
         database = mockk(relaxed = true),
+        libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         transactions = transactions,
     )
 

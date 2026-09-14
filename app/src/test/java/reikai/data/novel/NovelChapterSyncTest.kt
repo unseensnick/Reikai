@@ -18,7 +18,10 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import tachiyomi.data.Database
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * The writes happen inside a suspend `database.transaction`, so the test runs that body inline and
@@ -57,6 +60,7 @@ class NovelChapterSyncTest {
         db: List<NovelChapter>,
         source: List<ChapterItem>,
         downloadManager: NovelDownloadManager? = null,
+        markDuplicates: Set<String> = setOf(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW),
     ): Synced {
         mockkStatic("app.cash.sqldelight.async.coroutines.QueryExtensionsKt")
         val inserted = mutableListOf<InsertedRow>()
@@ -86,9 +90,38 @@ class NovelChapterSyncTest {
             novelChapterRepository,
             novelRepository,
             database,
+            LibraryPreferences(
+                InMemoryPreferenceStore(
+                    sequenceOf(InMemoryPreference("mark_duplicate_read_chapter_read", markDuplicates, emptySet())),
+                ),
+            ),
             novelDownloadManager = downloadManager,
         )
         return Synced(result, inserted)
+    }
+
+    @Test
+    fun `a new chapter matching a read chapter's number is marked read`() = runTest {
+        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
+        val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
+
+        sync(db, source).inserted.single().read shouldBe true
+    }
+
+    @Test
+    fun `a new chapter marked read as a duplicate does not surface as new`() = runTest {
+        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
+        val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
+
+        sync(db, source).result.first shouldBe emptyList()
+    }
+
+    @Test
+    fun `a new duplicate chapter stays unread when the setting is off`() = runTest {
+        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
+        val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
+
+        sync(db, source, markDuplicates = emptySet()).inserted.single().read shouldBe false
     }
 
     @Test

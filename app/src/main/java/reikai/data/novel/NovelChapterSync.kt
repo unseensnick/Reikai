@@ -10,6 +10,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
+import tachiyomi.domain.library.service.LibraryPreferences
 import java.util.TreeSet
 
 /**
@@ -26,6 +27,7 @@ suspend fun syncChaptersWithNovelSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     database: Database,
+    libraryPreferences: LibraryPreferences,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
 ): Pair<List<NovelChapter>, List<NovelChapter>> {
@@ -106,6 +108,9 @@ suspend fun syncChaptersWithNovelSource(
 
     val now = System.currentTimeMillis()
     val changedOrDuplicateReadUrls = mutableSetOf<String>()
+    val readNumbers = dbChapters.filter { it.read && it.chapterNumber >= 0.0 }.map { it.chapterNumber }.toSet()
+    val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
+        .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
 
     // Stagger date_fetch so newer-listed chapters get higher values; sources return most-to-least
     // recent. A re-added chapter reuses its deleted twin's state + original fetch date.
@@ -114,6 +119,10 @@ suspend fun syncChaptersWithNovelSource(
         var dateFetch = now + itemCount--
         var read = addItem.read
         var bookmark = addItem.bookmark
+        if (markDuplicateAsRead && addItem.chapterNumber in readNumbers) {
+            read = true
+            changedOrDuplicateReadUrls.add(addItem.url)
+        }
         if (addItem.chapterNumber >= 0.0 && addItem.chapterNumber in deletedNumbers) {
             read = addItem.chapterNumber in deletedReadNumbers
             bookmark = addItem.chapterNumber in deletedBookmarkedNumbers

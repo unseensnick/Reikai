@@ -6,6 +6,7 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Overlay freshly [parsed] source metadata onto the stored [existing] novel. Edits now live in the
@@ -44,6 +45,7 @@ suspend fun refreshNovelFromSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     database: Database,
+    libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager? = null,
 ): Novel {
     val sourceNovel = source.parseNovel(novel.url)
@@ -61,6 +63,7 @@ suspend fun refreshNovelFromSource(
             novelChapterRepository,
             novelRepository,
             database,
+            libraryPreferences,
             page = pageTag,
             novelDownloadManager = novelDownloadManager,
         )
@@ -74,6 +77,7 @@ suspend fun refreshNovelFromSource(
             novelChapterRepository,
             novelRepository,
             database,
+            libraryPreferences,
             novelDownloadManager = novelDownloadManager,
         )
     }

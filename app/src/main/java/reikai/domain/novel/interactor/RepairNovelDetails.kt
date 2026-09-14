@@ -10,6 +10,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Finds library novels showing another novel's details and re-fetches them from their own source.
@@ -27,6 +28,7 @@ class RepairNovelDetails(
     // download worker, and a repair run must not do that just by existing.
     private val downloadManager: () -> NovelDownloadManager,
     private val database: Database,
+    private val libraryPreferences: LibraryPreferences,
 ) {
 
     data class Result(val suspects: Int, val repaired: Int)
@@ -46,6 +48,7 @@ class RepairNovelDetails(
                     novelChapterRepository,
                     novelRepository,
                     database,
+                    libraryPreferences,
                     novelDownloadManager = downloadManager(),
                 )
             }

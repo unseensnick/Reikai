@@ -303,6 +303,7 @@ every release now also ships a foss build with neither in it.
 - **An adult content source's update notice no longer dismisses the novel library's error notice.** The two shared a notification slot, so one silently replaced the other.
 - **Picking the Black reader theme again draws the novel reader's progress percentage in the same dimmed white as the text, instead of pale yellow.** A reader already set to it keeps the old colour until the theme is picked again.
 - **Resuming a novel, and its next-chapter downloads, now follow the order you sorted its chapter list into.** Continue reading, the Resume button, Download next and Mark previous as read all walked the source's own order, so on a novel sorted by name or date they picked a chapter the reader reaches much later.
+- **A new novel chapter numbered like one you have already read now arrives read, when the duplicate-chapter setting asks for it.** The setting only reached manga before.
 
 ### Browse & sources
 

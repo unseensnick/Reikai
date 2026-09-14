@@ -6,6 +6,7 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Walk a paged source's chapter pages [fromPage]..[toPage] inclusive, syncing each into the novel's
@@ -22,6 +23,7 @@ suspend fun walkNovelPages(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     database: Database,
+    libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager? = null,
 ) {
     if (toPage <= 1L) return
@@ -36,6 +38,7 @@ suspend fun walkNovelPages(
                     novelChapterRepository,
                     novelRepository,
                     database,
+                    libraryPreferences,
                     page = key,
                     novelDownloadManager = novelDownloadManager,
                 )

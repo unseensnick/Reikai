@@ -20,6 +20,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
+import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Clock
 
 /**
@@ -46,6 +47,7 @@ class MigrateNovelUseCase(
     private val sourceManager: NovelSourceManager,
     private val novelRepository: NovelRepository,
     private val database: Database,
+    private val libraryPreferences: LibraryPreferences,
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
 ) {
@@ -87,6 +89,7 @@ class MigrateNovelUseCase(
                     novelChapterRepository,
                     novelRepository,
                     database,
+                    libraryPreferences,
                     novelDownloadManager,
                 )
             }
