@@ -1,5 +1,7 @@
 package reikai.presentation.reader
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
+import reikai.domain.novel.NovelTapLayout
 import reikai.domain.novel.tts.TtsHighlightStyle
 
 /**
@@ -28,7 +30,7 @@ internal val readerTestSettings = NovelReaderSettings(
     ttsHighlightTextColor = 0xFF1A1A1A.toInt(),
     ttsKeepInView = true,
     bionicReading = false,
-    tapToScroll = true,
+    tapZones = NovelTapZones(NovelTapLayout.THIRDS, TappingInvertMode.NONE, 12),
     swipeGestures = true,
     showProgressPercentage = false,
     autoScroll = false,

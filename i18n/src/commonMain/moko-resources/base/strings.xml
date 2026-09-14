@@ -748,7 +748,12 @@
     <string name="tts_color_dark">Dark</string>
     <string name="tts_color_light">Light</string>
     <string name="pref_category_accessibility">Accessibility</string>
-    <string name="pref_tap_to_scroll">Tap edges to scroll</string>
+    <!-- RK: the novel reader's tap layouts beside Mihon's -->
+    <string name="nav_thirds">Top and bottom</string>
+    <string name="nav_center">Center</string>
+    <string name="nav_center_large">Large center</string>
+    <string name="nav_bottom">Bottom</string>
+    <string name="pref_tap_bottom_zone_height">Bottom zone height</string>
     <string name="pref_swipe_between_chapters">Swipe between chapters</string>
     <string name="pref_remove_extra_spacing">Remove extra spacing</string>
     <string name="pref_preserve_reading_position">Resume reading position</string>

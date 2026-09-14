@@ -856,26 +856,30 @@ class NovelTextViewport(
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
 
     /**
-     * The tap zones, in thirds with a three-quarter-screen step, the same as the WebView renderer's so a
-     * tap does the same thing whichever renderer is running. The middle band, and every tap while the setting is off,
-     * toggles the chrome. Read from the live settings, so switching it takes effect at once.
+     * A tap read through the session's tap zones, which the WebView renderer asks too, with a
+     * three-quarter-screen step. Read from the live settings, so a layout change takes effect at once.
      */
-    private fun onTap(y: Float) {
+    private fun onTap(x: Float, y: Float) {
+        val width = recycler.width
         val height = recycler.height
-        if (settings?.tapToScroll == true && height > 0) {
-            val step = (height * TAP_SCROLL_FRACTION).roundToInt()
-            if (y < height / 3f) {
+        val zones = settings?.tapZones
+        if (zones == null || width <= 0 || height <= 0) {
+            onToggleMenu()
+            return
+        }
+        val step = (height * NovelTapZones.SCROLL_FRACTION).roundToInt()
+        when (zones.actionAt(x / width, y / height)) {
+            NovelTapAction.MENU -> onToggleMenu()
+            NovelTapAction.BACK -> {
                 readerMoved()
                 recycler.smoothScrollBy(0, -step)
-                return
             }
-            if (y > height * 2f / 3f) {
+            NovelTapAction.FORWARD -> {
                 readerMoved()
                 recycler.smoothScrollBy(0, step)
-                return
             }
+            NovelTapAction.NONE -> Unit
         }
-        onToggleMenu()
     }
 
     /**
@@ -890,7 +894,7 @@ class NovelTextViewport(
                 x - item.left in it.left.toFloat()..it.right.toFloat() &&
                 y - item.top in it.top.toFloat()..it.bottom.toFloat()
         } == true
-        if (!onFailure) onTap(y)
+        if (!onFailure) onTap(x, y)
     }
 
     /**
@@ -1071,7 +1075,7 @@ class NovelTextViewport(
             // every tap: the Editor swallows a click on the text but not one past its last line.
             // Without selection the click is the owner instead, because LinkOnlyMovementMethod
             // declines a tap that is not on a link and only then lets it through to here.
-            if (!textSelectable) setOnClickListener { onTap(touchDownY) }
+            if (!textSelectable) setOnClickListener { onTap(touchDownX, touchDownY) }
             // Off on both branches: the click is dispatched by the movement method below, so leaving
             // it on would let the framework fire its own unchecked intent for the same tap.
             linksClickable = false
@@ -1312,9 +1316,6 @@ class NovelTextViewport(
         /** The frame rate the WebView renderer's per-frame speed was written against. */
         const val FRAMES_PER_SECOND = 60f
         const val NANOS_PER_SECOND = 1_000_000_000f
-
-        /** A tap in an outer zone moves by this much of the screen, matching the WebView renderer. */
-        const val TAP_SCROLL_FRACTION = 0.75f
 
         /** How far sideways a swipe must run to count, in dp, also `core.js`'s number. */
         const val SWIPE_MIN_DP = 180f

@@ -50,10 +50,11 @@ android {
         // novel-category fold-in; 188 the category-preference content-type cleanup; 189 the
         // merge-prefs-to-groups migration and 190 the chapter-match-key backfill after it; 191 splits
         // the novel reader's single padding into its four margins; 192 adds the read-aloud button to a
-        // customised novel reader bar; 193 deletes the keys only the retired novel reader wrote. All sit
-        // above 0.3.2's 185, so a 0.3.2 install still runs them. Further migrations take 194+.
+        // customised novel reader bar; 193 deletes the keys only the retired novel reader wrote; 194 carries
+        // the novel tap-to-scroll switch into a tap layout. All sit above 0.3.2's 185, so a 0.3.2 install
+        // still runs them. Further migrations take 195+.
         // versionName tracks the last shipped release until this cycle is cut.
-        versionCode = 193
+        versionCode = 194
         versionName = "0.3.2"
         // RK <--
 

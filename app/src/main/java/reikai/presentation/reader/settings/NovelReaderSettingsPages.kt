@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconToggleButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelTapLayout
 import reikai.novel.font.NovelFont
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
@@ -47,6 +49,7 @@ import reikai.presentation.icons.FormatAlignJustify
 import reikai.presentation.icons.FormatAlignLeft
 import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
+import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
@@ -61,6 +64,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.RadioItem
+import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -204,7 +208,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
             pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     }
-    CheckboxItem(label = stringResource(MR.strings.pref_tap_to_scroll), pref = preferences.readerTapToScroll())
+    NovelTapZonesRows(preferences)
     CheckboxItem(
         label = stringResource(MR.strings.pref_swipe_between_chapters),
         pref = preferences.readerSwipeGestures(),
@@ -229,6 +233,49 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
             label = stringResource(MR.strings.pref_volume_keys_scroll_amount),
             valueString = "$percent%",
             onChange = { fractionPref.set(it / 100f) },
+            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
+    }
+}
+
+/** The tap layout, its inversion where it has something to invert, and the bottom layout's zone height. */
+@Composable
+private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences) {
+    val layoutPref = preferences.readerTapLayout()
+    val invertPref = preferences.readerTapInvert()
+    val layout by layoutPref.collectAsState()
+    val invert by invertPref.collectAsState()
+
+    SettingsChipRow(MR.strings.pref_viewer_nav) {
+        NovelTapLayout.entries.forEach {
+            FilterChip(
+                selected = layout == it,
+                onClick = { preferences.setReaderTapLayout(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
+    // Disabled has no zones to invert, and a layout with one inversion has no choice to offer.
+    if (layout != NovelTapLayout.DISABLED && layout.invertModes.size > 1) {
+        SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
+            layout.invertModes.forEach {
+                FilterChip(
+                    selected = it == invert,
+                    onClick = { invertPref.set(it) },
+                    label = { Text(stringResource(it.titleRes)) },
+                )
+            }
+        }
+    }
+    if (layout == NovelTapLayout.BOTTOM) {
+        val heightPref = preferences.readerTapBottomZoneHeight()
+        val height by heightPref.collectAsState()
+        SliderItem(
+            value = height,
+            valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
+            label = stringResource(MR.strings.pref_tap_bottom_zone_height),
+            valueString = "$height%",
+            onChange = heightPref::set,
             pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     }

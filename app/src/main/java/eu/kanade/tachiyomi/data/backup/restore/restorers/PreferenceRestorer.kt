@@ -20,6 +20,7 @@ import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
+import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
@@ -121,6 +122,11 @@ class PreferenceRestorer(
             // would be silently dropped. Carried here through the same kernel, then not written back.
             if (key == DEAD_READER_PADDING_KEY) {
                 (value as? IntPreferenceValue)?.let { novelPreferences.carryReaderPaddingToMargins(it.value) }
+                return@forEach
+            }
+            // RK: the retired novel tap-to-scroll switch, carried into the tap layout for the same reason.
+            if (key == DEAD_READER_TAP_TO_SCROLL_KEY) {
+                (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderTapToScroll(it.value) }
                 return@forEach
             }
             // RK: keys only the retired standalone novel reader wrote; skip so an old backup can't

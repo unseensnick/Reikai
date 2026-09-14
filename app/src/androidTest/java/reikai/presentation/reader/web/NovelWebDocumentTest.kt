@@ -57,8 +57,8 @@ class NovelWebDocumentTest {
     /** The last fraction reported per chapter. */
     private val progressByChapter = ConcurrentHashMap<String, Double>()
 
-    private val menuToggles = AtomicInteger()
-    private var menuToggled = CountDownLatch(1)
+    private val hostTaps = AtomicInteger()
+    private var hostTapped = CountDownLatch(1)
 
     private companion object {
         const val CHAPTER_ID = 4242L
@@ -111,10 +111,10 @@ class NovelWebDocumentTest {
         fun onRetryBoundary(documentToken: String, forward: Boolean) = Unit
 
         @JavascriptInterface
-        fun onToggleMenu(documentToken: String) {
+        fun onTap(documentToken: String, x: Double, y: Double) {
             if (documentToken != DOCUMENT_TOKEN) return
-            menuToggles.incrementAndGet()
-            menuToggled.countDown()
+            hostTaps.incrementAndGet()
+            hostTapped.countDown()
         }
 
         @JavascriptInterface
@@ -509,18 +509,17 @@ class NovelWebDocumentTest {
         )
     }
 
-    /** A tap on Retry is the button's. With tap-to-scroll off, the default, any other tap toggles the menu. */
+    /** A tap on Retry is the button's. Any other tap is passed up for the host to read. */
     @Test
     fun tappingRetryIsTheButtonsTapNotTheReaders() {
         loadDocument()
-        eval("window.rkReader.setSettings({ tapToScroll: false })")
         eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
         tap("document.querySelector('.rk-chapter p')")
-        assertTrue("a tap on the text did not toggle the menu", menuToggled.await(TIMEOUT_S, TimeUnit.SECONDS))
+        assertTrue("a tap on the text did not reach the host", hostTapped.await(TIMEOUT_S, TimeUnit.SECONDS))
         tap("document.querySelector('.rk-failure-retry')")
         // The bridge calls back off the main thread, so a toggle that should not come is given time.
         Thread.sleep(1000)
-        assertEquals("tapping Retry toggled the menu too", 1, menuToggles.get())
+        assertEquals("tapping Retry reached the host too", 1, hostTaps.get())
     }
 
     /** The heading stays when the source gave a reason, as the text renderer draws it: the reason alone

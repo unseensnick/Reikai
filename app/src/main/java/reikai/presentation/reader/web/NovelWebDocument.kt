@@ -39,7 +39,6 @@ object NovelWebDocument {
             context,
             "reader.js",
             mapOf(
-                "__TAP_TO_SCROLL__" to settings.tapToScroll.toString(),
                 "__SWIPE__" to settings.swipeGestures.toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),
@@ -181,7 +180,6 @@ object NovelWebDocument {
 
     /** The block the page's own settings object is given, for what a custom property cannot express. */
     fun behaviourJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {
-        put("tapToScroll", settings.tapToScroll)
         put("swipe", settings.swipeGestures)
         put("bionic", settings.bionicReading)
         put("readAloud", readAloudJson(settings))

@@ -27,6 +27,7 @@ import mihon.app.di.appGraph
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.domain.novel.NovelTapLayout
 import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsEngineInfo
 import reikai.domain.novel.tts.TtsHighlightColors
@@ -37,6 +38,7 @@ import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
+import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFonts
@@ -427,6 +429,9 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val autoScrollSpeed by autoScrollSpeedPref.collectAsState()
         val autoScroll by novelPreferences.readerAutoScroll().collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
+        val tapLayout by novelPreferences.readerTapLayout().collectAsState()
+        val bottomZoneHeightPref = novelPreferences.readerTapBottomZoneHeight()
+        val bottomZoneHeight by bottomZoneHeightPref.collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
@@ -473,10 +478,28 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_cutout_short),
                     enabled = LocalView.current.hasDisplayCutout() && fullscreen,
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerTapToScroll(),
-                    title = stringResource(MR.strings.pref_tap_to_scroll),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerTapLayout(),
+                    entries = NovelTapLayout.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_viewer_nav),
+                    // Stored through the helper, which also drops an inversion the new layout cannot draw.
+                    onValueChanged = {
+                        novelPreferences.setReaderTapLayout(it)
+                        false
+                    },
                 ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerTapInvert(),
+                    entries = tapLayout.invertModes.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_read_with_tapping_inverted),
+                ).takeIf { tapLayout != NovelTapLayout.DISABLED && tapLayout.invertModes.size > 1 },
+                Preference.PreferenceItem.SliderPreference(
+                    value = bottomZoneHeight,
+                    valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
+                    title = stringResource(MR.strings.pref_tap_bottom_zone_height),
+                    valueString = "$bottomZoneHeight%",
+                    onValueChanged = { bottomZoneHeightPref.set(it) },
+                ).takeIf { tapLayout == NovelTapLayout.BOTTOM },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSwipeGestures(),
                     title = stringResource(MR.strings.pref_swipe_between_chapters),

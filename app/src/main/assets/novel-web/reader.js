@@ -5,7 +5,7 @@
  * host to call into. The chapter-boundary and per-chapter progress half is ported from tsundoku's
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
- * Tokens substituted at build time by NovelWebAssets: __TAP_TO_SCROLL__, __SWIPE__, __BIONIC__,
+ * Tokens substituted at build time by NovelWebAssets: __SWIPE__, __BIONIC__,
  * __READ_ALOUD__, __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_NO_NEXT__,
  * __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__.
  */
@@ -48,7 +48,6 @@
   };
 
   var settings = {
-    tapToScroll: __TAP_TO_SCROLL__,
     swipe: __SWIPE__,
     bionic: __BIONIC__,
     // { highlight, style, color, textColor, keepInView, scrollToTop }, from NovelWebDocument.readAloudJson.
@@ -477,14 +476,6 @@
     document.documentElement.classList.toggle('rk-bionic-on', !!settings.bionic);
   }
 
-  function tapZone(y) {
-    // Thirds vertically, matching the native renderer's own tap rule.
-    var third = viewportHeight() / 3;
-    if (y < third) return 'up';
-    if (y > third * 2) return 'down';
-    return 'menu';
-  }
-
   function installGestures() {
     var startX = 0, startY = 0, startAt = 0, moved = false;
     // Only a finger counts. A chapter's own script can build touch events, and the token it cannot
@@ -543,14 +534,9 @@
       // whole box rather than just its Retry, as the native renderer draws the same line.
       if (e.target && e.target.closest && e.target.closest('a, button, .rk-failure')) return;
 
-      var zone = settings.tapToScroll ? tapZone(touch.clientY) : 'menu';
-      if (zone === 'menu') {
-        bridge().onToggleMenu(DOCUMENT_TOKEN);
-      } else {
-        var by = viewportHeight() * 0.75;
-        onReaderMove();
-        glide.by(zone === 'up' ? -by : by);
-      }
+      // The host reads the tap zones, the same rule the native renderer asks, and scrolls back through
+      // scrollSmoothlyBy when a zone says to.
+      bridge().onTap(DOCUMENT_TOKEN, touch.clientX / window.innerWidth, touch.clientY / window.innerHeight);
     }, { passive: true });
   }
 

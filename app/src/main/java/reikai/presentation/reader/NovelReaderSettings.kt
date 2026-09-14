@@ -39,7 +39,7 @@ data class NovelReaderSettings(
     val ttsKeepInView: Boolean,
     // Reading extras each renderer applies itself; extra spacing is stripped by the content pipeline instead.
     val bionicReading: Boolean,
-    val tapToScroll: Boolean,
+    val tapZones: NovelTapZones,
     val swipeGestures: Boolean,
     /** Always-on reading percentage overlay while reading (chrome hidden). */
     val showProgressPercentage: Boolean,

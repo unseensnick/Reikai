@@ -20,7 +20,8 @@ class NovelWebBridge(
     private val onProgress: (chapterId: Long, fraction: Double) -> Unit,
     private val onProgressSettled: (chapterId: Long, fraction: Double) -> Unit,
     private val onRetryBoundary: (forward: Boolean) -> Unit,
-    private val onToggleMenu: () -> Unit,
+    /** A tap on the page, as fractions of its width and height. */
+    private val onTap: (x: Float, y: Float) -> Unit,
     private val onStepChapter: (forward: Boolean) -> Unit,
     private val onChapterFits: (chapterId: Long, fits: Boolean) -> Unit,
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
@@ -48,7 +49,8 @@ class NovelWebBridge(
         fromReader(documentToken) { onRetryBoundary.invoke(forward) }
 
     @JavascriptInterface
-    fun onToggleMenu(documentToken: String) = fromReader(documentToken) { onToggleMenu.invoke() }
+    fun onTap(documentToken: String, x: Double, y: Double) =
+        fromReader(documentToken) { onTap.invoke(x.toFloat(), y.toFloat()) }
 
     @JavascriptInterface
     fun onStepChapter(documentToken: String, forward: Boolean) =

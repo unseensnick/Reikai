@@ -272,9 +272,11 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader -> Text display now sets your page margins, paragraph indent and paragraph spacing.** Each of the four margins moves on its own, indent and spacing are multiples of your text size, and every reader honours them.
 - **The novel reader has a new, darker theme, and its page background and text can each be set to any color from the reader's settings.**
 - **The read-aloud highlight and its text can now be any color, from Custom under Settings -> Novel reader.**
+- **The novel reader now offers the manga reader's tap zones, plus top and bottom, center and bottom-only layouts, with inverting.** Pick them in the reader's Controls tab or under Settings -> Novel reader; a center or bottom layout leaves taps elsewhere to the page.
 
 #### Changed
 
+- **Tap edges to scroll in the novel reader is now the Top and bottom tap zone layout, and your choice carries over.**
 - **Novel text size now goes from 10 to 40 and line spacing from 0.8x to 5x, with paragraph indent up to 10em.** Split walls of text can also wait for up to 2000 words.
 - **Sorting a chapter list "By source" now really follows that source's own listing, on manga and novels.** It was quietly sorting by chapter number instead, so a source that lists its chapters out of numeric order looked tidier than it is; pick "By chapter number" for the old result.
 - **The novel reader now starts with Skip filtered chapters switched on, matching manga; turn it off under Settings -> Novel reader.** With a filtered chapter list, the next-chapter button steps past what the filter hides.

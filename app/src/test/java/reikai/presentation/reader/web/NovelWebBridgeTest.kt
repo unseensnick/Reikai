@@ -15,7 +15,7 @@ class NovelWebBridgeTest {
         onProgress = { _, _ -> calls += "progress" },
         onProgressSettled = { _, _ -> calls += "settled" },
         onRetryBoundary = { calls += "retry" },
-        onToggleMenu = { calls += "menu" },
+        onTap = { _, _ -> calls += "tap" },
         onStepChapter = { calls += "step" },
         onChapterFits = { _, _ -> calls += "fits" },
         onChapterEndSeen = { calls += "end" },
@@ -23,9 +23,9 @@ class NovelWebBridgeTest {
     )
 
     @Test
-    fun `a tap opens the menu before the page reports ready`() {
-        bridge.onToggleMenu("token")
-        calls shouldBe listOf("menu")
+    fun `a tap reaches the host before the page reports ready`() {
+        bridge.onTap("token", 0.5, 0.5)
+        calls shouldBe listOf("tap")
     }
 
     @Test

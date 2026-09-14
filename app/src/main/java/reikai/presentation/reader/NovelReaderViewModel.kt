@@ -294,11 +294,16 @@ class NovelReaderViewModel(
             ) { scrollToTop, highlight -> TtsPrefs(scrollToTop, highlight) },
             combine(
                 novelPreferences.readerBionicReading().changes(),
-                novelPreferences.readerTapToScroll().changes(),
+                combine(
+                    novelPreferences.readerTapLayout().changes(),
+                    novelPreferences.readerTapInvert().changes(),
+                    novelPreferences.readerTapBottomZoneHeight().changes(),
+                    ::NovelTapZones,
+                ),
                 novelPreferences.readerSwipeGestures().changes(),
                 novelPreferences.readerShowProgressPercentage().changes(),
-            ) { bionic, tapScroll, swipe, showProgress ->
-                FlagPrefs(bionic, tapScroll, swipe, showProgress)
+            ) { bionic, tapZones, swipe, showProgress ->
+                FlagPrefs(bionic, tapZones, swipe, showProgress)
             },
             combine(
                 novelPreferences.readerAutoScroll().changes(),
@@ -339,7 +344,7 @@ class NovelReaderViewModel(
             ttsHighlightTextColor = extra.tts.highlight.textColor,
             ttsKeepInView = extra.tts.highlight.keepInView,
             bionicReading = extra.flags.bionicReading,
-            tapToScroll = extra.flags.tapToScroll,
+            tapZones = extra.flags.tapZones,
             swipeGestures = extra.flags.swipeGestures,
             showProgressPercentage = extra.flags.showProgressPercentage,
             autoScroll = extra.scroll.autoScroll,
@@ -979,7 +984,11 @@ class NovelReaderViewModel(
             ttsHighlightTextColor = novelPreferences.readerTtsHighlightTextColor().get(),
             ttsKeepInView = novelPreferences.readerTtsKeepInView().get(),
             bionicReading = novelPreferences.readerBionicReading().get(),
-            tapToScroll = novelPreferences.readerTapToScroll().get(),
+            tapZones = NovelTapZones(
+                novelPreferences.readerTapLayout().get(),
+                novelPreferences.readerTapInvert().get(),
+                novelPreferences.readerTapBottomZoneHeight().get(),
+            ),
             swipeGestures = novelPreferences.readerSwipeGestures().get(),
             showProgressPercentage = novelPreferences.readerShowProgressPercentage().get(),
             autoScroll = novelPreferences.readerAutoScroll().get(),
@@ -1387,7 +1396,7 @@ class NovelReaderViewModel(
     )
     private data class FlagPrefs(
         val bionicReading: Boolean,
-        val tapToScroll: Boolean,
+        val tapZones: NovelTapZones,
         val swipeGestures: Boolean,
         val showProgressPercentage: Boolean,
     )

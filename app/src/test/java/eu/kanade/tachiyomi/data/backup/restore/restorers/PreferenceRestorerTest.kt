@@ -20,8 +20,10 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
+import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelTapLayout
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.interactor.GetCategories
 
@@ -82,6 +84,28 @@ class PreferenceRestorerTest {
         restore(DEAD_READER_PADDING_KEY, 32)
 
         store.getInt(DEAD_READER_PADDING_KEY, 0).isSet() shouldBe false
+    }
+
+    @Test
+    @DisplayName("a backup taken with tap to scroll on keeps tapping the top and bottom of the page")
+    fun retiredTapToScrollReachesTheTapLayout() = runTest {
+        restorer.restoreApp(
+            listOf(BackupPreference(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true))),
+            backupCategories = null,
+        )
+
+        novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.THIRDS
+    }
+
+    @Test
+    @DisplayName("the retired tap to scroll key is not written back into the store")
+    fun retiredTapToScrollIsNotResurrected() = runTest {
+        restorer.restoreApp(
+            listOf(BackupPreference(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true))),
+            backupCategories = null,
+        )
+
+        store.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false).isSet() shouldBe false
     }
 
     /** The switch comes before the bar in the backup, so the bar restored after it must still gain the button. */

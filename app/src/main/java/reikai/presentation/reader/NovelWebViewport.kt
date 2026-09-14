@@ -167,7 +167,7 @@ class NovelWebViewport(
                 onProgress = { id, f -> onProgressChanged(id, f.toPercent()) },
                 onProgressSettled = { id, f -> onProgressSettled(id, f.toPercent()) },
                 onRetryBoundary = onRetryBoundary,
-                onToggleMenu = onToggleMenu,
+                onTap = ::onPageTap,
                 onStepChapter = onStepChapter,
                 onChapterFits = onChapterFits,
                 onChapterEndSeen = onChapterEndSeen,
@@ -356,6 +356,16 @@ class NovelWebViewport(
             "if (window.rkReader) rkReader.autoScrollStop();"
         }
         webView.evaluateJavascript(js, null)
+    }
+
+    /** A tap the page passed up, read through the session's tap zones as the native renderer reads one. */
+    private fun onPageTap(x: Float, y: Float) {
+        when (documentSettings?.tapZones?.actionAt(x, y) ?: NovelTapAction.MENU) {
+            NovelTapAction.MENU -> onToggleMenu()
+            NovelTapAction.BACK -> scrollByFraction(-NovelTapZones.SCROLL_FRACTION)
+            NovelTapAction.FORWARD -> scrollByFraction(NovelTapZones.SCROLL_FRACTION)
+            NovelTapAction.NONE -> Unit
+        }
     }
 
     /** Scrolls by a signed fraction of the screen (positive = forward), through the page's own

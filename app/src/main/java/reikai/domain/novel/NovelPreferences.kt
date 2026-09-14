@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -273,8 +274,32 @@ class NovelPreferences(
      *  reader's "Show page number". Native Compose overlay; on by default (matches manga and LNReader). */
     fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
 
-    /** Tap the top / bottom of the screen to scroll a page (center tap still toggles the chrome). */
-    fun readerTapToScroll() = preferenceStore.getBoolean("ln_reader_tap_to_scroll", false)
+    /** How a tap on the page is read. Disabled, the default, toggles the chrome wherever the page is tapped. */
+    fun readerTapLayout() = preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
+
+    fun readerTapInvert() = preferenceStore.getEnum("ln_reader_tap_invert", TappingInvertMode.NONE)
+
+    /** Sets [layout], replacing an inversion it cannot draw with the nearest one it can, so the choice
+     *  a settings row shows is the one in effect. */
+    fun setReaderTapLayout(layout: NovelTapLayout) {
+        readerTapLayout().set(layout)
+        val invert = readerTapInvert()
+        if (invert.get() in layout.invertModes) return
+        val vertical = invert.get().shouldInvertVertical && TappingInvertMode.VERTICAL in layout.invertModes
+        invert.set(if (vertical) TappingInvertMode.VERTICAL else TappingInvertMode.NONE)
+    }
+
+    /** The bottom layout's zone, as a percentage of the page's height. */
+    fun readerTapBottomZoneHeight() = preferenceStore.getInt("ln_reader_tap_bottom_zone_height", 12)
+
+    /**
+     * Carries the retired [DEAD_READER_TAP_TO_SCROLL_KEY] switch into [readerTapLayout]: on was the thirds
+     * layout, off toggled the chrome everywhere. Shared, because a backup restore lands the old key after
+     * the upgrade migration has run.
+     */
+    fun carryReaderTapToScroll(enabled: Boolean) {
+        readerTapLayout().set(if (enabled) NovelTapLayout.THIRDS else NovelTapLayout.DISABLED)
+    }
 
     /** Swipe left / right to go to the next / previous chapter. */
     fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)
@@ -488,6 +513,9 @@ class NovelPreferences(
  * customised value into the four that replaced it.
  */
 const val DEAD_READER_PADDING_KEY = "ln_reader_padding"
+
+/** The novel reader's retired tap-to-scroll switch, carried into the tap layouts by [NovelPreferences.carryReaderTapToScroll]. */
+const val DEAD_READER_TAP_TO_SCROLL_KEY = "ln_reader_tap_to_scroll"
 
 /**
  * Keys only the retired standalone novel reader wrote: its read-aloud master switch and the floating

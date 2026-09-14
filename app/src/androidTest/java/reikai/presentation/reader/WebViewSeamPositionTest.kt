@@ -494,7 +494,7 @@ class WebViewSeamPositionTest {
         fun onRetryBoundary(documentToken: String, forward: Boolean) = Unit
 
         @JavascriptInterface
-        fun onToggleMenu(documentToken: String) = Unit
+        fun onTap(documentToken: String, x: Double, y: Double) = Unit
 
         @JavascriptInterface
         fun onStepChapter(documentToken: String, forward: Boolean) = Unit
