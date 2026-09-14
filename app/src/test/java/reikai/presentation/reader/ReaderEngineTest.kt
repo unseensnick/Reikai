@@ -440,6 +440,41 @@ class ReaderEngineTest {
         viewport.chapterOpens shouldBe 0
     }
 
+    /** A pick that failed is over: reaching that chapter later by a step must not land it like a pick. */
+    @Test
+    fun `a pick whose load failed does not land the chapter when it is reached later`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+        engine.chapterList.open(FakeChapterList.NEVER_LOADS)
+        provider.loadState.value = ReaderLoadState.Loading
+        advanceUntilIdle()
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        advanceUntilIdle()
+
+        provider.chapterList.currentChapterId.value = FakeChapterList.NEVER_LOADS
+        advanceUntilIdle()
+
+        viewport.chapterOpens shouldBe 0
+    }
+
+    @Test
+    fun `a failure left from an earlier load does not end a new pick`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        engine.chapterList.open(FakeChapterList.NEVER_LOADS)
+        advanceUntilIdle()
+
+        provider.chapterList.currentChapterId.value = FakeChapterList.NEVER_LOADS
+        advanceUntilIdle()
+
+        viewport.chapterOpens shouldBe 1
+    }
+
     /** The sheet's other verbs are the provider's own, so wrapping open must not swallow them. */
     @Test
     fun `the sheet's remaining verbs still reach the provider`() {

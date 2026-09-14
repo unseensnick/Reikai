@@ -15,8 +15,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
@@ -105,7 +109,15 @@ class ReaderEngine(
         openJob?.cancel()
         openJob = viewModelScope.launch {
             provider.chapterList.open(chapterId)
-            provider.chapterList.currentChapterId.first { it == chapterId }
+            // A failure ends the pick, or reaching that chapter later by a step would land it like one.
+            // A failure already showing is an earlier load's, so only one after it counts.
+            val landed = merge(
+                provider.chapterList.currentChapterId.filter { it == chapterId }.map { true },
+                provider.loadState.dropWhile { it is ReaderLoadState.Failed }
+                    .filter { it is ReaderLoadState.Failed }
+                    .map { false },
+            ).first()
+            if (!landed) return@launch
             // Yielded, because the host hands the new chapters to the viewer from its own collector on
             // the same state update: a move issued before that delivery looks for a page the viewer
             // does not hold yet and is silently dropped.
