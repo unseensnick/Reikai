@@ -27,16 +27,29 @@ class NovelReaderProvider(
     private val novelPreferences: NovelPreferences,
 ) : ReaderProvider {
 
-    override val chrome: Flow<ReaderChromeState> =
-        combine(viewModel.entryTitle, viewModel.chapter) { title, chapter ->
-            ReaderChromeState(title, chapter?.title)
+    override val chrome: Flow<ReaderChromeState> = combine(
+        viewModel.entryTitle,
+        viewModel.chapter,
+        novelPreferences.readerChapterTitleFormat().changes(),
+    ) { title, chapter, format ->
+        val chapterTitle = chapter?.let {
+            format.chapterTitle(
+                it.title,
+                it.chapterNumber,
+                viewModel::numberedChapterTitle,
+                viewModel::numberedChapterTitle,
+            )
         }
+        ReaderChromeState(title, chapterTitle)
+    }
 
     override val bottomButtons: Flow<List<ReaderBottomButton>> = ReaderBottomButton.orderedChanges(
         novelPreferences.readerBottomButtons(),
         novelPreferences.readerBottomButtonOrder(),
         ReaderBottomButton.Scope.Novel,
     )
+
+    override val bottomButtonScope = ReaderBottomButton.Scope.Novel
 
     override fun seedColor(context: Context): Flow<Int?> = viewModel.cover
         .filterNotNull()
@@ -52,8 +65,7 @@ class NovelReaderProvider(
         invertedColors = novelPreferences.readerInvertedColors(),
     )
 
-    // Always the rail: a chapter is one continuous page, so there is nothing for a horizontal bar to
-    // step through. Hundredths, because that is the unit the stored progress is in.
+    // Hundredths, because that is the unit the stored progress is in.
     override val navigator: Flow<ReaderNavigatorState> = combine(
         viewModel.progressPercent,
         viewModel.settings,
@@ -61,7 +73,7 @@ class NovelReaderProvider(
     ) { percent, settings, neighbours ->
         ReaderNavigatorState(
             progress = ChapterProgress.Percent(percent * 100L),
-            useRail = true,
+            useRail = settings.useRail,
             railOnLeft = settings.railOnLeft,
             railHeightPercent = settings.railHeightPercent,
             hasPrevious = neighbours.previous != null,

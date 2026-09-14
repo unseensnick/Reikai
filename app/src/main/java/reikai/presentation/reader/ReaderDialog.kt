@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 
 /**
  * The dialogs the reader engine dispatches over one slot. One slot rather than one flag each, so a
@@ -38,6 +39,9 @@ sealed interface ReaderDialog {
     data class TextSize(val settings: ReaderTextSettings) : ReaderDialog
 
     data class ThemeSelect(val settings: ReaderTextSettings) : ReaderDialog
+
+    /** Arranging the session's own bottom bar, which [scope] names so neither reader edits the other's. */
+    data class BottomButtons(val scope: ReaderBottomButton.Scope) : ReaderDialog
 
     /** Carries the read-aloud capability, so a session without one cannot raise it. */
     data class SleepTimerSelect(val readAloud: ReaderReadAloud) : ReaderDialog

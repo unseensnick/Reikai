@@ -240,6 +240,32 @@ class ReaderEngineTest {
     }
 
     @Test
+    fun `scrolling to the top lands a novel at zero percent`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Percent(4200L))
+
+        engine.seekToStart()
+
+        viewport.sought shouldBe ChapterProgress.Percent(0L)
+    }
+
+    @Test
+    fun `scrolling to the top lands manga on its first page`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(7L, 20L))
+
+        engine.seekToStart()
+
+        viewport.sought shouldBe ChapterProgress.Pages(0L, 20L)
+    }
+
+    @Test
     fun `seeking with no viewport installed does nothing`() {
         engine().seek(ChapterProgress.Percent(4200L))
     }
@@ -592,6 +618,8 @@ private class FakeReaderProvider(
     override val readAloud: ReaderReadAloud? get() = readAloudSlot
 
     override fun seedColor(context: Context): Flow<Int?> = flowOf(null)
+
+    override val bottomButtonScope = ReaderBottomButton.Scope.Manga
 
     override val navigator = MutableStateFlow(ReaderNavigatorState())
 

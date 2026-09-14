@@ -25,6 +25,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import mihon.app.di.appGraph
 import reikai.data.novel.tts.SystemTtsEngine
+import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -462,6 +463,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_always_show_chapter_transition),
                 ).takeIf { seamless },
                 Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerChapterTitleFormat(),
+                    entries = NovelChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_novel_chapter_title_format),
+                ),
+                Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerDefaultOrientation(),
                     entries = ReaderOrientation.entries
                         .filter { it != ReaderOrientation.DEFAULT && it != ReaderOrientation.REVERSE_PORTRAIT }
@@ -547,14 +553,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
         val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
         val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
-        // Ungated, unlike the manga screen's pair: a novel always draws its progress rail, so there is
-        // no reading mode to switch on first.
+        // Gated on the rail alone, unlike the manga screen's pair: a novel has no reading mode to pick it.
         val railHeightPref = novelPreferences.readerRailHeight()
         val railHeight by railHeightPref.collectAsState()
+        val useRail by novelPreferences.readerUseRail().collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
-            preferenceItems = listOf(
+            preferenceItems = listOfNotNull(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = useVolumeButtonsPref,
                     title = stringResource(MR.strings.pref_read_with_volume_keys),
@@ -573,16 +579,20 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerUseRail(),
+                    title = stringResource(MR.strings.pref_novel_use_rail),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerRailOnLeft(),
                     title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                ),
+                ).takeIf { useRail },
                 Preference.PreferenceItem.SliderPreference(
                     value = railHeight,
                     valueRange = 65..100,
                     steps = 6,
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
                     onValueChanged = { railHeightPref.set(it) },
-                ),
+                ).takeIf { useRail },
             ),
         )
     }

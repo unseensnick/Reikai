@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.seekTo
 
 /**
  * The Reikai-owned reader engine, above one provider per content type. It owns dialog dispatch and
@@ -89,6 +90,11 @@ class ReaderEngine(
     fun seek(progress: ChapterProgress) {
         provider.autoScroll?.stop()
         viewport.value?.seekTo(progress)
+    }
+
+    /** Back to the open chapter's start, in whatever unit its medium counts in. */
+    fun seekToStart() {
+        navigator.value.progress?.let { seek(it.seekTo(0f)) }
     }
 
     // The step and the viewer's response to it are sequenced here, because the provider knows which

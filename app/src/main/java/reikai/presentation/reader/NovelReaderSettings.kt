@@ -48,9 +48,11 @@ data class NovelReaderSettings(
     val useVolumeButtons: Boolean,
     val volumeButtonsInverted: Boolean,
     val volumeButtonsFraction: Float,
-    // Vertical progress-rail geometry, shared with the manga reader (verticalNavigator prefs).
+    // The progress navigator's shape, the novel reader's own (NovelPreferences.readerUseRail).
     val railHeightPercent: Int,
     val railOnLeft: Boolean,
+    /** The vertical rail, or the horizontal slider above the bar's buttons. */
+    val useRail: Boolean,
     /** Whether the marker between two consecutive chapters shows (`NovelSeam.isShown`). Carried here
      *  so the host's settings push redraws an open window. */
     val alwaysShowChapterTransition: Boolean = true,

@@ -199,12 +199,15 @@ class NovelPreferences(
     fun readerSkipFiltered() = preferenceStore.getBoolean("ln_reader_skip_filtered", true)
 
     /**
-     * The progress rail's side and height. Novels always draw the rail, so unlike the manga reader's
-     * pair these are never gated on a reading mode; the manga rows are hidden until a vertical
-     * navigator is switched on, which used to leave a novel reader's rail configured by settings the
-     * user could not see. Defaults match the manga ones.
+     * The progress rail's side and height. Unlike the manga reader's pair these are never gated on a
+     * reading mode, only on [readerUseRail]; the manga rows are hidden until a vertical navigator is
+     * switched on, which used to leave a novel reader's rail configured by settings the user could not
+     * see. Defaults match the manga ones.
      */
     fun readerRailOnLeft() = preferenceStore.getBoolean("ln_reader_rail_on_left", false)
+
+    /** The vertical rail on the page's edge, or off for the horizontal slider above the bar's buttons. */
+    fun readerUseRail() = preferenceStore.getBoolean("ln_reader_use_rail", true)
 
     /**
      * Whether a novel session hides the system bars and draws under the cutout. Its own pair for the
@@ -273,6 +276,12 @@ class NovelPreferences(
     /** Show the always-on reading percentage while reading (chrome hidden), the novel twin of the manga
      *  reader's "Show page number". Native Compose overlay; on by default (matches manga and LNReader). */
     fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
+
+    /** What the reader's bar calls the open chapter. Name, the default, is what the bar always showed. */
+    fun readerChapterTitleFormat() = preferenceStore.getEnum(
+        "ln_reader_chapter_title_format",
+        NovelChapterTitleFormat.NAME,
+    )
 
     /** How a tap on the page is read. Disabled, the default, toggles the chrome wherever the page is tapped. */
     fun readerTapLayout() = preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)

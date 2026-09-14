@@ -40,5 +40,6 @@ internal val readerTestSettings = NovelReaderSettings(
     volumeButtonsFraction = 0.75f,
     railHeightPercent = 60,
     railOnLeft = false,
+    useRail = true,
     alwaysShowChapterTransition = true,
 )

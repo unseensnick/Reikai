@@ -29,6 +29,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
     Theme("th", MR.strings.pref_category_theme, Scope.Novel),
     TextSize("ts", MR.strings.pref_reader_text_size, Scope.Novel),
     ReadAloud("ra", MR.strings.pref_category_read_aloud, Scope.Novel),
+    ScrollToTop("top", MR.strings.action_scroll_to_top, Scope.Both),
     ;
 
     enum class Scope { Manga, Novel, Both }
@@ -72,8 +73,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
 
         /**
          * Novel reader defaults (the Settings gear is always shown, so it is not listed here). Text
-         * size and theme are on because the shared host's gear opens the manga sheet, which leaves
-         * these two buttons the only in-reader way to change either.
+         * size and theme are on because they are the quickest way to change either while reading.
          */
         val NOVEL_BUTTONS_DEFAULTS = setOf(
             ViewChapters,

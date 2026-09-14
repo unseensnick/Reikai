@@ -814,3 +814,38 @@ val ReikaiIcons.Remove: ImageVector
     }
 
 private var removeCache: ImageVector? = null
+
+val ReikaiIcons.VerticalAlignTop: ImageVector
+    get() {
+        if (verticalAlignTopCache != null) {
+            return verticalAlignTopCache!!
+        }
+        verticalAlignTopCache = materialIcon(name = "Reikai.VerticalAlignTop") {
+            materialPath {
+                moveTo(9.21f, 11.0f)
+                horizontalLineTo(11.0f)
+                verticalLineToRelative(9.0f)
+                curveToRelative(0.0f, 0.55f, 0.45f, 1.0f, 1.0f, 1.0f)
+                reflectiveCurveToRelative(1.0f, -0.45f, 1.0f, -1.0f)
+                verticalLineToRelative(-9.0f)
+                horizontalLineToRelative(1.79f)
+                curveToRelative(0.45f, 0.0f, 0.67f, -0.54f, 0.35f, -0.85f)
+                lineToRelative(-2.79f, -2.79f)
+                curveToRelative(-0.2f, -0.2f, -0.51f, -0.2f, -0.71f, 0.0f)
+                lineToRelative(-2.79f, 2.79f)
+                curveToRelative(-0.31f, 0.31f, -0.09f, 0.85f, 0.36f, 0.85f)
+                close()
+                moveTo(4.0f, 4.0f)
+                curveToRelative(0.0f, 0.55f, 0.45f, 1.0f, 1.0f, 1.0f)
+                horizontalLineToRelative(14.0f)
+                curveToRelative(0.55f, 0.0f, 1.0f, -0.45f, 1.0f, -1.0f)
+                reflectiveCurveToRelative(-0.45f, -1.0f, -1.0f, -1.0f)
+                horizontalLineTo(5.0f)
+                curveToRelative(-0.55f, 0.0f, -1.0f, 0.45f, -1.0f, 1.0f)
+                close()
+            }
+        }
+        return verticalAlignTopCache!!
+    }
+
+private var verticalAlignTopCache: ImageVector? = null

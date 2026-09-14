@@ -111,6 +111,7 @@ import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
 import reikai.presentation.reader.NovelReaderProvider
 import reikai.presentation.reader.NovelReaderViewModel
+import reikai.presentation.reader.ReaderBottomButtonsDialog
 import reikai.presentation.reader.ReaderChapterListDialog
 import reikai.presentation.reader.ReaderDialog
 import reikai.presentation.reader.ReaderEngine
@@ -617,6 +618,7 @@ class ReaderActivity : BaseActivity() {
                         )
                     }
                 }
+                is ReaderDialog.BottomButtons -> ReaderBottomButtonsDialog(dialog.scope, onDismissRequest)
                 // RK: over the session's own chapter list, so a novel gets its chapters here too.
                 is ReaderDialog.ChapterList -> {
                     val chapterList = engine.chapterList
@@ -1040,6 +1042,8 @@ class ReaderActivity : BaseActivity() {
             // off the bar for manga rather than opening a picker over nothing.
             onClickTextSize = engine.textSettings?.let { { engine.openDialog(ReaderDialog.TextSize(it)) } },
             onClickTheme = engine.textSettings?.let { { engine.openDialog(ReaderDialog.ThemeSelect(it)) } },
+            onClickScrollToTop = engine::seekToStart,
+            onEditBottomButtons = { engine.openDialog(ReaderDialog.BottomButtons(engine.provider.bottomButtonScope)) },
             autoScrollActive = autoScrollActive,
             onClickAutoScroll = engine.autoScroll?.let { auto -> { auto.toggle() } },
             bionicActive = bionicActive,

@@ -94,6 +94,8 @@ fun ReaderAppBars(
     onClickKeepScreenOn: () -> Unit,
     onClickTextSize: (() -> Unit)?,
     onClickTheme: (() -> Unit)?,
+    onClickScrollToTop: () -> Unit,
+    onEditBottomButtons: () -> Unit,
     autoScrollActive: Boolean,
     onClickAutoScroll: (() -> Unit)?,
     bionicActive: Boolean,
@@ -160,6 +162,8 @@ fun ReaderAppBars(
                 onOpenInWebView = onOpenInWebView,
                 onOpenInBrowser = onOpenInBrowser,
                 onShare = onShare,
+                // RK
+                onEditBottomButtons = onEditBottomButtons,
             )
         }
 
@@ -171,7 +175,7 @@ fun ReaderAppBars(
                 Row(modifier = Modifier.weight(1f)) {
                     AnimatedVisibility(
                         visible = visible,
-                        // RK: shared bar animation specs (see ReaderChrome); horizontal is manga-only.
+                        // RK: shared bar animation specs (see ReaderChrome).
                         enter = slideInHorizontally(ReaderBarsSlideSpec) { if (sliderOnLeft) -it else it } +
                             fadeIn(ReaderBarsFadeSpec),
                         exit = slideOutHorizontally(ReaderBarsSlideSpec) { if (sliderOnLeft) -it else it } +
@@ -290,6 +294,7 @@ fun ReaderAppBars(
                     onClickKeepScreenOn = onClickKeepScreenOn,
                     onClickTextSize = onClickTextSize,
                     onClickTheme = onClickTheme,
+                    onClickScrollToTop = onClickScrollToTop,
                     autoScrollActive = autoScrollActive,
                     onClickAutoScroll = onClickAutoScroll,
                     bionicActive = bionicActive,

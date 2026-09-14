@@ -1,8 +1,11 @@
 package reikai.presentation.reader
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,10 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
+import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -48,11 +53,6 @@ data class ReaderBottomButtonsScreen(private val scope: ReaderBottomButton.Scope
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<ReaderBottomButtonsViewModel, ReaderBottomButtonsViewModel.Factory> {
-            create(scope)
-        }
-        val rows by viewModel.state.collectAsStateWithLifecycle()
-
         Scaffold(
             topBar = { scrollBehavior ->
                 AppBar(
@@ -62,31 +62,66 @@ data class ReaderBottomButtonsScreen(private val scope: ReaderBottomButton.Scope
                 )
             },
         ) { paddingValues ->
-            val listState = rememberLazyListState()
-            // Held here while a drag runs, so the list moves under the finger without a write per step.
-            val items = remember(rows) { rows.toMutableStateList() }
-            var didDrag by remember { mutableStateOf(false) }
-            val reorderState = rememberReorderableLazyListState(listState, paddingValues) { from, to ->
-                val fromIndex = items.indexOfFirst { it.button == from.key }
-                val toIndex = items.indexOfFirst { it.button == to.key }
-                if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-                items.add(toIndex, items.removeAt(fromIndex))
-                didDrag = true
-            }
-            LaunchedEffect(reorderState.isAnyItemDragging) {
-                if (!reorderState.isAnyItemDragging && didDrag) {
-                    didDrag = false
-                    viewModel.move(items.map { it.button })
-                }
-            }
+            ReaderBottomButtonsList(scope, contentPadding = paddingValues)
+        }
+    }
+}
 
-            LazyColumn(state = listState, contentPadding = paddingValues) {
-                items(items.size, key = { items[it].button }) { index ->
-                    val row = items[index]
-                    ReorderableItem(reorderState, row.button) {
-                        ButtonRow(row, onToggle = { viewModel.toggle(row.button) })
-                    }
-                }
+/** The reader's own way in: the same list in a sheet over the page, so the bar changes as it is edited. */
+@Composable
+fun ReaderBottomButtonsDialog(scope: ReaderBottomButton.Scope, onDismissRequest: () -> Unit) {
+    AdaptiveSheet(onDismissRequest = onDismissRequest) {
+        Column {
+            Text(
+                text = stringResource(MR.strings.pref_reader_bottom_buttons),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(MaterialTheme.padding.medium),
+            )
+            ReaderBottomButtonsList(
+                scope = scope,
+                contentPadding = PaddingValues(bottom = MaterialTheme.padding.medium),
+                modifier = Modifier.heightIn(max = 480.dp),
+            )
+        }
+    }
+}
+
+/** Every button [scope] offers, switched on or off and dragged into order. */
+@Composable
+private fun ReaderBottomButtonsList(
+    scope: ReaderBottomButton.Scope,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
+    val viewModel = assistedMetroViewModel<ReaderBottomButtonsViewModel, ReaderBottomButtonsViewModel.Factory>(
+        key = scope.name,
+    ) {
+        create(scope)
+    }
+    val rows by viewModel.state.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    // Held here while a drag runs, so the list moves under the finger without a write per step.
+    val items = remember(rows) { rows.toMutableStateList() }
+    var didDrag by remember { mutableStateOf(false) }
+    val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
+        val fromIndex = items.indexOfFirst { it.button == from.key }
+        val toIndex = items.indexOfFirst { it.button == to.key }
+        if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
+        items.add(toIndex, items.removeAt(fromIndex))
+        didDrag = true
+    }
+    LaunchedEffect(reorderState.isAnyItemDragging) {
+        if (!reorderState.isAnyItemDragging && didDrag) {
+            didDrag = false
+            viewModel.move(items.map { it.button })
+        }
+    }
+
+    LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
+        items(items.size, key = { items[it].button }) { index ->
+            val row = items[index]
+            ReorderableItem(reorderState, row.button) {
+                ButtonRow(row, onToggle = { viewModel.toggle(row.button) })
             }
         }
     }

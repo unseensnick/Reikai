@@ -272,6 +272,9 @@ every release now also ships a foss build with neither in it.
 - **Settings -> Novel reader -> Text display now sets your page margins, paragraph indent and paragraph spacing.** Each of the four margins moves on its own, indent and spacing are multiples of your text size, and every reader honours them.
 - **The novel reader has a new, darker theme, and its page background and text can each be set to any color from the reader's settings.**
 - **The read-aloud highlight and its text can now be any color, from Custom under Settings -> Novel reader.**
+- **The novel reader's bar can now name a chapter by its number, or by number and name, under Settings -> Novel reader or the reader's Appearance tab.** A number the chapter's name already opens with is not shown twice.
+- **Settings -> Novel reader can now swap the vertical chapter navigator for a horizontal slider above the bar's buttons.**
+- **Both readers can now put a Scroll to top button on the bar, and edit the bar from the reader's menu.** Scroll to top returns a novel to the chapter's start and manga to its first page.
 - **The novel reader now offers the manga reader's tap zones, plus top and bottom, center and bottom-only layouts, with inverting.** Pick them in the reader's Controls tab or under Settings -> Novel reader; a center or bottom layout leaves taps elsewhere to the page.
 
 #### Changed

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
 import reikai.novel.font.NovelFont
@@ -186,6 +187,18 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     }
     PageColorRow(MR.strings.pref_novel_text_color, shown.textColor) {
         pages.textSettings.setThemeColors(shown.background, it)
+    }
+
+    val titleFormatPref = preferences.readerChapterTitleFormat()
+    val titleFormat by titleFormatPref.collectAsState()
+    SettingsChipRow(MR.strings.pref_novel_chapter_title_format) {
+        NovelChapterTitleFormat.entries.forEach {
+            FilterChip(
+                selected = titleFormat == it,
+                onClick = { titleFormatPref.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
     }
 
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.readerKeepScreenOn())

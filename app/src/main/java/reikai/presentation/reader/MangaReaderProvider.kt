@@ -54,6 +54,8 @@ class MangaReaderProvider(
         ReaderBottomButton.Scope.Manga,
     )
 
+    override val bottomButtonScope = ReaderBottomButton.Scope.Manga
+
     override fun seedColor(context: Context): Flow<Int?> = viewModel.state
         .mapNotNull { it.manga }
         .distinctUntilChangedBy { it.id }

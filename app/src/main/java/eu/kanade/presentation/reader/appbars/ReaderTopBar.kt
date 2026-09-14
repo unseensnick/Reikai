@@ -21,6 +21,9 @@ fun ReaderTopBar(
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
+    // RK -->
+    onEditBottomButtons: () -> Unit,
+    // RK <--
     modifier: Modifier = Modifier,
 ) {
     AppBar(
@@ -73,6 +76,14 @@ fun ReaderTopBar(
                             ),
                         )
                     }
+                    // RK -->
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(MR.strings.action_edit_bottom_buttons),
+                            onClick = onEditBottomButtons,
+                        ),
+                    )
+                    // RK <--
                 },
             )
         },

@@ -754,6 +754,14 @@
     <string name="nav_center_large">Large center</string>
     <string name="nav_bottom">Bottom</string>
     <string name="pref_tap_bottom_zone_height">Bottom zone height</string>
+    <!-- RK: what the novel reader's bar calls the open chapter -->
+    <string name="pref_novel_chapter_title_format">Chapter title</string>
+    <string name="pref_novel_use_rail">Vertical chapter navigator</string>
+    <string name="action_scroll_to_top">Scroll to top</string>
+    <string name="action_edit_bottom_buttons">Edit bottom bar</string>
+    <string name="novel_chapter_title_number">Number</string>
+    <string name="novel_chapter_title_number_and_name">Number and name</string>
+    <string name="novel_chapter_title_numbered">Ch. %1$s: %2$s</string>
     <string name="pref_swipe_between_chapters">Swipe between chapters</string>
     <string name="pref_remove_extra_spacing">Remove extra spacing</string>
     <string name="pref_preserve_reading_position">Resume reading position</string>

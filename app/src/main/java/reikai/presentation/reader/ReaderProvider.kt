@@ -27,6 +27,9 @@ interface ReaderProvider {
      */
     val bottomButtons: Flow<List<ReaderBottomButton>>
 
+    /** Whose buttons those are, which is the pair of preferences the in-reader editor changes. */
+    val bottomButtonScope: ReaderBottomButton.Scope
+
     /**
      * The colour the entry's cover tints the chrome with, null until found or where the cover gives none.
      * [context] loads the cover and is passed per call, like the host, so the flow holds no Activity.
@@ -38,8 +41,7 @@ interface ReaderProvider {
 
     /**
      * Where the reader is in the open chapter and which navigator shows it. Both are the session's to
-     * answer: a novel scrolls one continuous page, so it always uses the rail, while manga offers it
-     * per reading mode.
+     * answer: a novel picks the rail with a setting of its own, while manga offers it per reading mode.
      */
     val navigator: Flow<ReaderNavigatorState>
 

@@ -38,6 +38,7 @@ import reikai.presentation.icons.Lightbulb
 import reikai.presentation.icons.RecordVoiceOver
 import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.icons.SwipeVertical
+import reikai.presentation.icons.VerticalAlignTop
 import reikai.presentation.icons.VolumeUp
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -75,6 +76,7 @@ fun ReaderActionRow(
     // Novel-only pickers: open a small chooser (theme / text size), like the rotation button.
     onClickTheme: (() -> Unit)? = null,
     onClickTextSize: (() -> Unit)? = null,
+    onClickScrollToTop: (() -> Unit)? = null,
     // Novel-only: tap shows or hides the read-aloud controls, long-press stops speech.
     readAloudControlsVisible: Boolean = false,
     onClickReadAloud: (() -> Unit)? = null,
@@ -192,6 +194,15 @@ fun ReaderActionRow(
                         Icon(
                             imageVector = ReikaiIcons.FormatSize,
                             contentDescription = stringResource(MR.strings.pref_reader_text_size),
+                        )
+                    }
+                }
+
+                ReaderBottomButton.ScrollToTop -> if (onClickScrollToTop != null) {
+                    IconButton(onClick = onClickScrollToTop) {
+                        Icon(
+                            imageVector = ReikaiIcons.VerticalAlignTop,
+                            contentDescription = stringResource(MR.strings.action_scroll_to_top),
                         )
                     }
                 }
