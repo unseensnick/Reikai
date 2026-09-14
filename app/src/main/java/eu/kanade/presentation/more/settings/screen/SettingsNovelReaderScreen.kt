@@ -431,6 +431,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val autoScroll by novelPreferences.readerAutoScroll().collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
         val tapLayout by novelPreferences.readerTapLayout().collectAsState()
+        val markReadPercentPref = novelPreferences.readerMarkReadPercent()
+        val markReadPercent by markReadPercentPref.collectAsState()
         val bottomZoneHeightPref = novelPreferences.readerTapBottomZoneHeight()
         val bottomZoneHeight by bottomZoneHeightPref.collectAsState()
 
@@ -521,6 +523,13 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSkipDuplicateChapters(),
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = markReadPercent,
+                    valueRange = 50..100,
+                    title = stringResource(MR.strings.pref_novel_mark_read_percent),
+                    valueString = "$markReadPercent%",
+                    onValueChanged = { markReadPercentPref.set(it) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerMarkReadOnSkip(),

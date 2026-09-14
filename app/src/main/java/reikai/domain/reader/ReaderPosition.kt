@@ -15,8 +15,8 @@ data class ReaderPosition(
     val progress: ChapterProgress,
 )
 
-/** Hundredths of a percent at which a continuous chapter counts as read. */
-private const val CONTINUOUS_COMPLETE_AT = 9700L
+/** The whole percent at which a continuous chapter counts as read, unless the reader sets its own. */
+const val CONTINUOUS_COMPLETE_PERCENT = 97
 
 /** Hundredths of a percent in a whole one. */
 private const val HUNDREDTHS_FULL = 10000L
@@ -31,10 +31,13 @@ private const val CONTINUOUS_DETENTS = 33
  * loaded has a page count of 0 and so never matches, since a page is never read before the first.
  */
 val ChapterProgress.isChapterComplete: Boolean
-    get() = when (this) {
-        is ChapterProgress.Pages -> lastPageRead == pageCount - 1L
-        is ChapterProgress.Percent -> hundredths >= CONTINUOUS_COMPLETE_AT
-    }
+    get() = isChapterComplete(CONTINUOUS_COMPLETE_PERCENT)
+
+/** [isChapterComplete] with a continuous chapter read from [continuousPercent], a whole percent. */
+fun ChapterProgress.isChapterComplete(continuousPercent: Int): Boolean = when (this) {
+    is ChapterProgress.Pages -> lastPageRead == pageCount - 1L
+    is ChapterProgress.Percent -> hundredths >= continuousPercent * 100L
+}
 
 /** Where the thumb sits, 0 at the chapter's start and 1 at its end. */
 val ChapterProgress.fraction: Float

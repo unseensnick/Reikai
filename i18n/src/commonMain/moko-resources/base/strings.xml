@@ -759,6 +759,7 @@
     <string name="pref_novel_use_rail">Vertical chapter navigator</string>
     <string name="action_scroll_to_top">Scroll to top</string>
     <string name="action_edit_bottom_buttons">Edit bottom bar</string>
+    <string name="pref_novel_mark_read_percent">Mark chapter read at</string>
     <string name="novel_chapter_title_number">Number</string>
     <string name="novel_chapter_title_number_and_name">Number and name</string>
     <string name="novel_chapter_title_numbered">Ch. %1$s: %2$s</string>

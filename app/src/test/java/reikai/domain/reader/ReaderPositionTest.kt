@@ -44,6 +44,16 @@ class ReaderPositionTest {
     }
 
     @Test
+    fun `a continuous chapter reaches a threshold the reader lowered`() {
+        ChapterProgress.Percent(hundredths = 6000).isChapterComplete(continuousPercent = 60) shouldBe true
+    }
+
+    @Test
+    fun `a continuous chapter short of a threshold the reader raised is not complete`() {
+        ChapterProgress.Percent(hundredths = 9900).isChapterComplete(continuousPercent = 100) shouldBe false
+    }
+
+    @Test
     fun `a continuous chapter just under the threshold is not complete`() {
         ChapterProgress.Percent(hundredths = 9699).isChapterComplete shouldBe false
     }

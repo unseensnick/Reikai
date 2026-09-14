@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -276,6 +277,9 @@ class NovelPreferences(
     /** Show the always-on reading percentage while reading (chrome hidden), the novel twin of the manga
      *  reader's "Show page number". Native Compose overlay; on by default (matches manga and LNReader). */
     fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
+
+    /** How far into a chapter, as a whole percent, a novel counts it as read. */
+    fun readerMarkReadPercent() = preferenceStore.getInt("ln_reader_mark_read_percent", CONTINUOUS_COMPLETE_PERCENT)
 
     /** What the reader's bar calls the open chapter. Name, the default, is what the bar always showed. */
     fun readerChapterTitleFormat() = preferenceStore.getEnum(

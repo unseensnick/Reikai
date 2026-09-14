@@ -543,7 +543,7 @@ class NovelReaderViewModel(
         progressSaveJob?.cancel()
         // A settle is where the scroll stopped, and finishing carries mark-as-read, the sibling marking
         // and the tracker push, so neither waits.
-        if (settled || clamped.completesChapter()) {
+        if (settled || completesChapter(clamped)) {
             flushProgress()
             return
         }
@@ -924,6 +924,13 @@ class NovelReaderViewModel(
         writeUnwritten(id, clamped)
     }
 
+    /** The shared completion rule, asked in the whole percent this reader reports in, at the threshold
+     *  the reader chose. */
+    private fun completesChapter(percent: Int): Boolean =
+        ChapterProgress.Percent(
+            hundredths = percent * 100L,
+        ).isChapterComplete(novelPreferences.readerMarkReadPercent().get())
+
     private suspend fun writeUnwritten(id: Long, clamped: Int) {
         val chapter = writeLock.withLock {
             unwritten.remove(id)?.let { chapterRepo.setLastTextProgress(id, it * 100L) }
@@ -932,7 +939,7 @@ class NovelReaderViewModel(
         } ?: return
         // Stamp the owning novel's last-read time so the LastRead library sort reflects this read.
         novelRepo.setLastReadAt(chapter.novelId, System.currentTimeMillis())
-        if (clamped.completesChapter()) markChapterRead(chapter)
+        if (completesChapter(clamped)) markChapterRead(chapter)
     }
 
     /**
@@ -1469,8 +1476,3 @@ private const val MAX_CACHED_CHAPTERS = 5
 /** A scroll reports continuously, so a write waits this long for the next one rather than hitting the
  *  database on every whole percent. */
 private const val PROGRESS_SAVE_DEBOUNCE_MS = 500L
-
-/** The shared completion rule, asked in the whole percent this reader reports in, so the threshold
- *  lives only in [ChapterProgress] and cannot drift from the manga side. */
-private fun Int.completesChapter(): Boolean =
-    ChapterProgress.Percent(hundredths = this * 100L).isChapterComplete
