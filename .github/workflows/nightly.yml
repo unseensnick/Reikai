@@ -119,7 +119,7 @@ jobs:
 
       # A notes rule that stops holding only shows up as a messy published release, so check it first.
       - name: Check the release-body rules
-        run: bash scripts/ci/nightly-notes-test.sh
+        run: bash scripts/ci/release-notes-test.sh
 
       - name: Prepare release body
         env:

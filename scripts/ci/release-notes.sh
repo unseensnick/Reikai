@@ -22,7 +22,11 @@ if ! changelog="$(parse-changelog CHANGELOG.md "$version" 2>/dev/null)"; then
   exit 1
 fi
 
-highlights="$(printf '%s\n' "$changelog" | headlines)"
+section_file=$(mktemp)
+printf '%s\n' "$changelog" > "$section_file"
+notes="$(release_notes "$section_file")"
+rm -f "$section_file"
+
 # Previous tag (linear main), for a "changes since" compare link. Empty on the first release.
 prev="$(git describe --tags --abbrev=0 "${VERSION_TAG}^" 2>/dev/null || true)"
 
@@ -31,7 +35,7 @@ prev="$(git describe --tags --abbrev=0 "${VERSION_TAG}^" 2>/dev/null || true)"
   if [ -n "$MESSAGE" ]; then
     printf '%s\n\n' "$MESSAGE"
   fi
-  printf '%s\n\n' "$highlights"
+  printf '%s\n\n' "$notes"
   printf '**Full changelog:** %s/blob/main/CHANGELOG.md\n' "$REPO_URL"
   if [ -n "$prev" ]; then
     printf '**Changes since %s:** %s/compare/%s...%s\n' "$prev" "$REPO_URL" "$prev" "$VERSION_TAG"

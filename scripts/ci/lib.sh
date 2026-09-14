@@ -1,44 +1,63 @@
 # Shared helpers for the CI scripts. Sourced, never run.
 
-# A release note is the one-line bold headline of each CHANGELOG entry; the full sentences stay in
-# CHANGELOG.md, linked from the release body. Reduces "- **Headline.** detail" to "- Headline.".
-# Headings pass through untouched, so a version section's own "### Area" / "#### Added" nesting is
-# the nesting of the release body. Both publishers use this, so the shape is defined once.
-headlines() {
-  sed -E 's/^- \*\*([^*]+)\*\*.*/- \1/'
-}
-
-# The [Unreleased] entries in <current> whose headline is not in <previous>, as release-note lines
-# under the "### Area" / "#### Added" headings they sit in. An entry is known by its bold headline,
-# so editing its trailing sentence does not republish it; an entry with no bold (Other) is known by
-# its whole text. Headings print only above an entry that prints, and prose such as Highlights never
-# does, since it describes the whole release rather than one nightly. POSIX awk only: CI runs mawk.
-new_changelog_entries() {
-  awk '
+# Turns a CHANGELOG section into a release body: each entry reduced to its bold headline (the full
+# sentences stay in CHANGELOG.md, linked from the body), under the "### Area" / "#### Added"
+# headings it sits in, one blank line between blocks. A heading prints only above something that
+# prints, so an empty Added or Changed never reaches a release. Both publishers use this, so the
+# shape is defined once. POSIX awk only: CI runs mawk.
+#
+#   release_notes <section>              stable: every entry, plus the Highlights prose, each
+#                                        paragraph joined onto one line so GitHub does not render
+#                                        the file's hard wraps as line breaks
+#   release_notes <section> <previous>   nightly: only entries whose headline <previous> lacks, so
+#                                        editing an entry's detail sentence does not republish it.
+#                                        An entry with no bold (Other) is known by its whole text.
+#                                        Prose is left out: it describes the release, not the build
+release_notes() {
+  local program='
     function key(line) {
       if (match(line, /^- \*\*[^*]+\*\*/)) return substr(line, 5, RLENGTH - 6)
       return substr(line, 3)
     }
-    function heading(text) {
+    function block(text) {
       if (printed) print ""
       print text
       printed = 1
-      last = "heading"
+      last = "block"
     }
-    FILENAME == ARGV[1] { if ($0 ~ /^- /) seen[key($0)] = 1; next }
-    /^### / { area = $0; cat = ""; next }
-    /^#### / { cat = $0; next }
+    function headings() {
+      if (area != shown_area) { if (area != "") block(area); shown_area = area; shown_cat = "" }
+      if (cat != "" && cat != shown_cat) { block(cat); shown_cat = cat }
+    }
+    function flush() {
+      if (para == "") return
+      headings()
+      block(para)
+      para = ""
+    }
+    has_prev && FILENAME == ARGV[1] { if ($0 ~ /^- /) seen[key($0)] = 1; next }
+    /^### / { flush(); area = $0; cat = ""; next }
+    /^#### / { flush(); cat = $0; next }
     /^- / {
+      flush()
       k = key($0)
       if (k in seen) next
-      if (area != shown_area) { heading(area); shown_area = area; shown_cat = "" }
-      if (cat != "" && cat != shown_cat) { heading(cat); shown_cat = cat }
-      if (last == "heading") print ""
+      headings()
+      if (last != "entry" && printed) print ""
       print "- " k
       printed = 1
       last = "entry"
+      next
     }
-  ' "$1" "$2"
+    /^[ \t]*$/ { flush(); next }
+    !has_prev { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); para = (para == "" ? $0 : para " " $0) }
+    END { flush() }
+  '
+  if [ $# -ge 2 ]; then
+    awk -v has_prev=1 "$program" "$2" "$1"
+  else
+    awk -v has_prev=0 "$program" "$1"
+  fi
 }
 
 # Reads back the Reikai commit a published nightly was built from. Every nightly tag points at a
