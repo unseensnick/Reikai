@@ -33,6 +33,10 @@ object NovelHtmlUtils {
     private val leadingSpaceInParagraph = Regex("<p>(?: |&#160;|&nbsp;)+")
     private val paragraphTagRegex = Regex("<p[\\s>]", RegexOption.IGNORE_CASE)
     private val blankLineRegex = Regex("\r?\n\r?\n")
+    private val verbatimBlockRegex = Regex(
+        "<(style|script|pre|textarea)\\b[^>]*>.*?</\\1\\s*>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
 
     private val titlePatterns = listOf(
         Regex("""<h[1-6][^>]*>.*?</h[1-6]>""", RegexOption.IGNORE_CASE) to true,
@@ -214,8 +218,18 @@ object NovelHtmlUtils {
     fun wrapBareParagraphs(content: String): String {
         val trimmed = content.replace(leadingSpaceInParagraph, "<p>")
         if (paragraphTagRegex.containsMatchIn(trimmed) || !blankLineRegex.containsMatchIn(trimmed)) return trimmed
-        return "<p>" + trimmed.replace("\r\n\r\n", "</p><p>").replace("\n\n", "</p><p>") + "</p>"
+        // A blank line inside a stylesheet, a script or preformatted text is part of that content, so
+        // only the markup between those blocks is broken into paragraphs.
+        val out = StringBuilder("<p>")
+        var from = 0
+        for (block in verbatimBlockRegex.findAll(trimmed)) {
+            out.append(breakParagraphs(trimmed.substring(from, block.range.first))).append(block.value)
+            from = block.range.last + 1
+        }
+        return out.append(breakParagraphs(trimmed.substring(from))).append("</p>").toString()
     }
+
+    private fun breakParagraphs(markup: String) = markup.replace("\r\n\r\n", "</p><p>").replace("\n\n", "</p><p>")
 
     private fun escapeHtml(text: String): String {
         return text
