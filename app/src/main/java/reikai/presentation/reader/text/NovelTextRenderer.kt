@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.text.Html
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.ImageSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.SubscriptSpan
 import android.text.style.SuperscriptSpan
@@ -25,6 +26,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 import reikai.presentation.reader.NovelTextScale
 import tachiyomi.core.common.util.system.logcat
+import kotlin.math.roundToInt
 
 /**
  * Turns a processed chapter into styled text across [ChapterTextBlock]'s chunk views.
@@ -76,6 +78,8 @@ class NovelTextRenderer(
             context.resources.displayMetrics,
         )
         val token = ++block.renderToken
+        val spacingPx = (paragraphSpacing * textSizePx).toInt()
+        val indentPx = (paragraphIndent * textSizePx).toInt()
 
         return scope.launch {
             val imageGetter = NovelImageGetter(
@@ -112,14 +116,12 @@ class NovelTextRenderer(
                 SpannableStringBuilder(spanned)
                     .also { collapseBlankLines(it) }
                     .also { resizeSizedText(it) }
+                    .also { placeImages(it, textSizePx.toInt(), spacingPx) }
                     .also { NovelChapterTags.placeRules(it) }
                     .also { shrinkScripts(it) }
                     .also { NovelChapterLinks.apply(it, context, onAnchor) }
                     .also { if (bionic) NovelBionicSpans.apply(it) }
             }
-
-            val spacingPx = (paragraphSpacing * textSizePx).toInt()
-            val indentPx = (paragraphIndent * textSizePx).toInt()
 
             val chunks = withContext(Dispatchers.Default) {
                 chunkRanges(spannable).map { (start, end) ->
@@ -145,6 +147,11 @@ class NovelTextRenderer(
             if (token != block.renderToken || block.discarded) return@launch
 
             block.clearSelections()
+            // The views are styled by now, and a picture's span reads their spacing when it is laid out.
+            chunks.forEachIndexed { i, chunk ->
+                val extra = block.chunkViews[i].lineSpacingExtra.roundToInt()
+                chunk.getSpans(0, chunk.length, ChapterImageSpan::class.java).forEach { it.lineExtraPx = extra }
+            }
             if (precomputed == null) {
                 chunks.forEachIndexed { i, chunk -> block.chunkViews[i].text = chunk }
             } else {
@@ -307,6 +314,17 @@ class NovelTextRenderer(
                 // A blank line the source asked for costs one line height, as the break it came from
                 // does in a WebView. Spacing it like a paragraph would multiply every stacked break.
                 val isBlankLine = paragraphEnd - paragraphStart == 1 && spannable[paragraphStart] == '\n'
+                // A picture's line keeps its own margins (ChapterImageSpan), as an img takes no p styling.
+                val isPicture = spannable.getSpans(
+                    paragraphStart,
+                    paragraphEnd,
+                    ChapterImageSpan::class.java,
+                ).isNotEmpty()
+                if (isPicture) {
+                    paragraphStart = paragraphEnd
+                    i++
+                    continue
+                }
                 if (spacingPx > 0 && !isBlankLine) {
                     spannable.setSpan(
                         ParagraphSpacingSpan(spacingPx),
@@ -370,6 +388,35 @@ class NovelTextRenderer(
                     while (i > 0 && text[i - 1] == '\n') i--
                 }
                 i--
+            }
+        }
+
+        /**
+         * A picture alone on its line is laid out as the page lays out an `img`, 1em clear above and below
+         * (ChapterImageSpan). Above, the margin collapses with what the paragraph before already leaves, as
+         * CSS margins do: its spacing, or a picture's own 1em. One sharing a line with text keeps its span.
+         */
+        internal fun placeImages(text: SpannableStringBuilder, emPx: Int, spacingPx: Int) {
+            text.getSpans(0, text.length, ImageSpan::class.java).sortedBy(text::getSpanStart).forEach { image ->
+                val start = text.getSpanStart(image)
+                val end = text.getSpanEnd(image)
+                val alone = (start == 0 || text[start - 1] == '\n') && (end == text.length || text[end] == '\n')
+                if (!alone) return@forEach
+                val above = if (start == 0) {
+                    0
+                } else {
+                    val previousStart = text.lastIndexOf('\n', start - 2) + 1
+                    val previousIsPicture = text.getSpans(
+                        previousStart,
+                        start - 1,
+                        ChapterImageSpan::class.java,
+                    ).isNotEmpty()
+                    if (previousIsPicture) emPx else spacingPx
+                }
+                val flags = text.getSpanFlags(image)
+                text.removeSpan(image)
+                val top = (emPx - above).coerceAtLeast(0)
+                text.setSpan(ChapterImageSpan(image.drawable, image.source, top, emPx), start, end, flags)
             }
         }
 

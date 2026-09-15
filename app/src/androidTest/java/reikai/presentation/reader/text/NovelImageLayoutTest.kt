@@ -2,6 +2,7 @@ package reikai.presentation.reader.text
 
 import android.text.Spanned
 import android.text.style.ImageSpan
+import android.util.TypedValue
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
@@ -19,6 +20,7 @@ import org.junit.runners.Parameterized
 import reikai.presentation.reader.WebViewHostActivity
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * That an image landing in the native renderer is drawn at its own height, with text selection on and
@@ -90,11 +92,16 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         // The rebuild that follows the load runs off the main thread on the precomputed branch.
         awaitWhile { measure().second < picture }
         val line = measure().second
-        // The line box carries the font's leading around the picture, so it is a little taller than
-        // the drawable; what it must never be is the placeholder's height, which is the defect.
+        // The picture with the page's 1em margin above and below it (ChapterImageSpan), which is never the
+        // placeholder's height, the defect this pins.
+        val em = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            18f,
+            instrumentation.targetContext.resources.displayMetrics,
+        ).toInt()
         assertTrue(
             "the line holding a ${picture}px picture is ${line}px tall",
-            line >= picture && line <= picture + textLinePx(),
+            abs(line - (picture + 2 * em)) <= 1,
         )
     }
 
@@ -144,21 +151,6 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
             val line = layout.getLineForOffset(text.getSpanStart(span))
             layout.getLineBottom(line) - layout.getLineTop(line) < span.drawable.bounds.height()
         }
-    }
-
-    /** One line of body text in this block, the most the leading around a picture can add. */
-    private fun textLinePx(): Int {
-        var height = 0
-        instrumentation.runOnMainSync {
-            block.chunkViews.forEach { view ->
-                val layout = view.layout ?: return@forEach
-                repeat(layout.lineCount) { line ->
-                    val tall = layout.getLineBottom(line) - layout.getLineTop(line)
-                    if (height == 0 || tall < height) height = tall
-                }
-            }
-        }
-        return height
     }
 
     /** The image span's drawable height and the height of the line holding it, both in pixels. */

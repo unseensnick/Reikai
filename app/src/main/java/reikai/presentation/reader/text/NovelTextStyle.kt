@@ -3,6 +3,7 @@ package reikai.presentation.reader.text
 import android.content.Context
 import android.graphics.Typeface
 import android.text.Layout
+import android.text.Spanned
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -35,6 +36,7 @@ object NovelTextStyle {
         view.includeFontPadding = false
         view.typeface = typefaceFor(context, fontManager, settings.fontFamily)
         val lineExtra = applyLineSpacing(view, settings.lineHeight)
+        holdImagesOffLineSpacing(view)
         val density = context.resources.displayMetrics.density
         // The page margin goes on the sides only; the top and bottom belong to the column, or a chapter
         // split across chunk views would repeat it at every seam. The bottom takes the line spacing the
@@ -77,6 +79,14 @@ object NovelTextStyle {
         val extra = multiplier * view.textSize - (metrics.descent - metrics.ascent)
         view.setLineSpacing(extra, 1f)
         return extra
+    }
+
+    /** A picture's line takes back the spacing the view adds under lines, as an img ignores line-height.
+     *  Called on a restyle and before a render sets its text, since the span reads it at layout. */
+    fun holdImagesOffLineSpacing(view: TextView) {
+        val text = view.text as? Spanned ?: return
+        val extra = view.lineSpacingExtra.roundToInt()
+        text.getSpans(0, text.length, ChapterImageSpan::class.java).forEach { it.lineExtraPx = extra }
     }
 
     /** Justification is a paragraph property the framework only honours from API 26, our minimum. */

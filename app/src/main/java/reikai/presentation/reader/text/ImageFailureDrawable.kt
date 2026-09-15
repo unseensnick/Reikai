@@ -34,20 +34,20 @@ internal class ImageFailureDrawable(
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    // reader.css: 1em above and below, 1.25em of padding, the heading's line, then 0.85em and the pill.
-    private val margin = em
+    // reader.css: 1.25em of padding, the heading's line, then 0.85em and the pill. The 1em above and below
+    // is the picture's own margin, which ChapterImageSpan gives whatever the picture draws.
     private val padding = em * 1.25f
     private val lineHeight = textPaint.fontSpacing
     private val pillHeight = lineHeight + em
 
     init {
         val pill = if (retryLabel == null) 0f else em * 0.85f + pillHeight
-        setBounds(0, 0, width, (margin * 2 + padding * 2 + lineHeight + pill).toInt())
+        setBounds(0, 0, width, (padding * 2 + lineHeight + pill).toInt())
     }
 
     override fun draw(canvas: Canvas) {
         val color = textColor()
-        val box = RectF(bounds).apply { inset(0f, margin) }
+        val box = RectF(bounds)
         linePaint.color = ColorUtils.setAlphaComponent(color, (255 * BOX_ALPHA).toInt())
         linePaint.strokeWidth = em / 16
         canvas.drawRoundRect(box, em / 2, em / 2, linePaint)

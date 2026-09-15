@@ -45,6 +45,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.DrawableWrapper
 import reikai.presentation.reader.text.ImageFailureDrawable
 import reikai.presentation.reader.text.NovelChapterSeamView
@@ -961,6 +962,32 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(false, imageFailure())
     }
 
+    /** Tighter than the font, the text's own glyphs reach past its line, and the picture still clears them. */
+    @Test
+    fun aPictureStaysClearOfTheTextAboveItAtATightLineHeight() {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX)).also { server = it }
+        open(chapter(FIRST, "<p>$ABOVE_RULE</p><img src=\"${picture.url}\"><p>$BELOW_RULE</p>"), tightLines)
+        awaitWhile { firstImageWidth() <= 0f }
+        settle()
+        assertTrue(
+            "the picture starts above the text's glyphs",
+            pictureTops().first() >= glyphBottom(ABOVE_RULE) - TYPE_SLACK_PX,
+        )
+    }
+
+    /** An img's margin, 1em, collapses between two in a row, whatever the line spacing. */
+    @Test
+    fun twoPicturesInARowStandAnEmApart() {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX)).also { server = it }
+        val images = "<img src=\"${picture.url("a")}\"><img src=\"${picture.url("b")}\">"
+        open(chapter(FIRST, "<p>$ABOVE_RULE</p>$images<p>$BELOW_RULE</p>"), tightLines)
+        awaitWhile { pictureTops().size < 2 || firstImageWidth() <= 0f }
+        settle()
+        val (first, second) = pictureTops()
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        assertEquals(SMALL_IMAGE_PX * density + textSizePx(), second - first, TYPE_SLACK_PX * 2)
+    }
+
     /** Against bold body text, since both renderers set a heading bold. */
     @Test
     fun aTopLevelHeadingIsSetAtTwiceTheTextSize() {
@@ -1664,6 +1691,47 @@ class TextViewportContractTest(private val renderer: Renderer) {
         ) == "true"
     }
 
+    /** Where each picture's drawn box starts on screen, in chapter order. */
+    private fun pictureTops(): List<Float> = when (renderer) {
+        Renderer.NATIVE -> {
+            val tops = mutableListOf<Float>()
+            instrumentation.runOnMainSync {
+                textViews().forEach { chunk ->
+                    val text = chunk.text as? Spanned ?: return@forEach
+                    val at = IntArray(2).also(chunk::getLocationOnScreen)
+                    text.getSpans(0, text.length, ChapterImageSpan::class.java).sortedBy(text::getSpanStart).forEach {
+                        val line = chunk.layout.getLineForOffset(text.getSpanStart(it))
+                        tops += at[1] + chunk.totalPaddingTop + chunk.layout.getLineTop(line) + it.topPx.toFloat()
+                    }
+                }
+            }
+            tops
+        }
+        Renderer.WEB -> {
+            val density = instrumentation.targetContext.resources.displayMetrics.density
+            val top = viewTop()
+            val rects =
+                JSONArray(eval("[...document.images].map(function (m) { return m.getBoundingClientRect().top; })"))
+            (0 until rects.length()).map { top + rects.getDouble(it).toFloat() * density }
+        }
+    }
+
+    /** The bottom of the glyphs of the first run reading [text], below which nothing of it is drawn. */
+    private fun glyphBottom(text: String): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var bottom = 0f
+            instrumentation.runOnMainSync {
+                val chunk = textViews().first { it.text.contains(text) }
+                val line = chunk.layout.getLineForOffset(chunk.text.indexOf(text))
+                val at = IntArray(2).also(chunk::getLocationOnScreen)
+                bottom =
+                    at[1] + chunk.totalPaddingTop + chunk.layout.getLineBaseline(line) + chunk.paint.fontMetrics.descent
+            }
+            bottom
+        }
+        Renderer.WEB -> textBox(text).bottom
+    }
+
     /** Null while no picture has failed, else whether its box offers Retry. */
     private fun imageFailure(): Boolean? = when (renderer) {
         Renderer.NATIVE -> {
@@ -2351,6 +2419,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val LONG_READING = "annotation"
 
         val transitionsOff = readerTestSettings.copy(alwaysShowChapterTransition = false)
+
+        /** Tighter than any font's own height, with no paragraph spacing to hide the picture's margin in. */
+        val tightLines = readerTestSettings.copy(lineHeight = 0.8f, paragraphSpacing = 0f)
 
         /** Past the 180dp both renderers need, and short of it. */
         const val SWIPE_DP = 220
