@@ -121,7 +121,7 @@ class PreferenceRestorer(
             ) {
                 return@forEach
             }
-            // RK: the retired novel-reader page padding. The upgrade migration carries it into the four
+            // RK: the retired novel-reader page padding. The upgrade migration carries it into the side
             // margins and deletes it, but a restore lands it afterwards (a fresh install marks every
             // migration done without running it), where nothing would read it and the user's padding
             // would be silently dropped. Carried here through the same kernel, then not written back.

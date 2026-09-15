@@ -20,13 +20,13 @@ class SplitNovelReaderPaddingMigrationTest {
     }
 
     @Test
-    @DisplayName("a customised padding becomes all four margins")
+    @DisplayName("a customised padding becomes the side margins")
     fun customisedPaddingSplits() = runTest {
         store.getInt(DEAD_READER_PADDING_KEY, 0).set(40)
 
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 190))
 
-        margins() shouldBe listOf(40, 40, 40, 40)
+        margins() shouldBe listOf(50, 16, 40, 40)
     }
 
     @Test

@@ -312,7 +312,7 @@ every release now also ships a foss build with neither in it.
 - **Novel text size now goes from 10 to 40, line spacing from 0.8x to 5x, paragraph indent up to 10em, and Split walls of text up to 2000 words.**
 - **Sorting a chapter list "By source" now really follows that source's own listing, on manga and novels.** It was quietly sorting by chapter number instead, so a source that lists its chapters out of numeric order looked tidier than it is; pick "By chapter number" for the old result.
 - **The novel reader now starts with Skip filtered chapters switched on, matching manga; turn it off under Settings -> Novel reader.** With a filtered chapter list, the next-chapter button steps past what the filter hides.
-- **A novel page padding you had already set is carried into all four margins, whether you update or restore an older backup.** The single padding setting is replaced by separate top, bottom, left and right margins.
+- **A novel page padding you had already set becomes your left and right margins, whether you update or restore an older backup.** The single padding setting is replaced by separate top, bottom, left and right margins.
 - **A novel chapter that fails to load now says so and offers to try again.** It used to leave the previous chapter on screen with no sign anything had gone wrong.
 - **The bookmark button and the WebView, browser and share actions now work while reading a novel.** The bookmark showed as empty whatever the chapter's state and did nothing when tapped; the other three were missing.
 - **Code a novel chapter carries is now stripped before it renders, unless you allow it under Settings -> Novel reader.** Scripts, embedded frames and tap handlers all go; chapter markup comes from the source rather than from Reikai.

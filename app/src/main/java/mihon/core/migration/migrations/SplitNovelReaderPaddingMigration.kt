@@ -13,11 +13,11 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 
 /**
- * Carries a customised novel-reader page padding into the four margins that replaced it.
+ * Carries a customised novel-reader page padding into the margins that replaced it.
  *
- * The old single value set all four edges, so copying it to each keeps the page looking exactly as it
- * did. An untouched install has nothing stored and takes the new defaults, which differ on the top
- * edge (50 against the old 16), so only a customised page is carried across unchanged.
+ * The old single value padded the page's sides in every build that shipped it, so it becomes the left
+ * and right margins, and top and bottom take their new defaults. An untouched install has nothing
+ * stored and takes the defaults on every edge.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

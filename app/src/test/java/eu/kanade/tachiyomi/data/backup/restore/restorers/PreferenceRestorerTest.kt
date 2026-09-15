@@ -82,7 +82,7 @@ class PreferenceRestorerTest {
     fun retiredPaddingReachesTheMargins() = runTest {
         restore(DEAD_READER_PADDING_KEY, 32)
 
-        margins() shouldBe listOf(32, 32, 32, 32)
+        margins() shouldBe listOf(50, 16, 32, 32)
     }
 
     /** The upgrade migration has already run by the time a restore lands, so nothing would read it. */
