@@ -26,12 +26,11 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * The reader's vertical progress rail, shared by the manga reader (page-index slider) and the novel
- * reader (scroll-percent slider): a previous-chapter skip button, a labelled vertical slider pill,
- * and a next-chapter skip button. The caller owns the [sliderState] and the [topLabel]/[bottomLabel]
- * so each type provides its own value semantics; the chrome scrim and button colours are computed
- * here so neither reader re-copies them. A null [sliderState] is a chapter with nowhere to scrub to,
- * carried by the state rather than beside a flag a caller could set to disagree with it.
+ * The reader's vertical progress rail for both content types: a previous-chapter skip button, a
+ * labelled vertical slider pill, and a next-chapter skip button. The caller owns the [sliderState] and
+ * the [topLabel]/[bottomLabel], which carry each content type's unit. A null [sliderState] is a chapter
+ * with nowhere to scrub to, carried by the state rather than beside a flag a caller could set to
+ * disagree with it.
  */
 @Composable
 fun VerticalReaderRail(

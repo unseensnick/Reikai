@@ -44,11 +44,10 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Shared reader bottom action row for the manga and novel readers. The manga [ReaderBottomBar] and the
- * novel reader both delegate here, so the two bottom bars can't drift. Which buttons appear, and in what
- * order, is [enabledButtons] (see [ReaderBottomButton.ordered]), and each button also gates on its callback being
- * non-null, so per-type buttons (manga: reading mode / crop; novel: auto-scroll / keep-screen-on / bionic / read-aloud)
- * simply pass null from the other reader. The Settings gear is always shown.
+ * The reader's bottom action row, drawn for both content types by the one reader host. Which buttons appear,
+ * and in what order, is [enabledButtons]: [ReaderBottomButton.ordered] has already dropped the buttons the
+ * open content type does not offer. A nullable callback is an action the open chapter may not support, and
+ * its button is hidden while it is null. The Settings gear is always shown.
  */
 @Composable
 fun ReaderActionRow(
@@ -60,24 +59,23 @@ fun ReaderActionRow(
     orientation: ReaderOrientation,
     onClickOrientation: () -> Unit,
     onClickSettings: () -> Unit,
+    readingMode: ReadingMode,
+    onClickReadingMode: () -> Unit,
+    cropEnabled: Boolean,
+    onClickCropBorder: () -> Unit,
+    keepScreenOn: Boolean,
+    onClickKeepScreenOn: () -> Unit,
+    onClickScrollToTop: () -> Unit,
     modifier: Modifier = Modifier,
-    // Manga-only: null on the novel reader.
-    readingMode: ReadingMode? = null,
-    onClickReadingMode: (() -> Unit)? = null,
-    cropEnabled: Boolean = false,
-    onClickCropBorder: (() -> Unit)? = null,
-    // Novel-only toggles: null on the manga reader. The active flag tints the icon.
+    // Novel toggles. The active flag tints the icon.
     autoScrollActive: Boolean = false,
     onClickAutoScroll: (() -> Unit)? = null,
-    keepScreenOn: Boolean = false,
-    onClickKeepScreenOn: (() -> Unit)? = null,
     bionicActive: Boolean = false,
     onClickBionic: (() -> Unit)? = null,
-    // Novel-only pickers: open a small chooser (theme / text size), like the rotation button.
+    // Novel pickers: open a small chooser (theme / text size), like the rotation button.
     onClickTheme: (() -> Unit)? = null,
     onClickTextSize: (() -> Unit)? = null,
-    onClickScrollToTop: (() -> Unit)? = null,
-    // Novel-only: tap shows or hides the read-aloud controls, long-press stops speech.
+    // Novel: tap shows or hides the read-aloud controls, long-press stops speech.
     readAloudControlsVisible: Boolean = false,
     onClickReadAloud: (() -> Unit)? = null,
     onLongClickReadAloud: () -> Unit = {},
@@ -126,13 +124,11 @@ fun ReaderActionRow(
                     }
                 }
 
-                ReaderBottomButton.ReadingMode -> if (onClickReadingMode != null && readingMode != null) {
-                    IconButton(onClick = onClickReadingMode) {
-                        Icon(
-                            painter = painterResource(readingMode.iconRes),
-                            contentDescription = stringResource(MR.strings.viewer),
-                        )
-                    }
+                ReaderBottomButton.ReadingMode -> IconButton(onClick = onClickReadingMode) {
+                    Icon(
+                        painter = painterResource(readingMode.iconRes),
+                        contentDescription = stringResource(MR.strings.viewer),
+                    )
                 }
 
                 ReaderBottomButton.Rotation -> IconButton(onClick = onClickOrientation) {
@@ -142,15 +138,13 @@ fun ReaderActionRow(
                     )
                 }
 
-                ReaderBottomButton.CropBorders -> if (onClickCropBorder != null) {
-                    IconButton(onClick = onClickCropBorder) {
-                        Icon(
-                            painter = painterResource(
-                                if (cropEnabled) R.drawable.ic_crop_24dp else R.drawable.ic_crop_off_24dp,
-                            ),
-                            contentDescription = stringResource(MR.strings.pref_crop_borders),
-                        )
-                    }
+                ReaderBottomButton.CropBorders -> IconButton(onClick = onClickCropBorder) {
+                    Icon(
+                        painter = painterResource(
+                            if (cropEnabled) R.drawable.ic_crop_24dp else R.drawable.ic_crop_off_24dp,
+                        ),
+                        contentDescription = stringResource(MR.strings.pref_crop_borders),
+                    )
                 }
 
                 ReaderBottomButton.Autoscroll -> if (onClickAutoScroll != null) {
@@ -162,14 +156,12 @@ fun ReaderActionRow(
                     )
                 }
 
-                ReaderBottomButton.KeepScreenOn -> if (onClickKeepScreenOn != null) {
-                    ToggleActionButton(
-                        onClick = onClickKeepScreenOn,
-                        icon = ReikaiIcons.Lightbulb,
-                        description = stringResource(MR.strings.pref_keep_screen_on),
-                        active = keepScreenOn,
-                    )
-                }
+                ReaderBottomButton.KeepScreenOn -> ToggleActionButton(
+                    onClick = onClickKeepScreenOn,
+                    icon = ReikaiIcons.Lightbulb,
+                    description = stringResource(MR.strings.pref_keep_screen_on),
+                    active = keepScreenOn,
+                )
 
                 ReaderBottomButton.BionicReading -> if (onClickBionic != null) {
                     ToggleActionButton(
@@ -198,13 +190,11 @@ fun ReaderActionRow(
                     }
                 }
 
-                ReaderBottomButton.ScrollToTop -> if (onClickScrollToTop != null) {
-                    IconButton(onClick = onClickScrollToTop) {
-                        Icon(
-                            imageVector = ReikaiIcons.VerticalAlignTop,
-                            contentDescription = stringResource(MR.strings.action_scroll_to_top),
-                        )
-                    }
+                ReaderBottomButton.ScrollToTop -> IconButton(onClick = onClickScrollToTop) {
+                    Icon(
+                        imageVector = ReikaiIcons.VerticalAlignTop,
+                        contentDescription = stringResource(MR.strings.action_scroll_to_top),
+                    )
                 }
 
                 ReaderBottomButton.ReadAloud -> if (onClickReadAloud != null) {

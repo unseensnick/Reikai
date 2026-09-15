@@ -252,8 +252,8 @@ fun HorizontalChapterNavigator(
     }
 }
 
-// RK --> delegates to the shared VerticalReaderRail (also used by the novel reader) so the two stay in
-// sync; the labels come from the position kernel, in whatever unit the medium counts in.
+// RK --> delegates to the shared VerticalReaderRail; the labels come from the position kernel, in
+// whatever unit the medium counts in.
 @Composable
 fun VerticalChapterNavigator(
     state: SliderState,

@@ -16,10 +16,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 /*
- * Shared reader chrome primitives (scrim color + top/bottom bar show-hide animation) used by both the
- * manga reader ([eu.kanade.presentation.reader.appbars.ReaderAppBars]) and the novel reader, so the two
- * readers' bars tint and animate identically instead of drifting. The navigator arrangement (the manga
- * page-index slider vs the novel scroll-percent rail) stays per-type and is not covered here.
+ * Reader chrome primitives (scrim color + top/bottom bar show-hide animation) for
+ * [eu.kanade.presentation.reader.appbars.ReaderAppBars], which the one reader host draws for both
+ * content types, and for the vertical rail.
  */
 
 /** Slide timing for the bars. */

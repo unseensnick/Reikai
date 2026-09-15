@@ -39,8 +39,7 @@ fun ReaderBottomBar(
     // RK <--
     modifier: Modifier = Modifier,
 ) {
-    // RK: delegate to the shared reader action row (also used by the novel reader) so the two bottom
-    // bars can't drift. Manga-only buttons pass their state; novel-only buttons stay null here.
+    // RK: the bar is the shared action row, which draws either content type's buttons.
     ReaderActionRow(
         modifier = modifier,
         enabledButtons = enabledButtons,

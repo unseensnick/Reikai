@@ -11,9 +11,9 @@ import tachiyomi.i18n.MR
  * Ported from Komikku, trimmed to the buttons backed by existing reader actions. The two-page-spread
  * buttons (page layout, shift double page) are deliberately omitted; that feature is not ported.
  *
- * [scope] gates which reader may offer a button: [Scope.Manga]-only, [Scope.Novel]-only, or [Scope.Both].
- * The manga and novel settings pickers each filter to their scope, and the shared action row renders a
- * button only when the caller supplies its callback, so a mis-scoped value is inert either way.
+ * [scope] gates which content type may offer a button: [Scope.Manga]-only, [Scope.Novel]-only, or [Scope.Both].
+ * [arranged] filters to it for the settings pickers and the bar alike, and is the only guard: the action row
+ * draws every button it is handed, so a mis-scoped value reaching it would show.
  */
 enum class ReaderBottomButton(val value: String, val stringRes: StringResource, val scope: Scope) {
     ViewChapters("vc", MR.strings.action_view_chapters, Scope.Both),
