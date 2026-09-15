@@ -73,14 +73,16 @@ fun ChapterNavigator(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
+    // RK --> a typed position replaces upstream's page index and page count
     progress: ChapterProgress?,
     onSeek: (ChapterProgress) -> Unit,
     onSeekFinished: () -> Unit,
+    // RK <--
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
 
-    // RK: the thumb runs 0..1 over a step count the position kernel clamps, so the page arithmetic
+    // RK --> the thumb runs 0..1 over a step count the position kernel clamps, so the page arithmetic
     // that used to hand Material a negative step count for a one-page chapter cannot arise here.
     // Keep the range constant: a page-derived one inverts to an empty range at a page count of 0,
     // and Material coerces into it on every value write.
@@ -91,9 +93,11 @@ fun ChapterNavigator(
     }
     state.value = fraction
     val onSeekFraction: (Float) -> Unit = { value -> progress?.let { onSeek(it.seekTo(value)) } }
+    // RK <--
 
     val interactionSource = remember { MutableInteractionSource() }
     val sliderDragged by interactionSource.collectIsDraggedAsState()
+    // RK
     LaunchedEffect(fraction) {
         if (sliderDragged) {
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -116,12 +120,15 @@ fun ChapterNavigator(
         HorizontalChapterNavigator(
             isRtl = type == ChapterNavigatorType.HORIZONTAL_RTL,
             state = state,
+            // RK
             onSeekFraction = onSeekFraction,
+            // RK
             onSeekFinished = onSeekFinished,
             onNextChapter = onNextChapter,
             enabledNext = enabledNext,
             onPreviousChapter = onPreviousChapter,
             enabledPrevious = enabledPrevious,
+            // RK
             progress = progress,
             interactionSource = interactionSource,
             mainAxisPadding = mainAxisPadding,
@@ -130,6 +137,7 @@ fun ChapterNavigator(
             modifier = modifier,
         )
     } else {
+        // RK --> the shared rail takes its own padding and colours, see VerticalChapterNavigator
         VerticalChapterNavigator(
             state = state,
             onSeekFraction = onSeekFraction,
@@ -142,19 +150,23 @@ fun ChapterNavigator(
             interactionSource = interactionSource,
             modifier = modifier,
         )
+        // RK <--
     }
 }
 
 @Composable
 fun HorizontalChapterNavigator(
     isRtl: Boolean,
+    // RK --> always a state, since the range no longer depends on the page count
     state: SliderState,
     onSeekFraction: (Float) -> Unit,
     onSeekFinished: () -> Unit,
+    // RK <--
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
+    // RK
     progress: ChapterProgress?,
     interactionSource: MutableInteractionSource,
     mainAxisPadding: Dp,
@@ -185,6 +197,7 @@ fun HorizontalChapterNavigator(
                 )
             }
 
+            // RK
             if (progress != null && progress.isSeekable) {
                 CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
                     Row(
@@ -196,9 +209,11 @@ fun HorizontalChapterNavigator(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(contentAlignment = Alignment.CenterEnd) {
+                            // RK --> labels from the position kernel, in the unit the medium counts in
                             Text(text = progress.leadingLabel)
                             // Taking up full length so the slider doesn't shift when the label length changes
                             Text(text = progress.trailingLabel, color = Color.Transparent)
+                            // RK <--
                         }
 
                         Slider(
@@ -206,11 +221,14 @@ fun HorizontalChapterNavigator(
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp),
+                            // RK --> seeks by fraction
                             onValueChange = onSeekFraction,
                             onValueChangeFinished = onSeekFinished,
+                            // RK <--
                             interactionSource = interactionSource,
                         )
 
+                        // RK
                         Text(text = progress.trailingLabel)
                     }
                 }
@@ -234,7 +252,7 @@ fun HorizontalChapterNavigator(
     }
 }
 
-// RK: delegates to the shared VerticalReaderRail (also used by the novel reader) so the two stay in
+// RK --> delegates to the shared VerticalReaderRail (also used by the novel reader) so the two stay in
 // sync; the labels come from the position kernel, in whatever unit the medium counts in.
 @Composable
 fun VerticalChapterNavigator(
@@ -263,10 +281,12 @@ fun VerticalChapterNavigator(
         modifier = modifier,
     )
 }
+// RK <--
 
 @Preview
 @Composable
 private fun ChapterNavigatorPreview() {
+    // RK
     var progress by remember {
         mutableStateOf<ChapterProgress>(ChapterProgress.Pages(lastPageRead = 0, pageCount = 10))
     }
@@ -277,9 +297,11 @@ private fun ChapterNavigatorPreview() {
             enabledNext = true,
             onPreviousChapter = {},
             enabledPrevious = true,
+            // RK -->
             progress = progress,
             onSeek = { progress = it },
             onSeekFinished = {},
+            // RK <--
         )
     }
 }
