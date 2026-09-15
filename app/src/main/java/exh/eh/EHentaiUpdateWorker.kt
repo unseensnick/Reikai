@@ -35,6 +35,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import reikai.domain.merge.ReconcileMergedChapters
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -85,6 +86,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var updateNotifier: EHentaiUpdateNotifier
 
     @Inject private lateinit var libraryUpdateNotifier: LibraryUpdateNotifier
+
+    @Inject private lateinit var reconcileMergedChapters: ReconcileMergedChapters
 
     override suspend fun doWork(): Result {
         return try {
@@ -195,6 +198,9 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                 modifiedThisIteration += discardedRoots.map { it.manga.id }
                 updatedThisIteration++
             }
+            // A gallery grouped with other sources has a stored stitch, which new or moved chapters
+            // leave stale until something rebuilds it, as the library update does after its own pass.
+            if (modifiedThisIteration.isNotEmpty()) reconcileMergedChapters.await()
         } finally {
             exhPreferences.exhAutoUpdateStats().set(
                 Json.encodeToString(
