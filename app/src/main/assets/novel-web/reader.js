@@ -44,6 +44,8 @@
     next: '__LABEL_NEXT__',
     noNext: '__LABEL_NO_NEXT__',
     downloaded: '__LABEL_DOWNLOADED__',
+    imageError: '__LABEL_IMAGE_ERROR__',
+    retry: '__LABEL_RETRY__',
   };
 
   // The user's stylesheet, set as text so nothing in it is parsed as markup. It follows the reader's own
@@ -1233,6 +1235,35 @@
       if (e.target.tagName === 'IMG') onScroll();
     }, true);
   });
+
+  /*
+   * A chapter picture that fails is shown as the manga reader shows a failed page: a box saying so, with
+   * Retry when its address can be asked again, which an inline one cannot. The text renderer draws the
+   * same (NovelImageGetter). The box is a failure, so a tap on it is not the reader's (installGestures).
+   * The picture stays in the chapter, hidden, since a link may name it and its attributes are the chapter's.
+   */
+  document.addEventListener('error', function (e) {
+    var img = e.target;
+    if (img.tagName !== 'IMG' || !img.closest(CHAPTER_SELECTOR)) return;
+    var box = document.createElement('div');
+    box.className = 'rk-failure rk-image-failure';
+    box.appendChild(textBlock('rk-failure-heading', labels.imageError));
+    if (/^(https?:)?\/\//i.test(img.getAttribute('src') || '')) {
+      var button = document.createElement('button');
+      button.className = 'rk-failure-retry';
+      button.textContent = labels.retry;
+      button.addEventListener('click', function (click) {
+        if (!click.isTrusted) return;
+        var fresh = img.cloneNode(false);
+        fresh.style.display = '';
+        box.parentNode.removeChild(box);
+        img.parentNode.replaceChild(fresh, img);
+      });
+      box.appendChild(button);
+    }
+    img.style.display = 'none';
+    img.parentNode.insertBefore(box, img);
+  }, true);
 
   installGestures();
   syncBionic();

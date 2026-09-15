@@ -22,6 +22,7 @@ import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -373,6 +374,28 @@ private fun MarginStepper(pref: Preference<Int>, labelRes: StringResource) {
     )
 }
 
+/** The one choice that sets no font, so it says what the reader uses instead, as the fonts screen does. */
+@Composable
+private fun DefaultFontItem(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = stringResource(MR.strings.pref_novel_font_default_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        RadioButton(selected = selected, onClick = null)
+    }
+}
+
 /** The font, named as the picker names it, and a list of every font to choose from. */
 @Composable
 private fun FontRow(pref: Preference<String>, installedFonts: suspend () -> List<NovelFont>) {
@@ -414,14 +437,15 @@ private fun FontRow(pref: Preference<String>, installedFonts: suspend () -> List
                         .verticalScroll(rememberScrollState()),
                 ) {
                     (builtIn + installed).forEach { font ->
-                        RadioItem(
-                            label = if (font.family.isEmpty()) defaultLabel else font.name,
-                            selected = font.family == family,
-                            onClick = {
-                                pref.set(font.family)
-                                picking = false
-                            },
-                        )
+                        val select = {
+                            pref.set(font.family)
+                            picking = false
+                        }
+                        if (font.family.isEmpty()) {
+                            DefaultFontItem(defaultLabel, selected = family.isEmpty(), onClick = select)
+                        } else {
+                            RadioItem(label = font.name, selected = font.family == family, onClick = select)
+                        }
                     }
                 }
             },

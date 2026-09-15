@@ -51,6 +51,8 @@ object NovelWebDocument {
                 "__LABEL_NEXT__" to jsString(context.stringResource(MR.strings.transition_next)),
                 "__LABEL_NO_NEXT__" to jsString(context.stringResource(MR.strings.transition_no_next)),
                 "__LABEL_DOWNLOADED__" to jsString(context.stringResource(MR.strings.label_downloaded)),
+                "__LABEL_IMAGE_ERROR__" to jsString(context.stringResource(MR.strings.decode_image_error)),
+                "__LABEL_RETRY__" to jsString(context.stringResource(MR.strings.action_retry)),
                 // Last, because the tokens are replaced in order and a stylesheet naming one of the
                 // tokens above would otherwise have it filled in, the document token included.
                 "__CSS_SNIPPETS__" to NovelWebSnippets.jsLiteral(settings.webSnippets.css),

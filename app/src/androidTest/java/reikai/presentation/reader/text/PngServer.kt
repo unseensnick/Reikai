@@ -12,7 +12,16 @@ import java.util.concurrent.atomic.AtomicInteger
  * has no seam a test can stand in at the way a WebView's client is one, so the image comes off a
  * socket. Each connection is answered on its own thread, so a delayed picture holds back no other.
  */
-internal class PngServer(private val png: ByteArray) : Closeable {
+internal class PngServer(
+    private val png: ByteArray,
+    /** Requests answered 404 before the picture is served, as a host that fails and then recovers does. */
+    failFirst: Int = 0,
+) : Closeable {
+
+    private val failuresLeft = AtomicInteger(failFirst)
+
+    /** Serves the picture from the next request on. */
+    fun recover() = failuresLeft.set(0)
 
     private val socket = ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
 
@@ -41,6 +50,16 @@ internal class PngServer(private val png: ByteArray) : Closeable {
             if (line.isEmpty()) break
         }
         Regex("delay=(\\d+)").find(request)?.groupValues?.get(1)?.toLong()?.let(Thread::sleep)
+        if (failuresLeft.getAndDecrement() > 0) {
+            client.getOutputStream().apply {
+                write(
+                    "HTTP/1.1 404 Not Found\r\nCache-Control: no-store\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                        .toByteArray(),
+                )
+                flush()
+            }
+            return@use
+        }
         client.getOutputStream().apply {
             write(
                 (

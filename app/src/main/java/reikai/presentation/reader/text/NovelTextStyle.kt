@@ -8,7 +8,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import logcat.LogPriority
-import mihon.app.di.appGraph
+import reikai.novel.font.NovelFontManager
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
 import reikai.presentation.reader.NovelReaderSettings
@@ -28,12 +28,12 @@ object NovelTextStyle {
 
     private val typefaceCache = HashMap<String, Typeface?>()
 
-    fun apply(view: TextView, settings: NovelReaderSettings, context: Context) {
+    fun apply(view: TextView, settings: NovelReaderSettings, context: Context, fontManager: NovelFontManager) {
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, settings.fontSize.toFloat())
         // Off, as tsundoku has it, so the text sits where the WebView puts it. It also lands at every
         // chunk seam here rather than once per chapter, since a chapter is split across views.
         view.includeFontPadding = false
-        view.typeface = typefaceFor(context, settings.fontFamily)
+        view.typeface = typefaceFor(context, fontManager, settings.fontFamily)
         val lineExtra = applyLineSpacing(view, settings.lineHeight)
         val density = context.resources.displayMetrics.density
         // The page margin goes on the sides only; the top and bottom belong to the column, or a chapter
@@ -98,7 +98,7 @@ object NovelTextStyle {
      * bundled asset key, or the file name of one the user added, which is the only one with a suffix.
      * The asset cache is here because a chapter builds one view per 6000 characters.
      */
-    private fun typefaceFor(context: Context, family: String): Typeface {
+    private fun typefaceFor(context: Context, fontManager: NovelFontManager, family: String): Typeface {
         if (family.isBlank()) return Typeface.DEFAULT
         if (isGenericFont(family)) {
             return when (family) {
@@ -108,7 +108,7 @@ object NovelTextStyle {
             }
         }
         if (isSupportedFontFile(family)) {
-            return context.appGraph.novelFontManager.typeface(family) ?: Typeface.DEFAULT
+            return fontManager.typeface(family) ?: Typeface.DEFAULT
         }
         val cached = typefaceCache.getOrPut(family) {
             runCatching { Typeface.createFromAsset(context.assets, "fonts/$family.ttf") }

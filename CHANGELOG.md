@@ -257,6 +257,7 @@ every release now also ships a foss build with neither in it.
 - **Scrolling into the next manga chapter and straight back no longer leaves the reader on the chapter you left.** The bookmark button and Open in WebView could act on it, and the high quality renderer could jump there.
 - **Headings and small text in the novel reader's native text mode are now sized as the web page mode sizes them.** A top-level heading was a quarter smaller there.
 - **Small pictures in the novel reader's native text mode are now drawn at their own size, as in the web page mode, instead of stretched across the page.**
+- **A picture that fails to load in the novel reader now says so, with a Retry button, in both text modes.** Native text mode showed a blank grey block, and the web page mode the browser's broken-image mark.
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
 - **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
 - **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**

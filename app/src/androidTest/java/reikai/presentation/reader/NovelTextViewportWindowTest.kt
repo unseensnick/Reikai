@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -77,6 +78,7 @@ class NovelTextViewportWindowTest {
         scenario.onActivity { activity ->
             viewport = NovelTextViewport(
                 context = activity,
+                fontManager = activity.appGraph.novelFontManager,
                 textSelectable = false,
                 volumeKeysActive = { false },
                 onProgressChanged = { _, _ -> },

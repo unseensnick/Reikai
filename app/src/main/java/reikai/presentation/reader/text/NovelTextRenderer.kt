@@ -1,6 +1,7 @@
 package reikai.presentation.reader.text
 
 import android.content.Context
+import android.graphics.Color
 import android.text.Html
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -82,6 +83,8 @@ class NovelTextRenderer(
                 scope = scope,
                 contentWidthPx = contentWidth,
                 refererUrl = baseUrl?.let { it.trimEnd('/') + "/" },
+                textSizePx = textSizePx,
+                textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
                 resolveView = block::chunkViewFor,
                 onImagesReady = { views ->
                     scope.launch {

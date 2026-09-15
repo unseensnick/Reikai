@@ -8,13 +8,20 @@ import android.graphics.ColorFilter
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.text.Html
+import android.text.Spannable
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.style.ClickableSpan
+import android.text.style.ImageSpan
 import android.util.Base64
+import android.view.View
 import android.widget.TextView
 import androidx.core.graphics.drawable.toDrawable
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import kotlinx.coroutines.CancellationException
@@ -23,7 +30,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
@@ -65,6 +74,9 @@ class NovelImageGetter(
     contentWidthPx: Int,
     /** Some hosts refuse an image without one, so the chapter's own site is sent. */
     private val refererUrl: String?,
+    /** The text size in pixels and colour, which a failed picture's box is drawn in. */
+    private val textSizePx: Float,
+    private val textColor: () -> Int,
     private val resolveView: (Drawable) -> TextView?,
     /** Every load has finished, with the views whose images arrived, empty when none did. Re-measuring
      *  is the renderer's job, because only it knows whether the text is precomputed, and a precomputed
@@ -93,13 +105,16 @@ class NovelImageGetter(
         wrapper.innerDrawable = placeholder
         wrapper.setBounds(0, 0, contentWidth, placeholderHeight)
 
-        if (source.isNullOrBlank()) return wrapper
         when {
+            source.isNullOrBlank() -> showFailure(wrapper, retryable = false)
             source.startsWith("data:") -> decodeInlineImage(source, wrapper)
             source.startsWith("http://") || source.startsWith("https://") ->
                 pendingLoads += PendingLoad(source, wrapper)
             source.startsWith("//") -> pendingLoads += PendingLoad("https:$source", wrapper)
-            else -> logcat(LogPriority.DEBUG) { "Skipping unsupported image source" }
+            else -> {
+                logcat(LogPriority.DEBUG) { "Skipping unsupported image source" }
+                showFailure(wrapper, retryable = false)
+            }
         }
         return wrapper
     }
@@ -123,40 +138,121 @@ class NovelImageGetter(
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             val options = BitmapFactory.Options().apply { inSampleSize = sampleSizeFor(bounds.outWidth) }
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return
-            fitToWidth(bitmap.toDrawable(context.resources), wrapper)
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            if (bitmap == null) {
+                showFailure(wrapper, retryable = false)
+            } else {
+                fitToWidth(bitmap.toDrawable(context.resources), wrapper)
+            }
         } catch (e: Exception) {
             logcat(LogPriority.DEBUG, e) { "Failed to decode an inline chapter image" }
+            showFailure(wrapper, retryable = false)
         }
     }
 
     private fun loadFromNetwork(imageUrl: String, wrapper: DrawableWrapper) {
         scope.launch {
             try {
-                val headers = NetworkHeaders.Builder().apply {
-                    set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-                    refererUrl?.let { set("Referer", it) }
-                }.build()
-                val request = ImageRequest.Builder(context)
-                    .data(imageUrl)
-                    .httpHeaders(headers)
-                    .size(CoilSize(CoilDimension.Pixels(contentWidth), CoilDimension.Undefined))
-                    // Only ever scaled down: an exact size enlarges a small picture to the column, and its
-                    // own width is what fitToWidth needs to draw it at the size a page does.
-                    .precision(Precision.INEXACT)
-                    .build()
-                val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources)
-                if (drawable != null) fitToWidthAndInvalidate(drawable, wrapper)
-            } catch (e: CancellationException) {
-                // A viewport teardown cancels every outstanding image, and reporting each as a
-                // failure buried real ones. Rethrown so the coroutine still ends cancelled.
-                throw e
-            } catch (e: Exception) {
-                logcat(LogPriority.DEBUG, e) { "Failed to load a chapter image" }
+                val drawable = fetch(imageUrl)
+                withContext(Dispatchers.Main) {
+                    if (drawable != null) {
+                        fitToWidthAndInvalidate(drawable, wrapper)
+                    } else {
+                        showFailure(wrapper, retryable = true)
+                        resolveView(wrapper)?.let { view ->
+                            view.invalidate()
+                            dirtyViews.add(view)
+                        }
+                        offerRetry(imageUrl, wrapper)
+                    }
+                }
             } finally {
                 withContext(Dispatchers.Main) { onLoadFinished() }
             }
         }
+    }
+
+    /**
+     * The picture, or null when it could not be had. A [retry] reads no cache: the HTTP cache keeps the
+     * failed answer, which the manga reader's page retry skips the same way by forcing a download.
+     */
+    private suspend fun fetch(imageUrl: String, retry: Boolean = false): Drawable? = try {
+        val headers = NetworkHeaders.Builder().apply {
+            set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+            refererUrl?.let { set("Referer", it) }
+            if (retry) set("Cache-Control", "no-cache")
+        }.build()
+        val cache = if (retry) CachePolicy.WRITE_ONLY else CachePolicy.ENABLED
+        val request = ImageRequest.Builder(context)
+            .data(imageUrl)
+            .httpHeaders(headers)
+            .memoryCachePolicy(cache)
+            .diskCachePolicy(cache)
+            .size(CoilSize(CoilDimension.Pixels(contentWidth), CoilDimension.Undefined))
+            // Only ever scaled down: an exact size enlarges a small picture to the column, and its
+            // own width is what fitToWidth needs to draw it at the size a page does.
+            .precision(Precision.INEXACT)
+            .build()
+        context.imageLoader.execute(request).image?.asDrawable(context.resources)
+    } catch (e: CancellationException) {
+        // A viewport teardown cancels every outstanding image, and reporting each as a
+        // failure buried real ones. Rethrown so the coroutine still ends cancelled.
+        throw e
+    } catch (e: Exception) {
+        logcat(LogPriority.DEBUG, e) { "Failed to load a chapter image" }
+        null
+    }
+
+    /**
+     * In the picture's place, as the page draws one (reader.js). Its height differs from the stand-in's, so
+     * a picture already laid out owes its view a re-measure, which the caller arranges.
+     */
+    private fun showFailure(wrapper: DrawableWrapper, retryable: Boolean) {
+        val box = ImageFailureDrawable(
+            width = contentWidth,
+            em = textSizePx,
+            heading = context.stringResource(MR.strings.decode_image_error),
+            retryLabel = if (retryable) context.stringResource(MR.strings.action_retry) else null,
+            textColor = textColor,
+        )
+        wrapper.innerDrawable = box
+        wrapper.bounds = box.bounds
+    }
+
+    /** Main thread, once the text holds the picture: a tap on its box asks for it again. */
+    private fun offerRetry(imageUrl: String, wrapper: DrawableWrapper) {
+        val view = resolveView(wrapper) ?: return
+        val text = view.text as? Spannable ?: return
+        val image = text.getSpans(0, text.length, ImageSpan::class.java).firstOrNull { it.drawable === wrapper }
+            ?: return
+        text.setSpan(
+            RetryImageSpan(imageUrl, wrapper),
+            text.getSpanStart(image),
+            text.getSpanEnd(image),
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+    }
+
+    /** A link over a failed picture, so LinkOnlyMovementMethod gives it the tap a link gets. */
+    private inner class RetryImageSpan(val imageUrl: String, val wrapper: DrawableWrapper) : ClickableSpan() {
+        override fun onClick(widget: View) {
+            val box = wrapper.innerDrawable as? ImageFailureDrawable ?: return
+            if (box.retrying) return
+            box.retrying = true
+            scope.launch {
+                val drawable = fetch(imageUrl, retry = true)
+                box.retrying = false
+                if (drawable == null) return@launch
+                val view = widget as TextView
+                (view.text as? Spannable)?.removeSpan(this@RetryImageSpan)
+                fitToWidth(drawable, wrapper)
+                view.invalidate()
+                onImagesReady(listOf(view))
+            }
+        }
+
+        /** No colour or underline: there is no text under it to mark. */
+        override fun updateDrawState(ds: TextPaint) = Unit
     }
 
     /** Re-measuring once at the end, rather than per image, so a chapter of pictures reflows once. */

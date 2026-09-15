@@ -237,6 +237,11 @@ th {
   color: var(--rk-error);
 }
 
+/* A failed picture's box sits in the chapter, where the picture's own margin applies rather than the page's. */
+.rk-image-failure {
+  margin: 1em 0;
+}
+
 /* In place of Retry while the retry runs, as the text renderer and the manga transition show it. */
 .rk-failure-progress {
   width: 24px;

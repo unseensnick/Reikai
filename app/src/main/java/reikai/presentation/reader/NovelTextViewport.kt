@@ -28,10 +28,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import mihon.app.di.appGraph
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
+import reikai.novel.font.NovelFontManager
 import reikai.presentation.reader.text.AnchorSpan
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
@@ -60,6 +60,8 @@ import kotlin.math.roundToInt
  */
 class NovelTextViewport(
     private val context: Context,
+    /** The user's added fonts, which a chapter's text is set in when one is chosen. */
+    private val fontManager: NovelFontManager,
     /** Selection and clickable links are exclusive: the movement method that drags cannot click. */
     private val textSelectable: Boolean,
     /** Whether a volume key scrolls right now: the setting, and the menu being down. The provider
@@ -489,7 +491,7 @@ class NovelTextViewport(
      *  this is a coroutine, so the chunk views find it cached rather than each doing that lookup on
      *  the main thread as it is built. */
     private suspend fun warmFont() {
-        context.appGraph.novelFontManager.warm(checkNotNull(settings).fontFamily)
+        fontManager.warm(checkNotNull(settings).fontFamily)
     }
 
     override fun evict(chapterId: Long) {
@@ -622,7 +624,7 @@ class NovelTextViewport(
             // long-press drag path re-sets it without checking, which throws. Copying rather
             // than flattening keeps the chapter's emphasis, links, images and paragraph spans.
             view.text = SpannableStringBuilder(view.text)
-            NovelTextStyle.apply(view, settings, context)
+            NovelTextStyle.apply(view, settings, context, fontManager)
         }
     }
 
@@ -1087,7 +1089,7 @@ class NovelTextViewport(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
             )
-            NovelTextStyle.apply(this, settings, context)
+            NovelTextStyle.apply(this, settings, context, fontManager)
             setTextIsSelectable(textSelectable)
             // Selectable text has one tap owner, the watcher, so a click listener here would double
             // every tap: the Editor swallows a click on the text but not one past its last line.

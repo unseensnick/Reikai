@@ -22,12 +22,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.novel.content.NovelCodeSnippet
+import reikai.novel.font.NovelFontManager
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
@@ -51,6 +51,8 @@ import kotlin.math.roundToInt
 @SuppressLint("SetJavaScriptEnabled")
 class NovelWebViewport(
     private val context: Context,
+    /** The user's added fonts, which the page embeds when one is chosen. */
+    private val fontManager: NovelFontManager,
     /** Long press selects text, the same setting the native viewport reads. Links keep working here,
      *  which the native one cannot offer alongside selection. */
     private val textSelectable: Boolean,
@@ -283,7 +285,7 @@ class NovelWebViewport(
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
-        val fontSource = NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, settings.fontFamily)
+        val fontSource = NovelWebFonts.dataUri(context, fontManager, settings.fontFamily)
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -368,7 +370,7 @@ class NovelWebViewport(
             // The face travels as a data URI, so resolving it reads the file and escaping it copies
             // megabytes for a CJK one; neither belongs on the thread the reader is scrolling on.
             val js = withContext(Dispatchers.Default) {
-                val source = NovelWebFonts.dataUri(context, context.appGraph.novelFontManager, family)
+                val source = NovelWebFonts.dataUri(context, fontManager, family)
                 "rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});"
             }
             runOrQueue(js)

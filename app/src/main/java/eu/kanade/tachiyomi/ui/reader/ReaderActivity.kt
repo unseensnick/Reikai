@@ -255,7 +255,7 @@ class ReaderActivity : BaseActivity() {
     /** The novel half of the session, or null when this launch is a manga one. */
     private val novelSession: NovelReaderProvider? by lazy {
         (intent.entryId() as? EntryId.Novel)?.let {
-            NovelReaderProvider(novelViewModel, novelPreferences)
+            NovelReaderProvider(novelViewModel, novelPreferences, appGraph.novelFontManager)
         }
     }
 

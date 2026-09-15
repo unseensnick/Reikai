@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -114,6 +115,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         scenario.onActivity { activity ->
             viewport = NovelWebViewport(
                 context = activity,
+                fontManager = activity.appGraph.novelFontManager,
                 textSelectable = false,
                 volumeKeysActive = { false },
                 useOriginalFonts = false,

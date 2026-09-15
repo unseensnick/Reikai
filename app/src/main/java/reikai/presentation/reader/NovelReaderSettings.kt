@@ -99,7 +99,7 @@ val readerGenericFonts = listOf(
     ReaderFont("monospace", "Monospace"),
 )
 
-/** Bundled fonts from LNReader (Original + 9 families shipped under assets/fonts/). */
+/** Bundled fonts from LNReader (Default + 9 families shipped under assets/fonts/). */
 val readerFonts = listOf(
     ReaderFont("", "Default"),
     ReaderFont("lora", "Lora"),

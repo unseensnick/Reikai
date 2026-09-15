@@ -22,6 +22,7 @@ class ReaderDisplayFiltersTest {
     private val novel = NovelReaderProvider(
         viewModel = mockk(relaxed = true),
         novelPreferences = NovelPreferences(store),
+        fontManager = mockk(),
     ).displayFilters
 
     @Test

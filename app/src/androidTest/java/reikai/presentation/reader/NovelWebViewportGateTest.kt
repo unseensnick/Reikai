@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -66,6 +67,7 @@ class NovelWebViewportGateTest {
         scenario.onActivity { activity ->
             viewport = NovelWebViewport(
                 context = activity,
+                fontManager = activity.appGraph.novelFontManager,
                 textSelectable = false,
                 volumeKeysActive = { false },
                 useOriginalFonts = false,

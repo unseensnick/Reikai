@@ -17,6 +17,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
+import reikai.novel.font.NovelFontManager
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
@@ -26,6 +27,7 @@ import reikai.domain.reader.ChapterProgress
 class NovelReaderProvider(
     val viewModel: NovelReaderViewModel,
     private val novelPreferences: NovelPreferences,
+    private val fontManager: NovelFontManager,
 ) : ReaderProvider {
 
     override val chrome: Flow<ReaderChromeState> = combine(
@@ -207,6 +209,7 @@ class NovelReaderProvider(
         if (novelPreferences.readerRenderingMode().get() == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
+                fontManager = fontManager,
                 textSelectable = textSelectable,
                 volumeKeysActive = volumeKeysActive,
                 onProgressChanged = viewModel::reportProgress,
@@ -224,6 +227,7 @@ class NovelReaderProvider(
         }
         return NovelWebViewport(
             context = host,
+            fontManager = fontManager,
             textSelectable = textSelectable,
             volumeKeysActive = volumeKeysActive,
             useOriginalFonts = novelPreferences.readerUseOriginalFonts().get(),

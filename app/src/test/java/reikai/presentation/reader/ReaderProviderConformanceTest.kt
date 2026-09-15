@@ -101,5 +101,6 @@ class NovelOrientationProbe : ReaderOrientationProbe {
                 )
             },
             novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+            fontManager = mockk(),
         )
 }

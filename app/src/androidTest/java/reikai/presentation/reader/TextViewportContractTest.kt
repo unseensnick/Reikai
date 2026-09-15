@@ -3,12 +3,14 @@ package reikai.presentation.reader
 import android.app.Instrumentation
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
 import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.ClickableSpan
 import android.text.style.ImageSpan
 import android.text.style.ParagraphStyle
 import android.util.Log
@@ -30,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -43,6 +46,7 @@ import org.junit.runners.Parameterized
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.DrawableWrapper
+import reikai.presentation.reader.text.ImageFailureDrawable
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.ReadAloudMark
@@ -109,6 +113,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         when (renderer) {
             Renderer.NATIVE -> NovelTextViewport(
                 context = activity,
+                fontManager = activity.appGraph.novelFontManager,
                 textSelectable = textSelectable,
                 volumeKeysActive = { volumeKeysOn },
                 onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
@@ -123,6 +128,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             )
             Renderer.WEB -> NovelWebViewport(
                 context = activity,
+                fontManager = activity.appGraph.novelFontManager,
                 textSelectable = textSelectable,
                 volumeKeysActive = { volumeKeysOn },
                 useOriginalFonts = false,
@@ -919,6 +925,42 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(SMALL_IMAGE_PX * density, firstImageWidth(), TYPE_SLACK_PX)
     }
 
+    /** The manga reader's failed page, in the picture's place: a box saying so, with Retry. */
+    @Test
+    fun aPictureThatFailsIsShownAsAFailureWithRetry() {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\"><p>$BELOW_RULE</p>"))
+        awaitWhile { imageFailure() == null }
+        assertEquals(true, imageFailure())
+    }
+
+    @Test
+    fun aTapOnAFailedPicturesRetryLoadsIt() {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\"><p>$BELOW_RULE</p>"))
+        awaitWhile { imageFailure() == null }
+        picture.recover()
+        // Nothing but the tap may ask again: a render landing late would load it with no Retry at all.
+        Thread.sleep(QUIET_MS)
+        assertEquals("the picture loaded before the tap", true, imageFailure())
+        val failed = failedPictureHolder()
+        // The box changed the chapter's height, so Retry is found once the reader has stopped moving.
+        awaitScrollStill()
+        val retry = retryCentre()
+        val at = viewLocation()
+        tap(retry.x - at[0], retry.y - at[1])
+        awaitWhile { !loadedInPlace(failed) }
+        assertTrue("the picture never loaded where it failed", loadedInPlace(failed))
+    }
+
+    /** An inline picture has nowhere to be asked for again. */
+    @Test
+    fun anInlinePictureThatCannotBeReadOffersNoRetry() {
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"data:image/png;base64,AAAA\"><p>$BELOW_RULE</p>"))
+        awaitWhile { imageFailure() == null }
+        assertEquals(false, imageFailure())
+    }
+
     /** Against bold body text, since both renderers set a heading bold. */
     @Test
     fun aTopLevelHeadingIsSetAtTwiceTheTextSize() {
@@ -1620,6 +1662,94 @@ class TextViewportContractTest(private val renderer: Renderer) {
             "(function () { var i = [...document.images]; return i.length === ${IMAGE_DELAYS_MS.size} &&" +
                 " i.every(function (m) { return m.complete && m.naturalHeight > 0; }); })()",
         ) == "true"
+    }
+
+    /** Null while no picture has failed, else whether its box offers Retry. */
+    private fun imageFailure(): Boolean? = when (renderer) {
+        Renderer.NATIVE -> {
+            var failure: Boolean? = null
+            instrumentation.runOnMainSync {
+                val chunk = textViews().firstOrNull { chunk ->
+                    (chunk.text as? Spanned)?.getSpans(0, chunk.text.length, ImageSpan::class.java)?.isNotEmpty() ==
+                        true
+                } ?: return@runOnMainSync
+                val text = chunk.text as Spanned
+                val image = text.getSpans(0, text.length, ImageSpan::class.java).first()
+                if ((image.drawable as DrawableWrapper).innerDrawable !is ImageFailureDrawable) return@runOnMainSync
+                failure = text.getSpans(text.getSpanStart(image), text.getSpanEnd(image), ClickableSpan::class.java)
+                    .isNotEmpty()
+            }
+            failure
+        }
+        Renderer.WEB -> when (
+            eval(
+                "(function () { var b = document.querySelector('.rk-image-failure');" +
+                    " return b ? String(!!b.querySelector('.rk-failure-retry')) : 'none'; })()",
+            ).trim('"')
+        ) {
+            "true" -> true
+            "false" -> false
+            else -> null
+        }
+    }
+
+    /**
+     * The native renderer's holder of the failed picture. A chapter rebuilt makes new holders, which fetch
+     * the picture on their own, so only a load into this one is Retry's. The page has no rebuild to tell
+     * apart, and answers null.
+     */
+    private fun failedPictureHolder(): DrawableWrapper? {
+        if (renderer == Renderer.WEB) return null
+        var holder: DrawableWrapper? = null
+        instrumentation.runOnMainSync { holder = imageSpans().first().drawable as DrawableWrapper }
+        return holder
+    }
+
+    private fun loadedInPlace(holder: DrawableWrapper?): Boolean {
+        if (holder == null) return firstImageWidth() > 0f
+        var loaded = false
+        instrumentation.runOnMainSync {
+            loaded = holder.innerDrawable.let { it != null && it !is ImageFailureDrawable && it !is ColorDrawable }
+        }
+        return loaded
+    }
+
+    /** Where a tap reaches the failed picture's Retry, on screen. */
+    private fun retryCentre(): PointF = when (renderer) {
+        Renderer.NATIVE -> {
+            lateinit var centre: PointF
+            instrumentation.runOnMainSync {
+                val chunk = textViews().first { chunk ->
+                    (chunk.text as? Spanned)?.getSpans(0, chunk.text.length, ImageSpan::class.java)?.isNotEmpty() ==
+                        true
+                }
+                val text = chunk.text as Spanned
+                val start = text.getSpanStart(text.getSpans(0, text.length, ImageSpan::class.java).first())
+                val line = chunk.layout.getLineForOffset(start)
+                val at = IntArray(2).also(chunk::getLocationOnScreen)
+                centre = PointF(
+                    at[0] + chunk.totalPaddingLeft + chunk.layout.getPrimaryHorizontal(start) +
+                        chunk.layout.getLineWidth(line) / 2,
+                    at[1] + chunk.totalPaddingTop +
+                        (chunk.layout.getLineTop(line) + chunk.layout.getLineBottom(line)) / 2f,
+                )
+            }
+            centre
+        }
+        Renderer.WEB -> {
+            val at = viewLocation()
+            val density = instrumentation.targetContext.resources.displayMetrics.density
+            val rect = JSONArray(
+                eval(
+                    "(function () { var b = document.querySelector('.rk-image-failure .rk-failure-retry')" +
+                        ".getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()",
+                ),
+            )
+            PointF(
+                at[0] + (rect.getDouble(0) + rect.getDouble(2)).toFloat() / 2 * density,
+                at[1] + (rect.getDouble(1) + rect.getDouble(3)).toFloat() / 2 * density,
+            )
+        }
     }
 
     /** The first picture's drawn width in screen pixels, once it has arrived, else 0. */
