@@ -37,7 +37,7 @@ class NovelChapterTitleTest {
     }
 
     @Test
-    fun `a name that repeats its number is not numbered at all`() {
+    fun `a name that repeats its number is numbered once`() {
         NovelChapterTitleFormat.NUMBER_AND_NAME.of("Chapter 3 3: Primordial Chaos", 3.0) shouldBe
             "Ch. 3: Primordial Chaos"
     }
