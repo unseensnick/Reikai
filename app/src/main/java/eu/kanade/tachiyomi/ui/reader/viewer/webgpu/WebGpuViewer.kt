@@ -588,7 +588,8 @@ open class WebGpuViewer(
                 size,
                 color = readerOnBackgroundColor(),
                 align = TextAlign.Center,
-                maxWidth = dst.width - 2f * padding,
+                // RK: its own width, which is half the screen as a spread side, or the text runs into its partner.
+                maxWidth = min(dst.width.toFloat(), width * scale) - 2f * padding,
             )
         }
     }
