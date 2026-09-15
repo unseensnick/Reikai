@@ -7,8 +7,6 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
@@ -29,7 +27,6 @@ import org.junit.runner.RunWith
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.NovelChapterSeamView
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 
 /**
@@ -47,13 +44,6 @@ class NovelTextViewportWindowTest {
     /** The last fit answer per chapter, which is also the sign that a chapter has rendered. */
     private val fits = ConcurrentHashMap<Long, Boolean>()
 
-    /** Every chapter the viewport named as the one being read, in order. */
-    private val visibleChapters = CopyOnWriteArrayList<Long>()
-
-    /** What the host would read as the cutout inset, in dp. */
-    @Volatile
-    private var cutout = 0
-
     private companion object {
         const val PREVIOUS = 1L
         const val SHORT = 2L
@@ -69,8 +59,6 @@ class NovelTextViewportWindowTest {
 
         /** Long enough for a settings redraw to rebuild a window of long chapters on an emulator. */
         const val REDRAW_WAIT_S = 4L
-
-        const val CUTOUT_DP = 24
     }
 
     @Before
@@ -86,9 +74,9 @@ class NovelTextViewportWindowTest {
                 onProgressSettled = { _, _ -> },
                 onToggleMenu = {},
                 onStepChapter = {},
-                onVisibleChapter = { visibleChapters += it },
+                onVisibleChapter = {},
                 onRetryBoundary = {},
-                cutoutTopDp = { cutout },
+                cutoutTopDp = { 0 },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = {},
             )
@@ -159,17 +147,6 @@ class NovelTextViewportWindowTest {
         assertTrue("the chapter's text was copied out of its precomputed layout", precomputed)
     }
 
-    /** The same short chapter with one after it: the host adds that one first, so there is room to
-     *  keep the short chapter's first line at the top when the one before it arrives. */
-    @Test
-    fun aShortChapterOpenedBetweenTwoKeepsItsFirstLineAtTheTop() {
-        open(SHORT, "<p>short</p>")
-        val before = shownAt("short")
-        append(NEXT, long("next"))
-        prepend(PREVIOUS, long("previous"))
-        assertEquals(before, shownAt("short"))
-    }
-
     /** The marker naming both chapters appears on the lower one once the upper one has joined. */
     @Test
     fun aChapterGainingOneAboveItShowsTheSeamBetweenThem() {
@@ -177,41 +154,6 @@ class NovelTextViewportWindowTest {
         val alone = seamsShown()
         prepend(PREVIOUS, long("previous"))
         assertEquals(0 to 1, alone to seamsShown())
-    }
-
-    /** Finished first, next second: swapped, every boundary would name the chapter just left twice
-     *  over, and a count of seams cannot tell. The WebView page pins the same order. */
-    @Test
-    fun theSeamNamesTheChapterThatFinishedAboveTheOneBelow() {
-        open(LONG, long("current"))
-        prepend(PREVIOUS, long("previous"))
-        assertEquals(listOf("Chapter $PREVIOUS" to "Chapter $LONG"), seamTitles())
-    }
-
-    /**
-     * A reader stopped inside a seam is in the chapter it introduces, since the screen below it is
-     * entirely that chapter. Here that holds by the seam sitting in the lower chapter's item, which
-     * a seam moved to the bottom of the upper one would break. The WebView page pins the same line.
-     */
-    @Test
-    fun aReaderInsideASeamIsInTheChapterBelowIt() {
-        open(LONG, long("current"))
-        append(NEXT, long("next"))
-        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(10_000)) }
-        settle()
-        // Half a screen on, so the seam below the chapter's last line is laid out and can be measured.
-        instrumentation.runOnMainSync { viewport.view.scrollBy(0, viewport.view.height / 2) }
-        settle()
-        visibleChapters.clear()
-        instrumentation.runOnMainSync {
-            val seam = descendants(viewport.view).first { it is NovelChapterSeamView && it.isVisible }
-            val origin = IntArray(2).also(viewport.view::getLocationOnScreen)
-            val at = IntArray(2).also(seam::getLocationOnScreen)
-            // The seam's own last pixel, which is the far side of the boundary from the chapter above.
-            viewport.view.scrollBy(0, at[1] - origin[1] + seam.height - 1)
-        }
-        settle()
-        assertEquals(NEXT, visibleChapters.lastOrNull())
     }
 
     /** The window changes as the reader crosses a seam, usually mid-fling, and putting the reading
@@ -385,19 +327,6 @@ class NovelTextViewportWindowTest {
         assertEquals(0, pooledTextViews())
     }
 
-    /** An open during an Activity recreation runs before the window has insets and reads zero, so the
-     *  inset has to land when the insets do. */
-    @Test
-    fun aCutoutInsetThatArrivesAfterTheOpenReachesTheColumn() {
-        open(LONG, long("current"))
-        cutout = CUTOUT_DP
-        instrumentation.runOnMainSync {
-            ViewCompat.dispatchApplyWindowInsets(viewport.view, WindowInsetsCompat.Builder().build())
-        }
-        settle()
-        assertEquals(dp(readerTestSettings.margins.top) + dp(CUTOUT_DP), columnTopPadding("current"))
-    }
-
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" }
 
@@ -515,17 +444,6 @@ class NovelTextViewportWindowTest {
         return top
     }
 
-    private fun seamTitles(): List<Pair<String, String?>?> {
-        var titles = emptyList<Pair<String, String?>?>()
-        instrumentation.runOnMainSync {
-            titles =
-                descendants(viewport.view).filterIsInstance<NovelChapterSeamView>().filter {
-                    it.isVisible
-                }.map { view -> view.seam?.let { it.finishedTitle to it.nextTitle } }
-        }
-        return titles
-    }
-
     /** Chunk views left in holders waiting in the recycler's pool, which empties it. */
     private fun pooledTextViews(): Int {
         var count = 0
@@ -534,15 +452,6 @@ class NovelTextViewportWindowTest {
             count = generateSequence { pool.getRecycledView(0) }.sumOf { textViews(it.itemView).size }
         }
         return count
-    }
-
-    /** The top padding of the column holding the chapter whose text contains [text]. */
-    private fun columnTopPadding(text: String): Int? {
-        var padding: Int? = null
-        instrumentation.runOnMainSync {
-            padding = (textViews(viewport.view).firstOrNull { it.text.contains(text) }?.parent as? View)?.paddingTop
-        }
-        return padding
     }
 
     /** The same conversion `NovelTextStyle.applyMargins` makes. */

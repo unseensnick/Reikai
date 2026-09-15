@@ -35,10 +35,6 @@ class NovelWebViewportGateTest {
     private lateinit var viewport: NovelWebViewport
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    /** What the host would say the cutout inset is, which a test can change after a build. */
-    @Volatile
-    private var inset = 0
-
     /** Every chapter the viewport told the host the reader is in. */
     private val visibleReports = CopyOnWriteArrayList<Long>()
 
@@ -78,7 +74,7 @@ class NovelWebViewportGateTest {
                 onStepChapter = { steps += it },
                 onVisibleChapter = { visibleReports += it },
                 onRetryBoundary = {},
-                cutoutTopDp = { inset },
+                cutoutTopDp = { 0 },
                 onChapterFits = { _, _ -> },
                 onChapterEndSeen = { endsSeen += it },
             )
@@ -182,18 +178,6 @@ class NovelWebViewportGateTest {
         }
         assertEquals(true, reportFromThePageItself())
         assertEquals(emptyList<Boolean>(), steps.toList())
-    }
-
-    /** A document rebuilt as the Activity is recreated is built before its window has an inset. */
-    @Test
-    fun anInsetLearnedAfterTheBuildReachesThePage() {
-        openAndAwaitReady(1L)
-        inset = 40
-        instrumentation.runOnMainSync { webView.requestLayout() }
-        assertEquals(
-            "40px",
-            awaitEval("getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top').trim()", "40px"),
-        )
     }
 
     /** rkReader is the page's to overwrite, and a chapter's script replacing an answer used to crash the app. */

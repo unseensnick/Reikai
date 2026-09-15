@@ -22,6 +22,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
@@ -88,6 +90,13 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private val endsSeen = CopyOnWriteArrayList<Long>()
     private val steps = CopyOnWriteArrayList<Boolean>()
 
+    /** Every chapter the viewport told the host the reader is in. */
+    private val visibleChapters = CopyOnWriteArrayList<Long>()
+
+    /** The cutout inset the host would report, which a case can change after an open. */
+    @Volatile
+    private var cutout = 0
+
     /** Every progress report either callback sent, in order, so a case can read what was reported. */
     private val reports = CopyOnWriteArrayList<ProgressReport>()
     private var server: PngServer? = null
@@ -121,9 +130,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
                 onToggleMenu = {},
                 onStepChapter = { steps += it },
-                onVisibleChapter = {},
+                onVisibleChapter = { visibleChapters += it },
                 onRetryBoundary = {},
-                cutoutTopDp = { 0 },
+                cutoutTopDp = { cutout },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
             )
@@ -138,9 +147,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
                 onToggleMenu = {},
                 onStepChapter = { steps += it },
-                onVisibleChapter = {},
+                onVisibleChapter = { visibleChapters += it },
                 onRetryBoundary = {},
-                cutoutTopDp = { 0 },
+                cutoutTopDp = { cutout },
                 onChapterFits = { id, fit -> fits[id] = fit },
                 onChapterEndSeen = { endsSeen += it },
             )
@@ -162,6 +171,21 @@ class TextViewportContractTest(private val renderer: Renderer) {
         open(chapter(SECOND, long("second")))
         prepend(chapter(FIRST, long("first")))
         assertEquals(listOf(DrawnSeam("Chapter 1.0", "Chapter 2.0", false, false, false)), awaitSeams())
+    }
+
+    /**
+     * A reader stopped inside a seam is in the chapter it introduces, since the screen below it is
+     * entirely that chapter. Measured from the seam's middle: its last pixel is within the tolerance a
+     * seek to the chapter's start is given, so it would pass without the rule.
+     */
+    @Test
+    fun aReaderInsideASeamIsInTheChapterBelowIt() {
+        open(chapter(FIRST, long("first")))
+        append(chapter(SECOND, long("second")))
+        bringSeamOnScreen()
+        visibleChapters.clear()
+        scrollToSeamsMiddle()
+        assertEquals(SECOND, visibleChapters.lastOrNull())
     }
 
     /** A numbering that skips chapters is warned of at the boundary, as manga's transition does. */
@@ -1374,6 +1398,33 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     // region keeping the reader's place
 
+    /** The host adds the chapter after a short one first, so there is room to keep the short chapter's
+     *  first line where it was when the one before it arrives. */
+    @Test
+    fun aShortChapterOpenedBetweenTwoKeepsItsFirstLineInPlace() {
+        open(chapter(SECOND, "<p>second 1. short</p>"))
+        val before = checkNotNull(topLine()) { "no line at the top of the screen" }
+        append(chapter(THIRD, long("third")))
+        prepend(chapter(FIRST, long("first")))
+        settle()
+        val after = checkNotNull(topLine()) { "no line at the top of the screen" }
+        assertTrue(
+            "the short chapter's first line was $before and is $after",
+            after.paragraph == before.paragraph && abs(after.y - before.y) <= EDGE_SLACK_PX,
+        )
+    }
+
+    /** An open during an Activity recreation runs before the window has insets and reads zero, so the
+     *  inset has to land when the insets do. */
+    @Test
+    fun aCutoutInsetThatArrivesAfterTheOpenReachesThePage() {
+        open(chapter(FIRST, long("first")))
+        cutout = CUTOUT_DP
+        deliverInsets()
+        settle()
+        assertEquals(inPagePixels(CUTOUT_DP), topInset(), TYPE_SLACK_PX)
+    }
+
     @Test
     fun theLineAtTheTopStaysThereWhenTheTextGrowsLarger() {
         assertTopLineHeldAcross(readerTestSettings.copy(fontSize = LARGER_FONT))
@@ -2031,6 +2082,61 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue("the paragraph is not at the chunk edge the case measures", holds)
     }
 
+    /** Brings the seam below the open chapter on screen: a native seam is laid out only near the screen. */
+    private fun bringSeamOnScreen() {
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(10_000)) }
+        awaitScrollStill()
+        if (renderer == Renderer.NATIVE) {
+            instrumentation.runOnMainSync { (view as RecyclerView).scrollBy(0, view.height / 2) }
+        }
+        settle()
+    }
+
+    private fun scrollToSeamsMiddle() {
+        when (renderer) {
+            Renderer.NATIVE -> instrumentation.runOnMainSync {
+                val seam = descendants(view).first { it is NovelChapterSeamView && it.isVisible }
+                val origin = IntArray(2).also(view::getLocationOnScreen)
+                val at = IntArray(2).also(seam::getLocationOnScreen)
+                (view as RecyclerView).scrollBy(0, at[1] - origin[1] + seam.height / 2)
+            }
+            Renderer.WEB -> eval(
+                "var s = document.querySelector('#rk-chapters .rk-seam');" +
+                    "window.scrollTo({ top: s.getBoundingClientRect().top + window.scrollY +" +
+                    " s.getBoundingClientRect().height / 2, behavior: 'instant' })",
+            )
+        }
+        settle()
+    }
+
+    /** Hands the viewport its window insets again, the way each renderer learns of a new cutout. */
+    private fun deliverInsets() {
+        instrumentation.runOnMainSync {
+            when (renderer) {
+                Renderer.NATIVE -> ViewCompat.dispatchApplyWindowInsets(view, WindowInsetsCompat.Builder().build())
+                Renderer.WEB -> view.requestLayout()
+            }
+        }
+    }
+
+    /** The cutout inset above the text, in the renderer's pixels. */
+    private fun topInset(): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var padding = 0
+            instrumentation.runOnMainSync { padding = (paragraphViews().first().parent as View).paddingTop }
+            padding - dp(readerTestSettings.margins.top)
+        }
+        Renderer.WEB -> eval(
+            "parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top'))",
+        ).toFloat()
+    }
+
+    /** [units] dp in the renderer's pixels: device pixels natively, CSS pixels on the page. */
+    private fun inPagePixels(units: Int): Float = when (renderer) {
+        Renderer.NATIVE -> dp(units)
+        Renderer.WEB -> units.toFloat()
+    }
+
     /** Scrolls the page down by [units] dp at once, a CSS pixel on the page. */
     private fun scrollBy(units: Int) {
         when (renderer) {
@@ -2449,6 +2555,10 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         const val FIRST = 1L
         const val SECOND = 2L
+        const val THIRD = 3L
+
+        /** A cutout inset no margin in the test settings is, so the column's top padding shows it. */
+        const val CUTOUT_DP = 24
         const val TIMEOUT_S = 10L
         const val SETTLE_MS = 500L
 

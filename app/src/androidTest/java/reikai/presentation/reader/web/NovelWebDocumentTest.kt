@@ -353,15 +353,6 @@ class NovelWebDocumentTest {
         assertEquals(expected, lastProgress, 0.01)
     }
 
-    /** The novel's last chapter is read when its last line reaches the screen, which a short one's does
-     *  as it opens. */
-    @Test
-    fun aShortChapterSaysItsEndWasSeen() {
-        loadDocument(document(chapterHtml = "<p>short</p>"))
-        settleFrames()
-        assertEquals(listOf(CHAPTER_ID.toString()), endsSeen.toList())
-    }
-
     @Test
     fun aLongChapterSaysNothingUntilItsLastLineIsOnScreen() {
         loadDocument()
@@ -400,21 +391,6 @@ class NovelWebDocumentTest {
         imageGate?.countDown()
         awaitFits("99")
         assertEquals(null to true, whileLoading to fitsReports["99"])
-    }
-
-    /**
-     * A chapter shorter than the screen opened between two others keeps its first line at the top only
-     * if the chapter after it arrives first: the one before it is kept in place by scrolling down by
-     * its height, which a document with nothing below the short chapter has no room for.
-     */
-    @Test
-    fun aShortChapterOpenedBetweenTwoKeepsItsPlaceWhenTheWindowGrowsBelowFirst() {
-        loadDocument(document(chapterHtml = "<p>short</p>"))
-        settleFrames()
-        eval("window.rkReader.appendChapter('99', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
-        eval("window.rkReader.prependChapter('98', '${"<p>previous</p>".repeat(200)}', null, $SEAM)")
-        settleFrames()
-        assertEquals(0.0, chapterTop(CHAPTER_ID.toString()), 2.0)
     }
 
     // endregion
@@ -666,28 +642,6 @@ class NovelWebDocumentTest {
             emptyList<String>(),
             visibleChapters.filter { it != CHAPTER_ID.toString() },
         )
-    }
-
-    /**
-     * A reader stopped inside a seam is reading the chapter the seam introduces, because the screen
-     * below the seam is entirely that chapter. The native renderer draws the same line by putting the
-     * seam inside the chapter's own item; before this the two renderers disagreed, and the WebView
-     * named the chapter above while its text was nowhere on screen.
-     */
-    @Test
-    fun aReaderInsideASeamIsInTheChapterBelowIt() {
-        loadDocument()
-        eval("window.rkReader.appendChapter('99', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
-        visibleChapters.clear()
-        // The seam's own last pixel, which is the far side of the boundary from the chapter above.
-        eval(
-            "var s = document.querySelector('.rk-seam');" +
-                "window.scrollTo({ top: s.getBoundingClientRect().top + window.scrollY +" +
-                "s.getBoundingClientRect().height - 1, behavior: 'instant' })",
-        )
-        settleFrames()
-        // The last report, not every one: the engine reports each frame a scroll passes through.
-        assertEquals("the page named the chapter above the seam", "99", visibleChapters.last())
     }
 
     /**
@@ -1055,10 +1009,6 @@ class NovelWebDocumentTest {
     }
 
     private fun chapterCount(): String = eval("document.querySelectorAll('.rk-chapter').length")
-
-    /** Where [chapterId]'s chapter begins on screen, in CSS pixels. */
-    private fun chapterTop(chapterId: String): Double =
-        eval("document.querySelector('[data-rk-chapter-id=\"$chapterId\"]').getBoundingClientRect().top").toDouble()
 
     /** Waits for the page to report [chapterId]'s end, since an image's decode and the frame after it
      *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */
