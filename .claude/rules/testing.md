@@ -12,5 +12,6 @@ alwaysApply: true
 - Kotest assertions (`shouldBe`, `shouldHaveSize`, etc.) read more naturally than JUnit's `assertEquals`. One assertion per test. Test names describe behavior, not implementation.
 - Arrange-Act-Assert. No `if` or loops in tests. Parameterize with `@ParameterizedTest` or Kotest data-driven tests instead.
 - Coroutines: use `runTest` with `TestDispatcher`; never call `runBlocking` in tests. Advance virtual time with `advanceTimeBy` / `advanceUntilIdle`.
+  - **Exemption: instrumented tests (`app/src/androidTest`) may use `runBlocking`** (owner ruling). They drive real views, layout passes and a real WebView, which wait on the device's own frame clock and renderer process, so virtual time cannot advance them. Bound each wait with a real timeout instead.
 - Multiplatform: put pure logic tests in `commonTest`, platform-specific tests in `androidUnitTest` / `androidInstrumentedTest`.
 - Never `assertTrue(true)` or check a mock was called without verifying arguments.
