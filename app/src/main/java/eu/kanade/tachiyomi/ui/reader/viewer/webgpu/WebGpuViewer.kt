@@ -1448,7 +1448,9 @@ open class WebGpuViewer(
                 val settled = page
                 this@WebGpuViewer.scope.launch {
                     if (!isContinuous) {
-                        activity.hideMenu()
+                        if (!activity.isScrollingThroughPages) {
+                            activity.hideMenu()
+                        }
                         progressPage(settled)?.let { activity.onPageSelected(it.page) }
                     }
                     preloadPages(settled)

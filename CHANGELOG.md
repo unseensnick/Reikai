@@ -241,6 +241,7 @@ every release now also ships a foss build with neither in it.
 - **The novel reader's voice list now follows the read-aloud engine you pick.** It kept offering the previous engine's voices, so choosing one there left read-aloud speaking in the new engine's default.
 - **The novel reader's chapter list now opens quickly on a grouped novel.**
 - **The light novel reader's own Fullscreen and Show content in cutout area switches now sit on its settings screen.** They were only on the manga reader's screen, so they were set from there for both readers.
+- **Dragging the page slider in Long strip with the high quality renderer no longer hides the reader menu (synced from Mihon, mihonapp/mihon#3956).**
 - **Crop borders now works in Long strip with the high quality renderer on.** The button, its icon and both settings rows acted on a setting that renderer never read.
 - **The high quality renderer's settings list now matches the mode you are reading in (synced from Mihon, mihonapp/mihon#3933).** Disable zoom out is offered in the long strip modes, where it now applies, and the settings that only affect paged modes are gone from them.
 - **Picking a chapter from the manga reader's chapter list now opens it at the right page.** The top bar moved to the chapter you picked while the pages stayed where they were.
@@ -451,6 +452,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Picking a backup to restore now opens the system file picker, which some devices could not open before (synced from Mihon, mihonapp/mihon#3948).**
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.
 - **Restoring a backup now leaves merged series it says nothing about untouched.** They keep their group, their order and their leading source.
