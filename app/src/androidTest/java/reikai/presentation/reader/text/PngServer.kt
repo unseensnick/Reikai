@@ -16,9 +16,15 @@ internal class PngServer(
     private val png: ByteArray,
     /** Requests answered 404 before the picture is served, as a host that fails and then recovers does. */
     failFirst: Int = 0,
+    held: Boolean = false,
 ) : Closeable {
 
     private val failuresLeft = AtomicInteger(failFirst)
+
+    /** Held pictures wait here until [release], for a case that must act before any picture lands. */
+    private val gate = java.util.concurrent.CountDownLatch(if (held) 1 else 0)
+
+    fun release() = gate.countDown()
 
     /** Serves the picture from the next request on. */
     fun recover() = failuresLeft.set(0)
@@ -50,6 +56,7 @@ internal class PngServer(
             if (line.isEmpty()) break
         }
         Regex("delay=(\\d+)").find(request)?.groupValues?.get(1)?.toLong()?.let(Thread::sleep)
+        gate.await()
         if (failuresLeft.getAndDecrement() > 0) {
             client.getOutputStream().apply {
                 write(
@@ -73,7 +80,10 @@ internal class PngServer(
         served.incrementAndGet()
     }
 
-    override fun close() = socket.close()
+    override fun close() {
+        release()
+        socket.close()
+    }
 }
 
 internal fun pngOf(width: Int, height: Int): ByteArray = ByteArrayOutputStream().also {

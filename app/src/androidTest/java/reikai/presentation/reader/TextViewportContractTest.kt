@@ -1486,7 +1486,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
     private fun assertTopLineHeldAsPicturesArrive() {
         runBlocking(Dispatchers.Main) {
-            viewport.load(illustratedChapter(0, STALLED_IMAGE_DELAYS_MS), readerTestSettings)
+            viewport.load(illustratedChapter(0, held = true), readerTestSettings)
         }
         awaitWhile { !textShown() }
         // Dragged rather than scrolled, so the opening landing takes the reader as having moved on.
@@ -1507,6 +1507,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             paragraph > IMAGE_AFTER_PARAGRAPH.first(),
         )
         assertTrue("the pictures arrived before the reader moved", !imagesArrived())
+        checkNotNull(server).release()
         awaitIllustratedLanding()
         val after = lineTop(before.paragraph, before.offset)
         assertEquals("the line at ${before.paragraph} +${before.offset}", before.y, after, HOLD_SLACK_PX)
@@ -1693,8 +1694,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
         delaysMs: List<Long> = IMAGE_DELAYS_MS,
         before: String = "",
         after: String = "",
+        held: Boolean = false,
     ): NovelReaderViewModel.LoadedChapter {
-        val pictures = PngServer(pngOf(400, 1600)).also { server = it }
+        val pictures = PngServer(pngOf(400, 1600), held = held).also { server = it }
         val urls = delaysMs.mapIndexed { index, delay -> pictures.url("picture$index", delay) }
         val html = (1..120).joinToString("") { paragraph ->
             val picture = IMAGE_AFTER_PARAGRAPH.indexOf(paragraph).takeIf {
