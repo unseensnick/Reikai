@@ -90,6 +90,35 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `the notification's pause pauses reading`() = runTest {
+        val controller = playing()
+
+        act { transport.onPause() }
+
+        controller.state.value.playback shouldBe TtsPlayback.Paused
+    }
+
+    @Test
+    fun `the notification's play resumes a pause`() = runTest {
+        val controller = playing()
+        act { transport.onPause() }
+        val paused = controller.state.value.playback
+
+        act { transport.onPlay() }
+
+        (paused to controller.state.value.playback) shouldBe (TtsPlayback.Paused to TtsPlayback.Playing)
+    }
+
+    @Test
+    fun `the notification's stop stops reading`() = runTest {
+        val controller = playing()
+
+        act { transport.onStop() }
+
+        controller.state.value.playback shouldBe TtsPlayback.Stopped
+    }
+
+    @Test
     fun `the notification's previous steps a paragraph back`() = runTest {
         playing()
 
@@ -320,13 +349,6 @@ class ReadAloudControllerTest {
         act { controller.seekToParagraph(0) }
 
         controller.state.value.playback shouldBe TtsPlayback.Playing
-    }
-
-    @Test
-    fun `the state counts the paragraphs of the chapter being read`() = runTest {
-        val controller = playing()
-
-        controller.state.value.paragraphCount shouldBe 3
     }
 
     @Test
@@ -808,6 +830,9 @@ class ReadAloudControllerTest {
         var paragraph: Pair<Int, Int>? = null
         var released = false
         var stopAtChapterEnd = false
+        var onPlay: () -> Unit = {}
+        var onPause: () -> Unit = {}
+        var onStop: () -> Unit = {}
         var onNext: () -> Unit = {}
         var onPrevious: () -> Unit = {}
         var onSeek: (Int) -> Unit = {}
@@ -821,6 +846,9 @@ class ReadAloudControllerTest {
             onSeek: (paragraph: Int) -> Unit,
         ) {
             connects++
+            this.onPlay = onPlay
+            this.onPause = onPause
+            this.onStop = onStop
             this.onNext = onNext
             this.onPrevious = onPrevious
             this.onSeek = onSeek

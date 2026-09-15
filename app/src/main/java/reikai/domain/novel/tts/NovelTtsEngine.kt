@@ -3,7 +3,7 @@ package reikai.domain.novel.tts
 /**
  * The reader's text-to-speech voice layer, kept behind an interface so the default Android
  * [android.speech.tts.TextToSpeech] backend can be swapped for an offline neural engine later
- * without touching the reader, the WebView bridge, or the playback service.
+ * without touching the reader, its renderers, or the playback service.
  *
  * The contract is deliberately small: speak one chunk of text and report when it finishes. The
  * "what to speak next" and the highlight live in `ReadAloudController`; this only produces sound.

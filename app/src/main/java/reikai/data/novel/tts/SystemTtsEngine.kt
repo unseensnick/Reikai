@@ -15,7 +15,7 @@ import java.util.Locale
  * engine that never starts would otherwise leave the caller waiting. One utterance is in flight at a
  * time (each [speak] flushes the previous), so a single pending callback slot is enough.
  * [TextToSpeech] fires its progress callbacks on a binder thread, and the caller marshals to the main
- * thread itself before touching the WebView.
+ * thread itself before touching the renderer.
  */
 class SystemTtsEngine(
     context: Context,

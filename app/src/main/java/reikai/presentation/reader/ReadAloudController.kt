@@ -14,9 +14,6 @@ import kotlin.math.abs
 
 data class ReadAloudState(
     val playback: TtsPlayback = TtsPlayback.Stopped,
-    val position: ReadAloudPosition? = null,
-    /** How many paragraphs the chapter being read has, 0 while nothing is. */
-    val paragraphCount: Int = 0,
 )
 
 /** The chapters read-aloud can move through, answered by the reader model. */
@@ -365,7 +362,7 @@ class ReadAloudController(
     }
 
     private fun publish() {
-        state.value = ReadAloudState(playback, position, paragraphs.size)
+        state.value = ReadAloudState(playback)
         val title = chapterId?.let(navigation::titleOf).orEmpty()
         transport.publish(playback, title, position?.paragraph ?: 0, paragraphs.size)
     }
