@@ -139,7 +139,7 @@ class NovelWebViewportGateTest {
             scope.launch { viewport.load(chapter(3L), readerTestSettings) }
             webView.evaluateJavascript("window.ReikaiWeb.onVisibleChapter('$ANOTHER_DOCUMENT', '1')", null)
         }
-        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(true, awaitVisibleReport(3L))
         assertEquals(false, 1L in visibleReports)
     }
 
@@ -151,7 +151,7 @@ class NovelWebViewportGateTest {
             scope.launch { viewport.load(chapter(3L), readerTestSettings) }
             webView.evaluateJavascript("window.ReikaiWeb.onChapterEndSeen('$ANOTHER_DOCUMENT', '3')", null)
         }
-        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(true, awaitVisibleReport(3L))
         assertEquals(emptyList<Long>(), endsSeen.toList())
     }
 
@@ -168,7 +168,7 @@ class NovelWebViewportGateTest {
                 null,
             )
         }
-        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(true, reportFromThePageItself())
         assertEquals(false, FORGED_CHAPTER in visibleReports)
     }
 
@@ -180,7 +180,7 @@ class NovelWebViewportGateTest {
         instrumentation.runOnMainSync {
             webView.evaluateJavascript("window.ReikaiWeb.onStepChapter('$ANOTHER_DOCUMENT', true)", null)
         }
-        Thread.sleep(REPORT_QUEUED_MS)
+        assertEquals(true, reportFromThePageItself())
         assertEquals(emptyList<Boolean>(), steps.toList())
     }
 
@@ -215,6 +215,22 @@ class NovelWebViewportGateTest {
         val done = CountDownLatch(1)
         instrumentation.runOnMainSync { webView.evaluateJavascript(js) { done.countDown() } }
         done.await(TIMEOUT_S, TimeUnit.SECONDS)
+    }
+
+    /**
+     * Scrolls the open window into its second chapter, so the page itself names it. Every bridge call is
+     * queued on one thread, so that report arriving proves a call forged before it was already answered.
+     */
+    private fun reportFromThePageItself(): Boolean {
+        evalOnPage("window.scrollTo(0, document.querySelectorAll('.rk-chapter')[1].offsetTop + 10)")
+        return awaitVisibleReport(2L)
+    }
+
+    /** Whether the viewport passed on [id] before the timeout. */
+    private fun awaitVisibleReport(id: Long): Boolean {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        while (id !in visibleReports && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        return id in visibleReports
     }
 
     /** Opens [id] with a verb behind it, and waits for the verb, which proves the gate opened. */
