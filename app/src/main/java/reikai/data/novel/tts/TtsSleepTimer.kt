@@ -67,8 +67,20 @@ class TtsSleepTimer(private val clock: () -> Long) {
         return true
     }
 
+    /** Whether the last state published was stopped, which a session starts as. */
+    private var wasStopped = true
+
+    /**
+     * Stopping clears the timer. Starting again restarts a countdown from its full length: one set while
+     * nothing played would otherwise have run down already, and fired the moment reading began.
+     */
     fun onPublished(stopped: Boolean) {
-        if (stopped) clear()
+        if (stopped) {
+            clear()
+        } else if (wasStopped) {
+            (timer.value as? SleepTimer.At)?.let { setMinutes(it.minutes) }
+        }
+        wasStopped = stopped
     }
 
     companion object {

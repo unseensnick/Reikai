@@ -84,12 +84,25 @@ class TtsSleepTimerTest {
     }
 
     @Test
+    fun `a countdown set while stopped starts counting when reading starts`() {
+        sleepTimer.onPublished(stopped = true)
+        sleepTimer.setMinutes(15)
+        now += 30 * 60_000L
+        sleepTimer.onPublished(stopped = false)
+
+        at.endsAt shouldBe now + 15 * 60_000L
+    }
+
+    @Test
     fun `playing on keeps a countdown`() {
+        sleepTimer.onPublished(stopped = false)
         sleepTimer.setMinutes(30)
+        val set = at
+        now += 5 * 60_000L
 
         sleepTimer.onPublished(stopped = false)
 
-        sleepTimer.timer.value shouldBe at
+        sleepTimer.timer.value shouldBe set
     }
 
     @Test
