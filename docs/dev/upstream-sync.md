@@ -71,6 +71,8 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 
 Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
 
+- **`HttpPageLoader.retryPage` always re-queues, taken from the open mihonapp/mihon#3770 ahead of upstream.** A sync that brings the merged PR in makes the `// RK` line a no-op to delete. **mihonapp/mihon#3813 (tap to retry in `WebGpuViewer`) is deliberately not taken while open**: Reikai's retry islands in that viewer cover it without its tap hit-testing, so a sync landing it must reconcile against them rather than stack both. Record: content-layer-reader-surface.md.
+
 - **`SearchToolbar` ignores an incoming query while its field has focus.** Upstream's state-based
   field reports every change outward and adopts whatever comes back, and what comes back is at least
   one report behind, so a keystroke landing inside that round trip is overwritten and lost. Measured

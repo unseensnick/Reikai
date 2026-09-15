@@ -36,6 +36,7 @@ import ca.mpreg.webgpuviewer.transition.TransitionStackUp
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuousState
 import com.google.android.material.color.MaterialColors
+import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
@@ -59,7 +60,12 @@ import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import reikai.presentation.reader.chapterToRetry
+import reikai.presentation.reader.shouldAutoPreload
+import reikai.presentation.reader.showsTransition
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.i18n.MR
 import java.util.TreeSet
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -123,6 +129,10 @@ open class WebGpuViewer(
     /** Chapters [preloadChapterThenRetry] is already waiting on, by id. */
     private val chapterPreloadsInFlight = HashSet<Long?>()
 
+    // RK --> guarded by [lock] too. Chapters that failed to load, left alone until a page turn or a Retry tap.
+    private val failedChapterPreloads = HashSet<Long?>()
+    // RK <--
+
     /**
      * Which side of a dual-page spread a [ViewerReaderPage] belongs on - app-level bookkeeping
      * for [getSpreadAnchor]/[buildSpreadPage], independent of the decoded image itself.
@@ -163,6 +173,8 @@ open class WebGpuViewer(
     private fun queueForDecode(page: ViewerReaderPage, prioritize: Boolean = false) {
         // Already has a decoded image
         if (page.isDecoded) return
+        // RK: a failed page waits for its Retry tap, rather than failing again on every preload.
+        if (page.imagePage is ErrorPage) return
 
         when (page.state) {
             PageState.IDLE -> {
@@ -446,6 +458,8 @@ open class WebGpuViewer(
         }
 
         scope.launch(Dispatchers.Default) {
+            // RK: a transition page draws the chapter's state, so it repaints as that changes.
+            val repaint = launch { chapter.stateFlow.collect { repaintTransitionPages(chapter) } }
             try {
                 activity.viewModel.preload(chapter)
                 repeat(25) {
@@ -453,13 +467,85 @@ open class WebGpuViewer(
                         currentPage?.let { preloadPages(it) }
                         return@launch
                     }
+                    // RK -->
+                    if (chapter.state is ReaderChapter.State.Error) {
+                        synchronized(lock) { failedChapterPreloads.add(chapterId) }
+                        return@launch
+                    }
+                    // RK <--
                     delay(200.milliseconds)
                 }
             } finally {
+                // RK
+                repaint.cancel()
                 synchronized(lock) { chapterPreloadsInFlight.remove(chapterId) }
             }
         }
     }
+
+    // RK -->
+    private fun repaintTransitionPages(chapter: ReaderChapter) {
+        synchronized(lock) {
+            pageCache.values.forEach {
+                val id = chapter.chapter.id
+                if (it is ViewerTransitionPage &&
+                    (it.prevChapter?.chapter?.id == id || it.nextChapter?.chapter?.id == id)
+                ) {
+                    it.imagePage.invalidate()
+                }
+            }
+        }
+        pager.state.invalidate()
+    }
+
+    /** Shows [page]'s load failure with its Retry, in place of a progress ring that never moves. Call under [lock]. */
+    private fun showLoadError(page: ViewerReaderPage, error: Throwable) {
+        if (page.isDecoded || page.imagePage is ErrorPage) return
+        val oldImagePage = page.imagePage
+        page.imagePage = ErrorPage(with(activity) { error.formattedMessage }, page.spreadPosition)
+        cleanupImage(oldImagePage)
+        pager.state.invalidate()
+    }
+
+    /**
+     * Retries every failed page and chapter on screen, as a tap on their Retry would in the other
+     * viewers. False when nothing on screen failed, so the tap does what it otherwise does.
+     */
+    private fun retryFailuresOnScreen(): Boolean {
+        val (pages, chapters) = synchronized(lock) {
+            val onScreen = pageCache.values.filter { it.imagePage.isOnScreen }
+            val pages = onScreen.filterIsInstance<ViewerReaderPage>().filter { it.imagePage is ErrorPage }
+            val chapters = onScreen.filterIsInstance<ViewerTransitionPage>()
+                .mapNotNull { chapterToRetry(it.prevChapter, it.nextChapter) }
+                .distinct()
+            chapters.forEach { failedChapterPreloads.remove(it.chapter.id) }
+            pages to chapters
+        }
+        pages.forEach(::retryPage)
+        chapters.forEach(::preloadChapterThenRetry)
+        return pages.isNotEmpty() || chapters.isNotEmpty()
+    }
+
+    private fun retryPage(page: ViewerReaderPage) {
+        val loader = page.page.chapter.pageLoader ?: return
+        synchronized(lock) {
+            if (!pageInCache(page) || page.imagePage !is ErrorPage) return
+            val oldImagePage = page.imagePage
+            page.imagePage = ProgressPage()
+            page.state = PageState.IDLE
+            cleanupImage(oldImagePage)
+        }
+        // Queued first, so the decode worker finds the page loading rather than failed.
+        loader.retryPage(page.page)
+        synchronized(lock) { queueForDecode(page, prioritize = true) }
+        pager.state.invalidate()
+    }
+
+    /** A page turn gives every failed neighbour one more automatic try. */
+    private fun releaseFailedChapterPreloads() {
+        synchronized(lock) { failedChapterPreloads.clear() }
+    }
+    // RK <--
 
     inner class ErrorPage internal constructor(
         message: String,
@@ -495,7 +581,8 @@ open class WebGpuViewer(
                 dst,
                 activity.baseContext,
                 FontFamily.Default,
-                message,
+                // RK: tapping the middle of the screen retries, see [retryFailuresOnScreen].
+                message + "\n\n" + activity.stringResource(MR.strings.action_retry),
                 cx,
                 cy,
                 size,
@@ -608,6 +695,14 @@ open class WebGpuViewer(
             val lines: MutableList<String> = mutableListOf()
             prevChapter?.chapter?.let { chapter -> lines.add("Previous: " + chapter.name) }
             nextChapter?.chapter?.let { chapter -> lines.add("Next: " + chapter.name) }
+            // RK -->
+            (chapterToRetry(prevChapter, nextChapter)?.state as? ReaderChapter.State.Error)?.let { failed ->
+                val message = with(activity) { failed.error.formattedMessage }
+                lines.add("")
+                lines.add(activity.stringResource(MR.strings.transition_pages_error, message))
+                lines.add(activity.stringResource(MR.strings.action_retry))
+            }
+            // RK <--
 
             val text = lines.joinToString("\n")
 
@@ -717,11 +812,14 @@ open class WebGpuViewer(
                 pages.getOrNull(page.index - 1)?.let { getPage(it, currentPage) } ?: run {
                     val prevChapter = prevChapter ?: return@run getPage(null, page.chapter, currentPage)
 
-                    if (prevChapter.state !is ReaderChapter.State.Loaded) {
+                    // RK -->
+                    val isHeld = synchronized(lock) { prevChapter.chapter.id in failedChapterPreloads }
+                    if (shouldAutoPreload(prevChapter.state, isHeld)) {
                         preloadChapterThenRetry(prevChapter)
                     }
 
-                    if (config.alwaysShowChapterTransition) {
+                    if (showsTransition(config.alwaysShowChapterTransition, prevChapter.state)) {
+                        // RK <--
                         getPage(prevChapter, page.chapter, currentPage)
                     } else {
                         prevChapter.pages?.lastOrNull()?.let { getPage(it, currentPage) }
@@ -734,11 +832,14 @@ open class WebGpuViewer(
                 pages.getOrNull(page.index + 1)?.let { getPage(it, currentPage) } ?: run {
                     val nextChapter = nextChapter ?: return@run getPage(page.chapter, null, currentPage)
 
-                    if (nextChapter.state !is ReaderChapter.State.Loaded) {
+                    // RK -->
+                    val isHeld = synchronized(lock) { nextChapter.chapter.id in failedChapterPreloads }
+                    if (shouldAutoPreload(nextChapter.state, isHeld)) {
                         preloadChapterThenRetry(nextChapter)
                     }
 
-                    if (config.alwaysShowChapterTransition) {
+                    if (showsTransition(config.alwaysShowChapterTransition, nextChapter.state)) {
+                        // RK <--
                         getPage(page.chapter, nextChapter, currentPage)
                     } else {
                         nextChapter.pages?.firstOrNull()?.let { getPage(it, currentPage) }
@@ -910,7 +1011,8 @@ open class WebGpuViewer(
 
             onTap = { offset ->
                 when (config.navigator.getAction(PointF(offset.x, offset.y))) {
-                    NavigationRegion.MENU -> activity.toggleMenu()
+                    // RK
+                    NavigationRegion.MENU -> if (!retryFailuresOnScreen()) activity.toggleMenu()
                     NavigationRegion.NEXT -> if (isReversed) moveToPrevious() else moveToNext()
                     NavigationRegion.PREV -> if (isReversed) moveToNext() else moveToPrevious()
                     NavigationRegion.RIGHT -> moveRight()
@@ -1050,6 +1152,18 @@ open class WebGpuViewer(
             return
         }
 
+        // RK -->
+        (page.page.status as? Page.State.Error)?.let { failure ->
+            synchronized(lock) {
+                if (pageInCache(page)) {
+                    page.state = PageState.IDLE
+                    showLoadError(page, failure.error)
+                }
+            }
+            return
+        }
+        // RK <--
+
         synchronized(lock) {
             if (!pageInCache(page)) return
             page.state = PageState.LOADING
@@ -1099,6 +1213,8 @@ open class WebGpuViewer(
                                 prioritize = currentPage?.let { pageKey(it) == pageKey(page) } ?: false,
                             )
                         }
+                        // RK
+                        (page.page.status as? Page.State.Error)?.let { showLoadError(page, it.error) }
                     }
                 }
             } catch (e: Exception) {
@@ -1446,6 +1562,8 @@ open class WebGpuViewer(
                 // Posted in order, so nothing is skipped or reordered - and on this viewer's own
                 // MainScope, not the state's: that one dispatches inside the frame callback.
                 val settled = page
+                // RK
+                releaseFailedChapterPreloads()
                 this@WebGpuViewer.scope.launch {
                     if (!isContinuous) {
                         if (!activity.isScrollingThroughPages) {
@@ -1487,6 +1605,8 @@ open class WebGpuViewer(
         synchronized(lock) { flushDeferredCleanup() }
 
         currentPage = newPage
+        // RK
+        releaseFailedChapterPreloads()
         progressPage(newPage)?.let { activity.onPageSelected(it.page) }
         preloadPages(newPage)
 

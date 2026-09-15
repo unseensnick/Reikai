@@ -254,6 +254,7 @@ every release now also ships a foss build with neither in it.
 - **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
 - **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**
 - **Retrying a manga page that failed to load now always fetches it again (from mihonapp/mihon#3770).**
+- **With the high quality renderer on, a page or next chapter that fails to load now shows why, and tapping the middle of the screen retries it.** It used to spin forever, and a failed next chapter was fetched again every few seconds.
 - **Line spacing, footnote links, rules, superscripts, ruby, tables and pictures now look the same in both novel rendering modes.** The native one spaced lines further apart, ignored footnote links and ran table cells together.
 - **The novel reader now reopens a chapter at the place you left it, instead of sometimes at its start or short of it.** The native one could save the chapter's start over your place before moving there, or land short while pictures were still loading.
 - **The web-page novel reader now keeps the line you are reading in place when you change a text setting or a chapter loads above you.** A larger text size could drop you several screens further on.
