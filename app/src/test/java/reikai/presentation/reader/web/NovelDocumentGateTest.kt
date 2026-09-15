@@ -46,4 +46,21 @@ class NovelDocumentGateTest {
 
         gate.admitsReport(new) shouldBe false
     }
+
+    /** Once the new page is ready only its token opens the gate, so an old report is not heard on its back. */
+    @Test
+    fun `the replaced document is not heard once the new one is ready`() {
+        val old = gate.open()
+        gate.markReady(gate.open())
+
+        gate.admitsReport(old) shouldBe false
+    }
+
+    @Test
+    fun `a reader call from the replaced document is not heard`() {
+        val old = gate.open()
+        gate.open()
+
+        gate.admitsReaderCall(old) shouldBe false
+    }
 }
