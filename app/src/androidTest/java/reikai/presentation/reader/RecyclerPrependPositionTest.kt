@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,8 +23,8 @@ import kotlin.math.abs
  * visible one that grows after layout. An item stands in for a whole chapter. Laid out offscreen on
  * purpose, because `measure` plus `layout` drive `onLayoutChildren`, which is where anchoring runs.
  * Items carry a stable tag so a measurement follows the same content across an insert. Numbers go to
- * logcat tag "PrependSpike"; the assertions only pin the conclusions. Findings and what they
- * decided: docs/dev/plans/content-layer-reader-surface.md.
+ * logcat tag "PrependSpike", and each case asserts the drift it measured, so a platform change that
+ * moves one fails here. Findings and what they decided: docs/dev/plans/content-layer-reader-surface.md.
  */
 @RunWith(AndroidJUnit4::class)
 class RecyclerPrependPositionTest {
@@ -50,6 +51,9 @@ class RecyclerPrependPositionTest {
 
         /** A chapter whose text has not been set yet: its column's padding and nothing else. */
         const val UNMEASURED_TEXT = 48
+
+        /** How much a chunk grows in the chunk cases: from half a screen to one and a half. */
+        const val CHUNK_GROWTH = HEIGHT
 
         const val CURRENT = "current"
         const val PREVIOUS = "previous"
@@ -192,6 +196,7 @@ class RecyclerPrependPositionTest {
         val drift = measurePrepend("grows-after, at top", intoCurrent = 0, growAfterLayout = true)
         assertNotNull("the current chapter should stay attached", drift)
         Log.i(TAG, "RESULT grows-after at top: drift=$drift (growth was ${MEASURED - UNMEASURED})")
+        assertTrue("drift=$drift", abs(drift!!) <= 2)
     }
 
     /** The text case from inside the chapter, which is where seamless reading actually starts. */
@@ -200,6 +205,7 @@ class RecyclerPrependPositionTest {
         val drift = measurePrepend("grows-after, inside", intoCurrent = HEIGHT, growAfterLayout = true)
         assertNotNull("the current chapter should stay attached", drift)
         Log.i(TAG, "RESULT grows-after inside: drift=$drift (growth was ${MEASURED - UNMEASURED})")
+        assertTrue("drift=$drift", abs(drift!!) <= 2)
     }
 
     /** Measure what the growth added and scroll it back out, the way tsundoku compensates on prune. */
@@ -249,6 +255,7 @@ class RecyclerPrependPositionTest {
         }
         Log.i(TAG, "RESULT real-text: drift=$drift")
         assertNotNull("the current chapter should stay attached", drift)
+        assertTrue("drift=$drift", abs(drift!!) <= 2)
     }
 
     /**
@@ -321,7 +328,7 @@ class RecyclerPrependPositionTest {
     fun chunkGrowsAboveReadingPosition() {
         val drift = measureChunkGrowth("chunk-above", growAtChunk = 2, compensate = false)
         Log.i(TAG, "RESULT chunk grows above: drift=$drift")
-        assertNotNull(drift)
+        assertEquals("a stack does not anchor, so the reader moves by the growth", CHUNK_GROWTH, drift)
     }
 
     /** A chunk below the reading position gets taller, which should be invisible. */
@@ -329,7 +336,7 @@ class RecyclerPrependPositionTest {
     fun chunkGrowsBelowReadingPosition() {
         val drift = measureChunkGrowth("chunk-below", growAtChunk = 10, compensate = false)
         Log.i(TAG, "RESULT chunk grows below: drift=$drift")
-        assertNotNull(drift)
+        assertEquals(0, drift)
     }
 
     /** The same growth above, with the compensating scroll tsundoku uses on prune. */
@@ -413,6 +420,7 @@ class RecyclerPrependPositionTest {
         Log.i(TAG, "RESULT composite: prependDrift=$prependDrift chunkDrift=$chunkDrift")
         assertNotNull(prependDrift)
         assertTrue("a prepended chapter should not move the reader, drift=$prependDrift", abs(prependDrift!!) <= 2)
+        assertEquals("a chunk growing above the reading position moves the reader", CHUNK_GROWTH, chunkDrift)
     }
 
     /**
