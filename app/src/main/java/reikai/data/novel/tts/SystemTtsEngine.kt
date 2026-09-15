@@ -30,6 +30,11 @@ class SystemTtsEngine(
     @Volatile
     private var pendingDone: (() -> Unit)? = null
 
+    /** The voice's locale, kept once known: asking the engine is a call into its process, measured at 10 to
+     *  28ms on the main thread, and every paragraph needs it to split at sentence ends. */
+    @Volatile
+    private var voiceLocale: Locale? = null
+
     private val tts: TextToSpeech = TextToSpeech(
         context.applicationContext,
         { status ->
@@ -79,9 +84,12 @@ class SystemTtsEngine(
             .sortedBy { it.displayName }
 
     override fun setVoice(voiceName: String) {
+        // Asked for again on the next paragraph, whichever voice ends up speaking it.
+        voiceLocale = null
         if (voiceName.isBlank()) return
         val voice = runCatching { tts.voices }.getOrNull()?.firstOrNull { it.name == voiceName } ?: return
         runCatching { tts.voice = voice }
+        voiceLocale = voice.locale
     }
 
     override fun setRate(rate: Float) {
@@ -103,7 +111,9 @@ class SystemTtsEngine(
         val pieces = TtsUtteranceSplitter.split(
             text = text,
             maxLength = TextToSpeech.getMaxSpeechInputLength(),
-            locale = runCatching { tts.voice?.locale }.getOrNull() ?: Locale.getDefault(),
+            locale = voiceLocale
+                ?: runCatching { tts.voice?.locale }.getOrNull()?.also { voiceLocale = it }
+                ?: Locale.getDefault(),
         )
         if (pieces.isEmpty()) {
             onDone()
