@@ -56,6 +56,7 @@ import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
 import reikai.presentation.reader.ReaderThemePreset
+import reikai.presentation.reader.readerColorOrNull
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
@@ -311,7 +312,7 @@ private fun PageColorRow(labelRes: StringResource, hex: String, onPick: (String)
     var picking by remember { mutableStateOf(false) }
     val label = stringResource(labelRes)
     val color =
-        remember(hex) { runCatching { android.graphics.Color.parseColor(hex) }.getOrDefault(Color.Gray.toArgb()) }
+        remember(hex) { readerColorOrNull(hex) ?: Color.Gray.toArgb() }
     Row(
         modifier = Modifier
             .fillMaxWidth()

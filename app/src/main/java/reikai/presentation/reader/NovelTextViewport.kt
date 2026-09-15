@@ -2,7 +2,6 @@ package reikai.presentation.reader
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Paint
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -545,7 +544,7 @@ class NovelTextViewport(
             warmFont()
             // The latest rather than this call's, since another may have landed while the font resolved.
             val current = checkNotNull(this@NovelTextViewport.settings)
-            recycler.setBackgroundColor(NovelTextStyle.parseColor(current.backgroundColor, Color.WHITE))
+            recycler.setBackgroundColor(readerBackgroundColorInt(current.backgroundColor))
             // A chapter still rendering has no views to restyle yet; it is caught as it joins.
             holdingReader { slots.filter { it.rendered }.forEach { restyle(it, current) } }
         }
@@ -776,7 +775,7 @@ class NovelTextViewport(
         landing: Landing?,
     ) {
         val settings = checkNotNull(this.settings)
-        recycler.setBackgroundColor(NovelTextStyle.parseColor(settings.backgroundColor, Color.WHITE))
+        recycler.setBackgroundColor(readerBackgroundColorInt(settings.backgroundColor))
         val block = ChapterTextBlock(context) { createChunkView(settings) }
         NovelTextStyle.applyMargins(block.container, settings, context, topInsetPx)
         val slot = ChapterSlot(chapter, block, styledWith = settings)

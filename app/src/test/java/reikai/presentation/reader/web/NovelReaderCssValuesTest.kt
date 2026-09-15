@@ -47,6 +47,12 @@ class NovelReaderCssValuesTest {
         cssTextColor("red") shouldBe readerDarkPreset.textColor
     }
 
+    /** Five digits pass a digit count but no browser reads them, and the native renderer would draw them. */
+    @Test
+    fun `a colour with a length CSS does not read falls back`() {
+        cssBackgroundColor("#12345") shouldBe readerDarkPreset.background
+    }
+
     @Test
     fun `each alignment the sheet offers is passed through`() {
         listOf("left", "center", "right", "justify").forEach { cssTextAlign(it) shouldBe it }

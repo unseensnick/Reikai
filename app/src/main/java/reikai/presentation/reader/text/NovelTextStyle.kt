@@ -1,7 +1,6 @@
 package reikai.presentation.reader.text
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Layout
 import android.util.TypedValue
@@ -13,6 +12,7 @@ import mihon.app.di.appGraph
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
 import reikai.presentation.reader.NovelReaderSettings
+import reikai.presentation.reader.readerTextColorInt
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.roundToInt
 
@@ -45,7 +45,7 @@ object NovelTextStyle {
             (settings.margins.right * density).toInt(),
             lineExtra.coerceAtLeast(0f).roundToInt(),
         )
-        val textColor = parseColor(settings.textColor, Color.BLACK)
+        val textColor = readerTextColorInt(settings.textColor)
         view.setTextColor(textColor)
         // Underlined in the text colour, as the WebView page draws a link, not the theme's accent.
         view.setLinkTextColor(textColor)
@@ -91,13 +91,6 @@ object NovelTextStyle {
             "right" -> Gravity.END
             else -> Gravity.START
         }
-    }
-
-    fun parseColor(value: String, fallback: Int): Int = try {
-        Color.parseColor(value)
-    } catch (e: IllegalArgumentException) {
-        logcat(LogPriority.WARN, e) { "Unparseable reader colour: $value" }
-        fallback
     }
 
     /**

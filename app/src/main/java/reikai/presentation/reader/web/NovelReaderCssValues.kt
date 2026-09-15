@@ -3,6 +3,7 @@ package reikai.presentation.reader.web
 import reikai.novel.font.fontDisplayName
 import reikai.novel.font.isGenericFont
 import reikai.novel.font.isSupportedFontFile
+import reikai.presentation.reader.readerColorOrNull
 import reikai.presentation.reader.readerDarkPreset
 
 /*
@@ -13,13 +14,11 @@ import reikai.presentation.reader.readerDarkPreset
  * because CSS escaping is per-context while these shapes are small enough to state exactly.
  */
 
-/** `#rgb` through `#rrggbbaa`, which is every form the presets and the colour picker write. */
-private val cssColorPattern = Regex("^#[0-9a-fA-F]{3,8}$")
-
 private val cssTextAlignments = setOf("left", "center", "right", "justify")
 
+/** [value] when it is a colour [readerColorOrNull] reads, which is what the native renderer draws too. */
 fun cssColorOrDefault(value: String, fallback: String): String =
-    if (cssColorPattern.matches(value)) value else fallback
+    if (readerColorOrNull(value) != null) value else fallback
 
 fun cssBackgroundColor(value: String): String = cssColorOrDefault(value, readerDarkPreset.background)
 

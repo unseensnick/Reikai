@@ -1156,6 +1156,54 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** Every text view the viewport shows, whatever it reads. */
     private fun textViews(): List<TextView> = descendants(view).filterIsInstance<TextView>().filter { it.isShown }
 
+    /** Stored by LNReader's Black preset with its alpha last, as CSS reads eight digits. */
+    @Test
+    fun anEightDigitTextColourIsDrawnWithItsAlphaLast() {
+        open(chapter(FIRST, "<p>Some text.</p>"), readerTestSettings.copy(textColor = "#FFFFFFB3"))
+        assertEquals(Integer.toHexString(0xB3FFFFFF.toInt()), Integer.toHexString(textColour()))
+    }
+
+    /** A restored value that names no colour: native drew white while the page drew the dark default. */
+    @Test
+    fun anUnreadableBackgroundColourDrawsTheDefaultDarkPage() {
+        open(chapter(FIRST, "<p>Some text.</p>"), readerTestSettings.copy(backgroundColor = "not a colour"))
+        assertEquals(
+            Integer.toHexString(android.graphics.Color.parseColor(readerDarkPreset.background)),
+            Integer.toHexString(pageColour()),
+        )
+    }
+
+    private fun pageColour(): Int = when (renderer) {
+        Renderer.NATIVE -> {
+            var colour = 0
+            instrumentation.runOnMainSync {
+                colour = (descendants(view).filterIsInstance<RecyclerView>().first().background as ColorDrawable).color
+            }
+            colour
+        }
+        Renderer.WEB -> {
+            val rgb = eval("getComputedStyle(document.body).backgroundColor")
+                .trim('"').substringAfter("(").removeSuffix(")")
+                .split(",").map { it.trim().toInt() }
+            android.graphics.Color.rgb(rgb[0], rgb[1], rgb[2])
+        }
+    }
+
+    private fun textColour(): Int = when (renderer) {
+        Renderer.NATIVE -> {
+            var colour = 0
+            instrumentation.runOnMainSync { colour = textViews().first().currentTextColor }
+            colour
+        }
+        Renderer.WEB -> {
+            val parts = eval("getComputedStyle(document.querySelector('.rk-chapter p')).color")
+                .trim('"').substringAfter("(").removeSuffix(")")
+                .split(",").map { it.trim() }
+            val alpha = parts.getOrNull(3)?.toFloat()?.let { (it * 255).roundToInt() } ?: 255
+            android.graphics.Color.argb(alpha, parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+        }
+    }
+
     private fun linkColour(): Int = when (renderer) {
         Renderer.NATIVE -> {
             var colour = 0

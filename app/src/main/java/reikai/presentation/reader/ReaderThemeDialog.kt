@@ -70,8 +70,8 @@ fun ReaderThemeDialog(
 
 @Composable
 fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
-    val bg = remember(preset.background) { Color(android.graphics.Color.parseColor(preset.background)) }
-    val fg = remember(preset.textColor) { Color(android.graphics.Color.parseColor(preset.textColor)) }
+    val bg = remember(preset.background) { Color(readerBackgroundColorInt(preset.background)) }
+    val fg = remember(preset.textColor) { Color(readerTextColorInt(preset.textColor)) }
     Box(
         modifier = Modifier
             .size(44.dp)
