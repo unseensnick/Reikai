@@ -111,7 +111,6 @@
     <string name="action_oldest">کۆنترین</string>
     <string name="action_asc">بە پلە بەرزبوونەوە</string>
     <string name="app_not_available">بەرنامەکە بەردەست نییە</string>
-    <string name="pref_category_general">گشتی</string>
     <string name="pref_category_appearance">شێوە</string>
     <string name="pref_category_library">کۆکراوەکان</string>
     <string name="pref_category_reader">خوێنەرەوە</string>

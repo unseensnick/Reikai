@@ -89,7 +89,6 @@
     <string name="pref_category_downloads">Хачайдаммыттар</string>
     <string name="pref_category_reader">Ааҕааччы</string>
     <string name="pref_category_library">Бэбэлэтиэкэ</string>
-    <string name="pref_category_general">Сүрүн</string>
     <string name="app_not_available">Эбилик кыаллыбат</string>
     <string name="loading">Холбонуу…</string>
     <string name="action_webview_refresh">Чэбдигирт</string>
@@ -325,7 +324,6 @@
     <string name="snack_add_to_library">Маанганы Бэбэлэтиэкэҕэ киллэрэбит дуу?</string>
     <string name="source_not_installed">Төрүт туруоруллубатах: %1$s</string>
     <string name="copied_to_clipboard">Хоспоххо куопуйаланна: \n %1$s</string>
-    <string name="custom_filter">Туттааччы биилтирэ</string>
     <string name="picture_saved">Хартыыҥка оннунан хаалла</string>
     <string name="dialog_with_checkbox_reset">Бу маанга бары түһүмэхтэрин түһэрии</string>
     <string name="dialog_with_checkbox_remove_description">Бу дьайыы түһүмэх ааҕыллыбыт кэмин сотторуо. Эрэллээххин дуо?</string>

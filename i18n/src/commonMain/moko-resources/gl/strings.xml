@@ -132,7 +132,6 @@
     <string name="pref_category_downloads">Descargas</string>
     <string name="pref_category_reader">Lector</string>
     <string name="pref_category_library">Biblioteca</string>
-    <string name="pref_category_general">Xeral</string>
     <string name="app_not_available">Aplicación non dispoñible</string>
     <string name="loading">Cargando…</string>
     <string name="action_webview_refresh">Recargar</string>
@@ -530,7 +529,6 @@
     <string name="chapter_error">Erro</string>
     <string name="wish_list">Para ler máis adiante</string>
     <string name="track_remove_finish_date_conf_text">Isto eliminará a data de finalización de %s</string>
-    <string name="custom_filter">Filtro personalizado</string>
     <string name="pref_category_for_this_series">Para esta serie</string>
     <string name="label_completed_titles">Elementos rematados</string>
     <string name="not_applicable">Non dispoñible</string>

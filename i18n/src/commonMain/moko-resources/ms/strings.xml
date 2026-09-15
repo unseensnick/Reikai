@@ -60,7 +60,6 @@
     <string name="action_restore">Kembalikan ke asal</string>
     <string name="loading">Muat…</string>
     <string name="app_not_available">Aplikasi tidak tersedia</string>
-    <string name="pref_category_general">Umum</string>
     <string name="pref_category_reader">Pembaca</string>
     <string name="pref_category_downloads">Muat turun</string>
     <string name="pref_category_tracking">Penjejakan</string>
@@ -198,7 +197,6 @@
     <string name="snack_add_to_library">Tambah ke pustaka?</string>
     <string name="action_display_download_badge">Bab dimuat turun</string>
     <string name="picture_saved">Gambar disimpan</string>
-    <string name="custom_filter">Tapisan tersuai</string>
     <string name="set_as_cover">Set sebagai muka hadapan</string>
     <string name="cover_updated">Muka hadapan dikemas kini</string>
     <string name="chapter_progress">Muka surat: %1$d</string>

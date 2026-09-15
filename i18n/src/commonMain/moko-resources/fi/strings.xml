@@ -25,7 +25,6 @@
     <string name="action_remove_bookmark">Poista kirjanmerkitty luku</string>
     <string name="action_move_category">Aseta kategoriat</string>
     <string name="action_edit_cover">Muokkaa kantta</string>
-    <string name="custom_filter">Mukautettu suodatus</string>
     <string name="set_as_cover">Aseta kansikuvaksi</string>
     <string name="cover_updated">Kansikuva päivitetty</string>
     <string name="chapter_progress">Sivu: %1$d</string>
@@ -106,7 +105,6 @@
     <string name="action_restore">Palauta</string>
     <string name="loading">Ladataan…</string>
     <string name="app_not_available">Sovellus ei ole saatavilla</string>
-    <string name="pref_category_general">Yleiset</string>
     <string name="pref_category_reader">Lukija</string>
     <string name="pref_category_downloads">Lataukset</string>
     <string name="pref_category_advanced">Kehittyneet</string>

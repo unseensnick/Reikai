@@ -21,7 +21,6 @@
     <string name="action_reset">Visszaállítás</string>
     <string name="action_undo">Visszavonás</string>
     <string name="loading">Betöltés…</string>
-    <string name="pref_category_general">Általános</string>
     <string name="pref_category_reader">Olvasó</string>
     <string name="pref_category_downloads">Letöltések</string>
     <string name="pref_category_tracking">Nyilvántartás</string>
@@ -215,7 +214,6 @@
     <string name="notification_chapters_single">%1$s. fejezet</string>
     <string name="cover_updated">Borító frissítve</string>
     <string name="set_as_cover">Beállítás borítóként</string>
-    <string name="custom_filter">Egyedi szűrő</string>
     <string name="manga_removed_library">Eltávolítva a könyvtárból</string>
     <string name="manga_added_library">Könyvtárhoz adva</string>
     <string name="spen_next_page">Következő oldal</string>

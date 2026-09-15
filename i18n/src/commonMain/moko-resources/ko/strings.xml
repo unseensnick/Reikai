@@ -58,7 +58,6 @@
     <string name="action_restore">복원</string>
     <string name="loading">불러오는 중…</string>
     <string name="app_not_available">앱 이용 불가</string>
-    <string name="pref_category_general">일반</string>
     <string name="pref_category_reader">뷰어</string>
     <string name="pref_category_downloads">다운로드</string>
     <string name="pref_category_tracking">동기화</string>
@@ -186,7 +185,6 @@
     <string name="dialog_with_checkbox_reset">모든 회차 기록 초기화</string>
     <string name="snack_add_to_library">서재에 추가합니까?</string>
     <string name="picture_saved">사진 저장됨</string>
-    <string name="custom_filter">이미지 필터</string>
     <string name="set_as_cover">표지로 설정</string>
     <string name="cover_updated">표지 업데이트됨</string>
     <string name="chapter_progress">페이지: %1$d</string>

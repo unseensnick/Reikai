@@ -64,7 +64,6 @@
     <string name="action_restore">Restaura</string>
     <string name="loading">S’està carregant…</string>
     <string name="app_not_available">Aplicació no disponible</string>
-    <string name="pref_category_general">General</string>
     <string name="pref_category_reader">Lector</string>
     <string name="pref_category_downloads">Baixades</string>
     <string name="pref_category_tracking">Seguiment</string>
@@ -224,7 +223,6 @@
     <string name="dialog_with_checkbox_reset">Reinicia tots els capítols d’aquest element</string>
     <string name="snack_add_to_library">Voleu afegir-lo a la biblioteca?</string>
     <string name="picture_saved">S’ha desat la imatge</string>
-    <string name="custom_filter">Filtre personalitzat</string>
     <string name="set_as_cover">Defineix com a portada</string>
     <string name="cover_updated">S’ha actualitzat la portada</string>
     <string name="chapter_progress">Pàgina: %1$d</string>

@@ -57,7 +57,6 @@
     <string name="action_restore">復元</string>
     <string name="loading">読み込み中…</string>
     <string name="app_not_available">アプリが利用できません</string>
-    <string name="pref_category_general">一般</string>
     <string name="pref_category_downloads">ダウンロード</string>
     <string name="pref_category_advanced">その他</string>
     <string name="pref_category_about">アプリについて</string>
@@ -221,7 +220,6 @@
     <string name="dialog_with_checkbox_reset">この項目の章をすべてリセット</string>
     <string name="snack_add_to_library">ライブラリに追加しますか？</string>
     <string name="picture_saved">画像を保存しました</string>
-    <string name="custom_filter">カスタムフィルター</string>
     <string name="set_as_cover">表紙として設定</string>
     <string name="cover_updated">表紙を更新しました</string>
     <string name="chapter_progress">ページ: %1$d</string>

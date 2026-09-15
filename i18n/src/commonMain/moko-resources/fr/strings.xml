@@ -49,7 +49,6 @@
     <string name="action_save">Télécharger la page</string>
     <string name="action_reset">Réinitialiser</string>
     <string name="loading">Chargement…</string>
-    <string name="pref_category_general">Général</string>
     <string name="pref_category_reader">Lecteur</string>
     <string name="pref_category_downloads">Téléchargements</string>
     <string name="pref_category_tracking">Suivi</string>
@@ -156,7 +155,6 @@
     <string name="dialog_with_checkbox_reset">Réinitialiser tous les chapitres de cette série</string>
     <string name="snack_add_to_library">Ajouter à la bibliothèque ?</string>
     <string name="picture_saved">Image sauvegardée</string>
-    <string name="custom_filter">Filtre personnalisé</string>
     <string name="set_as_cover">Ajouter comme couverture</string>
     <string name="cover_updated">Couverture mise à jour</string>
     <string name="chapter_progress">Page : %1$d</string>

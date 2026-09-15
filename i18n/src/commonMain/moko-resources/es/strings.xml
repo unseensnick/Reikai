@@ -37,7 +37,6 @@
     <string name="action_sort">Ordenar</string>
     <string name="action_install">Instalar</string>
     <string name="loading">Cargando…</string>
-    <string name="pref_category_general">General</string>
     <string name="pref_category_reader">Visor</string>
     <string name="pref_category_downloads">Descargas</string>
     <string name="pref_category_tracking">Seguimiento</string>
@@ -214,7 +213,6 @@
     <string name="snack_categories_deleted">Categorías eliminadas</string>
     <string name="snack_add_to_library">¿Añadir manga a la biblioteca?</string>
     <string name="picture_saved">Imagen guardada</string>
-    <string name="custom_filter">Filtro personalizado</string>
     <string name="set_as_cover">Poner como portada</string>
     <string name="cover_updated">Se ha actualizado la portada de la serie</string>
     <string name="notification_cover_update_failed">Error al actualizar la portada</string>

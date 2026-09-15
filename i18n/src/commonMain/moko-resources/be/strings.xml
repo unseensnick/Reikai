@@ -153,7 +153,6 @@
     <string name="pref_category_downloads">Пампоўкі</string>
     <string name="pref_category_reader">Чытанка</string>
     <string name="pref_category_library">Бібліятэка</string>
-    <string name="pref_category_general">Агульныя</string>
     <string name="app_not_available">Праграма недаступная</string>
     <string name="loading">Загрузка…</string>
     <string name="action_start_downloading_now">Пачаць спампоўку зараз</string>
@@ -707,7 +706,6 @@
     <string name="dialog_with_checkbox_reset">Скінуць усе раздзелы для гэтага твора</string>
     <string name="picture_saved">Выява захавана</string>
     <string name="error_saving_picture">Памылка захавання выявы</string>
-    <string name="custom_filter">Уласны фільтр</string>
     <string name="set_as_cover">Усталяваць як вокладку</string>
     <string name="cover_updated">Вокладка адноўлена</string>
     <string name="share_page_info">%1$s: %2$s, старонка %3$d</string>

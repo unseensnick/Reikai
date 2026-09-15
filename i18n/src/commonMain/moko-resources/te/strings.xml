@@ -107,7 +107,6 @@
     <string name="action_webview_forward">ముందుకు</string>
     <string name="loading">లోడ్ అవుతుంది…</string>
     <string name="app_not_available">అనువర్తనము అందుబాటులో లేదు</string>
-    <string name="pref_category_general">సామాన్యము</string>
     <string name="pref_category_appearance">రూపము</string>
     <string name="pref_category_library">గ్రంథాలయము</string>
     <string name="pref_category_downloads">దిగుమతులు</string>

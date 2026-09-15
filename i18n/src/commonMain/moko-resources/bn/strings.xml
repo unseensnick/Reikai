@@ -61,7 +61,6 @@
     <string name="action_restore">পুনরুদ্ধার করুন</string>
     <string name="loading">লোড হচ্ছে…</string>
     <string name="app_not_available">অ্যাপটি অনুপলব্ধ</string>
-    <string name="pref_category_general">সাধারণ</string>
     <string name="pref_category_reader">রিডার</string>
     <string name="pref_category_downloads">ডাউনলোডস</string>
     <string name="pref_category_tracking">ট্র্যাকিং</string>
@@ -198,7 +197,6 @@
     <string name="dialog_with_checkbox_reset">এই মাংগার জন্য সব অধ্যায় পুনঃবিন্যাস করুন</string>
     <string name="snack_add_to_library">লাইব্রেরিতে যোগ করবেন?</string>
     <string name="picture_saved">ছবি সংরক্ষিত হয়েছে</string>
-    <string name="custom_filter">স্বনির্ধারিত ফিল্টার</string>
     <string name="set_as_cover">প্রচ্ছদ হিসাবে সংরক্ষণ করুন</string>
     <string name="cover_updated">প্রচ্ছদ আপডেট হয়েছে</string>
     <string name="chapter_progress">পৃষ্ঠা: %1$d</string>

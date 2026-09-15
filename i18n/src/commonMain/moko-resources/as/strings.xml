@@ -12,7 +12,6 @@
     <string name="action_webview_forward">সামনলৈ</string>
     <string name="action_webview_refresh">ৰিফ্ৰেচ কৰক</string>
     <string name="onboarding_action_next">পৰৱৰ্তী</string>
-    <string name="pref_category_general">সাধাৰণ</string>
     <string name="pref_category_appearance">ৰূপ</string>
     <string name="pref_category_tracking">ট্ৰেকিং</string>
     <string name="pref_category_advanced">উন্নত</string>
@@ -654,7 +653,6 @@
     <string name="dialog_with_checkbox_remove_description">এইটোৱে এই অধ্যায়ৰ পঢ়া তাৰিখ আঁতৰাব। আপুনি নিশ্চিত নেকি?</string>
     <string name="picture_saved">ছবি সাঁচি থোৱা হৈছে</string>
     <string name="error_saving_picture">ছবি সাঁচোঁতে ত্ৰুটি</string>
-    <string name="custom_filter">কাষ্টম ফিল্টাৰ</string>
     <string name="set_as_cover">কভাৰ হিচাপে ছেট কৰক</string>
     <string name="cover_updated">কভাৰ আপডেট কৰা হৈছে</string>
     <string name="share_page_info">%1$s: %2$s, পৃষ্ঠা %3$d</string>

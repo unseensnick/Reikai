@@ -55,7 +55,6 @@
     <string name="action_open_log">Open log</string>
     <string name="action_restore">Herstellen</string>
     <string name="loading">Laden…</string>
-    <string name="pref_category_general">Algemeen</string>
     <string name="pref_category_reader">Lezer</string>
     <string name="pref_category_downloads">Downloads</string>
     <string name="pref_category_tracking">Tracking</string>
@@ -151,7 +150,6 @@
     <string name="dialog_with_checkbox_reset">Stel alle hoofdstukken voor dit item opnieuw in</string>
     <string name="snack_add_to_library">Toevoegen aan bibliotheek?</string>
     <string name="picture_saved">Afbeelding opgeslagen</string>
-    <string name="custom_filter">Aangepast filter</string>
     <string name="set_as_cover">Instellen als omslagfoto</string>
     <string name="cover_updated">Omslagfoto bijgewerkt</string>
     <string name="chapter_progress">Pagina: %1$d</string>

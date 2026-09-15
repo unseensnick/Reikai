@@ -23,7 +23,6 @@
     <string name="pref_category_downloads">ಡೌನ್ಲೋಡ್ ಸಂಯೋಜನೆಗಳು</string>
     <string name="pref_category_reader">ಓದುವ ಸಂಯೋಜನೆಗಳು</string>
     <string name="pref_category_library">ಗ್ರಂಥಾಲಯ</string>
-    <string name="pref_category_general">ಸಾಮಾನ್ಯ</string>
     <string name="app_not_available">ಅಪ್ಲಿಕೇಶನ್ ಲಭ್ಯವಿಲ್ಲ</string>
     <string name="loading">ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ…</string>
     <string name="action_webview_refresh">ರಿಫ್ರೆಶ್ ಮಾಡಿ</string>
@@ -263,7 +262,6 @@
     <string name="chapter_progress">ಪುಟ: %1$d</string>
     <string name="cover_updated">ಕವರ್ ನವೀಕರಿಸಲಾಗಿದೆ</string>
     <string name="set_as_cover">ಕವರ್ ಆಗಿ ಹೊಂದಿಸಿ</string>
-    <string name="custom_filter">ಕಸ್ಟಮ್ ಫಿಲ್ಟರ್</string>
     <string name="picture_saved">ಚಿತ್ರ ಉಳಿಸಲಾಗಿದೆ</string>
     <string name="dialog_with_checkbox_reset">ಈ ಮಾಂಗಾದ ಎಲ್ಲಾ ಅಧ್ಯಾಯಗಳನ್ನು ಮರುಹೊಂದಿಸಿ</string>
     <string name="dialog_with_checkbox_remove_description">ಇದು ಈ ಅಧ್ಯಾಯದ ಓದುವ ದಿನಾಂಕವನ್ನು ತೆಗೆದುಹಾಕುತ್ತದೆ. ನೀವು ಖಚಿತವಾಗಿರುವಿರಾ?</string>

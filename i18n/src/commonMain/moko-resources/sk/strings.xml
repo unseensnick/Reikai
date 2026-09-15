@@ -66,7 +66,6 @@
     <string name="action_restore">Obnoviť</string>
     <string name="loading">Načítava sa…</string>
     <string name="app_not_available">Aplikácia nedostupná</string>
-    <string name="pref_category_general">Všeobecné</string>
     <string name="pref_category_reader">Prehliadač</string>
     <string name="pref_category_downloads">Sťahovanie</string>
     <string name="pref_category_tracking">Sledovanie</string>
@@ -240,7 +239,6 @@
     <string name="dialog_with_checkbox_reset">Resetovať všetky kapitoly mangy</string>
     <string name="snack_add_to_library">Pridať mangu do knižnice?</string>
     <string name="picture_saved">Obrázok bol uložený</string>
-    <string name="custom_filter">Vlastný filter</string>
     <string name="set_as_cover">Nastaviť ako obal</string>
     <string name="cover_updated">Obal bol aktualizovaný</string>
     <string name="chapter_progress">Strana: %1$d</string>

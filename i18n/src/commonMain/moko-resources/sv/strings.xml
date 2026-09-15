@@ -64,7 +64,6 @@
     <string name="action_restore">Återställ</string>
     <string name="loading">Laddar…</string>
     <string name="app_not_available">Applikationen är inte tillgänglig</string>
-    <string name="pref_category_general">Allmänt</string>
     <string name="pref_category_reader">Läsare</string>
     <string name="pref_category_downloads">Nedladdningar</string>
     <string name="pref_category_tracking">Spårning</string>
@@ -224,7 +223,6 @@
     <string name="dialog_with_checkbox_reset">Återställ alla kapitel för denna artikel</string>
     <string name="snack_add_to_library">Lägg till i biblioteket?</string>
     <string name="picture_saved">Bild sparad</string>
-    <string name="custom_filter">Anpassat filter</string>
     <string name="set_as_cover">Ställ in som omslag</string>
     <string name="cover_updated">Omslag uppdaterad</string>
     <string name="chapter_progress">Sida: %1$d</string>

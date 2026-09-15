@@ -152,7 +152,6 @@
     <string name="connected_to_wifi">នៅពេលបើកWi-Fiប៉ុណ្ណោះ</string>
     <string name="action_webview_forward">ទៅមុខ</string>
     <string name="action_webview_refresh">រីហ្វ្រេស</string>
-    <string name="pref_category_general">ទូទៅ</string>
     <string name="pref_app_theme">ពណ៌កម្មវិធី</string>
     <string name="theme_yotsuba">យ៉ុតស្ស៊ូបា</string>
     <string name="hide_notification_content">លាក់ការជូនដំណឹង</string>

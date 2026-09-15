@@ -57,7 +57,6 @@
     <string name="action_restore">Wiederherstellen</string>
     <string name="loading">Wird geladen…</string>
     <string name="app_not_available">App nicht verfügbar</string>
-    <string name="pref_category_general">Allgemein</string>
     <string name="pref_category_reader">Leser</string>
     <string name="pref_category_downloads">Downloads</string>
     <string name="pref_category_tracking">Tracking</string>
@@ -190,7 +189,6 @@
     <string name="dialog_with_checkbox_reset">Alle Kapitel dieses Eintrags zurücksetzen</string>
     <string name="snack_add_to_library">Zur Bibliothek hinzufügen?</string>
     <string name="picture_saved">Bild gespeichert</string>
-    <string name="custom_filter">Eigener Filter</string>
     <string name="set_as_cover">Als Vorschaubild festlegen</string>
     <string name="cover_updated">Vorschaubild geändert</string>
     <string name="chapter_progress">Seite: %1$d</string>

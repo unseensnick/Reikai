@@ -50,7 +50,6 @@
     <string name="action_reset">Làm mới</string>
     <string name="action_undo">Hoàn tác</string>
     <string name="loading">Đang tải…</string>
-    <string name="pref_category_general">Chung</string>
     <string name="pref_category_reader">Trình đọc</string>
     <string name="pref_category_downloads">Tải xuống</string>
     <string name="pref_category_tracking">Theo dõi</string>
@@ -167,7 +166,6 @@
     <string name="dialog_with_checkbox_reset">Đặt lại mọi chương của truyện này</string>
     <string name="snack_add_to_library">Thêm vào thư viện?</string>
     <string name="picture_saved">Đã lưu ảnh</string>
-    <string name="custom_filter">Bộ lọc tùy chỉnh</string>
     <string name="set_as_cover">Đặt làm ảnh bìa</string>
     <string name="cover_updated">Đã cập nhật ảnh bìa</string>
     <string name="chapter_progress">Trang: %1$d</string>

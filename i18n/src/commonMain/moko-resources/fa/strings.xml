@@ -33,7 +33,6 @@
     <string name="chapter_progress">صفحه: %1$d</string>
     <string name="cover_updated">عکس روی جلد بروزرسانی شد</string>
     <string name="set_as_cover">تنظیم به عنوان عکس روی جلد</string>
-    <string name="custom_filter">فیلتر سفارشی</string>
     <string name="picture_saved">عکس ذخیره شد</string>
     <string name="dialog_with_checkbox_reset">ریست اطلاعات همه قسمت های این مانگا</string>
     <string name="dialog_with_checkbox_remove_description">با این کار تاریخ خواندن این قسمت حذف می شود. مطمئنید؟</string>
@@ -255,7 +254,6 @@
     <string name="pref_category_downloads">بارگیری ها</string>
     <string name="pref_category_reader">کتابخوان</string>
     <string name="pref_category_library">کتابخانه</string>
-    <string name="pref_category_general">عمومی</string>
     <string name="app_not_available">برنامه موجود نیست</string>
     <string name="loading">درحال بارگیری…</string>
     <string name="action_webview_refresh">بازآوری‌</string>

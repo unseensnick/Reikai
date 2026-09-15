@@ -127,7 +127,6 @@
     <string name="action_open_log">वृत्तम् उद्घाटयतु</string>
     <string name="action_webview_back">प्रतिगच्छतु</string>
     <string name="action_webview_forward">अग्रे गच्छतु</string>
-    <string name="pref_category_general">सामान्यः</string>
     <string name="pref_category_reader">प्रदर्शकम्</string>
     <string name="pref_category_advanced">विस्तृतम्</string>
     <string name="theme_dark">सशक्तं कुरु</string>
@@ -441,7 +440,6 @@
     <string name="add_tracking">अनुप्रज्ञानं योजयतु</string>
     <string name="snack_categories_deleted">वर्गाः नाशिताः</string>
     <string name="picture_saved">चित्रं रक्षितम्</string>
-    <string name="custom_filter">स्वकृतशोधकम्</string>
     <string name="cover_updated">मुखचित्रं नवीकृतम्</string>
     <string name="chapter_progress">पुटः - %1$d</string>
     <string name="viewer">पठनदशा</string>

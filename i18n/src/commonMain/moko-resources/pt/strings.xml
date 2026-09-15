@@ -37,7 +37,6 @@
     <string name="action_sort">Ordenar</string>
     <string name="action_install">Instalar</string>
     <string name="loading">A carregar…</string>
-    <string name="pref_category_general">Geral</string>
     <string name="pref_category_reader">Leitor</string>
     <string name="pref_category_downloads">Transferências</string>
     <string name="pref_category_advanced">Avançado</string>
@@ -245,7 +244,6 @@
     <string name="snack_categories_deleted">Categorias eliminadas</string>
     <string name="snack_add_to_library">Adicionar à biblioteca?</string>
     <string name="picture_saved">Imagem guardada</string>
-    <string name="custom_filter">Filtro personalizado</string>
     <string name="set_as_cover">Usar como capa</string>
     <string name="cover_updated">Capa atualizada</string>
     <string name="confirm_set_image_as_cover">Usar esta imagem como capa?</string>

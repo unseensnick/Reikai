@@ -44,7 +44,6 @@
     <string name="chapter_progress">עמוד: %1$d</string>
     <string name="set_as_cover">הגדר ככריכה</string>
     <string name="cover_updated">הכריכה עודכנה</string>
-    <string name="custom_filter">סנן מותאם אישית</string>
     <string name="picture_saved">התמונה נשמרה</string>
     <string name="dialog_with_checkbox_reset">אפס את כל הפרקים לפריט זה</string>
     <string name="dialog_with_checkbox_remove_description">פעולה זו תסיר את התאריך הקריאה של פרק זה. האם אתה בטוח?</string>
@@ -138,7 +137,6 @@
     <string name="pref_category_advanced">מתקדם</string>
     <string name="pref_category_downloads">הורדות</string>
     <string name="pref_category_library">ספרייה</string>
-    <string name="pref_category_general">כללי</string>
     <string name="app_not_available">האפליקציה אינה זמינה</string>
     <string name="loading">טוען…</string>
     <string name="action_webview_refresh">רענון</string>

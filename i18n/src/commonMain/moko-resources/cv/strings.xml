@@ -55,7 +55,6 @@
     <string name="pref_category_advanced">Тата</string>
     <string name="pref_category_downloads">Тийевсем</string>
     <string name="pref_category_library">Вулавӑш</string>
-    <string name="pref_category_general">Тӗп</string>
     <string name="app_not_available">Апа кӗме май ҫук</string>
     <string name="action_webview_refresh">Ҫӗнет</string>
     <string name="action_webview_forward">Малалла</string>
@@ -236,7 +235,6 @@
     <string name="untrusted_extension_message">Сийенлӗ хушма упранакан кирек мӗнле шут пӗлӗмӗсене шута илме йе хӑй ирӗклӗ йума пурнӑҫлама пултарать. \n \nҪак ӗнентерӳ хутне шаннипе есӗ ҫав теветкеле йышӑнатӑн.</string>
     <string name="add_tracking">Йӗрлев хуш</string>
     <string name="manga_tracking_tab">Йӗрле</string>
-    <string name="custom_filter">Усӑҫ али</string>
     <string name="pref_acra_summary">Кирек мӗнле йӑнӑшсене тӳрлетме пулӑшать. Нимӗнле харкам пӗлӗм те ярӑнмасть</string>
     <string name="label_downloaded_only">Тиенӗсене ҫеҫ</string>
     <string name="file_select_backup">Янтӑв файла суйла</string>

@@ -188,7 +188,6 @@
     <string name="chapter_settings">Kapituluaren ezarpenak</string>
     <string name="track_status">Egoera</string>
     <string name="track_type">Mota</string>
-    <string name="custom_filter">Iragazki pertsonalizatua</string>
     <string name="snack_categories_deleted">Kategoriak ezabatuak</string>
     <string name="dialog_with_checkbox_reset">Berrezarri manga honen kapitulu guztiak</string>
     <string name="file_select_cover">Hautatu azaleko irudia</string>
@@ -461,7 +460,6 @@
     <string name="action_webview_refresh">Freskatu</string>
     <string name="action_start_downloading_now">Hasi deskargatzen orain</string>
     <string name="app_not_available">Aplikazioa ez dago erabilgarri</string>
-    <string name="pref_category_general">Orokorra</string>
     <string name="pref_category_appearance">Itxura</string>
     <string name="pref_category_library">Liburutegia</string>
     <string name="pref_category_reader">Irakurgailua</string>

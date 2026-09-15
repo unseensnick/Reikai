@@ -52,7 +52,6 @@
     <string name="pref_category_downloads">Preuzimanja</string>
     <string name="pref_category_reader">Čitač</string>
     <string name="pref_category_library">Biblioteka</string>
-    <string name="pref_category_general">Opće</string>
     <string name="app_not_available">Aplikacija nije dostupna</string>
     <string name="loading">Učitavanje …</string>
     <string name="action_webview_refresh">Osvježi</string>
@@ -250,7 +249,6 @@
     <string name="chapter_progress">Stranica: %1$d</string>
     <string name="cover_updated">Naslovnica aktualizirana</string>
     <string name="set_as_cover">Postavi kao naslovnicu</string>
-    <string name="custom_filter">Prilagođeni filtar</string>
     <string name="picture_saved">Slika spremljena</string>
     <string name="dialog_with_checkbox_reset">Obnovi sva poglavlja za ovaj unos</string>
     <string name="dialog_with_checkbox_remove_description">Ovo će ukloniti datum čitanja ovog poglavlja. Je li to stvarno želiš?</string>

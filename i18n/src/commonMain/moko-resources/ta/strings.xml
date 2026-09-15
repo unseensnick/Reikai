@@ -235,7 +235,6 @@
     <string name="theme_dark">இருண்ட</string>
     <string name="onboarding_guides_new_user">%s க்கு புதியதா? தொடங்கும் வழிகாட்டியைப் பார்க்க பரிந்துரைக்கிறோம்.</string>
     <string name="onboarding_guides_returning_user">%s ஐ மீண்டும் நிறுவுகிறீர்களா?</string>
-    <string name="pref_category_general">பொது</string>
     <string name="pref_category_appearance">தோற்றம்</string>
     <string name="pref_category_library">நூலகம்</string>
     <string name="pref_category_reader">வாசகர்</string>
@@ -679,7 +678,6 @@
     <string name="track_delete_text">இது உள்நாட்டில் கண்காணிப்பை அகற்றும்.</string>
     <string name="picture_saved">படம் சேமிக்கப்பட்டது</string>
     <string name="error_saving_picture">படம் சேமிப்பதில் பிழை</string>
-    <string name="custom_filter">தனிப்பயன் வடிகட்டி</string>
     <string name="set_as_cover">கவர் அமைக்கவும்</string>
     <string name="cover_updated">கவர் புதுப்பிக்கப்பட்டது</string>
     <string name="share_page_info">%1$s: %2$s, பக்கம் %3$d</string>

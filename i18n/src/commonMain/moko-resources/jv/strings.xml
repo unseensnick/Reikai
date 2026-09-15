@@ -125,7 +125,6 @@
     <string name="pref_category_reader">Pamaca</string>
     <string name="pref_category_library">Koleksi</string>
     <string name="pref_category_appearance">Tampilan</string>
-    <string name="pref_category_general">Umum</string>
     <string name="app_not_available">Aplikasi ora ono</string>
     <string name="loading">Ngemot…</string>
     <string name="action_start_downloading_now">Wiwiti ngunduh saiki</string>

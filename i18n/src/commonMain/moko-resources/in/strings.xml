@@ -59,7 +59,6 @@
     <string name="action_restore">Pulihkan</string>
     <string name="loading">Memuat…</string>
     <string name="app_not_available">Aplikasi tidak tersedia</string>
-    <string name="pref_category_general">Umum</string>
     <string name="pref_category_reader">Pembaca</string>
     <string name="pref_category_downloads">Unduhan</string>
     <string name="pref_category_tracking">Sinkronisasi</string>
@@ -190,7 +189,6 @@
     <string name="dialog_with_checkbox_reset">Setel ulang semua bab untuk entri ini</string>
     <string name="snack_add_to_library">Tambahkan ke pustaka?</string>
     <string name="picture_saved">Gambar disimpan</string>
-    <string name="custom_filter">Filter khusus</string>
     <string name="set_as_cover">Terapkan sebagai sampul</string>
     <string name="cover_updated">Sampul telah diperbarui</string>
     <string name="chapter_progress">Halaman: %1$d</string>

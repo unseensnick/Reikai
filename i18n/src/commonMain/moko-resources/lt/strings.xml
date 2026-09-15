@@ -78,7 +78,6 @@
     <string name="pref_category_reader">Skaityklė</string>
     <string name="pref_category_library">Biblioteka</string>
     <string name="pref_category_appearance">Išvaizda</string>
-    <string name="pref_category_general">Bendriniai</string>
     <string name="app_not_available">Programa negalima</string>
     <string name="loading">Įkeliama…</string>
     <string name="action_start_downloading_now">Atsisiųsti dabar</string>
@@ -581,7 +580,6 @@
     <string name="score">Rezultatas</string>
     <string name="error_category_exists">Kategorija su šiuo pavadinimu jau egzistuoja!</string>
     <string name="snack_categories_deleted">Kategorijos ištrintos</string>
-    <string name="custom_filter">Pasirinktinas filtras</string>
     <string name="picture_saved">Viršelis išsaugotas</string>
     <string name="track_status">Būsena</string>
     <string name="on_hold_list">Užlaikytų sąrašas</string>

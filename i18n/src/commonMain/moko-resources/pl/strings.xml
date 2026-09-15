@@ -54,7 +54,6 @@
     <string name="action_restore">Przywróć</string>
     <string name="loading">Ładowanie…</string>
     <string name="app_not_available">Aplikacja niedostępna</string>
-    <string name="pref_category_general">Ogólne</string>
     <string name="pref_category_reader">Czytnik</string>
     <string name="pref_category_downloads">Pobieranie</string>
     <string name="pref_category_advanced">Zaawansowane</string>
@@ -205,7 +204,6 @@
     <string name="dialog_with_checkbox_remove_description">To usunie datę przeczytania tego rozdziału. Na pewno?</string>
     <string name="dialog_with_checkbox_reset">Resetuj wszystkie rozdziały dla tego wpisu</string>
     <string name="snack_add_to_library">Dodać do biblioteki?</string>
-    <string name="custom_filter">Filtr niestandardowy</string>
     <string name="decode_image_error">Nie udało się wczytać obrazka</string>
     <string name="confirm_set_image_as_cover">Ustawić ten obrazek jako okładkę?</string>
     <string name="download_queue_error">Nie udało się pobrać rozdziałów. Możesz spróbować ponownie w sekcji pobierania</string>

@@ -63,7 +63,6 @@
     <string name="action_restore">Restaurează</string>
     <string name="loading">Se încarcă…</string>
     <string name="app_not_available">Aplicația nu este accesibilă</string>
-    <string name="pref_category_general">Generale</string>
     <string name="pref_category_reader">Cititor</string>
     <string name="pref_category_downloads">Descărcări</string>
     <string name="pref_category_tracking">Urmărite</string>
@@ -224,7 +223,6 @@
     <string name="dialog_with_checkbox_reset">Resetați toate capitolele pentru această intrare</string>
     <string name="snack_add_to_library">Adăugați la bibliotecă?</string>
     <string name="picture_saved">Imagine salvată</string>
-    <string name="custom_filter">Filtru personalizat</string>
     <string name="set_as_cover">Stabilește ca și copertă</string>
     <string name="cover_updated">Copertă actualizată</string>
     <string name="chapter_progress">Pagina: %1$d</string>

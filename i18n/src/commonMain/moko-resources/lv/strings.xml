@@ -58,7 +58,6 @@
     <string name="action_restore">Atjaunot</string>
     <string name="loading">Ieladēšana…</string>
     <string name="app_not_available">Programma nav pieejama</string>
-    <string name="pref_category_general">Vispārīgas</string>
     <string name="pref_category_reader">Lasītājs</string>
     <string name="pref_category_downloads">Lejupieladējumi</string>
     <string name="pref_category_tracking">Izsekošana</string>
@@ -564,7 +563,6 @@
     <string name="track_type">Tips</string>
     <string name="source_unsupported">Avots netiek atbalstīts</string>
     <string name="error_no_match">Neizdevās atrast</string>
-    <string name="custom_filter">Pielāgots filtrs</string>
     <string name="set_as_cover">Iestatīt kā vāku</string>
     <string name="chapter_progress">Lapa: %1$d</string>
     <string name="transition_finished">Pabeigts:</string>

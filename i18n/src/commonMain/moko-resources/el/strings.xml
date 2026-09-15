@@ -64,7 +64,6 @@
     <string name="action_restore">Επαναφορά</string>
     <string name="loading">Φόρτωση…</string>
     <string name="app_not_available">Μη διαθέσιμη εφαρμογή</string>
-    <string name="pref_category_general">Γενικά</string>
     <string name="pref_category_reader">Αναγνώστης</string>
     <string name="pref_category_downloads">Λήψεις</string>
     <string name="pref_category_tracking">Παρακολούθηση</string>
@@ -224,7 +223,6 @@
     <string name="dialog_with_checkbox_reset">Επαναφορά όλων των κεφαλαίων για αυτήν την καταχώρηση</string>
     <string name="snack_add_to_library">Προσθήκη στη βιβλιοθήκη;</string>
     <string name="picture_saved">Η εικόνα αποθηκεύτηκε</string>
-    <string name="custom_filter">Προσαρμοσμένο φίλτρο</string>
     <string name="set_as_cover">Ορισμός ως εξώφυλλο</string>
     <string name="cover_updated">Το εξώφυλλο ενημερώθηκε</string>
     <string name="chapter_progress">Σελίδα: %1$d</string>

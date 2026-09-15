@@ -61,7 +61,6 @@
     <string name="action_restore">पुनःस्थापन करे</string>
     <string name="loading">लोड हो रहा है…</string>
     <string name="app_not_available">ऐप उपलब्ध नहीं</string>
-    <string name="pref_category_general">सामान्य</string>
     <string name="pref_category_reader">पाठमाला</string>
     <string name="pref_category_downloads">डाउनलोड</string>
     <string name="pref_category_tracking">पदचिह्न</string>
@@ -198,7 +197,6 @@
     <string name="dialog_with_checkbox_reset">इस प्रविष्टि के लिए सभी अध्यायों को रीसेट करें</string>
     <string name="snack_add_to_library">पुस्तकालय में जोड़ें?</string>
     <string name="picture_saved">चित्र सहेजा गया</string>
-    <string name="custom_filter">इच्छा अनुसार फिल्टर</string>
     <string name="set_as_cover">कवर के रूप में सेट करें</string>
     <string name="cover_updated">कवर अपडेट किया गया</string>
     <string name="chapter_progress">पृष्ठ: %1$d</string>

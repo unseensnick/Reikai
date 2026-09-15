@@ -64,7 +64,6 @@
     <string name="action_restore">Riprìstina</string>
     <string name="loading">Carrighende…</string>
     <string name="app_not_available">Aplicatzione non disponìbile</string>
-    <string name="pref_category_general">Generales</string>
     <string name="pref_category_reader">Leghidore</string>
     <string name="pref_category_downloads">Iscarrigamentos</string>
     <string name="pref_category_tracking">Arrastamentu</string>
@@ -225,7 +224,6 @@
     <string name="dialog_with_checkbox_reset">Reseta totu sos capìtulos pro custu elementu</string>
     <string name="snack_add_to_library">Annànghere a sa biblioteca?</string>
     <string name="picture_saved">Immàgine sarvada</string>
-    <string name="custom_filter">Filtru personalizadu</string>
     <string name="set_as_cover">Imposta comente cobertedda</string>
     <string name="cover_updated">Cobertedda agiornada</string>
     <string name="chapter_progress">Pàgina: %1$d</string>

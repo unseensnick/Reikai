@@ -64,7 +64,6 @@
     <string name="action_restore">Geri yükle</string>
     <string name="loading">Yükleniyor…</string>
     <string name="app_not_available">Uygulama kullanılamıyor</string>
-    <string name="pref_category_general">Genel</string>
     <string name="pref_category_reader">Okuyucu</string>
     <string name="pref_category_downloads">İndirmeler</string>
     <string name="pref_category_tracking">İzleme</string>
@@ -224,7 +223,6 @@
     <string name="dialog_with_checkbox_reset">Bu girdi için tüm bölümleri sıfırla</string>
     <string name="snack_add_to_library">Kitaplığa ekle?</string>
     <string name="picture_saved">Görsel kaydedildi</string>
-    <string name="custom_filter">Özel filtre</string>
     <string name="set_as_cover">Kapak olarak ayarla</string>
     <string name="cover_updated">Kapak güncellendi</string>
     <string name="chapter_progress">Sayfa: %1$d</string>

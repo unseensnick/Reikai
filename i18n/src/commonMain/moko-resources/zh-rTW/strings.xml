@@ -63,7 +63,6 @@
     <string name="action_restore">還原</string>
     <string name="loading">正在載入…</string>
     <string name="app_not_available">應用程式無法使用</string>
-    <string name="pref_category_general">一般</string>
     <string name="pref_category_reader">閱讀</string>
     <string name="pref_category_downloads">下載</string>
     <string name="pref_category_advanced">進階</string>
@@ -229,7 +228,6 @@
     <string name="transition_pages_loading">正在載入頁面…</string>
     <string name="information_empty_library">尚未收藏任何作品</string>
     <string name="dialog_with_checkbox_reset">重設此作品所有章節</string>
-    <string name="custom_filter">濾鏡</string>
     <string name="migrate">遷移</string>
     <string name="notification_cover_update_failed">封面更新失敗</string>
     <string name="confirm_delete_chapters">確定要刪除所選的章節嗎？</string>

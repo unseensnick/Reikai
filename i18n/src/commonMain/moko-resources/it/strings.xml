@@ -47,7 +47,6 @@
     <string name="action_share">Condividi</string>
     <string name="action_save">Salva</string>
     <string name="loading">Caricamento…</string>
-    <string name="pref_category_general">Generale</string>
     <string name="pref_category_reader">Lettore</string>
     <string name="pref_category_downloads">Download</string>
     <string name="pref_category_advanced">Avanzate</string>
@@ -158,7 +157,6 @@
     <string name="dialog_with_checkbox_remove_description">Questo rimuoverà la data lettura di questo capitolo. Sei sicuro?</string>
     <string name="dialog_with_checkbox_reset">Reimposta tutti i capitoli di questa voce</string>
     <string name="picture_saved">Immagine salvata</string>
-    <string name="custom_filter">Filtro personalizzato</string>
     <string name="set_as_cover">Imposta come copertina</string>
     <string name="cover_updated">Copertina aggiornata</string>
     <string name="chapter_progress">Pagina: %1$d</string>
