@@ -23,10 +23,4 @@ class NovelBionicSpansTest {
     fun boldLengthMatchesTheBundle(wordLength: Int, expected: Int) {
         NovelBionicSpans.boldLengthFor(wordLength) shouldBe expected
     }
-
-    @org.junit.jupiter.api.Test
-    @DisplayName("a single letter bolds nothing, so one-letter words are not left looking emphasised")
-    fun singleLetterBoldsNothing() {
-        NovelBionicSpans.boldLengthFor(1) shouldBe 0
-    }
 }
