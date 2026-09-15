@@ -1095,7 +1095,7 @@ class NovelDetailsViewModel(
     }
 
     fun bookmarkSelected(bookmark: Boolean) = withSelection { chapters ->
-        expandToGroup(chapters).forEach { chapterRepo.setBookmark(it.id, bookmark) }
+        chapterRepo.setBookmarkBulk(expandToGroup(chapters).map { it.id }, bookmark)
     }
 
     /** Mark every chapter the reader passes before the earliest selected one read/unread. Spans all
@@ -1139,7 +1139,7 @@ class NovelDetailsViewModel(
             // Toggled against what the row shows, which on a merged entry is the group's own state.
             val loaded = state.value as? NovelDetailsState.Loaded
             val target = !(chapter.bookmark || chapter.id in loaded?.bookmarkedInOtherSources.orEmpty())
-            expandToGroup(listOf(chapter)).forEach { chapterRepo.setBookmark(it.id, target) }
+            chapterRepo.setBookmarkBulk(expandToGroup(listOf(chapter)).map { it.id }, target)
         }
     }
 

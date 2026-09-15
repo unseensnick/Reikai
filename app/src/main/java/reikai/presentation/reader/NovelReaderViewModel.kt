@@ -1065,7 +1065,7 @@ class NovelReaderViewModel(
 
     /** Reaches every source's copy of the chapter, as the manga sheet and the details list do. */
     fun setChapterRead(chapterId: Long, read: Boolean) {
-        viewModelScope.launchIO {
+        viewModelScope.launchNonCancellable {
             val copies = groupCopies(chapterId)
             // Unmarked, it can be finished again, and finishing is what reaches the trackers.
             if (!read) chapterFinish.release(copies.map { it.id })
@@ -1077,7 +1077,8 @@ class NovelReaderViewModel(
         val ids = expandToUnits(setOf(chapterId), groupStitch)
         // Kept in step so the sheet and the app bar cannot disagree about the chapter being read.
         if (currentChapterId in ids) bookmarkedState.value = bookmarked
-        viewModelScope.launchIO { ids.forEach { chapterRepo.setBookmark(it, bookmarked) } }
+        // Not cancelled with the reader, which is often closed straight after the tap, as manga's is not.
+        viewModelScope.launchNonCancellable { chapterRepo.setBookmarkBulk(ids.toList(), bookmarked) }
     }
 
     /** Every source's copy of [chapterId] the stored stitch places with it, itself included, as the

@@ -123,8 +123,21 @@ class NovelChapterRepositoryImpl(
         // merged unified-list copy would otherwise overwrite with its synthetic value).
         updateSingleColumn(id, read = read)
 
-    override suspend fun setBookmark(id: Long, bookmark: Boolean): Boolean =
-        updateSingleColumn(id, bookmark = bookmark)
+    override suspend fun setBookmarkBulk(ids: List<Long>, bookmark: Boolean): Boolean = try {
+        database.transaction {
+            ids.forEach { id ->
+                database.novel_chaptersQueries.update(
+                    novelId = null, url = null, name = null, read = null, bookmark = bookmark,
+                    lastTextProgress = null, chapterNumber = null, sourceOrder = null,
+                    dateFetch = null, dateUpload = null, page = null, chapterId = id,
+                )
+            }
+        }
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to bulk set bookmark on ${ids.size} novel chapters" }
+        false
+    }
 
     override suspend fun setReadBulk(ids: List<Long>, read: Boolean): Boolean = try {
         // One transaction for the whole batch. Marking unread also rewinds text progress.
@@ -151,11 +164,10 @@ class NovelChapterRepositoryImpl(
     private suspend fun updateSingleColumn(
         id: Long,
         read: Boolean? = null,
-        bookmark: Boolean? = null,
         lastTextProgress: Long? = null,
     ): Boolean = try {
         database.novel_chaptersQueries.update(
-            novelId = null, url = null, name = null, read = read, bookmark = bookmark,
+            novelId = null, url = null, name = null, read = read, bookmark = null,
             lastTextProgress = lastTextProgress, chapterNumber = null, sourceOrder = null,
             dateFetch = null, dateUpload = null, page = null, chapterId = id,
         )

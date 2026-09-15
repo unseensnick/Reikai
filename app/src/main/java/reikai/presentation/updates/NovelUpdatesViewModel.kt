@@ -184,7 +184,7 @@ class NovelUpdatesViewModel(
 
     fun bookmark(chapterIds: List<Long>, bookmark: Boolean) {
         viewModelScope.launchIO {
-            chapterIds.forEach { chapterRepo.setBookmark(it, bookmark) }
+            chapterRepo.setBookmarkBulk(chapterIds, bookmark)
         }
     }
 
