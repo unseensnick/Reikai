@@ -61,28 +61,31 @@ object NovelWebDocument {
         // The engine is in the head so it runs before the chapter: it holds the bridge and its token
         // before any script the chapter carries can reach them, and a chapter whose markup never
         // closes (a stray `<plaintext>`) cannot swallow the engine as text.
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-            <style id="rk-font-face">${fontFace(settings.fontFamily, fontSource)}</style>
-            <style>
-            :root { ${variables(settings, statusBarHeightPx)} ${chromeVariables(context)} }
-            $css
-            ${overrides(useOriginalFonts, sourceCssPriority)}
-            ${if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }"}
-            </style>
-            <style id="rk-snippets"></style>
-            <script>$js</script>
-            </head>
-            <body>
-            <div id="rk-chapters">
-            <div class="rk-chapter" data-rk-chapter-id="$chapterId">$chapterHtml</div>
-            </div>
-            </body>
-            </html>
-        """.trimIndent()
+        // Built line by line rather than trimmed: the chapter is megabytes with its images inlined, and
+        // trimming the whole document copied it for nothing, since its own lines carry no indent.
+        return buildString {
+            appendLine("<!DOCTYPE html>")
+            appendLine("<html>")
+            appendLine("<head>")
+            appendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">")
+            appendLine("<style id=\"rk-font-face\">${fontFace(settings.fontFamily, fontSource)}</style>")
+            appendLine("<style>")
+            appendLine(":root { ${variables(settings, statusBarHeightPx)} ${chromeVariables(context)} }")
+            appendLine(css)
+            appendLine(overrides(useOriginalFonts, sourceCssPriority))
+            appendLine(if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }")
+            appendLine("</style>")
+            appendLine("<style id=\"rk-snippets\"></style>")
+            append("<script>").append(js).appendLine("</script>")
+            appendLine("</head>")
+            appendLine("<body>")
+            appendLine("<div id=\"rk-chapters\">")
+            append("<div class=\"rk-chapter\" data-rk-chapter-id=\"").append(chapterId).append("\">")
+            append(chapterHtml).appendLine("</div>")
+            appendLine("</div>")
+            appendLine("</body>")
+            append("</html>")
+        }
     }
 
     /**

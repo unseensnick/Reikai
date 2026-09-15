@@ -256,6 +256,16 @@ class NovelWebDocumentTest {
         assertEquals("the bundled face did not load", "true", awaitEval(LORA_LOADED, "true"))
     }
 
+    /** Every build and font push asks for the face, which for a CJK one is megabytes read and encoded. */
+    @Test
+    fun theSameFaceAskedForTwiceIsReadOnce() {
+        val context = instrumentation.targetContext
+        val fonts = context.appGraph.novelFontManager
+        val first = runBlocking { NovelWebFonts.dataUri(context, fonts, "lora") }
+        val second = runBlocking { NovelWebFonts.dataUri(context, fonts, "lora") }
+        assertTrue("the face was read and encoded again", first != null && first === second)
+    }
+
     /** A font picked while a chapter is open reaches the page as a face, not only as a family name. */
     @Test
     fun aFontPickedWithThePageOpenLoadsItsFace() {
