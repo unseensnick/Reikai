@@ -19,13 +19,24 @@ class TtsFocusPolicy {
     private var holding = false
     private var resumeOnGain = false
 
+    /** Focus went to someone else for a while and has not come back, though the request is still held. */
+    private var lostTransiently = false
+
     /** Called with every playback the session shows; only a change of it decides anything. */
     fun onPlayback(value: TtsPlayback): Focus {
         if (value == playback) return Focus.Keep
         playback = value
         if (value == TtsPlayback.Playing) {
             resumeOnGain = false
-            return if (holding) Focus.Keep else Focus.Request.also { holding = true }
+            // Playing during a call or a navigation prompt asks again, which the system then refuses.
+            return if (holding && !lostTransiently) {
+                Focus.Keep
+            } else {
+                Focus.Request.also {
+                    holding = true
+                    lostTransiently = false
+                }
+            }
         }
         if (value == TtsPlayback.Stopped) resumeOnGain = false
         // A pause a transient loss caused keeps focus, or the gain that resumes it never arrives.
@@ -39,23 +50,26 @@ class TtsFocusPolicy {
         return Response.Pause
     }
 
-    fun onFocusChange(change: Change): Response = when (change) {
-        Change.Gain -> if (resumeOnGain && playback == TtsPlayback.Paused) {
-            resumeOnGain = false
-            Response.Resume
-        } else {
-            Response.Nothing
-        }
-        Change.Loss -> {
-            holding = false
-            resumeOnGain = false
-            Response.PauseAndAbandon
-        }
-        Change.LossTransient, Change.LossTransientCanDuck -> if (playback == TtsPlayback.Playing) {
-            resumeOnGain = true
-            Response.Pause
-        } else {
-            Response.Nothing
+    fun onFocusChange(change: Change): Response {
+        lostTransiently = change == Change.LossTransient || change == Change.LossTransientCanDuck
+        return when (change) {
+            Change.Gain -> if (resumeOnGain && playback == TtsPlayback.Paused) {
+                resumeOnGain = false
+                Response.Resume
+            } else {
+                Response.Nothing
+            }
+            Change.Loss -> {
+                holding = false
+                resumeOnGain = false
+                Response.PauseAndAbandon
+            }
+            Change.LossTransient, Change.LossTransientCanDuck -> if (playback == TtsPlayback.Playing) {
+                resumeOnGain = true
+                Response.Pause
+            } else {
+                Response.Nothing
+            }
         }
     }
 

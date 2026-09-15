@@ -123,6 +123,20 @@ class TtsFocusPolicyTest {
         policy.onFocusChange(Change.Gain) shouldBe Response.Nothing
     }
 
+    /** During a call the system refuses the request, and a refusal pauses; keeping would read over the call. */
+    @Test
+    fun `playing during a transient loss asks for focus again`() {
+        pausedBy(Change.LossTransient).onPlayback(TtsPlayback.Playing) shouldBe Focus.Request
+    }
+
+    @Test
+    fun `resuming on the gain after a transient loss keeps the focus it has`() {
+        val policy = pausedBy(Change.LossTransient)
+        policy.onFocusChange(Change.Gain)
+
+        policy.onPlayback(TtsPlayback.Playing) shouldBe Focus.Keep
+    }
+
     @Test
     fun `stopping during a transient loss cancels the resume`() {
         pausedBy(Change.LossTransient).onPlayback(TtsPlayback.Stopped)
