@@ -94,6 +94,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val rate by ratePref.collectAsState()
         val pitch by pitchPref.collectAsState()
         val highlight by novelPreferences.readerTtsHighlight().collectAsState()
+        val keepInView by novelPreferences.readerTtsKeepInView().collectAsState()
         val highlightStyle by novelPreferences.readerTtsHighlightStyle().collectAsState()
         val options by rememberTtsOptions(context, engine)
 
@@ -159,14 +160,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_tts_auto_page_advance),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerTtsScrollToTop(),
-                    title = stringResource(MR.strings.pref_tts_scroll_to_top),
-                    subtitle = stringResource(MR.strings.pref_tts_scroll_to_top_summary),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTtsKeepInView(),
                     title = stringResource(MR.strings.pref_tts_keep_in_view),
                 ),
+                // Where a paragraph kept in view is put, so it only means something while that is on.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTtsScrollToTop(),
+                    title = stringResource(MR.strings.pref_tts_scroll_to_top),
+                    subtitle = stringResource(MR.strings.pref_tts_scroll_to_top_summary),
+                ).takeIf { keepInView },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTtsHighlight(),
                     title = stringResource(MR.strings.pref_tts_highlight),
