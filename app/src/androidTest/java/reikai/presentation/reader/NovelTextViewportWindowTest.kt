@@ -295,7 +295,7 @@ class NovelTextViewportWindowTest {
         open(SHORT, "<p>short</p>")
         runBlocking(Dispatchers.Main) {
             val arriving = launch(start = CoroutineStart.UNDISPATCHED) {
-                viewport.append(chapter(NEXT, long("next")), readerTestSettings)
+                viewport.append(chapter(NEXT, long("next")))
             }
             viewport.applySettings(readerTestSettings.copy(textColor = "#ff0000"))
             arriving.join()
@@ -441,12 +441,12 @@ class NovelTextViewportWindowTest {
     }
 
     private fun append(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.append(chapter(id, html), readerTestSettings) }
+        runBlocking(Dispatchers.Main) { viewport.append(chapter(id, html)) }
         awaitRendered(id, required = false)
     }
 
     private fun prepend(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.prepend(chapter(id, html), readerTestSettings) }
+        runBlocking(Dispatchers.Main) { viewport.prepend(chapter(id, html)) }
         awaitRendered(id, required = false)
     }
 

@@ -709,8 +709,8 @@ class ReaderActivity : BaseActivity() {
                 NovelWindowDiff.plan(rendered, wanted).forEach { step ->
                     when (step) {
                         is NovelWindowDiff.Step.Evict -> window.evict(step.chapterId)
-                        is NovelWindowDiff.Step.Append -> window.append(byId.getValue(step.chapterId), settings)
-                        is NovelWindowDiff.Step.Prepend -> window.prepend(byId.getValue(step.chapterId), settings)
+                        is NovelWindowDiff.Step.Append -> window.append(byId.getValue(step.chapterId))
+                        is NovelWindowDiff.Step.Prepend -> window.prepend(byId.getValue(step.chapterId))
                     }
                 }
                 rendered = wanted

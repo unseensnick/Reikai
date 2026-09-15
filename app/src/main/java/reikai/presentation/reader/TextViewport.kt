@@ -57,10 +57,10 @@ interface TextViewport {
 interface ChapterWindow {
 
     /** Adds [chapter] below what is showing. Suspending for the same reason [TextViewport.load] is. */
-    suspend fun append(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings)
+    suspend fun append(chapter: NovelReaderViewModel.LoadedChapter)
 
     /** Adds [chapter] above what is showing, without moving the reader. */
-    suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings)
+    suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter)
 
     /** Drops a chapter the window has moved past, freeing its rendered text. */
     fun evict(chapterId: Long)

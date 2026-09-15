@@ -104,7 +104,7 @@ class NovelWebViewportGateTest {
             scope.launch {
                 viewport.load(chapter(3L), readerTestSettings)
             }
-            scope.launch { viewport.append(chapter(4L), readerTestSettings) }
+            scope.launch { viewport.append(chapter(4L)) }
         }
         assertEquals("3,4", awaitChapters("3,4"))
     }
@@ -120,7 +120,7 @@ class NovelWebViewportGateTest {
             scope.launch {
                 viewport.load(chapter(3L), readerTestSettings)
             }
-            scope.launch { viewport.append(chapter(4L), readerTestSettings) }
+            scope.launch { viewport.append(chapter(4L)) }
         }
         assertEquals("3,4", awaitChapters("3,4"))
     }
@@ -223,7 +223,7 @@ class NovelWebViewportGateTest {
             scope.launch {
                 viewport.load(chapter(id), readerTestSettings)
             }
-            scope.launch { viewport.append(chapter(id + 1), readerTestSettings) }
+            scope.launch { viewport.append(chapter(id + 1)) }
         }
         assertEquals("the first document never opened the gate", "$id,${id + 1}", awaitChapters("$id,${id + 1}"))
     }

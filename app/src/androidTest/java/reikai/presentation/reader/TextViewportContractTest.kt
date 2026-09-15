@@ -2332,13 +2332,13 @@ class TextViewportContractTest(private val renderer: Renderer) {
      *  for: native lays out nothing entirely above the screen, so a long chapter there sends none. */
     private fun prepend(chapter: NovelReaderViewModel.LoadedChapter) {
         val before = chapterCount()
-        runBlocking(Dispatchers.Main) { viewport.window.prepend(chapter, readerTestSettings) }
+        runBlocking(Dispatchers.Main) { viewport.window.prepend(chapter) }
         awaitChapters(before + 1)
     }
 
     private fun append(chapter: NovelReaderViewModel.LoadedChapter) {
         val before = chapterCount()
-        runBlocking(Dispatchers.Main) { viewport.window.append(chapter, readerTestSettings) }
+        runBlocking(Dispatchers.Main) { viewport.window.append(chapter) }
         awaitChapters(before + 1)
     }
 

@@ -455,7 +455,7 @@ class NovelTextViewport(
         recycler.smoothScrollBy(0, top - target)
     }
 
-    override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
+    override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter) {
         grow(chapter, atEnd = true)
     }
 
@@ -466,7 +466,7 @@ class NovelTextViewport(
      * screen is full, which the host keeps true by adding below first ([NovelWindowDiff]); with nothing
      * below a short chapter, the chapter joins at its final height ([add]) and the reader ends at the bottom.
      */
-    override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
+    override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter) {
         grow(chapter, atEnd = false)
     }
 

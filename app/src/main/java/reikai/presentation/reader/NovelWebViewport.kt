@@ -420,10 +420,10 @@ class NovelWebViewport(
     override val window: ChapterWindow
         get() = this
 
-    override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) =
+    override suspend fun append(chapter: NovelReaderViewModel.LoadedChapter) =
         insert(chapter, atStart = false)
 
-    override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) =
+    override suspend fun prepend(chapter: NovelReaderViewModel.LoadedChapter) =
         insert(chapter, atStart = true)
 
     /** Nothing is compensated here: the page holds the reader's line itself when content lands above it,
