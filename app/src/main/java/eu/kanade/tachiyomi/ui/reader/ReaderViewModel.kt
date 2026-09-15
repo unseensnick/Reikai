@@ -88,6 +88,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.presentation.reader.ChapterSwitches
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -309,6 +310,9 @@ class ReaderViewModel(
 
     private var chapterToDownload: Download? = null
 
+    // RK: which overlapping chapter switch may land. Main thread only.
+    private val chapterSwitches = ChapterSwitches()
+
     private val unfilteredChapterList by lazy {
         // RK: span the whole merge group so the duplicate-read pass reaches the stitch's copies on
         // sibling sources too; for an unmerged manga this is just its own chapters, as before.
@@ -527,6 +531,8 @@ class ReaderViewModel(
     private suspend fun loadChapter(
         loader: MergedChapterLoader,
         chapter: ReaderChapter,
+        // RK: the token of the page switch this load serves, or null for a pick, a step or the first open.
+        pageSwitch: Long? = null,
     ): ViewerChapters {
         loader.loadChapter(chapter)
 
@@ -547,17 +553,23 @@ class ReaderViewModel(
         val bookmarked = isBookmarkedInGroup(chapter.chapter.id!!)
 
         withUIContext {
-            mutableState.update {
-                // Add new references first to avoid unnecessary recycling
-                newChapters.ref()
-                it.viewerChapters?.unref()
+            // RK --> a page switch something newer overtook does not land: it would put the reader back
+            // on the chapter just left. It was never referenced, and the chapter it loaded is already a
+            // neighbour of the live set. The references and the queue cancel run out here, once, since
+            // update re-runs its block whenever a background write lands first.
+            if (pageSwitch != null && !chapterSwitches.isLatest(pageSwitch)) return@withUIContext
+            // Add new references first to avoid unnecessary recycling
+            newChapters.ref()
+            state.value.viewerChapters?.unref()
 
-                chapterToDownload = cancelQueuedDownloads(newChapters.currChapter)
+            chapterToDownload = cancelQueuedDownloads(newChapters.currChapter)
+            mutableState.update {
                 it.copy(
                     viewerChapters = newChapters,
-                    bookmarked = bookmarked, // RK
+                    bookmarked = bookmarked,
                 )
             }
+            // RK <--
         }
         return newChapters
     }
@@ -566,8 +578,8 @@ class ReaderViewModel(
      * Called when the user changed to the given [chapter] when changing pages from the viewer.
      * It's used only to set this chapter as active.
      */
-    private fun loadNewChapter(chapter: ReaderChapter) {
-        val loader = loader ?: return
+    private fun loadNewChapter(chapter: ReaderChapter, pageSwitch: Long) {
+        val loader = loader ?: return chapterSwitches.finish(pageSwitch)
 
         viewModelScope.launchIO {
             logcat { "Loading ${chapter.chapter.url}" }
@@ -576,13 +588,15 @@ class ReaderViewModel(
             restartReadTimer()
 
             try {
-                loadChapter(loader, chapter)
+                loadChapter(loader, chapter, pageSwitch)
             } catch (e: Throwable) {
                 if (e is CancellationException) {
                     throw e
                 }
                 logcat(LogPriority.ERROR, e)
             }
+            // RK: ended either way, so a failed switch is asked for again by the next page in that chapter.
+            withUIContext { chapterSwitches.finish(pageSwitch) }
         }
     }
 
@@ -596,6 +610,8 @@ class ReaderViewModel(
 
         // RK: the failure is kept, not only logged, so the engine ends a pick that failed and the host says so.
         mutableState.update { it.copy(isLoadingAdjacentChapter = true, adjacentLoadFailure = null) }
+        // RK: a pick or a step outranks any switch a page asked for before it, see ChapterSwitches.
+        withUIContext { chapterSwitches.beginExplicit() }
         try {
             withIOContext {
                 loadChapter(loader, chapter)
@@ -669,14 +685,24 @@ class ReaderViewModel(
         val selectedChapter = page.chapter
         val pages = selectedChapter.pages ?: return
 
+        // RK --> the in-memory position is written here, on the main thread and so in page order. From
+        // the background save below, two pages could land out of order and the chrome show the earlier.
+        mutableState.update {
+            it.copy(position = ReaderPosition(selectedChapter.chapter.id!!, pageProgress(selectedChapter, page)))
+        }
+        selectedChapter.requestedPage = page.index
+        chapterPageIndex = page.index
+        // RK <--
+
         // Save last page read and mark as read if needed
         viewModelScope.launchNonCancellable {
             updateChapterProgress(selectedChapter, page)
         }
 
-        if (selectedChapter != getCurrentChapter()) {
+        // RK: compared with a switch still loading too, not only the active chapter, see ChapterSwitches.
+        chapterSwitches.requestFromPage(selectedChapter.chapter.id!!, getCurrentChapter()?.chapter?.id)?.let {
             logcat { "Setting ${selectedChapter.chapter.url} as active" }
-            loadNewChapter(selectedChapter)
+            loadNewChapter(selectedChapter, it)
         }
 
         val inDownloadRange = page.number.toDouble() / pages.size > 0.25
@@ -781,24 +807,21 @@ class ReaderViewModel(
         }
     }
 
+    // RK: the position names its own chapter, so the chrome cannot pair this page number with a
+    // different chapter's total while the model is still swapping the active chapter across a seam.
+    private fun pageProgress(readerChapter: ReaderChapter, page: Page) = ChapterProgress.Pages(
+        lastPageRead = page.index.toLong(),
+        pageCount = (readerChapter.pages?.size ?: 0).toLong(),
+    )
+
     /**
      * Saves the chapter progress (last read page and whether it's read)
      * if incognito mode isn't on.
      */
     private suspend fun updateChapterProgress(readerChapter: ReaderChapter, page: Page) {
         val pageIndex = page.index
-
-        // RK: the position names its own chapter, so the chrome cannot pair this page number with a
-        // different chapter's total while the model is still swapping the active chapter across a seam.
-        val progress = ChapterProgress.Pages(
-            lastPageRead = pageIndex.toLong(),
-            pageCount = (readerChapter.pages?.size ?: 0).toLong(),
-        )
-        mutableState.update {
-            it.copy(position = ReaderPosition(chapterId = readerChapter.chapter.id!!, progress = progress))
-        }
-        readerChapter.requestedPage = pageIndex
-        chapterPageIndex = pageIndex
+        // RK: the in-memory position, requestedPage and chapterPageIndex are written by onPageSelected.
+        val progress = pageProgress(readerChapter, page)
 
         if (!incognitoMode && page.status !is Page.State.Error) {
             readerChapter.chapter.last_page_read = pageIndex
