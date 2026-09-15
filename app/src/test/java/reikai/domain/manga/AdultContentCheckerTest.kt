@@ -12,6 +12,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -27,19 +28,24 @@ class AdultContentCheckerTest {
         return source
     }
 
-    private fun nsfwExtensions(nsfwSourceId: Long?): List<Extension.Installed> =
+    private fun nsfwExtensions(nsfwSourceId: Long?, warning: ContentWarning): List<Extension.Installed> =
         nsfwSourceId?.let { sid ->
             val extSource = mockk<Source>()
             every { extSource.id } returns sid
             val extension = mockk<Extension.Installed>()
-            every { extension.isNsfw } returns true
+            every { extension.contentWarning } returns warning
             every { extension.sources } returns listOf(extSource)
             listOf(extension)
         }.orEmpty()
 
-    private fun checker(source: Source?, nsfwSourceId: Long? = null): AdultContentChecker {
+    private fun checker(
+        source: Source?,
+        nsfwSourceId: Long? = null,
+        warning: ContentWarning = ContentWarning.NSFW,
+    ): AdultContentChecker {
         val extensionManager = mockk<ExtensionManager>()
-        every { extensionManager.installedExtensionsFlow } returns MutableStateFlow(nsfwExtensions(nsfwSourceId))
+        every { extensionManager.installedExtensionsFlow } returns
+            MutableStateFlow(nsfwExtensions(nsfwSourceId, warning))
         val sourceManager = mockk<SourceManager>()
         coEvery { sourceManager.get(any()) } answers { source }
         return AdultContentChecker(extensionManager, sourceManager)
@@ -77,6 +83,19 @@ class AdultContentCheckerTest {
     fun `does not flag MangaDex, which is namespaced but not a gallery`() = runTest {
         checker(source = namespacedSource("MangaDex"))
             .isAdult(manga(MANGADEX_IDS.first(), genre = listOf("Action"))) shouldBe false
+    }
+
+    @Test
+    fun `flags a manga from an extension warned as mixed as adult`() = runTest {
+        // Mixed still hides the title: the check guards the lock screen, where a stray generic line is the safe miss.
+        checker(source = plainSource("Some Reader"), nsfwSourceId = 42L, warning = ContentWarning.MIXED)
+            .isAdult(manga(42L)) shouldBe true
+    }
+
+    @Test
+    fun `does not flag a manga from an extension warned as safe`() = runTest {
+        checker(source = plainSource("Some Reader"), nsfwSourceId = 42L, warning = ContentWarning.SAFE)
+            .isAdult(manga(42L)) shouldBe false
     }
 
     @Test

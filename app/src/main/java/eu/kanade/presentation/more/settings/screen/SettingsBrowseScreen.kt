@@ -16,6 +16,7 @@ import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import exh.md.utils.MdUtil
 import mihon.app.di.appGraph
+import mihon.domain.extension.model.ContentWarning
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -118,25 +119,57 @@ object SettingsBrowseScreen : SearchableSettings {
             ),
             // RK <--
             Preference.PreferenceGroup(
-                title = stringResource(MR.strings.pref_category_nsfw_content),
+                title = stringResource(MR.strings.pref_category_extensions),
                 preferenceItems = listOf(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = sourcePreferences.showNsfwSource,
-                        title = stringResource(MR.strings.pref_show_nsfw_source),
-                        subtitle = stringResource(MR.strings.requires_app_restart),
-                        onValueChanged = {
-                            (context as FragmentActivity).authenticate(
-                                title = context.stringResource(MR.strings.pref_category_nsfw_content),
-                            )
+                    Preference.PreferenceItem.MultiSelectListPreference(
+                        preference = sourcePreferences.enabledContentWarnings,
+                        entries = mapOf(
+                            ContentWarning.SAFE to stringResource(MR.strings.ext_content_warning_safe),
+                            ContentWarning.MIXED to stringResource(MR.strings.ext_content_warning_mixed),
+                            ContentWarning.NSFW to stringResource(MR.strings.ext_content_warning_nsfw),
+                        ),
+                        title = stringResource(MR.strings.pref_allowed_content_warnings),
+                        subtitleProvider = { value, entries ->
+                            remember(value, entries) {
+                                entries.filterKeys { it in value }.values.joinToString()
+                            }
+                                .takeUnless { it.isBlank() }
+                                ?: stringResource(MR.strings.none)
+                        },
+                        onValueChanged = { newValue ->
+                            val added = newValue - sourcePreferences.enabledContentWarnings.get()
+                            if (added.any { it != ContentWarning.SAFE }) {
+                                (context as FragmentActivity).authenticate(
+                                    title = context.stringResource(MR.strings.pref_allowed_content_warnings),
+                                )
+                            } else {
+                                true
+                            }
                         },
                     ),
-                    // RK: the built-in adult sources gate, next to the NSFW switch it belongs with.
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = sourcePreferences.applyContentWarningsToInstalled,
+                        title = stringResource(MR.strings.pref_apply_content_warnings_to_installed),
+                        subtitle = stringResource(MR.strings.pref_apply_content_warnings_to_installed_summary),
+                        onValueChanged = { newValue ->
+                            if (newValue) {
+                                true
+                            } else {
+                                (context as FragmentActivity).authenticate(
+                                    title = context.stringResource(
+                                        MR.strings.pref_apply_content_warnings_to_installed,
+                                    ),
+                                )
+                            }
+                        },
+                    ),
+                    // RK: the built-in adult sources gate, in the group that decides which extensions load.
                     Preference.PreferenceItem.SwitchPreference(
                         preference = exhPreferences.isHentaiEnabled(),
                         title = stringResource(MR.strings.pref_enable_adult_sources),
                         subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
                     ),
-                    Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.parental_controls_info)),
+                    Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.content_warnings_info)),
                 ),
             ),
             // RK --> settings owned by the app rather than by an installed extension, so they have

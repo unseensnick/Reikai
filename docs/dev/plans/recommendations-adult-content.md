@@ -652,8 +652,8 @@ tracker row with no username under it. Noted here, not owned by this plan.
 
 **Adult content is opt-in** (owner, 2026-08-22): `showAdultTrackerContent` defaults to `false`, so
 the filter is on until a user turns it off. This overrides an earlier draft of this plan, which had
-it the other way round on the grounds that the app leans permissive elsewhere (`showNsfwSource`
-defaults to true).
+it the other way round on the grounds that the app leans permissive elsewhere (the extensions'
+`enabledContentWarnings` allows all three warnings by default).
 
 **A user's tag pick outranks the tracker's own answer** (owner, 2026-08-23). This inverts the rule
 step 1 set, where a tracker saying `ADULT` or `CLEAN` was final and keywords only spoke when it could

@@ -400,9 +400,6 @@
     <string name="backup_restore_missing_trackers">Di naka-login sa mga tracker:</string>
     <string name="pref_remove_bookmarked_chapters">Payagan ang pagtanggal ng mga naka-bookmark na kabanata</string>
     <string name="pref_category_delete_chapters">Magbura ng kabanata</string>
-    <string name="parental_controls_info">Hindi nito naiiwasan ang pagpapakita ng mga NSFW (18+) sa mga di-opisyal o posibleng maling naka-flag na extension sa loob ng app.</string>
-    <string name="ext_nsfw_warning">Posibleng may NSFW (18+) content ang mga source mula sa extension na ito</string>
-    <string name="ext_nsfw_short">18+</string>
     <string name="no_chapters_error">Walang nakitang kabanata</string>
     <string name="confirm_set_chapter_settings">Gusto mo bang i-save at ipagpaubaya ang pagsasaayos na ito?</string>
     <string name="set_chapter_settings_as_default">I-set bilang default</string>
@@ -422,8 +419,6 @@
     <string name="spen_next_page">Susunod na pahina</string>
     <string name="spen_previous_page">Balik</string>
     <string name="file_picker_error">Walang nakitang file picker app</string>
-    <string name="pref_show_nsfw_source">Ipakita sa mga listahan ng source at extension</string>
-    <string name="pref_category_nsfw_content">Mga source na NSFW (18+)</string>
     <string name="myanimelist_relogin">Mag-login muli sa MAL</string>
     <string name="track_finished_reading_date">Petsa ng pagtatapos</string>
     <string name="track_started_reading_date">Petsa ng pagsisimula</string>
@@ -580,7 +575,6 @@
     <string name="pref_reset_viewer_flags_summary">Rine-reset ang paraan ng pagbasa at orientation para sa lahat ng mga serye</string>
     <string name="ext_info_version">Bersyon</string>
     <string name="ext_info_language">Wika</string>
-    <string name="ext_info_age_rating">Rating sa edad</string>
     <string name="on_hold_list">Listahan ng Tinigil</string>
     <string name="complete_list">Listahan ng Kumpleto</string>
     <string name="unfinished_list">Listahan ng Di pa Tapos</string>

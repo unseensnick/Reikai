@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 import android.content.Context
 import android.util.Log
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -25,6 +26,7 @@ import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.carryShowNsfwSource
 import reikai.novel.content.NovelSnippets
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
@@ -41,6 +43,8 @@ class PreferenceRestorer(
     private val categoryIdPreferences: CategoryIdPreferences,
     // RK: for the retired novel-reader padding key, which a restore has to carry over itself.
     private val novelPreferences: NovelPreferences,
+    // RK: for upstream's retired extension NSFW switch, carried the same way.
+    private val extensionSourcePreferences: SourcePreferences,
 ) {
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
@@ -132,6 +136,11 @@ class PreferenceRestorer(
                     val snippets = NovelSnippets.decode(stored.value).map { it.copy(enabled = false) }
                     novelPreferences.readerJsSnippets().set(NovelSnippets.encode(snippets))
                 }
+                return@forEach
+            }
+            // RK: upstream's retired extension NSFW switch, carried into the allowed content warnings.
+            if (key == ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY) {
+                (value as? BooleanPreferenceValue)?.let { extensionSourcePreferences.carryShowNsfwSource(it.value) }
                 return@forEach
             }
             // RK: the retired novel tap-to-scroll switch, carried into the tap layout for the same reason.

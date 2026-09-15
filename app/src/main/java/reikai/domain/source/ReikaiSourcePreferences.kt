@@ -3,6 +3,8 @@ package reikai.domain.source
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.domain.source.service.SourcePreferences
+import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
 import reikai.presentation.recents.RecentsMode
 import tachiyomi.core.common.preference.Preference
@@ -234,5 +236,16 @@ class ReikaiSourcePreferences(
         const val DEAD_UPDATES_FILTER_CATEGORIES_KEY = "updates_filter_categories"
         const val DEAD_UPDATES_FILTER_CATEGORY_SET_PREFIX = "updates_filter_manga_categories_"
         const val DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX = "updates_filter_novel_categories_"
+
+        /** Upstream's retired extension NSFW switch, which the allowed content warnings replaced. */
+        const val DEAD_SHOW_NSFW_SOURCE_KEY = "show_nsfw_source"
     }
+}
+
+/**
+ * Carries the retired NSFW switch into the allowed content warnings: off leaves only safe extensions.
+ * Shared by the upgrade migration and the backup restorer, which lands an old backup's key after it.
+ */
+fun SourcePreferences.carryShowNsfwSource(show: Boolean) {
+    if (!show) enabledContentWarnings.set(setOf(ContentWarning.SAFE))
 }

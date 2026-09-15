@@ -400,16 +400,12 @@
     <string name="pref_incognito_mode">حالت ناشناس</string>
     <string name="clear_history_confirmation">آیا مطمئن هستید؟ تمام سابقه از دست خواهد رفت.</string>
     <string name="clear_history_completed">سابقه پاک شد</string>
-    <string name="ext_nsfw_short">18+</string>
-    <string name="pref_category_nsfw_content">منابع محتوای جنسی (+18)</string>
-    <string name="parental_controls_info">این کار از نمایش محتوای 18+ (محتوای نامناسب) توسط افزونه‌های غیررسمی یا اشتباه برچسب‌خورده جلوگیری نمی‌کند.</string>
     <string name="no_chapters_error">هیچ قسمتی پیدا نشد</string>
     <string name="set_chapter_settings_as_default">تنظیم به عنوان پیشفرض</string>
     <string name="also_set_chapter_settings_for_library">همچنین برای تمام مانگاهای موجود در کتابخانه من اعمال شود</string>
     <string name="confirm_set_chapter_settings">آیا مطمئن هستید که می خواهید این تنظیمات را به صورت پیش فرض ذخیره کنید؟</string>
     <string name="pref_remove_bookmarked_chapters">اجازه‌ی پاک‌کردن قسمت‌های نشانک‌گذاری شده را بده</string>
     <string name="pref_category_delete_chapters">حذف قسمت ها</string>
-    <string name="ext_nsfw_warning">منابع این افزونه ممکن است شامل محتوای نامناسب (+18) باشند</string>
     <string name="spen_next_page">صفحه بعدی</string>
     <string name="spen_previous_page">صفحه قبلی</string>
     <string name="tapping_inverted_both">هر دو</string>
@@ -424,7 +420,6 @@
     <string name="file_picker_error">هیچ نرم افزار انتخاب فایلی یافت نشد</string>
     <string name="migration_help_guide">راهنمای تعویض منبع</string>
     <string name="pref_clear_history">پاک کردن سابقه</string>
-    <string name="pref_show_nsfw_source">نمایش در لیست منابع و افزونه‌ها</string>
     <string name="nav_zone_left">چپ</string>
     <string name="nav_zone_right">راست</string>
     <string name="ext_installer_legacy">قدیمی</string>
@@ -491,7 +486,6 @@
     <string name="pref_show_navigation_mode_summary">یک لحظه هنگام باز شدن متن‌خوان نمایش بده</string>
     <string name="ext_info_version">نسخه</string>
     <string name="ext_info_language">زبان</string>
-    <string name="ext_info_age_rating">رده‌بندی سنی</string>
     <string name="kindlish_nav">شبیه Kindle</string>
     <string name="rotation_landscape">افقی</string>
     <string name="rotation_reverse_portrait">عمودی معکوس</string>

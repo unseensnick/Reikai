@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import mihon.domain.extension.model.ContentWarning
 
 @Inject
 class ExtensionBackupCreator(
@@ -26,7 +27,8 @@ class ExtensionBackupCreator(
                 name = extension.name,
                 versionCode = extension.versionCode,
                 lang = extension.lang,
-                isNsfw = extension.isNsfw,
+                // Kept as the boolean it always was, so older builds still read a new backup.
+                isNsfw = extension.contentWarning != ContentWarning.SAFE,
                 sources = extension.sources.map { it.id },
                 repoUrl = extension.store?.indexUrl.orEmpty(),
             )

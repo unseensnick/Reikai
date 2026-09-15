@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import mihon.domain.extension.model.ContentWarning
 import reikai.domain.merge.ChapterMatchKeys
 import reikai.util.isLewd
 import tachiyomi.domain.manga.model.Manga
@@ -12,8 +13,8 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * RK: is a manga adult content, for hiding its title + cover from notifications and the lock screen.
- * Any one signal qualifies: an NSFW-flagged extension, a built-in gallery source (which has no
- * extension to carry that flag), or the [isLewd] genre-tag and source-name heuristic.
+ * Any one signal qualifies: an extension warned as mixed or 18+, a built-in gallery source (which has no
+ * extension to carry that warning), or the [isLewd] genre-tag and source-name heuristic.
  *
  * The gallery signal asks [ChapterMatchKeys.isGallerySource] rather than testing for a metadata
  * source, which the enhanced MangaDex also is: keying on that hid every MangaDex title.
@@ -34,7 +35,7 @@ class AdultContentChecker(
     suspend fun adultIdsAmong(entries: List<Manga>): Set<Long> {
         val nsfwSourceIds = withTimeoutOrNull(EXTENSION_SCAN_WAIT) {
             extensionManager.installedExtensionsFlow.first()
-                .filter { it.isNsfw }
+                .filter { it.contentWarning != ContentWarning.SAFE }
                 .flatMapTo(mutableSetOf()) { extension -> extension.sources.map { it.id } }
         } ?: return entries.mapTo(mutableSetOf()) { it.id }
 

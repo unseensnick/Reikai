@@ -334,6 +334,7 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
+- **Settings -> Browse and sources now picks which extensions load by content warning, Safe, Mixed or 18+, instead of one NSFW switch (synced from Mihon, mihonapp/mihon#3951, mihonapp/mihon#3952).** Your NSFW choice carries over, and the filter can leave extensions you already installed alone.
 - **The Sources list now shows manga and light-novel sources in one list, grouped by language.** Each row says which kind it is while both are showing, the chips filter that one list instead of switching between two, and the language groups run in the same order as on Extensions.
 - **The Sources list now remembers one "Last used" source across manga and light novels.** Opening either kind updates it, except while incognito, and it starts empty after this update until you next open one.
 - **The Extensions list now shows manga extensions and light-novel plugins in one list, sectioned the same way.** Pending updates share one section with a single Update all, searching filters both halves at once, and each row says which kind it is.

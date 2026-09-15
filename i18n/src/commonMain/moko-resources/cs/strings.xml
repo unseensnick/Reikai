@@ -365,13 +365,8 @@
     <string name="tapping_inverted_vertical">Vertikální</string>
     <string name="tapping_inverted_horizontal">Horizontální</string>
     <string name="tapping_inverted_none">Žádné</string>
-    <string name="ext_nsfw_warning">Zdroje z tohoto rozšíření mohou obsahovat NSFW (18+) obsah</string>
-    <string name="ext_nsfw_short">18+</string>
     <string name="pref_library_update_refresh_metadata_summary">Kontrolovat dostupnost nových přebalů a detailů při aktualizaci knihovny</string>
     <string name="pref_library_update_refresh_metadata">Automaticky obnovovat metadata</string>
-    <string name="parental_controls_info">Toto nastavení nemůže zamezit neoficiálním nebo špatně označeným rozšířením v zobrazování NSFW (18+) obsahu v aplikaci.</string>
-    <string name="pref_show_nsfw_source">Zobrazovat v seznamu zdrojů a rozšíření</string>
-    <string name="pref_category_nsfw_content">NSFW (18+) zdroje</string>
     <string name="secure_screen_summary">Secure screen skryje obsah aplikace při přepínání aplikací a blokuje tvorbu snímků obrazovky</string>
     <string name="secure_screen">Chráněná obrazovka</string>
     <string name="lock_with_biometrics">Vyžadovat odemknutí</string>
@@ -577,7 +572,6 @@
     <string name="on_hold_list">Seznam pozastavených</string>
     <string name="unfinished_list">Seznam nedokončených</string>
     <string name="ext_info_language">Jazyk</string>
-    <string name="ext_info_age_rating">Věkové hodnocení</string>
     <string name="ext_info_version">Verze</string>
     <string name="split_tall_images_summary">Zlepšuje výkon čtečky</string>
     <string name="pref_reset_viewer_flags_error">Nastavení čtečky se nepodařilo resetovat</string>

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import android.content.Context
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
@@ -15,6 +16,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.test.runTest
+import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -25,6 +27,7 @@ import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -40,6 +43,7 @@ class PreferenceRestorerTest {
 
     private val store = EmittingPreferenceStore()
     private val novelPreferences = NovelPreferences(store)
+    private val sourcePreferences = SourcePreferences(store)
     private val context = mockk<Context>()
 
     private val restorer = PreferenceRestorer(
@@ -48,6 +52,7 @@ class PreferenceRestorerTest {
         preferenceStore = store,
         categoryIdPreferences = mockk<CategoryIdPreferences>(relaxed = true),
         novelPreferences = novelPreferences,
+        extensionSourcePreferences = sourcePreferences,
     )
 
     /** Both are WorkManager scheduling the restore does on its way out, which needs a real app. */
@@ -109,6 +114,28 @@ class PreferenceRestorerTest {
         )
 
         store.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false).isSet() shouldBe false
+    }
+
+    @Test
+    @DisplayName("a backup taken with NSFW sources hidden allows only safe extensions")
+    fun retiredNsfwSwitchReachesTheContentWarnings() = runTest {
+        restorer.restoreApp(
+            listOf(BackupPreference(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false))),
+            backupCategories = null,
+        )
+
+        sourcePreferences.enabledContentWarnings.get() shouldBe setOf(ContentWarning.SAFE)
+    }
+
+    @Test
+    @DisplayName("the retired NSFW switch is not written back into the store")
+    fun retiredNsfwSwitchIsNotResurrected() = runTest {
+        restorer.restoreApp(
+            listOf(BackupPreference(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false))),
+            backupCategories = null,
+        )
+
+        store.getBoolean(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, true).isSet() shouldBe false
     }
 
     /** A shared backup is someone else's code, so none of it runs until the user switches it on. */
