@@ -34,7 +34,7 @@ class AdultContentChecker(
      */
     suspend fun adultIdsAmong(entries: List<Manga>): Set<Long> {
         val nsfwSourceIds = withTimeoutOrNull(EXTENSION_SCAN_WAIT) {
-            extensionManager.installedExtensionsFlow.first()
+            extensionManager.loadedExtensionsFlow.first()
                 .filter { it.contentWarning != ContentWarning.SAFE }
                 .flatMapTo(mutableSetOf()) { extension -> extension.sources.map { it.id } }
         } ?: return entries.mapTo(mutableSetOf()) { it.id }

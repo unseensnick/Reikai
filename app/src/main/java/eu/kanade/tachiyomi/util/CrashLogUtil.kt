@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.WebViewUtil
@@ -15,6 +16,8 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
+import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.LnPluginLoadFailure
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.lang.withUIContext
 import kotlin.time.Clock
@@ -25,6 +28,8 @@ class CrashLogUtil(
     private val extensionManager: ExtensionManager,
     private val preferences: BasePreferences,
     private val networkPreferences: NetworkPreferences,
+    // RK: for the novel plugins that did not load, listed beside the extensions that did not.
+    private val lnPluginInstaller: LnPluginInstaller,
 ) {
 
     suspend fun dumpLogs(exception: Throwable? = null) = withNonCancellableContext {
@@ -65,7 +70,7 @@ class CrashLogUtil(
     private suspend fun getExtensionsInfo(): String? {
         val availableExtensions = extensionManager.availableExtensionsFlow.value.associateBy { it.pkgName }
 
-        val extensionInfoList = extensionManager.getInstalledExtensions()
+        val outdatedInfoList = extensionManager.getLoadedExtensions()
             .sortedBy { it.name }
             .mapNotNull {
                 val availableExtension = availableExtensions[it.pkgName]
@@ -80,6 +85,42 @@ class CrashLogUtil(
                 """.trimIndent()
             }
 
+        val notLoadedInfoList = extensionManager.getNotLoadedExtensions()
+            .sortedBy { it.name }
+            .map { extension ->
+                buildString {
+                    appendLine("- ${extension.name}")
+                    appendLine("  Installed: ${extension.versionName} (lib ${extension.libVersion ?: "?"})")
+                    append("  Not loaded: ${extension.reason.description}")
+
+                    val reason = extension.reason
+                    if (reason is Extension.NotLoaded.Reason.Failed) {
+                        appendLine()
+                        append(reason.stackTrace.trimEnd().prependIndent("  "))
+                    }
+                }
+            }
+
+        // RK --> a plugin that failed carries the same stack trace a manga extension's does.
+        val novelNotLoadedInfoList = lnPluginInstaller.failures.value.values
+            .sortedBy { it.name }
+            .map { plugin ->
+                buildString {
+                    appendLine("- ${plugin.name} (novel plugin)")
+                    appendLine("  Installed: ${plugin.version ?: "?"}")
+                    when (val reason = plugin.reason) {
+                        LnPluginLoadFailure.Reason.Malformed -> append("  Not loaded: Malformed")
+                        is LnPluginLoadFailure.Reason.Failed -> {
+                            appendLine("  Not loaded: Failed (${reason.message})")
+                            append(reason.stackTrace.trimEnd().prependIndent("  "))
+                        }
+                    }
+                }
+            }
+
+        val extensionInfoList = outdatedInfoList + notLoadedInfoList + novelNotLoadedInfoList
+        // RK <--
+
         return if (extensionInfoList.isNotEmpty()) {
             (listOf("Problematic extensions:") + extensionInfoList)
                 .joinToString("\n")
@@ -88,3 +129,13 @@ class CrashLogUtil(
         }
     }
 }
+
+private val Extension.NotLoaded.Reason.description: String
+    get() = when (this) {
+        is Extension.NotLoaded.Reason.Untrusted -> "Untrusted"
+        Extension.NotLoaded.Reason.Filtered -> "Filtered by content warning"
+        Extension.NotLoaded.Reason.Unsigned -> "Unsigned"
+        Extension.NotLoaded.Reason.UnsupportedLibVersion -> "Unsupported lib version"
+        Extension.NotLoaded.Reason.Malformed -> "Malformed"
+        is Extension.NotLoaded.Reason.Failed -> "Failed ($message)"
+    }

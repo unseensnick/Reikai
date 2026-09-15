@@ -18,11 +18,14 @@ sealed interface ExtensionKey {
 }
 
 /**
- * Where a row sits in the Extensions list. Updates and Installed are one section each across both
- * content types; what is available is split by language, as the manga list has always done.
+ * Where a row sits in the Extensions list. Updates, Not loaded and Installed are one section each across
+ * both content types; what is available is split by language, as the manga list has always done.
  */
 sealed interface ExtensionSection {
     data object Updates : ExtensionSection
+
+    /** Installed but not loaded, so it provides no sources: untrusted, filtered out or broken. */
+    data object NotLoaded : ExtensionSection
     data object Installed : ExtensionSection
     data class Available(val lang: String) : ExtensionSection
 }
@@ -56,7 +59,7 @@ sealed interface ExtensionsListItem {
 
 /**
  * Groups every row into the one sectioned list the Extensions tab draws: pending updates, then what
- * is installed, then what is available, a section per language. Mihon's order, for both content
+ * is installed but not loaded, then what is installed, then what is available, a section per language. Mihon's order, for both content
  * types, so the chips cannot drift.
  */
 fun sectionExtensions(rows: List<BrowseExtensionRow>): List<ExtensionsListItem> {
@@ -96,6 +99,7 @@ private val SECTION_ORDER = Comparator<ExtensionSection> { a, b ->
 
 private fun ExtensionSection.rank() = when (this) {
     ExtensionSection.Updates -> 0
-    ExtensionSection.Installed -> 1
-    is ExtensionSection.Available -> 2
+    ExtensionSection.NotLoaded -> 1
+    ExtensionSection.Installed -> 2
+    is ExtensionSection.Available -> 3
 }

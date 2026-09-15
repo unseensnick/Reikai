@@ -28,11 +28,11 @@ class AdultContentCheckerTest {
         return source
     }
 
-    private fun nsfwExtensions(nsfwSourceId: Long?, warning: ContentWarning): List<Extension.Installed> =
+    private fun nsfwExtensions(nsfwSourceId: Long?, warning: ContentWarning): List<Extension.Loaded> =
         nsfwSourceId?.let { sid ->
             val extSource = mockk<Source>()
             every { extSource.id } returns sid
-            val extension = mockk<Extension.Installed>()
+            val extension = mockk<Extension.Loaded>()
             every { extension.contentWarning } returns warning
             every { extension.sources } returns listOf(extSource)
             listOf(extension)
@@ -44,7 +44,7 @@ class AdultContentCheckerTest {
         warning: ContentWarning = ContentWarning.NSFW,
     ): AdultContentChecker {
         val extensionManager = mockk<ExtensionManager>()
-        every { extensionManager.installedExtensionsFlow } returns
+        every { extensionManager.loadedExtensionsFlow } returns
             MutableStateFlow(nsfwExtensions(nsfwSourceId, warning))
         val sourceManager = mockk<SourceManager>()
         coEvery { sourceManager.get(any()) } answers { source }
@@ -54,7 +54,7 @@ class AdultContentCheckerTest {
     /** A manager whose scan never finished, so its installed list never emits. */
     private fun stalledChecker(source: Source?): AdultContentChecker {
         val extensionManager = mockk<ExtensionManager>()
-        every { extensionManager.installedExtensionsFlow } returns MutableSharedFlow()
+        every { extensionManager.loadedExtensionsFlow } returns MutableSharedFlow()
         val sourceManager = mockk<SourceManager>()
         coEvery { sourceManager.get(any()) } answers { source }
         return AdultContentChecker(extensionManager, sourceManager)

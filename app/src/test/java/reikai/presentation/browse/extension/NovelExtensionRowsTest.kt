@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
 import reikai.novel.update.LnPluginUpdate
@@ -19,6 +20,7 @@ class NovelExtensionRowsTest {
     fun `a plugin with an update pending is only under Updates`() {
         val rows = novelExtensionRows(
             updates = listOf(update("novelbin")),
+            notLoaded = emptyList(),
             installed = listOf(source("novelbin"), source("royalroad")),
             available = emptyList(),
         )
@@ -30,10 +32,39 @@ class NovelExtensionRowsTest {
     }
 
     @Test
+    fun `a plugin that failed to load is under Not loaded`() {
+        val rows = novelExtensionRows(
+            updates = emptyList(),
+            notLoaded = listOf(failure("novelbin")),
+            installed = listOf(source("royalroad")),
+            available = listOf(entry("novelbin")),
+        )
+
+        rows.sectionsById() shouldContainExactly listOf(
+            "novelbin" to ExtensionSection.NotLoaded,
+            "royalroad" to ExtensionSection.Installed,
+        )
+    }
+
+    /** Updating reinstalls the plugin, which is the likeliest fix for one that did not load. */
+    @Test
+    fun `a plugin that failed to load with an update pending is only under Updates`() {
+        val rows = novelExtensionRows(
+            updates = listOf(update("novelbin")),
+            notLoaded = listOf(failure("novelbin")),
+            installed = emptyList(),
+            available = emptyList(),
+        )
+
+        rows.sectionsById() shouldContainExactly listOf("novelbin" to ExtensionSection.Updates)
+    }
+
+    @Test
     fun `an installed plugin still offered by a repo is not listed again as available`() {
         // The model matches those two lists by URL, so a plugin reachable at a second URL is in both.
         val rows = novelExtensionRows(
             updates = emptyList(),
+            notLoaded = emptyList(),
             installed = listOf(source("archiveofourown")),
             available = listOf(entry("archiveofourown")),
         )
@@ -46,6 +77,7 @@ class NovelExtensionRowsTest {
         // The registry names the language in the language itself; a manga extension gives the code.
         val rows = novelExtensionRows(
             updates = emptyList(),
+            notLoaded = emptyList(),
             installed = emptyList(),
             available = listOf(entry("uno", lang = "Español"), entry("dos", lang = "es")),
         )
@@ -55,7 +87,7 @@ class NovelExtensionRowsTest {
 
     @Test
     fun `a row carries its site and id to the search box`() {
-        val rows = novelExtensionRows(emptyList(), listOf(source("novelbin")), emptyList())
+        val rows = novelExtensionRows(emptyList(), emptyList(), listOf(source("novelbin")), emptyList())
 
         rows.single().searchTerms shouldContainExactly listOf("novelbin name", "https://novelbin.test")
         rows.single().searchIds shouldContainExactly listOf("novelbin")
@@ -73,6 +105,16 @@ class NovelExtensionRowsTest {
         site = "https://$id.test",
         lang = lang,
         url = "https://$id.test/plugin.js",
+    )
+
+    private fun failure(id: String) = LnPluginLoadFailure(
+        url = "https://$id.test/plugin.js",
+        pluginId = id,
+        name = "$id name",
+        iconUrl = null,
+        lang = "en",
+        version = "1.0.0",
+        reason = LnPluginLoadFailure.Reason.Malformed,
     )
 
     private fun source(pluginId: String) = mockk<NovelSource> {

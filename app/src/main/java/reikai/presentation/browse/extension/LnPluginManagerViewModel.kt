@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
@@ -50,6 +51,11 @@ class LnPluginManagerViewModel(
             installer.ensureLoaded()
             manager.sources.collectLatest { sources ->
                 state.update { it.copy(installed = sources) }
+            }
+        }
+        viewModelScope.launchIO {
+            installer.failures.collectLatest { failures ->
+                state.update { it.copy(notLoaded = failures.values.toList()) }
             }
         }
         // Re-fetch when the added-repos set changes (e.g. a backup restore or adding a repo on another
@@ -153,6 +159,14 @@ class LnPluginManagerViewModel(
         }
     }
 
+    /** A plugin that never loaded has no source to name it by, so it goes by its record instead. */
+    fun uninstall(failure: LnPluginLoadFailure) {
+        viewModelScope.launchIO {
+            installer.uninstall(failure.pluginId.orEmpty(), failure.url)
+            refresh()
+        }
+    }
+
     private fun LnRegistryEntry.toMetadata() = LnInstalledPluginMetadata(
         pluginId = id,
         iconUrl = iconUrl,
@@ -168,6 +182,8 @@ class LnPluginManagerViewModel(
          *  added but returned nothing" (e.g. unreachable). */
         val hasRepos: Boolean = false,
         val installed: List<NovelSource> = emptyList(),
+        /** Installed plugins whose last load failed, which no source stands for. */
+        val notLoaded: List<LnPluginLoadFailure> = emptyList(),
         /** Plugin id -> installed version. A manga row reads its version off the package;
          *  a plugin's only record of one is the metadata written at install. */
         val installedVersions: Map<String, String> = emptyMap(),
@@ -178,6 +194,6 @@ class LnPluginManagerViewModel(
         /** Canonical URL -> last install error, shown inline. */
         val errors: Map<String, String> = emptyMap(),
     ) {
-        val isEmpty get() = installed.isEmpty() && available.isEmpty() && updates.isEmpty()
+        val isEmpty get() = installed.isEmpty() && notLoaded.isEmpty() && available.isEmpty() && updates.isEmpty()
     }
 }

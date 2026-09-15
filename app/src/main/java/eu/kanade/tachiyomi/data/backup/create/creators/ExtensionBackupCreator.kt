@@ -19,7 +19,7 @@ class ExtensionBackupCreator(
     // extensions, which is what reading it early used to do anyway.
     suspend operator fun invoke(): List<BackupExtension> {
         val installed = withTimeoutOrNull(INSTALLED_WAIT_MS) {
-            extensionManager.installedExtensionsFlow.first()
+            extensionManager.loadedExtensionsFlow.first()
         }.orEmpty()
         return installed.map { extension ->
             BackupExtension(

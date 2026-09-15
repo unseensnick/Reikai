@@ -31,8 +31,10 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.ExtensionItem
+import eu.kanade.presentation.browse.ExtensionNotLoadedDialog
 import eu.kanade.presentation.browse.ExtensionTrustDialog
 import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
+import eu.kanade.presentation.browse.NotLoadedDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.WarningBanner
@@ -49,10 +51,12 @@ import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Settings
 import reikai.domain.library.ContentType
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
@@ -224,9 +228,10 @@ private fun ExtensionsList(
     val lnState by lnModel.state.collectAsStateWithLifecycle()
     // Hosted here rather than in the row: a dialog owned by a lazy item is disposed the moment that
     // row scrolls out of the list.
-    var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
-    var privateExtensionToUninstall by remember { mutableStateOf<Extension?>(null) }
+    var notLoadedState by remember { mutableStateOf<Extension.NotLoaded?>(null) }
+    var privateExtensionToUninstall by remember { mutableStateOf<Extension.Installed?>(null) }
     var pluginToUninstall by remember { mutableStateOf<NovelSource?>(null) }
+    var failedPlugin by remember { mutableStateOf<LnPluginLoadFailure?>(null) }
 
     FastScrollLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
         if (!installGranted && state.needsInstallPermission) {
@@ -268,7 +273,7 @@ private fun ExtensionsList(
                             item = item.row.payload as ExtensionUiModel.Item,
                             model = extensionsViewModel,
                             badge = badge,
-                            onUntrusted = { trustState = it },
+                            onNotLoaded = { notLoadedState = it },
                             onConfirmPrivateUninstall = { privateExtensionToUninstall = it },
                         )
                         is ExtensionKey.Novel -> NovelExtensionRow(
@@ -277,6 +282,7 @@ private fun ExtensionsList(
                             model = lnModel,
                             badge = badge,
                             onConfirmUninstall = { pluginToUninstall = it },
+                            onNotLoaded = { failedPlugin = it },
                             modifier = Modifier.animateItem(),
                         )
                     }
@@ -285,17 +291,48 @@ private fun ExtensionsList(
         }
     }
 
-    trustState?.let { extension ->
-        ExtensionTrustDialog(
-            onClickConfirm = {
-                extensionsViewModel.trustExtension(extension)
-                trustState = null
+    notLoadedState?.let { extension ->
+        val dismiss = { notLoadedState = null }
+        if (extension.reason is Extension.NotLoaded.Reason.Untrusted) {
+            ExtensionTrustDialog(
+                onClickConfirm = {
+                    extensionsViewModel.trustExtension(extension)
+                    dismiss()
+                },
+                onClickDismiss = {
+                    extensionsViewModel.uninstallExtension(extension)
+                    dismiss()
+                },
+                onDismissRequest = dismiss,
+            )
+        } else {
+            ExtensionNotLoadedDialog(
+                reason = extension.reason,
+                onClickUninstall = {
+                    extensionsViewModel.uninstallExtension(extension)
+                    dismiss()
+                },
+                onDismissRequest = dismiss,
+            )
+        }
+    }
+
+    // The same dialog a manga extension that did not load raises, with what a plugin can say about it.
+    failedPlugin?.let { failure ->
+        val reason = failure.reason
+        val dismiss = { failedPlugin = null }
+        NotLoadedDialog(
+            description = when (reason) {
+                LnPluginLoadFailure.Reason.Malformed -> MR.strings.ext_malformed_message
+                is LnPluginLoadFailure.Reason.Failed -> MR.strings.ext_load_failed_message
             },
-            onClickDismiss = {
-                extensionsViewModel.uninstallExtension(extension)
-                trustState = null
+            failureMessage = (reason as? LnPluginLoadFailure.Reason.Failed)?.message,
+            stackTrace = (reason as? LnPluginLoadFailure.Reason.Failed)?.stackTrace,
+            onClickUninstall = {
+                lnModel.uninstall(failure)
+                dismiss()
             },
-            onDismissRequest = { trustState = null },
+            onDismissRequest = dismiss,
         )
     }
 
@@ -328,6 +365,7 @@ private fun ExtensionsSectionHeader(
         modifier = modifier,
         title = when (section) {
             ExtensionSection.Updates -> stringResource(MR.strings.ext_updates_pending)
+            ExtensionSection.NotLoaded -> stringResource(MR.strings.ext_not_loaded)
             ExtensionSection.Installed -> stringResource(MR.strings.ext_installed)
             is ExtensionSection.Available -> browseLanguageLabel(section.lang, LocalContext.current)
         },
@@ -347,8 +385,8 @@ private fun MangaExtensionRow(
     item: ExtensionUiModel.Item,
     model: ExtensionsViewModel,
     badge: @Composable () -> Unit,
-    onUntrusted: (Extension.Untrusted) -> Unit,
-    onConfirmPrivateUninstall: (Extension) -> Unit,
+    onNotLoaded: (Extension.NotLoaded) -> Unit,
+    onConfirmPrivateUninstall: (Extension.Installed) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -361,8 +399,8 @@ private fun MangaExtensionRow(
         onClickItem = {
             when (it) {
                 is Extension.Available -> model.installExtension(it)
-                is Extension.Installed -> navigator.push(ExtensionDetailsScreen(it.pkgName))
-                is Extension.Untrusted -> onUntrusted(it)
+                is Extension.Loaded -> navigator.push(ExtensionDetailsScreen(it.pkgName))
+                is Extension.NotLoaded -> onNotLoaded(it)
             }
         },
         onLongClickItem = {
@@ -370,7 +408,7 @@ private fun MangaExtensionRow(
                 is Extension.Available -> model.installExtension(it)
                 // A privately installed extension is not a package the system can remove, so it is
                 // confirmed here rather than uninstalled on the long press.
-                else -> if (context.isPackageInstalled(it.pkgName)) {
+                is Extension.Installed -> if (context.isPackageInstalled(it.pkgName)) {
                     model.uninstallExtension(it)
                 } else {
                     onConfirmPrivateUninstall(it)
@@ -381,12 +419,12 @@ private fun MangaExtensionRow(
         onClickItemAction = {
             when (it) {
                 is Extension.Available -> model.installExtension(it)
-                is Extension.Installed -> if (it.hasUpdate) {
+                is Extension.Loaded -> if (it.hasUpdate) {
                     model.updateExtension(it)
                 } else {
                     navigator.push(ExtensionDetailsScreen(it.pkgName))
                 }
-                is Extension.Untrusted -> onUntrusted(it)
+                is Extension.NotLoaded -> onNotLoaded(it)
             }
         },
         onClickItemSecondaryAction = {
@@ -396,7 +434,7 @@ private fun MangaExtensionRow(
                         WebViewScreen(url = source.baseUrl, initialTitle = source.name, sourceId = source.id),
                     )
                 }
-                is Extension.Installed -> navigator.push(ExtensionDetailsScreen(it.pkgName))
+                is Extension.Loaded -> navigator.push(ExtensionDetailsScreen(it.pkgName))
                 else -> {}
             }
         },
@@ -410,10 +448,28 @@ private fun NovelExtensionRow(
     model: LnPluginManagerViewModel,
     badge: @Composable () -> Unit,
     onConfirmUninstall: (NovelSource) -> Unit,
+    onNotLoaded: (LnPluginLoadFailure) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     when (val payload = row.payload) {
+        is LnPluginLoadFailure -> NovelSourceRow(
+            modifier = modifier,
+            name = payload.name,
+            lang = row.lang,
+            iconUrl = payload.iconUrl,
+            version = payload.version,
+            onLongClickItem = { onNotLoaded(payload) },
+            badge = badge,
+            action = {
+                IconButton(onClick = { onNotLoaded(payload) }) {
+                    Icon(
+                        imageVector = MaterialSymbols.Rounded.Info,
+                        contentDescription = stringResource(MR.strings.ext_not_loaded),
+                    )
+                }
+            },
+        )
         is LnPluginUpdate -> NovelSourceRow(
             modifier = modifier,
             name = payload.entry.name,

@@ -90,7 +90,7 @@ abstract class SearchViewModel(
 
         val filter = extensionFilter
         if (!filter.isNullOrEmpty()) {
-            return extensionManager.installedExtensionsFlow.first()
+            return extensionManager.loadedExtensionsFlow.first()
                 .filter { it.pkgName == filter }
                 .flatMap { it.sources }
                 .filter { it in enabled }

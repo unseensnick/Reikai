@@ -24,6 +24,24 @@ class SectionExtensionsTest {
         )
     }
 
+    /** Upstream lists what did not load ahead of what did, so the extensions that need a look lead. */
+    @Test
+    fun `not loaded sits between updates and installed, for both content types`() {
+        val items = section(
+            row("Anna", ExtensionSection.Installed),
+            novelRow("Novel Fire", ExtensionSection.NotLoaded),
+            row("Asura", ExtensionSection.NotLoaded),
+            row("Bea", ExtensionSection.Updates),
+        )
+
+        items.headers() shouldBe listOf(
+            ExtensionSection.Updates,
+            ExtensionSection.NotLoaded,
+            ExtensionSection.Installed,
+        )
+        items.namesUnder(ExtensionSection.NotLoaded) shouldBe listOf("Asura", "Novel Fire")
+    }
+
     @Test
     fun `available splits by language, multi first and the rest by their own name`() {
         // ar reads as the Arabic endonym, so it follows Deutsch even though the code precedes de.

@@ -86,7 +86,7 @@ class ExtensionsViewModel(
         }
     }
 
-    fun updateExtension(extension: Extension.Installed) {
+    fun updateExtension(extension: Extension.Loaded) {
         viewModelScope.launchIO {
             extensionManager.updateExtension(extension).collectToInstallUpdate(extension)
         }
@@ -112,7 +112,7 @@ class ExtensionsViewModel(
             .onCompletion { removeDownloadState(extension) }
             .collect()
 
-    fun uninstallExtension(extension: Extension) {
+    fun uninstallExtension(extension: Extension.Installed) {
         extensionManager.uninstallExtension(extension)
     }
 
@@ -129,14 +129,14 @@ class ExtensionsViewModel(
         }
     }
 
-    fun trustExtension(extension: Extension.Untrusted) {
+    fun trustExtension(extension: Extension.NotLoaded) {
         viewModelScope.launch {
             extensionManager.trust(extension)
         }
     }
 
     // RK: manual lever to re-scan installed extensions and re-evaluate trust against the current
-    // repos (for the rare case an extension is stuck Untrusted after its repo was added).
+    // repos (for the rare case an extension is stuck untrusted after its repo was added).
     fun reloadInstalledExtensions() {
         extensionManager.reloadInstalledExtensions()
     }

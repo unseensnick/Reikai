@@ -4,10 +4,14 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -57,6 +61,13 @@ class LnPluginInstaller(
     // URLs NOT in here, so a plugin whose download failed once (network blip, Cloudflare, cold cache
     // after a restore) heals on the next novel-screen open instead of needing a cold restart.
     private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
+     * Installed plugins whose last load failed, by canonical URL. Kept until a load or install of that
+     * URL succeeds or it is uninstalled, so the Extensions list can offer the reason and an uninstall.
+     */
+    val failures: StateFlow<Map<String, LnPluginLoadFailure>>
+        field = MutableStateFlow<Map<String, LnPluginLoadFailure>>(emptyMap())
 
     /** Load any installed plugins not yet registered this process, in parallel. Retries previously
      *  failed ones on each call, so navigating to a novel screen self-heals a transient load failure. */
@@ -134,6 +145,7 @@ class LnPluginInstaller(
         }
         loadedUrls.removeAll(staleUrls)
         loadedUrls.add(canonical)
+        failures.update { it - staleUrls - canonical }
 
         logcat(LogPriority.INFO) { "installed plugin ${info.id} from $canonical" }
         return source
@@ -156,8 +168,8 @@ class LnPluginInstaller(
     /**
      * Load [urls] into the app-scoped host in parallel and register the successes. The slow part (the
      * network download per plugin) overlaps; the JS engine eval serializes safely behind the host's
-     * own mutex. Successful URLs are recorded in [loadedUrls]; failures are logged and left out so a
-     * later [ensureLoaded] retries them. Caller must hold [loadMutex]. Lazily backfills missing
+     * own mutex. Successful URLs are recorded in [loadedUrls]; failures go to [failures] and are left
+     * out so a later [ensureLoaded] retries them. Caller must hold [loadMutex]. Lazily backfills missing
      * iconUrl/lang for legacy installs.
      */
     private suspend fun loadUrlsLocked(urls: Set<String>): List<LnPluginSource> {
@@ -176,20 +188,31 @@ class LnPluginInstaller(
                         )
                         val source = LnPluginSource(host, info)
                         manager.register(source)
-                        url to source
+                        LoadResult.Loaded(url, source)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Throwable) {
                         logcat(LogPriority.ERROR, e) { "loadInstalled: failed for $url" }
-                        null
+                        LoadResult.Failed(url, e)
                     }
                 }
             }.awaitAll()
         }
-        val ok = results.filterNotNull()
-        // Record successes on the single (mutex-holding) coroutine, after awaitAll, to avoid racing on
-        // loadedUrls from the parallel children.
-        loadedUrls += ok.map { it.first }
-        rememberSeenSources(ok.map { it.second })
-        return ok.map { it.second }
+        val ok = results.filterIsInstance<LoadResult.Loaded>()
+        // Record the outcomes on the single (mutex-holding) coroutine, after awaitAll, to avoid racing
+        // on loadedUrls from the parallel children.
+        loadedUrls += ok.map { it.url }
+        val seen = prefs.seenNovelSources().get()
+        val installed = prefs.installedPluginUrls().get()
+        failures.update { current ->
+            (current - ok.map { it.url }.toSet()).filterKeys { it in installed } +
+                results.filterIsInstance<LoadResult.Failed>().associate { failed ->
+                    val record = metadata[failed.url]
+                    failed.url to LnPluginLoadFailure.of(failed.url, failed.error, record, seen[record?.pluginId])
+                }
+        }
+        rememberSeenSources(ok.map { it.source })
+        return ok.map { it.source }
     }
 
     /**
@@ -276,6 +299,7 @@ class LnPluginInstaller(
             remove
         }
         loadedUrls.removeAll(urlsToRemove)
+        failures.update { it - urlsToRemove }
         manager.unregister(pluginId)
         logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (${urlsToRemove.size} url(s))" }
     }
@@ -300,6 +324,14 @@ class LnPluginInstaller(
      */
     private fun scopeIdFromUrl(url: String): String =
         url.substringAfterLast('/').substringBeforeLast('.')
+
+    private sealed interface LoadResult {
+        val url: String
+
+        data class Loaded(override val url: String, val source: LnPluginSource) : LoadResult
+
+        data class Failed(override val url: String, val error: Throwable) : LoadResult
+    }
 }
 
 /**

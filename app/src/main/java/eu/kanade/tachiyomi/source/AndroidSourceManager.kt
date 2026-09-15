@@ -90,7 +90,7 @@ class AndroidSourceManager(
 
     init {
         scope.launch {
-            extensionManager.installedExtensionsFlow
+            extensionManager.loadedExtensionsFlow
                 // RK: re-collect whenever the EXH gates flip so the built-in EH/ExH sources
                 //     appear or disappear without an app restart.
                 .combine(exhPreferences.enableExhentai().changes()) { extensions, enableExhentai ->

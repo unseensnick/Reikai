@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
 import reikai.novel.source.langCode
@@ -61,14 +62,14 @@ class MangaExtensionsProvider(private val model: ExtensionsViewModel) : Extensio
     override fun refresh() = model.findAvailableExtensions()
 
     override fun updateAll(rows: List<BrowseExtensionRow>) {
-        rows.mapNotNull { (it.payload as? ExtensionUiModel.Item)?.extension as? Extension.Installed }
+        rows.mapNotNull { (it.payload as? ExtensionUiModel.Item)?.extension as? Extension.Loaded }
             .forEach(model::updateExtension)
     }
 }
 
 /**
  * The manga extensions as rows, keeping the interactor's own partition: an extension with an update
- * is under Updates and nowhere else, an untrusted one sits with the installed as upstream shows it,
+ * is under Updates and nowhere else, one that did not load sits under Not loaded as upstream shows it,
  * and what is available splits by language. Null while the first list is still being produced.
  */
 fun mangaExtensionRows(
@@ -76,8 +77,8 @@ fun mangaExtensionRows(
     downloads: Map<String, InstallStep>,
 ): List<BrowseExtensionRow>? = extensions?.run {
     updates.map { it.toRow(ExtensionSection.Updates, downloads) } +
-        installed.map { it.toRow(ExtensionSection.Installed, downloads) } +
-        untrusted.map { it.toRow(ExtensionSection.Installed, downloads) } +
+        notLoaded.map { it.toRow(ExtensionSection.NotLoaded, downloads) } +
+        loaded.map { it.toRow(ExtensionSection.Installed, downloads) } +
         available.map { it.toRow(ExtensionSection.Available(it.lang), downloads) }
 }
 
@@ -89,7 +90,7 @@ private fun Extension.toRow(section: ExtensionSection, downloads: Map<String, In
         section = section,
         // An obsolete extension is the one the user has to act on, so it leads its section, which is
         // the order GetExtensionsByType hands the installed list over in.
-        needsAttention = this is Extension.Installed && isObsolete,
+        needsAttention = this is Extension.Loaded && isObsolete,
         searchTerms = searchTerms(),
         searchIds = searchIds(),
         payload = ExtensionUiModel.Item(this, downloads[pkgName] ?: InstallStep.Idle),
@@ -98,7 +99,7 @@ private fun Extension.toRow(section: ExtensionSection, downloads: Map<String, In
 private fun Extension.searchTerms(): List<String> = buildList {
     add(name)
     when (this@searchTerms) {
-        is Extension.Installed -> sources.forEach { source ->
+        is Extension.Loaded -> sources.forEach { source ->
             add(source.name)
             (source as? HttpSource)?.getHomeUrl()?.let(::add)
         }
@@ -106,14 +107,14 @@ private fun Extension.searchTerms(): List<String> = buildList {
             add(it.name)
             add(it.baseUrl)
         }
-        is Extension.Untrusted -> Unit
+        is Extension.NotLoaded -> Unit
     }
 }
 
 private fun Extension.searchIds(): List<String> = when (this) {
-    is Extension.Installed -> sources.map { it.id.toString() }
+    is Extension.Loaded -> sources.map { it.id.toString() }
     is Extension.Available -> sources.map { it.id.toString() }
-    is Extension.Untrusted -> emptyList()
+    is Extension.NotLoaded -> emptyList()
 }
 
 /** The light-novel half, over [LnPluginManagerViewModel]. */
@@ -123,7 +124,7 @@ class NovelExtensionsProvider(private val model: LnPluginManagerViewModel) : Ext
 
     override val rows: Flow<List<BrowseExtensionRow>?> = model.state.map { state ->
         if (!state.hasLoaded) return@map null
-        novelExtensionRows(state.updates, state.installed, state.available)
+        novelExtensionRows(state.updates, state.notLoaded, state.installed, state.available)
     }
 
     override val hasRepos: Flow<Boolean> = model.state.map { it.hasRepos }
@@ -150,6 +151,7 @@ class NovelExtensionsProvider(private val model: LnPluginManagerViewModel) : Ext
  */
 fun novelExtensionRows(
     updates: List<LnPluginUpdate>,
+    notLoaded: List<LnPluginLoadFailure>,
     installed: List<NovelSource>,
     available: List<LnRegistryEntry>,
 ): List<BrowseExtensionRow> {
@@ -160,6 +162,10 @@ fun novelExtensionRows(
     return updates.mapNotNull {
         val lang = it.entry.lang.toLangCode()
         novelRow(claimed, it.entry.site, it.entry.id, it.entry.name, lang, ExtensionSection.Updates, it)
+    } + notLoaded.mapNotNull {
+        // Keyed by URL when the install never recorded a plugin id, which is still one row per plugin.
+        val lang = it.lang.orEmpty().toLangCode()
+        novelRow(claimed, it.url, it.pluginId ?: it.url, it.name, lang, ExtensionSection.NotLoaded, it)
     } + installed.mapNotNull {
         novelRow(claimed, it.site, it.id, it.name, it.langCode(), ExtensionSection.Installed, it)
     } + available.mapNotNull {
