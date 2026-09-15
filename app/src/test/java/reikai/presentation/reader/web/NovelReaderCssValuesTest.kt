@@ -53,9 +53,10 @@ class NovelReaderCssValuesTest {
         cssBackgroundColor("#12345") shouldBe readerDarkPreset.background
     }
 
-    @Test
-    fun `each alignment the sheet offers is passed through`() {
-        listOf("left", "center", "right", "justify").forEach { cssTextAlign(it) shouldBe it }
+    @ParameterizedTest
+    @ValueSource(strings = ["left", "center", "right", "justify"])
+    fun `each alignment the sheet offers is passed through`(alignment: String) {
+        cssTextAlign(alignment) shouldBe alignment
     }
 
     @Test
