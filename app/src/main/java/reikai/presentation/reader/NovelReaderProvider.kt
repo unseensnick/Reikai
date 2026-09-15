@@ -97,6 +97,10 @@ class NovelReaderProvider(
 
     override val webUrl: Flow<String?> = viewModel.chapter.map { it?.let(viewModel::webUrlFor) }
 
+    override suspend fun updateHistory() = viewModel.updateHistory()
+
+    override fun restartReadTimer() = viewModel.restartReadTimer()
+
     override suspend fun previousChapter() = viewModel.previousChapter()
 
     override suspend fun nextChapter() = viewModel.nextChapter()

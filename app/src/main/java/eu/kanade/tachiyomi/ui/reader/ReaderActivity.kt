@@ -809,9 +809,8 @@ class ReaderActivity : BaseActivity() {
         // being backgrounded and killed loses it.
         novelSession?.viewModel?.flushProgress()
         lifecycleScope.launchNonCancellable {
-            // RK: whichever session this is writes its own history row; the manga model has nothing
-            // to write for a novel launch, where it was never given an entry.
-            novelSession?.viewModel?.updateHistory() ?: viewModel.updateHistory()
+            // RK: the session writes its own history row; the manga model was never given a novel entry.
+            engine.provider.updateHistory()
         }
         super.onPause()
     }
@@ -834,8 +833,8 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onResume() {
         super.onResume()
-        // RK: whichever session this is restarts its own clock, as onPause stamps its own history.
-        novelSession?.viewModel?.restartReadTimer() ?: viewModel.restartReadTimer()
+        // RK: the session restarts its own clock, as onPause stamps its own history.
+        engine.provider.restartReadTimer()
         setMenuVisibility(viewModel.state.value.menuVisible)
     }
 

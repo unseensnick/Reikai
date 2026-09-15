@@ -51,6 +51,13 @@ interface ReaderProvider {
      */
     val navigator: Flow<ReaderNavigatorState>
 
+    /** Stamps the open chapter into this type's history with the time read since [restartReadTimer]. The host
+     *  calls it on pause, and it writes nothing in incognito mode. */
+    suspend fun updateHistory()
+
+    /** Starts the read clock again. The host calls it on resume, since pausing stopped it. */
+    fun restartReadTimer()
+
     /** Steps a chapter. Both types resolve their own neighbour, since what is next depends on the
      *  reading order and skip settings of that type's own chapter list. */
     suspend fun previousChapter()

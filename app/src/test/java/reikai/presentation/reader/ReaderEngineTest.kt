@@ -654,6 +654,10 @@ private class FakeReaderProvider(
         retried++
     }
 
+    override suspend fun updateHistory() = Unit
+
+    override fun restartReadTimer() = Unit
+
     var retried = 0
         private set
 

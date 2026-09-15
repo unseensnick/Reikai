@@ -970,7 +970,7 @@ class NovelReaderViewModel(
     }
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
-     *  chapter switch and on leaving the reader (the novel twin of ReaderViewModel.updateHistory). */
+     *  chapter switch and, through [ReaderProvider.updateHistory], on leaving the reader. */
     suspend fun updateHistory() {
         if (incognitoMode) return
         val id = loadedChapter.value?.chapterId ?: return
@@ -980,8 +980,8 @@ class NovelReaderViewModel(
         chapterReadStartTime = null
     }
 
-    /** The host calls this on resume, since leaving the reader stamped [updateHistory] and stopped the
-     *  clock. ReaderActivity.onResume calls this in place of ReaderViewModel.restartReadTimer. */
+    /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped
+     *  [updateHistory] and stopped the clock. */
     fun restartReadTimer() {
         chapterReadStartTime = System.currentTimeMillis()
     }

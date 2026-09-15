@@ -125,6 +125,10 @@ class MangaReaderProvider(
         // Upstream resolves it in launchIO for the same reason (ReaderActivity, assistUrl).
         .flowOn(Dispatchers.IO)
 
+    override suspend fun updateHistory() = viewModel.updateHistory()
+
+    override fun restartReadTimer() = viewModel.restartReadTimer()
+
     override suspend fun previousChapter() = viewModel.loadPreviousChapter()
 
     override suspend fun nextChapter() = viewModel.loadNextChapter()
