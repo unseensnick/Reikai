@@ -108,6 +108,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
+import reikai.presentation.reader.NO_ID
 import reikai.presentation.reader.NovelReaderProvider
 import reikai.presentation.reader.NovelReaderViewModel
 import reikai.presentation.reader.ReaderBottomButtonsDialog
@@ -119,6 +120,7 @@ import reikai.presentation.reader.ReaderSleepTimerDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.TextViewport
+import reikai.presentation.reader.isSameLaunch
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
 import reikai.presentation.reader.resolvedForSystemTheme
@@ -792,14 +794,10 @@ class ReaderActivity : BaseActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val requested = intent.entryId() ?: return
-        if (requested == this.intent.entryId() &&
-            intent.getLongExtra("chapter", -1L) == this.intent.getLongExtra("chapter", -1L)
-        ) {
-            return
-        }
-        // setIntent BEFORE finishing: if the restart is delivered here again rather than to a fresh
-        // instance, which singleTask allows while this one is still dying, the guard above now sees
-        // its own intent and stops. Reordering these two lines reintroduces that loop.
+        // A restart already under way: singleTask can deliver it here again while this one is dying.
+        if (isFinishing) return
+        val requestedChapter = intent.getLongExtra("chapter", NO_ID)
+        if (isSameLaunch(requested, requestedChapter, this.intent.entryId(), engine.currentChapterId.value)) return
         setIntent(intent)
         finish()
         startActivity(intent)

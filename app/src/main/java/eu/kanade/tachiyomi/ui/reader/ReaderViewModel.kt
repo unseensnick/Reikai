@@ -594,7 +594,8 @@ class ReaderViewModel(
 
         logcat { "Loading adjacent ${chapter.chapter.url}" }
 
-        mutableState.update { it.copy(isLoadingAdjacentChapter = true) }
+        // RK: the failure is kept, not only logged, so the engine ends a pick that failed and the host says so.
+        mutableState.update { it.copy(isLoadingAdjacentChapter = true, adjacentLoadFailure = null) }
         try {
             withIOContext {
                 loadChapter(loader, chapter)
@@ -604,6 +605,8 @@ class ReaderViewModel(
                 throw e
             }
             logcat(LogPriority.ERROR, e)
+            // RK
+            mutableState.update { it.copy(adjacentLoadFailure = AdjacentLoadFailure(chapter.chapter.id!!, e.message)) }
         } finally {
             mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
         }
@@ -1115,7 +1118,9 @@ class ReaderViewModel(
             // RK: resolve against the sheet's list, so tapping an already-read chapter actually opens it
             // instead of silently doing nothing when skip-read has removed it from the navigation list.
             val newChapter = fullChapterList.firstOrNull { it.chapter.id == chapter.id }
-                ?: return@launchIO
+                ?: return@launchIO mutableState.update {
+                    it.copy(adjacentLoadFailure = AdjacentLoadFailure(chapter.id, message = null))
+                }
             loadAdjacent(newChapter)
         }
     }
@@ -1377,6 +1382,9 @@ class ReaderViewModel(
         }
     }
 
+    // RK: a chapter the reader asked for by a step or a pick that did not open, and why.
+    data class AdjacentLoadFailure(val chapterId: Long, val message: String?)
+
     @Immutable
     data class State(
         val manga: Manga? = null,
@@ -1387,6 +1395,8 @@ class ReaderViewModel(
         val isLoadingAdjacentChapter: Boolean = false,
         // RK -->
         val position: ReaderPosition? = null,
+        /** The step or pick that could not open, kept until the next one starts. */
+        val adjacentLoadFailure: AdjacentLoadFailure? = null,
         // RK <--
 
         val menuVisible: Boolean = false,

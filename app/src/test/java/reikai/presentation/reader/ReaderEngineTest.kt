@@ -508,6 +508,27 @@ class ReaderEngineTest {
         viewport.chapterOpens shouldBe 1
     }
 
+    /** Retrying a pick is a pick again, so the chapter lands where it resumes when it finally loads. */
+    @Test
+    fun `retrying a failed pick opens it again and lands it`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+        val viewport = FakeViewport()
+        engine.installViewport(viewport)
+        engine.chapterList.open(FakeChapterList.NEVER_LOADS)
+        provider.loadState.value = ReaderLoadState.Loading
+        advanceUntilIdle()
+        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true)
+        advanceUntilIdle()
+
+        provider.chapterList.loadsAgain = true
+        provider.loadState.value = ReaderLoadState.Idle
+        engine.retryLoad()
+        advanceUntilIdle()
+
+        "${provider.chapterList.opened} ${viewport.chapterOpens} ${provider.retried}" shouldBe "[99, 99] 1 0"
+    }
+
     /** The sheet's other verbs are the provider's own, so wrapping open must not swallow them. */
     @Test
     fun `the sheet's remaining verbs still reach the provider`() {
@@ -680,8 +701,14 @@ private class FakeChapterList : ReaderChapterList {
     var readMarks = 0
         private set
 
+    val opened = mutableListOf<Long>()
+
+    /** Set once a retry should succeed, standing in for a connection that came back. */
+    var loadsAgain = false
+
     override fun open(chapterId: Long) {
-        if (chapterId != NEVER_LOADS) currentChapterId.value = chapterId
+        opened += chapterId
+        if (chapterId != NEVER_LOADS || loadsAgain) currentChapterId.value = chapterId
     }
 
     override fun setRead(chapterId: Long, read: Boolean) {

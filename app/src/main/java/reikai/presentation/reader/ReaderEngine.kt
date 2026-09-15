@@ -69,11 +69,18 @@ class ReaderEngine(
     val showProgress: StateFlow<Boolean> =
         provider.showProgress.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    /** Whether a chapter is loading or failed, so the host can show that rather than a blank page. */
-    val loadState: StateFlow<ReaderLoadState> =
+    /** Whether a chapter is loading or failed, which this raises as a dialog for the host to show. */
+    private val loadState: StateFlow<ReaderLoadState> =
         provider.loadState.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderLoadState.Idle)
 
-    fun retryLoad() = provider.retryLoad()
+    /** The chapter on screen, -1 before one opens, which is what a new launch is compared against. */
+    val currentChapterId: StateFlow<Long> =
+        provider.chapterList.currentChapterId.stateIn(viewModelScope, SharingStarted.Eagerly, -1L)
+
+    /** A pick that failed is retried as a pick, so the chapter still lands where it resumes. */
+    fun retryLoad() {
+        failedPick?.let(::openChapter) ?: provider.retryLoad()
+    }
 
     /** Whether the open chapter is bookmarked, so the bar's control reflects this session's chapter. */
     val bookmarked: StateFlow<Boolean> =
@@ -112,8 +119,12 @@ class ReaderEngine(
     /** One pick at a time: a chapter that never loads would otherwise leave a wait behind per tap. */
     private var openJob: Job? = null
 
+    /** The last pick, while its load has failed and nothing has been picked since. */
+    private var failedPick: Long? = null
+
     private fun openChapter(chapterId: Long) {
         openJob?.cancel()
+        failedPick = null
         openJob = viewModelScope.launch {
             provider.chapterList.open(chapterId)
             // A failure ends the pick, or reaching that chapter later by a step would land it like one.
@@ -124,7 +135,10 @@ class ReaderEngine(
                     .filter { it is ReaderLoadState.Failed }
                     .map { false },
             ).first()
-            if (!landed) return@launch
+            if (!landed) {
+                failedPick = chapterId
+                return@launch
+            }
             // Yielded, because the host hands the new chapters to the viewer from its own collector on
             // the same state update: a move issued before that delivery looks for a page the viewer
             // does not hold yet and is silently dropped.

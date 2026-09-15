@@ -40,3 +40,16 @@ internal fun entryIdOf(typeName: String?, rawId: Long): EntryId? {
         else -> null
     }
 }
+
+/**
+ * Whether a launch reaching the open reader asks for what it already shows: the same entry, and either
+ * no chapter or the one on screen. The chapter it opened with is not the test, since the reader moves
+ * on from it, and a relaunch naming it again (a notification, a history row) is then a real request.
+ */
+internal fun isSameLaunch(
+    requestedEntry: EntryId,
+    requestedChapter: Long,
+    openEntry: EntryId?,
+    openChapter: Long,
+): Boolean =
+    requestedEntry == openEntry && (requestedChapter == NO_ID || requestedChapter == openChapter)

@@ -12,6 +12,37 @@ import reikai.domain.library.ContentType
  */
 class ReaderIntentTest {
 
+    /** A chapter notification or a history row naming the chapter already on screen changes nothing. */
+    @Test
+    fun `a launch naming the chapter on screen is the same launch`() {
+        isSameLaunch(EntryId.Manga(1L), requestedChapter = 5L, openEntry = EntryId.Manga(1L), openChapter = 5L) shouldBe
+            true
+    }
+
+    /** The reader moved on from the chapter it opened with, so asking for that one again is a real request. */
+    @Test
+    fun `a launch naming the opening chapter after the reader moved on is a new launch`() {
+        isSameLaunch(EntryId.Manga(1L), requestedChapter = 5L, openEntry = EntryId.Manga(1L), openChapter = 6L) shouldBe
+            false
+    }
+
+    @Test
+    fun `a launch naming no chapter for the open entry is the same launch`() {
+        isSameLaunch(
+            EntryId.Novel(1L),
+            requestedChapter = NO_ID,
+            openEntry = EntryId.Novel(1L),
+            openChapter = 6L,
+        ) shouldBe
+            true
+    }
+
+    @Test
+    fun `a launch for another entry is a new launch`() {
+        isSameLaunch(EntryId.Novel(2L), requestedChapter = 5L, openEntry = EntryId.Novel(1L), openChapter = 5L) shouldBe
+            false
+    }
+
     @Test
     fun `a manga tag reads back as a manga id`() {
         entryIdOf(ContentType.MANGA.name, rawId = 7L) shouldBe EntryId.Manga(7L)
