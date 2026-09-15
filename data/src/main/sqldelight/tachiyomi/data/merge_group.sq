@@ -144,6 +144,22 @@ allNovelMemberships:
 SELECT novel_id, group_id
 FROM merge_group_novel;
 
+-- Memberships of entries in the library, which is what a stitch is built from. The join makes the query
+-- re-run on a favorite flip too, so removing a grouped entry from the library or adding it back is seen.
+libraryMangaMemberships:
+SELECT MGM.manga_id, MGM.group_id
+FROM merge_group_manga MGM
+JOIN mangas M
+ON M._id = MGM.manga_id
+WHERE M.favorite = 1;
+
+libraryNovelMemberships:
+SELECT MGN.novel_id, MGN.group_id
+FROM merge_group_novel MGN
+JOIN novels N
+ON N._id = MGN.novel_id
+WHERE N.favorite = 1;
+
 -- RK: per-group source-ranking overrides for the library collapse (group id -> members in trunk order),
 -- only for groups whose override_source_ranking is on. Lets the collapsed library row lead on the same
 -- source the details chapter list trunks on. The JOIN makes the query reactive over BOTH tables, so a

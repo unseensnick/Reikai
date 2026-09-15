@@ -19,7 +19,7 @@ class StitchInputChangesTest {
 
     private val memberships = MutableStateFlow<Map<Long, Long>>(mapOf(1L to 10L))
     private val repository = mockk<MergeGroupRepository> {
-        every { getAllMembershipsAsFlow(any()) } returns memberships
+        every { getLibraryMembershipsAsFlow(any()) } returns memberships
     }
     private val preferences = ReikaiLibraryPreferences(EmittingPreferenceStore())
 

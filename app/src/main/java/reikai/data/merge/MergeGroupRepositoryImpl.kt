@@ -92,6 +92,15 @@ class MergeGroupRepositoryImpl(
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
 
+    override fun getLibraryMembershipsAsFlow(contentType: ContentType): Flow<Map<Long, Long>> =
+        when (contentType) {
+            ContentType.MANGA -> queries.libraryMangaMemberships { id, groupId -> id to groupId }
+                .subscribeToList().map { it.toMap() }
+            ContentType.NOVELS -> queries.libraryNovelMemberships { id, groupId -> id to groupId }
+                .subscribeToList().map { it.toMap() }
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
     override fun getOverrideRankingsAsFlow(contentType: ContentType): Flow<Map<Long, List<Long>>> =
         when (contentType) {
             // Rows arrive already in (group, source_priority) order, so groupBy preserves the trunk order.

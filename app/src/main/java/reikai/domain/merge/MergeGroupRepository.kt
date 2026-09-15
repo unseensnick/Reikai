@@ -49,6 +49,9 @@ interface MergeGroupRepository {
      *  library re-collapses when a group is created, split, or dissolved. */
     fun getAllMembershipsAsFlow(contentType: ContentType): Flow<Map<Long, Long>>
 
+    /** Memberships of entries in the library only, re-emitting when one leaves or rejoins it as well. */
+    fun getLibraryMembershipsAsFlow(contentType: ContentType): Flow<Map<Long, Long>>
+
     /**
      * Per-group source-ranking overrides (group id -> member ids in trunk order), only for groups whose
      * override is on. Reactive: re-emits when a group is reordered or its override cleared, so the library

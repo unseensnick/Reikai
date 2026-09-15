@@ -5,10 +5,13 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import tachiyomi.data.Chapters
 import tachiyomi.data.Custom_manga_info
@@ -110,6 +113,19 @@ class MergeGroupRepositoryTest {
         val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
 
         repository.getFavoriteMembers(ContentType.NOVELS, groupId) shouldBe listOf(1L)
+    }
+
+    /** The reconcile trigger reads this, and the stitch counts only the library's members. */
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `library memberships leave out a member removed from the library`(type: ContentType) = runTest {
+        insertEntry(type, 1)
+        insertEntry(type, 2)
+        insertEntry(type, 3)
+        repository.createGroup(type, listOf(1, 2, 3))
+        setFavorite(type, 2, false)
+
+        repository.getLibraryMembershipsAsFlow(type).first().keys shouldBe setOf(1L, 3L)
     }
 
     @Test
@@ -630,6 +646,14 @@ class MergeGroupRepositoryTest {
                 "VALUES ($id, 1, 'm-url-$id', 'title', 0, ${if (favorite) 1 else 0}, 0, 0, 0, 0, 0)",
             0,
         ).await()
+    }
+
+    private suspend fun insertEntry(type: ContentType, id: Long) =
+        if (type == ContentType.MANGA) insertManga(id) else insertNovel(id)
+
+    private suspend fun setFavorite(type: ContentType, id: Long, favorite: Boolean) {
+        val table = if (type == ContentType.MANGA) "mangas" else "novels"
+        driver.execute(null, "UPDATE $table SET favorite = ${if (favorite) 1 else 0} WHERE _id = $id", 0).await()
     }
 
     private suspend fun insertNovel(id: Long, favorite: Boolean = true) {
