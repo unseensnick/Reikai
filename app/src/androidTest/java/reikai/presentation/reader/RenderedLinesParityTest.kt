@@ -153,6 +153,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         baseUrl = null,
         progressPercent = 0,
         chapterNumber = 1.0,
+        novelId = 1L,
         downloaded = false,
         isLast = false,
     )

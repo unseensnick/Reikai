@@ -85,4 +85,16 @@ class ChapterGapTest {
     fun negativeNumberIsDeclined() {
         ChapterGap.between(at(5.0), at(-1.0, name = "Chapter -1.0")) shouldBe 0
     }
+
+    @Test
+    @DisplayName("at a reader's boundary, nothing below the chapter is not a gap")
+    fun seamWithoutLowerNeighbourIsZero() {
+        ChapterGap.atSeam(at(4.0), null) shouldBe 0
+    }
+
+    @Test
+    @DisplayName("at a reader's boundary a skipped chapter is still counted")
+    fun seamCountsASkip() {
+        ChapterGap.atSeam(at(5.0), at(3.0)) shouldBe 1
+    }
 }

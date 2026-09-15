@@ -118,6 +118,7 @@ every release now also ships a foss build with neither in it.
 
 - **Removing one source of a merged series from your library, or adding it back, now updates the series' combined chapter list and unread count straight away.** Before, they stayed as they were until the next library update.
 - **A merged series that includes an adult content source's gallery now updates its combined chapter list after that source's own gallery update runs.**
+- **The reader's missing chapters warning between two chapters no longer appears when a merged series crosses from one source to another, in both readers.** It now follows the chapter list's rules, so a volume extra no longer triggers it either.
 - **Removing a merged series no longer overstates how many sources it will take with it.** The count now covers the grouped sources it can actually reach, so it matches the number of entries you selected.
 - **Splitting or removing the source you are currently viewing no longer leaves the series' page showing another source's chapters.** The title and cover stayed the one you opened while the chapter list quietly became someone else's.
 - **Migrating one source of a merged series no longer breaks that series' page.** With that source's chip selected, the chapter list could crash on manga and show the old source on novels.

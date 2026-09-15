@@ -380,6 +380,8 @@ class NovelReaderViewModel(
         /** What the marker between two chapters reads (`NovelSeam`): the number its missing-chapters
          *  count is taken from, and whether this chapter's own copy is on disk. */
         val chapterNumber: Double,
+        /** The library row this copy belongs to, which differs between a merged novel's sources. */
+        val novelId: Long,
         val downloaded: Boolean,
         /** No chapter follows it to step forward to, the answer `chapterAfter` gives, so the end marker
          *  (`NovelSeam.end`) is drawn below it. */
@@ -907,6 +909,7 @@ class NovelReaderViewModel(
         baseUrl = baseUrl,
         progressPercent = NovelResume.percent(read, lastTextProgress),
         chapterNumber = chapterNumber,
+        novelId = novelId,
         // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
         downloaded = novelRepo.getById(novelId)?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
         // Outside the order, chapterAfter has no index to step from and would call anything the last.

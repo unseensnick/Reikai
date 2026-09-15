@@ -37,8 +37,9 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Warning
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
+import reikai.domain.merge.ChapterGap
+import reikai.domain.merge.toGapNeighbour
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
@@ -71,7 +72,8 @@ fun ChapterTransition(
                     bottomChapter = currChapter?.toTransitionChapter(),
                     bottomChapterDownloaded = currChapterDownloaded,
                     fallbackLabel = stringResource(MR.strings.transition_no_previous),
-                    chapterGap = calculateChapterGap(currChapter, goingToChapter),
+                    // RK: the chapter list's rule, see MissingChapters.calculateChapterGap.
+                    chapterGap = ChapterGap.atSeam(currChapter?.toGapNeighbour(), goingToChapter?.toGapNeighbour()),
                 )
             }
             is ChapterTransition.Next -> {
@@ -83,7 +85,8 @@ fun ChapterTransition(
                     bottomChapter = goingToChapter?.toTransitionChapter(),
                     bottomChapterDownloaded = goingToChapterDownloaded,
                     fallbackLabel = stringResource(MR.strings.transition_no_next),
-                    chapterGap = calculateChapterGap(goingToChapter, currChapter),
+                    // RK
+                    chapterGap = ChapterGap.atSeam(goingToChapter?.toGapNeighbour(), currChapter?.toGapNeighbour()),
                 )
             }
         }

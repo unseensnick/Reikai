@@ -1,5 +1,6 @@
 package reikai.domain.merge
 
+import tachiyomi.domain.chapter.model.Chapter
 import kotlin.math.floor
 
 /**
@@ -28,6 +29,13 @@ object ChapterGap {
         // negative something, and every caller only asks whether the answer is above zero.
         return (floor(higher.number).toInt() - floor(lower.number).toInt() - 1).coerceAtLeast(0)
     }
+
+    /**
+     * The count at a reader's boundary between two chapters. There a missing neighbour is the start or
+     * end of what can be read, which the marker names itself, not chapters missing below the list.
+     */
+    fun atSeam(higher: Neighbour?, lower: Neighbour?): Int =
+        if (higher == null || lower == null) 0 else between(higher, lower)
 
     /**
      * Every gap the list would mark, added up, for the header that summarises them. Shares [between]
@@ -66,3 +74,7 @@ object ChapterGap {
     /** Keeps a decimal whole, so "Chapter 5.5" is one number rather than two. */
     private val nonAlphanumeric = Regex("""[^a-z0-9.]+""")
 }
+
+/** A merged list's neighbours can come from different sources, so the owning manga travels with the
+ *  number the gap is computed from. */
+fun Chapter.toGapNeighbour() = ChapterGap.Neighbour(chapterNumber, name, mangaId)

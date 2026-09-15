@@ -95,6 +95,7 @@ import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.flaggedOnAnotherSource
+import reikai.domain.merge.toGapNeighbour
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationHideFilter
@@ -2052,7 +2053,3 @@ private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) = CustomMangaInfo(
     status = status.takeIf { it != source.status && it != SManga.UNKNOWN.toLong() },
     thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl.orEmpty() },
 )
-
-// RK: a merged list's neighbours can come from different sources, so the owning manga travels with
-// the number the gap is computed from.
-private fun Chapter.toGapNeighbour() = ChapterGap.Neighbour(chapterNumber, name, mangaId)

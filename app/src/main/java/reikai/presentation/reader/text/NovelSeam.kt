@@ -1,7 +1,7 @@
 package reikai.presentation.reader.text
 
+import reikai.domain.merge.ChapterGap
 import reikai.presentation.reader.NovelReaderViewModel.LoadedChapter
-import tachiyomi.domain.chapter.service.calculateChapterGap
 
 /**
  * What the marker between two chapters says, worked out once for both novel renderers: the chapter
@@ -30,10 +30,12 @@ data class NovelSeam(
             finishedDownloaded = finished.downloaded,
             nextTitle = next.title,
             nextDownloaded = next.downloaded,
-            // Mihon's own count, which its transition takes from the same pair. It is negative for a
-            // pair the order runs backwards, where the transition shows nothing.
-            missingChapters = calculateChapterGap(next.chapterNumber, finished.chapterNumber).coerceAtLeast(0),
+            // The chapter list's rule, as manga's transition takes it: two sources of a merged novel are
+            // never compared, and a pair the order runs backwards is missing nothing.
+            missingChapters = ChapterGap.atSeam(next.gapNeighbour(), finished.gapNeighbour()),
         )
+
+        private fun LoadedChapter.gapNeighbour() = ChapterGap.Neighbour(chapterNumber, title, novelId)
 
         /** The marker below [chapter] when nothing follows it, "There's no next chapter" under its
          *  name, or null while a chapter does. */

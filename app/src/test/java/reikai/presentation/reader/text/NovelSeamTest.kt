@@ -104,7 +104,18 @@ class NovelSeamTest {
         NovelSeam.end(chapter(10.0, downloaded = true, isLast = true))?.finishedDownloaded shouldBe true
     }
 
-    private fun chapter(number: Double, downloaded: Boolean = false, isLast: Boolean = false) = LoadedChapter(
+    @Test
+    @DisplayName("two sources of a merged novel are never compared, whatever their numbers")
+    fun mergedSourcesCountNothing() {
+        NovelSeam.between(chapter(10.0), chapter(14.0, novelId = 2L)).missingChapters shouldBe 0
+    }
+
+    private fun chapter(
+        number: Double,
+        downloaded: Boolean = false,
+        isLast: Boolean = false,
+        novelId: Long = 1L,
+    ) = LoadedChapter(
         chapterId = number.toLong(),
         title = "Chapter $number",
         url = "",
@@ -112,6 +123,7 @@ class NovelSeamTest {
         baseUrl = null,
         progressPercent = 0,
         chapterNumber = number,
+        novelId = novelId,
         downloaded = downloaded,
         isLast = isLast,
     )

@@ -405,6 +405,7 @@ class NovelTextViewportWindowTest {
         baseUrl = null,
         progressPercent = 0,
         chapterNumber = id.toDouble(),
+        novelId = 1L,
         downloaded = false,
         isLast = isLast,
     )
