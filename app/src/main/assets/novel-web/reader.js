@@ -5,9 +5,8 @@
  * host to call into. The chapter-boundary and per-chapter progress half is ported from tsundoku's
  * scroll-tracking.js; the tap, swipe, auto-scroll and bionic halves replace what core.js did.
  *
- * Tokens substituted at build time by NovelWebAssets: __SWIPE__, __BIONIC__,
- * __READ_ALOUD__, __INITIAL_FRACTION__, __LABEL_FINISHED__, __LABEL_NEXT__, __LABEL_NO_NEXT__,
- * __LABEL_DOWNLOADED__, __DOCUMENT_TOKEN__, __CSS_SNIPPETS__.
+ * NovelWebDocument fills in the build tokens below, each named in double underscores. Never name one
+ * in a comment: every occurrence is replaced, and a replacement can close the comment it lands in.
  */
 (function () {
   // The token is in this script's own text. Removed while the engine still runs ahead of the chapter,
@@ -589,6 +588,7 @@
       raf = t < 1 ? requestAnimationFrame(frame) : null;
     }
     return {
+      running: function () { return raf !== null; },
       // A second press while one is running carries on from where that one had got to.
       by: function (dy) {
         total = total - done + dy;
@@ -622,7 +622,12 @@
         rate = perFrame * 60;
         if (!raf) { last = 0; raf = requestAnimationFrame(step); }
       },
-      stop: function () { if (raf) { cancelAnimationFrame(raf); raf = null; } },
+      stop: function () {
+        if (!raf) return;
+        cancelAnimationFrame(raf);
+        raf = null;
+      },
+      running: function () { return raf !== null; },
     };
   })();
 
@@ -955,7 +960,9 @@
       var button = document.createElement('button');
       button.className = 'rk-failure-retry';
       button.textContent = failure.retry;
-      button.addEventListener('click', function () {
+      // A chapter's script clicking it would refetch the failed chapter past the host's cooldown.
+      button.addEventListener('click', function (e) {
+        if (!e.isTrusted) return;
         var progress = document.createElement('div');
         progress.className = 'rk-failure-progress';
         button.parentNode.replaceChild(progress, button);
@@ -1203,7 +1210,12 @@
 
   window.addEventListener('scroll', onScroll, { passive: true });
   if ('onscrollend' in window) {
-    window.addEventListener('scrollend', function () { persist(); }, { passive: true });
+    // Every frame of a glide or an auto-scroll is an instant scroll that ends in its own scrollend, so
+    // those are skipped while one runs. The last scroll's scrollend arrives the frame after it stops,
+    // which settles the position once.
+    window.addEventListener('scrollend', function () {
+      if (!glide.running() && !autoScroll.running()) persist();
+    }, { passive: true });
   } else {
     var settleTimer = null;
     window.addEventListener('scroll', function () {

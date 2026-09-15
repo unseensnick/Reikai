@@ -156,6 +156,18 @@ class PreferenceRestorerTest {
         NovelSnippets.decode(novelPreferences.readerJsSnippets().get()) shouldBe listOf(snippet.copy(enabled = false))
     }
 
+    /** It lets any computer with debugging rights inspect every WebView the app has, so it is the user's to turn on. */
+    @Test
+    @DisplayName("a restored webview developer tools switch stays off")
+    fun restoredDevToolsStayOff() = runTest {
+        restorer.restoreApp(
+            listOf(BackupPreference(NovelPreferences.WEBVIEW_DEV_TOOLS_KEY, BooleanPreferenceValue(true))),
+            backupCategories = null,
+        )
+
+        novelPreferences.readerWebViewDevTools().get() shouldBe false
+    }
+
     /** The switch comes before the bar in the backup, so the bar restored after it must still gain the button. */
     @Test
     @DisplayName("a backup with read-aloud on and a customised bar keeps the read-aloud button")

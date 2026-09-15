@@ -73,6 +73,12 @@ class NovelWebDocumentTest {
         /** How long an image is held: past the seek's own frame, well inside the engine's own cap. */
         const val IMAGE_DELAY_MS = 600L
 
+        /** Past the page's own settle wait, so a report it was going to send has been sent. */
+        const val SETTLE_MS = 800L
+
+        /** Long enough for an auto-scroll to run many frames. */
+        const val AUTO_SCROLL_MS = 1500L
+
         /** A seam as the viewport sends one, for the cases about what a chapter arriving does. */
         const val SEAM =
             "{ finished: { title: 'Above', downloaded: false }, next: { title: 'Below', downloaded: false } }"
@@ -105,10 +111,14 @@ class NovelWebDocumentTest {
         }
 
         @JavascriptInterface
-        fun onProgressSettled(documentToken: String, chapterId: String, fraction: Double) = Unit
+        fun onProgressSettled(documentToken: String, chapterId: String, fraction: Double) {
+            if (documentToken == DOCUMENT_TOKEN) settledReports.incrementAndGet()
+        }
 
         @JavascriptInterface
-        fun onRetryBoundary(documentToken: String, forward: Boolean) = Unit
+        fun onRetryBoundary(documentToken: String, forward: Boolean) {
+            if (documentToken == DOCUMENT_TOKEN) retries.incrementAndGet()
+        }
 
         @JavascriptInterface
         fun onTap(documentToken: String, x: Double, y: Double) {
@@ -134,6 +144,10 @@ class NovelWebDocumentTest {
             if (documentToken == DOCUMENT_TOKEN) endsSeen += chapterId
         }
     }
+
+    /** How many settled positions, and how many boundary retries, the page sent the host. */
+    private val settledReports = AtomicInteger()
+    private val retries = AtomicInteger()
 
     /** Every chapter the page said had its last line on screen, in order. */
     private val endsSeen = CopyOnWriteArrayList<String>()
@@ -161,13 +175,14 @@ class NovelWebDocumentTest {
         fontSource: String? = null,
         chapterHtml: String = "<p>lorem ipsum</p>".repeat(200),
         initialFraction: Float = 0f,
+        snippetCss: String = "",
     ): String = NovelWebDocument.build(
         context = instrumentation.targetContext,
         chapterId = CHAPTER_ID,
         documentToken = DOCUMENT_TOKEN,
         chapterHtml = chapterHtml,
         initialFraction = initialFraction,
-        settings = settings.copy(fontFamily = fontFamily),
+        settings = settings.copy(fontFamily = fontFamily, webSnippets = NovelWebSnippets(css = snippetCss)),
         statusBarHeightPx = 0,
         fontSource = fontSource,
         useOriginalFonts = useOriginalFonts,
@@ -539,7 +554,8 @@ class NovelWebDocumentTest {
     fun tappingRetryShowsProgressInItsPlace() {
         loadDocument()
         eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
-        eval("document.querySelector('.rk-failure-retry').click()")
+        tap("document.querySelector('.rk-failure-retry')")
+        awaitEval("document.querySelectorAll('.rk-failure-progress').length", "1")
         assertEquals(
             "0 buttons, 1 progress",
             eval(
@@ -547,6 +563,39 @@ class NovelWebDocumentTest {
                     "document.querySelectorAll('.rk-failure-progress').length + ' progress'",
             ),
         )
+    }
+
+    /** A chapter's script clicking Retry would refetch the failed chapter as often as it liked, cooldown or not. */
+    @Test
+    fun aScriptClickOnRetryDoesNotReachTheHostButATapDoes() {
+        loadDocument()
+        eval("window.rkReader.setBoundaryFailure(false, $FAILURE)")
+        eval("document.querySelector('.rk-failure-retry').click()")
+        Thread.sleep(SETTLE_MS)
+        val afterScript = retries.get()
+        tap("document.querySelector('.rk-failure-retry')")
+        awaitRetry(afterScript)
+        assertEquals("0 then 1", "$afterScript then ${retries.get()}")
+    }
+
+    /** A stylesheet comment used to close the comment reader.js names its tokens in, and nothing ran. */
+    @Test
+    fun aCssSnippetWithACommentStillStartsTheEngine() {
+        loadDocument(document(snippetCss = "/* bigger */ p { font-size: 20px; }"))
+        assertEquals("object", eval("typeof window.rkReader"))
+    }
+
+    /** Each frame of an auto-scroll is an instant scroll, and every one of those ends in a scrollend. */
+    @Test
+    fun autoScrollingSettlesThePositionOnceItStops() {
+        loadDocument()
+        Thread.sleep(SETTLE_MS)
+        val before = settledReports.get()
+        eval("window.rkReader.autoScrollStart(4)")
+        Thread.sleep(AUTO_SCROLL_MS)
+        eval("window.rkReader.autoScrollStop()")
+        Thread.sleep(SETTLE_MS)
+        assertTrue("settled ${settledReports.get() - before} times", settledReports.get() - before in 1..2)
     }
 
     /** The token is in the engine's own text, and a chapter's script must not be able to read it. */
@@ -1005,6 +1054,11 @@ class NovelWebDocumentTest {
      *  are not bounded by a settle on a loaded device. Returns either way; the caller asserts. */
     // Waits for the page to report the chapter's progress, which a loaded device can take longer than
     // a settle to send. Returns either way; the caller asserts.
+    private fun awaitRetry(after: Int) {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        while (retries.get() <= after && System.currentTimeMillis() < deadline) Thread.sleep(50)
+    }
+
     private fun awaitProgress(chapterId: String) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
         while (!progressByChapter.containsKey(chapterId) && System.currentTimeMillis() < deadline) Thread.sleep(50)

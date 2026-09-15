@@ -39,9 +39,11 @@ data class NovelWebSnippets(
         /**
          * [value] as a JavaScript string literal that can also sit inside a `<script>` element, which
          * the stylesheet does when the document is built: `<` is escaped, or a `</script>` in a snippet
-         * would end the reader's own script.
+         * would end the reader's own script, and `/`, or a snippet's comment close would end a comment
+         * the stylesheet lands in.
          */
-        fun jsLiteral(value: String): String = Json.encodeToString(String.serializer(), value).replace("<", "\\u003c")
+        fun jsLiteral(value: String): String =
+            Json.encodeToString(String.serializer(), value).replace("<", "\\u003c").replace("/", "\\/")
 
         private fun sourceName(snippet: NovelCodeSnippet) = snippet.title.replace(Regex("[^A-Za-z0-9._-]"), "-")
     }

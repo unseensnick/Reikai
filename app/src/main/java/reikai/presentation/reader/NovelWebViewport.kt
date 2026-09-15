@@ -529,14 +529,16 @@ class NovelWebViewport(
     override val readAloud: ReadAloudSurface = object : ReadAloudSurface {
         override suspend fun paragraphs(chapterId: Long): List<String>? {
             val json = query("rkReader.readAloud.paragraphs(${JSONObject.quote(chapterId.toString())});") ?: return null
-            val array = JSONArray(json)
-            return List(array.length(), array::getString)
+            // The page's script can overwrite rkReader, so an answer that will not read is no answer.
+            return runCatching { JSONArray(json).let { array -> List(array.length(), array::getString) } }.getOrNull()
         }
 
         override suspend fun firstVisibleParagraph(): ReadAloudPosition? {
             val json = query("rkReader.readAloud.firstVisible();") ?: return null
-            val position = JSONObject(json)
-            return ReadAloudPosition(position.getString("id").toLong(), position.getInt("paragraph"))
+            return runCatching {
+                val position = JSONObject(json)
+                ReadAloudPosition(position.getString("id").toLong(), position.getInt("paragraph"))
+            }.getOrNull()
         }
 
         override fun highlight(position: ReadAloudPosition?) {

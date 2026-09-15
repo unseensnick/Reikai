@@ -276,7 +276,7 @@ class NovelPreferences(
      * Opens the WebView reader to Chrome's remote inspector and shows its script errors as toasts. Off by
      * default: the inspector switch is process-wide, so it opens every WebView in the app while on.
      */
-    fun readerWebViewDevTools() = preferenceStore.getBoolean("ln_reader_webview_dev_tools", false)
+    fun readerWebViewDevTools() = preferenceStore.getBoolean(WEBVIEW_DEV_TOOLS_KEY, false)
 
     /** Show a chapter as the markup it carries, as text, to see what a source actually sends. */
     fun readerShowRawHtml() = preferenceStore.getBoolean("ln_reader_show_raw_html", false)
@@ -543,6 +543,9 @@ class NovelPreferences(
 
         /** Named for the restorer, which switches every restored JavaScript snippet off. */
         const val JS_SNIPPETS_KEY = "ln_reader_js_snippets"
+
+        /** Named for the restorer, which never restores the WebView developer tools switched on. */
+        const val WEBVIEW_DEV_TOOLS_KEY = "ln_reader_webview_dev_tools"
     }
 }
 

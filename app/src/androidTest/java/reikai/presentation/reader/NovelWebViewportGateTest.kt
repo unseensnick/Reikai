@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -191,6 +192,27 @@ class NovelWebViewportGateTest {
             "40px",
             awaitEval("getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top').trim()", "40px"),
         )
+    }
+
+    /** rkReader is the page's to overwrite, and a chapter's script replacing an answer used to crash the app. */
+    @Test
+    fun aMalformedFirstVisibleParagraphReadsAsNone() {
+        openAndAwaitReady(1L)
+        evalOnPage("window.rkReader.readAloud.firstVisible = function () { return 5; }")
+        assertEquals(null, runBlocking { viewport.readAloud.firstVisibleParagraph() })
+    }
+
+    @Test
+    fun malformedParagraphsReadAsNone() {
+        openAndAwaitReady(1L)
+        evalOnPage("window.rkReader.readAloud.paragraphs = function () { return { not: 'a list' }; }")
+        assertEquals(null, runBlocking { viewport.readAloud.paragraphs(1L) })
+    }
+
+    private fun evalOnPage(js: String) {
+        val done = CountDownLatch(1)
+        instrumentation.runOnMainSync { webView.evaluateJavascript(js) { done.countDown() } }
+        done.await(TIMEOUT_S, TimeUnit.SECONDS)
     }
 
     /** Opens [id] with a verb behind it, and waits for the verb, which proves the gate opened. */

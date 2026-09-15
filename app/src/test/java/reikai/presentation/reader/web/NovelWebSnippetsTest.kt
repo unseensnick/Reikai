@@ -27,6 +27,12 @@ class NovelWebSnippetsTest {
         NovelWebSnippets.from("not json", "not json") shouldBe NovelWebSnippets()
     }
 
+    /** reader.js names its tokens in a comment, and a stylesheet's own comment used to close it. */
+    @Test
+    fun `a stylesheet cannot end a comment it is written into`() {
+        NovelWebSnippets.jsLiteral("/* bigger */ p {}") shouldNotContain "*/"
+    }
+
     @Test
     fun `javascript already run as it is does not run again`() {
         NovelWebSnippets(js = listOf(on)).jsChangedSince(mapOf("a" to on.code)) shouldBe emptyList()
