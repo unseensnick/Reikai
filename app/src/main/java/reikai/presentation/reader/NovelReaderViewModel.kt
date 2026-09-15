@@ -62,9 +62,9 @@ import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.isForwardEligible
+import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
-import reikai.domain.reader.removeDuplicateChapters
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -1154,7 +1154,7 @@ class NovelReaderViewModel(
                 restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
             )
         }
-        val visible = filterHiddenChapters(dedupIfEnabled(chapters.sortedWith(readingOrder())))
+        val visible = navigable(chapters.sortedWith(readingOrder()))
         orderedIds = visible.map { it.id }
         val members = pooled.ifEmpty { visible }
         forwardEligibleIds = resolveForwardEligible(visible, groupFlags(members, visible, novelsOf(members)))
@@ -1168,35 +1168,29 @@ class NovelReaderViewModel(
     }
 
     /**
-     * Drops same-numbered duplicates from the list rather than stepping over them, so the chapter list,
-     * download-ahead and delete-after-read all count what the reader actually shows. Within one novel
-     * only, which makes the origin tie-break meaningless here: every chapter of it has the same source.
+     * The chapters paging steps through, by the rule the manga reader runs ([navigableChapters]). A novel
+     * has no origin to break a duplicate tie with: every chapter of one has the same source. The hidden
+     * key mirrors the details screen.
      */
-    private fun dedupIfEnabled(chapters: List<NovelChapter>): List<NovelChapter> {
-        if (!novelPreferences.readerSkipDuplicateChapters().get()) return chapters
-        val current = chapters.find { it.id == currentChapterId } ?: return chapters
-        return chapters.removeDuplicateChapters(
+    private suspend fun navigable(chapters: List<NovelChapter>): List<NovelChapter> {
+        val hidden = novelPreferences.hiddenChapters().get()
+        val sourceIdByNovel = HashMap<Long, String>()
+        if (hidden.isNotEmpty()) {
+            chapters.forEach { chapter ->
+                sourceIdByNovel.getOrPut(chapter.novelId) { novelRepo.getById(chapter.novelId)?.source.orEmpty() }
+            }
+        }
+        val isHidden = { chapter: NovelChapter -> "${sourceIdByNovel[chapter.novelId]}|${chapter.url}" in hidden }
+        val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
+        return chapters.navigableChapters(
             current,
+            isHidden = isHidden,
+            skipDuplicates = novelPreferences.readerSkipDuplicateChapters().get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },
             originOf = { null },
             ownerOf = { it.novelId },
         )
-    }
-
-    /** Drops user-hidden chapters so paging matches the details list. The open chapter is always kept,
-     *  so opening a hidden one directly still resolves. The key mirrors the details screen. */
-    private suspend fun filterHiddenChapters(chapters: List<NovelChapter>): List<NovelChapter> {
-        val hidden = novelPreferences.hiddenChapters().get()
-        if (hidden.isEmpty()) return chapters
-        val sourceIdByNovel = HashMap<Long, String>()
-        return chapters.filter { chapter ->
-            if (chapter.id == currentChapterId) return@filter true
-            val sourceId = sourceIdByNovel.getOrPut(chapter.novelId) {
-                novelRepo.getById(chapter.novelId)?.source.orEmpty()
-            }
-            "$sourceId|${chapter.url}" !in hidden
-        }
     }
 
     /** Which chapters a forward step may stop on, per the skip settings and this novel's own chapter-list

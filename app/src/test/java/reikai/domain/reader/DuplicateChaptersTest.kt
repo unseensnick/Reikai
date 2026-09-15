@@ -69,8 +69,17 @@ class DuplicateChaptersTest {
         listOf(fromOne, fromTwo).dedup(fromOne).map { it.id } shouldBe listOf(20L, 21L)
     }
 
+    /** A prologue, a side story and an afterword all read as -1, and each is its own chapter. */
     @Test
-    fun `an origin nobody has still resolves, because a group always keeps one`() {
+    fun `unnumbered chapters are never duplicates of each other`() {
+        val prologue = Ch(id = 30, number = -1.0, origin = null)
+        val one = Ch(id = 31, number = 1.0, origin = null)
+        val sideStory = Ch(id = 32, number = -1.0, origin = null)
+        listOf(prologue, one, sideStory).dedup(one).map { it.id } shouldBe listOf(30L, 31L, 32L)
+    }
+
+    @Test
+    fun `a null origin matches every copy, so the first wins`() {
         // Novels carry no scanlator, so an unmerged novel's chapters can all answer null here.
         val n1 = Ch(id = 6, number = 1.0, origin = null)
         val n2 = Ch(id = 7, number = 1.0, origin = null)

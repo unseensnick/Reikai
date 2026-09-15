@@ -85,9 +85,9 @@ import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.duplicatesOfRead
 import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.isForwardEligible
+import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
-import reikai.domain.reader.removeDuplicateChapters
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -253,6 +253,21 @@ class ReaderViewModel(
     private fun mangaForChapterId(chapterMangaId: Long?): Manga =
         chapterMangaId?.let { mergedGroup?.mangaById?.get(it) } ?: manga!!
 
+    // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
+    // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on.
+    private fun navigable(chapters: List<Chapter>, current: Chapter): List<Chapter> {
+        val hidden = mangaPreferences.hiddenChapters().get()
+        return chapters.navigableChapters(
+            current,
+            isHidden = { hidden.isNotEmpty() && "${mangaForChapterId(it.mangaId).source}|${it.url}" in hidden },
+            skipDuplicates = readerPreferences.skipDupe.get(),
+            numberOf = { it.chapterNumber },
+            idOf = { it.id },
+            originOf = { it.scanlator },
+            ownerOf = { it.mangaId },
+        )
+    }
+
     /** RK: read, bookmarked and on disk as the group answers them, for the rows in [shown]. Resolved
      *  against [shown] rather than reused from the group, whose own set names the rows the merged list
      *  shows: in source scope those are not the rows here, and the answer came back empty. [pooled]
@@ -373,33 +388,11 @@ class ReaderViewModel(
         }
 
         return chaptersForReader
-            // RK --> drop user-hidden chapters so reader navigation skips them (twin of the details
-            // filter); keep the opened chapter so opening a hidden one directly still resolves.
-            .run {
-                val hidden = mangaPreferences.hiddenChapters().get()
-                if (hidden.isEmpty()) {
-                    this
-                } else {
-                    val filtered = filterNot { "${mangaForChapterId(it.mangaId).source}|${it.url}" in hidden }
-                    if (filtered.any { it.id == chapterId }) filtered else filtered + selectedChapter
-                }
-            }
-            // RK <--
             .sortedWith(getChapterSort(manga, sortDescending = false))
-            .run {
-                if (readerPreferences.skipDupe.get()) {
-                    // RK: the shared dedup kernel, so novels drop duplicates by the same rule.
-                    removeDuplicateChapters(
-                        selectedChapter,
-                        numberOf = { it.chapterNumber },
-                        idOf = { it.id },
-                        originOf = { it.scanlator },
-                        ownerOf = { it.mangaId },
-                    )
-                } else {
-                    this
-                }
-            }
+            // RK --> user-hidden chapters and, with skip-duplicate on, duplicates, by the kernel the novel
+            // reader runs too. The opened chapter is kept, so opening a hidden one directly still resolves.
+            .let { sorted -> navigable(sorted, selectedChapter) }
+            // RK <--
             .run {
                 if (basePreferences.downloadedOnly.get()) {
                     filterDownloaded(downloadCache) { mangaForChapterId(it.mangaId) }
@@ -724,7 +717,11 @@ class ReaderViewModel(
             val chaptersToDownload = if (group != null) {
                 // Sorted the way the reader itself pages, not by stitch position: a group sorted by
                 // upload date or by name otherwise queues chapters the reader never steps into next.
-                val ahead = group.chapters.sortedWith(getChapterSort(manga, sortDescending = false))
+                // RK: through the reader's own rule, or it queued chapters the reader never stops on.
+                val ahead = navigable(
+                    group.chapters.sortedWith(getChapterSort(manga, sortDescending = false)),
+                    nextChapter.toDomainChapter()!!,
+                )
                 chaptersToDownloadAhead(
                     ahead,
                     from = ahead.indexOfFirst { it.id == nextChapter.id },
@@ -732,19 +729,7 @@ class ReaderViewModel(
                     isRead = groupFlags(group.chapters)::isRead,
                 )
             } else {
-                getNextChapters.await(nextChapterManga.id, nextChapter.id!!).run {
-                    if (readerPreferences.skipDupe.get()) {
-                        removeDuplicateChapters(
-                            nextChapter.toDomainChapter()!!,
-                            numberOf = { it.chapterNumber },
-                            idOf = { it.id },
-                            originOf = { it.scanlator },
-                            ownerOf = { it.mangaId },
-                        )
-                    } else {
-                        this
-                    }
-                }
+                navigable(getNextChapters.await(nextChapterManga.id, nextChapter.id!!), nextChapter.toDomainChapter()!!)
                     // RK: a source-scoped session on a merged series skips what another source read too.
                     .let { own -> own.filterNot(groupFlags(own)::isRead) }
                     .take(downloadAheadAmount)
