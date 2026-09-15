@@ -617,13 +617,16 @@ class NovelTextViewport(
     /** Restyles a chapter's built views in place, keeping its spans. */
     private fun restyle(slot: ChapterSlot, settings: NovelReaderSettings) {
         if (slot.styledWith.renderShape() == settings.renderShape()) return
+        // A precomputed layout is measured against the paint's size and face, and the framework's own
+        // long-press drag path re-sets it without checking, which throws once either moved. Colour, line
+        // spacing and alignment are not measured, so they keep it rather than re-measuring every chunk.
+        val remeasured = slot.styledWith.fontSize != settings.fontSize ||
+            slot.styledWith.fontFamily != settings.fontFamily
         slot.styledWith = settings
         NovelTextStyle.applyMargins(slot.block.container, settings, context, topInsetPx)
         slot.block.chunkViews.forEach { view ->
-            // A precomputed layout was measured against the old paint, and the framework's own
-            // long-press drag path re-sets it without checking, which throws. Copying rather
-            // than flattening keeps the chapter's emphasis, links, images and paragraph spans.
-            view.text = SpannableStringBuilder(view.text)
+            // Copying rather than flattening keeps the chapter's emphasis, links, images and paragraph spans.
+            if (remeasured) view.text = SpannableStringBuilder(view.text)
             NovelTextStyle.apply(view, settings, context, fontManager)
         }
     }

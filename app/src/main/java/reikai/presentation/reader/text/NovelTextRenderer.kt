@@ -126,6 +126,8 @@ class NovelTextRenderer(
                     .also { if (bionic) NovelBionicSpans.apply(it) }
             }
 
+            // A later render or the block's removal has replaced this one: the rest is work nobody reads.
+            if (token != block.renderToken || block.discarded) return@launch
             val chunks = withContext(Dispatchers.Default) {
                 chunkRanges(spannable).map { (start, end) ->
                     SpannableStringBuilder(spannable.subSequence(start, end)).also {
@@ -191,15 +193,15 @@ class NovelTextRenderer(
         val snapshots = views.mapNotNull { view -> view.text?.let { view to it } }
         views.filter { it.text == null }.forEach(View::requestLayout)
         // Copied rather than re-set as itself, so the framework treats it as new text; the copy keeps the
-        // chapter's emphasis, links, images and paragraph spans, as restyling does.
+        // chapter's emphasis, links, images and paragraph spans, as restyling does. Copied here on the main
+        // thread, since read aloud edits the spans of the text on screen from it.
+        val copies = snapshots.map { (view, text) -> view to SpannableStringBuilder(text) }
         val remeasured: List<Pair<TextView, CharSequence>> = if (selectable) {
-            snapshots.map { (view, text) -> view to SpannableStringBuilder(text) }
+            copies
         } else {
-            val params = snapshots.map { (view, _) -> TextViewCompat.getTextMetricsParams(view) }
+            val params = copies.map { (view, _) -> TextViewCompat.getTextMetricsParams(view) }
             withContext(Dispatchers.Default) {
-                snapshots.mapIndexed { i, (view, text) ->
-                    view to PrecomputedTextCompat.create(SpannableStringBuilder(text), params[i])
-                }
+                copies.mapIndexed { i, (view, text) -> view to PrecomputedTextCompat.create(text, params[i]) }
             }
         }
         if (block.discarded) return

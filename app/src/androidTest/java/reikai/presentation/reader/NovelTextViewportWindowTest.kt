@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import android.graphics.Color
 import android.graphics.Rect
+import android.text.PrecomputedText
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -141,6 +142,21 @@ class NovelTextViewportWindowTest {
         }
         settle()
         assertEquals(0, shownAt("current 60.")?.top)
+    }
+
+    /** A colour change measures nothing, so the chapter keeps the layout it was precomputed with. */
+    @Test
+    fun aColourChangeKeepsTheChaptersPrecomputedText() {
+        open(LONG, long("current"))
+        instrumentation.runOnMainSync {
+            viewport.applySettings(readerTestSettings.copy(textColor = "#FF8800"))
+        }
+        settle()
+        var precomputed = false
+        instrumentation.runOnMainSync {
+            precomputed = textViews(viewport.view).first { it.text.contains("current 1.") }.text is PrecomputedText
+        }
+        assertTrue("the chapter's text was copied out of its precomputed layout", precomputed)
     }
 
     /** The same short chapter with one after it: the host adds that one first, so there is room to
