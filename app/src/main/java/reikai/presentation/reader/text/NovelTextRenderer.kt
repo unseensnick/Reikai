@@ -10,6 +10,7 @@ import android.text.style.RelativeSizeSpan
 import android.text.style.SubscriptSpan
 import android.text.style.SuperscriptSpan
 import android.util.TypedValue
+import android.view.View
 import android.widget.TextView
 import androidx.core.text.PrecomputedTextCompat
 import androidx.core.widget.TextViewCompat
@@ -69,6 +70,8 @@ class NovelTextRenderer(
          * it is sent as the Referer for an image some hosts would otherwise refuse.
          */
         baseUrl: String?,
+        /** Runs a change that moves text, holding the reader's line across it. */
+        holdAcross: (change: () -> Unit) -> Unit,
         onTextSet: () -> Unit,
     ): Job {
         // In sp, as the text is, so spacing keeps its proportion to the text at any system font size.
@@ -92,7 +95,7 @@ class NovelTextRenderer(
                 resolveView = block::chunkViewFor,
                 onImagesReady = { views ->
                     scope.launch {
-                        remeasureForImages(views, selectable, block)
+                        remeasureForImages(views, selectable, block, holdAcross)
                         // Only now, since a saved position is landed as soon as this clears, and the chapter
                         // is still growing while any picture's chunk waits on its re-measure. A superseded
                         // render's images finishing says nothing about this render's.
@@ -172,41 +175,46 @@ class NovelTextRenderer(
     }
 
     /**
-     * An image arriving changes its span's height, and the layout was measured before that, so the
-     * text has to be set again or the picture draws inside the space the placeholder took. Neither
-     * layout re-reads a drawable's bounds on its own: a `PrecomputedText` caches the measurement it
-     * was built from, and the `DynamicLayout` a selectable view uses reflows only on a text or span
-     * edit, while `TextView.onMeasure` keeps an existing layout while the width is unchanged.
-     * Returns once every view holds its re-measured text.
+     * An image changes its span's height after layout, and neither layout re-reads a drawable's bounds
+     * (`PrecomputedText` caches its measure, a selectable `DynamicLayout` reflows only on an edit), so
+     * the text is set again. Every view is measured first and all set in one [holdAcross]: the pictures
+     * grow the chapter above the line, and a second hold is refused while the first's correction waits.
+     * Gated on the block, not the view being attached, as the render is. Details in the reader record.
      */
-    private suspend fun remeasureForImages(views: List<TextView>, selectable: Boolean, block: ChapterTextBlock) {
-        coroutineScope { views.forEach { view -> launch { remeasureOne(view, selectable, block) } } }
-    }
-
-    /** Gated on the block rather than the view being attached, for the same reason the render is: a
-     *  chapter waiting below the reader has to finish measuring before it can be scrolled into. */
-    private suspend fun remeasureOne(view: TextView, selectable: Boolean, block: ChapterTextBlock) {
+    private suspend fun remeasureForImages(
+        views: List<TextView>,
+        selectable: Boolean,
+        block: ChapterTextBlock,
+        holdAcross: (() -> Unit) -> Unit,
+    ) {
         if (block.discarded) return
-        val snapshot = view.text
-        if (snapshot == null) {
-            view.requestLayout()
-            return
-        }
-        if (selectable) {
-            // Copied rather than re-set as itself, so the framework treats it as new text; the copy
-            // keeps the chapter's emphasis, links, images and paragraph spans, as restyling does.
-            view.text = SpannableStringBuilder(snapshot)
-            return
-        }
-        val params = TextViewCompat.getTextMetricsParams(view)
-        val precomputed = withContext(Dispatchers.Default) {
-            PrecomputedTextCompat.create(SpannableStringBuilder(snapshot), params)
+        val snapshots = views.mapNotNull { view -> view.text?.let { view to it } }
+        views.filter { it.text == null }.forEach(View::requestLayout)
+        // Copied rather than re-set as itself, so the framework treats it as new text; the copy keeps the
+        // chapter's emphasis, links, images and paragraph spans, as restyling does.
+        val remeasured: List<Pair<TextView, CharSequence>> = if (selectable) {
+            snapshots.map { (view, text) -> view to SpannableStringBuilder(text) }
+        } else {
+            val params = snapshots.map { (view, _) -> TextViewCompat.getTextMetricsParams(view) }
+            withContext(Dispatchers.Default) {
+                snapshots.mapIndexed { i, (view, text) ->
+                    view to PrecomputedTextCompat.create(SpannableStringBuilder(text), params[i])
+                }
+            }
         }
         if (block.discarded) return
-        try {
-            TextViewCompat.setPrecomputedText(view, precomputed)
-        } catch (_: IllegalArgumentException) {
-            view.requestLayout()
+        holdAcross {
+            remeasured.forEach { (view, text) ->
+                if (text is PrecomputedTextCompat) {
+                    try {
+                        TextViewCompat.setPrecomputedText(view, text)
+                    } catch (_: IllegalArgumentException) {
+                        view.requestLayout()
+                    }
+                } else {
+                    view.text = text
+                }
+            }
         }
     }
 

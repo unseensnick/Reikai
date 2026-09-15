@@ -1471,6 +1471,47 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTopLineHeldAcross(readerTestSettings.copy(fontSize = LARGER_FONT))
     }
 
+    /** Pictures landing above the reader grow the chapter there, and the line on screen stays put. */
+    @Test
+    fun theLineAtTheTopStaysThereWhenPicturesAboveItArrive() {
+        assertTopLineHeldAsPicturesArrive()
+    }
+
+    /** Selectable text re-sets its text rather than a precomputed layout when pictures land. */
+    @Test
+    fun theLineAtTheTopStaysThereWhenPicturesAboveItArriveWithTextSelectable() {
+        useSelectableText()
+        assertTopLineHeldAsPicturesArrive()
+    }
+
+    private fun assertTopLineHeldAsPicturesArrive() {
+        runBlocking(Dispatchers.Main) {
+            viewport.load(illustratedChapter(0, STALLED_IMAGE_DELAYS_MS), readerTestSettings)
+        }
+        awaitWhile { !textShown() }
+        // Dragged rather than scrolled, so the opening landing takes the reader as having moved on.
+        repeat(PICTURE_PASS_DRAGS) {
+            drag(
+                fromX = view.width / 2f,
+                toX = view.width / 2f,
+                fromY = view.height * 0.9f,
+                toY = view.height * 0.1f,
+                holdMs = FLING_FREE_HOLD_MS,
+            )
+            awaitScrollStill()
+        }
+        val before = straddledTopLine()
+        val paragraph = before.paragraph.filter(Char::isDigit).toInt()
+        assertTrue(
+            "the reader at ${before.paragraph} is above every picture",
+            paragraph > IMAGE_AFTER_PARAGRAPH.first(),
+        )
+        assertTrue("the pictures arrived before the reader moved", !imagesArrived())
+        awaitIllustratedLanding()
+        val after = lineTop(before.paragraph, before.offset)
+        assertEquals("the line at ${before.paragraph} +${before.offset}", before.y, after, HOLD_SLACK_PX)
+    }
+
     @Test
     fun aChapterArrivingAboveLeavesTheOpenedChaptersFirstLineInPlaceWithTextSelectable() {
         useSelectableText()
@@ -2478,6 +2519,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
 
         /** A chunk is about 6000 characters, some 27 of these paragraphs, so each picture has its own. */
         val IMAGE_AFTER_PARAGRAPH = listOf(10, 40, 70, 100)
+
+        /** Screens dragged through to pass the first picture's placeholder before any picture lands. */
+        const val PICTURE_PASS_DRAGS = 4
 
         /** A paragraph's Range under either way the page can draw a mark: a highlight, or its boxes. */
         const val MARKED_BOX_JS =

@@ -100,6 +100,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 bionic = false,
                 contentWidth = COLUMN_PX,
                 baseUrl = null,
+                holdAcross = { it() },
                 onTextSet = {},
             ).join()
         }

@@ -259,6 +259,7 @@ every release now also ships a foss build with neither in it.
 - **Small pictures in the novel reader's native text mode are now drawn at their own size, as in the web page mode, instead of stretched across the page.**
 - **A picture that fails to load in the novel reader now says so, with a Retry button, in both text modes.** Native text mode showed a blank grey block, and the web page mode the browser's broken-image mark.
 - **Pictures in the novel reader's native text mode now sit 1em clear of the text around them, as in the web page mode, and no longer run into the text above at a tight line spacing.**
+- **In the novel reader's native text mode, pictures loading above where you are reading no longer push the text you are on down the screen.** The web page mode already held your place.
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
 - **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
 - **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**

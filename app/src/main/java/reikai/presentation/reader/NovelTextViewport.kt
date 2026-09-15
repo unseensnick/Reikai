@@ -810,6 +810,9 @@ class NovelTextViewport(
             bionic = settings.bionicReading,
             contentWidth = columnWidthPx(settings),
             baseUrl = chapter.baseUrl,
+            // A landing still waiting on the pictures is re-applied once they land, and a correction for the
+            // line on top of it would overshoot.
+            holdAcross = { change -> if (slots.none { it.landing != null }) holdingReader(change) else change() },
             onTextSet = { join(slot) },
         ).join()
     }
