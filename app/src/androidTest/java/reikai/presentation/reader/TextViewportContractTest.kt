@@ -909,6 +909,23 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue(runWidth("77") < runWidth("88") * SCRIPT_MAX_RATIO)
     }
 
+    /** Against bold body text, since both renderers set a heading bold. */
+    @Test
+    fun aTopLevelHeadingIsSetAtTwiceTheTextSize() {
+        open(chapter(FIRST, "<p><b>$HEADING_RUN</b></p>"))
+        val body = runWidth(HEADING_RUN)
+        open(chapter(SECOND, "<h1>$HEADING_RUN</h1>"))
+        assertEquals(body * 2, runWidth(HEADING_RUN), body * 2 * SIZE_SLACK)
+    }
+
+    @Test
+    fun aSixthLevelHeadingIsSetSmallerThanTheText() {
+        open(chapter(FIRST, "<p><b>$HEADING_RUN</b></p>"))
+        val body = runWidth(HEADING_RUN)
+        open(chapter(SECOND, "<h6>$HEADING_RUN</h6>"))
+        assertEquals(body * 0.67f, runWidth(HEADING_RUN), body * 0.67f * SIZE_SLACK)
+    }
+
     @Test
     fun aRuleStandsAtLeastALineBetweenTheParagraphsAroundIt() {
         open(chapter(FIRST, "<p>$ABOVE_RULE</p><p>$BELOW_RULE</p>"))
@@ -2166,6 +2183,10 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val ABOVE_RULE = "The paragraph above the rule."
         const val BELOW_RULE = "The paragraph below the rule."
         const val RUBY_REFERENCE = "WWWW"
+        const val HEADING_RUN = "MMMMMMMM"
+
+        /** A glyph's width rounds per size, which at a heading's size is a few percent of a run. */
+        const val SIZE_SLACK = 0.03f
         const val JUMP_LINK = "Jump to the note"
         const val BASE_URL = "https://novel.test/chapter/1"
         const val NOTE = "The note the link names."

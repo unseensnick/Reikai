@@ -255,6 +255,7 @@ every release now also ships a foss build with neither in it.
 - **Skip duplicate chapters no longer folds chapters with no number, like a prologue and an afterword, into one.** Each is kept in its place in both readers.
 - **Download ahead in the manga reader no longer fetches hidden chapters or duplicates the reader skips.**
 - **Scrolling into the next manga chapter and straight back no longer leaves the reader on the chapter you left.** The bookmark button and Open in WebView could act on it, and the high quality renderer could jump there.
+- **Headings and small text in the novel reader's native text mode are now sized as the web page mode sizes them.** A top-level heading was a quarter smaller there.
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
 - **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
 - **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**

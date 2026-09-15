@@ -11,6 +11,7 @@ import android.text.style.ReplacementSpan
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.xml.sax.XMLReader
+import reikai.presentation.reader.NovelTextScale
 import java.net.URLDecoder
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -168,7 +169,7 @@ internal class RuleSpan : LineBackgroundSpan {
 }
 
 /**
- * [base] with [reading] centred above it at [READING_SCALE] of its size, as a browser sets ruby. The
+ * [base] with [reading] centred above it at [NovelTextScale.RUBY_READING] of its size, as a browser sets ruby. The
  * line grows by the reading's height, as it does in the page.
  */
 internal class RubySpan(private val base: String, private val reading: String) : ReplacementSpan() {
@@ -208,16 +209,11 @@ internal class RubySpan(private val base: String, private val reading: String) :
 
     private inline fun <T> withReadingSize(paint: Paint, block: (Paint) -> T): T {
         val size = paint.textSize
-        paint.textSize = size * READING_SCALE
+        paint.textSize = size * NovelTextScale.RUBY_READING
         return try {
             block(paint)
         } finally {
             paint.textSize = size
         }
-    }
-
-    private companion object {
-        /** A browser's default `rt` size. */
-        const val READING_SCALE = 0.5f
     }
 }

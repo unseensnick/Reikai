@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.android.material.color.MaterialColors
 import org.json.JSONObject
 import reikai.presentation.reader.NovelReaderSettings
+import reikai.presentation.reader.NovelTextScale
 import reikai.presentation.reader.text.NovelChapterSeamView
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -164,17 +165,21 @@ object NovelWebDocument {
               text-indent: var(--rk-paragraph-indent) !important;
               margin-bottom: var(--rk-paragraph-spacing) !important;
             }
-            .rk-chapter h1 { font-size: 2em !important; }
-            .rk-chapter h2 { font-size: 1.5em !important; }
-            .rk-chapter h3 { font-size: 1.17em !important; }
-            .rk-chapter h4 { font-size: 1em !important; }
-            .rk-chapter h5 { font-size: 0.83em !important; }
-            .rk-chapter h6 { font-size: 0.67em !important; }
-            .rk-chapter sup, .rk-chapter sub { font-size: 0.7em !important; }
-            .rk-chapter small { font-size: 0.83em !important; }
-            .rk-chapter rt { font-size: 0.5em !important; }
+$sizedElements
         """.trimIndent()
     }
+
+    /** Written from the table the native renderer sizes the same elements by. */
+    private val sizedElements: String = buildString {
+        NovelTextScale.headings.forEachIndexed { i, size -> appendLine("h${i + 1}" em size) }
+        appendLine("sup, .rk-chapter sub" em NovelTextScale.SCRIPT)
+        appendLine("small" em NovelTextScale.SMALL)
+        append("rt" em NovelTextScale.RUBY_READING)
+    }.prependIndent("            ")
+
+    private infix fun String.em(size: Float) = ".rk-chapter $this { font-size: ${size.toString().removeSuffix(
+        ".0",
+    )}em !important; }"
 
     /** Safe inside the single quotes the script writes it into, which is all it has to survive. */
     private fun jsString(value: String): String = value

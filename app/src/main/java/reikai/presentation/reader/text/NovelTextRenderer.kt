@@ -22,6 +22,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
+import reikai.presentation.reader.NovelTextScale
 import tachiyomi.core.common.util.system.logcat
 
 /**
@@ -107,6 +108,7 @@ class NovelTextRenderer(
                 )
                 SpannableStringBuilder(spanned)
                     .also { collapseBlankLines(it) }
+                    .also { resizeSizedText(it) }
                     .also { NovelChapterTags.placeRules(it) }
                     .also { shrinkScripts(it) }
                     .also { NovelChapterLinks.apply(it, context, onAnchor) }
@@ -368,18 +370,28 @@ class NovelTextRenderer(
             }
         }
 
-        /** `Html.fromHtml` raises `sup` and lowers `sub` at full size; the WebView page sets both at 0.7em. */
+        /** `Html.fromHtml` sizes headings, `big` and `small` its own way; the page's table replaces them. */
+        internal fun resizeSizedText(text: SpannableStringBuilder) {
+            text.getSpans(0, text.length, RelativeSizeSpan::class.java).forEach { span ->
+                val size = NovelTextScale.forFromHtmlSize(span.sizeChange) ?: return@forEach
+                val start = text.getSpanStart(span)
+                val end = text.getSpanEnd(span)
+                val flags = text.getSpanFlags(span)
+                text.removeSpan(span)
+                if (size != 1f) text.setSpan(RelativeSizeSpan(size), start, end, flags)
+            }
+        }
+
+        /** `Html.fromHtml` raises `sup` and lowers `sub` at full size; the WebView page sets both smaller. */
         internal fun shrinkScripts(text: SpannableStringBuilder) {
             val scripts: List<Any> = text.getSpans(0, text.length, SuperscriptSpan::class.java).toList() +
                 text.getSpans(0, text.length, SubscriptSpan::class.java)
             scripts.forEach { script ->
                 val start = text.getSpanStart(script)
                 val end = text.getSpanEnd(script)
-                text.setSpan(RelativeSizeSpan(SCRIPT_SCALE), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                text.setSpan(RelativeSizeSpan(NovelTextScale.SCRIPT), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
-
-        private const val SCRIPT_SCALE = 0.7f
 
         private val whitespace = Regex("\\s+")
         private val widthDescriptor = Regex("^(\\d+)w$")
