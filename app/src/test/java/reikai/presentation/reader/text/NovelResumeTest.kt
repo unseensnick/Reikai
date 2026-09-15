@@ -7,16 +7,21 @@ class NovelResumeTest {
 
     @Test
     fun `an unread chapter opens where it was left`() {
-        NovelResume.percent(read = false, lastTextProgress = 4_200L) shouldBe 42
+        NovelResume.percent(read = false, lastTextProgress = 4_200L, preserveOnRead = false) shouldBe 42
     }
 
     @Test
     fun `a read chapter opens at its start`() {
-        NovelResume.percent(read = true, lastTextProgress = 10_000L) shouldBe 0
+        NovelResume.percent(read = true, lastTextProgress = 10_000L, preserveOnRead = false) shouldBe 0
     }
 
     @Test
     fun `a stored position past the end opens at the end`() {
-        NovelResume.percent(read = false, lastTextProgress = 12_000L) shouldBe 100
+        NovelResume.percent(read = false, lastTextProgress = 12_000L, preserveOnRead = false) shouldBe 100
+    }
+
+    @Test
+    fun `a read chapter opens where it was left when positions are kept`() {
+        NovelResume.percent(read = true, lastTextProgress = 4_200L, preserveOnRead = true) shouldBe 42
     }
 }

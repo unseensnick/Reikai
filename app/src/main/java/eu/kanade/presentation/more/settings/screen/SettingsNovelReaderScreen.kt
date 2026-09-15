@@ -567,6 +567,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     onValueChanged = { autoScrollSpeedPref.set(it / TENTHS) },
                 ).takeIf { autoScroll },
                 readerBottomButtonsPreference(ReaderBottomButton.BarPreferences.novel(novelPreferences)),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerPreserveReadingPosition(),
+                    title = stringResource(MR.strings.pref_preserve_reading_position),
+                    subtitle = stringResource(MR.strings.pref_preserve_reading_position_summary),
+                ),
             ),
         )
     }

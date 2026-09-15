@@ -344,6 +344,10 @@ class NovelPreferences(
      *  0.75, leaving a quarter-screen overlap for reading continuity). */
     fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
 
+    /** Reopen a read chapter where it was left rather than at its start, as the manga reader's
+     *  [ReaderPreferences.preserveReadingPosition]. */
+    fun readerPreserveReadingPosition() = preferenceStore.getBoolean("ln_reader_preserve_reading_position", false)
+
     /** User-selected bottom-bar buttons for the novel reader (the novel twin of the manga
      *  [ReaderPreferences.readerBottomButtons]). Values are [ReaderBottomButton.value] codes. */
     fun readerBottomButtons() =

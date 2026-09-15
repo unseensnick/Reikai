@@ -89,6 +89,7 @@ import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
 import reikai.presentation.reader.ChapterSwitches
+import reikai.presentation.reader.ReaderResume
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -436,7 +437,10 @@ class ReaderViewModel(
                         currentChapter.requestedPage = chapterPageIndex
                         restorePending = false
                     }
-                    !currentChapter.chapter.read || readerPreferences.preserveReadingPosition.get() -> {
+                    ReaderResume.keepsPosition(
+                        currentChapter.chapter.read,
+                        readerPreferences.preserveReadingPosition.get(),
+                    ) -> {
                         currentChapter.requestedPage = currentChapter.chapter.last_page_read
                     }
                     // A finished chapter opens at its start, the gate ChapterLoader applies when it

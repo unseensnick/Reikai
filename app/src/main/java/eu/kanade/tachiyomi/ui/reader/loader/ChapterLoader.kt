@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import mihon.core.archive.archiveReader
 import mihon.core.archive.epubReader
+import reikai.presentation.reader.ReaderResume
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -58,8 +59,8 @@ class ChapterLoader(
 
                 // If the chapter is partially read, set the starting page to the last the user read
                 // otherwise use the requested page.
-                // RK: optionally resume read chapters at the last position too
-                if (!chapter.chapter.read || readerPreferences.preserveReadingPosition.get()) {
+                // RK: optionally resume read chapters at the last position too, on the rule both types share
+                if (ReaderResume.keepsPosition(chapter.chapter.read, readerPreferences.preserveReadingPosition.get())) {
                     chapter.requestedPage = chapter.chapter.last_page_read
                 }
 

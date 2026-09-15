@@ -911,7 +911,11 @@ class NovelReaderViewModel(
         url = url,
         html = html,
         baseUrl = baseUrl,
-        progressPercent = NovelResume.percent(read, lastTextProgress),
+        progressPercent = NovelResume.percent(
+            read,
+            lastTextProgress,
+            novelPreferences.readerPreserveReadingPosition().get(),
+        ),
         chapterNumber = chapterNumber,
         novelId = novelId,
         // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
