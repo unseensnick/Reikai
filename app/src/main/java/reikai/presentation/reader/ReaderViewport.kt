@@ -10,8 +10,8 @@ import reikai.domain.reader.ChapterProgress
  * `Viewer` is an adapter under this rather than the interface a novel viewer implements, because
  * `ViewerChapters` cannot carry a novel chapter without treating novels as manga.
  *
- * Chapter delivery is absent for that same reason, and stays on the manga adapter until novels
- * define what a chapter set is.
+ * Chapter delivery is absent for that same reason: manga's arrives through `Viewer.setChapters` on
+ * the unwrapped [MangaViewport], and a novel's through [ChapterWindow] on [TextViewport].
  */
 interface ReaderViewport {
 

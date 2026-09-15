@@ -12,12 +12,12 @@ import reikai.domain.reader.pageIndex
 import kotlin.math.min
 
 /**
- * The only adapter under [ReaderViewport] today, over whatever `ReadingMode.toViewer` built. The
- * three image viewers stay unedited: everything neutral about them is expressible from out here.
+ * The manga adapter under [ReaderViewport], over whatever `ReadingMode.toViewer` built; the novel
+ * viewports implement the contract directly. The image viewers carry only the divergences
+ * content-layer.md's Reader row names, so the rest is expressed from out here.
  *
- * [viewer] is public because the reader settings sheet asks which viewer implementation is running,
- * which is a manga question rather than a neutral one, so it is answered by unwrapping this adapter
- * instead of by widening the contract.
+ * [viewer] is public because the settings sheet asks which viewer implementation is running, a manga
+ * question rather than a neutral one, answered by unwrapping this rather than by widening the contract.
  */
 class MangaViewport(
     val viewer: Viewer,

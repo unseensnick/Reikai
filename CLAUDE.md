@@ -52,7 +52,7 @@ EVERY commit (including `docs` / `chore` / one-line fixes) follows the "Commit m
 
 ## Identity (load-bearing, preserve through the rebase)
 
-`applicationId = "app.reikai"`, with upstream's suffixes on top of it: `.dev` for debug, `.debug` for preview, `.foss`, `.benchmark`, and none at all on release. The **namespace** stays `eu.kanade.tachiyomi`, which Mihon shares, so source classes and installed extensions resolve either way. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Renamed at 0.3.2 from `eu.kanade.tachiyomi` + `.y2k`, which was Tachiyomi's id rather than the fork's own; because Android identifies an app by that id, 0.3.2 installs beside an older build instead of over it. Keep the id and app name; take Mihon for everything else.
+`applicationId = "app.reikai"`, with upstream's suffixes on top of it: `.dev` for debug, `.debug` for nightly (the preview channel), `.foss`, `.benchmark`, and none at all on release. The **namespace** stays `eu.kanade.tachiyomi`, which Mihon shares, so source classes and installed extensions resolve either way. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Renamed at 0.3.2 from `eu.kanade.tachiyomi` + `.y2k`, which was Tachiyomi's id rather than the fork's own; because Android identifies an app by that id, 0.3.2 installs beside an older build instead of over it. Keep the id and app name; take Mihon for everything else.
 
 **Reikai patches on Mihon files** are fenced with `// RK -->` / `// RK <--` comment islands (grep `// RK` to find every active patch), mirroring how Komikku marks its `// SY` / `// KMK` patches. Everything that can live in its own file/module should, rather than editing Mihon's files.
 
