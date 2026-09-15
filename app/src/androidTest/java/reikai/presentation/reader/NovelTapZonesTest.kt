@@ -44,6 +44,29 @@ class NovelTapZonesTest {
     }
 
     @Test
+    fun rightAndLeftReadsBackFromTheLeft() {
+        assertEquals(NovelTapAction.BACK, zones(NovelTapLayout.RIGHT_AND_LEFT).actionAt(0.1f, 0.5f))
+    }
+
+    /** The middle row's left third turns back, where thirds would open the menu. */
+    @Test
+    fun lShapedReadsBackFromTheLeftOfTheMiddle() {
+        assertEquals(NovelTapAction.BACK, zones(NovelTapLayout.L_SHAPED).actionAt(0.1f, 0.5f))
+    }
+
+    /** The whole left column below the top row turns back, where thirds would read on at the bottom. */
+    @Test
+    fun kindlishReadsBackFromTheLowerLeft() {
+        assertEquals(NovelTapAction.BACK, zones(NovelTapLayout.KINDLISH).actionAt(0.1f, 0.8f))
+    }
+
+    /** Both edges read on, so turning back is the bottom of the middle column. */
+    @Test
+    fun edgeReadsBackFromTheBottomMiddle() {
+        assertEquals(NovelTapAction.BACK, zones(NovelTapLayout.EDGE).actionAt(0.5f, 0.9f))
+    }
+
+    @Test
     fun invertingSwapsWhereALayoutReadsOn() {
         assertEquals(
             NovelTapAction.BACK,
