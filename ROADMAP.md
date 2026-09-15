@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## The 0.4.0 cut
 
-0.4.0 is **not** cut before these land: the reader surface takeover and the download subsystem rework (Road B). Two items, and nothing else in this file moves the cut. The light-novel trackers no longer gate it; MyNovelList sits under Parked, and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
+0.4.0 is **not** cut before the download subsystem rework (Road B) lands. One item, and nothing else in this file moves the cut; the reader surface takeover is complete, its record is [content-layer-reader-surface.md](docs/dev/plans/content-layer-reader-surface.md). The light-novel trackers no longer gate it; MyNovelList sits under Parked, and the rulings behind both are in [novel-specific-trackers.md](docs/dev/plans/novel-specific-trackers.md).
 
 ## Now
 
