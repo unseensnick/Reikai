@@ -25,19 +25,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
-import mihon.domain.extension.interactor.GetExtensionStores
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -60,8 +61,6 @@ class ExtensionManager(
     private val trustExtension: TrustExtension,
     // RK: gates hiding the stock E-Hentai extension while built-in EH is active.
     private val exhPreferences: ExhPreferences,
-    // RK: the store list drives re-trusting, see the collector in init.
-    private val getExtensionStores: GetExtensionStores,
     private val api: ExtensionApi,
     private val installer: ExtensionInstaller,
     private val extensionUpdateNotifier: ExtensionUpdateNotifier,
@@ -82,7 +81,7 @@ class ExtensionManager(
     private val notLoadedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.NotLoaded>())
     val notLoadedExtensionsFlow = notLoadedExtensionMapFlow.mapExtensionsWhenInitialized()
 
-    // RK --> one scan at a time. It now runs from three places on this scope, and each pass assigns
+    // RK --> one scan at a time. It runs from three places on this scope, and each pass assigns
     // both maps wholesale from a store list it read when it started, so a slow startup scan landing
     // after a re-trust would put every extension back to Untrusted until the next launch.
     // Twin of LnPluginInstaller.loadMutex, which serializes the novel plugin loads for this reason.
@@ -91,22 +90,17 @@ class ExtensionManager(
 
     init {
         scope.launch(Dispatchers.IO) {
-            initExtensions()
+            loadExtensions()
             ExtensionInstallReceiver(InstallationListener()).register(context)
-        }
 
-        // RK --> re-trust on a store change rather than waiting to be asked. Trust is judged against
-        // the signing keys a scan reads as it starts, so a repo added afterwards (settings, a backup
-        // restore) left its extensions Untrusted until something called the manual re-check. The
-        // first emission is the list the startup scan already saw, hence the drop.
-        scope.launchIO {
-            getExtensionStores.subscribe()
-                .map { stores -> stores.mapTo(mutableSetOf()) { it.signingKey } }
-                .distinctUntilChanged()
-                .drop(1)
-                .collect { initExtensions() }
+            // Everything the load decision rests on can change while running, so decide again
+            merge(
+                trustExtension.changes(),
+                preferences.enabledContentWarnings.changes().distinctUntilChanged().drop(1).map {},
+                preferences.applyContentWarningsToInstalled.changes().distinctUntilChanged().drop(1).map {},
+            )
+                .collectLatest { loadExtensions() }
         }
-        // RK <--
     }
 
     private var subLanguagesEnabledOnFirstRun = preferences.enabledLanguages.isSet()
@@ -158,11 +152,13 @@ class ExtensionManager(
     fun getSourceData(id: Long) = availableExtensionsSourcesData[id]
 
     /**
-     * Loads and registers the installed extensions.
+     * Loads and registers the installed extensions. Safe to call again: every extension is judged
+     * again, so one can move between loaded and not loaded in either direction, while extensions
+     * that still pass keep the instances they already had.
      */
-    private suspend fun initExtensions() = loadMutex.withLock {
+    private suspend fun loadExtensions() = loadMutex.withLock {
         try {
-            val extensions = ExtensionLoader.loadExtensions(context)
+            val extensions = ExtensionLoader.loadExtensions(context, loadedExtensionMapFlow.value)
 
             loadedExtensionMapFlow.value = extensions
                 .filterIsInstance<Extension.Loaded>()
@@ -172,11 +168,13 @@ class ExtensionManager(
                 .filterIsInstance<Extension.NotLoaded>()
                 .associateBy { it.pkgName }
 
-            initialized.complete(Unit)
+            // Newly loaded extensions have no status derived from the store index yet
+            updatedInstalledExtensionsStatuses(availableExtensionMapFlow.value.values.toList())
         } catch (e: Throwable) {
-            // Release anything waiting on the extensions before the failure propagates
+            logcat(LogPriority.ERROR, e) { "Failed to load extensions" }
+        } finally {
+            // Release anything waiting on the extensions whether or not the load worked
             initialized.complete(Unit)
-            throw e
         }
     }
 
@@ -190,7 +188,7 @@ class ExtensionManager(
      * changed without the receiver firing. Queues behind an in-flight scan rather than racing it.
      */
     fun reloadInstalledExtensions() {
-        scope.launchIO { initExtensions() }
+        scope.launchIO { loadExtensions() }
     }
     // RK <--
 
@@ -339,19 +337,12 @@ class ExtensionManager(
      *
      * @param extension the extension to trust
      */
-    suspend fun trust(extension: Extension.NotLoaded) {
+    fun trust(extension: Extension.NotLoaded) {
         val reason = extension.reason as? Extension.NotLoaded.Reason.Untrusted ?: return
         notLoadedExtensionMapFlow.value[extension.pkgName] ?: return
 
+        // Loading it again is left to the reload triggered by the trust change
         trustExtension.trust(extension.pkgName, extension.versionCode, reason.signatureHash)
-
-        notLoadedExtensionMapFlow.value -= extension.pkgName
-
-        when (val reloaded = ExtensionLoader.loadExtensionFromPkgName(context, extension.pkgName)) {
-            is Extension.Loaded -> registerExtension(reloaded)
-            is Extension.NotLoaded -> notLoadedExtensionMapFlow.value += reloaded
-            null -> {}
-        }
     }
 
     /**

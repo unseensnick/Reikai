@@ -71,6 +71,7 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.api.ExtensionApi
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
@@ -121,6 +122,8 @@ class MainActivity : BaseActivity() {
     @Inject private lateinit var libraryPreferences: LibraryPreferences
 
     @Inject private lateinit var extensionApi: ExtensionApi
+
+    @Inject private lateinit var extensionManager: ExtensionManager
 
     @Inject private lateinit var preferences: BasePreferences
 
@@ -336,7 +339,7 @@ class MainActivity : BaseActivity() {
         // Extensions updates
         LaunchedEffect(Unit) {
             try {
-                extensionApi.checkForUpdates(context)
+                extensionApi.checkForUpdates(extensionManager.getLoadedExtensions())
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
             }

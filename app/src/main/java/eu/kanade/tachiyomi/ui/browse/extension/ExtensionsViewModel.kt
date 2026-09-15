@@ -130,9 +130,7 @@ class ExtensionsViewModel(
     }
 
     fun trustExtension(extension: Extension.NotLoaded) {
-        viewModelScope.launch {
-            extensionManager.trust(extension)
-        }
+        extensionManager.trust(extension)
     }
 
     // RK: manual lever to re-scan installed extensions and re-evaluate trust against the current
