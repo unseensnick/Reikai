@@ -20,6 +20,7 @@ import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.isRunning
@@ -118,7 +119,9 @@ class NovelUpdateJob(
     @Inject private lateinit var mergeGroupRepository: MergeGroupRepository
 
     @Inject private lateinit var mergedChapterUnitRepository: MergedChapterUnitRepository
-    private val notifier = NovelUpdateNotifier(context)
+
+    @Inject private lateinit var securityPreferences: SecurityPreferences
+    private val notifier = NovelUpdateNotifier(context, securityPreferences)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.progress("", 0, 0)

@@ -40,6 +40,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
+import reikai.data.notification.shownEntryName
 import reikai.domain.novel.tts.TtsPlayback
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -317,8 +319,11 @@ class NovelTtsService : Service() {
             .build()
     }
 
+    /** The notification's and the lock screen's title, which name the novel only while content is shown. */
     private fun contentTitle(state: NovelTtsSession.State) =
-        state.title.ifBlank { stringResource(MR.strings.tts_reading_aloud) }
+        shownEntryName(state.title, appGraph.securityPreferences.hideNotificationContent.get())
+            ?.ifBlank { null }
+            ?: stringResource(MR.strings.tts_reading_aloud)
 
     private fun contentText(): String {
         val timer = NovelTtsSession.sleepTimer

@@ -3,11 +3,13 @@ package reikai.novel.download
 import android.app.Notification
 import android.content.Context
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
+import reikai.data.notification.shownEntryName
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 
@@ -16,7 +18,10 @@ import tachiyomi.i18n.MR
  * downloader notifier: one ongoing progress entry with a cancel action, no per-novel deep links
  * (there's no novel-downloads detail surface to open into).
  */
-class NovelDownloadNotifier(private val context: Context) {
+class NovelDownloadNotifier(
+    private val context: Context,
+    private val securityPreferences: SecurityPreferences,
+) {
 
     private val builder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_NOVEL_DOWNLOADER) {
@@ -35,7 +40,7 @@ class NovelDownloadNotifier(private val context: Context) {
     fun progress(title: String, current: Int, total: Int): Notification =
         builder
             .setContentTitle("${context.stringResource(MR.strings.label_download_queue)} ($current/$total)")
-            .setContentText(title)
+            .setContentText(shownEntryName(title, securityPreferences.hideNotificationContent.get()))
             .setProgress(total, current, total == 0)
             .build()
 

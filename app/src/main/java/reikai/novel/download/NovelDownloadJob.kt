@@ -12,6 +12,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -39,7 +40,9 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
     }
 
     @Inject private lateinit var manager: NovelDownloadManager
-    private val notifier = NovelDownloadNotifier(context)
+
+    @Inject private lateinit var securityPreferences: SecurityPreferences
+    private val notifier = NovelDownloadNotifier(context, securityPreferences)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.progress("", 0, manager.queueState.value.size)
