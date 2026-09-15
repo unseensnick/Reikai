@@ -4,8 +4,10 @@ import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
 import android.text.Layout
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ImageSpan
+import android.text.style.ParagraphStyle
 import android.util.Log
 import android.util.TypedValue
 import android.view.InputDevice
@@ -909,6 +911,28 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(runWidth(RUBY_REFERENCE), rubyWidth(), TYPE_SLACK_PX)
     }
 
+    /** A reading wider than its base, so the ruby is as wide as the reading is set, which is half size. */
+    @Test
+    fun aRubyReadingIsSetAtHalfTheTextSize() {
+        open(chapter(FIRST, "<p>A $LONG_READING alone.</p><p>xx<ruby>W<rt>$LONG_READING</rt></ruby>yy after it.</p>"))
+        assertEquals(runWidth(LONG_READING) / 2, readingWidth(), TYPE_SLACK_PX * 2)
+    }
+
+    /** Sources number their footnotes per chapter, so the chapter above often repeats the same id. */
+    @Test
+    fun aLinkToAPlaceInTheChapterScrollsWithinItsOwnChapter() {
+        val target = "<p id=\"note\">$NOTE</p>"
+        open(chapter(SECOND, "<p><a href=\"#note\">$JUMP_LINK</a></p>${long("filler")}$target${long("after")}"))
+        prepend(chapter(FIRST, "${long("before")}<p id=\"note\">$OTHER_NOTE</p>"))
+        awaitScrollStill()
+        val link = textBox(JUMP_LINK)
+        val at = IntArray(2).also { a -> instrumentation.runOnMainSync { view.getLocationOnScreen(a) } }
+        tap(link.centerX() - at[0], link.centerY() - at[1])
+        awaitWhile { abs(textBox(NOTE).top - at[1]) > textSizePx() * 3 }
+        awaitScrollStill()
+        assertEquals(at[1].toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
     @Test
     fun aLinkToAPlaceInTheChapterScrollsThere() {
         val target = "<p id=\"note\">$NOTE</p>"
@@ -985,11 +1009,28 @@ class TextViewportContractTest(private val renderer: Renderer) {
             instrumentation.runOnMainSync {
                 val chunk = textViews().first { it.text.contains(text) }
                 val start = chunk.text.indexOf(text)
-                width = Layout.getDesiredWidth(chunk.text, start, start + text.length, chunk.paint)
+                width = withoutParagraphStyles(chunk.text as Spanned, start, start + text.length, chunk)
             }
             width
         }
         Renderer.WEB -> textBox(text).width()
+    }
+
+    /** The run's own width: a paragraph's indent is otherwise counted into the run that opens its line. */
+    private fun withoutParagraphStyles(text: Spanned, start: Int, end: Int, chunk: TextView): Float {
+        val run = SpannableStringBuilder(text.subSequence(start, end))
+        run.getSpans(0, run.length, ParagraphStyle::class.java).forEach(run::removeSpan)
+        return Layout.getDesiredWidth(run, chunk.paint)
+    }
+
+    /**
+     * How wide the chapter's ruby reading is set. The page's own box, since a browser lets a reading overhang
+     * the letters beside its base; native draws the reading over its base, as wide as the ruby when wider.
+     */
+    private fun readingWidth(): Float = when (renderer) {
+        Renderer.NATIVE -> rubyWidth()
+        Renderer.WEB -> eval("document.querySelector('.rk-chapter rt').getBoundingClientRect().width").toFloat() *
+            instrumentation.targetContext.resources.displayMetrics.density
     }
 
     /** How wide the chapter's ruby is set, its reading included. */
@@ -997,10 +1038,12 @@ class TextViewportContractTest(private val renderer: Renderer) {
         Renderer.NATIVE -> {
             var width = 0f
             instrumentation.runOnMainSync {
-                val chunk = textViews().first { it.text.contains(RUBY_REFERENCE + "reading") }
+                val chunk = textViews().first { view ->
+                    (view.text as Spanned).getSpans(0, view.text.length, RubySpan::class.java).isNotEmpty()
+                }
                 val text = chunk.text as Spanned
                 val ruby = text.getSpans(0, text.length, RubySpan::class.java).single()
-                width = Layout.getDesiredWidth(text, text.getSpanStart(ruby), text.getSpanEnd(ruby), chunk.paint)
+                width = withoutParagraphStyles(text, text.getSpanStart(ruby), text.getSpanEnd(ruby), chunk)
             }
             width
         }
@@ -1943,6 +1986,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val RUBY_REFERENCE = "WWWW"
         const val JUMP_LINK = "Jump to the note"
         const val NOTE = "The note the link names."
+        const val OTHER_NOTE = "The note the chapter above names the same way."
+        const val LONG_READING = "annotation"
 
         val transitionsOff = readerTestSettings.copy(alwaysShowChapterTransition = false)
 

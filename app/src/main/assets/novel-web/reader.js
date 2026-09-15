@@ -516,6 +516,21 @@
       if (e.isTrusted) onReaderMove();
     }, { passive: true });
 
+    // Sources number footnotes per chapter, so the chapters one page holds repeat ids and the browser's
+    // own jump lands on the first, often in the chapter above. The target is looked up in the link's own.
+    document.addEventListener('click', function (e) {
+      var link = e.target && e.target.closest && e.target.closest('a[href^="#"]');
+      var chapter = link && link.closest(CHAPTER_SELECTOR);
+      if (!chapter) return;
+      e.preventDefault();
+      var name = CSS.escape(decodeURIComponent(link.getAttribute('href').substring(1)));
+      var target = name && chapter.querySelector('[id="' + name + '"], a[name="' + name + '"]');
+      if (!target) return;
+      onReaderMove();
+      window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top, behavior: 'instant' });
+      place.sync();
+    }, true);
+
     document.addEventListener('keydown', function (e) {
       if (e.isTrusted && SCROLL_KEYS.indexOf(e.key) >= 0) onReaderMove();
     });

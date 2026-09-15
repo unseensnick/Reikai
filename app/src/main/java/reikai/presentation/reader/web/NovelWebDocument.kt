@@ -140,7 +140,7 @@ object NovelWebDocument {
      * carry `!important` rather than being folded into the stylesheet. Ported from tsundoku's
      * `fontOverrideCss`, including why the headings are restated: forcing `font-size: inherit` on
      * every element is what stops a source sizing its own text, and it flattens headings with it.
-     * Tsundoku restates only headings, which left footnote markers at full body size.
+     * Tsundoku restates only headings, which left footnote markers and ruby readings at full body size.
      */
     private fun overrides(useOriginalFonts: Boolean, sourceCssPriority: Boolean): String {
         if (sourceCssPriority) return ""
@@ -172,6 +172,7 @@ object NovelWebDocument {
             .rk-chapter h6 { font-size: 0.67em !important; }
             .rk-chapter sup, .rk-chapter sub { font-size: 0.7em !important; }
             .rk-chapter small { font-size: 0.83em !important; }
+            .rk-chapter rt { font-size: 0.5em !important; }
         """.trimIndent()
     }
 
