@@ -262,7 +262,8 @@ every release now also ships a foss build with neither in it.
 - **In the novel reader's native text mode, pictures loading above where you are reading no longer push the text you are on down the screen.** The web page mode already held your place.
 - **Hide notification content now also keeps novel titles out of the read-aloud notification and lock screen, and the novel download and update notifications.** Manga notifications already followed it.
 - **A read-aloud sleep timer set before you press play now counts down from when reading starts.** It used to count from when it was set, so it could stop reading as soon as you began.
-- **Pressing play on read aloud during a call or a navigation prompt no longer reads over it.** It waits until the other audio has finished, as it does when that audio interrupts it.
+- **Pressing play on read aloud during a call or a navigation prompt no longer reads over it.** It stays paused until you press play again after.
+- **Read aloud carrying on into a novel's next chapter no longer fetches that chapter twice when it was already loading.**
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
 - **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
 - **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**

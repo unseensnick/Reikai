@@ -72,6 +72,7 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.reader.text.InFlightLoads
 import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelLeaveRule
 import reikai.presentation.reader.text.NovelOpenLanding
@@ -624,7 +625,7 @@ class NovelReaderViewModel(
 
     /** Chapters with a warm already running, so two crossings in quick succession do not fetch the
      *  same chapter twice. */
-    private val warmsInFlight: MutableSet<Long> = Collections.synchronizedSet(mutableSetOf())
+    private val warmsInFlight = InFlightLoads<Long>()
 
     /** Chapters the renderer found fit on one screen, so a forward step from one reads it. Kept current
      *  rather than latched, since a chapter can measure short before its images land. */
@@ -850,6 +851,9 @@ class NovelReaderViewModel(
                 incognitoMode = getIncognitoState.await(null)
                 if (orderedIds.isEmpty()) resolveReadingOrder()
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
+                // A warm already fetching it is waited on, rather than fetched again beside it, which is
+                // how read aloud reaching a chapter's end mid-warm opens the next chapter.
+                warmsInFlight.awaitIdle(row.id)
                 val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row).also { htmlCache[row.id] = it }
                 val bookmarked = isBookmarkedInGroup(row.id)
                 lane.withLock {
@@ -1271,7 +1275,7 @@ class NovelReaderViewModel(
         val id = chapterId ?: return
         if (htmlCache.containsKey(id)) return
         if (!warmFailures.mayAutoWarm(id, SystemClock.elapsedRealtime())) return
-        if (!warmsInFlight.add(id)) return
+        if (!warmsInFlight.begin(id)) return
         viewModelScope.launchIO {
             try {
                 val row = chapterRepo.getById(id) ?: error("Chapter not found: $id")
@@ -1288,7 +1292,7 @@ class NovelReaderViewModel(
                 // is about to reach, rather than the text simply stopping there.
                 rebuildWindow()
             } finally {
-                warmsInFlight.remove(id)
+                warmsInFlight.finish(id)
             }
         }
     }
