@@ -1,5 +1,6 @@
 package reikai.presentation.reader.settings
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
@@ -214,6 +216,12 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         }
     }
 
+    // The novel reader's own pair, which the manga tab shows for its reader in the same place.
+    CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = preferences.readerFullscreen())
+    val isFullscreen by preferences.readerFullscreen().collectAsState()
+    if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
+        CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = preferences.readerDrawUnderCutout())
+    }
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.readerKeepScreenOn())
 }
 

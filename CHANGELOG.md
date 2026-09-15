@@ -265,6 +265,7 @@ every release now also ships a foss build with neither in it.
 - **Pressing play on read aloud during a call or a navigation prompt no longer reads over it.** It stays paused until you press play again after.
 - **Read aloud carrying on into a novel's next chapter no longer fetches that chapter twice when it was already loading.**
 - **Settings -> Novel reader now shows Scroll to top only under Keep paragraph in view, the only setting it affects.**
+- **The novel reader's Appearance tab now has Fullscreen and Show content in cutout area, as the manga reader's does.**
 - **Bookmarking or marking a novel chapter read just before closing the reader is no longer lost, and a grouped novel's copies are bookmarked together.** Before, a bookmark could land on some sources' copies and not others.
 - **A manga chapter picked from the reader's chapter list, or reached with its next and previous buttons, now says when it fails to open and offers Retry.** The reader used to stay put silently and could jump there minutes later.
 - **Opening the reader again from a notification or History now goes to the chapter you asked for, even after reading on from where it opened.**
