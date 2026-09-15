@@ -388,6 +388,8 @@
    * never held: the last value sent belongs to the chapter before, so it cannot stand for this one.
    */
   function reportProgress(s) {
+    // The host drops a report sent before ready, and one remembered as sent is never sent again.
+    if (!ready) return;
     var sameChapter = s.id === lastReportedId;
     var finishing = s.progress >= 1 && lastReported !== 1;
     if (sameChapter && !finishing && Math.abs(s.progress - lastReported) <= 0.005) return;
@@ -1311,6 +1313,8 @@
     ready = true;
     reportFits();
     reportEnds();
+    // A page that never scrolls again would otherwise never say where it is.
+    onScroll();
   }
 
   if (document.readyState === 'loading') {

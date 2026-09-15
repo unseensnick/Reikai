@@ -28,6 +28,14 @@ object NovelWindowReach {
     }
 
     /**
+     * The chapters the window publishes, in order: [previous] and each of the [forward] reach once
+     * [isCached], and never one past a reach chapter that is not. The viewports only grow at an end,
+     * so a chapter published below a gap left the gap for good, and a crossing then read it unseen.
+     */
+    fun windowIds(previous: Long?, current: Long, forward: List<Long>, isCached: (Long) -> Boolean): List<Long> =
+        listOfNotNull(previous?.takeIf(isCached), current) + forward.takeWhile(isCached)
+
+    /**
      * Whether the chapter before the one being read may join the window yet: once every chapter of the
      * [forward] reach has [resolved], arrived or failed. A chapter added above keeps the reader's place
      * only while there is room below to scroll into, which an opened chapter shorter than the screen

@@ -75,6 +75,13 @@ class NovelOpenLandingTest {
         landing.mayRead(1L) shouldBe false
     }
 
+    /** A first report is where the landing put the page, so a move before it has no earlier position to leave. */
+    @Test
+    fun `moving the page before anything is reported does not count the first report`() {
+        landing.readerMoved()
+        landing.counts(1L, 100) shouldBe false
+    }
+
     @Test
     fun `the opened chapter moving lets an earlier chapter's position count`() {
         landing.counts(2L, 40)

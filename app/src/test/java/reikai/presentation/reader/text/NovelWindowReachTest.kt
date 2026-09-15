@@ -23,6 +23,21 @@ class NovelWindowReachTest {
         NovelWindowReach.forward(next = 2L, after = after, fitsOnScreen = { true }) shouldBe listOf(2L, 3L, 4L)
     }
 
+    /** Neither viewport can put a chapter between two it already shows, so one arriving late would be skipped. */
+    @Test
+    fun `a chapter after one not yet loaded stays out of the window`() {
+        NovelWindowReach.windowIds(previous = null, current = 1L, forward = listOf(2L, 3L), isCached = {
+            it == 3L
+        }) shouldBe
+            listOf(1L)
+    }
+
+    @Test
+    fun `the window holds every loaded chapter of the reach around the current one`() {
+        NovelWindowReach.windowIds(previous = 0L, current = 1L, forward = listOf(2L, 3L), isCached = { true }) shouldBe
+            listOf(0L, 1L, 2L, 3L)
+    }
+
     @Test
     fun `the reach stops at the end of the novel`() {
         NovelWindowReach.forward(next = 6L, after = after, fitsOnScreen = { true }) shouldBe listOf(6L)

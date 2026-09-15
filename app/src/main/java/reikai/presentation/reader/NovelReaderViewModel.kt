@@ -707,8 +707,11 @@ class NovelReaderViewModel(
                 htmlCache.clear()
                 // Re-aimed at what is on screen: a seamless crossing moves the reader into a chapter
                 // without opening it, so the load would otherwise reopen the one the session started
-                // on. Not done in cross(), which would also redirect a retry.
-                pendingChapterId = currentChapterId
+                // on. Not done in cross(), which would also redirect a retry. A step still loading keeps
+                // its target, or the reload silently dropped it. In the lane, as goTo sets it there.
+                lane.withLock {
+                    if (loadState.value != ReaderLoadState.Loading) pendingChapterId = currentChapterId
+                }
                 load()
             }
             .launchIn(viewModelScope)
@@ -1321,7 +1324,7 @@ class NovelReaderViewModel(
                 alreadyHeld = published.any { it.chapterId == id },
             )
         }
-        val ids = listOfNotNull(previous, current.chapterId) + forward
+        val ids = NovelWindowReach.windowIds(previous, current.chapterId, forward) { it in htmlCache }
         val chapters = ids.mapNotNull { id ->
             if (id == current.chapterId) return@mapNotNull current
             val (html, baseUrl) = htmlCache[id] ?: return@mapNotNull null

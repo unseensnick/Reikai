@@ -678,6 +678,8 @@ class NovelTextViewport(
             val text = view.text as? Spanned ?: continue
             val anchor = text.getSpans(0, text.length, AnchorSpan::class.java).firstOrNull { it.index == index }
                 ?: continue
+            // The reader chose where to go, so a landing still waiting on images must not pull them back.
+            readerMoved()
             lineTopOf(view, text.getSpanStart(anchor))?.let { recycler.scrollBy(0, it) }
             return
         }
@@ -1063,7 +1065,11 @@ class NovelTextViewport(
                 if (slot.block.imagesLoading || boundsOf(slot) == null) return
                 // Before the scroll, so the report the scroll sends is the landed position's.
                 slot.landing = null
+                val before = scrolled
                 scrollWithin(slot, landing.fraction)
+                // A chapter with no room to move sends no scroll, and a scroll is all that reports, so the
+                // held position is said here: without it the model kept the saved one, as the page did.
+                if (scrolled == before) report(onProgressChanged)
             }
             is Landing.Line -> {
                 val view = slot.block.chunkViews.getOrNull(landing.chunk) ?: return

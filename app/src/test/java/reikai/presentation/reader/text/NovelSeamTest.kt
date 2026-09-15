@@ -49,6 +49,12 @@ class NovelSeamTest {
     }
 
     @Test
+    @DisplayName("a downloaded next chapter shows as downloaded")
+    fun nextShowsItsDownload() {
+        NovelSeam.between(chapter(1.0), chapter(2.0, downloaded = true)).nextDownloaded shouldBe true
+    }
+
+    @Test
     @DisplayName("the chapter that finished is named above the one below it")
     fun finishedIsNamedAboveNext() {
         NovelSeam.between(chapter(1.0), chapter(2.0)).let { it.finishedTitle to it.nextTitle } shouldBe

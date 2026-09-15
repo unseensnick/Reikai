@@ -826,6 +826,36 @@ class TextViewportContractTest(private val renderer: Renderer) {
         )
     }
 
+    /** Footnotes sit above a chapter's pictures as often as below them, and the saved place waits for those. */
+    @Test
+    fun aFootnoteJumpWhileTheSavedPlaceWaitsForPicturesStaysAtTheNote() {
+        runBlocking(Dispatchers.Main) {
+            viewport.load(
+                illustratedChapter(
+                    SAVED_PERCENT,
+                    STALLED_IMAGE_DELAYS_MS,
+                    // Above the pictures, so they arriving cannot push the note down whatever the landing does.
+                    before = "<p><a href=\"#note\">$JUMP_LINK</a></p>${long("filler")}<p id=\"note\">$NOTE</p>",
+                ),
+                readerTestSettings,
+            )
+        }
+        awaitWhile { !textShown() }
+        settle()
+        tapOn(JUMP_LINK)
+        awaitNoteAtTop()
+        awaitIllustratedLanding()
+        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
+    /** A page that fits never scrolls again, so a position it said before the host listened was never said. */
+    @Test
+    fun aChapterThatFitsOpenedAtASavedPlaceReportsWhereItIs() {
+        open(chapter(FIRST, "<p>A short chapter.</p>", progressPercent = SAVED_PERCENT))
+        awaitScrollStill()
+        assertEquals(0, reports.lastOrNull { it.chapterId == FIRST }?.percent)
+    }
+
     /** Whether the opened chapter's text is on screen, before anything has said it rendered. */
     private fun textShown(): Boolean = when (renderer) {
         Renderer.NATIVE -> {
@@ -1524,6 +1554,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private fun illustratedChapter(
         percent: Int,
         delaysMs: List<Long> = IMAGE_DELAYS_MS,
+        before: String = "",
+        after: String = "",
     ): NovelReaderViewModel.LoadedChapter {
         val pictures = PngServer(pngOf(400, 1600)).also { server = it }
         val urls = delaysMs.mapIndexed { index, delay -> pictures.url("picture$index", delay) }
@@ -1533,7 +1565,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             }?.let { "<img src=\"${urls[it]}\">" }
             "<p>first $paragraph. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" + picture.orEmpty()
         }
-        return chapter(FIRST, html, progressPercent = percent)
+        return chapter(FIRST, before + html + after, progressPercent = percent)
     }
 
     private fun awaitIllustratedLanding() {
