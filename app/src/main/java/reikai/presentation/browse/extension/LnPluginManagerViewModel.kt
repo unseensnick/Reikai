@@ -24,7 +24,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdate
-import reikai.novel.update.LnPluginVersion
+import reikai.novel.update.findPluginUpdates
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
@@ -91,15 +91,7 @@ class LnPluginManagerViewModel(
             }
 
             val available = byUrl.filterKeys { it !in installedUrls }.values.toList()
-            val updates = installedUrls.mapNotNull { url ->
-                val entry = byUrl[url] ?: return@mapNotNull null
-                val installedVersion = metadata[url]?.version ?: return@mapNotNull null
-                if (LnPluginVersion.compare(entry.version, installedVersion) > 0) {
-                    LnPluginUpdate(entry = entry, installedVersion = installedVersion)
-                } else {
-                    null
-                }
-            }
+            val updates = findPluginUpdates(installedUrls, metadata, fetched.flatten())
 
             // Keep the Browse badge in sync with what the user is looking at.
             prefs.pluginUpdatesCount().set(updates.size)
@@ -127,12 +119,25 @@ class LnPluginManagerViewModel(
         viewModelScope.launchIO { installer.loadInstalled() }
     }
 
-    fun install(entry: LnRegistryEntry) {
-        val key = canonicalizePluginUrl(entry.url)
+    fun install(entry: LnRegistryEntry) = install(entry.url, entry.toMetadata())
+
+    /** Fetches the script again for a plugin whose stored one is gone, keeping what its record knew. */
+    fun reinstall(failure: LnPluginLoadFailure) = install(
+        failure.url,
+        LnInstalledPluginMetadata(
+            pluginId = failure.pluginId.orEmpty(),
+            iconUrl = failure.iconUrl,
+            version = failure.version,
+            lang = failure.lang,
+        ),
+    )
+
+    private fun install(url: String, metadata: LnInstalledPluginMetadata) {
+        val key = canonicalizePluginUrl(url)
         viewModelScope.launchIO {
             state.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
             try {
-                installer.installFromUrl(entry.url, entry.toMetadata())
+                installer.installFromUrl(url, metadata)
                 refresh()
             } catch (e: Throwable) {
                 state.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }

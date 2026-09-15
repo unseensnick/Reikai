@@ -7,7 +7,7 @@ import reikai.domain.novel.LnSourceIdentity
 /**
  * An installed plugin that did not load, so the Extensions list can show it under Not loaded rather
  * than drop it from sight. The novel counterpart of a manga extension's not-loaded reason; plugins
- * are neither signed nor content-rated, so only these two reasons can apply.
+ * are neither signed nor content-rated, so only these reasons can apply.
  */
 data class LnPluginLoadFailure(
     val url: String,
@@ -20,6 +20,9 @@ data class LnPluginLoadFailure(
     val reason: Reason,
 ) {
     sealed interface Reason {
+        /** No script is stored for it, so there is nothing to run until it is installed again. */
+        data object Missing : Reason
+
         /** The plugin ran, but what it says about itself could not be read. */
         data object Malformed : Reason
 
@@ -35,7 +38,9 @@ data class LnPluginLoadFailure(
             metadata: LnInstalledPluginMetadata?,
             seen: LnSourceIdentity?,
         ): LnPluginLoadFailure {
-            val reason = if (error.causes().any { it is SerializationException }) {
+            val reason = if (error is LnPluginScriptMissingException) {
+                Reason.Missing
+            } else if (error.causes().any { it is SerializationException }) {
                 Reason.Malformed
             } else {
                 Reason.Failed(
@@ -57,3 +62,6 @@ data class LnPluginLoadFailure(
         private fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { it.cause }
     }
 }
+
+/** An installed plugin whose script is not stored, which a load never downloads to replace. */
+class LnPluginScriptMissingException(url: String) : Exception("no installed script for $url")

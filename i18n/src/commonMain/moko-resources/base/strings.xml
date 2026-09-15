@@ -540,6 +540,8 @@
     <string name="ext_unsupported_message">This extension was built for a version of the extension library this app version can\'t load. Updating the app or the extension may help.</string>
     <string name="ext_malformed_message">This extension is missing information the app needs to load it.</string>
     <string name="ext_load_failed_message">This extension threw an error while loading, so none of its sources are available.</string>
+    <string name="ln_plugin_script_missing_message">This plugin\'s script is missing, so none of its sources are available. Reinstalling downloads its latest version.</string>
+    <string name="ext_reinstall">Reinstall</string>
     <string name="ext_uninstall">Uninstall</string>
     <string name="ext_remove">Remove</string>
     <string name="ext_confirm_remove">Remove Extension?</string>

@@ -7,17 +7,17 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import logcat.LogPriority
+import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
-import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
 
 /**
  * Detects light-novel plugin updates by diffing each [NovelPreferences.addedRepoUrls] registry's
- * latest `version` against the one stored on each [NovelPreferences.installedPluginMetadata] record at
- * install time, through a single comparator ([LnPluginVersion.compare]). `check` is the pure diff;
+ * latest `version` against the one each installed plugin last reported when it loaded, stored on its
+ * [NovelPreferences.installedPluginMetadata] record, through a single comparator ([LnPluginVersion.compare]). `check` is the pure diff;
  * [runIfStale] wraps it with a 6-hour cache for the on-launch path, while the WorkManager job bypasses
  * the cache on its own schedule. Individual repo fetch failures do not fail the batch, so a typo'd or
  * temporarily-down registry cannot hide updates from the working ones.
@@ -46,22 +46,7 @@ class LnPluginUpdateChecker(
             }.awaitAll().flatten()
         }
 
-        // First-write-wins on URL collisions across repos so behavior matches the install surface.
-        val byCanonicalUrl = LinkedHashMap<String, LnRegistryEntry>()
-        for (entry in entries) {
-            val key = canonicalizePluginUrl(entry.url)
-            if (key !in byCanonicalUrl) byCanonicalUrl[key] = entry
-        }
-
-        return installedUrls.mapNotNull { canonicalUrl ->
-            val entry = byCanonicalUrl[canonicalUrl] ?: return@mapNotNull null
-            val installedVersion = metadata[canonicalUrl]?.version ?: return@mapNotNull null
-            if (LnPluginVersion.compare(entry.version, installedVersion) > 0) {
-                LnPluginUpdate(entry = entry, installedVersion = installedVersion)
-            } else {
-                null
-            }
-        }
+        return findPluginUpdates(installedUrls, metadata, entries)
     }
 
     /**
@@ -90,3 +75,29 @@ data class LnPluginUpdate(
     val entry: LnRegistryEntry,
     val installedVersion: String,
 )
+
+/**
+ * The installed plugins a repo offers a newer version of, with [entries] in repo order so the first repo
+ * listing a plugin wins. Matched by plugin id: a repo can publish a new version at a new URL, and
+ * matching by URL showed that as a separate plugin rather than an update.
+ */
+fun findPluginUpdates(
+    installedUrls: Set<String>,
+    metadata: Map<String, LnInstalledPluginMetadata>,
+    entries: List<LnRegistryEntry>,
+): List<LnPluginUpdate> {
+    val byId = LinkedHashMap<String, LnRegistryEntry>()
+    entries.forEach { byId.putIfAbsent(it.id, it) }
+    return installedUrls
+        .mapNotNull { url ->
+            val record = metadata[url] ?: return@mapNotNull null
+            val installedVersion = record.version ?: return@mapNotNull null
+            val entry = byId[record.pluginId] ?: return@mapNotNull null
+            if (LnPluginVersion.compare(entry.version, installedVersion) > 0) {
+                LnPluginUpdate(entry = entry, installedVersion = installedVersion)
+            } else {
+                null
+            }
+        }
+        .distinctBy { it.entry.id }
+}

@@ -76,7 +76,7 @@ class HeadlessJsIntegrationTest {
 
         try {
             for (entry in sample) {
-                val source = runCatching { loader.fetchSource(entry.url, forceRefresh = false) }
+                val source = runCatching { loader.download(entry.url) }
                     .getOrElse {
                         report.appendLine("FETCH FAIL ${entry.id}: ${it.message}")
                         continue
@@ -147,13 +147,12 @@ class HeadlessJsIntegrationTest {
     }
 
     /**
-     * Whole-registry health sweep, parameterized so no source edit is needed per run:
+     * Whole-registry health sweep, driven by scripts/plugin-sweep.ps1:
      * `am instrument -e class <fqcn>#lnPluginRegistrySweep -e registryUrl <url> [-e anchorIds a,b]`.
-     * Probes every plugin in the registry via popularNovels(1) built from the plugin's own default
-     * filters (Cloudflare solved through the app's configured FlareSolverr), logging one
-     * `RESULT <id> [<lang>] <STATUS> ...` line per plugin under tag "HeadlessJsTest". Anchors also run
-     * a full parseNovel + parseChapter chain. With no registryUrl arg it skips, so a normal test run
-     * never triggers a network sweep. The driver is scripts/plugin-sweep.ps1.
+     * Probes every plugin via popularNovels(1) from its own default filters (Cloudflare solved through
+     * the configured FlareSolverr), logging `RESULT <id> [<lang>] <STATUS> ...` per plugin under tag
+     * "HeadlessJsTest". Anchors also run a full parseNovel + parseChapter chain. With no registryUrl
+     * it skips, so a normal test run never triggers a network sweep.
      */
     @Test
     fun lnPluginRegistrySweep() = runBlocking {
@@ -190,7 +189,7 @@ class HeadlessJsIntegrationTest {
         try {
             for (entry in entries) {
                 val tag = "${entry.id} [${entry.lang}]"
-                val source = runCatching { loader.fetchSource(entry.url, forceRefresh = false) }
+                val source = runCatching { loader.download(entry.url) }
                     .getOrElse {
                         Log.i(TAG, "RESULT $tag FETCH_FAIL ${it.message?.take(160)}")
                         continue

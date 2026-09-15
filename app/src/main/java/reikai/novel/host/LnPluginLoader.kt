@@ -11,12 +11,14 @@ import logcat.LogPriority
 import okhttp3.Request
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /**
- * Downloads a compiled plugin `.js` from an arbitrary URL and caches it under
- * `context.cacheDir/lnplugins/<sha256(url)>.js`. Cache invalidation is manual: delete the file
- * or call [clearCache] to force a re-fetch.
+ * Downloads compiled plugin `.js` files and keeps the installed ones under
+ * `context.filesDir/lnplugins/<sha256(url)>.js`. A plugin URL always serves the repo's latest script,
+ * so loading reads only the stored file and an installed plugin changes version only through [store].
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -24,21 +26,8 @@ class LnPluginLoader(
     private val context: Context,
     private val networkHelper: NetworkHelper,
 ) {
-    suspend fun fetchSource(url: String, forceRefresh: Boolean = false): String = withContext(Dispatchers.IO) {
-        val file = cacheFileFor(url)
-        if (!forceRefresh && file.exists() && file.length() > 0) {
-            val cached = file.readText()
-            // A non-empty but truncated cache file (a partial write or an interrupted earlier download)
-            // would load as a broken plugin. The compiled plugin always contains the LNReader default
-            // export, so its absence means the cached copy is incomplete: fall through and re-download.
-            // Only the cache is gated this way; a fresh download is trusted, so a future build-format
-            // change can't send this into a re-download loop.
-            if (cached.contains(PLUGIN_EXPORT_MARKER)) {
-                logcat(LogPriority.INFO) { "plugin cache hit ${file.name} for $url" }
-                return@withContext cached
-            }
-            logcat(LogPriority.WARN) { "cached plugin ${file.name} looks truncated, re-downloading $url" }
-        }
+    /** The script [url] serves now. Stores nothing: the caller decides whether it becomes installed. */
+    suspend fun download(url: String): String = withContext(Dispatchers.IO) {
         logcat(LogPriority.INFO) { "downloading plugin from $url" }
         val req = Request.Builder()
             .url(url)
@@ -51,29 +40,57 @@ class LnPluginLoader(
             }
             val source = res.body.string()
             if (source.isBlank()) throw LnPluginException("plugin download returned empty body from $url")
-            file.parentFile?.mkdirs()
-            file.writeText(source)
             source
         }
     }
 
-    fun clearCache() {
-        cacheDir().listFiles()?.forEach { it.delete() }
+    /** The installed script for [url], or null when there is none to load. */
+    suspend fun installed(url: String): String? = withContext(Dispatchers.IO) {
+        val file = fileFor(url)
+        if (!file.exists()) adoptCachedScript(file)
+        if (!file.exists()) return@withContext null
+        val script = file.readText()
+        // Written whole since scripts left the cache folder, but one adopted from there can be a partial
+        // download. The compiled plugin always carries its default export, so without it nothing loads.
+        if (!script.contains(PLUGIN_EXPORT_MARKER)) {
+            logcat(LogPriority.WARN) { "installed plugin ${file.name} looks truncated for $url" }
+            return@withContext null
+        }
+        script
     }
 
-    private fun cacheDir(): File = File(context.cacheDir, "lnplugins").apply { mkdirs() }
+    /** Makes [script] the installed one for [url], replacing the file whole so a crash can't leave half. */
+    suspend fun store(url: String, script: String): Unit = withContext(Dispatchers.IO) {
+        val file = fileFor(url)
+        val partial = File(file.parentFile, "${file.name}.tmp")
+        partial.writeText(script)
+        Files.move(partial.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
+    }
 
-    private fun cacheFileFor(url: String): File {
+    suspend fun delete(url: String) = withContext(Dispatchers.IO) {
+        fileFor(url).delete()
+    }
+
+    /** Scripts used to live in the cache folder, where Android could clear them and force a download. */
+    private fun adoptCachedScript(file: File) {
+        val cached = File(File(context.cacheDir, DIR_NAME), file.name)
+        if (!cached.exists()) return
+        if (!cached.renameTo(file)) {
+            cached.copyTo(file, overwrite = true)
+            cached.delete()
+        }
+    }
+
+    private fun fileFor(url: String): File {
         val hash = MessageDigest.getInstance("SHA-256")
             .digest(url.toByteArray())
             .joinToString("") { "%02x".format(it) }
             .take(32)
-        return File(cacheDir(), "$hash.js")
+        return File(File(context.filesDir, DIR_NAME).apply { mkdirs() }, "$hash.js")
     }
 
     companion object {
-        // The compiled LNReader plugin's default export; its presence is a cheap completeness check for
-        // a cached file (see fetchSource).
+        private const val DIR_NAME = "lnplugins"
         private const val PLUGIN_EXPORT_MARKER = "exports.default"
     }
 }

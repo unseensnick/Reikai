@@ -21,6 +21,12 @@ class LnPluginLoadFailureTest {
     }
 
     @Test
+    fun `a plugin with no stored script is missing`() {
+        LnPluginLoadFailure.of(url, LnPluginScriptMissingException(url), metadata, seen = null).reason shouldBe
+            LnPluginLoadFailure.Reason.Missing
+    }
+
+    @Test
     fun `a plugin that threw failed with its message`() {
         val reason = LnPluginLoadFailure.of(url, IllegalStateException("fetch is not defined"), metadata, null).reason
 

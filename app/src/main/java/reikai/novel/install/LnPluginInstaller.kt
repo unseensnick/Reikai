@@ -58,9 +58,14 @@ class LnPluginInstaller(
     private val registryMutex = Mutex()
 
     // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
-    // URLs NOT in here, so a plugin whose download failed once (network blip, Cloudflare, cold cache
-    // after a restore) heals on the next novel-screen open instead of needing a cold restart.
+    // URLs NOT in here, so a plugin whose load failed once (a restored script's download hitting a
+    // network blip or Cloudflare) heals on the next novel-screen open instead of needing a cold restart.
     private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // Restored URLs a repo vouched for whose script this device never stored. They are the one case a
+    // load downloads, since a restore is when the repo's current script is expected; each leaves once
+    // stored. In memory only, so after a process death a still-missing one waits for a reinstall.
+    private val restoredUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /**
      * Installed plugins whose last load failed, by canonical URL. Kept until a load or install of that
@@ -104,6 +109,7 @@ class LnPluginInstaller(
         val dropped = registryMutex.withLock {
             val installed = prefs.installedPluginUrls().get()
             val validated = installed.filterTo(HashSet()) { it in trusted }
+            restoredUrls += validated
             if (validated.size == installed.size) {
                 0
             } else {
@@ -126,8 +132,11 @@ class LnPluginInstaller(
         metadata: LnInstalledPluginMetadata? = null,
     ): LnPluginSource {
         val canonical = canonicalizePluginUrl(pluginJsUrl)
-        val src = loader.fetchSource(canonical, forceRefresh = true)
+        val src = loader.download(canonical)
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
+        // Stored only once it loads, so a broken new version leaves the installed one in place.
+        loader.store(canonical, src)
+        restoredUrls -= canonical
         val source = LnPluginSource(host, info)
         manager.register(source)
         rememberSeenSources(listOf(source))
@@ -138,11 +147,13 @@ class LnPluginInstaller(
         val staleUrls = registryMutex.withLock {
             val currentMetadata = prefs.installedPluginMetadata().get()
             val stale = currentMetadata.filterValues { it.pluginId == info.id }.keys - canonical
-            val record = metadata?.copy(pluginId = info.id) ?: LnInstalledPluginMetadata(pluginId = info.id)
+            val record = (metadata ?: LnInstalledPluginMetadata(pluginId = info.id))
+                .copy(pluginId = info.id, version = info.version ?: metadata?.version)
             prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - stale + canonical)
             prefs.installedPluginMetadata().set(currentMetadata - stale + (canonical to record))
             stale
         }
+        staleUrls.forEach { loader.delete(it) }
         loadedUrls.removeAll(staleUrls)
         loadedUrls.add(canonical)
         failures.update { it - staleUrls - canonical }
@@ -166,9 +177,8 @@ class LnPluginInstaller(
     }
 
     /**
-     * Load [urls] into the app-scoped host in parallel and register the successes. The slow part (the
-     * network download per plugin) overlaps; the JS engine eval serializes safely behind the host's
-     * own mutex. Successful URLs are recorded in [loadedUrls]; failures go to [failures] and are left
+     * Load [urls] into the app-scoped host in parallel and register the successes, each from its stored
+     * script. The reads overlap; the JS engine eval serializes safely behind the host's own mutex. Successful URLs are recorded in [loadedUrls]; failures go to [failures] and are left
      * out so a later [ensureLoaded] retries them. Caller must hold [loadMutex]. Lazily backfills missing
      * iconUrl/lang for legacy installs.
      */
@@ -179,16 +189,28 @@ class LnPluginInstaller(
             urls.map { url ->
                 async {
                     try {
-                        val src = loader.fetchSource(url, forceRefresh = false)
+                        val stored = loader.installed(url)
+                        val src = stored
+                            ?: if (url in
+                                restoredUrls
+                            ) {
+                                loader.download(url)
+                            } else {
+                                throw LnPluginScriptMissingException(url)
+                            }
                         val info = host.loadPlugin(
                             scopeIdFromUrl(url),
                             src,
                             metadata[url]?.iconUrl,
                             metadata[url]?.lang,
                         )
+                        if (stored == null) {
+                            loader.store(url, src)
+                            restoredUrls -= url
+                        }
                         val source = LnPluginSource(host, info)
                         manager.register(source)
-                        LoadResult.Loaded(url, source)
+                        LoadResult.Loaded(url, source, info.version)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Throwable) {
@@ -212,7 +234,24 @@ class LnPluginInstaller(
                 }
         }
         rememberSeenSources(ok.map { it.source })
+        recordLoadedVersions(ok)
         return ok.map { it.source }
+    }
+
+    /**
+     * Records the version each plugin reports for itself, which is the one actually running. The repo's
+     * version is not: a record written from it, or a URL pasted without one, would hide an update.
+     */
+    private suspend fun recordLoadedVersions(loaded: List<LoadResult.Loaded>) {
+        registryMutex.withLock {
+            val current = prefs.installedPluginMetadata().get()
+            val updated = current + loaded.mapNotNull { result ->
+                val version = result.version ?: return@mapNotNull null
+                val record = current[result.url] ?: LnInstalledPluginMetadata(pluginId = result.source.id)
+                if (record.version == version) null else result.url to record.copy(version = version)
+            }
+            if (updated != current) prefs.installedPluginMetadata().set(updated)
+        }
     }
 
     /**
@@ -261,12 +300,9 @@ class LnPluginInstaller(
         needs.forEach { pluginUrl ->
             val match = entries.firstOrNull { canonicalizePluginUrl(it.url) == pluginUrl }
                 ?: return@forEach
-            updated[pluginUrl] = LnInstalledPluginMetadata(
-                pluginId = match.id,
-                iconUrl = match.iconUrl,
-                version = match.version,
-                lang = match.lang,
-            )
+            // The version stays whatever was recorded: the repo's is not necessarily the one installed.
+            updated[pluginUrl] = (current[pluginUrl] ?: LnInstalledPluginMetadata(pluginId = match.id))
+                .copy(iconUrl = match.iconUrl, lang = match.lang)
         }
         if (updated == current) return current
         // Re-read under the lock rather than writing the snapshot taken before the repo fetch above:
@@ -298,7 +334,9 @@ class LnPluginInstaller(
             prefs.installedPluginMetadata().set(metadata - remove)
             remove
         }
+        urlsToRemove.forEach { loader.delete(it) }
         loadedUrls.removeAll(urlsToRemove)
+        restoredUrls.removeAll(urlsToRemove)
         failures.update { it - urlsToRemove }
         manager.unregister(pluginId)
         logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (${urlsToRemove.size} url(s))" }
@@ -328,7 +366,7 @@ class LnPluginInstaller(
     private sealed interface LoadResult {
         val url: String
 
-        data class Loaded(override val url: String, val source: LnPluginSource) : LoadResult
+        data class Loaded(override val url: String, val source: LnPluginSource, val version: String?) : LoadResult
 
         data class Failed(override val url: String, val error: Throwable) : LoadResult
     }

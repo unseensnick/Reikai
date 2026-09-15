@@ -109,6 +109,7 @@ class CrashLogUtil(
                     appendLine("- ${plugin.name} (novel plugin)")
                     appendLine("  Installed: ${plugin.version ?: "?"}")
                     when (val reason = plugin.reason) {
+                        LnPluginLoadFailure.Reason.Missing -> append("  Not loaded: Script missing")
                         LnPluginLoadFailure.Reason.Malformed -> append("  Not loaded: Malformed")
                         is LnPluginLoadFailure.Reason.Failed -> {
                             appendLine("  Not loaded: Failed (${reason.message})")

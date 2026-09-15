@@ -360,6 +360,8 @@ fun NotLoadedDialog(
     stackTrace: String?,
     onClickUninstall: () -> Unit,
     onDismissRequest: () -> Unit,
+    confirmLabel: StringResource = MR.strings.action_ok,
+    onClickConfirm: () -> Unit = onDismissRequest,
 ) {
     AlertDialog(
         title = {
@@ -394,8 +396,8 @@ fun NotLoadedDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_ok))
+            TextButton(onClick = onClickConfirm) {
+                Text(text = stringResource(confirmLabel))
             }
         },
         dismissButton = {
