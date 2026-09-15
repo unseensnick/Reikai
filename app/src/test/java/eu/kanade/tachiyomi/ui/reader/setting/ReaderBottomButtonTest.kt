@@ -8,6 +8,10 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Theme
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.ViewChapters
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.novel.NovelPreferences
+import reikai.presentation.recents.EmittingPreferenceStore
 
 class ReaderBottomButtonTest {
 
@@ -62,5 +66,14 @@ class ReaderBottomButtonTest {
         val manga = setOf(ViewChapters, TextSize).map { it.value }.toSet()
 
         ReaderBottomButton.ordered(manga, order = emptyList(), Scope.Manga) shouldBe listOf(ViewChapters)
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Scope::class, names = ["Manga", "Novel"])
+    fun `a reader's bar preferences are the ones for that reader`(scope: Scope) {
+        val store = EmittingPreferenceStore()
+
+        ReaderBottomButton.BarPreferences.of(scope, ReaderPreferences(store), NovelPreferences(store)).scope shouldBe
+            scope
     }
 }

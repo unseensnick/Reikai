@@ -37,14 +37,9 @@ class ReaderBottomButtonsViewModel(
 
     data class Row(val button: ReaderBottomButton, val enabled: Boolean)
 
-    private val selection = when (scope) {
-        ReaderBottomButton.Scope.Manga -> readerPreferences.readerBottomButtons
-        else -> novelPreferences.readerBottomButtons()
-    }
-    private val order = when (scope) {
-        ReaderBottomButton.Scope.Manga -> readerPreferences.readerBottomButtonOrder
-        else -> novelPreferences.readerBottomButtonOrder()
-    }
+    private val preferences = ReaderBottomButton.BarPreferences.of(scope, readerPreferences, novelPreferences)
+    private val selection = preferences.selection
+    private val order = preferences.order
 
     val state: StateFlow<List<Row>> = combine(selection.changes(), order.changes()) { _, _ -> rows() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, rows())

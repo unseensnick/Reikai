@@ -566,11 +566,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     valueString = "%.1fx".format(autoScrollSpeed),
                     onValueChanged = { autoScrollSpeedPref.set(it / TENTHS) },
                 ).takeIf { autoScroll },
-                readerBottomButtonsPreference(
-                    selection = novelPreferences.readerBottomButtons(),
-                    order = novelPreferences.readerBottomButtonOrder(),
-                    scope = ReaderBottomButton.Scope.Novel,
-                ),
+                readerBottomButtonsPreference(ReaderBottomButton.BarPreferences.novel(novelPreferences)),
             ),
         )
     }

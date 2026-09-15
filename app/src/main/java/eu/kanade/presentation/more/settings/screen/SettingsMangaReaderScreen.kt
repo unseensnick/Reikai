@@ -213,11 +213,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_auto_webtoon_mode),
                     subtitle = stringResource(MR.strings.pref_auto_webtoon_mode_summary),
                 ),
-                readerBottomButtonsPreference(
-                    selection = readerPreferences.readerBottomButtons,
-                    order = readerPreferences.readerBottomButtonOrder,
-                    scope = ReaderBottomButton.Scope.Manga,
-                ),
+                readerBottomButtonsPreference(ReaderBottomButton.BarPreferences.manga(readerPreferences)),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.preserveReadingPosition,
                     title = stringResource(MR.strings.pref_preserve_reading_position),

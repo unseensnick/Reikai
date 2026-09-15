@@ -49,11 +49,8 @@ class MangaReaderProvider(
     override val chrome: Flow<ReaderChromeState> = viewModel.state
         .map { ReaderChromeState(it.manga?.title, it.visibleChapter?.chapter?.name) }
 
-    override val bottomButtons: Flow<List<ReaderBottomButton>> = ReaderBottomButton.orderedChanges(
-        readerPreferences.readerBottomButtons,
-        readerPreferences.readerBottomButtonOrder,
-        ReaderBottomButton.Scope.Manga,
-    )
+    override val bottomButtons: Flow<List<ReaderBottomButton>> =
+        ReaderBottomButton.orderedChanges(ReaderBottomButton.BarPreferences.manga(readerPreferences))
 
     override val bottomButtonScope = ReaderBottomButton.Scope.Manga
 

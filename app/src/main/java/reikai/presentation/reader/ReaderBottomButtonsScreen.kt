@@ -36,7 +36,6 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -130,13 +129,12 @@ private fun ReaderBottomButtonsList(
 /** The settings row opening [ReaderBottomButtonsScreen], summarising the bar as the reader draws it. */
 @Composable
 fun readerBottomButtonsPreference(
-    selection: Preference<Set<String>>,
-    order: Preference<List<String>>,
-    scope: ReaderBottomButton.Scope,
+    preferences: ReaderBottomButton.BarPreferences,
 ): SettingsPreference.PreferenceItem.TextPreference {
     val navigator = LocalNavigator.currentOrThrow
-    val selected by selection.collectAsState()
-    val arranged by order.collectAsState()
+    val scope = preferences.scope
+    val selected by preferences.selection.collectAsState()
+    val arranged by preferences.order.collectAsState()
     val names = ReaderBottomButton.ordered(selected, arranged, scope).map { stringResource(it.stringRes) }
     return SettingsPreference.PreferenceItem.TextPreference(
         title = stringResource(MR.strings.pref_reader_bottom_buttons),

@@ -46,11 +46,8 @@ class NovelReaderProvider(
         ReaderChromeState(title, chapterTitle)
     }
 
-    override val bottomButtons: Flow<List<ReaderBottomButton>> = ReaderBottomButton.orderedChanges(
-        novelPreferences.readerBottomButtons(),
-        novelPreferences.readerBottomButtonOrder(),
-        ReaderBottomButton.Scope.Novel,
-    )
+    override val bottomButtons: Flow<List<ReaderBottomButton>> =
+        ReaderBottomButton.orderedChanges(ReaderBottomButton.BarPreferences.novel(novelPreferences))
 
     override val bottomButtonScope = ReaderBottomButton.Scope.Novel
 

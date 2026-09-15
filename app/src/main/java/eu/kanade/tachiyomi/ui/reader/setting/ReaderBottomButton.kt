@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.setting
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 
@@ -34,6 +35,27 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
 
     enum class Scope { Manga, Novel, Both }
 
+    /** One reader's selection and order, held with the scope they belong to so no caller can mix readers. */
+    class BarPreferences private constructor(
+        val scope: Scope,
+        val selection: Preference<Set<String>>,
+        val order: Preference<List<String>>,
+    ) {
+        companion object {
+            fun manga(preferences: ReaderPreferences) =
+                BarPreferences(Scope.Manga, preferences.readerBottomButtons, preferences.readerBottomButtonOrder)
+
+            fun novel(preferences: NovelPreferences) =
+                BarPreferences(Scope.Novel, preferences.readerBottomButtons(), preferences.readerBottomButtonOrder())
+
+            fun of(scope: Scope, reader: ReaderPreferences, novel: NovelPreferences) = when (scope) {
+                Scope.Manga -> manga(reader)
+                Scope.Novel -> novel(novel)
+                Scope.Both -> error("No reader draws a bar for $scope")
+            }
+        }
+    }
+
     companion object {
         /** Buttons a given reader is allowed to offer (its own scope plus the shared [Scope.Both]). */
         fun offeredIn(scope: Scope) = entries.filter { it.scope == scope || it.scope == Scope.Both }
@@ -56,12 +78,10 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
         }
 
         /** [ordered], kept current as either preference changes. Both readers draw their bar through it. */
-        fun orderedChanges(
-            selected: Preference<Set<String>>,
-            order: Preference<List<String>>,
-            scope: Scope,
-        ): Flow<List<ReaderBottomButton>> =
-            combine(selected.changes(), order.changes()) { buttons, arranged -> ordered(buttons, arranged, scope) }
+        fun orderedChanges(preferences: BarPreferences): Flow<List<ReaderBottomButton>> =
+            combine(preferences.selection.changes(), preferences.order.changes()) { buttons, arranged ->
+                ordered(buttons, arranged, preferences.scope)
+            }
 
         /** Manga reader defaults. */
         val BUTTONS_DEFAULTS = setOf(
