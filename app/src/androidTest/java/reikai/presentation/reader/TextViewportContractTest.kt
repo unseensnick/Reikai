@@ -909,6 +909,16 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue(runWidth("77") < runWidth("88") * SCRIPT_MAX_RATIO)
     }
 
+    /** A picture narrower than the column is drawn at its own size, as a page draws one. */
+    @Test
+    fun aSmallImageKeepsItsOwnWidth() {
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX)).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\">"))
+        awaitWhile { firstImageWidth() <= 0f }
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        assertEquals(SMALL_IMAGE_PX * density, firstImageWidth(), TYPE_SLACK_PX)
+    }
+
     /** Against bold body text, since both renderers set a heading bold. */
     @Test
     fun aTopLevelHeadingIsSetAtTwiceTheTextSize() {
@@ -1612,6 +1622,22 @@ class TextViewportContractTest(private val renderer: Renderer) {
         ) == "true"
     }
 
+    /** The first picture's drawn width in screen pixels, once it has arrived, else 0. */
+    private fun firstImageWidth(): Float = when (renderer) {
+        Renderer.NATIVE -> {
+            var width = 0f
+            instrumentation.runOnMainSync {
+                val picture = imageSpans().firstOrNull()?.drawable as? DrawableWrapper
+                if (picture != null && picture.innerDrawable !is ColorDrawable) width = picture.bounds.width().toFloat()
+            }
+            width
+        }
+        Renderer.WEB -> eval(
+            "(function () { var m = document.images[0]; return m && m.complete && m.naturalWidth > 0 ?" +
+                " m.getBoundingClientRect().width * devicePixelRatio : 0; })()",
+        ).toFloat()
+    }
+
     private fun imageSpans(): List<ImageSpan> = descendants(view).filterIsInstance<TextView>().flatMap { chunk ->
         val text = chunk.text as? Spanned ?: return@flatMap emptyList()
         text.getSpans(0, text.length, ImageSpan::class.java).toList()
@@ -2184,6 +2210,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val BELOW_RULE = "The paragraph below the rule."
         const val RUBY_REFERENCE = "WWWW"
         const val HEADING_RUN = "MMMMMMMM"
+        const val SMALL_IMAGE_PX = 40
 
         /** A glyph's width rounds per size, which at a heading's size is a few percent of a run. */
         const val SIZE_SLACK = 0.03f

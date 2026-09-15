@@ -16,6 +16,7 @@ import coil3.imageLoader
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
+import coil3.size.Precision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,8 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.min
+import kotlin.math.roundToInt
 import coil3.size.Dimension as CoilDimension
 import coil3.size.Size as CoilSize
 
@@ -138,6 +141,9 @@ class NovelImageGetter(
                     .data(imageUrl)
                     .httpHeaders(headers)
                     .size(CoilSize(CoilDimension.Pixels(contentWidth), CoilDimension.Undefined))
+                    // Only ever scaled down: an exact size enlarges a small picture to the column, and its
+                    // own width is what fitToWidth needs to draw it at the size a page does.
+                    .precision(Precision.INEXACT)
                     .build()
                 val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources)
                 if (drawable != null) fitToWidthAndInvalidate(drawable, wrapper)
@@ -161,11 +167,13 @@ class NovelImageGetter(
         onImagesReady(views)
     }
 
+    /** Its own width in density-independent pixels, as the page's `max-width: 100%` draws it, up to the column. */
     private fun fitToWidth(drawable: Drawable, wrapper: DrawableWrapper) {
         val imgWidth = drawable.intrinsicWidth
         val imgHeight = drawable.intrinsicHeight
         if (imgWidth <= 0 || imgHeight <= 0) return
-        val width = contentWidth.coerceAtLeast(1)
+        val width = min(contentWidth, (imgWidth * context.resources.displayMetrics.density).roundToInt())
+            .coerceAtLeast(1)
         val height = (imgHeight * (width.toFloat() / imgWidth)).toInt().coerceAtLeast(1)
         drawable.setBounds(0, 0, width, height)
         wrapper.innerDrawable = drawable
