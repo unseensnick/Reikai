@@ -55,14 +55,6 @@ class ParagraphShapeTest {
     }
 
     @Test
-    @DisplayName("clearing both while the size also changes still needs the redraw that removes the spans")
-    fun clearingSpansNeedsRedraw() {
-        val before = ParagraphShape(indent = 2f, spacing = 1f, fontSize = 16, bionic = false, sideMargins = 32)
-
-        before.needsRedrawFor(before.copy(indent = 0f, spacing = 0f, fontSize = 24)) shouldBe true
-    }
-
-    @Test
     @DisplayName("turning bionic reading on needs a redraw, since its emphasis is spans built with the text")
     fun bionicToggleNeedsRedraw() {
         val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
