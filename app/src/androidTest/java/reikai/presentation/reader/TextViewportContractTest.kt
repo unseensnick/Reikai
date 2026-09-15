@@ -478,6 +478,24 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue("an inverted volume-down moved the page from $before to $after", after < before)
     }
 
+    /** A chapter that fits on screen has no room to seek within, so the rail lands on its start rather
+     *  than leaving the reader where they were. */
+    @Test
+    fun aSeekInsideAChapterThatFitsLandsOnItsFirstLine() {
+        open(chapter(FIRST, "<p>first 1. short</p>"))
+        append(chapter(SECOND, long("second")))
+        val start = checkNotNull(topLine()) { "no line at the top of the screen" }
+        // Into the column's top margin only, so the short chapter is still the one on screen.
+        scrollBy(readerTestSettings.margins.top / 2)
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(5_000)) }
+        awaitScrollStill()
+        val landed = checkNotNull(topLine()) { "no line at the top of the screen" }
+        assertTrue(
+            "the short chapter's first line sat at ${start.y} and a seek left it at ${landed.y}",
+            landed.paragraph == start.paragraph && abs(landed.y - start.y) <= EDGE_SLACK_PX,
+        )
+    }
+
     /** Measured off the marks, with following off, so each renderer answers in its own geometry. */
     @Test
     fun theFirstVisibleParagraphAfterASeekIsTheFirstOnScreen() {

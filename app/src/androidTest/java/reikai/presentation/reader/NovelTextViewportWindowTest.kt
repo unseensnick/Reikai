@@ -398,20 +398,6 @@ class NovelTextViewportWindowTest {
         assertEquals(dp(readerTestSettings.margins.top) + dp(CUTOUT_DP), columnTopPadding("current"))
     }
 
-    /** A chapter that fits on screen has no room to seek within, so the rail lands on its start, as
-     *  the WebView page's seek does; it used to leave the reader where they were. */
-    @Test
-    fun aSeekInsideAChapterThatFitsLandsOnItsFirstLine() {
-        open(SHORT, "<p>short</p>")
-        append(NEXT, long("next"))
-        // Into the column's top margin only, so the short chapter is still the one on screen.
-        instrumentation.runOnMainSync { viewport.view.scrollBy(0, dp(readerTestSettings.margins.top) / 2) }
-        settle()
-        instrumentation.runOnMainSync { viewport.seekTo(ChapterProgress.Percent(5_000)) }
-        settle()
-        assertEquals(dp(readerTestSettings.margins.top), shownAt("short")?.top)
-    }
-
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" }
 
