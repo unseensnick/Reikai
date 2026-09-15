@@ -1,5 +1,8 @@
 package reikai.presentation.reader
 
+import android.app.Instrumentation
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
@@ -946,6 +949,103 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(at[1].toFloat(), textBox(NOTE).top, textSizePx() * 3)
     }
 
+    /** A "back to top" link names no target, and jsoup throwing on it cost native every other link. */
+    @Test
+    fun aBareHashLinkLeavesTheOtherLinksInTheChapterWorking() {
+        val target = "<p id=\"note\">$NOTE</p>"
+        open(
+            chapter(
+                FIRST,
+                "<p><a href=\"#\">top</a></p><p><a href=\"#note\">$JUMP_LINK</a></p>${long(
+                    "filler",
+                )}$target${long("after")}",
+            ),
+        )
+        tapOn(JUMP_LINK)
+        awaitNoteAtTop()
+        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
+    @Test
+    fun aLinkNamingItsTargetWithAnEscapeScrollsThere() {
+        val target = "<p id=\"note one\">$NOTE</p>"
+        open(chapter(FIRST, "<p><a href=\"#note%20one\">$JUMP_LINK</a></p>${long("filler")}$target${long("after")}"))
+        tapOn(JUMP_LINK)
+        awaitNoteAtTop()
+        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
+    /** Not a valid escape, which the page used to throw on after it had already cancelled the tap. */
+    @Test
+    fun aLinkWhoseNameHoldsAPercentSignScrollsThere() {
+        val target = "<p id=\"100%\">$NOTE</p>"
+        open(chapter(FIRST, "<p><a href=\"#100%\">$JUMP_LINK</a></p>${long("filler")}$target${long("after")}"))
+        tapOn(JUMP_LINK)
+        awaitNoteAtTop()
+        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
+    @Test
+    fun aLinkToAPlaceTheChapterDoesNotHaveOpensNothing() {
+        val monitor = blockBrowser()
+        open(chapter(FIRST, "<p><a href=\"#missing\">$JUMP_LINK</a></p>${long("filler")}", baseUrl = BASE_URL))
+        tapOn(JUMP_LINK)
+        settle()
+        instrumentation.removeMonitor(monitor)
+        assertEquals(0, monitor.hits)
+    }
+
+    /** An empty href resolves to the chapter's own page on the source's site. */
+    @Test
+    fun aLinkWithAnEmptyHrefOpensNothing() {
+        val monitor = blockBrowser()
+        open(chapter(FIRST, "<p><a href=\"\">$JUMP_LINK</a></p>${long("filler")}", baseUrl = BASE_URL))
+        tapOn(JUMP_LINK)
+        settle()
+        instrumentation.removeMonitor(monitor)
+        assertEquals(0, monitor.hits)
+    }
+
+    @Test
+    fun aTapInTheBlankPastALineEndingLinkDoesNotFollowIt() {
+        val target = "<p id=\"note\">$NOTE</p>"
+        open(chapter(FIRST, "<p>Then <a href=\"#note\">$JUMP_LINK</a></p>${long("filler")}$target${long("after")}"))
+        val link = textBox(JUMP_LINK)
+        val at = viewLocation()
+        tap(minOf(link.right + textSizePx() * 3, (at[0] + view.width - 1).toFloat()) - at[0], link.centerY() - at[1])
+        settle()
+        awaitScrollStill()
+        assertEquals(link.top, textBox(JUMP_LINK).top, textSizePx())
+    }
+
+    private fun tapOn(text: String) {
+        val link = textBox(text)
+        val at = viewLocation()
+        tap(link.centerX() - at[0], link.centerY() - at[1])
+    }
+
+    /** Past any scroll the tap could also start as a tap zone. */
+    private fun awaitNoteAtTop() {
+        awaitWhile { abs(textBox(NOTE).top - viewTop()) > textSizePx() * 3 }
+        awaitScrollStill()
+    }
+
+    private fun viewLocation(): IntArray = IntArray(2).also { a ->
+        instrumentation.runOnMainSync { view.getLocationOnScreen(a) }
+    }
+
+    private fun viewTop(): Int = viewLocation()[1]
+
+    /** Catches, and stops, any web page the tap would open in the browser. */
+    private fun blockBrowser(): Instrumentation.ActivityMonitor {
+        val filter = IntentFilter(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addDataScheme("http")
+            addDataScheme("https")
+        }
+        return instrumentation.addMonitor(filter, null, true)
+    }
+
     private fun tap(x: Float, y: Float) {
         instrumentation.runOnMainSync {
             val down = SystemClock.uptimeMillis()
@@ -1837,12 +1937,13 @@ class TextViewportContractTest(private val renderer: Renderer) {
         downloaded: Boolean = false,
         isLast: Boolean = false,
         progressPercent: Int = 0,
+        baseUrl: String? = null,
     ) = NovelReaderViewModel.LoadedChapter(
         chapterId = id,
         title = "Chapter $number",
         url = "/chapter/$id",
         html = html,
-        baseUrl = null,
+        baseUrl = baseUrl,
         progressPercent = progressPercent,
         chapterNumber = number,
         downloaded = downloaded,
@@ -1985,6 +2086,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val BELOW_RULE = "The paragraph below the rule."
         const val RUBY_REFERENCE = "WWWW"
         const val JUMP_LINK = "Jump to the note"
+        const val BASE_URL = "https://novel.test/chapter/1"
         const val NOTE = "The note the link names."
         const val OTHER_NOTE = "The note the chapter above names the same way."
         const val LONG_READING = "annotation"

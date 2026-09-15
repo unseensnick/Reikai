@@ -17,10 +17,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
+import tachiyomi.core.common.util.system.logcat
 
 /**
  * Turns a processed chapter into styled text across [ChapterTextBlock]'s chunk views.
@@ -221,11 +223,16 @@ class NovelTextRenderer(
         // The WebView mode loads the chapter with this base, so its relative links arrive absolute and
         // open in the browser. Left relative here they reach the link policy as a non-http URL, which
         // it blocks, and the tap did nothing with nothing said.
+        // A fragment or empty href names nothing to open, as reader.js leaves it, so the policy blocks it.
         doc.select("a[href]")
-            .filterNot { it.attr("href").startsWith(NovelChapterTags.ANCHOR_HREF) }
+            .filterNot { link ->
+                val href = link.attr("href").trim()
+                href.isEmpty() || href.startsWith("#") || href.startsWith(NovelChapterTags.ANCHOR_HREF)
+            }
             .forEach { resolveAgainstBase(it, "href") }
         doc.body().html()
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        logcat(LogPriority.WARN, e) { "Chapter markup left unprepared" }
         html
     }
 

@@ -523,8 +523,7 @@
       var chapter = link && link.closest(CHAPTER_SELECTOR);
       if (!chapter) return;
       e.preventDefault();
-      var name = CSS.escape(decodeURIComponent(link.getAttribute('href').substring(1)));
-      var target = name && chapter.querySelector('[id="' + name + '"], a[name="' + name + '"]');
+      var target = anchorTarget(chapter, link.getAttribute('href').substring(1));
       if (!target) return;
       onReaderMove();
       window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top, behavior: 'instant' });
@@ -1019,6 +1018,26 @@
       node.setAttribute('srcset', srcset);
     });
     return template.content;
+  }
+
+  /*
+   * The element in chapter a link fragment names: as written first, then percent-decoded, the order a
+   * browser tries and NovelChapterTags mirrors. A malformed escape names nothing decoded.
+   */
+  function anchorTarget(chapter, fragment) {
+    var names = [fragment];
+    try {
+      names.push(decodeURIComponent(fragment));
+    } catch (e) {
+      // The name as written is the only one left.
+    }
+    for (var i = 0; i < names.length; i++) {
+      if (!names[i]) continue;
+      var name = CSS.escape(names[i]);
+      var target = chapter.querySelector('[id="' + name + '"], a[name="' + name + '"]');
+      if (target) return target;
+    }
+    return null;
   }
 
   /* value against baseUrl, or as written when it needs no base or is not a URL either base can read. */

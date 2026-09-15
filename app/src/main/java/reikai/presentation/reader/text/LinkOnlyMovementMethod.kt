@@ -1,5 +1,6 @@
 package reikai.presentation.reader.text
 
+import android.text.Layout
 import android.text.Spannable
 import android.text.method.MovementMethod
 import android.text.style.ClickableSpan
@@ -32,7 +33,23 @@ object LinkOnlyMovementMethod : MovementMethod {
         val y = event.y.toInt() - widget.totalPaddingTop + widget.scrollY
         val line = layout.getLineForVertical(y)
         val offset = layout.getOffsetForHorizontal(line, x.toFloat())
-        val links = buffer.getSpans(offset, offset, ClickableSpan::class.java)
+        // The offset snaps to the nearest boundary, so a tap in the blank past a line lands on a link
+        // ending it. A tap follows a link only within its own run on that line, give or take half a
+        // letter, about the slop the WebView page's touch adjustment grants one. A link wrapping past
+        // either end runs to that edge, where the line's end offset already names the next line.
+        val lineStart = layout.getLineStart(line)
+        val lineEnd = layout.getLineEnd(line)
+        val rightToLeft = layout.getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT
+        val head = if (rightToLeft) layout.getLineRight(line) else layout.getLineLeft(line)
+        val tail = if (rightToLeft) layout.getLineLeft(line) else layout.getLineRight(line)
+        val slop = widget.textSize / 2
+        val links = buffer.getSpans(offset, offset, ClickableSpan::class.java).filter { link ->
+            val start = buffer.getSpanStart(link)
+            val end = buffer.getSpanEnd(link)
+            val from = if (start < lineStart) head else layout.getPrimaryHorizontal(start)
+            val to = if (end >= lineEnd) tail else layout.getPrimaryHorizontal(end)
+            x >= minOf(from, to) - slop && x <= maxOf(from, to) + slop
+        }
         if (links.isEmpty()) return false
         if (action == MotionEvent.ACTION_UP) {
             // The view queued its own click before this ran, and the reader takes a click as a tap zone.

@@ -11,6 +11,7 @@ import android.text.style.ReplacementSpan
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.xml.sax.XMLReader
+import java.net.URLDecoder
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -33,14 +34,22 @@ internal object NovelChapterTags : Html.TagHandler {
         doc.select("hr").forEach { it.replaceWith(Element(RULE_TAG)) }
         var index = 0
         doc.select("a[href^=#]").forEach { link ->
-            val name = link.attr("href").substring(1)
-            val target = doc.getElementById(name)
-                ?: doc.getElementsByAttributeValue("name", name).firstOrNull()
-                ?: return@forEach
+            val target = anchorTarget(doc, link.attr("href").substring(1)) ?: return@forEach
             val marker = Element("$ANCHOR_TAG$index")
             if (target.childNodeSize() > 0) target.prependChild(marker) else target.before(marker)
             link.attr("href", "$ANCHOR_HREF$index")
             index++
+        }
+    }
+
+    /**
+     * The element a fragment names: as written first, then percent-decoded, the order a browser tries and
+     * reader.js mirrors. An empty name names nothing, and jsoup throws on one.
+     */
+    private fun anchorTarget(doc: Document, fragment: String): Element? {
+        val decoded = runCatching { URLDecoder.decode(fragment.replace("+", "%2B"), "UTF-8") }.getOrNull()
+        return listOfNotNull(fragment, decoded).distinct().filter { it.isNotEmpty() }.firstNotNullOfOrNull { name ->
+            doc.getElementById(name) ?: doc.getElementsByAttributeValue("name", name).firstOrNull()
         }
     }
 
