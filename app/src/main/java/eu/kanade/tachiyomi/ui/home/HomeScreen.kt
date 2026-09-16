@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.domain.library.ContentType
 import reikai.presentation.recents.RecentsMode
 import reikai.presentation.recents.RecentsTab
 import reikai.presentation.recents.ShowsUpdatesBadge
@@ -59,7 +60,9 @@ import eu.kanade.presentation.util.Tab as NavTab
 
 object HomeScreen : Screen() {
 
-    private val librarySearchEvent = Channel<String>()
+    // RK: carries the content type beside the query, so a search sent from a series lands on that
+    //     series' own chip rather than whichever one the library happens to be showing.
+    private val librarySearchEvent = Channel<Pair<String, ContentType?>>()
     private val openTabEvent = Channel<Tab>()
     private val showBottomNavEvent = Channel<Boolean>()
 
@@ -171,9 +174,9 @@ object HomeScreen : Screen() {
 
             LaunchedEffect(Unit) {
                 launch {
-                    librarySearchEvent.receiveAsFlow().collectLatest {
+                    librarySearchEvent.receiveAsFlow().collectLatest { (query, contentType) ->
                         goToLibraryTab()
-                        LibraryTab.search(it)
+                        LibraryTab.search(query, contentType)
                     }
                 }
                 launch {
@@ -297,8 +300,8 @@ object HomeScreen : Screen() {
         }
     }
 
-    suspend fun search(query: String) {
-        librarySearchEvent.send(query)
+    suspend fun search(query: String, contentType: ContentType? = null) {
+        librarySearchEvent.send(query to contentType)
     }
 
     suspend fun openTab(tab: Tab) {

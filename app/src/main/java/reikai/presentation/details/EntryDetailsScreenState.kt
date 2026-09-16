@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.entry.EntryId
+import reikai.domain.source.SourceKey
 
 /**
  * The neutral details screen state both content types produce, so the shared details UI can render manga
@@ -49,9 +50,11 @@ sealed interface EntryDetailsScreenState {
     }
 }
 
-/** One grouped source in the merge switcher chips + manage-sources dialog. */
+/** One grouped source in the merge switcher chips + manage-sources dialog. [id] is the member
+ *  entry's id, not a source id; [sourceKey] names the source itself, for the header's browse
+ *  action, and is null where a source could not be resolved. */
 @Immutable
-data class EntryMergeSource(val id: Long, val sourceName: String)
+data class EntryMergeSource(val id: Long, val sourceName: String, val sourceKey: SourceKey? = null)
 
 /**
  * The chapter region: the rendered rows (chapters interleaved with "N missing" separators) plus the

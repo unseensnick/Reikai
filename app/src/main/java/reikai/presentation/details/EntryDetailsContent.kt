@@ -84,6 +84,10 @@ data class EntryDetailsNavigation(
     val onOpenSourceSettings: (() -> Unit)? = null,
     /** Hands the viewed source's download folder to a file manager. */
     val onOpenFolder: (() -> Unit)? = null,
+    /** Header long-press: search the library for the pressed text, forced to this entry's type. */
+    val onLibrarySearch: (query: String) -> Unit,
+    /** Header source row: browse that source. Null on a stub, where there is nothing to browse. */
+    val onBrowseSource: (() -> Unit)? = null,
 )
 
 /**
@@ -315,6 +319,8 @@ private fun LazyListScope.entryInfoBlock(
         state = state.details,
         onCoverClick = behavior::showCoverDialog,
         doSearch = nav.onSearch,
+        librarySearch = nav.onLibrarySearch,
+        onBrowseSource = nav.onBrowseSource,
         onAddToLibraryClicked = onAddToLibrary,
         onTrackingClicked = nav.onTracking,
         onEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },

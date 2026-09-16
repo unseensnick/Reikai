@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,10 +20,12 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
@@ -65,6 +68,7 @@ class NovelScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
         val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
             create(sourceId = sourceId, novelUrl = novelUrl)
         }
@@ -130,17 +134,34 @@ class NovelScreen(
                                     )
                                 }
                             },
-                            // A non-global search (the source-name tap) scopes to the shown source,
-                            // like manga's browse-scoped search; global goes cross-source.
+                            // A non-global search walks back to an already-open catalogue rather than
+                            // stacking a second one on the same source; global goes cross-source.
                             onSearch = { query, global ->
                                 if (global) {
                                     navigator.push(
                                         EntryGlobalSearchScreen(query, scopedContentType = ContentType.NOVELS),
                                     )
+                                } else if (navigator.items.any { it is EntryCatalogueScreen }) {
+                                    navigator.popUntil { it is EntryCatalogueScreen }
+                                    scope.launch { (navigator.lastItem as EntryCatalogueScreen).search(query) }
                                 } else {
                                     navigator.push(EntryCatalogueScreen(SourceKey.Novel(s.displayNovel.source), query))
                                 }
                             },
+                            onLibrarySearch = { query ->
+                                // Walk back to the library before asking it to search: its channel
+                                // has no buffer, so a send while it is off-screen never arrives.
+                                navigator.popUntil { it is HomeScreen }
+                                scope.launch {
+                                    (navigator.lastItem as? HomeScreen)
+                                        ?.search(query, ContentType.NOVELS)
+                                }
+                            },
+                            // Novels have no stub concept, but an uninstalled plugin resolves to no
+                            // source, and its catalogue would open on nothing.
+                            onBrowseSource = {
+                                navigator.push(EntryCatalogueScreen(SourceKey.Novel(s.displayNovel.source)))
+                            }.takeIf { s.sourceName != s.displayNovel.source },
                             onTagSearch = {
                                 navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
                             },

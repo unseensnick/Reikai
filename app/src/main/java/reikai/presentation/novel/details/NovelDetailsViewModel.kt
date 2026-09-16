@@ -84,6 +84,7 @@ import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.novel.novelMissingChapterCount
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -403,7 +404,7 @@ class NovelDetailsViewModel(
             val novel = novelRepo.getById(id) ?: continue
             val src = sourceManager.get(novel.source)
             if (src != null) resolved[id] = src
-            chips += EntryMergeSource(id, src?.name ?: novel.source)
+            chips += EntryMergeSource(id, src?.name ?: novel.source, SourceKey.Novel(novel.source))
         }
         siblingSources.value = resolved
         return chips

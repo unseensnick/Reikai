@@ -184,6 +184,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
+- **Holding the title, author or artist on a series now offers to search your library or every source, instead of only copying.** A library search opens the content type the series belongs to, so a novel never searches your manga.
 - **A series' details overflow can now open its download folder in your file manager.** It opens the source you are viewing on a merged series, and appears only when something is downloaded.
 - **A series' details overflow can now clear its downloaded chapters.** It clears the source you are viewing on a merged series, appears only when there is something to clear, and leaves your reading progress, bookmarks and history alone.
 - **A series' details overflow now opens its source's settings.** It appears only when the source has any, and on a merged series it opens the settings of the source you are viewing.
@@ -195,6 +196,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Tapping a series' source name now opens that source to browse.** It used to run a search for the source's own name, and from most screens it did nothing at all.
 - **Page previews on an adult source's details page no longer go blank over time.** Their thumbnails were remembered against links that expire, so a series you had opened before came back as numbered blanks.
 - **A novel's page now shows its artist, when it has one separate from the author.** Manga pages already did; tap it to search, like every other field there.
 - **The full-screen cover viewer, Save and Share now use the cover URL you set in Edit info.** They kept showing the source's original cover while the series page showed yours.

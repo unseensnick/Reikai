@@ -37,6 +37,8 @@ fun LazyListScope.entryInfoItems(
     state: EntryDetailsUiState,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    librarySearch: (query: String) -> Unit,
+    onBrowseSource: (() -> Unit)?,
     onAddToLibraryClicked: () -> Unit,
     onTrackingClicked: () -> Unit,
     onEditCategory: (() -> Unit)?,
@@ -58,6 +60,8 @@ fun LazyListScope.entryInfoItems(
             header = state.header,
             onCoverClick = onCoverClick,
             doSearch = doSearch,
+            librarySearch = librarySearch,
+            onBrowseSource = onBrowseSource,
         )
     }
     item(key = "entry-action-row") {

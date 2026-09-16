@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
+import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -229,6 +230,14 @@ class MangaScreen(
                         // anchored on a non-metadata source.
                         // The viewed source, as the metadata viewer resolves it, so a merged entry
                         // opens the settings of the source its chip is showing.
+                        onLibrarySearch = { query ->
+                            scope.launch { performSearch(navigator, query, global = false, library = true) }
+                        },
+                        // The viewed source, and null on a stub: there is no catalogue to open for an
+                        // extension that is not installed.
+                        onBrowseSource = (successState.mergeDisplaySource ?: successState.source)
+                            .takeIf { !it.isLocalOrStub() }
+                            ?.let { source -> { navigator.push(EntryCatalogueScreen(SourceKey.Manga(source.id))) } },
                         onOpenFolder = {
                             openDownloadFolder(
                                 context,
@@ -398,7 +407,17 @@ class MangaScreen(
      *
      * @param query the search query to the parent controller
      */
-    private suspend fun performSearch(navigator: Navigator, query: String, global: Boolean) {
+    // RK --> Walks the back stack rather than looking one screen back, which is upstream's shape: a
+    //        details screen reached from history, updates, a deep link or a related hop has neither
+    //        target directly behind it, so the search silently did nothing. A library search walks past
+    //        any catalogue so it always lands on the library, and carries this entry's content type,
+    //        because the library searches whichever type chip is open.
+    private suspend fun performSearch(
+        navigator: Navigator,
+        query: String,
+        global: Boolean,
+        library: Boolean = false,
+    ) {
         if (global) {
             navigator.push(EntryGlobalSearchScreen(query, scopedContentType = ContentType.MANGA))
             return
@@ -408,32 +427,31 @@ class MangaScreen(
             return
         }
 
-        when (val previousController = navigator.items[navigator.size - 2]) {
-            is HomeScreen -> {
-                navigator.pop()
-                previousController.search(query)
-            }
-            is EntryCatalogueScreen -> {
-                navigator.pop()
-                previousController.search(query)
-            }
+        navigator.popUntil { screen ->
+            screen is HomeScreen || (!library && screen is EntryCatalogueScreen)
+        }
+        when (val previousController = navigator.lastItem) {
+            is HomeScreen -> previousController.search(query, ContentType.MANGA)
+            is EntryCatalogueScreen -> previousController.search(query)
+            else -> Unit
         }
     }
+    // RK <--
 
     /**
      * Performs a genre search using the provided genre name.
      *
      * @param genreName the search genre to the parent controller
      */
+    // RK: the same walk, so a genre tap still reaches a catalogue further back than one screen.
     private suspend fun performGenreSearch(navigator: Navigator, genreName: String, source: Source) {
         if (navigator.size < 2) {
             return
         }
 
-        val previousController = navigator.items[navigator.size - 2]
-        if (previousController is EntryCatalogueScreen && source is HttpSource) {
-            navigator.pop()
-            previousController.searchGenre(genreName)
+        if (source is HttpSource && navigator.items.any { it is EntryCatalogueScreen }) {
+            navigator.popUntil { it is EntryCatalogueScreen }
+            (navigator.lastItem as EntryCatalogueScreen).searchGenre(genreName)
         } else {
             performSearch(navigator, genreName, global = false)
         }

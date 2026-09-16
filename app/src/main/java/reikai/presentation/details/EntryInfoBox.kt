@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
@@ -19,6 +20,10 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -35,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.source.model.SManga
@@ -115,6 +121,8 @@ fun EntryInfoBox(
     header: EntryHeaderUi,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    librarySearch: (query: String) -> Unit,
+    onBrowseSource: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
@@ -146,6 +154,8 @@ fun EntryInfoBox(
                     header = header,
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
+                    librarySearch = librarySearch,
+                    onBrowseSource = onBrowseSource,
                 )
             } else {
                 EntryTitlesLarge(
@@ -153,6 +163,8 @@ fun EntryInfoBox(
                     header = header,
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
+                    librarySearch = librarySearch,
+                    onBrowseSource = onBrowseSource,
                 )
             }
         }
@@ -165,6 +177,8 @@ private fun EntryTitlesLarge(
     header: EntryHeaderUi,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    librarySearch: (query: String) -> Unit,
+    onBrowseSource: (() -> Unit)?,
 ) {
     Column(
         modifier = Modifier
@@ -179,7 +193,13 @@ private fun EntryTitlesLarge(
             onClick = onCoverClick,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        EntryContentInfo(header = header, doSearch = doSearch, textAlign = TextAlign.Center)
+        EntryContentInfo(
+            header = header,
+            doSearch = doSearch,
+            librarySearch = librarySearch,
+            onBrowseSource = onBrowseSource,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -189,6 +209,8 @@ private fun EntryTitlesSmall(
     header: EntryHeaderUi,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    librarySearch: (query: String) -> Unit,
+    onBrowseSource: (() -> Unit)?,
 ) {
     Row(
         modifier = Modifier
@@ -206,7 +228,12 @@ private fun EntryTitlesSmall(
             onClick = onCoverClick,
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            EntryContentInfo(header = header, doSearch = doSearch)
+            EntryContentInfo(
+                header = header,
+                doSearch = doSearch,
+                librarySearch = librarySearch,
+                onBrowseSource = onBrowseSource,
+            )
         }
     }
 }
@@ -215,6 +242,8 @@ private fun EntryTitlesSmall(
 private fun ColumnScope.EntryContentInfo(
     header: EntryHeaderUi,
     doSearch: (query: String, global: Boolean) -> Unit,
+    librarySearch: (query: String) -> Unit,
+    onBrowseSource: (() -> Unit)?,
     textAlign: TextAlign? = LocalTextStyle.current.textAlign,
 ) {
     val context = LocalContext.current
@@ -222,11 +251,63 @@ private fun ColumnScope.EntryContentInfo(
     val author = header.author
     val artist = header.artist
 
+    // One menu for all four rows, as the tag chips do it: it anchors to this column rather
+    // than to the row under the finger, which is the cost of not building four of them.
+    // Deliberately remember, not rememberSaveable: an open menu should not survive a rotation
+    // and reopen against a stale anchor.
+    var showMenu by remember { mutableStateOf(false) }
+    var menuTarget by remember { mutableStateOf("") }
+    var menuIsSource by remember { mutableStateOf(false) }
+
+    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+        // The source row offers Browse instead of searching: searching for a source's own name
+        // is what this screen used to do by accident, and on a merged entry the name is a label.
+        if (menuIsSource) {
+            if (onBrowseSource != null) {
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(MR.strings.browse)) },
+                    onClick = {
+                        onBrowseSource()
+                        showMenu = false
+                    },
+                )
+            }
+        } else {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(MR.strings.action_library_search)) },
+                onClick = {
+                    librarySearch(menuTarget)
+                    showMenu = false
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(text = stringResource(MR.strings.action_global_search)) },
+                onClick = {
+                    doSearch(menuTarget, true)
+                    showMenu = false
+                },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text(text = stringResource(MR.strings.action_copy_to_clipboard)) },
+            onClick = {
+                context.copyToClipboard(menuTarget, menuTarget)
+                showMenu = false
+            },
+        )
+    }
+
     Text(
         text = title.ifBlank { stringResource(MR.strings.unknown_title) },
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.clickableNoIndication(
-            onLongClick = { if (title.isNotBlank()) context.copyToClipboard(title, title) },
+            onLongClick = {
+                if (title.isNotBlank()) {
+                    menuTarget = title
+                    menuIsSource = false
+                    showMenu = true
+                }
+            },
             onClick = { if (title.isNotBlank()) doSearch(title, true) },
         ),
         textAlign = textAlign,
@@ -244,7 +325,13 @@ private fun ColumnScope.EntryContentInfo(
             text = author?.takeIf { it.isNotBlank() } ?: stringResource(MR.strings.unknown_author),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.clickableNoIndication(
-                onLongClick = { if (!author.isNullOrBlank()) context.copyToClipboard(author, author) },
+                onLongClick = {
+                    if (!author.isNullOrBlank()) {
+                        menuTarget = author
+                        menuIsSource = false
+                        showMenu = true
+                    }
+                },
                 onClick = { if (!author.isNullOrBlank()) doSearch(author, true) },
             ),
             textAlign = textAlign,
@@ -266,7 +353,11 @@ private fun ColumnScope.EntryContentInfo(
                 text = artist,
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.clickableNoIndication(
-                    onLongClick = { context.copyToClipboard(artist, artist) },
+                    onLongClick = {
+                        menuTarget = artist
+                        menuIsSource = false
+                        showMenu = true
+                    },
                     onClick = { doSearch(artist, true) },
                 ),
                 textAlign = textAlign,
@@ -323,8 +414,12 @@ private fun ColumnScope.EntryContentInfo(
             Text(
                 text = header.sourceName,
                 modifier = Modifier.clickableNoIndication(
-                    onLongClick = { context.copyToClipboard(header.sourceName, header.sourceName) },
-                    onClick = { doSearch(header.sourceName, false) },
+                    onLongClick = {
+                        menuTarget = header.sourceName
+                        menuIsSource = true
+                        showMenu = true
+                    },
+                    onClick = { onBrowseSource?.invoke() },
                 ),
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 1,

@@ -879,8 +879,13 @@ data object LibraryTab : Tab {
             // showing. Both collectors read the chip from its flow rather than the captured composition
             // value, because this effect keys on Unit and would otherwise hold the chip's first value.
             launch {
-                queryEvent.receiveAsFlow()
-                    .collect { engine.search(engine.contentType.value, it) }
+                queryEvent.receiveAsFlow().collect { (query, requested) ->
+                    // RK: a requested type is applied first and then used directly. Reading the flow
+                    //     back would still hold the old chip: the preference write is immediate but
+                    //     its change event is not.
+                    if (requested != null) engine.setContentType(requested)
+                    engine.search(requested ?: engine.contentType.value, query)
+                }
             }
             launch {
                 requestSettingsSheetEvent.receiveAsFlow()
@@ -890,8 +895,9 @@ data object LibraryTab : Tab {
     }
 
     // For invoking search from other screen
-    private val queryEvent = Channel<String>()
-    suspend fun search(query: String) = queryEvent.send(query)
+    private val queryEvent = Channel<Pair<String, ContentType?>>()
+    suspend fun search(query: String, contentType: ContentType? = null) =
+        queryEvent.send(query to contentType)
 
     // For opening settings sheet in LibraryController
     private val requestSettingsSheetEvent = Channel<Unit>()

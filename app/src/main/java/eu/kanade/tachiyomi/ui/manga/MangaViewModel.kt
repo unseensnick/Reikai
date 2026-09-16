@@ -107,6 +107,7 @@ import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.domain.source.SourceKey
 import reikai.domain.track.supportingContent
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
@@ -1108,7 +1109,11 @@ class MangaViewModel(
         val sourceManager = sourceManager
         return ids.map { id ->
             val sourceManga = getMangaAndChapters.awaitManga(id)
-            EntryMergeSource(id, sourceManager.getOrStub(sourceManga.source).name)
+            EntryMergeSource(
+                id,
+                sourceManager.getOrStub(sourceManga.source).name,
+                SourceKey.Manga(sourceManga.source),
+            )
         }
     }
 
