@@ -20,6 +20,9 @@ delete:
 DELETE FROM novels_categories
 WHERE novel_id = :novelId;
 
+-- Only a category a novel picker can show: universal (0) or novel (2), the twin of the manga insert's
+-- guard. A manga-only row written here appears in no picker, so nothing could ever remove it.
 insert:
 INSERT INTO novels_categories(novel_id, category_id)
-VALUES (:novelId, :categoryId);
+SELECT :novelId, _id FROM categories
+WHERE _id = :categoryId AND content_type IN (0, 2);

@@ -548,6 +548,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- A category link that no picker for its content type could show is now refused where it is written, so a manga can no longer be filed under a novels-only category or the reverse.
 - Gradle's configuration cache is on, which takes a no-op incremental build from about 26 seconds to under 2.
 - Installed extensions now resolve their dependencies from the app's compile-time dependency graph through a fixed, read-only list, rather than from a registry the app filled at startup (synced from Mihon, mihonapp/mihon#3965).
 - The novel reader does less work on the main thread: a text colour, line spacing or alignment change keeps each chapter's measured layout, a replaced chapter render stops early, the web page mode reads a font file once rather than on every page build, and the page is no longer re-indented as a whole.

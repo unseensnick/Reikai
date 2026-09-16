@@ -18,9 +18,14 @@ BEGIN
     WHERE _id = new.manga_id AND (SELECT is_syncing FROM mangas WHERE _id = new.manga_id) = 0;
 END;
 
+-- RK --> only a category a manga picker can show: universal (0) or manga (1). A novels-only row
+-- written here appears in no picker, so nothing could ever remove it. Every writer, restore included,
+-- ends here, so it is refused once rather than per caller.
 insert:
 INSERT INTO mangas_categories(manga_id, category_id)
-VALUES (:mangaId, :categoryId);
+SELECT :mangaId, _id FROM categories
+WHERE _id = :categoryId AND content_type IN (0, 1);
+-- RK <--
 
 deleteMangaCategoryByMangaId:
 DELETE FROM mangas_categories

@@ -78,6 +78,13 @@ both sides, unchanged.
   `CategoryPreferencesCleanupMigration`. The manga prefs do not move (their ids are stable).
 - **Entry tables are not touched.** No manga or novel row moves, no entry id changes, and the two
   junction tables stay separate.
+- **A link the pickers cannot show is refused at the junction insert, not in the interactors**
+  (2026-09-17). The roadmap item named `SetMangaCategories` and `SetNovelCategories`, but backup restore
+  writes links without either (`MangaRestorer` calls the query, `NovelRestorer` the repository), and
+  every writer ends at the two `insert` queries. Each is now an `INSERT ... SELECT` over `categories`
+  that keeps only universal and own-type rows, so a novels-only id handed to a manga link is dropped
+  silently rather than erroring, which would abort a whole bulk or restore transaction for one bad id.
+  A query change, not a schema one, so no `.sqm`. Pinned by `CategoryLinkGuardTest`.
 
 ## Key files
 
