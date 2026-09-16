@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import android.content.Intent
+import androidx.compose.runtime.snapshots.Snapshot
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -12,6 +13,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -1031,6 +1033,54 @@ class RecentsEngineTest {
     private fun feedEngine(provider: RecentsProvider) =
         engine(listOf(provider), chip = ContentType.MANGA, modes = setOf(RecentsMode.FEED))
 
+    /**
+     * The row controls poll their download state during composition, so the engine has to hand out a
+     * poll that composition can be told to repeat. Without it a History row kept a deleted download's
+     * icon until something else happened to redraw it.
+     */
+    @Test
+    fun `a polled download state is invalidated when a download changes`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val provider = provider(ContentType.MANGA, read = rows(row), downloadedEntries = setOf(manga1))
+        val engine = engine(listOf(provider))
+        val poll = engine.downloadUi(row)!!.state
+        val reads = mutableSetOf<Any>()
+        Snapshot.observe(readObserver = { reads += it }) { poll() }
+        var invalidated = false
+        val observer = Snapshot.registerApplyObserver { changed, _ -> invalidated = changed.any { it in reads } }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { engine.trackDownloads() }
+        provider.awaitDownloadWatcher()
+
+        provider.deleteDownload(manga1)
+        advanceUntilIdle()
+        Snapshot.sendApplyNotifications()
+        observer.dispose()
+
+        invalidated shouldBe true
+    }
+
+    /** The downloaded filter judges a row by its download, so a deleted download has to re-judge it. */
+    @Test
+    fun `a read row leaves the downloaded filter once its download is deleted`() = runTest {
+        emittingUpdatesPreferences.filterDownloaded.set(TriState.ENABLED_IS)
+        val row = readRow(manga1, chapterId = 5)
+        val provider = provider(
+            ContentType.MANGA,
+            read = rows(row),
+            states = mapOf(manga1 to readState()),
+            downloadedEntries = setOf(manga1),
+            unreadEntries = setOf(manga1),
+        )
+        val engine = emittingEngine(provider, setOf(RecentsMode.FEED))
+        backgroundScope.launch { engine.rendered.collect { } }
+        // Drawn first, so the empty list below is the delete's doing and not a row that never showed.
+        engine.rendered.filterNotNull().first { it.rows.isNotEmpty() }
+
+        provider.deleteDownload(manga1)
+
+        engine.rendered.filterNotNull().first { it.rows.isEmpty() }.rows shouldBe emptyList()
+    }
+
     @Test
     fun `a read record still unread resolves nothing, since it resumes itself`() = runTest {
         val row = readRow(manga1, chapterId = 5)
@@ -1314,7 +1364,7 @@ private class FakeRecentsProvider(
     private val latestRead: RecentsItem?,
     private val historyClears: Boolean,
     private val states: Map<EntryId, RecentsChapterState>,
-    private val downloadedEntries: Set<EntryId>,
+    downloadedEntries: Set<EntryId>,
     unread: Set<EntryId>,
     private val targetRows: Map<ChapterRef, RecentsTargetRow>,
     memberships: Map<EntryId, Long>,
@@ -1351,6 +1401,21 @@ private class FakeRecentsProvider(
     override val updating: Flow<Boolean> = flowOf(updating).onStart { updatingSubscriptions++ }
     override val membership: Flow<Map<EntryId, Long>> = flowOf(memberships)
 
+    private val downloadedNow = downloadedEntries.toMutableSet()
+    private val downloadSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    override val downloadChanges: Flow<Unit> = downloadSignal
+
+    /** A change reported before anything watches is dropped, as a real cache's would be to nobody. */
+    suspend fun awaitDownloadWatcher() {
+        downloadSignal.subscriptionCount.first { it > 0 }
+    }
+
+    /** Deletes an entry's download and reports it, the way a cache change does. */
+    fun deleteDownload(entry: EntryId) {
+        downloadedNow -= entry
+        downloadSignal.tryEmit(Unit)
+    }
+
     // Named apart from the property on purpose: a same-named constructor parameter reads back as the
     // property here, which is null while the object is still being built.
     override val unreadEntries: Flow<Set<EntryId>> = flowOf(unread)
@@ -1359,7 +1424,7 @@ private class FakeRecentsProvider(
         EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty(), state = states[item.entryId])
 
     override fun downloadUi(item: RecentsItem): RecentsDownloadUi = RecentsDownloadUi(
-        state = { if (item.entryId in downloadedEntries) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },
+        state = { if (item.entryId in downloadedNow) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },
         progress = RecentsDownloadProgress.Unsupported,
     )
 

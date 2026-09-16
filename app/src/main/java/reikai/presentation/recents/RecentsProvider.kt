@@ -82,6 +82,13 @@ interface RecentsProvider : RecentsBehavior {
     val membership: Flow<Map<EntryId, Long>>
 
     /**
+     * Emits whenever any of this type's chapter download states may have changed: the on-disk index,
+     * the queue, or a queued download's status or progress. [downloadUi]'s callbacks are polled, so
+     * without this nothing tells a drawn row to ask again, and a History row kept its old icon.
+     */
+    val downloadChanges: Flow<Unit>
+
+    /**
      * Everything [item] draws, read out of this type's own payload. Answered per rendered row rather
      * than baked into the item, matching the other two accessors here, so an assembly stays cheap and
      * a row that never reaches the screen is never projected.

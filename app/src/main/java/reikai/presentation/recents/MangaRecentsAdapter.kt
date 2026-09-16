@@ -7,6 +7,7 @@ import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -19,6 +20,7 @@ import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
@@ -66,6 +68,7 @@ class MangaRecentsAdapter(
     private val recentsUnread: RecentsUnreadRepository,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val downloadManager: DownloadManager,
+    private val downloadCache: DownloadCache,
     // Read from the preference rather than off the model, whose copy is a Compose State the engine
     // cannot collect.
     private val libraryPreferences: LibraryPreferences,
@@ -143,6 +146,13 @@ class MangaRecentsAdapter(
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)
+
+    override val downloadChanges: Flow<Unit> = merge(
+        downloadCache.changes,
+        downloadManager.queueState.map { },
+        downloadManager.statusFlow().map { },
+        downloadManager.progressFlow().map { },
+    )
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
         resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }

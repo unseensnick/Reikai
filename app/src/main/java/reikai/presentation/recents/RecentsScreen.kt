@@ -123,6 +123,8 @@ fun Screen.RecentsScreen(
     val swipeActions by engine.swipeActions.collectAsState()
     // Null until the assembly catches up with the chip, which is drawn as loading.
     val rendered by engine.rendered.collectAsStateWithLifecycle()
+    // A row's download control polls its state, so this is what tells it a download came or went.
+    LaunchedEffect(engine) { engine.trackDownloads() }
 
     val rows = rendered?.rows.orEmpty()
     val selectionEnabled = mode.can(RecentsCapability.SELECTION)
@@ -466,7 +468,7 @@ private fun RecentsMixedLaneRow(
     // both fall back to the record, so the row never blanks.
     val target = rememberTargetRow(engine, item, mode, membership)
     val state = target?.state ?: ui.state
-    val download = target?.download ?: engine.downloadUi(item)
+    val download = engine.downloadUi(item, target)
     // The record keys the selection and the history verbs; the target is what the download control
     // acts on, so that button cannot fetch a different chapter than the one the row names.
     val ref = item.lane.chapterRef
@@ -930,7 +932,7 @@ private fun RecentsBottomBar(
     val perRow = selected.map { item ->
         val target = targets[item.lane.chapterRef]
         val state = target?.state ?: engine.rowUi(item).state
-        state to (target?.download ?: engine.downloadUi(item))?.state?.invoke()
+        state to engine.downloadUi(item, target)?.state?.invoke()
     }
     val chapters = perRow.mapNotNull { it.first }
     MangaBottomActionMenu(

@@ -178,6 +178,7 @@ every release now also ships a foss build with neither in it.
 - **Tapping History again now always resumes the most recent thing you read.** A search you had typed in could send it to a different entry.
 - **Pull to refresh on Updates now spins until the library update has actually finished.** It stopped after a second whatever the update was doing.
 - **An Updates row you expanded to see its new chapters now stays open when the screen rotates.**
+- **The download button on a History or Grouped row now changes as soon as you download or delete that chapter.** It kept its old icon until you left the screen and came back.
 - **Continue reading now points at the oldest chapter you have not read, and the row is about that chapter throughout.** Its name, progress, unread dot, download button, time line and bulk actions all follow it; before, a series read out of order offered the chapter you had just finished.
 
 ### Details

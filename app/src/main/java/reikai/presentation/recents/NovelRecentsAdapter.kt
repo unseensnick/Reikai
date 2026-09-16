@@ -11,8 +11,11 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
@@ -141,6 +144,12 @@ class NovelRecentsAdapter(
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
+
+    // Built on collection, so the download manager is still only constructed once something renders a
+    // download state, as the providers above promise. The queue carries each download's state.
+    override val downloadChanges: Flow<Unit> = flow {
+        emitAll(merge(novelDownloadCacheProvider().changes, novelDownloadManagerProvider().queueState.map { }))
+    }
 
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
         resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }

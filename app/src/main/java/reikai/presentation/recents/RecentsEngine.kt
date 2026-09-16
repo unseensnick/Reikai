@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import android.content.Intent
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.core.screen.Screen
@@ -24,9 +25,13 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -41,6 +46,7 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
@@ -199,7 +205,15 @@ class RecentsEngine(
             mode,
             groupBySeries,
             expandedGroups,
-            rowGate,
+            // The downloaded filter asks each row's download state, so it is asked again when one
+            // changes. Only then: progress alone emits several times a second while downloading.
+            rowGate.flatMapLatest { gate ->
+                if (gate.filters.downloaded == TriState.DISABLED) {
+                    flowOf(gate)
+                } else {
+                    downloadChanges.map { gate }.onStart { emit(gate) }
+                }
+            },
         ) { assembled, mode, grouped, expanded, gate ->
             assembled?.let {
                 RecentsRendered(
@@ -539,8 +553,40 @@ class RecentsEngine(
     fun rowUi(item: RecentsItem): RecentsRowUi =
         providersByType[item.entryId.contentType]?.rowUi(item) ?: EMPTY_RECENTS_ROW
 
-    fun downloadUi(item: RecentsItem): RecentsDownloadUi? =
-        providersByType[item.entryId.contentType]?.downloadUi(item)
+    /** A row's download state: its continue-reading [target]'s where it has one, else its own. */
+    fun downloadUi(item: RecentsItem, target: RecentsTargetRow? = null): RecentsDownloadUi? =
+        (target?.download ?: providersByType[item.entryId.contentType]?.downloadUi(item))?.observed()
+
+    /**
+     * Bumped by [trackDownloads] and read by every download callback this engine hands out, so a
+     * composition that polled one is invalidated when a download changes rather than when it next
+     * happens to redraw.
+     */
+    private val downloadRevision = mutableLongStateOf(0L)
+
+    /** Runs for as long as the surface is on screen, which is as long as its rows poll download state. */
+    suspend fun trackDownloads() {
+        downloadChanges.collect { downloadRevision.longValue++ }
+    }
+
+    private val downloadChanges: Flow<Unit> = merge(*providers.map { it.downloadChanges }.toTypedArray())
+
+    private fun RecentsDownloadUi.observed(): RecentsDownloadUi {
+        val poll = state
+        return RecentsDownloadUi(
+            state = {
+                downloadRevision.longValue
+                poll()
+            },
+            progress = when (val progress = progress) {
+                is RecentsDownloadProgress.Live -> RecentsDownloadProgress.Live {
+                    downloadRevision.longValue
+                    progress.percent()
+                }
+                RecentsDownloadProgress.Unsupported -> progress
+            },
+        )
+    }
 
     // The resolved continue-reading rows, keyed by the chapter each row was recorded from. That key is
     // unique among the rows using this memo: only read-lane rows resolve, and every mode that draws
