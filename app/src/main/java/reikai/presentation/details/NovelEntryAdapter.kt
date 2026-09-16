@@ -98,7 +98,11 @@ class NovelEntryAdapter(
             is NovelChapterListEntry.Item -> EntryChapterListItem.Chapter(
                 id = chapter.id,
                 name = chapter.name,
-                scanlator = null,
+                // Novels have no scanlator, so the line carries the source alone, and only when merged.
+                subtitle = chapterSubtitle(
+                    loaded.mergeSources.takeIf { it.size > 1 }
+                        ?.firstOrNull { it.id == chapter.novelId }?.sourceName,
+                ),
                 // Read on any source of the merge group, matching the manga side and the badge.
                 read = chapter.read || chapter.id in loaded.readInOtherSources,
                 bookmark = chapter.bookmark || chapter.id in loaded.bookmarkedInOtherSources,

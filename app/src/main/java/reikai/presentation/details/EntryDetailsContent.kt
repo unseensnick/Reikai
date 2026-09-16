@@ -441,7 +441,7 @@ private fun LazyListScope.entryChapterItems(
                         else -> null
                     },
                     readProgress = item.readProgress,
-                    scanlator = item.scanlator?.takeIf { it.isNotBlank() },
+                    scanlator = item.subtitle?.takeIf { it.isNotBlank() },
                     read = item.read,
                     bookmark = item.bookmark,
                     selected = isSelected,

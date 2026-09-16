@@ -78,7 +78,7 @@ class MangaEntryAdapter(
                 descriptionDefaultExpanded = isFromSource || isMetadataSource,
             ),
             chapters = EntryChapterListUiState(
-                items = chapterListItems.map { it.toNeutralItem() },
+                items = chapterListItems.map { it.toNeutralItem(chapterSourceNames()) },
                 // The same rule the inline markers use, so the two cannot disagree, and unchanged when
                 // the "hide missing" pref drops the separators from the rows.
                 missingChapterCount = ChapterGap.total(
@@ -124,11 +124,15 @@ class MangaEntryAdapter(
         )
     }
 
-    private fun ChapterList.toNeutralItem(): EntryChapterListItem = when (this) {
+    /** Empty unless the entry is merged: a single-source list would label every row identically. */
+    private fun MangaViewModel.State.Success.chapterSourceNames(): Map<Long, String> =
+        if (mergeSources.size > 1) mergeSources.associate { it.id to it.sourceName } else emptyMap()
+
+    private fun ChapterList.toNeutralItem(sourceNames: Map<Long, String>): EntryChapterListItem = when (this) {
         is ChapterList.Item -> EntryChapterListItem.Chapter(
             id = chapter.id,
             name = chapter.name,
-            scanlator = chapter.scanlator,
+            subtitle = chapterSubtitle(sourceNames[chapter.mangaId], chapter.scanlator),
             read = isRead,
             bookmark = isBookmarked,
             dateUpload = chapter.dateUpload,

@@ -182,6 +182,10 @@ every release now also ships a foss build with neither in it.
 
 ### Details
 
+#### Added
+
+- **The chapter list on a merged series now says which source each chapter came from.** Manga rows name the source before the scanlator; novel rows name the source, and neither shows anything when the series is not merged.
+
 #### Changed
 
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.

@@ -93,8 +93,9 @@ sealed interface EntryChapterListItem {
     data class Chapter(
         val id: Long,
         val name: String,
-        /** Scanlator group; null for novels (no scanlator concept). */
-        val scanlator: String?,
+        /** The row's one subtitle line, as the reader's chapter list does it: in a merged group the
+         *  source leads, then the scanlator where the type has one. Null when there is neither. */
+        val subtitle: String?,
         val read: Boolean,
         val bookmark: Boolean,
         val dateUpload: Long,
