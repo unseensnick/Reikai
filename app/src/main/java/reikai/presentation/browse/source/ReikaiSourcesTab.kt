@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.TravelExplore
@@ -35,12 +36,13 @@ import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.ContentTypeBadge
+import reikai.presentation.browse.components.ContentWarningBadge
 import reikai.presentation.browse.components.NovelSourceLatestButton
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.sourceLanguageLabel
 import reikai.presentation.components.ContentTypeFilterChips
-import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
@@ -53,23 +55,30 @@ import tachiyomi.presentation.core.util.plus
  * The Browse "Sources" tab: one list of every enabled source, manga and light novel together, with
  * the content-type chip as a filter over it rather than a switch between two lists.
  *
- * Assembly, sectioning and the row dialog live in [SourcesEngine]; this draws what it is given and
+ * Assembly, sectioning, search and the row dialog live in [SourcesEngine]; this draws what it is given and
  * routes a tap. Replaces Mihon's `sourcesTab()` via a `// RK` island at its call site; the replaced
  * builder is deleted (see the off-path manifest).
  */
 @Composable
 fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
     val mangaModel = metroViewModel<SourcesViewModel>()
     val novelModel = metroViewModel<NovelSourcesViewModel>()
     val providers = remember(mangaModel, novelModel) {
-        listOf(MangaSourcesProvider(mangaModel), NovelSourcesProvider(novelModel))
+        listOf(
+            MangaSourcesProvider(mangaModel, context.appGraph.extensionManager.loadedExtensionsFlow),
+            NovelSourcesProvider(novelModel),
+        )
     }
-    val engine = assistedMetroViewModel<SourcesEngine, SourcesEngine.Factory> { create(providers) }
+    val engine = assistedMetroViewModel<SourcesEngine, SourcesEngine.Factory> {
+        create(providers, browseViewModel.searchQuery)
+    }
     val state by engine.state.collectAsStateWithLifecycle()
 
     return TabContent(
         titleRes = MR.strings.label_sources,
+        searchEnabled = true,
         actions = listOfNotNull(
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
@@ -96,12 +105,17 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                 when {
                     state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
                     state.isEmpty -> EmptyScreen(
-                        stringRes = MR.strings.source_empty_screen,
+                        stringRes = if (state.isSearching) {
+                            MR.strings.no_results_found
+                        } else {
+                            MR.strings.source_empty_screen
+                        },
                         modifier = Modifier.padding(contentPadding),
                     )
                     else -> SourcesList(
                         items = state.items,
                         showContentType = state.contentType == ContentType.ALL,
+                        showLatest = state.showLatest,
                         contentPadding = contentPadding,
                         onClickItem = { row, latest ->
                             navigator.push(EntryCatalogueScreen(row.key, startLatest = latest))
@@ -119,6 +133,8 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                     showToggleDisable = dialog.canDisable,
                     // A disabled source is not listed, so a row that is here is never disabled.
                     isDisabled = false,
+                    showToggleIncognito = dialog.canToggleIncognito,
+                    isIncognito = dialog.isIncognito,
                     onClickPin = {
                         engine.togglePin(dialog.row)
                         engine.closeDialog()
@@ -127,6 +143,8 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                         engine.toggleDisable(dialog.row)
                         engine.closeDialog()
                     },
+                    // Left open, so the switch is seen to flip.
+                    onClickToggleIncognito = { engine.toggleIncognito(dialog) },
                     onDismiss = engine::closeDialog,
                 )
             }
@@ -148,6 +166,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
 private fun SourcesList(
     items: List<SourcesListItem>,
     showContentType: Boolean,
+    showLatest: Boolean,
     contentPadding: PaddingValues,
     /** The row that was tapped, and whether it was its Latest button rather than the row. */
     onClickItem: (BrowseSourceRow, Boolean) -> Unit,
@@ -180,6 +199,7 @@ private fun SourcesList(
                     modifier = Modifier.animateItem(),
                     row = item.row,
                     showContentType = showContentType,
+                    showLatest = showLatest,
                     onClickItem = onClickItem,
                     onClickPin = onClickPin,
                     onLongClickItem = onLongClickItem,
@@ -194,36 +214,51 @@ private fun SourcesList(
 private fun SourceRow(
     row: BrowseSourceRow,
     showContentType: Boolean,
+    /** Whether a row that supports Latest shows its button. */
+    showLatest: Boolean,
     /** The row that was tapped, and whether it was its Latest button rather than the row. */
     onClickItem: (BrowseSourceRow, Boolean) -> Unit,
     onClickPin: (BrowseSourceRow) -> Unit,
     onLongClickItem: (BrowseSourceRow) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val badge: @Composable () -> Unit = {
+    val languageLabel = sourceLanguageLabel(row.lang, LocalContext.current)
+    val contentTypeBadge: @Composable () -> Unit = {
         if (showContentType) ContentTypeBadge(row.key.contentType)
     }
+    val latestShown = showLatest && row.supportsLatest
     when (row.key) {
-        is SourceKey.Manga -> SourceItem(
-            modifier = modifier,
-            source = row.source as Source,
-            onClickItem = { _, listing -> onClickItem(row, listing == Listing.Latest) },
-            onLongClickItem = { onLongClickItem(row) },
-            onClickPin = { onClickPin(row) },
-            badge = badge,
-        )
+        is SourceKey.Manga -> {
+            val payload = row.source as MangaSourcePayload
+            SourceItem(
+                modifier = modifier,
+                source = payload.source,
+                title = row.title,
+                languageLabel = languageLabel,
+                showLatest = latestShown,
+                onClickItem = { _, listing -> onClickItem(row, listing == Listing.Latest) },
+                onLongClickItem = { onLongClickItem(row) },
+                onClickPin = { onClickPin(row) },
+                badge = {
+                    contentTypeBadge()
+                    ContentWarningBadge(payload.contentWarning)
+                },
+            )
+        }
         is SourceKey.Novel -> {
             val source = row.source as NovelSource
             NovelSourceRow(
                 modifier = modifier,
-                name = row.name,
+                name = row.title,
                 lang = row.lang,
+                // The row hides a language it has none of, so the flagged line is dropped the same way.
+                subtitle = languageLabel.takeIf { row.lang.isNotEmpty() },
                 iconUrl = source.iconUrl,
                 onClickItem = { onClickItem(row, false) },
                 onLongClickItem = { onLongClickItem(row) },
-                badge = badge,
+                badge = contentTypeBadge,
                 action = {
-                    if (source.supportsLatest) {
+                    if (latestShown) {
                         NovelSourceLatestButton(onClick = { onClickItem(row, true) })
                     }
                     NovelSourcePinButton(

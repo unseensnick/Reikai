@@ -1770,6 +1770,10 @@
     <string name="error_with_reason">Error: %1$s</string>
     <string name="could_not_open_entry">Could not open this entry:\n\n%1$s</string>
 
+    <!-- RK: Browse Sources rows -->
+    <string name="pref_hide_source_latest_button">Hide Latest button</string>
+    <string name="pref_hide_source_latest_button_summary">Open Latest from inside a source instead</string>
+
     <!-- RK: the Browse Feed tab and its settings -->
     <string name="label_feed">Feed</string>
     <string name="pref_show_feed_tab">Show Feed tab</string>

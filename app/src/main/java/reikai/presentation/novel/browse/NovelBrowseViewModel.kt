@@ -142,8 +142,7 @@ class NovelBrowseViewModel(
         }
         // Recorded here rather than at the Sources row, so every route into a catalogue marks it
         // the way manga's does: global search, a details source link and the migration picker too.
-        // Incognito is checked globally, since a novel source has no Mihon source id to scope it by.
-        if (!getIncognitoState.await(null)) {
+        if (!getIncognitoState.await(SourceKey.Novel(sourceId))) {
             reikaiSourcePreferences.lastUsedSource.set(SourceKey.Novel(sourceId))
         }
         val filterValues = defaultFilterValues(source.filters)

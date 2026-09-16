@@ -2,6 +2,7 @@ package reikai.presentation.browse
 
 import android.content.Context
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import tachiyomi.presentation.core.icons.FlagEmoji
 
 /**
  * Orders two language sections, wherever a Browse list has them.
@@ -30,3 +31,9 @@ private const val OTHER_LANGUAGE = "other"
  */
 fun browseLanguageLabel(lang: String, context: Context): String =
     LocaleHelper.getSourceDisplayName(lang, context).ifBlank { lang }
+
+/** The language line under a Sources row, led by its flag; left blank, flagless, when Android cannot name it. */
+fun sourceLanguageLabel(lang: String, context: Context): String {
+    val name = LocaleHelper.getSourceDisplayName(lang, context)
+    return if (name.isBlank()) name else "${FlagEmoji.getEmojiLangFlag(lang)} $name"
+}

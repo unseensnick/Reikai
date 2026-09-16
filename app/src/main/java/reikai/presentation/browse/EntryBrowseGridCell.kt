@@ -8,6 +8,7 @@ import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
 import reikai.data.coil.NovelCover
 import reikai.novel.host.NovelItem
+import reikai.presentation.library.ReikaiComfortableGridPanoramaItem
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
@@ -77,7 +78,16 @@ fun EntryBrowseGridCell(
             onLongClick = onLongClick,
             isSelected = isSelected,
         )
-        LibraryDisplayMode.ComfortableGrid, LibraryDisplayMode.ComfortableGridPanorama -> MangaComfortableGridItem(
+        LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
+            coverData = ui.cover,
+            title = ui.title,
+            coverAlpha = coverAlpha,
+            coverBadgeStart = { InLibraryBadge(enabled = ui.favorite) },
+            onClick = onClick,
+            onLongClick = onLongClick,
+            isSelected = isSelected,
+        )
+        LibraryDisplayMode.ComfortableGrid -> MangaComfortableGridItem(
             coverData = ui.cover,
             title = ui.title,
             coverAlpha = coverAlpha,

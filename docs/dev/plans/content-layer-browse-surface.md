@@ -198,6 +198,20 @@ Nine steps, each independently shippable and device-verified before the next.
   both sectioners call: multi-language first, then each language by its own name for itself, then
   sources declaring none. The section *sequence* is unchanged (Last used, Pinned, languages, empty
   last), so this narrows the earlier order ruling rather than reversing it.
+- **The Sources list's Komikku polish lands for both types, with one manga-only exit (owner,
+  2026-09-16).** The search box, language flag, extension-name suffix, hide-Latest switch, panorama
+  grid and per-source incognito are one rule each over the shared row or engine. The suffix shows only
+  when a source's name differs from its extension's, and a plugin is its own extension, so a novel row
+  never shows one by that rule rather than by a branch. **The content-warning badge is manga only**:
+  `LnPluginInfo` has no adult or content-warning field, so there is nothing to read; the warning rides
+  in the manga row's payload (`MangaSourcePayload`) rather than on the shared row, so no novel row
+  carries a value it cannot have. **Incognito is not manga only**, correcting the audit's reading:
+  `incognito_extensions` is a set of strings, a plugin's `SourceKey` form cannot collide with a package
+  name, and the novel browse and reader paths now ask by `SourceKey`. A manga source still switches
+  with its whole extension, as upstream's extension page does. The NSFW-only list filter was dropped,
+  since a filter that empties the novel half of a mixed list has no both-types form and the badge
+  already marks the adult sources. Custom source categories are parked indefinitely. Pinned by
+  `SourceRowSearchTest` and `SourceIncognitoConformanceTest`.
 
 ### What is deleted and manifested
 

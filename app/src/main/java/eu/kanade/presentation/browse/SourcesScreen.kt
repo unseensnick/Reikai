@@ -32,8 +32,12 @@ fun SourceItem(
     onLongClickItem: (Source) -> Unit,
     onClickPin: (Source) -> Unit,
     modifier: Modifier = Modifier,
-    // RK: content-type badge, drawn beside the name by the shared list when it holds both types.
+    // RK --> the shared list's badges, its row title and language line, and its Latest switch
     badge: @Composable () -> Unit = {},
+    title: String = source.name,
+    languageLabel: String? = null,
+    showLatest: Boolean = true,
+    // RK <--
 ) {
     BaseSourceItem(
         modifier = modifier,
@@ -41,8 +45,12 @@ fun SourceItem(
         onClickItem = { onClickItem(source, Listing.Popular) },
         onLongClickItem = { onLongClickItem(source) },
         badge = badge,
+        // RK -->
+        title = title,
+        languageLabel = languageLabel,
+        // RK <--
         action = {
-            if (source.supportsLatest) {
+            if (source.supportsLatest /* RK */ && showLatest) {
                 TextButton(onClick = { onClickItem(source, Listing.Latest) }) {
                     Text(
                         text = stringResource(MR.strings.latest),

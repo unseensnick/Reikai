@@ -115,8 +115,8 @@ class EntryCatalogueScreen(
 
     override fun onProvideAssistUrl() = assistUrl
 
-    /** The manga source id, or null for a plugin. The incognito indicator keys on a manga source. */
-    val mangaSourceId: Long? get() = (sourceKey as? SourceKey.Manga)?.id
+    /** The manga source id, or null for a plugin. */
+    private val mangaSourceId: Long? get() = (sourceKey as? SourceKey.Manga)?.id
 
     @Composable
     override fun Content() {

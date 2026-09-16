@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.compareBrowseLanguages
+import reikai.presentation.browse.matchesBrowseQuery
 import java.util.TreeMap
 
 /**
@@ -19,8 +20,23 @@ data class BrowseSourceRow(
     val lang: String,
     val isPinned: Boolean,
     val isUsedLast: Boolean,
+    val supportsLatest: Boolean,
+    /** What installed this source; a plugin is its own extension, so for one this is [name]. */
+    val extensionName: String,
     val source: Any,
-)
+) {
+    /** The row's heading: the extension is named too when it differs, as a multi-source one does. */
+    val title: String get() = if (extensionName == name) name else "$name ($extensionName)"
+}
+
+/** Whether [row] survives the Sources search box: its name, its extension's name, or its exact id. */
+fun matchesSourceQuery(row: BrowseSourceRow, query: String?): Boolean {
+    val id = when (val key = row.key) {
+        is SourceKey.Manga -> key.id.toString()
+        is SourceKey.Novel -> key.id
+    }
+    return matchesBrowseQuery(query, listOf(row.name, row.extensionName), listOf(id))
+}
 
 /** A rendered Sources list: section headings interleaved with the rows under them. */
 sealed interface SourcesListItem {

@@ -1,8 +1,11 @@
 package reikai.presentation.browse.source
 
+import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
@@ -38,12 +41,18 @@ interface SourcesProvider {
  * upstream makes it appear under Last used as well as in its own section; the engine sections on
  * that flag rather than re-deriving it.
  */
-class MangaSourcesProvider(private val model: SourcesViewModel) : SourcesProvider {
+class MangaSourcesProvider(
+    private val model: SourcesViewModel,
+    extensions: Flow<List<Extension.Loaded>>,
+) : SourcesProvider {
 
     override val contentType = ContentType.MANGA
 
-    override val rows: Flow<List<BrowseSourceRow>?> = model.sources.map { sources ->
+    override val rows: Flow<List<BrowseSourceRow>?> = combine(model.sources, extensions) { sources, extensions ->
+        val extensionBySource = extensions.flatMap { extension -> extension.sources.map { it.id to extension } }.toMap()
         sources?.map { source ->
+            // Built-in and local sources have no extension, so they name none and warn of nothing.
+            val extension = extensionBySource[source.id]
             BrowseSourceRow(
                 key = SourceKey.Manga(source.id),
                 name = source.name,
@@ -54,18 +63,28 @@ class MangaSourcesProvider(private val model: SourcesViewModel) : SourcesProvide
                 // `isUsedLast` first, so that copy lands there either way.
                 isPinned = Pin.Pinned in source.pin,
                 isUsedLast = source.isUsedLast,
-                source = source,
+                supportsLatest = source.supportsLatest,
+                extensionName = extension?.name ?: source.name,
+                source = MangaSourcePayload(source, extension?.contentWarning ?: ContentWarning.SAFE),
             )
         }
     }
 
-    override fun togglePin(row: BrowseSourceRow) = model.togglePin(row.source as Source)
+    override fun togglePin(row: BrowseSourceRow) = model.togglePin(row.mangaSource)
 
-    override fun toggleDisable(row: BrowseSourceRow) = model.toggleSource(row.source as Source)
+    override fun toggleDisable(row: BrowseSourceRow) = model.toggleSource(row.mangaSource)
 
     // The local source is always available and has nothing to hide behind.
-    override fun canDisable(row: BrowseSourceRow) = !(row.source as Source).isLocal()
+    override fun canDisable(row: BrowseSourceRow) = !row.mangaSource.isLocal()
+
+    private val BrowseSourceRow.mangaSource get() = (source as MangaSourcePayload).source
 }
+
+/**
+ * A manga row's payload. The content warning rides here rather than on the row because a plugin
+ * declares none: the plugin format has no adult flag to read one from.
+ */
+data class MangaSourcePayload(val source: Source, val contentWarning: ContentWarning)
 
 /** The light-novel half, over [NovelSourcesViewModel]. */
 class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesProvider {
@@ -82,6 +101,8 @@ class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesPr
                 lang = source.langCode(),
                 isPinned = isPinned,
                 isUsedLast = isUsedLast,
+                supportsLatest = source.supportsLatest,
+                extensionName = source.name,
                 source = source,
             )
         }

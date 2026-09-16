@@ -34,6 +34,10 @@ class ReikaiSourcePreferences(
     val downloadContentType: Preference<ContentType> =
         preferenceStore.getEnum("download_content_type", ContentType.ALL)
 
+    /** Leave the Latest button off Sources rows, since a catalogue's own chip switches to Latest. */
+    val hideSourceLatestButton: Preference<Boolean> =
+        preferenceStore.getBoolean("reikai_hide_source_latest_button", false)
+
     // region Feed
 
     /**

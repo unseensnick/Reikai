@@ -365,9 +365,14 @@ every release now also ships a foss build with neither in it.
 - **Browse can now show a Feed tab, turned on under Settings -> Browse, with one row of covers for every source or saved search you add to it (ported from Komikku).** A row holds that source's latest, or what the saved search returns; the tab takes twenty, and a long press removes a row.
 - **The Feed's rows can now be dragged into the order you want.** The order sticks across restarts, and comes back with a backup restore.
 - **Pick several covers across the Feed's rows and add them to your library together.** Manga and light novels in one batch, each filed into its own categories.
+- **Browse -> Sources now has a search box that filters the list by source name, extension name or id.** Separate terms with commas to match any of them.
+- **Long-press a source in Browse -> Sources to turn incognito mode on for it, light-novel sources included.** A manga source switches along with the rest of its extension, as it does from the extension's own page.
+- **Settings -> Browse can now hide the Latest button on Browse -> Sources rows.** Latest stays one tap away inside each source.
+- **Source catalogues in Browse now offer the panorama comfortable grid.** Wide covers show whole instead of cropped.
 
 #### Changed
 
+- **Rows in Browse -> Sources now show a flag beside the language, the extension name when a source is named differently, and an 18+ or Mixed label from the extension's content warning.** Light-novel plugins carry no content warning, so their rows never show one.
 - **Settings -> Browse and sources now picks which extensions load by content warning, Safe, Mixed or 18+, instead of one NSFW switch (synced from Mihon, mihonapp/mihon#3951, mihonapp/mihon#3952).** Your NSFW choice carries over, changes apply without a restart, and the filter can leave installed extensions alone.
 - **Installed extensions and light-novel plugins that fail to load now appear under Not loaded in Browse -> Extensions (synced from Mihon, mihonapp/mihon#3953).** Tap one to see why, copy the error, or uninstall it.
 - **The Sources list now shows manga and light-novel sources in one list, grouped by language.** Each row says which kind it is while both are showing, the chips filter that one list instead of switching between two, and the language groups run in the same order as on Extensions.

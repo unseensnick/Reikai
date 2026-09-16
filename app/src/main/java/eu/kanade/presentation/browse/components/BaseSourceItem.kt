@@ -24,15 +24,22 @@ fun BaseSourceItem(
     showLanguageInContent: Boolean = true,
     onClickItem: () -> Unit = {},
     onLongClickItem: () -> Unit = {},
-    // RK: content-type badge, beside the name, drawn by the shared list when it holds both types.
+    // RK --> content-type badge, beside the name, drawn by the shared list when it holds both types,
+    //     and the heading and language line that list words for both types alike.
     badge: @Composable () -> Unit = {},
+    title: String = source.name,
+    languageLabel: String? = null,
+    // RK <--
     icon: @Composable RowScope.(Source) -> Unit = defaultIcon,
     action: @Composable RowScope.(Source) -> Unit = {},
-    content: @Composable RowScope.(Source, String?) -> Unit = { source, lang ->
-        DefaultContent(source, lang, badge)
+    content: @Composable RowScope.(Source, String?) -> Unit = { _, lang ->
+        DefaultContent(title, lang, badge)
     },
 ) {
-    val sourceLangString = LocaleHelper.getSourceDisplayName(source.lang, LocalContext.current).takeIf {
+    val sourceLangString = (
+        /* RK */ languageLabel
+            ?: LocaleHelper.getSourceDisplayName(source.lang, LocalContext.current)
+        ).takeIf {
         showLanguageInContent
     }
     BaseBrowseItem(
@@ -49,10 +56,10 @@ private val defaultIcon: @Composable RowScope.(Source) -> Unit = { source ->
     SourceIcon(source = source)
 }
 
-// RK: was a val, now a function so the badge slot above can reach the name row.
+// RK: was a val, now a function so the badge slot and title above can reach the name row.
 @Composable
 private fun RowScope.DefaultContent(
-    source: Source,
+    title: String,
     sourceLangString: String?,
     badge: @Composable () -> Unit,
 ) {
@@ -66,7 +73,7 @@ private fun RowScope.DefaultContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = source.name,
+                text = title,
                 modifier = Modifier.weight(1f, fill = false),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

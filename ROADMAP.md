@@ -41,14 +41,6 @@ One library screen lists manga and novels together; what is left here is polish 
 - **A user doc for the library layout** `[S]` - the single-list view, the floating category hopper and dynamic grouping have no user page, only an FAQ answer in [about.md](docs/about.md) and the dev record, so nothing on the site can link to them. [Plan](docs/dev/plans/library-screen-carry.md).
 - **Denormalize the library count columns, measured first** `[M]` - both library views aggregate unread / read / total / bookmark counts per rebuild (`count(*)` and `sum(read)` in `libraryView.sq` and `novelLibraryView.sq`), and tsundoku instead maintains them as columns via triggers. This is not a novel parity gap: the two types aggregate identically. Treat it as a shared performance change that touches a Mihon view (so a `.sqm`, a `versionCode` bump and a sync liability), and measure that the aggregation is actually the cost before building it. The library's own jank has never been pinpointed either, so measure before building on this.
 
-### Browse & sources
-
-From the 2026-07-04 Komikku parity audit.
-
-- **Find-a-source search box** `[S]` - filter the sources list by name when you have many. The Browse toolbar already hoists a search query the Extensions tab uses and the Sources tab never opted into, so it is wiring plus a searching-aware empty state, for both content types at once.
-- **Custom source categories** `[M]` - group installed sources under your own headers in the Sources list, beyond language grouping and pinning. Storage is one preference keyed by the shared source key, but the reference hangs the category off its manga source model, so this needs its own manager screen, an assign dialog for both providers, a new section rank and a backup key.
-- **Source-list & row polish** `[S]` - for both types: a language flag on the row, a browse panorama option (the shared grid cell collapses panorama into comfortable today), a switch hiding the row's Latest button (the catalogue already has a Popular/Latest chip), and incognito per source from the row's long-press sheet (manga has it per extension, in extension details only; a plugin id fits the same stored set, so novels are not excluded). An extension-name suffix, shown only when it differs from the source name, which a plugin never does. Manga only, because a novel plugin carries no adult flag: an NSFW badge. An NSFW-only filter would empty the novel half of a mixed list, so it needs scoping to the manga chip or dropping. Per-source data-saver exclude waits on the image-compression proxy under Parked, since there is no data-saver feature to exclude from.
-
 ### Reader
 
 - **Hold the novel reader's exact line across a rotation** `[M]` - a rebuilt renderer restores a percent of the chapter, so the top line moves by a paragraph or so, and within a chapter's last screen it lands up to a screen back. The fix is a line position both renderers report and land on; native's redraw already keeps one. [Plan](docs/dev/plans/content-layer-reader-surface.md).
@@ -129,5 +121,6 @@ One line each; revive note where relevant.
 - **isLewd metadata-id rewire** - the name/genre heuristic already recognizes the common adult sources; the delegated-id sets have no other consumer.
 - **Backup source-ID remapper** - not needed; the built-in adult sources already register under every stock-extension id.
 - **EH smart-search merge** (pick source, auto-find match, merge) - the pref-based merge already covers this; revive only for auto-match-on-source-pick.
-- **Source image-compression proxy** `[M]` - the SY/Komikku `DataSaver` image resize/compress proxy, not a Mihon built-in; revive for cellular data-saving.
+- **Source image-compression proxy** `[M]` - the SY/Komikku `DataSaver` image resize/compress proxy, not a Mihon built-in; revive for cellular data-saving. A per-source exclude in the Sources long-press sheet comes with it, since there is nothing to exclude from until it exists.
+- **Custom source categories** `[M]` - group installed sources under your own headers in the Sources list, beyond language grouping and pinning. Parked indefinitely (owner, 2026-09-16), until the owner wants to build it. Storage would be one preference keyed by the shared source key, but the reference hangs the category off its manga source model, so it needs its own manager screen, an assign dialog for both providers, a new section rank and a backup key.
 - **EXH developer tooling** - file logs, debug overlay, hidden debug menu; Mihon's logcat suffices, revive for deep on-device EXH debugging.

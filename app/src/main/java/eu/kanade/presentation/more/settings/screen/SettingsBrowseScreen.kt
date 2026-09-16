@@ -73,6 +73,11 @@ object SettingsBrowseScreen : SearchableSettings {
                         title = stringResource(MR.strings.pref_hide_in_library_items),
                     ),
                     // RK -->
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = reikaiSourcePreferences.hideSourceLatestButton,
+                        title = stringResource(MR.strings.pref_hide_source_latest_button),
+                        subtitle = stringResource(MR.strings.pref_hide_source_latest_button_summary),
+                    ),
                     Preference.PreferenceItem.SliderPreference(
                         value = previewsRowCount,
                         valueRange = 0..10,

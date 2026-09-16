@@ -99,6 +99,7 @@ import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.domain.library.ContentType
+import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
@@ -202,8 +203,9 @@ class MainActivity : BaseActivity() {
                     }
                 }
                 LaunchedEffect(navigator.lastItem) {
-                    (navigator.lastItem as? EntryCatalogueScreen)?.mangaSourceId
-                        .let(getIncognitoState::subscribe)
+                    // RK: keyed by SourceKey, so a novel catalogue shows its own per-source incognito too.
+                    val source: SourceKey? = (navigator.lastItem as? EntryCatalogueScreen)?.sourceKey
+                    getIncognitoState.subscribe(source)
                         .collectLatest { incognito = it }
                 }
 

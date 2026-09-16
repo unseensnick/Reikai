@@ -10,31 +10,42 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.domain.source.interactor.GetIncognitoState
+import eu.kanade.domain.source.interactor.ToggleIncognito
+import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.BROWSE_SEARCH_DEBOUNCE
+import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
 
 /**
  * Assembles the Browse Sources list from both content types.
  *
  * All is the real list and the chip is a predicate over it, so everything describing the list is one
- * value here rather than one per type: the sections, whether it is still loading, whether it is
- * empty, and the row dialog. A provider only answers about its own sources.
+ * value here rather than one per type: the sections, the search, whether it is still loading, whether
+ * it is empty, and the row dialog. A provider only answers about its own sources.
  */
 @AssistedInject
 class SourcesEngine(
-    // Assisted: each provider wraps a ViewModel the tab has already resolved.
+    // Assisted: each provider wraps a ViewModel the tab has already resolved, and the query is the
+    // Browse search bar's, which sits above the tabs.
     @Assisted private val providers: List<SourcesProvider>,
+    @Assisted private val query: StateFlow<String?>,
     private val sourcePreferences: ReikaiSourcePreferences,
+    private val incognitoPreferences: SourcePreferences,
+    private val getIncognitoState: GetIncognitoState,
+    private val toggleIncognito: ToggleIncognito,
 ) : ViewModel() {
 
     private val dialog = MutableStateFlow<SourceOptionsDialog?>(null)
@@ -42,7 +53,9 @@ class SourcesEngine(
     val state: StateFlow<State> = combine(
         combine(providers.map { it.rows }) { it.toList() },
         sourcePreferences.browseContentType.changes(),
-    ) { rowsPerProvider, contentType ->
+        // Debounced so a burst of typing re-sections every source once rather than per keystroke.
+        query.debounce(BROWSE_SEARCH_DEBOUNCE),
+    ) { rowsPerProvider, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         State(
             contentType = contentType,
@@ -51,14 +64,18 @@ class SourcesEngine(
             // longer holds back the half that is ready.
             isLoading = active.all { rowsPerProvider[it] == null },
             hasPending = active.any { rowsPerProvider[it] == null },
-            items = sectionSources(active.flatMap { rowsPerProvider[it].orEmpty() }),
+            items = sectionSources(
+                active.flatMap { rowsPerProvider[it].orEmpty() }.filter { matchesSourceQuery(it, query) },
+            ),
         )
     }
         // Off the main thread: sectioning sorts and groups every enabled source of both types.
         .flowOn(Dispatchers.IO)
-        // The sheet is combined in afterwards rather than being an input above, so opening or
-        // closing it does not re-section the list it is opened over.
+        // Combined in afterwards rather than being inputs above, so none of them re-sections the list.
+        // The typed query is not debounced, so the empty-state message answers to what is in the field.
         .combine(dialog) { state, dialog -> state.copy(dialog = dialog) }
+        .combine(sourcePreferences.hideSourceLatestButton.changes()) { state, hide -> state.copy(showLatest = !hide) }
+        .combine(query) { state, typed -> state.copy(query = typed) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
     fun setContentType(contentType: ContentType) {
@@ -69,8 +86,28 @@ class SourcesEngine(
 
     fun toggleDisable(row: BrowseSourceRow) = providerFor(row).toggleDisable(row)
 
-    fun showDialog(row: BrowseSourceRow) = dialog.update {
-        SourceOptionsDialog(row = row, canDisable = providerFor(row).canDisable(row))
+    fun showDialog(row: BrowseSourceRow) {
+        viewModelScope.launchIO {
+            val incognitoKey = getIncognitoState.incognitoKey(row.key)
+            dialog.update {
+                SourceOptionsDialog(
+                    row = row,
+                    canDisable = providerFor(row).canDisable(row),
+                    canToggleIncognito = incognitoKey != null,
+                    isIncognito = incognitoKey in incognitoPreferences.incognitoExtensions.get(),
+                )
+            }
+        }
+    }
+
+    fun toggleIncognito(dialog: SourceOptionsDialog) {
+        viewModelScope.launchIO {
+            val incognitoKey = getIncognitoState.incognitoKey(dialog.row.key) ?: return@launchIO
+            toggleIncognito.await(incognitoKey, enable = !dialog.isIncognito)
+            this@SourcesEngine.dialog.update { open ->
+                open?.takeIf { it.row == dialog.row }?.copy(isIncognito = !dialog.isIncognito) ?: open
+            }
+        }
     }
 
     fun closeDialog() = dialog.update { null }
@@ -89,18 +126,29 @@ class SourcesEngine(
         val hasPending: Boolean = true,
         val items: List<SourcesListItem> = emptyList(),
         val dialog: SourceOptionsDialog? = null,
+        /** Whether a row that supports Latest shows its button. */
+        val showLatest: Boolean = true,
+        val query: String? = null,
     ) {
         // A half still on its way must not read as "nothing found".
         val isEmpty get() = items.isEmpty() && !hasPending
+
+        val isSearching get() = !query.isNullOrBlank()
     }
 
     /** The long-press sheet on a row, built here because only the engine knows which type it came from. */
-    data class SourceOptionsDialog(val row: BrowseSourceRow, val canDisable: Boolean)
+    data class SourceOptionsDialog(
+        val row: BrowseSourceRow,
+        val canDisable: Boolean,
+        /** False when there is nothing to store incognito under: a manga source with no extension. */
+        val canToggleIncognito: Boolean,
+        val isIncognito: Boolean,
+    )
 
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(providers: List<SourcesProvider>): SourcesEngine
+        fun create(providers: List<SourcesProvider>, query: StateFlow<String?>): SourcesEngine
     }
 }

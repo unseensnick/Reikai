@@ -65,6 +65,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -152,8 +153,8 @@ class NovelReaderViewModel(
         readDownloaded = { novel, chapter -> downloadManager.getChapterText(novel, chapter) },
     )
 
-    /** Captured whenever a chapter opens (mirrors ReaderViewModel). Global-only: novel sources are
-     *  String-keyed with no installed extension, so per-source incognito (await(sourceId)) can't apply. */
+    /** Captured whenever a chapter opens, from the host novel's source as ReaderViewModel reads the
+     *  host manga's. */
     @Volatile
     private var incognitoMode: Boolean = false
 
@@ -849,7 +850,7 @@ class NovelReaderViewModel(
         loadState.value = ReaderLoadState.Loading
         viewModelScope.launchIO {
             try {
-                incognitoMode = getIncognitoState.await(null)
+                incognitoMode = getIncognitoState.await(novelRepo.getById(novelId)?.source?.let(SourceKey::Novel))
                 if (orderedIds.isEmpty()) resolveReadingOrder()
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
                 // A warm already fetching it is waited on, rather than fetched again beside it, which is

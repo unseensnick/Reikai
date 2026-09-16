@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.browse.BROWSE_SEARCH_DEBOUNCE
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -45,7 +46,7 @@ class ExtensionsEngine(
         sourcePreferences.browseContentType.changes(),
         // Debounced because the available list runs to thousands of rows and every keystroke
         // re-filters and re-sorts all of them; the search field itself stays live either way.
-        query.debounce(SEARCH_DEBOUNCE),
+        query.debounce(BROWSE_SEARCH_DEBOUNCE),
     ) { snapshots, contentType, query ->
         val active = providers.indices.filter { providers[it].shows(contentType) }
         val rows = active.flatMap { snapshots[it].rows.orEmpty() }
@@ -129,9 +130,5 @@ class ExtensionsEngine(
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
         fun create(providers: List<ExtensionsProvider>, query: StateFlow<String?>): ExtensionsEngine
-    }
-
-    private companion object {
-        val SEARCH_DEBOUNCE = 0.25.seconds
     }
 }

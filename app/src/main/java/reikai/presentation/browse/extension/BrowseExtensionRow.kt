@@ -3,6 +3,7 @@ package reikai.presentation.browse.extension
 import androidx.compose.runtime.Immutable
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.compareBrowseLanguages
+import reikai.presentation.browse.matchesBrowseQuery
 
 /** Identity for an installable source, whichever kind it is: a package name or a plugin id. */
 sealed interface ExtensionKey {
@@ -75,17 +76,9 @@ fun sectionExtensions(rows: List<BrowseExtensionRow>): List<ExtensionsListItem> 
     }
 }
 
-/**
- * Whether [row] survives the search box. Every comma-separated part is tried on its own and any hit
- * keeps the row, so "french, korean" widens rather than narrows.
- */
-fun matchesExtensionQuery(row: BrowseExtensionRow, query: String?): Boolean {
-    val subqueries = query.orEmpty().split(",").map { it.trim() }.filterNot { it.isBlank() }
-    if (subqueries.isEmpty()) return true
-    return subqueries.any { subquery ->
-        row.searchTerms.any { it.contains(subquery, ignoreCase = true) } || subquery in row.searchIds
-    }
-}
+/** Whether [row] survives the search box, by the rule every Browse list shares. */
+fun matchesExtensionQuery(row: BrowseExtensionRow, query: String?): Boolean =
+    matchesBrowseQuery(query, row.searchTerms, row.searchIds)
 
 private val SECTION_ORDER = Comparator<ExtensionSection> { a, b ->
     val byRank = a.rank().compareTo(b.rank())

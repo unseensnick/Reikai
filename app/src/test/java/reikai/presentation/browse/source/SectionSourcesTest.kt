@@ -107,10 +107,10 @@ class SectionSourcesTest {
     private var nextId = 0L
 
     private fun manga(name: String, lang: String, isPinned: Boolean = false, isUsedLast: Boolean = false) =
-        BrowseSourceRow(SourceKey.Manga(nextId++), name, lang, isPinned, isUsedLast, source = Unit)
+        BrowseSourceRow(SourceKey.Manga(nextId++), name, lang, isPinned, isUsedLast, false, name, source = Unit)
 
     private fun novel(name: String, lang: String, isPinned: Boolean = false, isUsedLast: Boolean = false) =
-        BrowseSourceRow(SourceKey.Novel(name), name, lang, isPinned, isUsedLast, source = Unit)
+        BrowseSourceRow(SourceKey.Novel(name), name, lang, isPinned, isUsedLast, false, name, source = Unit)
 
     private fun List<SourcesListItem>.headers() =
         filterIsInstance<SourcesListItem.Header>().map { it.key }
