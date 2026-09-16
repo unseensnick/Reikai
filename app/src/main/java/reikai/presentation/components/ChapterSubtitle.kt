@@ -10,6 +10,14 @@ package reikai.presentation.components
  */
 fun chapterSubtitle(sourceName: String?, scanlator: String? = null): String? =
     listOfNotNull(
-        sourceName?.takeIf { it.isNotBlank() },
-        scanlator?.takeIf { it.isNotBlank() },
+        subtitlePart(sourceName),
+        subtitlePart(scanlator),
     ).joinToString(" • ").ifEmpty { null }
+
+/**
+ * One piece of that line, or nothing. Blank is nothing: the row tests each piece for null before it
+ * draws a separator, so a blank one reaches the screen as a bullet with no text after it. The row
+ * itself normalises through this too, so a caller that composes its subtitle some other way is still
+ * safe.
+ */
+fun subtitlePart(value: String?): String? = value?.takeIf { it.isNotBlank() }

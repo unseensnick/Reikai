@@ -38,6 +38,7 @@ import mihon.icons.materialsymbols.rounded.FileDownloadOff
 import mihon.icons.materialsymbols.rounded.RemoveDone
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
+import reikai.presentation.components.subtitlePart
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
@@ -137,6 +138,14 @@ fun MangaChapterListItem(
                 }
 
                 Row {
+                    // RK --> The three checks below test for null, so a blank subtitle drew a
+                    //        separator with nothing after it. Normalised once here, through the
+                    //        same rule its callers compose with, rather than at each check: those
+                    //        lines stay identical to upstream's and the blank rule stays in one
+                    //        place. A caller that composes its own subtitle is safe here too.
+                    @Suppress("NAME_SHADOWING")
+                    val scanlator = subtitlePart(scanlator)
+                    // RK <--
                     val subtitleStyle = MaterialTheme.typography.bodySmall
                         .merge(
                             color = LocalContentColor.current

@@ -38,4 +38,19 @@ class ChapterSubtitleTest {
     fun `a blank source does not lead the line`() {
         chapterSubtitle("  ", "Some Group") shouldBe "Some Group"
     }
+
+    @Test
+    fun `a piece with text is kept`() {
+        subtitlePart("Some Group") shouldBe "Some Group"
+    }
+
+    @Test
+    fun `a blank piece is nothing, so the row draws no separator for it`() {
+        subtitlePart("   ") shouldBe null
+    }
+
+    @Test
+    fun `an absent piece stays absent`() {
+        subtitlePart(null) shouldBe null
+    }
 }
