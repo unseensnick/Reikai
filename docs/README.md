@@ -25,7 +25,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Built-in sources | [built-in-sources.md](built-in-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md) |
 | MangaDex enhanced source | [built-in-sources.md](built-in-sources.md) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
 | Light novels | [about.md](about.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/ln-plugin-host.md) |
-| Library shell | (none yet) | [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-tabbed-shell.md](dev/plans/library-tabbed-shell.md) |
+| Library shell | [library-layout.md](library-layout.md) | [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-tabbed-shell.md](dev/plans/library-tabbed-shell.md) |
 | Unified manga + novel UI | (none yet) | the Unified-surfaces records in [plans/](dev/plans/README.md) |
 
 Areas with no user doc are internal or cross-cutting; their records carry the full picture. When you add a user-facing feature, add its row here.

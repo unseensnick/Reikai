@@ -36,7 +36,6 @@ Opportunistic polish:
 
 One library screen lists manga and novels together; what is left here is polish and performance on top of it.
 
-- **A user doc for the library layout** `[S]` - the single-list view, the floating category hopper and dynamic grouping have no user page, only an FAQ answer in [about.md](docs/about.md) and the dev record, so nothing on the site can link to them. [Plan](docs/dev/plans/library-screen-carry.md).
 - **Denormalize the library count columns, measured first** `[M]` - both library views aggregate unread / read / total / bookmark counts per rebuild (`count(*)` and `sum(read)` in `libraryView.sq` and `novelLibraryView.sq`), and tsundoku instead maintains them as columns via triggers. This is not a novel parity gap: the two types aggregate identically. Treat it as a shared performance change that touches a Mihon view (so a `.sqm`, a `versionCode` bump and a sync liability), and measure that the aggregation is actually the cost before building it. The library's own jank has never been pinpointed either, so measure before building on this.
 
 ### Reader

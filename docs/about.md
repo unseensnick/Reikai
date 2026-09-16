@@ -29,8 +29,7 @@ and settings.
 Mostly Mihon, so nothing looks out of place, with the Yōkai touches I liked carried
 over: the single-list library view with the floating category hopper, dynamic grouping
 (by source, language, tag, and so on), and the cover-color accent on the details
-screen. To get the single-list look, open the filter icon in <nav to="main_library">, go to the
-**Display** tab and turn on **Show all categories in one list**. Suggestions are welcome,
+screen. [Library layout](library-layout.md) covers how to turn them on. Suggestions are welcome,
 but additions will still follow Mihon's design.
 
 ## How do I get updates? Is it on an app store?
