@@ -108,7 +108,7 @@ deletion and the per-host lock all run either way.
 Shipped off by default, first in `14d3d54c1` and since through two preview builds. Device-verified on
 a Fold8 Ultra (SM-F976B, Android 17), referred to below as the Fold, over a VPN across repeated cold
 starts with cookies and WebView data cleared between runs.
-No longer labelled experimental, and still off by default; whether it defaults on is a roadmap item.
+No longer labelled experimental, and off by default for good: the owner ruled on 2026-09-16 that it stays an opt-in switch (see Decisions).
 
 **A whole-feature audit found four cases where turning the solver on was worse than leaving it off,
 and all four are fixed.** A challenge served after a redirect was watched at the wrong origin and
@@ -331,6 +331,10 @@ all, but interactive rounds only started arriving after the VPN exit changed.
 
 ## Decisions & tradeoffs
 
+- **The switch stays off by default** (owner, 2026-09-16). Grounding found nothing blocking a default
+  of on: the switch already covers novel plugin traffic, and a failed solve costs at most a 20-second
+  wait before the unsolved behaviour. The ruling keeps it opt-in anyway, so a user who never opens
+  `Settings -> Advanced -> Networking` sees upstream's behaviour. Reopen only on an owner ruling.
 - **The challenge URL, not the requested one, is what everything keys off.** This runs as an OkHttp
   application interceptor, so `chain.request()` is the request from before any redirect the client
   followed. The probe's allowed-origin set was built from it, so on a host that redirects, apex to
@@ -805,9 +809,8 @@ done.
 - **Breadth.** Six hosts, four WebView builds, four Android versions (13, 15, 16 and 17), three
   physical devices and an emulator. Forty-four solves before the audit and twenty-seven after,
   including four on a WebView with no isolated world at all, say the mechanism is reliable on those.
-  What is still unanswered is a host with a challenge configuration none of the six use. The switch
-  stays off by default until it is, which is what the default now carries instead of the
-  experimental wording.
+  What is still unanswered is a host with a challenge configuration none of the six use. That no
+  longer gates the default, which is settled as off (see Decisions).
 - **Upstream declined the solver, and the script is permanently ours.** mihonapp/mihon#3858 is still
   open, but the solver has been stripped out of it (`0a1f07d`, `0885493`, `a80aaaa`, all titled
   "remove solver"). `AntsyLich` gave the reason in
