@@ -96,4 +96,76 @@ class GetApplicationReleaseTest {
 
         result shouldBe GetApplicationRelease.Result.NoNewUpdate
     }
+
+    @Test
+    fun `When installed version has more segments than the tag expect no new update`() = runTest {
+        val release = Release(
+            "v2.0.0",
+            "info",
+            "http://example.com/release_link",
+            "http://example.com/release_link.apk",
+        )
+
+        coEvery { releaseService.latest(any()) } returns release
+
+        val result = getApplicationRelease.await(
+            GetApplicationRelease.Arguments(
+                isFoss = false,
+                isPreview = false,
+                commitCount = 0,
+                versionName = "v2.0.0.1",
+                repository = "test",
+            ),
+        )
+
+        result shouldBe GetApplicationRelease.Result.NoNewUpdate
+    }
+
+    @Test
+    fun `When the tag is older but its patch is higher expect no new update`() = runTest {
+        val release = Release(
+            "v0.3.9",
+            "info",
+            "http://example.com/release_link",
+            "http://example.com/release_link.apk",
+        )
+
+        coEvery { releaseService.latest(any()) } returns release
+
+        val result = getApplicationRelease.await(
+            GetApplicationRelease.Arguments(
+                isFoss = false,
+                isPreview = false,
+                commitCount = 0,
+                versionName = "v0.4.0",
+                repository = "test",
+            ),
+        )
+
+        result shouldBe GetApplicationRelease.Result.NoNewUpdate
+    }
+
+    @Test
+    fun `When the tag adds a segment above the installed version expect new update`() = runTest {
+        val release = Release(
+            "v0.4.0.1",
+            "info",
+            "http://example.com/release_link",
+            "http://example.com/release_link.apk",
+        )
+
+        coEvery { releaseService.latest(any()) } returns release
+
+        val result = getApplicationRelease.await(
+            GetApplicationRelease.Arguments(
+                isFoss = false,
+                isPreview = false,
+                commitCount = 0,
+                versionName = "v0.4.0",
+                repository = "test",
+            ),
+        )
+
+        (result as GetApplicationRelease.Result.NewUpdate).release shouldBe release
+    }
 }

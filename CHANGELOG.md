@@ -520,6 +520,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **The update check no longer crashes or goes quiet on a version with more parts than the release tag.** It also stops offering an older release whose last number happens to be higher, and stops missing one that adds a part.
 - **A date older than about a month now says how old it really is (synced from Mihon, mihonapp/mihon#3696).** Something read 40 days ago was described as 10 days old, wherever a date is shown relatively.
 - **Statistics now counts a merged series once instead of once per source.** The title, completed, started and tracked figures all read higher than the library they describe.
 - **Statistics now counts your downloaded novel chapters.** The Downloaded figure only ever counted manga.

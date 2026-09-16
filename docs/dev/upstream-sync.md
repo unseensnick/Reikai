@@ -71,6 +71,7 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 
 Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
 
+- **`GetApplicationRelease.isNewVersion` compares versions position by position, where upstream's loop is wrong three ways.** Upstream walks the installed version's positions and indexes the release tag by them, so a longer installed version throws `IndexOutOfBoundsException` (which is why a Yokai-era five-segment build was never offered an update), a segment the tag adds is never examined, and any later position being greater returns true, so `0.3.9` reads as newer than `0.4.0`. Ours pads the shorter list and stops at the first difference. Fenced `// RK`, covered by three cases in `GetApplicationReleaseTest`. Not reported upstream; drop the island if a sync brings an equivalent fix.
 - **`HttpPageLoader.retryPage` always re-queues, taken from the open mihonapp/mihon#3770 ahead of upstream.** A sync that brings the merged PR in makes the `// RK` line a no-op to delete. **mihonapp/mihon#3813 (tap to retry in `WebGpuViewer`) is deliberately not taken while open**: Reikai's retry islands in that viewer cover it without its tap hit-testing, so a sync landing it must reconcile against them rather than stack both. Record: content-layer-reader-surface.md.
 
 - **`SearchToolbar` ignores an incoming query while its field has focus.** Upstream's state-based
