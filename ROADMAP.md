@@ -41,15 +41,9 @@ One library screen lists manga and novels together; what is left here is polish 
 - **A user doc for the library layout** `[S]` - the single-list view, the floating category hopper and dynamic grouping have no user page, only an FAQ answer in [about.md](docs/about.md) and the dev record, so nothing on the site can link to them. [Plan](docs/dev/plans/library-screen-carry.md).
 - **Denormalize the library count columns, measured first** `[M]` - both library views aggregate unread / read / total / bookmark counts per rebuild (`count(*)` and `sum(read)` in `libraryView.sq` and `novelLibraryView.sq`), and tsundoku instead maintains them as columns via triggers. This is not a novel parity gap: the two types aggregate identically. Treat it as a shared performance change that touches a Mihon view (so a `.sqm`, a `versionCode` bump and a sync liability), and measure that the aggregation is actually the cost before building it. The library's own jank has never been pinpointed either, so measure before building on this.
 
-### Details
-
-From the 2026-07-04 Komikku parity audit (missing features + gestures on the details screen).
-
-- **Give tag chips a visible border under AMOLED** `[S]` - only the weight-carrying gallery-info chips draw a border at all, so on a pure-black background every other chip falls back to the default outline and disappears. The app has no AMOLED predicate anywhere and two theme paths that both need one, which is the actual work; the weighted widths need none. Worth fixing on the shared chip helper rather than the gallery chips alone, or one screen ends up inconsistent with itself.
-
 ### Browse & sources
 
-From the same audit, apart from the Cloudflare solver item.
+From the 2026-07-04 Komikku parity audit, apart from the Cloudflare solver item.
 
 - **Decide whether the interactive Cloudflare solver defaults on** `[S]` - the experimental label is gone, the switch still ships off. Likely a judgement call rather than a further test; the coverage so far and the one gap left are in the plan. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
