@@ -86,7 +86,7 @@ Opportunistic polish:
 ### Build & CI
 
 - **Report a worker that fails to construct** `[S]` - a throw while a worker builds its injected fields is swallowed by WorkManager: a periodic job re-enqueues and fails identically forever, with one logcat line and no notification, because the app declares no `Configuration.Provider` and so no initialization-exception handler. That is upstream's shape, unchanged by the DI port. The fix moves WorkManager to on-demand initialization, which touches every scheduled job, so it wants its own change and its own device pass.
-- **Exercise the three work loops for real** `[S]` - the worktree and PR path is untested on all three, `/sync-loop` has only had a read-only rehearsal and `/audit-loop` none, so their later stop conditions are still theory. mihon `f75f2598a` is the worked-out first sync unit.
+- **Exercise the three work loops for real** `[S]` - the worktree and PR path is untested on all three, and `/sync-loop` has only had a read-only rehearsal, so the stop conditions that sit after the gates and the PR are still theory and no `--dry-run` reaches them. `/sync-loop` needs an unported upstream commit to run against and has none while the base sits at upstream HEAD; `--no-worktree` exercises the stop conditions on the other two and opens nothing, leaving only the worktree and PR plumbing untested.
 
 ## Parked / not building
 
