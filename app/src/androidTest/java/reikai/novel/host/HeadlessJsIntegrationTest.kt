@@ -7,6 +7,7 @@ import app.cash.quickjs.QuickJs
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.runBlocking
+import mihon.app.di.appGraph
 import okhttp3.Request
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -35,7 +36,7 @@ class HeadlessJsIntegrationTest {
     fun lnPluginsRunInProductionHeadlessHost() = runBlocking {
         val networkHelper = Injekt.get<NetworkHelper>()
         val client = networkHelper.client
-        val host = LnPluginHost(context, networkHelper, Injekt.get())
+        val host = LnPluginHost(context, networkHelper, context.appGraph.preferenceStore)
         val loader = LnPluginLoader(context, networkHelper)
         val report = StringBuilder("\n===== Production headless LN host =====\n")
 
@@ -167,7 +168,7 @@ class HeadlessJsIntegrationTest {
 
         val networkHelper = Injekt.get<NetworkHelper>()
         val client = networkHelper.client
-        val host = LnPluginHost(context, networkHelper, Injekt.get())
+        val host = LnPluginHost(context, networkHelper, context.appGraph.preferenceStore)
         val loader = LnPluginLoader(context, networkHelper)
 
         val entries = runCatching {

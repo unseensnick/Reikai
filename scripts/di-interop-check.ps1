@@ -56,24 +56,22 @@ if ($sources.Count -lt 100) {
     exit 1
 }
 
-$interopFile = Join-Path $RepoRoot 'app/src/main/java/mihon/app/di/injekt/MetroInteropModule.kt'
+$interopFile = Join-Path $RepoRoot 'app/src/main/java/mihon/app/di/injekt/MetroInjektRegistrar.kt'
 if (-not (Test-Path -LiteralPath $interopFile)) {
-    Write-Host "di-interop-check: no interop module, nothing to check."
-    exit 0
+    Write-Error "di-interop-check: MetroInjektRegistrar.kt is missing. It is the whole Injekt surface, so its absence is a broken tree, not a clean one."
+    exit 1
 }
 
-# Types the graph hands back: the constructor parameter types of MetroInteropModule.
+# Types the graph hands back: the keys of the registrar's binding map, one per `X::class.java to {`.
 $interopTypes = [System.Collections.Generic.List[string]]::new()
 foreach ($line in Get-Content -LiteralPath $interopFile) {
-    if ($line -match '^\s*private val \w+:\s*(?:Provider<|\(\)\s*->\s*)([A-Za-z0-9_.]+)') {
-        $interopTypes.Add(($Matches[1] -split '\.')[-1])
-    } elseif ($line -match '^\s*private val \w+:\s*([A-Za-z0-9_.]+),\s*$') {
+    if ($line -match '^\s*([A-Za-z0-9_.]+)::class\.java\s+to\s+\{') {
         $interopTypes.Add(($Matches[1] -split '\.')[-1])
     }
 }
 
 if ($interopTypes.Count -eq 0) {
-    Write-Error "di-interop-check: parsed no types out of MetroInteropModule. The parser is stale."
+    Write-Error "di-interop-check: parsed no types out of MetroInjektRegistrar. The parser is stale."
     exit 1
 }
 
@@ -127,8 +125,18 @@ function Test-Scoped([string]$typeName) {
     return $false
 }
 
+# Fresh-per-resolve is correct for these, so the scope rule below does not apply. Application and
+# Context are the Application object itself rather than anything the graph builds. The three
+# MetadataSource contracts are unscoped on purpose: DomainModule registered all three with
+# addFactory, so a new instance per read is the behaviour being preserved, not a regression.
+$freshPerResolve = @(
+    'Application', 'Context',
+    'GetMangaId', 'GetFlatMetadataById', 'InsertFlatMetadata'
+)
+
 $unscoped = @()
 foreach ($type in $interopTypes) {
+    if ($freshPerResolve -contains $type) { continue }
     if (-not (Test-Scoped $type)) {
         $unscoped += "  $type is handed back to Injekt without @SingleIn(AppScope::class)"
     }
@@ -245,8 +253,7 @@ $unregistered = @($mustResolve | Where-Object { -not $knownRegistered.Contains($
 # Upstream hands these back for the extension contract, so they have no reader in this tree and never
 # will. Anything else with no reader is either debt or a mistake, and fails below.
 $upstreamContract = @(
-    'Json', 'ProtoBuf', 'XML', 'NetworkHelper', 'JavaScriptEngine',
-    'PreferenceStore', 'TrackPreferences', 'ExtensionManager', 'CoverCache'
+    'Application', 'ProtoBuf', 'JavaScriptEngine'
 )
 $unread = @(
     $interopTypes |
@@ -324,7 +331,7 @@ foreach ($group in @(
             Hint = 'Drop it. The only entries without a reader here are the nine upstream hands back for the extension contract, and those are allowed by name above.'
         },
         @{ Message = 'a type handed back to Injekt is not an application singleton.'; Items = $unscoped
-            Hint = 'Injekt caches its instance forever while an unscoped graph binding builds a new one per injection, so the two halves of the app drift apart. Add @SingleIn(AppScope::class).'
+            Hint = 'The registrar re-reads the graph on every resolve, so an unscoped binding hands every caller its own instance and any state it holds is silently per-caller. Add @SingleIn(AppScope::class), or add the type to `freshPerResolve` if per-resolve really is intended.'
         }
     )) {
     if ($group.Items.Count -gt 0) {

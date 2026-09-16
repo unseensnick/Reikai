@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallActivity
+import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegateImpl
@@ -43,9 +44,11 @@ import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import exh.GalleryAdder
+import exh.eh.EHentaiUpdateHelper
 import exh.eh.EHentaiUpdateWorker
 import exh.favorites.EhFavoritesBackupJob
 import exh.md.MangaDexSyncJob
+import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import exh.uconfig.EHConfigurator
 import exh.ui.login.EhLoginActivity
@@ -54,6 +57,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import mihon.core.migration.Migration
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
+import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.data.track.TrackerRefreshJob
 import reikai.domain.category.GetNovelCategories
@@ -90,6 +94,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
+import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.interactor.InsertFlatMetadata
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
@@ -136,10 +142,12 @@ interface AppGraph : ViewModelGraph {
 
     val json: Json
     val protoBuf: ProtoBuf
+    val xml: XML
     val database: Database
 
     val preferenceStore: PreferenceStore
     val networkHelper: NetworkHelper
+    val javaScriptEngine: JavaScriptEngine
     val storageManager: StorageManager
 
     val networkPreferences: NetworkPreferences
@@ -157,7 +165,9 @@ interface AppGraph : ViewModelGraph {
     val uiPreferences: UiPreferences
     val migrationAdapters: MigrationAdapters
     val exhPreferences: ExhPreferences
+    val delegateSourcePreferences: DelegateSourcePreferences
     val ehConfigurator: EHConfigurator
+    val eHentaiUpdateHelper: EHentaiUpdateHelper
 
     // Unscoped on purpose: the adder snapshots the enabled-language and disabled-source preferences
     // at construction, so every read has to build a fresh one.
@@ -205,7 +215,12 @@ interface AppGraph : ViewModelGraph {
     val getCategories: GetCategories
     val getNovelCategories: GetNovelCategories
     val getFavorites: GetFavorites
+
+    // The metadata trio backs source-api's MetadataSource contract, which installed extensions
+    // implement, so these three are reached through Injekt rather than the graph.
+    val getManga: GetManga
     val getFlatMetadataById: GetFlatMetadataById
+    val insertFlatMetadata: InsertFlatMetadata
     val getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata
     val getExtensionStoreCountAsFlow: GetExtensionStoreCountAsFlow
     val toggleIncognito: ToggleIncognito

@@ -1,7 +1,10 @@
 package exh.debug
 
+import android.content.Context
+import mihon.app.di.appGraph
 import tachiyomi.core.common.preference.PreferenceStore
-import uy.kohesive.injekt.injectLazy
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.util.Locale
 
 /**
@@ -24,6 +27,7 @@ enum class DebugToggles(val default: Boolean) {
         get() = preferenceStore.getBoolean(prefKey, default).get()
 
     companion object {
-        private val preferenceStore: PreferenceStore by injectLazy()
+        private val preferenceStore: PreferenceStore
+            get() = Injekt.get<Context>().appGraph.preferenceStore
     }
 }

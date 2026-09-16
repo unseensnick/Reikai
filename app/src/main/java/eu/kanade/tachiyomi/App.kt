@@ -27,7 +27,6 @@ import coil3.request.crossfade
 import coil3.util.DebugLogger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.createGraphFactory
-import eu.kanade.domain.DomainModule
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
@@ -64,7 +63,7 @@ import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
 import mihon.app.di.AppGraph
-import mihon.app.di.injekt.MetroInteropModule
+import mihon.app.di.injekt.MetroInjektRegistrar
 import mihon.core.metro.GraphProvider
 import mihon.core.migration.Migrator
 import mihon.telemetry.TelemetryConfig
@@ -79,7 +78,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
 import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.addSingleton
+import uy.kohesive.injekt.api.InjektScope
 import java.security.Security
 
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
@@ -87,8 +86,6 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     override val graph: AppGraph by lazy {
         createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType)
     }
-
-    @Inject private lateinit var injektMetroInteropModule: MetroInteropModule
 
     @Inject private lateinit var privacyPreferences: PrivacyPreferences
 
@@ -126,6 +123,11 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
 
+        // Assigned before the graph is built, which is safe because every binding is a lambda and
+        // nothing dereferences the graph until one is called. An Injekt.get reached during graph
+        // construction would re-enter the lazy below, so keep this pair adjacent.
+        Injekt = InjektScope(MetroInjektRegistrar(application = this, graphProvider = this))
+
         // After the handler is installed, so a failure building the graph reaches CrashActivity
         // rather than dying on the platform handler.
         graph.inject(this)
@@ -138,11 +140,6 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         // RK: the Cloudflare bypass needs a real window to solve an interactive challenge in, and
         //     the interceptor it runs from holds only this context.
         ForegroundActivity.register(this)
-
-        Injekt.addSingleton<Application>(this)
-        Injekt.addSingleton<Context>(this)
-        Injekt.importModule(DomainModule())
-        Injekt.importModule(injektMetroInteropModule)
 
         if (!LogcatLogger.isInstalled) {
             val minLogPriority = when {
