@@ -723,6 +723,25 @@ class NovelDetailsViewModel(
 
     fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
 
+    /** Clears downloads for what the screen shows: the selected chip alone, else every grouped source. */
+    fun showClearDownloadsDialog() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chipName = loaded.selectedSourceNovelId
+            ?.let { id -> loaded.mergeSources.firstOrNull { it.id == id }?.sourceName }
+        updateLoaded { it.copy(dialog = NovelDetailsDialog.ClearDownloads(chipName)) }
+    }
+
+    fun clearDownloads() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val grouped = mergeGroup.relatedIds.toList()
+        val ids: List<Long> = loaded.selectedSourceNovelId?.let { listOf(it) }
+            ?: grouped.takeIf { it.size > 1 }
+            ?: listOf(loaded.novel.id)
+        viewModelScope.launchNonCancellable {
+            ids.forEach { id -> novelRepo.getById(id)?.let { downloadManager.awaitDeleteNovel(it) } }
+        }
+    }
+
     /** Opens the viewed source's settings: the selected chip's source on a merged novel, else its own. */
     fun showSourceSettings() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
@@ -1457,6 +1476,9 @@ sealed interface NovelDetailsDialog {
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
     data class SourceSettings(val source: NovelSource) : NovelDetailsDialog
+
+    /** Confirm clearing downloads; sourceName is the chip being viewed, null in the unified view. */
+    data class ClearDownloads(val sourceName: String?) : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
     data class ManageSources(
         val sources: List<EntryManageSourceInfo>,

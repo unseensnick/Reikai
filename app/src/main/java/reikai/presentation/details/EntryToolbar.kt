@@ -55,6 +55,8 @@ fun EntryToolbar(
     onClickRecommendations: (() -> Unit)? = null,
     // Source settings, non-null only when the viewed source exposes any.
     onClickSourceSettings: (() -> Unit)? = null,
+    // Clear downloads, non-null only when this entry has any and the source can hold them.
+    onClickClearDownloads: (() -> Unit)? = null,
 
     // For action mode
     actionModeCounter: Int,
@@ -158,8 +160,8 @@ fun EntryToolbar(
                         ),
                     )
                     // Overflow order (both types): Refresh, Edit categories, Edit info, Migrate, Manage
-                    // sources, Notes, Share, Gallery info, Source settings, Show/Hide hidden. Each is
-                    // gated on its callback, so a content type shows only the items it supports.
+                    // sources, Notes, Share, Gallery info, Clear downloads, Source settings, Show/Hide
+                    // hidden. Each is gated on its callback, so a type shows only what it supports.
                     add(
                         AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_webview_refresh),
@@ -217,6 +219,14 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_metadata_viewer),
                                 onClick = onClickMetadataViewer,
+                            ),
+                        )
+                    }
+                    if (onClickClearDownloads != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_clear_downloads),
+                                onClick = onClickClearDownloads,
                             ),
                         )
                     }

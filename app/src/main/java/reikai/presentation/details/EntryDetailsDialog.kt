@@ -58,6 +58,10 @@ sealed interface EntryDetailsDialog {
 
     /** Confirm a bulk chapter delete; [chapterIds] are the rows captured when the dialog opened. */
     data class DeleteChapters(val chapterIds: List<Long>) : EntryDetailsDialog
+
+    /** Confirm clearing downloads. [sourceName] names the one source being cleared, or is null when
+     *  the unified view is on and every grouped source goes. */
+    data class ClearDownloads(val sourceName: String?) : EntryDetailsDialog
 }
 
 /** One merge source for the manage-sources dialog: id + name + chapter count (for the coverage subtitle). */
@@ -171,6 +175,11 @@ fun Screen.EntryDetailsDialogHost(
         is EntryDetailsDialog.DeleteChapters -> DeleteChaptersDialog(
             onDismissRequest = onDismissRequest,
             onConfirm = { behavior.deleteChapters(dialog.chapterIds) },
+        )
+        is EntryDetailsDialog.ClearDownloads -> ClearDownloadsDialog(
+            sourceName = dialog.sourceName,
+            onDismissRequest = onDismissRequest,
+            onConfirm = behavior::clearDownloads,
         )
     }
 }

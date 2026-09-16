@@ -244,6 +244,10 @@ private fun EntryDetailsToolbar(
         onClickDownload = if (state.chaptersDownloadable) behavior::runDownloadAction else null,
         onClickMetadataViewer = nav.onMetadataViewer,
         onClickSourceSettings = nav.onOpenSourceSettings,
+        // Hidden with nothing to clear, and on a source whose downloads are the series itself.
+        onClickClearDownloads = { behavior.showClearDownloadsDialog() }.takeIf {
+            state.chaptersDownloadable && state.chapters.hasDownloads
+        },
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

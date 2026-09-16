@@ -838,6 +838,25 @@ class MangaViewModel(
         groupManga().forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
     }
 
+    // RK --> Clear downloads for what the screen shows: the selected chip alone, else the whole group.
+    //        Distinct from deleteDownloads above, which runs when the entry itself leaves the library
+    //        and so always takes the group.
+    fun showClearDownloadsDialog() {
+        val state = successState ?: return
+        val chipName = state.mergeDisplayManga?.let { state.mergeDisplaySource?.name }
+        updateSuccessState { it.copy(dialog = Dialog.ClearDownloads(chipName)) }
+    }
+
+    fun clearDownloads() {
+        viewModelScope.launchNonCancellable {
+            viewedManga().forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
+        }
+    }
+
+    private suspend fun viewedManga(): List<Manga> =
+        successState?.mergeDisplayManga?.let { listOf(it) } ?: groupManga()
+    // RK <--
+
     /** RK: every source of the merge group, the screen's own manga when it stands alone. Resolved from
      *  the group rather than the screen's map, which a selected source chip narrows to that one chip. */
     private suspend fun groupManga(): List<Manga> {
@@ -1621,6 +1640,9 @@ class MangaViewModel(
             val initialSelection: List<CheckboxState<Category>>,
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
+
+        // RK: confirm clearing downloads; sourceName is the chip being viewed, null in the unified view.
+        data class ClearDownloads(val sourceName: String?) : Dialog
 
         // RK: suggestGroup gates the "add to existing group" action (the same-title suggestion pref);
         // groupIdByMangaId collapses same-group duplicates into one card.

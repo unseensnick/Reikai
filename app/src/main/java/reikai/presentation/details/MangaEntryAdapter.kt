@@ -288,6 +288,14 @@ class MangaEntryAdapter(
     override fun selectSource(entryId: Long?) {
         model.selectSource(entryId)
     }
+    override fun showClearDownloadsDialog() {
+        model.showClearDownloadsDialog()
+    }
+
+    override fun clearDownloads() {
+        model.clearDownloads()
+    }
+
     override fun showManageSourcesDialog() {
         model.showManageSourcesDialog()
     }

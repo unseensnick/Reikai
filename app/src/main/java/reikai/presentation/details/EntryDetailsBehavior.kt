@@ -43,6 +43,13 @@ interface EntryDetailsBehavior {
 
     /** Confirm the bulk delete (the chapter ids captured when the confirm dialog opened). */
     fun deleteChapters(chapterIds: List<Long>)
+
+    /** Ask to clear downloads for what the screen is showing: the selected merge source, or every
+     *  source when the unified view is on. */
+    fun showClearDownloadsDialog()
+
+    /** Confirm that clear. Chapters, read state and history are untouched; only files are removed. */
+    fun clearDownloads()
     fun chapterSwipe(chapterId: Long, action: LibraryPreferences.ChapterSwipeAction)
 
     // Hidden chapters.

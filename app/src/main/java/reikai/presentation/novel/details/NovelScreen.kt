@@ -281,6 +281,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(): EntryDetailsDialog
             isNovel = true,
         )
         is NovelDetailsDialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
+        is NovelDetailsDialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.sourceName)
         else -> null
     }
 

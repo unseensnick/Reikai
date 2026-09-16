@@ -71,7 +71,13 @@ data class EntryChapterListUiState(
     val hiddenChapterIds: Set<Long>,
     /** How a chapter the source dated nothing reads; see [UndatedChapterDate]. */
     val undatedChapterDate: UndatedChapterDate,
-)
+) {
+    /** Anything on disk to clear. Derived, so neither adapter has to answer it separately. */
+    val hasDownloads: Boolean
+        get() = items.any {
+            it is EntryChapterListItem.Chapter && it.downloadState == Download.State.DOWNLOADED
+        }
+}
 
 /**
  * What a chapter with no date from the source shows. A typed slot rather than the row deciding for
