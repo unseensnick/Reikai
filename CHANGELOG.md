@@ -47,6 +47,7 @@ every release now also ships a foss build with neither in it.
 - **The library's three-dot menu can now refresh tracker data for everything you track, in one pass.** Scores and statuses were only pulled when you opened an entry, so sorting or filtering by tracker score read whatever was last cached.
 - **Settings -> Library -> Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
 - **Long-pressing a second category on the Edit categories screen now selects everything between the two.** Long-press one you have already picked to drop it again.
+- **Each card on the Edit categories screen now has a menu to move it straight to the top or bottom.** It works under the Manga and Novels chips too, where dragging is off, whenever the categories are in manual order.
 - **A long press on a grouped row in Updates now selects everything between it and your last pick, that whole group included.** It only ever selected the group you pressed.
 
 #### Changed

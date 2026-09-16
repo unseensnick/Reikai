@@ -147,6 +147,9 @@ fun CategoryScreen(
                         onChangeOrder = onChangeOrder,
                         // RK: drag only in Manual mode, outside selection, and only under the All chip
                         reorderable = reorderable,
+                        // RK: the move menu renumbers the whole list to an end, which is also an end of any
+                        // narrowed list, so only the manual order and selection gate it, never the chip.
+                        movable = state.categorySortOrder == 0 && !state.selectionMode,
                         selection = state.selection,
                         selectionMode = state.selectionMode,
                         onToggleSelection = onToggleSelection,
@@ -170,6 +173,8 @@ private fun CategoryContent(
     onChangeOrder: (Category, Int) -> Unit,
     // RK: false hides the drag handle so the (sorted) list can't be manually reordered
     reorderable: Boolean = true,
+    // RK: false hides the move-to-top / move-to-bottom menu
+    movable: Boolean = true,
     // RK --> multi-select
     selection: Set<Long> = emptySet(),
     selectionMode: Boolean = false,
@@ -220,6 +225,10 @@ private fun CategoryContent(
                     onToggleHidden = { onClickToggleHidden(category) },
                     // RK: hide the drag handle (and thus disable drag) when auto-sorted or selecting
                     showDragHandle = reorderable,
+                    // RK: an index past the end is clamped to the last place by the reorder
+                    showMoveActions = movable,
+                    onMoveToTop = { onChangeOrder(category, 0) },
+                    onMoveToBottom = { onChangeOrder(category, Int.MAX_VALUE) },
                 )
             }
         }
