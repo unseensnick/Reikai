@@ -87,7 +87,6 @@ Opportunistic polish:
 
 - **Report a worker that fails to construct** `[S]` - a throw while a worker builds its injected fields is swallowed by WorkManager: a periodic job re-enqueues and fails identically forever, with one logcat line and no notification, because the app declares no `Configuration.Provider` and so no initialization-exception handler. That is upstream's shape, unchanged by the DI port. The fix moves WorkManager to on-demand initialization, which touches every scheduled job, so it wants its own change and its own device pass.
 - **Exercise the three work loops for real** `[S]` - the worktree and PR path is untested on all three, `/sync-loop` has only had a read-only rehearsal and `/audit-loop` none, so their later stop conditions are still theory. mihon `f75f2598a` is the worked-out first sync unit.
-- **Try the Gradle configuration cache** `[M]` - `org.gradle.configuration-cache` is off everywhere and Gradle suggests it on every local build, making it the largest remaining build-time win. Repo-wide rather than a CI flag, so it turns on whether AGP, moko-resources and `build-logic` all cooperate, and it wants measuring against the current preview run time of 13 to 15 minutes.
 
 ## Parked / not building
 
