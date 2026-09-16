@@ -45,10 +45,10 @@ One library screen lists manga and novels together; what is left here is polish 
 
 From the 2026-07-04 Komikku parity audit, apart from the Cloudflare solver item.
 
-- **Decide whether the interactive Cloudflare solver defaults on** `[S]` - the experimental label is gone, the switch still ships off. Likely a judgement call rather than a further test; the coverage so far and the one gap left are in the plan. [Plan](docs/dev/plans/turnstile-solver.md).
-- **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
-- **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
-- **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name) hung off the content-type badge slot the row already carries, a browse-toolbar incognito toggle, an NSFW-only filter, a browse panorama toggle (the library already has panorama), hide latest. Per-source data-saver exclude waits on the image-compression proxy under Parked, since there is no data-saver feature to exclude from.
+- **Decide whether the interactive Cloudflare solver defaults on** `[S]` - nothing blocks it: the switch already covers novel plugin traffic, and a failed solve costs at most a 20-second wait before today's behaviour. What the plan waits on, a host outside the six tested, has no trigger anyone can schedule, so this is a judgement call. [Plan](docs/dev/plans/turnstile-solver.md).
+- **Find-a-source search box** `[S]` - filter the sources list by name when you have many. The Browse toolbar already hoists a search query the Extensions tab uses and the Sources tab never opted into, so it is wiring plus a searching-aware empty state, for both content types at once.
+- **Custom source categories** `[M]` - group installed sources under your own headers in the Sources list, beyond language grouping and pinning. Storage is one preference keyed by the shared source key, but the reference hangs the category off its manga source model, so this needs its own manager screen, an assign dialog for both providers, a new section rank and a backup key.
+- **Source-list & row polish** `[S]` - for both types: a language flag on the row, a browse panorama option (the shared grid cell collapses panorama into comfortable today), and hide latest. Manga only, because a novel plugin carries no adult flag and is its own extension: NSFW and extension-name badges in the row's existing badge slot, and a per-source incognito toggle (novels ride the global switch). An NSFW-only filter would empty the novel half of a mixed list, so it needs scoping to the manga chip or dropping. Per-source data-saver exclude waits on the image-compression proxy under Parked, since there is no data-saver feature to exclude from.
 
 ### Reader
 
