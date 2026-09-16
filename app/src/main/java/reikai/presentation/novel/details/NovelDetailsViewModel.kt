@@ -334,6 +334,7 @@ class NovelDetailsViewModel(
                         l.copy(
                             sourceName = resolved.name,
                             sourceUrl = resolved.site,
+                            sourceHasSettings = resolved.pluginSettings != null,
                             novelWebUrl = resolved.webUrl(l.displayNovel.url),
                         )
                     } ?: it
@@ -589,6 +590,7 @@ class NovelDetailsViewModel(
                 sourceName = viewSource?.name ?: source?.name ?: loaded?.sourceName ?: sourceId,
                 sourceUrl = viewSource?.site ?: source?.site ?: loaded?.sourceUrl,
                 novelWebUrl = (viewSource ?: source)?.webUrl(viewNovel.url) ?: loaded?.novelWebUrl,
+                sourceHasSettings = (viewSource ?: source)?.pluginSettings != null,
                 sorting = anchor.effectiveSorting(novelPreferences),
                 sortDescending = sortDescending,
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
@@ -720,6 +722,14 @@ class NovelDetailsViewModel(
     }
 
     fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
+
+    /** Opens the viewed source's settings: the selected chip's source on a merged novel, else its own. */
+    fun showSourceSettings() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val viewed = siblingSources.value[loaded.displayNovel.id] ?: source ?: return
+        if (viewed.pluginSettings == null) return
+        updateLoaded { it.copy(dialog = NovelDetailsDialog.SourceSettings(viewed)) }
+    }
 
     // Shared split / remove / reorder actions. Novels write favorite-only (so the merge-undo keeps the
     // original dateAdded) and propagate tracker links onto each member before a split. selectSource +
@@ -1396,6 +1406,8 @@ sealed interface NovelDetailsState {
         val sourceName: String = "",
         val sourceUrl: String? = null,
         val novelWebUrl: String? = null,
+        /** Whether the viewed source exposes settings; gates the overflow item that opens them. */
+        val sourceHasSettings: Boolean = false,
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,
@@ -1444,6 +1456,7 @@ sealed interface NovelDetailsDialog {
 
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
+    data class SourceSettings(val source: NovelSource) : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
     data class ManageSources(
         val sources: List<EntryManageSourceInfo>,

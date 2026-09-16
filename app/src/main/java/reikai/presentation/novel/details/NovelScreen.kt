@@ -42,6 +42,7 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
+import reikai.presentation.novel.browse.NovelSourceSettingsSheet
 import reikai.presentation.novel.notes.NovelNotesScreen
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -176,6 +177,8 @@ class NovelScreen(
                                 null
                             },
                             onOpenPageSelector = viewModel::showPageSelectorDialog,
+                            onOpenSourceSettings = viewModel::showSourceSettings
+                                .takeIf { s.sourceHasSettings },
                         ),
                     )
                 }
@@ -224,6 +227,10 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             onDisplayChange = viewModel::setHideChapterTitles,
             onSetAsDefault = viewModel::setChapterSettingsAsDefault,
             onReset = viewModel::resetChapterSettings,
+        )
+        is NovelDetailsDialog.SourceSettings -> NovelSourceSettingsSheet(
+            source = dialog.source,
+            onDismiss = viewModel::dismissDialog,
         )
         NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
             pages = state.pages,

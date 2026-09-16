@@ -184,6 +184,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
+- **A series' details overflow now opens its source's settings.** It appears only when the source has any, and on a merged series it opens the settings of the source you are viewing.
 - **The chapter list on a merged series now says which source each chapter came from.** Manga rows name the source before the scanlator; novel rows name the source, and neither shows anything when the series is not merged.
 
 #### Changed

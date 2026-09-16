@@ -28,10 +28,12 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
+import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
@@ -224,6 +226,11 @@ class MangaScreen(
                         // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
                         // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
                         // anchored on a non-metadata source.
+                        // The viewed source, as the metadata viewer resolves it, so a merged entry
+                        // opens the settings of the source its chip is showing.
+                        onOpenSourceSettings = (successState.mergeDisplaySource ?: successState.source)
+                            .takeIf { it is ConfigurableSource }
+                            ?.let { source -> { navigator.push(SourcePreferencesScreen(source.id)) } },
                         onMetadataViewer = {
                             val displayManga = successState.mergeDisplayManga ?: successState.manga
                             val displaySource = successState.mergeDisplaySource ?: successState.source
