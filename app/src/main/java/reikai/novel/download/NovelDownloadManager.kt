@@ -208,6 +208,10 @@ class NovelDownloadManager(
         deleteChapterFiles(chapters)
     }
 
+    /** The novel's download directory, for the details overflow's Open folder; null until something
+     *  is downloaded. The twin of DownloadManager.findMangaDir. */
+    fun findNovelDir(novel: Novel) = provider.findNovelDir(novel)
+
     /**
      * Drop the whole novel: everything it has queued, then its folder. The manga twin of this is
      * [eu.kanade.tachiyomi.data.download.DownloadManager.deleteManga].

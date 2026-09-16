@@ -82,6 +82,8 @@ data class EntryDetailsNavigation(
     val onRecommendations: (() -> Unit)? = null,
     /** "Source settings" overflow action; non-null only when the viewed source exposes any. */
     val onOpenSourceSettings: (() -> Unit)? = null,
+    /** Hands the viewed source's download folder to a file manager. */
+    val onOpenFolder: (() -> Unit)? = null,
 )
 
 /**
@@ -246,6 +248,9 @@ private fun EntryDetailsToolbar(
         onClickSourceSettings = nav.onOpenSourceSettings,
         // Hidden with nothing to clear, and on a source whose downloads are the series itself.
         onClickClearDownloads = { behavior.showClearDownloadsDialog() }.takeIf {
+            state.chaptersDownloadable && state.chapters.hasDownloads
+        },
+        onClickOpenFolder = nav.onOpenFolder?.takeIf {
             state.chaptersDownloadable && state.chapters.hasDownloads
         },
         onClickRecommendations = nav.onRecommendations,

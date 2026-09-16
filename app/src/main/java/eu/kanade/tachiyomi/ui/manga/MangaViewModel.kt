@@ -838,6 +838,9 @@ class MangaViewModel(
         groupManga().forEach { downloadManager.deleteManga(it, sourceManager.getOrStub(it.source)) }
     }
 
+    // RK: the viewed source's download directory, for the details overflow's Open folder.
+    fun viewedDownloadDir(manga: Manga, source: Source) = downloadManager.findMangaDir(manga, source)
+
     // RK --> Clear downloads for what the screen shows: the selected chip alone, else the whole group.
     //        Distinct from deleteDownloads above, which runs when the entry itself leaves the library
     //        and so always takes the group.

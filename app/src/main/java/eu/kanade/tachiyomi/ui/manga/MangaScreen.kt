@@ -61,6 +61,7 @@ import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
+import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
@@ -228,6 +229,15 @@ class MangaScreen(
                         // anchored on a non-metadata source.
                         // The viewed source, as the metadata viewer resolves it, so a merged entry
                         // opens the settings of the source its chip is showing.
+                        onOpenFolder = {
+                            openDownloadFolder(
+                                context,
+                                viewModel.viewedDownloadDir(
+                                    successState.mergeDisplayManga ?: successState.manga,
+                                    successState.mergeDisplaySource ?: successState.source,
+                                ),
+                            )
+                        },
                         onOpenSourceSettings = (successState.mergeDisplaySource ?: successState.source)
                             .takeIf { it is ConfigurableSource }
                             ?.let { source -> { navigator.push(SourcePreferencesScreen(source.id)) } },

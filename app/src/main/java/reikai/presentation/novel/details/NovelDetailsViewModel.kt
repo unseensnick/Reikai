@@ -723,6 +723,10 @@ class NovelDetailsViewModel(
 
     fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
 
+    /** The viewed novel's download directory, for the details overflow's Open folder. */
+    fun viewedDownloadDir() = (state.value as? NovelDetailsState.Loaded)
+        ?.let { downloadManager.findNovelDir(it.displayNovel) }
+
     /** Clears downloads for what the screen shows: the selected chip alone, else every grouped source. */
     fun showClearDownloadsDialog() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return

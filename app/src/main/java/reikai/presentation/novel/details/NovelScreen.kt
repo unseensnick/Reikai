@@ -40,6 +40,7 @@ import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
+import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
@@ -177,6 +178,9 @@ class NovelScreen(
                                 null
                             },
                             onOpenPageSelector = viewModel::showPageSelectorDialog,
+                            onOpenFolder = {
+                                openDownloadFolder(context, viewModel.viewedDownloadDir())
+                            },
                             onOpenSourceSettings = viewModel::showSourceSettings
                                 .takeIf { s.sourceHasSettings },
                         ),

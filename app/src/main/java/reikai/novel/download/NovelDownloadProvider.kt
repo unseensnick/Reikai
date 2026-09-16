@@ -82,7 +82,9 @@ class NovelDownloadProvider(
     private fun novelDir(novel: Novel): UniFile? =
         downloadsDir?.createDirectory(sourceDirName(novel))?.createDirectory(novelDirName(novel))
 
-    private fun findNovelDir(novel: Novel): UniFile? =
+    /** The novel's download directory, or null when nothing has been downloaded yet. Public to match
+     *  the manga provider's findMangaDir, which the shared details overflow opens. */
+    fun findNovelDir(novel: Novel): UniFile? =
         downloadsDir?.findFile(sourceDirName(novel))?.findFile(novelDirName(novel))
 
     private fun findChapterFile(novel: Novel, chapter: NovelChapter): UniFile? {
