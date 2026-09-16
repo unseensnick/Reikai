@@ -478,6 +478,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **Your own title, author or cover edits on a series you have read but removed from the library are no longer missing from a backup.** They were dropped whenever the backup included read entries outside the library.
 - **Picking a backup to restore now opens the system file picker, which some devices could not open before (synced from Mihon, mihonapp/mihon#3948).**
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
 - **Restoring a backup no longer collapses unrelated series into one.** Two series you had grouped separately came back as a single card whenever your device already had a source of each merged together.

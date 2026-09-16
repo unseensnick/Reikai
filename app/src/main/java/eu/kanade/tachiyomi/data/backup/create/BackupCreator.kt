@@ -195,7 +195,7 @@ class BackupCreator(
                             out,
                             713,
                             BackupCustomMangaInfo.serializer(),
-                            backupCustomMangaInfo(favorites, options),
+                            backupCustomMangaInfo(options),
                         )
                     }
                 }
@@ -285,30 +285,31 @@ class BackupCreator(
                 // A member whose row has gone drops out, matching the novel creator: getMangaById
                 // throws on a missing row, so one stale membership aborted the WHOLE backup.
                 val refs = memberIds.mapNotNull { id ->
-                    val manga = try {
-                        mangaRepository.getMangaById(id)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
-                        return@mapNotNull null
-                    }
+                    val manga = mangaOrNull(id) ?: return@mapNotNull null
                     BackupMangaSourceRef(url = manga.url, source = manga.source)
                 }
                 refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }
             }
     }
 
+    // getMangaById throws on a missing row rather than returning null, so a stale id would abort the
+    // whole backup instead of dropping the one entry it belongs to.
+    private suspend fun mangaOrNull(id: Long): Manga? = try {
+        mangaRepository.getMangaById(id)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
     // RK: back up the manga custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on
-    // restore). Favorites-only, so the favorites map resolves each row's manga; a row for a non-favorite
-    // (shouldn't happen) is dropped. Gated by libraryEntries.
-    private suspend fun backupCustomMangaInfo(
-        favorites: List<Manga>,
-        options: BackupOptions,
-    ): List<BackupCustomMangaInfo> {
+    // restore). Resolves each row's manga by id, matching the novel creator: the backup also carries read
+    // entries that have left the library, and a favorites-keyed lookup dropped their overlay silently.
+    // Gated by libraryEntries.
+    internal suspend fun backupCustomMangaInfo(options: BackupOptions): List<BackupCustomMangaInfo> {
         if (!options.libraryEntries) return emptyList()
-        val byId = favorites.associateBy { it.id }
         return customMangaInfoRepository.getAll().mapNotNull { info ->
-            val manga = byId[info.mangaId] ?: return@mapNotNull null
+            val manga = mangaOrNull(info.mangaId) ?: return@mapNotNull null
             BackupCustomMangaInfo(
                 source = manga.source,
                 url = manga.url,
