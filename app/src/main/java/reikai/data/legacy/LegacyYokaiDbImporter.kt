@@ -21,6 +21,7 @@ import okio.buffer
 import okio.gzip
 import okio.sink
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.novelCategoryFlagsToMangaLayout
 import java.io.File
 
 /**
@@ -258,12 +259,24 @@ object LegacyYokaiDbImporter {
         return stores
     }
 
+    /**
+     * A legacy row's flags are known to be in the pre-unification novel layout, where the Downloaded and
+     * Tracker-score sort types sit on each other's values, so they are translated here. Restore cannot do
+     * it: by then a value is equally consistent with an untranslated old one and a correct current one,
+     * which is what the backup format version in the roadmap is for.
+     */
+    internal fun legacyNovelCategory(name: String, order: Long, flags: Long) = BackupNovelCategory(
+        name = name,
+        order = order,
+        flags = novelCategoryFlagsToMangaLayout(flags),
+    )
+
     private fun SQLiteDatabase.buildNovelCategories(): List<BackupNovelCategory> {
         if (!hasTable("novel_categories")) return emptyList()
         val categories = mutableListOf<BackupNovelCategory>()
         rawQuery("SELECT _id, name, sort, flags FROM novel_categories WHERE _id > 0", null).use { c ->
             while (c.moveToNext()) {
-                categories += BackupNovelCategory(
+                categories += legacyNovelCategory(
                     name = c.strOr("name"),
                     order = c.longOr("sort"),
                     flags = c.longOr("flags"),
