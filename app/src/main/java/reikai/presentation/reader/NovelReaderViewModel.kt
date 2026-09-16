@@ -72,6 +72,7 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.reader.text.InFlightLoads
 import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelLeaveRule
@@ -1467,7 +1468,7 @@ internal fun NovelChapter.toReaderChapterRow(
     id = id,
     title = name,
     // A novel has no scanlator, so the only subtitle is which source a merged group's chapter is from.
-    subtitle = sourceNames[novelId],
+    subtitle = chapterSubtitle(sourceNames[novelId]),
     dateUpload = dateUpload,
     readProgress = (lastTextProgress / 100L).toInt().takeIf { it > 0 }?.let { "$it%" },
     read = flags.isRead(this),

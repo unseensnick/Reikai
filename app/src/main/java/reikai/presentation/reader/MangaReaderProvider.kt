@@ -30,6 +30,7 @@ import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupChapterFlags
+import reikai.presentation.components.chapterSubtitle
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.asMangaCover
 import kotlin.time.Duration.Companion.milliseconds
@@ -186,9 +187,7 @@ class MangaReaderProvider(
         return ReaderChapterRow(
             id = chapter.id,
             title = chapter.name,
-            // In a merged group the source leads, then the scanlator, so a unified list says where each
-            // chapter came from.
-            subtitle = listOfNotNull(sourceName, chapter.scanlator).joinToString(" • ").ifEmpty { null },
+            subtitle = chapterSubtitle(sourceName, chapter.scanlator),
             dateUpload = chapter.dateUpload,
             // The page a manga chapter was left on is not shown here, as upstream does not show it.
             readProgress = null,

@@ -228,6 +228,7 @@ every release now also ships a foss build with neither in it.
 
 #### Fixed
 
+- **The reader's chapter list no longer shows a stray dot with nothing after it on a merged series.** It appeared when a chapter had no scanlator name or its source could not be resolved.
 - **A merged series now opens in webtoon mode when any of its sources calls it a manhwa, manhua or webtoon.** Before, only the source the chapter came from was consulted, and that is usually not the one carrying the tag.
 - **Chapters you have read no longer disappear from the reader's chapter list.**
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (synced from Mihon, mihonapp/mihon#3686).**

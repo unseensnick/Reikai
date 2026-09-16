@@ -1,4 +1,4 @@
-package reikai.presentation.details
+package reikai.presentation.components
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test

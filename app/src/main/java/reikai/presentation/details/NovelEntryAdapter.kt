@@ -13,6 +13,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
+import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
