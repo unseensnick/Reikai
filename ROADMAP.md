@@ -12,8 +12,8 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Next
 
-- **Convert the light-novel plugin manager to collect only while subscribed** `[S]` (open gap) - `LnPluginManagerViewModel` is the novel twin of Mihon's converted `ExtensionsViewModel` and still holds two always-on `init` collectors. Not a straight port: its `refresh()` does network work and writes `isRefreshing` / `inProgress` / `errors` imperatively, so the shape has to be redesigned rather than moved. The campaign's record is the Pending row in [upstream-sync.md](docs/dev/upstream-sync.md). The browse takeover's Extensions step wrapped this model in a provider without touching those collectors, so it no longer rides along and needs its own redesign.
-- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift. It also owns Mihon's `DownloadQueueViewModel` conversion (mihonapp/mihon#3727, see the sync doc's Pending row) and the queue screen reading both models with a plain `collectAsState` while only the novel one shares while subscribed. A code merge, not a data migration; touches Mihon's download files (`// RK`). It owes one reader parity gap as well (owner, 2026-09-15): the manga reader hides chapters that are not downloaded while Downloaded only is on, and the novel reader ignores that setting. It is the last phase of the content-layer program, running after the reader takeover, since its upstream churn is the heaviest and nothing else waits on it. Tsundoku is not the reference: it gets one subsystem by making novels manga rows and branching inside the engine, both ruled out here. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Convert the light-novel plugin manager to collect only while subscribed** `[S]` (open gap) - `LnPluginManagerViewModel` is the novel twin of Mihon's converted `ExtensionsViewModel` and still holds three always-on `init` collectors plus an eager `refresh()`. Not a straight port: its `refresh()` does network work and writes `isRefreshing` / `inProgress` / `errors` imperatively, so the shape has to be redesigned rather than moved. The campaign's record is the Pending row in [upstream-sync.md](docs/dev/upstream-sync.md). The browse takeover's Extensions step wrapped this model in a provider without touching those collectors, so it no longer rides along and needs its own redesign.
+- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, so they can't drift. It also owns Mihon's `DownloadQueueViewModel` conversion (mihonapp/mihon#3727, see the sync doc's Pending row) and the queue screen reading both models with a plain `collectAsState` while only the novel one shares while subscribed. A code merge, not a data migration; touches Mihon's download files (`// RK`). It owes one reader parity gap as well (owner, 2026-09-15): the manga reader hides chapters that are not downloaded while Downloaded only is on, and the novel reader ignores that setting. It also carries the two novel download items folded into it (owner, 2026-09-16): Pause and Resume on the download notification, and per-source pacing controls. It is the last phase of the content-layer program, running after the reader takeover, since its upstream churn is the heaviest and nothing else waits on it. Tsundoku is not the reference: it gets one subsystem by making novels manga rows and branching inside the engine, both ruled out here. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Later
 
@@ -27,11 +27,10 @@ Remaining manga/novel parity work, smaller enhancements and polish. The write-on
 - **Smart update (auto fetch-interval) for novels** `[M]` (open gap) - give novels manga's per-entry update-interval prediction (the details "next update" action-row button plus a Set-interval dialog), so the novel action row matches manga's and Share can move to the overflow. Needs a `fetch_interval` / `next_update` schema migration on novels, the `FetchInterval` algorithm re-typed onto novel chapters, and the novel update job honouring it (algorithm reference: Mihon / tsundoku `FetchInterval`).
 
 Opportunistic polish:
-- Browse: genre-tap-search.
+- Browse: map a tapped genre onto a novel plugin's filters; the shared catalogue passes the genre-search hook on the manga branch only, so a novel source falls back to a plain text query.
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
-- Updates / history: fast-scroll animation.
-- Details: per-source scanlator filter for merged novels.
+- Details: a per-source chapter filter for merged novels. Novels carry no scanlator at any layer, so this can only filter by source, never by group.
 
 ### Library
 
@@ -49,7 +48,7 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 - **Header long-press menus + tap-source-to-browse** `[M]` - long-press the title / author / source for library search, global search and copy (today it only copies); tap the source name to open its browse. Flagship parity gap.
 - **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
 - **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
-- **AMOLED-aware adult tag-chip borders** `[S]` - weighted / pure-black-dark-mode borders on the adult gallery-info tag chips (copying metadata already works via the metadata viewer).
+- **AMOLED-aware adult tag-chip borders** `[S]` - the gallery-info tag chips draw every border in the theme primary colour with no pure-black dark-mode branch; the weighted widths beside it need no work.
 
 ### Browse & sources
 
@@ -58,7 +57,7 @@ From the same audit, apart from the Cloudflare solver item.
 - **Decide whether the interactive Cloudflare solver defaults on** `[S]` - the experimental label is gone, the switch still ships off. Likely a judgement call rather than a further test; the coverage so far and the one gap left are in the plan. [Plan](docs/dev/plans/turnstile-solver.md).
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
-- **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
+- **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name) hung off the content-type badge slot the row already carries, a browse-toolbar incognito toggle, an NSFW-only filter, a browse panorama toggle (the library already has panorama), hide latest. Per-source data-saver exclude waits on the image-compression proxy under Parked, since there is no data-saver feature to exclude from.
 
 ### Reader
 
@@ -70,11 +69,6 @@ From the same audit, apart from the Cloudflare solver item.
 - **CustomNovelSource mirror mode (re-point a source at a mirror domain)** `[M]` - a custom-source layer that delegates to an already-installed extension or LN plugin while rewriting its base URL (tsundoku's `basedOnSourceId` + an OkHttp base-URL interceptor / `withSiteOverride`), to recover a source whose domain moved or died. Reikai has no way to re-point an installed source today.
 - **Compiled-APK novel extensions (tsundoku / IReader repos)** `[XL]` - load the two APK novel-extension ecosystems alongside LN plugins: tsundoku's novel-extension type (a `tachiyomi.novelextension` feature flag on Mihon's extension format plus extra methods like `fetchPageText`) and IReader's extension repo. Requested in `unseensnick/Reikai#31`; starts with its own scout (the 2026-08-02 tsundoku source-system research is the groundwork).
 
-### Downloads & updates
-
-- **Pause and resume novel downloads from the notification** `[S]` - the novel downloader's notification offers only Cancel, where manga also offers Pause and Resume. The actions themselves are trivial; what is missing first is a paused-state notification, since pausing today stops the worker and takes the ongoing notification with it, leaving nothing to resume from.
-- **Novel download/update pacing controls** `[M]` - per-source throttle, update staggering, and a per-source override map for novel scrapers (tsundoku's `NovelDownloadPreferences`), a more complete anti-detection pacing layer than Reikai's current per-chapter backoff. Independent of Road B.
-
 ### Data & backup
 
 - **Find out why a foreign key did not reject an orphaning insert** `[S]` - inserts that violated a declared constraint were accepted on the live driver where an enforcing connection throws. Worth settling because every cascade in the schema rests on that assumption. [Plan](docs/dev/plans/content-layer-recents-surface.md).
@@ -84,11 +78,10 @@ From the same audit, apart from the Cloudflare solver item.
 
 ### UI & design
 
-- **Render GitHub's alert callouts in the in-app update notes** `[S]` - release notes use `> [!WARNING]` and friends, which GitHub draws as coloured callouts and the app draws as a blockquote with a literal `[!WARNING]` line, because `MarkdownRender` builds on a CommonMark flavour whose only GitHub addition is the table provider. Needs an alert marker provider alongside `GitHubTableMarkerProvider` plus a component for the four types. Until then a release that wants a callout has to write the warning twice, once plainly above the `<!-->` cut for the app and once as an alert below it for the release page, which 0.3.2 did.
 - **Reikai design refresh (off stock Material 3)** `[L]` - move Reikai's look off the stock Material 3 aesthetic (shape, typography, component styling, spacing, layout) across the shared `Entry*` surfaces, while keeping Mihon's existing theme system in Appearance settings intact: the user-selectable color themes, light/dark, AMOLED, and Theme-based-on-cover all stay, and the redesign renders under whichever the user picked. It owns component styling and layout, not the color-palette picker, and must preserve both the phone and tablet layouts Reikai inherited from Mihon. Exploratory, and it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
 
 Opportunistic polish:
-- Settings: Advanced opens on eight ungrouped rows with no header, mixing update-error tracking, debug entries and notification access; nothing says what they have in common.
+- Settings: Advanced opens on seven ungrouped rows with no header, mixing update-error tracking, debug entries and notification access; nothing says what they have in common.
 
 ### Build & CI
 
