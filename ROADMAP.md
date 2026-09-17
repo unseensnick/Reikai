@@ -22,7 +22,6 @@ Backlog, grouped by area. Unordered within an area.
 
 Remaining manga/novel parity work, smaller enhancements and polish. The write-once rule (`.claude/rules/content-layer.md`) is forward-only, so this pre-existing backlog is labelled rather than blocking: **open gap** is parity Reikai owes with nothing preventing it, **gated** names the mechanism the content type cannot support, and a gate holds only until that mechanism changes.
 
-- **Skeleton loading on the novel details page** `[S]` - placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a non-library novel. An enhancement, not a parity gap (manga also uses a plain spinner).
 - **Smart update (auto fetch-interval) for novels** `[M]` (open gap) - give novels manga's per-entry update-interval prediction (the details "next update" action-row button plus a Set-interval dialog), so the novel action row matches manga's and Share can move to the overflow. Needs a `fetch_interval` / `next_update` schema migration on novels, the `FetchInterval` algorithm re-typed onto novel chapters, and the novel update job honouring it (algorithm reference: Mihon / tsundoku `FetchInterval`).
 
 Opportunistic polish:

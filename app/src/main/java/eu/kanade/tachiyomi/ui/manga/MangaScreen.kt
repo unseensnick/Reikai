@@ -60,6 +60,7 @@ import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
+import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.openDownloadFolder
@@ -74,7 +75,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.manga.model.withCustomInfo // RK
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.screens.LoadingScreen
 
 class MangaScreen(
     val mangaId: Long, // RK: exposed so the migrate flow can identity-check the screen below it
@@ -97,7 +97,7 @@ class MangaScreen(
         val state by viewModel.state.collectAsStateWithLifecycle()
 
         if (state is MangaViewModel.State.Loading) {
-            LoadingScreen()
+            EntryDetailsSkeleton() // RK: the details page's shape while it loads, shared with novels
             return
         }
 

@@ -41,6 +41,7 @@ import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
+import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.openDownloadFolder
@@ -50,7 +51,6 @@ import reikai.presentation.novel.browse.NovelSourceSettingsSheet
 import reikai.presentation.novel.notes.NovelNotesScreen
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
-import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`. Builds a [NovelEntryAdapter] over the
@@ -79,7 +79,7 @@ class NovelScreen(
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         when (val s = state) {
-            NovelDetailsState.Loading -> LoadingScreen()
+            NovelDetailsState.Loading -> EntryDetailsSkeleton()
             is NovelDetailsState.Failed -> Scaffold(
                 topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
             ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }

@@ -194,6 +194,7 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
+- **A manga or novel's page now shows the outline of what it is loading instead of a spinner.** It matters most for a novel opened from Browse, which waits on the source before anything appears.
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.
 
 #### Fixed
