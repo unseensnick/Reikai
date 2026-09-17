@@ -9,6 +9,7 @@
 
 # Images
 *.webp binary
+*.webm binary
 *.png binary
 *.jpg binary
 *.jpeg binary
