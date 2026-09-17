@@ -10,12 +10,11 @@ name: Deploy docs site
 
 on:
   push:
-    # Same set as nightly.yml. The branch travels in the dispatch payload and the site builds from
-    # it, so a release branch needs no edit here and no matching edit to the site's APP_REF.
-    #
-    # The consequence to know: a docs push on ANY of these republishes the live site from that
-    # branch. That is what you want on a release branch and a trap on a scratch one.
-    branches: [main, 'feat/**', 'fix/**']
+    # main only. The site's root docs are built from main, so they describe the stable release. Its
+    # /preview/ docs are built from the commit the latest nightly was built from, and nightly.yml
+    # already asks for a rebuild when one is published, so a docs push on a working branch has
+    # nothing new to publish until its nightly exists.
+    branches: [main]
     # The sync skips the contributor material that shares this tree, so a change to it publishes
     # nothing and should not spend a deploy. Mirrors the SKIP list in the site's sync-docs.mjs.
     paths:
@@ -23,9 +22,6 @@ on:
       - '!docs/dev/**'
       - '!docs/README.md'
       - '!docs/guides/PORTING.md'
-  # GitHub only offers this once the file is on the default branch, so while it lives on a release
-  # branch there is no manual button here. The push trigger above is unaffected: it runs from the
-  # workflow in the pushed commit. To deploy by hand meanwhile, run the site repo's own workflow.
   workflow_dispatch:
 
 permissions:
