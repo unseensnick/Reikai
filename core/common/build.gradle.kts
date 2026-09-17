@@ -1,3 +1,5 @@
+import mihon.gradle.Config
+
 plugins {
     alias(mihonx.plugins.android.library)
     alias(mihonx.plugins.spotless)
@@ -8,6 +10,16 @@ plugins {
 
 android {
     namespace = "eu.kanade.tachiyomi.core.common"
+
+    // RK --> which docs the app's links open: the nightly docs for a build passed -Ppreview-docs, which
+    // nightly.yml does, and the stable docs otherwise. Constants.URL_DOCS builds on it.
+    buildFeatures {
+        buildConfig = true
+    }
+    defaultConfig {
+        buildConfigField("String", "DOCS_PATH", if (Config.previewDocs) "\"preview/docs\"" else "\"docs\"")
+    }
+    // RK <--
 }
 
 kotlin {

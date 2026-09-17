@@ -1,11 +1,14 @@
 package tachiyomi.core.common
 
+import eu.kanade.tachiyomi.core.common.BuildConfig
+
 object Constants {
     // RK -->
     // Every user-facing doc link in the app builds from this, so the host is written once. Help URLs
-    // ship inside released APKs and outlive them, so a stale one cannot be recalled.
+    // ship inside released APKs and outlive them, so a stale one cannot be recalled. A nightly build
+    // links the nightly docs under /preview/, which describe what it runs.
     const val URL_SITE = "https://reikai.app"
-    const val URL_DOCS = "$URL_SITE/docs"
+    const val URL_DOCS = "$URL_SITE/${BuildConfig.DOCS_PATH}"
 
     const val URL_HELP = "$URL_DOCS/guides/troubleshooting/"
     const val URL_HELP_UPCOMING = "$URL_DOCS/faq/updates/upcoming"

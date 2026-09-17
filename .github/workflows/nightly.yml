@@ -99,7 +99,7 @@ jobs:
         run: bash scripts/ci/write-firebase-config.sh
 
       - name: Build signed nightly APKs
-        run: ./gradlew assembleNightly -Pinclude-telemetry -Penable-updater
+        run: ./gradlew assembleNightly -Pinclude-telemetry -Penable-updater -Ppreview-docs
         env:
           REIKAI_GITHUB_RELEASE: "true"
           storeFileBase64: ${{ secrets.SIGNING_KEY }}
