@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.translateCategoryIds
@@ -120,6 +121,8 @@ class NovelRestorer(
         }
 
         restoreChapters(novelId, backupNovel.chapters)
+        // Predicted from the restored chapters rather than carried in the backup, as manga's restore does.
+        novelRepository.getById(novelId)?.let { updateNovelFetchInterval(it, novelChapterRepository, novelRepository) }
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(novelId, backupNovel.history)

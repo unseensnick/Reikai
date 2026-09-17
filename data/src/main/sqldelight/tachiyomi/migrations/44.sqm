@@ -1,0 +1,5 @@
+-- Smart update for novels: when a novel is next due and the release interval it was predicted from, the
+-- two columns mangas.sq keeps as next_update and calculate_interval. Appended, so novels.sq declares
+-- them last to match the column order this leaves an existing install with.
+ALTER TABLE novels ADD COLUMN next_update INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE novels ADD COLUMN calculate_interval INTEGER NOT NULL DEFAULT 0;

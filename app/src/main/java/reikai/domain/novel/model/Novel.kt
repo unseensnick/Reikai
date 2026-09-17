@@ -61,6 +61,10 @@ data class Novel(
      * blindly overwriting; see `NovelRestorer`.
      */
     val version: Long,
+    /** When smart update next fetches this novel, in epoch millis; 0 until one is predicted. */
+    val nextUpdate: Long = 0L,
+    /** The release interval in days that [nextUpdate] was predicted from, negative when the user set it. */
+    val fetchInterval: Int = 0,
 ) : Serializable {
 
     companion object {

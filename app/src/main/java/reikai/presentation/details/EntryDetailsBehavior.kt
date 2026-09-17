@@ -50,6 +50,9 @@ interface EntryDetailsBehavior {
 
     /** Confirm that clear. Chapters, read state and history are untouched; only files are removed. */
     fun clearDownloads()
+
+    /** Sets smart update's interval to [days], or back to the predicted one for 0. */
+    fun setFetchInterval(days: Int)
     fun chapterSwipe(chapterId: Long, action: LibraryPreferences.ChapterSwipeAction)
 
     // Hidden chapters.

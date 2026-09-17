@@ -177,6 +177,8 @@ class NovelRepositoryImpl(
             lastReadAt = update.lastReadAt,
             notes = update.notes,
             viewerFlags = update.viewerFlags,
+            nextUpdate = update.nextUpdate,
+            calculateInterval = update.fetchInterval?.toLong(),
             id = update.id,
         )
         true
@@ -207,6 +209,8 @@ class NovelRepositoryImpl(
                     lastReadAt = update.lastReadAt,
                     notes = update.notes,
                     viewerFlags = update.viewerFlags,
+                    nextUpdate = update.nextUpdate,
+                    calculateInterval = update.fetchInterval?.toLong(),
                     id = update.id,
                 )
             }

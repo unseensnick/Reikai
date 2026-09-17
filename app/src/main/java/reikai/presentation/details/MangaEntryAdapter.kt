@@ -296,6 +296,11 @@ class MangaEntryAdapter(
         model.clearDownloads()
     }
 
+    override fun setFetchInterval(days: Int) {
+        val manga = (model.state.value as? MangaViewModel.State.Success)?.manga ?: return
+        model.setFetchInterval(manga, days)
+    }
+
     override fun showManageSourcesDialog() {
         model.showManageSourcesDialog()
     }

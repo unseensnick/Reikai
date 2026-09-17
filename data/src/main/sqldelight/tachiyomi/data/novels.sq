@@ -36,7 +36,9 @@ CREATE TABLE novels(
     notes TEXT NOT NULL DEFAULT '',
     viewer_flags INTEGER NOT NULL DEFAULT 0,
     version INTEGER NOT NULL DEFAULT 0,
-    is_syncing INTEGER NOT NULL DEFAULT 0
+    is_syncing INTEGER NOT NULL DEFAULT 0,
+    next_update INTEGER NOT NULL DEFAULT 0,
+    calculate_interval INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX novels_url_index ON novels(url);
@@ -202,6 +204,8 @@ UPDATE novels SET
     last_read_at = coalesce(:lastReadAt, last_read_at),
     notes = coalesce(:notes, notes),
     viewer_flags = coalesce(:viewerFlags, viewer_flags),
+    next_update = coalesce(:nextUpdate, next_update),
+    calculate_interval = coalesce(:calculateInterval, calculate_interval),
     is_syncing = 0
 WHERE _id = :id;
 

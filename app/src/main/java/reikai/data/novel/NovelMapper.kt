@@ -41,6 +41,8 @@ fun mapNovel(
     viewerFlags: Long,
     version: Long,
     @Suppress("UNUSED_PARAMETER") isSyncing: Long,
+    nextUpdate: Long,
+    calculateInterval: Long,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -64,6 +66,8 @@ fun mapNovel(
     notes = notes,
     viewerFlags = viewerFlags,
     version = version,
+    nextUpdate = nextUpdate,
+    fetchInterval = calculateInterval.toInt(),
 )
 
 /**
@@ -96,6 +100,8 @@ fun mapLibraryNovel(
     viewerFlags: Long,
     version: Long,
     isSyncing: Long,
+    nextUpdate: Long,
+    calculateInterval: Long,
     totalCount: Long,
     readCount: Double,
     latestUpload: Long,
@@ -127,6 +133,8 @@ fun mapLibraryNovel(
         viewerFlags,
         version,
         isSyncing,
+        nextUpdate,
+        calculateInterval,
     ),
     categories = categories.split(",").map { it.toLong() },
     totalChapters = totalCount,
@@ -166,6 +174,8 @@ fun mapNovelWithChapterCount(
     viewerFlags: Long,
     version: Long,
     isSyncing: Long,
+    nextUpdate: Long,
+    calculateInterval: Long,
     chapterCount: Long,
 ): NovelWithChapterCount = NovelWithChapterCount(
     novel = mapNovel(
@@ -192,6 +202,8 @@ fun mapNovelWithChapterCount(
         viewerFlags,
         version,
         isSyncing,
+        nextUpdate,
+        calculateInterval,
     ),
     chapterCount = chapterCount,
 )

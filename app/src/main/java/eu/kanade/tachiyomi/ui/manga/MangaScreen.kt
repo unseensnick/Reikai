@@ -23,7 +23,6 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.ChapterSettingsDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
-import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
@@ -275,7 +274,11 @@ class MangaScreen(
         // RK: tint every details dialog from the cover (when that theme is on), matching the details
         // content and the novel side; the content wrap above ends before the dialogs, so re-apply it.
         TachiyomiTheme(seedColor = successState.seedColor.takeIf { viewModel.themeCoverBased }) {
-            EntryDetailsDialogHost(successState.toSharedDetailsDialog(), adapter, onDismissRequest)
+            EntryDetailsDialogHost(
+                successState.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled),
+                adapter,
+                onDismissRequest,
+            )
             when (val dialog = successState.dialog) {
                 is MangaViewModel.Dialog.ChangeCategory -> {
                     ChangeCategoryDialog(
@@ -323,15 +326,6 @@ class MangaScreen(
                     scanlatorFilterActive = successState.scanlatorFilterActive,
                     onScanlatorFilterClicked = { showScanlatorsDialog = true },
                 )
-                is MangaViewModel.Dialog.SetFetchInterval -> {
-                    SetIntervalDialog(
-                        interval = dialog.manga.fetchInterval,
-                        nextUpdate = dialog.manga.expectedNextUpdate,
-                        onDismissRequest = onDismissRequest,
-                        onValueChanged = { interval: Int -> viewModel.setFetchInterval(dialog.manga, interval) }
-                            .takeIf { viewModel.isUpdateIntervalEnabled },
-                    )
-                }
                 // RK -->
                 is MangaViewModel.Dialog.EhRemoveFavorite -> {
                     EhRemoveFavoriteDialog(
@@ -481,8 +475,13 @@ private fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
 
 // RK: map a manga dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
 // the per-type ones (change-category, duplicate, chapter-settings, migrate, fetch-interval, ...) stay above.
-private fun MangaViewModel.State.Success.toSharedDetailsDialog(): EntryDetailsDialog? =
+private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {
+        is MangaViewModel.Dialog.SetFetchInterval -> EntryDetailsDialog.SetFetchInterval(
+            interval = d.manga.fetchInterval,
+            nextUpdate = d.manga.expectedNextUpdate,
+            editable = isUpdateIntervalEnabled,
+        )
         is MangaViewModel.Dialog.EditMangaInfo -> EntryDetailsDialog.EditInfo(
             // Seed with the effective (overlaid) values; save diffs each field against the raw source manga.
             initial = d.manga.withCustomInfo(customInfo).toEntryEditInfoUi(),

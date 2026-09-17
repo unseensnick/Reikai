@@ -38,11 +38,10 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * Shared details action row for manga and novels (favorite / fetch-interval / tracking / web view /
- * share). Replaces MangaActionRow + NovelActionRow so the two content types can't drift. Per-type
- * buttons gate on their inputs: the fetch-interval button shows only when [showIntervalButton] (manga),
- * and share only when [onShareClicked] is set (novels; manga shares from the toolbar). Long-pressing
- * favorite opens the category picker when [onEditCategory] is set.
+ * Shared details action row for manga and novels (favorite / fetch-interval / tracking / web view).
+ * Replaces MangaActionRow + NovelActionRow so the two content types can't drift. The fetch-interval
+ * button shows when [showIntervalButton]; both types share from the toolbar. Long-pressing favorite
+ * opens the category picker when [onEditCategory] is set.
  */
 @Composable
 fun EntryActionRow(
@@ -57,7 +56,6 @@ fun EntryActionRow(
     onEditIntervalClicked: (() -> Unit)?,
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
-    onShareClicked: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val defaultActionButtonColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
@@ -115,14 +113,6 @@ fun EntryActionRow(
                 color = defaultActionButtonColor,
                 onClick = onWebViewClicked,
                 onLongClick = onWebViewLongClicked,
-            )
-        }
-        if (onShareClicked != null) {
-            EntryActionButton(
-                title = stringResource(MR.strings.action_share),
-                icon = MaterialSymbols.Rounded.Share,
-                color = defaultActionButtonColor,
-                onClick = onShareClicked,
             )
         }
     }

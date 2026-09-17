@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
@@ -55,9 +56,9 @@ class NovelEntryAdapter(
                 header = display.toEntryHeader(sourceName = model.headerSourceName(this), sourceSite = sourceUrl),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,
-                showIntervalButton = false,
-                nextUpdate = null,
-                isUserIntervalMode = false,
+                showIntervalButton = true,
+                nextUpdate = novel.expectedNextUpdate(),
+                isUserIntervalMode = novel.fetchInterval < 0,
                 description = display.description,
                 tags = display.genre,
                 notes = novel.notes,
@@ -249,6 +250,10 @@ class NovelEntryAdapter(
 
     override fun clearDownloads() {
         model.clearDownloads()
+    }
+
+    override fun setFetchInterval(days: Int) {
+        model.setFetchInterval(days)
     }
 
     override fun showManageSourcesDialog() {

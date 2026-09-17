@@ -25,6 +25,8 @@ suspend fun walkNovelPages(
     database: Database,
     libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager? = null,
+    manualFetch: Boolean = false,
+    fetchWindow: Pair<Long, Long> = Pair(0, 0),
 ) {
     if (toPage <= 1L) return
     for (p in maxOf(fromPage, 1L)..toPage) {
@@ -41,6 +43,8 @@ suspend fun walkNovelPages(
                     libraryPreferences,
                     page = key,
                     novelDownloadManager = novelDownloadManager,
+                    manualFetch = manualFetch,
+                    fetchWindow = fetchWindow,
                 )
             }
         }

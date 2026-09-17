@@ -30,6 +30,8 @@ suspend fun syncChaptersWithNovelSource(
     libraryPreferences: LibraryPreferences,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
+    manualFetch: Boolean = false,
+    fetchWindow: Pair<Long, Long> = Pair(0, 0),
 ): Pair<List<NovelChapter>, List<NovelChapter>> {
     if (rawSourceChapters.isEmpty()) throw Exception("No chapters found")
 
@@ -94,6 +96,10 @@ suspend fun syncChaptersWithNovelSource(
     }
 
     if (toAdd.isEmpty() && toDelete.isEmpty() && toChange.isEmpty()) {
+        // As manga's sync: an unchanged list still moves a prediction that has fallen behind the window.
+        if (manualFetch || novel.fetchInterval == 0 || novel.nextUpdate < fetchWindow.first) {
+            updateNovelFetchInterval(novel, novelChapterRepository, novelRepository, fetchWindow)
+        }
         return emptyList<NovelChapter>() to emptyList()
     }
 
@@ -175,6 +181,8 @@ suspend fun syncChaptersWithNovelSource(
         }
     }
 
+    // Before last_update moves, which the prediction counts from.
+    updateNovelFetchInterval(novel, novelChapterRepository, novelRepository, fetchWindow)
     // novels.last_update tracks the last time the chapter list changed at all; only on a real change.
     novelRepository.update(NovelUpdate(id = novel.id, lastUpdate = System.currentTimeMillis()))
 

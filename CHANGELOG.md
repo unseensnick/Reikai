@@ -297,6 +297,7 @@ every release now also ships a foss build with neither in it.
 
 #### Added
 
+- **Novels in your library now get smart update: a predicted next release on the details page, and Settings -> Library -> Global update · Novels -> Smart update can skip novels outside their release period.** Share moved off the novel action row into the menu, as on manga.
 - **Novel sources can now be hidden per language, from the switch each language carries in the sources filter.** Switching one off hides all its sources from Browse and search, like manga.
 - **Adding a duplicate novel now gives you a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
 - **Settings -> Advanced can now repair novels that are showing another novel's title or cover.** It finds the affected entries and re-fetches them from their own source.

@@ -9,7 +9,7 @@ import kotlin.time.Instant
 /**
  * Content-agnostic data for the shared details column ([entryInfoItems]). Each content type maps its
  * own loaded state into this, so the info box + action row + description emit identically for manga and
- * novels. Fields that only one type uses default to off (e.g. [showIntervalButton] false for novels).
+ * novels. Fields that only one type uses default to off.
  */
 data class EntryDetailsUiState(
     val header: EntryHeaderUi,
@@ -45,7 +45,6 @@ fun LazyListScope.entryInfoItems(
     onEditIntervalClicked: (() -> Unit)?,
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
-    onShareClicked: (() -> Unit)?,
     onTagSearch: (String) -> Unit,
     onGlobalSearch: ((String) -> Unit)?,
     onCopyTagToClipboard: (String) -> Unit,
@@ -77,7 +76,6 @@ fun LazyListScope.entryInfoItems(
             onEditIntervalClicked = onEditIntervalClicked,
             onWebViewClicked = onWebViewClicked,
             onWebViewLongClicked = onWebViewLongClicked,
-            onShareClicked = onShareClicked,
         )
     }
     if (aboveDescription != null) {

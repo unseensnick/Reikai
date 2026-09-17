@@ -44,6 +44,7 @@ import reikai.data.novel.mergeRefreshedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
+import reikai.data.novel.updateNovelFetchInterval
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.entry.EntryId
@@ -868,6 +869,7 @@ class NovelDetailsViewModel(
                 database,
                 libraryPreferences,
                 novelDownloadManager = downloadManager,
+                manualFetch = true,
             )
         }.getOrNull()
             ?: novel
@@ -1070,6 +1072,20 @@ class NovelDetailsViewModel(
     }
 
     fun showChapterSettingsDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterSettings) }
+
+    fun showSetFetchIntervalDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.SetFetchInterval) }
+
+    /** Whether the interval can be chosen, which manga ties to the release-period restriction being on. */
+    fun isUpdateIntervalEnabled() =
+        LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in novelPreferences.novelUpdateRestrictions().get()
+
+    /** A user-set interval is stored negative, as manga's; [days] 0 hands it back to the prediction. */
+    fun setFetchInterval(days: Int) {
+        val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        viewModelScope.launchIO {
+            updateNovelFetchInterval(novel.copy(fetchInterval = -days), chapterRepo, novelRepo)
+        }
+    }
 
     fun showCoverDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.FullCover) }
 
@@ -1479,6 +1495,7 @@ sealed interface NovelDetailsDialog {
     data class DeleteChapters(val chapters: List<NovelChapter>) : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog
+    data object SetFetchInterval : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
     data class SourceSettings(val source: NovelSource) : NovelDetailsDialog
 

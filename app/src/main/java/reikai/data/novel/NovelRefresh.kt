@@ -47,6 +47,8 @@ suspend fun refreshNovelFromSource(
     database: Database,
     libraryPreferences: LibraryPreferences,
     novelDownloadManager: NovelDownloadManager? = null,
+    manualFetch: Boolean = false,
+    fetchWindow: Pair<Long, Long> = Pair(0, 0),
 ): Novel {
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
@@ -66,6 +68,8 @@ suspend fun refreshNovelFromSource(
             libraryPreferences,
             page = pageTag,
             novelDownloadManager = novelDownloadManager,
+            manualFetch = manualFetch,
+            fetchWindow = fetchWindow,
         )
     }
     if (merged.totalPages > 1L) {
@@ -79,6 +83,8 @@ suspend fun refreshNovelFromSource(
             database,
             libraryPreferences,
             novelDownloadManager = novelDownloadManager,
+            manualFetch = manualFetch,
+            fetchWindow = fetchWindow,
         )
     }
     return merged

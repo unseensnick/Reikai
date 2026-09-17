@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.coil.NovelCover
+import reikai.data.novel.expectedNextUpdate
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.withCustomInfo
@@ -177,10 +178,8 @@ class NovelScreen(
                                 navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
                             },
                             onOpenFilterSettings = viewModel::showChapterSettingsDialog,
-                            // Novels keep Share in the action row too (matching LNReader) since the manga
-                            // action row's smart-update interval button isn't available for novels yet.
-                            onActionRowShare = s.novelWebUrl?.let { { onShare() } },
                             onToolbarShare = s.novelWebUrl?.let { { onShare() } },
+                            onEditInterval = viewModel::showSetFetchIntervalDialog.takeIf { s.novel.favorite },
                             onOpenWebView = s.novelWebUrl?.let { { onWebView() } },
                             // Long-press copies the URL, matching the manga action row.
                             onOpenWebViewLong = s.novelWebUrl?.let { url ->
@@ -208,7 +207,11 @@ class NovelScreen(
                     )
                 }
 
-                EntryDetailsDialogHost(s.toSharedDetailsDialog(), adapter, viewModel::dismissDialog)
+                EntryDetailsDialogHost(
+                    s.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled()),
+                    adapter,
+                    viewModel::dismissDialog,
+                )
                 NovelDetailsDialogs(s, viewModel)
             }
         }
@@ -275,8 +278,13 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
 
 // Map a novel dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
 // the per-type ones (change-category, duplicate, chapter-settings, page-selector) stay in NovelDetailsDialogs.
-private fun NovelDetailsState.Loaded.toSharedDetailsDialog(): EntryDetailsDialog? =
+private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {
+        NovelDetailsDialog.SetFetchInterval -> EntryDetailsDialog.SetFetchInterval(
+            interval = novel.fetchInterval,
+            nextUpdate = novel.expectedNextUpdate(),
+            editable = isUpdateIntervalEnabled,
+        )
         NovelDetailsDialog.EditInfo -> EntryDetailsDialog.EditInfo(
             // Seed from the ANCHOR, not displayNovel: save diffs each field against the anchor row, so
             // seeding from a selected merge sibling would persist its every differing field as an

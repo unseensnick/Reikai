@@ -28,4 +28,6 @@ data class NovelUpdate(
     val lastReadAt: Long? = null,
     val notes: String? = null,
     val viewerFlags: Long? = null,
+    val nextUpdate: Long? = null,
+    val fetchInterval: Int? = null,
 )

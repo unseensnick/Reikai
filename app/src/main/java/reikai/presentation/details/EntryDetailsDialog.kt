@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
+import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.Screen
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
@@ -24,12 +25,13 @@ import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
+import kotlin.time.Instant
 
 /**
  * The details dialogs that are genuinely shared by both content types: same composable, same neutral data,
  * so a change reaches manga and novels at once. Each screen maps its own model's dialog into this and hands
  * it to [EntryDetailsDialogHost]; the per-type dialogs (change-category, duplicate, chapter-settings, migrate,
- * fetch-interval, page-selector, ...) stay in each screen's own dispatcher, where their data genuinely diverges.
+ * page-selector, ...) stay in each screen's own dispatcher, where their data genuinely diverges.
  */
 sealed interface EntryDetailsDialog {
     /** Edit custom info. Save / reset / tracker-autofill route through the behaviour; only the seed values
@@ -58,6 +60,10 @@ sealed interface EntryDetailsDialog {
 
     /** Confirm a bulk chapter delete; [chapterIds] are the rows captured when the dialog opened. */
     data class DeleteChapters(val chapterIds: List<Long>) : EntryDetailsDialog
+
+    /** Smart update's prediction for the entry: its [interval] in days (negative when the user set it) and
+     *  when it is next due. [editable] is whether the release-period restriction is on, as the choice needs. */
+    data class SetFetchInterval(val interval: Int, val nextUpdate: Instant?, val editable: Boolean) : EntryDetailsDialog
 
     /** Confirm clearing downloads. [sourceName] names the one source being cleared, or is null when
      *  the unified view is on and every grouped source goes. */
@@ -175,6 +181,12 @@ fun Screen.EntryDetailsDialogHost(
         is EntryDetailsDialog.DeleteChapters -> DeleteChaptersDialog(
             onDismissRequest = onDismissRequest,
             onConfirm = { behavior.deleteChapters(dialog.chapterIds) },
+        )
+        is EntryDetailsDialog.SetFetchInterval -> SetIntervalDialog(
+            interval = dialog.interval,
+            nextUpdate = dialog.nextUpdate,
+            onDismissRequest = onDismissRequest,
+            onValueChanged = behavior::setFetchInterval.takeIf { dialog.editable },
         )
         is EntryDetailsDialog.ClearDownloads -> ClearDownloadsDialog(
             sourceName = dialog.sourceName,

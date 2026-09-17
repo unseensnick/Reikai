@@ -32,17 +32,19 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
-import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.ReleaseInterval
 import reikai.domain.merge.CollapsedArrivals
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -69,6 +71,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
 
 /**
  * Periodic background check for new chapters in favorited light novels, the novel analog of Mihon's
@@ -181,6 +184,9 @@ class NovelUpdateJob(
         // a loop rather than a plain .filter. An explicit [categoryId] (a manual "update this category")
         // overrides the include/exclude prefs; smart-update restrictions still apply, matching manga.
         val trackErrors = reikaiLibraryPreferences.trackNovelUpdateErrors.get()
+        val timeZone = TimeZone.currentSystemDefault()
+        val fetchWindow = ReleaseInterval.window(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
+        val restrictions = preferences.novelUpdateRestrictions().get()
         val favorites = buildList {
             for (novel in novelRepo.getFavorites()) {
                 val categoryOk = if (categoryId != -1L) {
@@ -188,7 +194,11 @@ class NovelUpdateJob(
                 } else {
                     shouldUpdate(novel)
                 }
-                if (categoryOk && passesSmartUpdate(novel)) add(novel)
+                if (categoryOk &&
+                    novelPassesSmartUpdate(novel, restrictions, fetchWindow) { chapterRepo.getByNovelId(novel.id) }
+                ) {
+                    add(novel)
+                }
             }
         }
         if (favorites.isEmpty()) return null
@@ -201,7 +211,7 @@ class NovelUpdateJob(
             notifier.showProgress(novel.title, index, favorites.size)
             val source = sourceManager.get(novel.source) ?: return@forEachIndexed
             try {
-                val newChapters = checkNovel(novel, source)
+                val newChapters = checkNovel(novel, source, fetchWindow)
                 if (newChapters.isNotEmpty()) {
                     updates.add(novel to newChapters)
                     // Queued after the run rather than here, so a merge group's sources cannot each
@@ -270,7 +280,11 @@ class NovelUpdateJob(
 
     /** Re-parse the novel, persist metadata edit-lock-safely, sync page 1, and walk any newly-opened
      *  pages. Returns the chapters that did not exist before (the before/after id diff). */
-    private suspend fun checkNovel(novel: Novel, source: NovelSource): List<NovelChapter> {
+    private suspend fun checkNovel(
+        novel: Novel,
+        source: NovelSource,
+        fetchWindow: Pair<Long, Long>,
+    ): List<NovelChapter> {
         val before = chapterRepo.getByNovelId(novel.id).map { it.id }.toSet()
         refreshNovelFromSource(
             novel,
@@ -280,6 +294,7 @@ class NovelUpdateJob(
             database,
             libraryPreferences,
             novelDownloadManager = downloadManager,
+            fetchWindow = fetchWindow,
         )
         val after = chapterRepo.getByNovelId(novel.id)
         return after.filter { it.id !in before }
@@ -321,24 +336,6 @@ class NovelUpdateJob(
         categories.any { it in excluded } -> false
         included.isEmpty() -> true
         else -> categories.any { it in included }
-    }
-
-    /** Smart-update restrictions (the novel twin of the manga Smart update): skip completed / skip with
-     *  unread / skip unstarted, per [NovelPreferences.novelUpdateRestrictions]. Empty = update all. */
-    private suspend fun passesSmartUpdate(novel: Novel): Boolean {
-        val restrictions = preferences.novelUpdateRestrictions().get()
-        if (restrictions.isEmpty()) return true
-        if (LibraryPreferences.MANGA_NON_COMPLETED in restrictions &&
-            novel.status == NovelStatusCode.COMPLETED.toLong()
-        ) {
-            return false
-        }
-        if (LibraryPreferences.MANGA_HAS_UNREAD in restrictions || LibraryPreferences.MANGA_NON_READ in restrictions) {
-            val chapters = chapterRepo.getByNovelId(novel.id)
-            if (LibraryPreferences.MANGA_HAS_UNREAD in restrictions && chapters.any { !it.read }) return false
-            if (LibraryPreferences.MANGA_NON_READ in restrictions && chapters.none { it.read }) return false
-        }
-        return true
     }
 
     companion object {

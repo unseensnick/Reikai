@@ -61,14 +61,12 @@ data class EntryDetailsNavigation(
     val onTracking: () -> Unit,
     val onEditNotes: () -> Unit,
     val onOpenFilterSettings: () -> Unit,
-    /** Share button in the action row; null hides it (manga shares from the toolbar only). */
-    val onActionRowShare: (() -> Unit)? = null,
     /** Share item in the toolbar overflow. */
     val onToolbarShare: (() -> Unit)? = null,
     val onOpenWebView: (() -> Unit)? = null,
     val onOpenWebViewLong: (() -> Unit)? = null,
     val onMigrate: (() -> Unit)? = null,
-    /** Fetch-interval editor; manga-only. */
+    /** Smart update's interval editor; null hides the button's action, as for an entry not in the library. */
     val onEditInterval: (() -> Unit)? = null,
     /** Opens the novel page/volume selector sheet; novel-only. */
     val onOpenPageSelector: (() -> Unit)? = null,
@@ -327,7 +325,6 @@ private fun LazyListScope.entryInfoBlock(
         onEditIntervalClicked = nav.onEditInterval,
         onWebViewClicked = nav.onOpenWebView,
         onWebViewLongClicked = nav.onOpenWebViewLong,
-        onShareClicked = nav.onActionRowShare,
         onTagSearch = nav.onTagSearch,
         onGlobalSearch = { nav.onSearch(it, true) },
         onCopyTagToClipboard = nav.onCopyTag,
