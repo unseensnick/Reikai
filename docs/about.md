@@ -15,14 +15,25 @@ Ask in [Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
 
 ## What is Reikai, and why was it rebuilt on Mihon?
 
-Reikai is a personal fork for reading manga and light novels. It used to be built on
-Yōkai (which descends from TachiyomiJ2K), a lineage on an older foundation that I was
-hand-rebuilding on modern tools, solo. Mihon already ships that modern stack with an
-active community keeping it current (upstream fixes, security updates, extension
-compatibility), and Reikai's own features sit cleanly on top. So rebasing keeps the
-base current automatically and frees my time for the Reikai-specific features. Nothing
-goes away: the app keeps its identity and upgrades in place, so you keep your library
-and settings.
+Reikai is a personal fork for reading manga and light novels in one app.
+
+It started on Yōkai, which descends from TachiyomiJ2K. That foundation was showing its age, and
+keeping it modern meant rebuilding large parts of it by hand, on my own. Mihon had already done that
+work: it runs on a current stack, and an active community keeps it up to date with fixes, security
+updates and extension compatibility.
+
+So from 0.1.0, Reikai is built on Mihon, with its own features on top. Mihon's improvements reach
+Reikai as they land, and my time goes into what Reikai adds rather than into maintaining the base.
+
+::: warning Two updates needed extra steps
+- **0.3.2** changed the ID Android uses to recognise the app, so it installs next to an older Reikai
+  rather than over it. Back up in the old app with **Include sensitive settings** ticked so your
+  tracker logins come along, install 0.3.2 and pick the same storage folder, restore the backup, then
+  uninstall the old app. Covers you set by hand do not carry over, so set those again.
+- **0.1.0 and 0.1.1**, the first releases on Mihon, crashed on launch when installed over Yōkai-Y2K.
+  0.1.2 fixed that: installing over Yōkai-Y2K now recovers your library on first launch, though merged
+  series come back unmerged.
+:::
 
 ## Does the UI follow Mihon or Yōkai?
 
@@ -48,8 +59,11 @@ this repository's Releases, do not install it.
 
 ## Will updating keep my library and data? Should I back up?
 
-Yes, updates install in place and keep your library and settings. Back up first anyway
-(<nav to="data-and-storage"> then **Create backup**); good habit before any update.
+Yes. An update installs over the version you have, and your library and settings stay as they are.
+The exceptions are listed under [the rebuild question](#what-is-reikai-and-why-was-it-rebuilt-on-mihon).
+
+Making a backup before any update is a good habit either way (<nav to="data-and-storage"> then
+**Create backup**).
 
 ## Are extensions and sources supported?
 
