@@ -22,14 +22,10 @@ Backlog, grouped by area. Unordered within an area.
 
 Remaining manga/novel parity work, smaller enhancements and polish. The write-once rule (`.claude/rules/content-layer.md`) is forward-only, so this pre-existing backlog is labelled rather than blocking: **open gap** is parity Reikai owes with nothing preventing it, **gated** names the mechanism the content type cannot support, and a gate holds only until that mechanism changes.
 
-
 Opportunistic polish:
 - Browse: map a tapped genre onto a novel plugin's filters; the shared catalogue passes the genre-search hook on the manga branch only, so a novel source falls back to a plain text query.
 - Global search: opening on Pinned-only with nothing pinned shows a bare empty screen, on both content types since the shared screen took over. Default to All, or say the list is empty because nothing is pinned.
 - Details: the scanlator filter on a merged manga lists and excludes only the anchor entry's scanlators, while the unified list shows siblings' chapters, so the dialog and the query disagree about what can be hidden.
-
-### Reader
-
 
 ### Novel sources & LN plugins
 
@@ -42,8 +38,6 @@ Opportunistic polish:
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move Reikai's look off the stock Material 3 aesthetic (shape, typography, component styling, spacing, layout) across the shared `Entry*` surfaces, while keeping Mihon's existing theme system in Appearance settings intact: the user-selectable color themes, light/dark, AMOLED, and Theme-based-on-cover all stay, and the redesign renders under whichever the user picked. It owns component styling and layout, not the color-palette picker, and must preserve both the phone and tablet layouts Reikai inherited from Mihon. Exploratory, and it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
-
-Opportunistic polish:
 
 ### Build & CI
 
