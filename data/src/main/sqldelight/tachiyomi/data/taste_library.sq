@@ -1,4 +1,4 @@
--- RK: cached snapshot of the user's tracker libraries, reduced into the recommendation taste
+-- Cached snapshot of the user's tracker libraries, reduced into the recommendation taste
 -- profile. One row per (tracker, remote series). Rebuilt by the tracker-library pull; safe to drop.
 CREATE TABLE taste_library (
     _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

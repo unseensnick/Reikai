@@ -1,6 +1,6 @@
 import kotlin.Boolean;
 
--- RK: one row per feed entry, for both content types. A row names a source and optionally a saved
+-- One row per feed entry, for both content types. A row names a source and optionally a saved
 -- search; without one the feed shows that source's Latest, falling back to Popular. `global` splits
 -- the Browse feed's rows from a single source's own feed. source_key is the serialized SourceKey,
 -- for the reason saved_search.sq gives. feed_order is assigned table-wide on insert, so rows within

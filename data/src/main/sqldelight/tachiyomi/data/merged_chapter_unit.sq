@@ -1,4 +1,4 @@
--- RK: what the cross-source stitch decided for a merge group, stored so every surface that has to
+-- What the cross-source stitch decided for a merge group, stored so every surface that has to
 -- count or order the group reads one answer instead of restating the stitch's rules in its own terms.
 -- A restatement cannot express what the stitch knows anyway: two sources numbering the same chapter
 -- differently are matched by position between shared titles, which no per-chapter key can carry.

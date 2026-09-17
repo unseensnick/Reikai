@@ -1,4 +1,4 @@
--- RK: persisted merge-group identity, shared by manga and novels via a content_type
+-- Persisted merge-group identity, shared by manga and novels via a content_type
 -- discriminator (0 = manga, 1 = novel). Replaces the pref-derived grouping: membership is
 -- a stored fact resolved by id lookup, not re-derived per call from prefs plus a same-title
 -- scan. The FK cascade from the member tables removes a member automatically when its entry
@@ -13,7 +13,7 @@ CREATE TABLE merge_group (
     override_source_ranking INTEGER NOT NULL DEFAULT 0
 );
 
--- RK: manga membership. UNIQUE(manga_id) keeps a manga in at most one group (its index also
+-- Manga membership. UNIQUE(manga_id) keeps a manga in at most one group (its index also
 -- serves the "which group is this manga in" lookup); moves are an explicit delete + insert in
 -- the repository. source_priority is the per-group trunk ranking, honored only when the
 -- group's override_source_ranking is 1; otherwise the global preferred-source list wins.
@@ -31,7 +31,7 @@ CREATE TABLE merge_group_manga (
 
 CREATE INDEX idx_merge_group_manga_group_id ON merge_group_manga(group_id);
 
--- RK: novel membership. Twin of merge_group_manga against the novels table.
+-- Novel membership. Twin of merge_group_manga against the novels table.
 CREATE TABLE merge_group_novel (
     _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     group_id INTEGER NOT NULL,
@@ -77,7 +77,7 @@ FROM merge_group_manga
 WHERE group_id = :groupId
 ORDER BY source_priority, _id;
 
--- RK: the members still in the library, in the same trunk order as mangaMembers. Every read that
+-- The members still in the library, in the same trunk order as mangaMembers. Every read that
 -- DISPLAYS or aggregates a group resolves through this, so an entry removed from the library stops
 -- feeding the chapter list, the badge and the source chips while its group is preserved for a
 -- re-add. Data operations (the split undo, backup create and restore, the repository's own rewrites)
@@ -110,7 +110,7 @@ FROM merge_group_novel
 WHERE group_id = :groupId
 ORDER BY source_priority, _id;
 
--- RK: novel twin of mangaFavoriteMembers.
+-- Novel twin of mangaFavoriteMembers.
 novelFavoriteMembers:
 SELECT MGN.novel_id
 FROM merge_group_novel MGN
@@ -160,7 +160,7 @@ JOIN novels N
 ON N._id = MGN.novel_id
 WHERE N.favorite = 1;
 
--- RK: per-group source-ranking overrides for the library collapse (group id -> members in trunk order),
+-- Per-group source-ranking overrides for the library collapse (group id -> members in trunk order),
 -- only for groups whose override_source_ranking is on. Lets the collapsed library row lead on the same
 -- source the details chapter list trunks on. The JOIN makes the query reactive over BOTH tables, so a
 -- reorder (writes source_priority + flips the flag) and a reset (clears the flag) both re-collapse the
@@ -179,7 +179,7 @@ JOIN merge_group AS mg ON mg._id = mgn.group_id
 WHERE mg.override_source_ranking = 1
 ORDER BY mgn.group_id, mgn.source_priority, mgn._id;
 
--- RK: every library member of a group with what ranks it when the group is stitched: its source, for
+-- Every library member of a group with what ranks it when the group is stitched: its source, for
 -- the global preferred list, and the group's override flag, with rows in the group's own member order.
 -- The stored stitch is checked against these, so a ranking change reads as stale like a chapter change.
 rankedMangaMembers:
@@ -201,7 +201,7 @@ deleteGroupsByContentType:
 DELETE FROM merge_group
 WHERE content_type = :contentType;
 
--- RK: per-group source-ranking override. Manage-sources reorder sets each member's source_priority to
+-- Per-group source-ranking override. Manage-sources reorder sets each member's source_priority to
 -- its display position and flips the group's override flag on; Reset-order flips it off. Aggregation
 -- reads the members in source_priority order only while the flag is 1, else the global list wins.
 setOverrideSourceRanking:

@@ -1,4 +1,4 @@
--- RK: named browse filter presets, one row per saved search, shared by manga and novels. Ported from
+-- Named browse filter presets, one row per saved search, shared by manga and novels. Ported from
 -- Komikku, whose own came from TachiyomiSY. The divergence is source_key: it holds a serialized
 -- SourceKey ("manga:123", "novel:novelbin") rather than upstream's INTEGER source id, because a
 -- light-novel plugin is keyed by a slug that will not fit one. Read it back with SourceKey.parse.
