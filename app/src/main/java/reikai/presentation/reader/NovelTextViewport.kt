@@ -13,6 +13,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
@@ -689,14 +690,34 @@ class NovelTextViewport(
      *  layout has not caught up with, since a position then still names the item it used to. */
     private fun canMeasureForCorrection() = !correctionPending && !recycler.hasPendingAdapterUpdates()
 
-    /** Scrolls by what [shift] measures once the change has laid out. */
+    /**
+     * Scrolls by what [shift] measures once the change has laid out, before that layout is drawn, as the
+     * page's `place` corrects from a resize observer. Posted, it ran after the frame, which drew the reader
+     * moved for as long as that frame took. A detached list draws nothing to correct before, and would
+     * never reach a draw to run in.
+     */
     private fun postCorrection(shift: () -> Int) {
         correctionPending = true
-        recycler.post {
+        val correct = {
             correctionPending = false
             val by = shift()
             if (by != 0) recycler.scrollBy(0, by)
         }
+        if (!recycler.isAttachedToWindow) {
+            recycler.post(correct)
+            return
+        }
+        recycler.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    recycler.viewTreeObserver.removeOnPreDrawListener(this)
+                    correct()
+                    return true
+                }
+            },
+        )
+        // A change that moves text without invalidating anything would otherwise wait for an unrelated frame.
+        recycler.invalidate()
     }
 
     private class LineAnchor(val view: TextView, val offset: Int, val y: Int)

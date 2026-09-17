@@ -173,6 +173,30 @@ class NovelTextViewportWindowTest {
         assertEquals(before?.top?.minus(SCROLLED), shownAt("current 1.")?.top)
     }
 
+    /**
+     * The seam that turns up above the text once the chapter before it joins grows the item above the
+     * reader. The line is put back, and no frame may be drawn before it is: one drawn at the grown layout
+     * showed the reader a paragraph of text they had already read, for as long as that frame took.
+     */
+    @Test
+    fun noFrameShowsTheReaderMovedWhenTheSeamAboveTheTextTurnsUp() {
+        open(LONG, long("current"))
+        scrollToTop("current 60.")
+        val drawn = drawnTopsOf("current 60.") { prepend(PREVIOUS, long("previous")) }
+        assertEquals(listOf(0), drawn.filterNotNull().distinct())
+    }
+
+    /** A restyle re-measures the text above the reader in place, the other growth the line is put back after. */
+    @Test
+    fun noFrameShowsTheReaderMovedWhenTheLineHeightChanges() {
+        open(LONG, long("current"))
+        scrollToTop("current 60.")
+        val drawn = drawnTopsOf("current 60.") {
+            instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(lineHeight = 2.2f)) }
+        }
+        assertEquals(listOf(0), drawn.filterNotNull().distinct())
+    }
+
     /** The case that always worked, kept so a fix for the short one cannot cost it. */
     @Test
     fun aLongChapterOpenedAtItsStartKeepsItsFirstLineAtTheTop() {
@@ -400,18 +424,32 @@ class NovelTextViewportWindowTest {
     /** Where the first line starting with [text] is drawn, relative to the viewport, or null when it is not laid out. */
     private fun shownAt(text: String): Rect? {
         var rect: Rect? = null
-        instrumentation.runOnMainSync {
-            val line = textViews(viewport.view).firstOrNull { it.text.contains(text) } ?: return@runOnMainSync
-            val layout = line.layout ?: return@runOnMainSync
-            val offset = line.text.indexOf(text)
-            val lineIndex = layout.getLineForOffset(offset)
-            val origin = IntArray(2).also(viewport.view::getLocationOnScreen)
-            val at = IntArray(2).also(line::getLocationOnScreen)
-            val top = at[1] - origin[1] + line.paddingTop + layout.getLineTop(lineIndex)
-            val bottom = at[1] - origin[1] + line.paddingTop + layout.getLineBottom(lineIndex)
-            rect = Rect(0, top, viewport.view.width, bottom)
-        }
+        instrumentation.runOnMainSync { rect = lineRect(text) }
         return rect
+    }
+
+    /** [shownAt] on the main thread, for a caller already on it. */
+    private fun lineRect(text: String): Rect? {
+        val line = textViews(viewport.view).firstOrNull { it.text.contains(text) } ?: return null
+        val layout = line.layout ?: return null
+        val offset = line.text.indexOf(text)
+        val lineIndex = layout.getLineForOffset(offset)
+        val origin = IntArray(2).also(viewport.view::getLocationOnScreen)
+        val at = IntArray(2).also(line::getLocationOnScreen)
+        val top = at[1] - origin[1] + line.paddingTop + layout.getLineTop(lineIndex)
+        val bottom = at[1] - origin[1] + line.paddingTop + layout.getLineBottom(lineIndex)
+        return Rect(0, top, viewport.view.width, bottom)
+    }
+
+    /** Where the line starting with [text] was in every frame drawn while [change] ran and settled. */
+    private fun drawnTopsOf(text: String, change: () -> Unit): List<Int?> {
+        val tops = java.util.concurrent.CopyOnWriteArrayList<Int?>()
+        val listener = android.view.ViewTreeObserver.OnDrawListener { tops += lineRect(text)?.top }
+        instrumentation.runOnMainSync { viewport.view.viewTreeObserver.addOnDrawListener(listener) }
+        change()
+        settle()
+        instrumentation.runOnMainSync { viewport.view.viewTreeObserver.removeOnDrawListener(listener) }
+        return tops.toList()
     }
 
     /** A line's baseline in its column's coordinates. */
