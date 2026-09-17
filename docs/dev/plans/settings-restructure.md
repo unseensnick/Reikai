@@ -61,6 +61,10 @@ Recommendations moves out of Library to its own top-level entry in the same pass
 
 Both are pure relocations. The preference keys do not move, so there is no migration, no `PreferenceRestorer` skip and no behaviour change.
 
+### Pass 5: the Advanced screen's loose rows
+
+**Added 2026-09-17, owner ruling.** Advanced opened on seven rows with no header. Five were upstream's own and loose there too (`refs/mihon/.../SettingsAdvancedScreen.kt:81-112`); the owner overrode "upstream placement is not ours to change" for this block, and only this block. They now sit under **Debugging** (share crash logs, verbose logging, debug info) and **Help** (onboarding guide), and Manage notifications joined **Background activity**, since like battery optimization it opens Android's own settings. The other two were Reikai's "Track update errors · Manga / Novels" switches, which are not diagnostics: they are on by default and decide whether a failed library update is listed on the Update errors screen or written to a log file. They left Advanced for the end of **Settings -> Library -> Global update · Manga** and **· Novels**, the pass 4 rule of a row living on its subject's screen, and lost their content-type suffix since the group title carries it. Settings search keys by title and group, so both still resolve, now under the Library breadcrumb.
+
 ## Key files
 
 - `eu/kanade/presentation/more/settings/screen/SettingsReaderScreen.kt`, splitting into itself plus two new screens.

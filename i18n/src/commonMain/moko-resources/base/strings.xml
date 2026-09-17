@@ -38,6 +38,8 @@
     <string name="label_extensions">Extensions</string>
     <string name="label_extension_info">Extension info</string>
     <string name="label_help">Help</string>
+    <!-- RK: Settings -> Advanced header over the crash log, verbose logging and debug info rows -->
+    <string name="label_debugging">Debugging</string>
     <string name="label_default">Default</string>
     <string name="label_warning">Warning</string>
     <string name="label_auto">Auto</string>

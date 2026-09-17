@@ -46,7 +46,6 @@ Opportunistic polish:
 - **Reikai design refresh (off stock Material 3)** `[L]` - move Reikai's look off the stock Material 3 aesthetic (shape, typography, component styling, spacing, layout) across the shared `Entry*` surfaces, while keeping Mihon's existing theme system in Appearance settings intact: the user-selectable color themes, light/dark, AMOLED, and Theme-based-on-cover all stay, and the redesign renders under whichever the user picked. It owns component styling and layout, not the color-palette picker, and must preserve both the phone and tablet layouts Reikai inherited from Mihon. Exploratory, and it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
 
 Opportunistic polish:
-- Settings: Advanced opens on seven ungrouped rows with no header, mixing update-error tracking, debug entries and notification access; nothing says what they have in common.
 
 ### Build & CI
 

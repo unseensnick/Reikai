@@ -83,59 +83,47 @@ object SettingsAdvancedScreen : SearchableSettings {
         val basePreferences = remember { graph.basePreferences }
         val networkPreferences = remember { graph.networkPreferences }
         val libraryPreferences = remember { graph.libraryPreferences }
-        // RK: opt-in for the library update-errors screen
-        val reikaiLibraryPreferences = remember { graph.reikaiLibraryPreferences }
         return listOfNotNull(
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_dump_crash_logs),
-                subtitle = stringResource(MR.strings.pref_dump_crash_logs_summary),
-                onClick = {
-                    scope.launch {
-                        context.appGraph.crashLogUtil.dumpLogs()
-                    }
-                },
+            // RK --> the loose rows at the top grouped under what they have in common (owner ruling, see
+            // docs/dev/plans/settings-restructure.md). The two update-error switches moved to Settings -> Library,
+            // the adult-sources gate to Browse and sources, and clearing merges into the Library group below.
+            Preference.PreferenceGroup(
+                title = stringResource(MR.strings.label_debugging),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_dump_crash_logs),
+                        subtitle = stringResource(MR.strings.pref_dump_crash_logs_summary),
+                        onClick = {
+                            scope.launch {
+                                context.appGraph.crashLogUtil.dumpLogs()
+                            }
+                        },
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = networkPreferences.verboseLogging,
+                        title = stringResource(MR.strings.pref_verbose_logging),
+                        subtitle = stringResource(MR.strings.pref_verbose_logging_summary),
+                        onValueChanged = {
+                            context.toast(MR.strings.requires_app_restart)
+                            true
+                        },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_debug_info),
+                        onClick = { navigator.push(DebugInfoScreen()) },
+                    ),
+                ),
             ),
-            Preference.PreferenceItem.SwitchPreference(
-                preference = networkPreferences.verboseLogging,
-                title = stringResource(MR.strings.pref_verbose_logging),
-                subtitle = stringResource(MR.strings.pref_verbose_logging_summary),
-                onValueChanged = {
-                    context.toast(MR.strings.requires_app_restart)
-                    true
-                },
+            Preference.PreferenceGroup(
+                title = stringResource(MR.strings.label_help),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_onboarding_guide),
+                        onClick = { navigator.push(OnboardingScreen()) },
+                    ),
+                ),
             ),
-            // RK: opt-in for recording library update failures + the Update errors screen. Content-typed
-            // titles ("Track update errors · Manga|Novels") match the Library / Downloads label style.
-            Preference.PreferenceItem.SwitchPreference(
-                preference = reikaiLibraryPreferences.trackUpdateErrors,
-                title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_manga),
-                subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
-            ),
-            Preference.PreferenceItem.SwitchPreference(
-                preference = reikaiLibraryPreferences.trackNovelUpdateErrors,
-                title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_novels),
-                subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
-            ),
-            // RK: the adult-sources gate moved to Browse and sources, where it sits above the settings
-            // group it reveals. Clearing merges and repairing novel details moved into the Library
-            // group below, with the other library maintenance actions.
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_debug_info),
-                onClick = { navigator.push(DebugInfoScreen()) },
-            ),
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_onboarding_guide),
-                onClick = { navigator.push(OnboardingScreen()) },
-            ),
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_manage_notifications),
-                onClick = {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    }
-                    context.startActivity(intent)
-                },
-            ),
+            // RK <--
             getBackgroundActivityGroup(),
             getDataGroup(),
             getNetworkGroup(networkPreferences = networkPreferences),
@@ -180,6 +168,17 @@ object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.about_dont_kill_my_app),
                     onClick = { uriHandler.openUri("https://dontkillmyapp.com/") },
                 ),
+                // RK --> moved from the top of the screen: like battery optimization, it opens Android's own settings
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_manage_notifications),
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
+                        context.startActivity(intent)
+                    },
+                ),
+                // RK <--
             ),
         )
     }

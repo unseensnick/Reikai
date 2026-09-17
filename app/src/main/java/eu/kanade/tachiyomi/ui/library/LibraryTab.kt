@@ -467,7 +467,7 @@ data object LibraryTab : Tab {
                                 )
                             }
                         },
-                        // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
+                        // RK: the Update errors screen, hidden unless the matching Library update toggle is on;
                         //     opens on the chip for the content type currently shown.
                         onClickUpdateErrors = run {
                             val reikai = display.reikai

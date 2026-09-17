@@ -70,9 +70,9 @@ object SettingsLibraryScreen : SearchableSettings {
                 novelPreferences,
                 novelCategories,
             ),
-            getGlobalUpdateGroup(allCategories, libraryPreferences),
+            getGlobalUpdateGroup(allCategories, libraryPreferences, reikaiLibraryPreferences), // RK: update errors
             // RK: background light-novel chapter updates
-            getNovelUpdateGroup(novelPreferences, novelCategories),
+            getNovelUpdateGroup(novelPreferences, novelCategories, reikaiLibraryPreferences),
             getBehaviorGroup(libraryPreferences, novelPreferences),
             // RK: merge-group preferred-source ranking
             getSourcesGroup(LocalNavigator.currentOrThrow, reikaiLibraryPreferences),
@@ -84,6 +84,7 @@ object SettingsLibraryScreen : SearchableSettings {
     private fun getNovelUpdateGroup(
         novelPreferences: NovelPreferences,
         allNovelCategories: List<Category>,
+        reikaiLibraryPreferences: ReikaiLibraryPreferences,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
         val intervalPref = novelPreferences.libraryUpdateInterval()
@@ -161,6 +162,11 @@ object SettingsLibraryScreen : SearchableSettings {
                         MANGA_NON_READ to stringResource(MR.strings.pref_update_only_started),
                     ),
                     title = stringResource(MR.strings.pref_library_update_smart_update),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = reikaiLibraryPreferences.trackNovelUpdateErrors,
+                    title = stringResource(MR.strings.pref_track_update_errors),
+                    subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
                 ),
             ),
         )
@@ -290,6 +296,7 @@ object SettingsLibraryScreen : SearchableSettings {
     private fun getGlobalUpdateGroup(
         allCategories: List<Category>,
         libraryPreferences: LibraryPreferences,
+        reikaiLibraryPreferences: ReikaiLibraryPreferences, // RK: update errors
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
 
@@ -383,6 +390,13 @@ object SettingsLibraryScreen : SearchableSettings {
                     preference = libraryPreferences.newShowUpdatesCount,
                     title = stringResource(MR.strings.pref_library_update_show_tab_badge),
                 ),
+                // RK --> records update failures for the Update errors screen, moved here from Advanced
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = reikaiLibraryPreferences.trackUpdateErrors,
+                    title = stringResource(MR.strings.pref_track_update_errors),
+                    subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
+                ),
+                // RK <--
             ),
         )
     }
