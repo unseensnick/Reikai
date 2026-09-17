@@ -749,6 +749,8 @@
     <string name="pref_novel_seamless_chapters_summary">Scroll straight on into the next chapter</string>
     <!-- RK: novel read-aloud settings -->
     <string name="pref_category_read_aloud">Read aloud</string>
+    <string name="pref_show_progress_navigator">Show progress slider</string>
+    <string name="pref_show_progress_navigator_summary">When off, the chapter buttons move to the ends of the button bar</string>
     <string name="pref_category_text">Text</string>
     <string name="pref_category_paragraphs">Paragraphs</string>
     <string name="pref_category_margins">Margins</string>

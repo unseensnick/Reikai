@@ -281,6 +281,9 @@ Inverts what the volume keys do.
 #### Volume key scroll amount <Badge type="info" text="75%" />
 How much of the screen one press moves. It applies to the long strip modes only, since a paged reader turns a whole page either way.
 
+#### Show progress slider <Badge type="info" text="On" />
+Shows the slider for moving through the chapter. With it off, neither the slider nor the vertical navigator is drawn, and the previous and next chapter buttons move to the two ends of the button bar. The settings below it only appear while it is on.
+
 #### Use vertical chapter navigator in <Badge type="info" text="None" />
 Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick. Nothing is picked on a fresh install, so the two settings below it stay hidden until you choose a mode here. Upgrading from an older version starts you on the long strip modes instead.
 
@@ -367,7 +370,7 @@ When you jump to the next chapter, marks the one you skipped as read.
 Scrolls the text on its own, so you can read without touching the screen. **Scroll speed** <Badge type="info" text="1.0x" /> appears below it once it is on.
 
 #### Bottom bar buttons
-Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default, and the settings gear is always there.
+Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off.
 
 #### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
@@ -439,6 +442,9 @@ Inverts what the volume keys do.
 
 #### Volume key scroll amount <Badge type="info" text="75%" />
 How much of the screen one press moves.
+
+#### Show progress slider <Badge type="info" text="On" />
+Shows the progress slider or the vertical navigator. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
 
 #### Vertical chapter navigator <Badge type="info" text="On" />
 Shows a vertical progress slider at the side of the screen. The two settings below it only appear while it is on.

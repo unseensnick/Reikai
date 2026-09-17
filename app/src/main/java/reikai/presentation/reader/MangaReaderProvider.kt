@@ -78,11 +78,16 @@ class MangaReaderProvider(
         readerPreferences.verticalNavigator.changes(),
         readerPreferences.verticalNavigatorOnLeft.changes(),
         readerPreferences.verticalNavigatorHeight.changes(),
-    ) { state, railModes, onLeft, height ->
+        readerPreferences.showNavigator.changes(),
+    ) { state, railModes, onLeft, height, show ->
         ReaderNavigatorState(
             progress = state.position?.progress,
-            // The resolved mode, so a series on auto-webtoon gets the rail its actual mode asks for.
-            useRail = ReadingMode.fromPreference(viewModel.getMangaReadingMode()) in railModes,
+            shape = when {
+                !show -> ReaderNavigatorShape.None
+                // The resolved mode, so a series on auto-webtoon gets the rail its actual mode asks for.
+                ReadingMode.fromPreference(viewModel.getMangaReadingMode()) in railModes -> ReaderNavigatorShape.Rail
+                else -> ReaderNavigatorShape.Slider
+            },
             railOnLeft = onLeft,
             railHeightPercent = height,
             hasPrevious = state.viewerChapters?.prevChapter != null,

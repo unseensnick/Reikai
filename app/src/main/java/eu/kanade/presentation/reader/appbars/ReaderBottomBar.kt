@@ -6,11 +6,13 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import reikai.presentation.reader.ReaderActionRow
+import reikai.presentation.reader.ReaderChapterStep
 
 @Composable
 fun ReaderBottomBar(
     // RK -->
     enabledButtons: List<ReaderBottomButton>,
+    chapterStep: ReaderChapterStep?,
     // RK <--
     readingMode: ReadingMode,
     onClickReadingMode: () -> Unit,
@@ -43,6 +45,7 @@ fun ReaderBottomBar(
     ReaderActionRow(
         modifier = modifier,
         enabledButtons = enabledButtons,
+        chapterStep = chapterStep,
         onClickChapterList = onClickChapterList,
         onClickWebView = onClickWebView,
         onClickBrowser = onClickBrowser,

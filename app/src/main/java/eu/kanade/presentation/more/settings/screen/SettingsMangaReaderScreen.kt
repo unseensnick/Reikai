@@ -451,6 +451,8 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val volumeScrollPercent = (volumeScrollAmount * 100).roundToInt()
 
         val verticalNavigator by readerPreferences.verticalNavigator.collectAsState()
+        // RK
+        val showNavigator by readerPreferences.showNavigator.collectAsState()
         val verticalNavigatorHeightPref = readerPreferences.verticalNavigatorHeight
         val verticalNavigatorHeight by verticalNavigatorHeightPref.collectAsState()
 
@@ -476,16 +478,24 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     enabled = readWithVolumeKeys,
                     onValueChanged = { volumeScrollAmountPref.set(it / 100f) },
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.showNavigator,
+                    title = stringResource(MR.strings.pref_show_progress_navigator),
+                    subtitle = stringResource(MR.strings.pref_show_progress_navigator_summary),
+                ),
+                // RK <--
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.verticalNavigator,
                     entries = ReadingMode.entries.filter { it != ReadingMode.DEFAULT }
                         .associate { it to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_vertical_navigator),
+                    enabled = showNavigator, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.verticalNavigatorOnLeft,
                     title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                    enabled = verticalNavigator.isNotEmpty(),
+                    enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = verticalNavigatorHeight,
@@ -493,7 +503,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     steps = 6,
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
                     onValueChanged = { verticalNavigatorHeightPref.set(it) },
-                    enabled = verticalNavigator.isNotEmpty(),
+                    enabled = showNavigator && verticalNavigator.isNotEmpty(), // RK
                 ),
             ),
         )

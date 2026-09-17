@@ -209,6 +209,10 @@ class NovelPreferences(
     /** The vertical rail on the page's edge, or off for the horizontal slider above the bar's buttons. */
     fun readerUseRail() = preferenceStore.getBoolean("ln_reader_use_rail", true)
 
+    /** Off hides the rail and the slider both, moving the chapter buttons into the bar. The manga twin is
+     *  `ReaderPreferences.showNavigator`, and both answer the host through `ReaderNavigatorShape`. */
+    fun readerShowNavigator() = preferenceStore.getBoolean("ln_reader_show_navigator", true)
+
     /**
      * Whether a novel session hides the system bars and draws under the cutout. Its own pair for the
      * same reason the rail's is: the manga screen's switches are where a novel reader cannot find

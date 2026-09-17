@@ -115,6 +115,7 @@ import reikai.presentation.reader.ReaderBottomButtonsDialog
 import reikai.presentation.reader.ReaderChapterListDialog
 import reikai.presentation.reader.ReaderDialog
 import reikai.presentation.reader.ReaderEngine
+import reikai.presentation.reader.ReaderNavigatorShape
 import reikai.presentation.reader.ReaderOrientationDialog
 import reikai.presentation.reader.ReaderSleepTimerDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
@@ -997,19 +998,20 @@ class ReaderActivity : BaseActivity() {
 
             // RK: the shape is the session's answer, and the direction is asked of the viewer
             // contract, so the host neither reads manga's preference nor instance-checks a viewer.
-            chapterNavigatorType = if (!navigator.useRail) {
-                if (viewport?.isRtl == true) {
+            chapterNavigatorType = when (navigator.shape) {
+                ReaderNavigatorShape.Slider -> if (viewport?.isRtl == true) {
                     ChapterNavigatorType.HORIZONTAL_RTL
                 } else {
                     ChapterNavigatorType.HORIZONTAL_LTR
                 }
-            } else {
-                if (navigator.railOnLeft) {
+                ReaderNavigatorShape.Rail -> if (navigator.railOnLeft) {
                     ChapterNavigatorType.VERTICAL_LEFT
                 } else {
                     ChapterNavigatorType.VERTICAL_RIGHT
                 }
+                ReaderNavigatorShape.None -> ChapterNavigatorType.NONE
             },
+            readingRtl = viewport?.isRtl == true,
             verticalNavigatorHeight = navigator.railHeightPercent / 100f,
             onNextChapter = engine::nextChapter,
             enabledNext = navigator.hasNext,

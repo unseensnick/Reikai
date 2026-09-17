@@ -34,6 +34,9 @@ class ReaderPreferences(
 
     val showPageNumber: Preference<Boolean> = preferenceStore.getBoolean("pref_show_page_number_key", true)
 
+    // RK: off hides the progress navigator in every reading mode, moving the chapter buttons into the bar
+    val showNavigator: Preference<Boolean> = preferenceStore.getBoolean("reader_show_navigator", true)
+
     val verticalNavigator: Preference<Set<ReadingMode>> = preferenceStore.getEnumSet(
         "pref_vertical_navigator",
         emptySet(),

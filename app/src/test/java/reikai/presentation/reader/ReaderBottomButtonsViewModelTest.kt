@@ -91,4 +91,12 @@ class ReaderBottomButtonsViewModelTest {
 
         viewModel.rows().first() shouldBe ReaderBottomButtonsViewModel.Row(TextSize, enabled = false)
     }
+
+    @ParameterizedTest
+    @EnumSource(value = Scope::class, names = ["Manga", "Novel"])
+    fun `the gear cannot be switched off`(scope: Scope) = runTest {
+        viewModel(scope).toggle(ReaderBottomButton.Settings)
+
+        drawn(scope).contains(ReaderBottomButton.Settings) shouldBe true
+    }
 }

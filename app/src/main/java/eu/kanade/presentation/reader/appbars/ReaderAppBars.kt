@@ -48,6 +48,7 @@ import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.ReadAloudControls
 import reikai.presentation.reader.ReaderBarsFadeSpec
 import reikai.presentation.reader.ReaderBarsSlideSpec
+import reikai.presentation.reader.ReaderChapterStep
 import reikai.presentation.reader.readerBarEnter
 import reikai.presentation.reader.readerBarExit
 import reikai.presentation.reader.readerChromeColor
@@ -71,6 +72,8 @@ fun ReaderAppBars(
     onShare: (() -> Unit)?,
 
     chapterNavigatorType: ChapterNavigatorType,
+    // RK: which way the chapter buttons point when the bar draws them
+    readingRtl: Boolean,
     verticalNavigatorHeight: Float,
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
@@ -167,7 +170,7 @@ fun ReaderAppBars(
             )
         }
 
-        if (!chapterNavigatorType.isHorizontal()) {
+        if (chapterNavigatorType.isVertical()) { // RK: NONE draws no rail
             val sliderOnLeft = chapterNavigatorType == ChapterNavigatorType.VERTICAL_LEFT
             CompositionLocalProvider(
                 LocalLayoutDirection provides if (sliderOnLeft) LayoutDirection.Ltr else LayoutDirection.Rtl,
@@ -277,6 +280,13 @@ fun ReaderAppBars(
                         .windowInsetsPadding(WindowInsets.navigationBars),
                     // RK -->
                     enabledButtons = bottomButtons,
+                    chapterStep = ReaderChapterStep(
+                        isRtl = readingRtl,
+                        hasPrevious = enabledPrevious,
+                        hasNext = enabledNext,
+                        onPrevious = onPreviousChapter,
+                        onNext = onNextChapter,
+                    ).takeIf { chapterNavigatorType == ChapterNavigatorType.NONE },
                     // RK <--
                     readingMode = readingMode,
                     onClickReadingMode = onClickReadingMode,

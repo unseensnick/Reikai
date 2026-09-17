@@ -295,6 +295,9 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
 
     CheckboxItem(label = stringResource(MR.strings.pref_read_with_long_tap), pref = preferences.readWithLongTap)
 
+    val showNavigator by preferences.showNavigator.collectAsState()
+    CheckboxItem(label = stringResource(MR.strings.pref_show_progress_navigator), pref = preferences.showNavigator)
+    if (!showNavigator) return
     val verticalNavigatorModes by preferences.verticalNavigator.collectAsState()
     SettingsChipRow(MR.strings.pref_vertical_navigator) {
         ReadingMode.entries.filter { it != ReadingMode.DEFAULT }.forEach { mode ->

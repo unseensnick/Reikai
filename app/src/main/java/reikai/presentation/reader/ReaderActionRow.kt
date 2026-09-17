@@ -33,6 +33,8 @@ import mihon.icons.materialsymbols.rounded.Palette
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.Share
+import mihon.icons.materialsymbols.rounded.SkipNext
+import mihon.icons.materialsymbols.rounded.SkipPrevious
 import reikai.presentation.icons.FormatSize
 import reikai.presentation.icons.Lightbulb
 import reikai.presentation.icons.RecordVoiceOver
@@ -43,11 +45,21 @@ import reikai.presentation.icons.VolumeUp
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
+/** The chapter buttons the bar takes over while the progress navigator is hidden. */
+data class ReaderChapterStep(
+    val isRtl: Boolean,
+    val hasPrevious: Boolean,
+    val hasNext: Boolean,
+    val onPrevious: () -> Unit,
+    val onNext: () -> Unit,
+)
+
 /**
  * The reader's bottom action row, drawn for both content types by the one reader host. Which buttons appear,
  * and in what order, is [enabledButtons]: [ReaderBottomButton.ordered] has already dropped the buttons the
- * open content type does not offer. A nullable callback is an action the open chapter may not support, and
- * its button is hidden while it is null. The Settings gear is always shown.
+ * open content type does not offer, and always keeps the Settings gear. A nullable callback is an action the
+ * open chapter may not support, and its button is hidden while it is null. [chapterStep] puts the chapter
+ * buttons at the two ends, pointing the way the navigator's would.
  */
 @Composable
 fun ReaderActionRow(
@@ -79,6 +91,7 @@ fun ReaderActionRow(
     readAloudControlsVisible: Boolean = false,
     onClickReadAloud: (() -> Unit)? = null,
     onLongClickReadAloud: () -> Unit = {},
+    chapterStep: ReaderChapterStep? = null,
 ) {
     Row(
         modifier = modifier
@@ -87,6 +100,7 @@ fun ReaderActionRow(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        chapterStep?.let { ChapterStepButton(it, leading = true) }
         // Exhaustive, so a button added to the enum cannot be left undrawn here.
         enabledButtons.forEach { button ->
             when (button) {
@@ -204,15 +218,33 @@ fun ReaderActionRow(
                         onLongClick = onLongClickReadAloud,
                     )
                 }
+
+                ReaderBottomButton.Settings -> IconButton(onClick = onClickSettings) {
+                    Icon(
+                        imageVector = MaterialSymbols.Rounded.Settings,
+                        contentDescription = stringResource(MR.strings.action_settings),
+                    )
+                }
             }
         }
+        chapterStep?.let { ChapterStepButton(it, leading = false) }
+    }
+}
 
-        IconButton(onClick = onClickSettings) {
-            Icon(
-                imageVector = MaterialSymbols.Rounded.Settings,
-                contentDescription = stringResource(MR.strings.action_settings),
-            )
-        }
+/** The navigator's previous or next chapter button, swapped for a right-to-left reader as the navigator does. */
+@Composable
+private fun ChapterStepButton(step: ReaderChapterStep, leading: Boolean) {
+    val previous = leading != step.isRtl
+    IconButton(
+        onClick = if (previous) step.onPrevious else step.onNext,
+        enabled = if (previous) step.hasPrevious else step.hasNext,
+    ) {
+        Icon(
+            imageVector = if (leading) MaterialSymbols.Rounded.SkipPrevious else MaterialSymbols.Rounded.SkipNext,
+            contentDescription = stringResource(
+                if (previous) MR.strings.action_previous_chapter else MR.strings.action_next_chapter,
+            ),
+        )
     }
 }
 

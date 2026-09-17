@@ -46,7 +46,9 @@ class ReaderBottomButtonsViewModel(
 
     fun rows(): List<Row> {
         val selected = selection.get()
-        return ReaderBottomButton.arranged(order.get(), scope).map { Row(it, it.value in selected) }
+        return ReaderBottomButton.arranged(order.get(), scope).map {
+            Row(it, it == ReaderBottomButton.Settings || it.value in selected)
+        }
     }
 
     fun toggle(button: ReaderBottomButton) {

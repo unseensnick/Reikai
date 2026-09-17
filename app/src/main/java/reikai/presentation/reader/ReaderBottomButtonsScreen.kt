@@ -45,7 +45,7 @@ import eu.kanade.presentation.more.settings.Preference as SettingsPreference
 
 /**
  * Which buttons one reader's bottom bar shows, and in what order. One screen serves both readers, each
- * editing its own buttons. The Settings gear is not listed: it is always shown, last.
+ * editing its own buttons. The Settings gear is listed to be moved, never switched off.
  */
 data class ReaderBottomButtonsScreen(private val scope: ReaderBottomButton.Scope) : Screen() {
 
@@ -135,7 +135,9 @@ fun readerBottomButtonsPreference(
     val scope = preferences.scope
     val selected by preferences.selection.collectAsState()
     val arranged by preferences.order.collectAsState()
-    val names = ReaderBottomButton.ordered(selected, arranged, scope).map { stringResource(it.stringRes) }
+    val names = ReaderBottomButton.ordered(selected, arranged, scope)
+        .filter { it != ReaderBottomButton.Settings }
+        .map { stringResource(it.stringRes) }
     return SettingsPreference.PreferenceItem.TextPreference(
         title = stringResource(MR.strings.pref_reader_bottom_buttons),
         subtitle = names.joinToString().ifEmpty { stringResource(MR.strings.none) },
@@ -148,14 +150,15 @@ private fun ReorderableCollectionItemScope.ButtonRow(
     row: ReaderBottomButtonsViewModel.Row,
     onToggle: () -> Unit,
 ) {
+    val canHide = row.button != ReaderBottomButton.Settings
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
+            .clickable(enabled = canHide, onClick = onToggle)
             .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.extraSmall),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = row.enabled, onCheckedChange = { onToggle() })
+        Checkbox(checked = row.enabled, onCheckedChange = { onToggle() }, enabled = canHide)
         Text(
             text = stringResource(row.button.stringRes),
             style = MaterialTheme.typography.bodyLarge,

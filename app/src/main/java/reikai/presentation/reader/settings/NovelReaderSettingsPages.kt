@@ -352,6 +352,14 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
     )
 
     HeadingItem(MR.strings.pref_reader_navigation)
+    val showNavigator by preferences.readerShowNavigator().collectAsState()
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_show_progress_navigator),
+        pref = preferences.readerShowNavigator(),
+    )
+    if (showNavigator) {
+        CheckboxItem(label = stringResource(MR.strings.pref_novel_use_rail), pref = preferences.readerUseRail())
+    }
     val volumeKeys by preferences.readerUseVolumeButtons().collectAsState()
     CheckboxItem(
         label = stringResource(MR.strings.pref_read_with_volume_keys),

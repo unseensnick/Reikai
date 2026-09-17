@@ -77,10 +77,15 @@ class NovelReaderProvider(
         viewModel.progressPercent,
         viewModel.settings,
         viewModel.chapterNeighbours,
-    ) { percent, settings, neighbours ->
+        novelPreferences.readerShowNavigator().changes(),
+    ) { percent, settings, neighbours, show ->
         ReaderNavigatorState(
             progress = ChapterProgress.Percent(percent * 100L),
-            useRail = settings.useRail,
+            shape = when {
+                !show -> ReaderNavigatorShape.None
+                settings.useRail -> ReaderNavigatorShape.Rail
+                else -> ReaderNavigatorShape.Slider
+            },
             railOnLeft = settings.railOnLeft,
             railHeightPercent = settings.railHeightPercent,
             hasPrevious = neighbours.previous != null,

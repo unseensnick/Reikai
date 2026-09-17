@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.setting
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Rotation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Scope
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Settings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Share
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.TextSize
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.Theme
@@ -20,7 +21,7 @@ class ReaderBottomButtonTest {
     @Test
     fun `with no stored order the buttons keep the order the bar has always drawn`() {
         ReaderBottomButton.ordered(selected, order = emptyList(), Scope.Novel) shouldBe
-            listOf(ViewChapters, Rotation, Theme, TextSize)
+            listOf(ViewChapters, Rotation, Theme, TextSize, Settings)
     }
 
     @Test
@@ -28,7 +29,7 @@ class ReaderBottomButtonTest {
         val order = listOf(TextSize, ViewChapters, Theme, Rotation).map { it.value }
 
         ReaderBottomButton.ordered(selected, order, Scope.Novel) shouldBe
-            listOf(TextSize, ViewChapters, Theme, Rotation)
+            listOf(TextSize, ViewChapters, Theme, Rotation, Settings)
     }
 
     @Test
@@ -36,21 +37,22 @@ class ReaderBottomButtonTest {
         val order = listOf(TextSize, ViewChapters).map { it.value }
 
         ReaderBottomButton.ordered(selected, order, Scope.Novel) shouldBe
-            listOf(TextSize, ViewChapters, Rotation, Theme)
+            listOf(TextSize, ViewChapters, Rotation, Theme, Settings)
     }
 
     @Test
     fun `a stored code no button has is ignored`() {
         val order = listOf("gone", TextSize.value)
 
-        ReaderBottomButton.ordered(setOf(TextSize.value), order, Scope.Novel) shouldBe listOf(TextSize)
+        ReaderBottomButton.ordered(setOf(TextSize.value), order, Scope.Novel) shouldBe listOf(TextSize, Settings)
     }
 
     @Test
     fun `an ordered button that is not selected is not drawn`() {
         val order = listOf(Share, ViewChapters).map { it.value }
 
-        ReaderBottomButton.ordered(setOf(ViewChapters.value), order, Scope.Novel) shouldBe listOf(ViewChapters)
+        ReaderBottomButton.ordered(setOf(ViewChapters.value), order, Scope.Novel) shouldBe
+            listOf(ViewChapters, Settings)
     }
 
     @Test
@@ -65,7 +67,20 @@ class ReaderBottomButtonTest {
     fun `a selected button the reader does not offer is not drawn`() {
         val manga = setOf(ViewChapters, TextSize).map { it.value }.toSet()
 
-        ReaderBottomButton.ordered(manga, order = emptyList(), Scope.Manga) shouldBe listOf(ViewChapters)
+        ReaderBottomButton.ordered(manga, order = emptyList(), Scope.Manga) shouldBe listOf(ViewChapters, Settings)
+    }
+
+    @Test
+    fun `the gear is drawn though nothing selects it`() {
+        ReaderBottomButton.ordered(emptySet(), order = emptyList(), Scope.Novel) shouldBe listOf(Settings)
+    }
+
+    @Test
+    fun `the gear is drawn where the stored order puts it`() {
+        val order = listOf(Settings, ViewChapters).map { it.value }
+
+        ReaderBottomButton.ordered(setOf(ViewChapters.value), order, Scope.Manga) shouldBe
+            listOf(Settings, ViewChapters)
     }
 
     @ParameterizedTest

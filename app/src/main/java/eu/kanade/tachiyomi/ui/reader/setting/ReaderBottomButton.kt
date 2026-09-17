@@ -31,6 +31,12 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
     TextSize("ts", MR.strings.pref_reader_text_size, Scope.Novel),
     ReadAloud("ra", MR.strings.pref_category_read_aloud, Scope.Novel),
     ScrollToTop("top", MR.strings.action_scroll_to_top, Scope.Both),
+
+    /**
+     * The sheet's gear, which is placed like any button but never hidden, since it is the way into the
+     * sheet. Declared last, so a stored order that predates it draws it last, where it always was.
+     */
+    Settings("st", MR.strings.action_settings, Scope.Both),
     ;
 
     enum class Scope { Manga, Novel, Both }
@@ -67,7 +73,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
          * which is also the order the bar drew before it could be arranged.
          */
         fun ordered(selected: Set<String>, order: List<String>, scope: Scope): List<ReaderBottomButton> =
-            arranged(order, scope).filter { it.value in selected }
+            arranged(order, scope).filter { it == Settings || it.value in selected }
 
         /** Every button [scope] offers, in the stored [order], so a button switched off keeps its place. */
         fun arranged(order: List<String>, scope: Scope): List<ReaderBottomButton> {
@@ -92,7 +98,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
         ).map { it.value }.toSet()
 
         /**
-         * Novel reader defaults (the Settings gear is always shown, so it is not listed here). Text
+         * Novel reader defaults (the Settings gear is always drawn, so it is not listed here). Text
          * size and theme are on because they are the quickest way to change either while reading.
          */
         val NOVEL_BUTTONS_DEFAULTS = setOf(

@@ -61,9 +61,15 @@ enum class ChapterNavigatorType {
     HORIZONTAL_RTL,
     VERTICAL_LEFT,
     VERTICAL_RIGHT,
+
+    // RK: no navigator at all; the chapter buttons are drawn in the bottom bar instead
+    NONE,
     ;
 
     fun isHorizontal() = this in setOf(HORIZONTAL_LTR, HORIZONTAL_RTL)
+
+    // RK
+    fun isVertical() = this in setOf(VERTICAL_LEFT, VERTICAL_RIGHT)
 }
 
 @Composable

@@ -11,11 +11,20 @@ import reikai.domain.reader.ChapterProgress
 @Immutable
 data class ReaderNavigatorState(
     val progress: ChapterProgress? = null,
-    /** The vertical rail on the reader's edge, rather than the horizontal bar above the actions. */
-    val useRail: Boolean = false,
+    val shape: ReaderNavigatorShape = ReaderNavigatorShape.Slider,
     val railOnLeft: Boolean = false,
     val railHeightPercent: Int = 100,
     /** Whether a chapter is reachable in each direction, which is what enables the step buttons. */
     val hasPrevious: Boolean = false,
     val hasNext: Boolean = false,
 )
+
+/** How the progress navigator is drawn. With [None] the chapter buttons move to the ends of the button bar. */
+enum class ReaderNavigatorShape {
+    /** The horizontal bar above the buttons. */
+    Slider,
+
+    /** The vertical rail on the reader's edge. */
+    Rail,
+    None,
+}

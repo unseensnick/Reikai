@@ -563,6 +563,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val railHeightPref = novelPreferences.readerRailHeight()
         val railHeight by railHeightPref.collectAsState()
         val useRail by novelPreferences.readerUseRail().collectAsState()
+        val showNavigator by novelPreferences.readerShowNavigator().collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
@@ -585,20 +586,25 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowNavigator(),
+                    title = stringResource(MR.strings.pref_show_progress_navigator),
+                    subtitle = stringResource(MR.strings.pref_show_progress_navigator_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerUseRail(),
                     title = stringResource(MR.strings.pref_novel_use_rail),
-                ),
+                ).takeIf { showNavigator },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerRailOnLeft(),
                     title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                ).takeIf { useRail },
+                ).takeIf { showNavigator && useRail },
                 Preference.PreferenceItem.SliderPreference(
                     value = railHeight,
                     valueRange = 65..100,
                     steps = 6,
                     title = stringResource(MR.strings.pref_vertical_navigator_height),
                     onValueChanged = { railHeightPref.set(it) },
-                ).takeIf { useRail },
+                ).takeIf { showNavigator && useRail },
             ),
         )
     }
