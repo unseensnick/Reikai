@@ -44,6 +44,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
@@ -94,7 +95,13 @@ import kotlin.math.roundToInt
 
 private const val TENTHS = 10f
 
-/** This novel's rotation, then font, size, alignment, spacing, margins and how the text is treated. */
+/** Words the split threshold steps by, across its 20 to 2000 range. */
+private const val AUTO_SPLIT_STEP = 10
+
+/**
+ * This novel's rotation, then how the text is drawn: the renderer, the font and its size, the paragraphs
+ * and the margins around them.
+ */
 @Composable
 internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     val preferences = pages.preferences
@@ -103,8 +110,33 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     val orientation by pages.orientation.collectAsState(null)
     EntryRotationRow(orientation) { pages.onChangeOrientation(it.flagValue) }
 
+    HeadingItem(MR.strings.pref_category_text)
+    val renderingModePref = preferences.readerRenderingMode()
+    val renderingMode by renderingModePref.collectAsState()
+    SettingsChipRow(MR.strings.pref_novel_rendering_mode) {
+        NovelRenderingMode.entries.forEach {
+            FilterChip(
+                selected = renderingMode == it,
+                onClick = { renderingModePref.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
     FontRow(preferences.readerFontFamily(), pages.installedFonts)
-
+    val fontSize by preferences.readerFontSize().collectAsState()
+    StepperItem(
+        label = stringResource(MR.strings.pref_reader_text_size),
+        value = fontSize,
+        onChange = pages.textSettings::setFontSize,
+        valueRange = NovelTextRanges.fontSize,
+        defaultValue = preferences.readerFontSize().defaultValue(),
+    )
+    TenthsStepper(
+        preferences.readerLineSpacing(),
+        MR.strings.pref_novel_line_spacing,
+        NovelTextRanges.lineHeightTenths,
+        "%.1fx",
+    )
     val textAlign by preferences.readerTextAlign().collectAsState()
     Row(
         modifier = Modifier
@@ -134,20 +166,7 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
         }
     }
 
-    val fontSize by preferences.readerFontSize().collectAsState()
-    StepperItem(
-        label = stringResource(MR.strings.pref_reader_text_size),
-        value = fontSize,
-        onChange = pages.textSettings::setFontSize,
-        valueRange = NovelTextRanges.fontSize,
-        defaultValue = preferences.readerFontSize().defaultValue(),
-    )
-    TenthsStepper(
-        preferences.readerLineSpacing(),
-        MR.strings.pref_novel_line_spacing,
-        NovelTextRanges.lineHeightTenths,
-        "%.1fx",
-    )
+    HeadingItem(MR.strings.pref_category_paragraphs)
     TenthsStepper(
         preferences.readerParagraphIndent(),
         MR.strings.pref_paragraph_indent,
@@ -160,18 +179,20 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
         NovelTextRanges.paragraphSpacingTenths,
         "%.1fem",
     )
-    MarginStepper(preferences.readerMarginTop(), MR.strings.pref_margin_top)
-    MarginStepper(preferences.readerMarginBottom(), MR.strings.pref_margin_bottom)
-    MarginStepper(preferences.readerMarginLeft(), MR.strings.pref_margin_left)
-    MarginStepper(preferences.readerMarginRight(), MR.strings.pref_margin_right)
-    CheckboxItem(label = stringResource(MR.strings.pref_bionic_reading), pref = preferences.readerBionicReading())
     CheckboxItem(
         label = stringResource(MR.strings.pref_remove_extra_spacing),
         pref = preferences.readerRemoveExtraSpacing(),
     )
+    CheckboxItem(label = stringResource(MR.strings.pref_bionic_reading), pref = preferences.readerBionicReading())
+
+    HeadingItem(MR.strings.pref_category_margins)
+    MarginStepper(preferences.readerMarginTop(), MR.strings.pref_margin_top)
+    MarginStepper(preferences.readerMarginBottom(), MR.strings.pref_margin_bottom)
+    MarginStepper(preferences.readerMarginLeft(), MR.strings.pref_margin_left)
+    MarginStepper(preferences.readerMarginRight(), MR.strings.pref_margin_right)
 }
 
-/** The page's colours and keeping the screen awake. */
+/** The page's colours, what surrounds the text, and how a chapter's text is treated before it is shown. */
 @Composable
 internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     val preferences = pages.preferences
@@ -213,6 +234,7 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         pages.textSettings.setThemeColors(shown.background, it)
     }
 
+    HeadingItem(MR.strings.pref_category_page)
     val titleFormatPref = preferences.readerChapterTitleFormat()
     val titleFormat by titleFormatPref.collectAsState()
     SettingsChipRow(MR.strings.pref_novel_chapter_title_format) {
@@ -224,7 +246,10 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
             )
         }
     }
-
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_show_reading_progress),
+        pref = preferences.readerShowProgressPercentage(),
+    )
     // The novel reader's own pair, which the manga tab shows for its reader in the same place.
     CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = preferences.readerFullscreen())
     val isFullscreen by preferences.readerFullscreen().collectAsState()
@@ -232,11 +257,60 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = preferences.readerDrawUnderCutout())
     }
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = preferences.readerKeepScreenOn())
+
+    NovelChapterTextRows(preferences)
 }
 
-/** Auto-scroll, taps, swipes and the volume keys. */
+/** The rows of Settings -> Novel reader -> Chapter text that change what the page shows, in its order. */
+@Composable
+private fun ColumnScope.NovelChapterTextRows(preferences: NovelPreferences) {
+    val renderingMode by preferences.readerRenderingMode().collectAsState()
+    val autoSplit by preferences.readerAutoSplitText().collectAsState()
+    val sourceCssPriority by preferences.readerSourceCssPriority().collectAsState()
+
+    HeadingItem(MR.strings.pref_category_chapter_text)
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_hide_chapter_title),
+        pref = preferences.readerHideChapterTitle(),
+    )
+    CheckboxItem(label = stringResource(MR.strings.pref_force_lowercase), pref = preferences.readerForceLowercase())
+    CheckboxItem(label = stringResource(MR.strings.pref_block_media), pref = preferences.readerBlockMedia())
+    CheckboxItem(label = stringResource(MR.strings.pref_auto_split_text), pref = preferences.readerAutoSplitText())
+    if (autoSplit) {
+        val wordsPref = preferences.readerAutoSplitWordCount()
+        val words by wordsPref.collectAsState()
+        StepperItem(
+            label = stringResource(MR.strings.pref_auto_split_word_count),
+            value = words,
+            onChange = wordsPref::set,
+            valueRange = NovelTextRanges.autoSplitWords,
+            step = AUTO_SPLIT_STEP,
+            defaultValue = wordsPref.defaultValue(),
+        )
+    }
+    // Only a WebView page has a stylesheet and fonts of the chapter's own to keep.
+    if (renderingMode != NovelRenderingMode.WEBVIEW) return
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_keep_embedded_css),
+        pref = preferences.readerKeepEmbeddedCss(),
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_source_css_priority),
+        pref = preferences.readerSourceCssPriority(),
+    )
+    // Under chapter styling that wins, the reader's own font overrides are not applied at all.
+    if (!sourceCssPriority) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_use_original_fonts),
+            pref = preferences.readerUseOriginalFonts(),
+        )
+    }
+}
+
+/** Scrolling on its own, taps and swipes, and the volume keys. */
 @Composable
 internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
+    HeadingItem(MR.strings.pref_category_scrolling)
     val autoScroll by preferences.readerAutoScroll().collectAsState()
     CheckboxItem(label = stringResource(MR.strings.pref_auto_scroll), pref = preferences.readerAutoScroll())
     if (autoScroll) {
@@ -251,12 +325,19 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
             pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     }
+
+    HeadingItem(MR.strings.pref_category_gestures)
     NovelTapZonesRows(preferences)
     CheckboxItem(
         label = stringResource(MR.strings.pref_swipe_between_chapters),
         pref = preferences.readerSwipeGestures(),
     )
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_novel_text_selectable),
+        pref = preferences.readerTextSelectable(),
+    )
 
+    HeadingItem(MR.strings.pref_reader_navigation)
     val volumeKeys by preferences.readerUseVolumeButtons().collectAsState()
     CheckboxItem(
         label = stringResource(MR.strings.pref_read_with_volume_keys),
@@ -479,11 +560,14 @@ internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
     val context = LocalContext.current
     val engine by preferences.readerTtsEngine().collectAsState()
     val options by rememberTtsOptions(context, engine)
+    HeadingItem(MR.strings.pref_tts_voice)
     EngineRow(preferences, options)
     VoiceLanguagesRow(preferences, options)
     VoiceRow(preferences, options)
     TenthsStepper(preferences.readerTtsRate(), MR.strings.pref_tts_rate, tenths = 1..30, format = "%.1fx")
     TenthsStepper(preferences.readerTtsPitch(), MR.strings.pref_tts_pitch, tenths = 1..20, format = "%.1f")
+
+    HeadingItem(MR.strings.pref_category_playback)
     CheckboxItem(
         label = stringResource(MR.strings.pref_tts_auto_page_advance),
         pref = preferences.readerTtsAutoPageAdvance(),
@@ -498,6 +582,7 @@ internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
         )
     }
 
+    HeadingItem(MR.strings.pref_category_highlight)
     val highlight by preferences.readerTtsHighlight().collectAsState()
     CheckboxItem(label = stringResource(MR.strings.pref_tts_highlight), pref = preferences.readerTtsHighlight())
     if (!highlight) return

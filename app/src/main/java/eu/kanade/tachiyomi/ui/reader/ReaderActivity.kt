@@ -340,6 +340,8 @@ class ReaderActivity : BaseActivity() {
         // A novel session installs its viewport here rather than from the manga collector, which is
         // what updateViewer() hangs off and which never fires without a Manga in state.
         novelSession?.let { provider ->
+            // The session and its position outlive the Activity, so a rebuild lands where the reader is.
+            provider.viewportRebuilds.onEach { recreate() }.launchIn(lifecycleScope)
             val viewport = provider.createViewport(this)
             engine.installViewport(viewport)
             updateViewerInset(fullscreenPref().get(), drawUnderCutoutPref().get())

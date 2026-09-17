@@ -52,6 +52,7 @@ class NovelChapterTextLoader(
         preferences.readerAutoSplitWordCount().changes(),
         preferences.readerRegexReplacements().changes(),
         preferences.readerShowRawHtml().changes(),
+        preferences.readerRenderingMode().changes(),
     )
         .merge()
         .map { pipelineSnapshot() }
@@ -70,6 +71,8 @@ class NovelChapterTextLoader(
         preferences.readerAutoSplitWordCount().get(),
         preferences.readerRegexReplacements().get(),
         preferences.readerShowRawHtml().get(),
+        // The target: embedded CSS and JS survive only for a WebView page.
+        preferences.readerRenderingMode().get(),
     )
 
     private val sourcesByNovel: MutableMap<Long, NovelSource> =

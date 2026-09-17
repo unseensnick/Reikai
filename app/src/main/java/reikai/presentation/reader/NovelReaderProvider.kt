@@ -7,8 +7,11 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.util.system.isNightMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.tts.NovelTtsSession
@@ -195,12 +198,33 @@ class NovelReaderProvider(
     override fun setKeepScreenOn(enabled: Boolean) = viewModel.setKeepScreenOn(enabled)
 
     /**
+     * A change to a setting [createViewport] reads once, after the one it was built with. The sheet reaches
+     * all four, so the host rebuilds the viewport around the live session, as a rotation does.
+     */
+    val viewportRebuilds: Flow<Unit> = listOf<Flow<Any>>(
+        novelPreferences.readerRenderingMode().changes(),
+        novelPreferences.readerTextSelectable().changes(),
+        novelPreferences.readerUseOriginalFonts().changes(),
+        novelPreferences.readerSourceCssPriority().changes(),
+    )
+        .merge()
+        .map { viewportSnapshot() }
+        .distinctUntilChanged()
+        .drop(1)
+        .map { }
+
+    private fun viewportSnapshot(): List<Any> = listOf(
+        novelPreferences.readerRenderingMode().get(),
+        novelPreferences.readerTextSelectable().get(),
+        novelPreferences.readerUseOriginalFonts().get(),
+        novelPreferences.readerSourceCssPriority().get(),
+    )
+
+    /**
      * Text-selectability, the rendering mode and the two WebView font settings are read once here, because
-     * the viewport takes them as plain values so it can be built without the graph. Nothing rebuilds a
-     * novel viewport mid-session, so a change lands on the next open. That is only acceptable while none
-     * of them is reachable from the in-reader sheet: text-selectability would also need a re-bind, since
-     * it decides which of the two tap owners is installed. The volume keys are live, because the sheet
-     * does reach them: the switch is read each press and the rest arrives with every settings push.
+     * the viewport takes them as plain values so it can be built without the graph; a change rebuilds it
+     * through [viewportRebuilds]. The volume keys are live without one: the switch is read each press and
+     * the rest arrives with every settings push.
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
         val textSelectable = novelPreferences.readerTextSelectable().get()
