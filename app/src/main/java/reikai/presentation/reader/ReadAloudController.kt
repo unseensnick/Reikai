@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.NovelTtsEngine
+import reikai.domain.novel.tts.TtsPiece
 import reikai.domain.novel.tts.TtsPlayback
 import kotlin.math.abs
 
@@ -84,6 +85,16 @@ class ReadAloudController(
     private var paragraphs: List<String> = emptyList()
     private var position: ReadAloudPosition? = null
 
+    /** The sentence of [position] being spoken, while sentences are marked; null marks the paragraph. */
+    private var sentence: IntRange? = null
+
+    /**
+     * [position]'s paragraph as spoken by sentence, and which of them is playing, so a step moves one
+     * sentence. Empty while paragraphs are spoken whole, where a step moves a paragraph.
+     */
+    private var sentences: List<TtsPiece> = emptyList()
+    private var sentenceIndex = 0
+
     /**
      * The renderer started over and [position] has not been found in its layout yet. Kept until it is,
      * since the chapter being read can join the window only after the landing.
@@ -133,7 +144,8 @@ class ReadAloudController(
             TtsPlayback.Paused -> if (pendingChapter != null) {
                 setPlayback(TtsPlayback.Playing)
             } else {
-                command { playAt(position?.paragraph ?: 0) }
+                // By sentence, resuming carries on from the sentence paused in rather than its paragraph's start.
+                command { playAt(position?.paragraph ?: 0, fromSentence = sentenceIndex) }
             }
             TtsPlayback.Stopped -> readFromHere()
         }
@@ -169,6 +181,8 @@ class ReadAloudController(
         chapterId = null
         paragraphs = emptyList()
         position = null
+        sentence = null
+        sentences = emptyList()
         unplaced = false
         playback = TtsPlayback.Stopped
         surface?.highlight(null)
@@ -207,7 +221,7 @@ class ReadAloudController(
         if (playback == TtsPlayback.Stopped) return
         unplaced = true
         // Drawn as soon as the renderer can, since a layout that did not shift needs no relocation.
-        surface?.highlight(position)
+        surface?.highlight(position, sentence)
         scope.launch { relocate() }
     }
 
@@ -217,9 +231,22 @@ class ReadAloudController(
         if (unplaced) scope.launch { relocate() }
     }
 
+    /**
+     * One paragraph, or one sentence while sentences are spoken, crossing into the neighbouring paragraph
+     * past either end: forward to its first sentence, back to its last.
+     */
     private fun step(delta: Int) {
-        if (position == null) return readFromHere()
-        command { playAt(((position?.paragraph ?: 0) + delta).coerceAtLeast(0)) }
+        val at = position ?: return readFromHere()
+        val target = sentenceIndex + delta
+        command {
+            when {
+                sentences.isEmpty() -> playAt((at.paragraph + delta).coerceAtLeast(0))
+                target in sentences.indices -> playAt(at.paragraph, fromSentence = target)
+                delta > 0 -> playAt(at.paragraph + 1)
+                at.paragraph > 0 -> playAt(at.paragraph - 1, fromSentence = LAST_SENTENCE)
+                else -> playAt(0)
+            }
+        }
     }
 
     /** Replaces whatever was in progress, including the paragraph being spoken, with [block]. */
@@ -244,10 +271,14 @@ class ReadAloudController(
         playAt(index.coerceIn(0, chapter.lastIndex))
     }
 
-    private suspend fun playAt(index: Int) {
+    /** Speaks paragraph [index] from sentence [fromSentence], or from its last for [LAST_SENTENCE]. */
+    private suspend fun playAt(index: Int, fromSentence: Int = 0) {
         val id = chapterId ?: return stop()
         if (index > paragraphs.lastIndex) return endChapter()
         position = ReadAloudPosition(id, index)
+        sentence = null
+        sentences = emptyList()
+        sentenceIndex = fromSentence
         setPlayback(TtsPlayback.Playing)
         speakCurrent()
     }
@@ -270,13 +301,16 @@ class ReadAloudController(
         paragraphs = chapter
         unplaced = false
         position = ReadAloudPosition(id, 0)
+        sentence = null
         surface?.highlight(position)
         publish()
     }
 
     private fun speakCurrent() {
         val at = position ?: return
-        surface?.highlight(at)
+        val bySentence = preferences.readerTtsHighlight().get() && preferences.readerTtsHighlightSentence().get()
+        // Marked sentence by sentence as each starts, so marking the paragraph first would flash all of it.
+        if (!bySentence) surface?.highlight(at)
         val speaker = engine ?: buildEngine()
         // Building can fail at once, which has already stopped playback and dropped the engine.
         if (playback != TtsPlayback.Playing || engine !== speaker) return
@@ -285,7 +319,29 @@ class ReadAloudController(
             return
         }
         val spoken = ++token
-        speaker.speak(paragraphs[at.paragraph]) { scope.launch { onParagraphDone(spoken) } }
+        val pieces = speaker.pieces(paragraphs[at.paragraph], bySentence)
+        sentences = if (bySentence) pieces else emptyList()
+        val first = if (sentenceIndex ==
+            LAST_SENTENCE
+        ) {
+            pieces.lastIndex
+        } else {
+            sentenceIndex.coerceIn(0, maxOf(0, pieces.lastIndex))
+        }
+        sentenceIndex = first
+        speaker.speak(
+            pieces = pieces.drop(first),
+            onPieceStart = { index -> if (bySentence) scope.launch { onSentenceStart(spoken, first + index) } },
+            onDone = { scope.launch { onParagraphDone(spoken) } },
+        )
+    }
+
+    private fun onSentenceStart(spoken: Int, index: Int) {
+        if (spoken != token || playback != TtsPlayback.Playing) return
+        val piece = sentences.getOrNull(index) ?: return
+        sentenceIndex = index
+        sentence = piece.start until piece.end
+        surface?.highlight(position, sentence)
     }
 
     private fun onParagraphDone(spoken: Int) {
@@ -307,7 +363,9 @@ class ReadAloudController(
             ?: at.paragraph.coerceIn(0, laidOut.lastIndex)
         paragraphs = laidOut
         position = ReadAloudPosition(id, index)
-        surface?.highlight(position)
+        // The sentence's offsets hold only in the text they were taken from, which a different match is not.
+        if (laidOut[index] != spokenText) sentence = null
+        surface?.highlight(position, sentence)
         publish()
     }
 
@@ -359,6 +417,11 @@ class ReadAloudController(
         }
         playback = value
         publish()
+    }
+
+    private companion object {
+        /** A [playAt] start naming the paragraph's last sentence, for a step back into it. */
+        const val LAST_SENTENCE = -1
     }
 
     private fun publish() {

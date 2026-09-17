@@ -251,6 +251,9 @@ class NovelPreferences(
     /** Mark the paragraph being spoken. Off still follows it on screen when [readerTtsKeepInView] is on. */
     fun readerTtsHighlight() = preferenceStore.getBoolean("ln_reader_tts_highlight", true)
 
+    /** Mark the sentence being spoken rather than its paragraph, which speaks one sentence per utterance. */
+    fun readerTtsHighlightSentence() = preferenceStore.getBoolean("ln_reader_tts_highlight_sentence", false)
+
     fun readerTtsHighlightStyle() =
         preferenceStore.getEnum("ln_reader_tts_highlight_style", TtsHighlightStyle.BACKGROUND)
 

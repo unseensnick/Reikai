@@ -22,9 +22,10 @@ interface ReadAloudSurface {
 
     /**
      * Marks [position] as the one being spoken, clearing any earlier mark, or only clears for null.
-     * With "keep in view" on, a paragraph not fully on screen is scrolled to, which is never a drag: it
-     * steps no chapter. The position is kept with highlighting off, so following still works, and it
-     * is dropped with its chapter.
+     * [range] narrows the mark to part of the paragraph, in offsets of its text as [paragraphs] gives it,
+     * and the whole paragraph is marked for null. With "keep in view" on, what is marked is scrolled to
+     * when not fully on screen, which is never a drag: it steps no chapter. The position is kept with
+     * highlighting off, so following still works, and it is dropped with its chapter.
      */
-    fun highlight(position: ReadAloudPosition?)
+    fun highlight(position: ReadAloudPosition?, range: IntRange? = null)
 }

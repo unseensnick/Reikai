@@ -758,6 +758,8 @@
     <string name="pref_tts_scroll_to_top_summary">Puts the paragraph being read at the top, not the middle</string>
     <string name="pref_tts_keep_in_view">Keep paragraph in view</string>
     <string name="pref_tts_highlight">Highlight paragraph</string>
+    <string name="pref_tts_highlight_sentence">Highlight sentence</string>
+    <string name="pref_tts_highlight_sentence_summary">Marks the sentence being read instead of its paragraph</string>
     <string name="pref_tts_highlight_style">Highlight style</string>
     <string name="pref_tts_highlight_color">Highlight color</string>
     <string name="pref_tts_highlight_text_color">Text color</string>

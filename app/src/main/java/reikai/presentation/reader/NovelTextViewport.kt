@@ -48,6 +48,7 @@ import reikai.presentation.reader.text.NovelWindowReach
 import reikai.presentation.reader.text.ParagraphShape
 import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
+import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.readAloudParagraphs
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -127,6 +128,9 @@ class NovelTextViewport(
 
     /** The paragraph being read aloud, kept while highlighting is off so it is still followed. */
     private var spokenParagraph: ReadAloudPosition? = null
+
+    /** The part of [spokenParagraph] being spoken, in its read-aloud text; null for all of it. */
+    private var spokenRange: IntRange? = null
 
     /** Where a chapter is put once its text has a height. */
     private sealed interface Landing {
@@ -233,14 +237,14 @@ class NovelTextViewport(
 
     /** The spoken paragraph's box for the styles that draw one. Declared above the recycler that registers it. */
     private val readAloudBox = ReadAloudBoxDecoration {
-        val (paragraph, view) = markedParagraph() ?: return@ReadAloudBoxDecoration null
+        val (view, start, end) = markedText() ?: return@ReadAloudBoxDecoration null
         val current = checkNotNull(settings)
         val style = when (current.ttsHighlightStyle) {
             TtsHighlightStyle.BACKGROUND -> Paint.Style.FILL
             TtsHighlightStyle.OUTLINE -> Paint.Style.STROKE
             TtsHighlightStyle.UNDERLINE -> return@ReadAloudBoxDecoration null
         }
-        ReadAloudBoxDecoration.Box(view, paragraph.start, paragraph.end, current.ttsHighlightColor, style)
+        ReadAloudBoxDecoration.Box(view, start, end, current.ttsHighlightColor, style)
     }
 
     private val recycler = RecyclerView(context).apply {
@@ -298,6 +302,7 @@ class NovelTextViewport(
         redrawJob?.cancel()
         redraw = null
         spokenParagraph = null
+        spokenRange = null
         evictAll()
         // A new window reports afresh, as the web page does, since the model may have dropped the last.
         reportedFits.clear()
@@ -319,8 +324,9 @@ class NovelTextViewport(
             firstParagraphOnScreen()
         }
 
-        override fun highlight(position: ReadAloudPosition?) {
+        override fun highlight(position: ReadAloudPosition?, range: IntRange?) {
             spokenParagraph = position
+            spokenRange = range
             drawSpokenParagraph()
             position?.let(::followSpokenParagraph)
         }
@@ -379,10 +385,15 @@ class NovelTextViewport(
     /** Where [paragraph] starts and ends in the recycler's coordinates, null while it is out of layout. */
     private fun boundsOf(slot: ChapterSlot, paragraph: ChunkParagraph): Pair<Int, Int>? {
         val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return null
-        val top = lineTopOf(view, paragraph.start) ?: return null
+        return boundsOf(view, paragraph.start, paragraph.end)
+    }
+
+    /** Where [start] until [end] of [view]'s text starts and ends in the recycler's coordinates. */
+    private fun boundsOf(view: TextView, start: Int, end: Int): Pair<Int, Int>? {
+        val top = lineTopOf(view, start) ?: return null
         val layout = view.layout ?: return null
-        val bottom = top - layout.getLineTop(layout.getLineForOffset(paragraph.start)) +
-            layout.getLineBottom(layout.getLineForOffset(paragraph.end - 1))
+        val bottom = top - layout.getLineTop(layout.getLineForOffset(start)) +
+            layout.getLineBottom(layout.getLineForOffset(end - 1))
         return top to bottom
     }
 
@@ -403,7 +414,7 @@ class NovelTextViewport(
             }
         }
         recycler.invalidate()
-        val (paragraph, view) = markedParagraph() ?: return
+        val (view, start, end) = markedText() ?: return
         val text = view.text as? Spannable ?: return
         val current = checkNotNull(settings)
         val marks = when (current.ttsHighlightStyle) {
@@ -411,30 +422,37 @@ class NovelTextViewport(
             TtsHighlightStyle.UNDERLINE -> listOf(MarkUnderlineSpan())
             TtsHighlightStyle.OUTLINE -> return
         }
-        marks.forEach { text.setSpan(it, paragraph.start, paragraph.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        marks.forEach { text.setSpan(it, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
         view.invalidate()
     }
 
-    /** The spoken paragraph and the chunk view holding it, while highlighting is on and it is rendered. */
-    private fun markedParagraph(): Pair<ChunkParagraph, TextView>? {
+    /** The chunk view holding the spoken text, and where that text starts and ends in it. */
+    private data class SpokenText(val view: TextView, val start: Int, val end: Int)
+
+    /** [spokenText] while highlighting is on, which is when a mark is drawn. */
+    private fun markedText(): SpokenText? = if (settings?.ttsHighlight == true) spokenText() else null
+
+    /** The spoken sentence, or the whole paragraph when none is named or the sentence is not in its chunk. */
+    private fun spokenText(): SpokenText? {
         val position = spokenParagraph ?: return null
-        if (settings?.ttsHighlight != true) return null
         val slot = renderedSlot(position.chapterId) ?: return null
         val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return null
         val view = slot.block.chunkViews.getOrNull(paragraph.chunk) ?: return null
-        return paragraph to view
+        val (start, end) = spokenRange?.let { paragraph.chunkRange(view.text, it) }
+            ?: (paragraph.start to paragraph.end)
+        return SpokenText(view, start, end)
     }
 
     /**
-     * Brings the spoken paragraph fully into the uncovered part of the screen when it is not, top at its
-     * top edge or centred in it as the setting says. A chapter out of the recycler's layout has no line
+     * Brings the spoken sentence or paragraph fully into the uncovered part of the screen when it is not,
+     * top at its top edge or centred in it as the setting says. A chapter out of the recycler's layout has no line
      * to measure, so it is jumped to first and measured once laid out.
      */
     private fun followSpokenParagraph(position: ReadAloudPosition, retry: Boolean = true) {
         val current = settings?.takeIf { it.ttsKeepInView } ?: return
         val slot = renderedSlot(position.chapterId) ?: return
-        val paragraph = slot.paragraphs.getOrNull(position.paragraph) ?: return
-        val bounds = boundsOf(slot, paragraph)
+        val spoken = spokenText() ?: return
+        val bounds = boundsOf(spoken.view, spoken.start, spoken.end)
         if (bounds == null) {
             val item = adapter.positionOf(slot).takeIf { it >= 0 && retry } ?: return
             (recycler.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(item, 0)

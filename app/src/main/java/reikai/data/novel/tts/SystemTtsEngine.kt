@@ -5,6 +5,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import reikai.domain.novel.tts.NovelTtsEngine
 import reikai.domain.novel.tts.TtsEngineInfo
+import reikai.domain.novel.tts.TtsPiece
 import reikai.domain.novel.tts.TtsUtteranceSplitter
 import reikai.domain.novel.tts.TtsVoice
 import java.util.Locale
@@ -30,6 +31,13 @@ class SystemTtsEngine(
     @Volatile
     private var pendingDone: (() -> Unit)? = null
 
+    /** The paragraph being spoken, so a piece's start can be told where it sits. Replaced by every speak. */
+    @Volatile
+    private var spoken: Spoken? = null
+
+    /** Raised by every speak, so a callback from pieces already flushed names a paragraph no longer spoken. */
+    private var generation = 0
+
     /** The voice's locale, kept once known: asking the engine is a call into its process, measured at 10 to
      *  28ms on the main thread, and every paragraph needs it to split at sentence ends. */
     @Volatile
@@ -44,11 +52,16 @@ class SystemTtsEngine(
         enginePackage.ifBlank { null },
     ).apply {
         setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
+            override fun onStart(utteranceId: String?) {
+                val current = spoken ?: return
+                val index = current.indexOf(utteranceId) ?: return
+                current.onPieceStart(index)
+            }
 
             // A paragraph can be several utterances, so only the last one finishes the caller's.
             override fun onDone(utteranceId: String?) {
-                if (utteranceId == UTTERANCE_ID) fireDone()
+                val current = spoken ?: return
+                if (current.indexOf(utteranceId) == current.pieces.lastIndex) fireDone()
             }
 
             @Deprecated("Deprecated in Java")
@@ -60,6 +73,7 @@ class SystemTtsEngine(
     private fun fireDone() {
         val cb = pendingDone
         pendingDone = null
+        spoken = null
         cb?.invoke()
     }
 
@@ -69,6 +83,7 @@ class SystemTtsEngine(
     private fun abort() {
         val cb = pendingDone ?: return
         pendingDone = null
+        spoken = null
         runCatching { tts.stop() }
         cb()
     }
@@ -100,32 +115,30 @@ class SystemTtsEngine(
         tts.setPitch(pitch.coerceIn(0.1f, 5.0f))
     }
 
-    override fun speak(text: String, onDone: () -> Unit) {
-        if (!isReady) {
-            onDone()
-            return
-        }
-        // An utterance past the engine's own maximum fails, often later through onError rather than as a
-        // refusal here, so a long paragraph goes out as several and only the last carries the id the
-        // listener completes on.
-        val pieces = TtsUtteranceSplitter.split(
-            text = text,
-            maxLength = TextToSpeech.getMaxSpeechInputLength(),
-            locale = voiceLocale
-                ?: runCatching { tts.voice?.locale }.getOrNull()?.also { voiceLocale = it }
-                ?: Locale.getDefault(),
-        )
-        if (pieces.isEmpty()) {
+    // An utterance past the engine's own maximum fails, often later through onError rather than as a
+    // refusal at speak, so a long paragraph goes out as several and only the last completes the caller's.
+    override fun pieces(text: String, bySentence: Boolean): List<TtsPiece> = TtsUtteranceSplitter.pieces(
+        text = text,
+        maxLength = TextToSpeech.getMaxSpeechInputLength(),
+        locale = voiceLocale
+            ?: runCatching { tts.voice?.locale }.getOrNull()?.also { voiceLocale = it }
+            ?: Locale.getDefault(),
+        bySentence = bySentence,
+    )
+
+    override fun speak(pieces: List<TtsPiece>, onPieceStart: (index: Int) -> Unit, onDone: () -> Unit) {
+        if (!isReady || pieces.isEmpty()) {
             onDone()
             return
         }
         pendingDone = onDone
+        val current = Spoken(++generation, pieces, onPieceStart)
+        spoken = current
         pieces.forEachIndexed { index, piece ->
             val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            val id = if (index == pieces.lastIndex) UTTERANCE_ID else PART_UTTERANCE_ID
             // A refusal is reported as a return value and never reaches the listener, so without this
             // nothing would clear the callback and playback would stop here for good.
-            if (tts.speak(piece, queueMode, null, id) == TextToSpeech.ERROR) {
+            if (tts.speak(piece.text, queueMode, null, current.idOf(index)) == TextToSpeech.ERROR) {
                 abort()
                 return
             }
@@ -134,19 +147,33 @@ class SystemTtsEngine(
 
     override fun stop() {
         pendingDone = null
+        spoken = null
         runCatching { tts.stop() }
     }
 
     override fun shutdown() {
         pendingDone = null
+        spoken = null
         runCatching { tts.shutdown() }
     }
 
-    private companion object {
-        /** Carried by the piece that ends a paragraph, which is the one the caller waits on. */
-        const val UTTERANCE_ID = "reikai-novel-tts"
+    /** A paragraph's pieces under one generation. An utterance id names both, so a stale one matches nothing. */
+    private class Spoken(
+        val generation: Int,
+        val pieces: List<TtsPiece>,
+        val onPieceStart: (index: Int) -> Unit,
+    ) {
+        fun idOf(index: Int) = "$UTTERANCE_PREFIX$generation:$index"
 
-        /** Carried by every piece before it, so finishing one does not finish the paragraph. */
-        const val PART_UTTERANCE_ID = "reikai-novel-tts-part"
+        fun indexOf(utteranceId: String?): Int? {
+            val (idGeneration, index) = utteranceId?.removePrefix(UTTERANCE_PREFIX)?.split(':')
+                ?.takeIf { it.size == 2 } ?: return null
+            if (idGeneration.toIntOrNull() != generation) return null
+            return index.toIntOrNull()?.takeIf { it in pieces.indices }
+        }
+    }
+
+    private companion object {
+        const val UTTERANCE_PREFIX = "reikai-novel-tts:"
     }
 }

@@ -1,12 +1,9 @@
 package eu.kanade.presentation.more.settings.screen
 
-import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -21,20 +18,14 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.delay
 import mihon.app.di.appGraph
-import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.novel.tts.TtsColorPreset
-import reikai.domain.novel.tts.TtsEngineInfo
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
-import reikai.domain.novel.tts.TtsVoice
 import reikai.domain.novel.tts.baseLanguages
 import reikai.domain.novel.tts.inLanguages
 import reikai.novel.content.NovelSnippetKind
@@ -46,7 +37,7 @@ import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
-import tachiyomi.core.common.util.lang.withIOContext
+import reikai.presentation.reader.rememberTtsOptions
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -173,6 +164,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerTtsHighlight(),
                     title = stringResource(MR.strings.pref_tts_highlight),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTtsHighlightSentence(),
+                    title = stringResource(MR.strings.pref_tts_highlight_sentence),
+                    subtitle = stringResource(MR.strings.pref_tts_highlight_sentence_summary),
+                ).takeIf { highlight },
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTtsHighlightStyle(),
                     entries = TtsHighlightStyle.entries.associateWith { stringResource(it.titleRes) },
@@ -225,35 +221,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
             },
         )
     }
-
-    /**
-     * The installed engines and the voices of [engine]. Needs a live [SystemTtsEngine], which is bound
-     * only while this is composed and rebuilt when the engine changes. Voices can arrive a little after
-     * the engine reports ready, so the lists are polled briefly.
-     */
-    @Composable
-    private fun rememberTtsOptions(context: Context, engine: String): State<TtsOptions> =
-        produceState(TtsOptions(), engine) {
-            value = value.copy(voices = emptyList())
-            val ready = CompletableDeferred<Boolean>()
-            val tts = SystemTtsEngine(context, engine) { ready.complete(it) }
-            try {
-                if (!ready.await()) return@produceState
-                for (attempt in 1..VOICE_POLLS) {
-                    value = withIOContext { TtsOptions(tts.availableEngines(), tts.availableVoices()) }
-                    if (value.voices.isNotEmpty()) break
-                    delay(VOICE_POLL_INTERVAL)
-                }
-                awaitCancellation()
-            } finally {
-                tts.shutdown()
-            }
-        }
-
-    private data class TtsOptions(
-        val engines: List<TtsEngineInfo> = emptyList(),
-        val voices: List<TtsVoice> = emptyList(),
-    )
 
     /**
      * How the page is set, applied by whichever renderer draws the chapter. Indent and paragraph
@@ -657,6 +624,3 @@ private const val CUSTOM_COLOR = 0
 
 /** The slider rows are integers, so an em value rides across as tenths of one. */
 private const val TENTHS = 10f
-
-private const val VOICE_POLLS = 12
-private const val VOICE_POLL_INTERVAL = 300L

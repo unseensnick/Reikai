@@ -25,12 +25,31 @@ internal fun readAloudParagraphs(chunks: List<CharSequence>): List<ChunkParagrap
     }
 
 private fun paragraphOf(chunk: CharSequence, index: Int, lineStart: Int, lineEnd: Int): ChunkParagraph? {
+    val (text, sources) = shownText(chunk, lineStart, lineEnd)
+    if (text.isEmpty()) return null
+    return ChunkParagraph(text, index, sources.first(), sources.last() + 1)
+}
+
+/**
+ * Where [range] of this paragraph's [ChunkParagraph.text] sits in its chunk, as a start and an end, or
+ * null when the range is not inside the text. [chunk] is the text of the chunk the paragraph names.
+ */
+internal fun ChunkParagraph.chunkRange(chunk: CharSequence, range: IntRange): Pair<Int, Int>? {
+    val (shown, sources) = shownText(chunk, start, end)
+    if (shown != text || range.isEmpty() || range.first < 0 || range.last >= sources.size) return null
+    return sources[range.first] to sources[range.last] + 1
+}
+
+/**
+ * The paragraph's text as read aloud, and for each of its characters the chunk offset it came from. A
+ * collapsed space stands for the gap before the character after it, so it takes that character's offset.
+ */
+private fun shownText(chunk: CharSequence, lineStart: Int, lineEnd: Int): Pair<String, IntArray> {
     val readings = (chunk as? Spanned)?.getSpans(lineStart, lineEnd, RubyReadingSpan::class.java)
         ?.map { chunk.getSpanStart(it) until chunk.getSpanEnd(it) }
         .orEmpty()
     val text = StringBuilder()
-    var first = -1
-    var last = -1
+    val sources = mutableListOf<Int>()
     var spaceOwed = false
     for (i in lineStart until lineEnd) {
         val c = chunk[i]
@@ -39,14 +58,15 @@ private fun paragraphOf(chunk: CharSequence, index: Int, lineStart: Int, lineEnd
             spaceOwed = text.isNotEmpty()
             continue
         }
-        if (spaceOwed) text.append(' ')
+        if (spaceOwed) {
+            text.append(' ')
+            sources.add(i)
+        }
         spaceOwed = false
         text.append(c)
-        if (first < 0) first = i
-        last = i
+        sources.add(i)
     }
-    if (first < 0) return null
-    return ChunkParagraph(text.toString(), index, first, last + 1)
+    return text.toString() to sources.toIntArray()
 }
 
 private const val OBJECT_REPLACEMENT = '\uFFFC'

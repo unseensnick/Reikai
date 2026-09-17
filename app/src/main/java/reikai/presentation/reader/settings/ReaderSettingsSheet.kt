@@ -28,6 +28,7 @@ import mihon.icons.materialsymbols.rounded.Palette
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.font.NovelFont
 import reikai.presentation.icons.Contrast
+import reikai.presentation.icons.RecordVoiceOver
 import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.icons.TouchApp
 import reikai.presentation.reader.ReaderDisplayFilters
@@ -60,11 +61,15 @@ sealed interface ReaderSettingsPages {
     ) : ReaderSettingsPages
 }
 
-/** The same four tabs for both readers, so the sheet reads the same whichever is open. */
+/**
+ * The tabs in their order. Both readers share all of them but Read aloud, which only a novel has, so the
+ * sheet reads the same whichever is open.
+ */
 private enum class ReaderSettingsTab(val titleRes: StringResource, val icon: ImageVector) {
     Reading(MR.strings.pref_category_reading, MaterialSymbols.Rounded.LocalLibrary),
     Appearance(MR.strings.pref_category_appearance, MaterialSymbols.Rounded.Palette),
     Controls(MR.strings.reader_settings_controls, ReikaiIcons.TouchApp),
+    ReadAloud(MR.strings.pref_category_read_aloud, ReikaiIcons.RecordVoiceOver),
     Filters(MR.strings.reader_settings_filters, ReikaiIcons.Contrast),
 }
 
@@ -79,7 +84,10 @@ fun ReaderSettingsSheet(
     onShowMenus: () -> Unit,
     onHideMenus: () -> Unit,
 ) {
-    val tabs = ReaderSettingsTab.entries
+    val tabs = ReaderSettingsTab.entries.filter {
+        it != ReaderSettingsTab.ReadAloud ||
+            pages is ReaderSettingsPages.Novel
+    }
     val tabTitles = tabs.map { stringResource(it.titleRes) }
     val pagerState = rememberPagerState { tabs.size }
 
@@ -123,6 +131,9 @@ fun ReaderSettingsSheet(
                     ReaderSettingsTab.Controls -> when (pages) {
                         is ReaderSettingsPages.Manga -> MangaControlsPage(pages.viewModel)
                         is ReaderSettingsPages.Novel -> NovelControlsPage(pages.preferences)
+                    }
+                    ReaderSettingsTab.ReadAloud -> if (pages is ReaderSettingsPages.Novel) {
+                        NovelReadAloudPage(pages.preferences)
                     }
                     ReaderSettingsTab.Filters -> ReaderFiltersPage(pages.filters)
                 }

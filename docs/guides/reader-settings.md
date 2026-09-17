@@ -469,6 +469,9 @@ Scrolls the paragraph being read back on screen when it moves off. **Scroll to t
 #### Highlight paragraph <Badge type="info" text="On" />
 Marks the paragraph being read. With it on, **Highlight style** <Badge type="info" text="Background" /> picks a background, an underline or an outline, **Highlight color** picks its colour, and **Text color** sets the text drawn over a background highlight.
 
+#### Highlight sentence <Badge type="info" text="Off" />
+Marks only the sentence being read instead of its whole paragraph, in the same style and colours. It sends the text to the voice one sentence at a time, so some engines pause slightly between sentences. Only shown while **Highlight paragraph** is on.
+
 ### Accessibility
 
 #### Keep screen on <Badge type="info" text="Off" />

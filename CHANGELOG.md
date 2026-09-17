@@ -216,7 +216,7 @@ every release now also ships a foss build with neither in it.
 - **The novel reader now reads straight on into the next chapter and back into the previous one, turned off under Settings -> Novel reader -> Continuous chapters.** The title and progress follow the chapter you are actually in, and a marker names each boundary.
 - **Settings -> Novel reader can now find and replace text in a chapter before you read it.** Each rule matches plain text or a pattern, and a sample box shows what it would do before you save it.
 - **The novel reader can now read a chapter aloud, from a Read aloud button on the button bar.** Its floating controls read from the paragraph on screen, step between paragraphs and set a sleep timer whose time left shows in the notification.
-- **The novel reader highlights the paragraph being read aloud, in a style and colours you set under Settings -> Novel reader.** Keep paragraph in view scrolls back to it once it leaves the screen.
+- **The novel reader highlights the paragraph being read aloud, or with Highlight sentence on the sentence, in a style and colours you set under Settings -> Novel reader.** With sentences, Next and Previous step by sentence too.
 - **Read-aloud's engine, voice, speed and pitch are now under Settings -> Novel reader.**
 - **Settings -> Novel reader now picks its font on its own screen, where you can search the whole Google Fonts library or import a file.** Every font's row previews itself, Serif, Sans serif and Monospace included, and what you add works in both rendering modes.
 - **Bottom bar buttons under Settings -> Manga reader and Settings -> Novel reader now set the order of the reader's buttons, not just which ones show.** Drag a button by its handle; the settings button stays last.
@@ -224,7 +224,7 @@ every release now also ships a foss build with neither in it.
 
 #### Changed
 
-- **The reader's settings button now opens the same sheet for manga and novels, with Reading, Appearance, Controls and Filters tabs.** Manga keeps every setting it had, grouped by what each one does, and a novel gets its own text, theme, control and filter settings instead of manga's.
+- **The reader's settings button now opens the same sheet for manga and novels, with Reading, Appearance, Controls and Filters tabs, plus Read aloud for novels.** Manga keeps every setting it had, grouped by what each one does, and a novel gets its own text, theme, control, voice and filter settings instead of manga's.
 - **With Theme based on cover on, the novel reader's bars now take the novel's cover colours, as manga's do.**
 - **Novels now keep their own brightness, colour filter, grayscale and inverted colours, set from the novel reader's Filters tab.** A brightness or colour filter set in the old novel reader comes back.
 - **The novel reader's button bar now starts with text size and theme buttons, unless you have already chosen its buttons.** They are the quickest way to change either while reading.

@@ -694,6 +694,24 @@ class TextViewportContractTest(private val renderer: Renderer) {
         )
     }
 
+    /** The first word of a paragraph three lines long, so a mark over the whole paragraph would show. */
+    @Test
+    fun aSentenceMarkCoversOnlyThatSentencesLine() {
+        open(chapter(FIRST, SPACED), spacedSettings)
+        highlight(ReadAloudPosition(FIRST, SPACED_LONG), 0 until "lorem".length)
+        awaitDrawnMark()
+        val lines = paragraphLines(SPACED_PARAGRAPHS[SPACED_LONG])
+        val painted = painted()
+        Log.i(TAG, "$renderer sentence: lines $lines, painted $painted")
+        assertTrue(
+            "painted $painted over lines $lines",
+            lines.size >= 3 &&
+                painted.height <= lines.first().height() * GLYPH_SLACK &&
+                painted.bottom <= lines[1].top &&
+                painted.right < lines.first().right - EDGE_SLACK_PX,
+        )
+    }
+
     @Test
     fun anOutlineEnclosesTheParagraphsTextWithinItsPad() {
         open(chapter(FIRST, SPACED), spacedSettings.copy(ttsHighlightStyle = TtsHighlightStyle.OUTLINE))
@@ -1998,8 +2016,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private fun firstVisibleParagraph(): ReadAloudPosition? =
         runBlocking(Dispatchers.Main) { viewport.readAloud.firstVisibleParagraph() }
 
-    private fun highlight(position: ReadAloudPosition?) {
-        instrumentation.runOnMainSync { viewport.readAloud.highlight(position) }
+    private fun highlight(position: ReadAloudPosition?, range: IntRange? = null) {
+        instrumentation.runOnMainSync { viewport.readAloud.highlight(position, range) }
     }
 
     private fun obscure(top: Int, bottom: Int) {

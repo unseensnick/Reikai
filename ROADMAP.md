@@ -35,7 +35,6 @@ Opportunistic polish:
 ### Reader
 
 - **Hold the novel reader's exact line across a rotation** `[M]` - a rebuilt renderer restores a percent of the chapter, so the top line moves by a paragraph or so, and within a chapter's last screen it lands up to a screen back. The fix is a line position both renderers report and land on; native's redraw already keeps one. [Plan](docs/dev/plans/content-layer-reader-surface.md).
-- **Sentence-level read-aloud highlight for novels** `[M]` - mark the sentence being spoken rather than the whole paragraph; the shared reader's read-aloud marks and follows paragraphs only. [Plan](docs/dev/plans/content-layer-reader-surface.md).
 
 ### Novel sources & LN plugins
 

@@ -12,9 +12,12 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.NovelTtsEngine
 import reikai.domain.novel.tts.TtsEngineInfo
+import reikai.domain.novel.tts.TtsPiece
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.novel.tts.TtsUtteranceSplitter
 import reikai.domain.novel.tts.TtsVoice
 import reikai.presentation.recents.EmittingPreferenceStore
+import java.util.Locale
 
 class ReadAloudControllerTest {
 
@@ -64,6 +67,159 @@ class ReadAloudControllerTest {
         playing()
 
         surface.highlights.last() shouldBe ReadAloudPosition(1L, 1)
+    }
+
+    @Test
+    fun `paragraphs are spoken whole while sentence highlighting is off`() = runTest {
+        playing()
+
+        engine.bySentence.last() shouldBe false
+    }
+
+    @Test
+    fun `a piece starting does not narrow the mark while sentence highlighting is off`() = runTest {
+        playing()
+
+        act { engine.pieceStarts.last()(0) }
+
+        surface.ranges.last() shouldBe null
+    }
+
+    @Test
+    fun `sentence highlighting speaks a paragraph one sentence at a time`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        playing()
+
+        engine.bySentence.last() shouldBe true
+    }
+
+    @Test
+    fun `sentence highlighting needs the paragraph highlight on`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        preferences.readerTtsHighlight().set(false)
+        playing()
+
+        engine.bySentence.last() shouldBe false
+    }
+
+    /** The paragraph is marked a sentence at a time, so marking all of it before the first would flash. */
+    @Test
+    fun `a paragraph spoken by sentence is not marked whole before its first sentence starts`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        playing()
+
+        surface.highlights shouldBe emptyList()
+    }
+
+    @Test
+    fun `a sentence starting marks its range in the paragraph`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        playing()
+
+        act { engine.pieceStarts.last()(0) }
+
+        surface.ranges.last() shouldBe (0 until 1)
+    }
+
+    @Test
+    fun `a sentence starting in a paragraph since replaced marks nothing`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        val controller = playing()
+        val stale = engine.pieceStarts.last()
+        act { controller.nextParagraph() }
+
+        act { stale(0) }
+
+        surface.ranges shouldBe emptyList()
+    }
+
+    /** Through a rebuild, which marks what the controller holds rather than what the speak just drew. */
+    @Test
+    fun `a sentence is not carried into the next paragraph`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        val controller = playing()
+        act { engine.pieceStarts.last()(0) }
+        act { engine.finishLast() }
+
+        act { controller.onRendererLanded(1L) }
+
+        surface.ranges.last() shouldBe null
+    }
+
+    @Test
+    fun `a rebuild that finds the paragraph again keeps its sentence marked`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        val controller = playing()
+        act { engine.pieceStarts.last()(0) }
+
+        act { controller.onRendererLanded(1L) }
+
+        surface.ranges.last() shouldBe (0 until 1)
+    }
+
+    /**
+     * The paragraph read first has three sentences, so a sentence step and a paragraph step land on
+     * different text inside it, and its neighbours have sentences to reach past either end.
+     */
+    private fun sentenceChapter() {
+        preferences.readerTtsHighlightSentence().set(true)
+        surface.chapters[1L] = listOf("One. Two.", "Three. Four. Five.", "Six. Seven.")
+    }
+
+    @Test
+    fun `next moves one sentence while sentences are spoken`() = runTest {
+        sentenceChapter()
+        val controller = playing()
+
+        act { controller.nextParagraph() }
+
+        engine.spoken.last() shouldBe "Four. Five."
+    }
+
+    @Test
+    fun `next from a paragraph's last sentence starts the next paragraph`() = runTest {
+        sentenceChapter()
+        val controller = playing()
+        act { controller.nextParagraph() }
+        act { controller.nextParagraph() }
+
+        act { controller.nextParagraph() }
+
+        engine.spoken.last() shouldBe "Six. Seven."
+    }
+
+    @Test
+    fun `previous from a paragraph's first sentence goes back to the last sentence before it`() = runTest {
+        sentenceChapter()
+        val controller = playing()
+
+        act { controller.previousParagraph() }
+
+        engine.spoken.last() shouldBe "Two."
+    }
+
+    @Test
+    fun `previous inside a paragraph goes back one sentence`() = runTest {
+        sentenceChapter()
+        val controller = playing()
+        act { controller.nextParagraph() }
+        act { controller.nextParagraph() }
+
+        act { controller.previousParagraph() }
+
+        engine.spoken.last() shouldBe "Four. Five."
+    }
+
+    @Test
+    fun `resuming a paragraph spoken by sentence carries on from the sentence paused in`() = runTest {
+        sentenceChapter()
+        val controller = playing()
+        act { engine.pieceStarts.last()(1) }
+        act { controller.pause() }
+
+        act { controller.play() }
+
+        engine.spoken.last() shouldBe "Four. Five."
     }
 
     @Test
@@ -740,6 +896,10 @@ class ReadAloudControllerTest {
     private class FakeTtsEngine(val enginePackage: String, private val onInit: (Boolean) -> Unit) : NovelTtsEngine {
         override var isReady = false
         val spoken = mutableListOf<String>()
+        val bySentence = mutableListOf<Boolean>()
+
+        /** Every paragraph's piece-start callback, in the order they were spoken. */
+        val pieceStarts = mutableListOf<(Int) -> Unit>()
 
         /** Every paragraph's finish, kept after a stop, since the real one can already be on its way. */
         private val finishes = mutableListOf<() -> Unit>()
@@ -773,8 +933,15 @@ class ReadAloudControllerTest {
             lastPitch = pitch
         }
 
-        override fun speak(text: String, onDone: () -> Unit) {
-            spoken += text
+        override fun pieces(text: String, bySentence: Boolean): List<TtsPiece> {
+            this.bySentence += bySentence
+            return TtsUtteranceSplitter.pieces(text, maxLength = 1000, Locale.ENGLISH, bySentence)
+        }
+
+        /** What was spoken, as its pieces joined, so a paragraph spoken whole reads as itself. */
+        override fun speak(pieces: List<TtsPiece>, onPieceStart: (index: Int) -> Unit, onDone: () -> Unit) {
+            spoken += pieces.joinToString(" ") { it.text }
+            pieceStarts += onPieceStart
             finishes += onDone
         }
 
@@ -792,6 +959,7 @@ class ReadAloudControllerTest {
         var firstVisible: ReadAloudPosition?,
     ) : ReadAloudSurface {
         val highlights = mutableListOf<ReadAloudPosition?>()
+        val ranges = mutableListOf<IntRange?>()
 
         /** How long each question takes to answer, in virtual time, as a page still starting up does. */
         var answerDelayMs = 0L
@@ -806,8 +974,9 @@ class ReadAloudControllerTest {
             return firstVisible
         }
 
-        override fun highlight(position: ReadAloudPosition?) {
+        override fun highlight(position: ReadAloudPosition?, range: IntRange?) {
             highlights += position
+            ranges += range
         }
     }
 

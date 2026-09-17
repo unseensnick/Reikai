@@ -38,12 +38,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import reikai.domain.novel.NovelChapterTitleFormat
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.novel.tts.TtsColorPreset
+import reikai.domain.novel.tts.TtsHighlightColors
+import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.novel.tts.baseLanguages
+import reikai.domain.novel.tts.inLanguages
 import reikai.novel.font.NovelFont
 import reikai.novel.font.fontDisplayName
 import reikai.presentation.components.ColorPickerDialog
@@ -59,12 +65,14 @@ import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.PresetSwatch
 import reikai.presentation.reader.ReaderFont
 import reikai.presentation.reader.ReaderThemePreset
+import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.readerColorOrNull
 import reikai.presentation.reader.readerDarkPreset
 import reikai.presentation.reader.readerFonts
 import reikai.presentation.reader.readerGenericFonts
 import reikai.presentation.reader.readerLightPreset
 import reikai.presentation.reader.readerThemePresets
+import reikai.presentation.reader.rememberTtsOptions
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -75,12 +83,13 @@ import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /*
  * The novel half of the reader's settings sheet, in tsundoku's look: the rows a reader adjusts while
  * looking at the page. Every one but the novel's own rotation is also on Settings -> Novel reader, and
- * both write the same values.
+ * both write the same values. Read aloud is a novel's tab alone.
  */
 
 private const val TENTHS = 10f
@@ -459,6 +468,236 @@ private fun FontRow(pref: Preference<String>, installedFonts: suspend () -> List
             },
             confirmButton = {
                 TextButton(onClick = { picking = false }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+        )
+    }
+}
+
+/** Read aloud's engine, voice and mark, as Settings -> Novel reader sets them. */
+@Composable
+internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
+    val context = LocalContext.current
+    val engine by preferences.readerTtsEngine().collectAsState()
+    val options by rememberTtsOptions(context, engine)
+    EngineRow(preferences, options)
+    VoiceLanguagesRow(preferences, options)
+    VoiceRow(preferences, options)
+    TenthsStepper(preferences.readerTtsRate(), MR.strings.pref_tts_rate, tenths = 1..30, format = "%.1fx")
+    TenthsStepper(preferences.readerTtsPitch(), MR.strings.pref_tts_pitch, tenths = 1..20, format = "%.1f")
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_tts_auto_page_advance),
+        pref = preferences.readerTtsAutoPageAdvance(),
+    )
+
+    val keepInView by preferences.readerTtsKeepInView().collectAsState()
+    CheckboxItem(label = stringResource(MR.strings.pref_tts_keep_in_view), pref = preferences.readerTtsKeepInView())
+    if (keepInView) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_tts_scroll_to_top),
+            pref = preferences.readerTtsScrollToTop(),
+        )
+    }
+
+    val highlight by preferences.readerTtsHighlight().collectAsState()
+    CheckboxItem(label = stringResource(MR.strings.pref_tts_highlight), pref = preferences.readerTtsHighlight())
+    if (!highlight) return
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_tts_highlight_sentence),
+        pref = preferences.readerTtsHighlightSentence(),
+    )
+    val stylePref = preferences.readerTtsHighlightStyle()
+    val style by stylePref.collectAsState()
+    SettingsChipRow(MR.strings.pref_tts_highlight_style) {
+        TtsHighlightStyle.entries.forEach {
+            FilterChip(
+                selected = style == it,
+                onClick = { stylePref.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
+    TtsColorRow(
+        preferences.readerTtsHighlightColor(),
+        TtsHighlightColors.highlight,
+        MR.strings.pref_tts_highlight_color,
+    )
+    // Underline and outline leave the text's own colour alone.
+    if (style == TtsHighlightStyle.BACKGROUND) {
+        TtsColorRow(
+            preferences.readerTtsHighlightTextColor(),
+            TtsHighlightColors.text,
+            MR.strings.pref_tts_highlight_text_color,
+        )
+    }
+}
+
+/** The engine, only offered when more than one is installed. A new engine stops playback. */
+@Composable
+private fun EngineRow(preferences: NovelPreferences, options: TtsOptions) {
+    if (options.engines.size <= 1) return
+    val enginePref = preferences.readerTtsEngine()
+    val engine by enginePref.collectAsState()
+    var picking by remember { mutableStateOf(false) }
+    val defaultLabel = stringResource(MR.strings.label_default)
+    PickerRow(
+        labelRes = MR.strings.pref_tts_engine,
+        value = if (engine.isEmpty()) {
+            defaultLabel
+        } else {
+            options.engines.firstOrNull { it.packageName == engine }?.label ?: engine
+        },
+        onClick = { picking = true },
+    )
+    if (picking) {
+        ListPickerDialog(MR.strings.pref_tts_engine, onDismiss = { picking = false }) {
+            (listOf("" to defaultLabel) + options.engines.map { it.packageName to it.label }).forEach { (name, label) ->
+                RadioItem(label = label, selected = name == engine) {
+                    // A voice belongs to the engine that offers it, so one kept across a switch never applies.
+                    if (name != engine) preferences.readerTtsVoice().set("")
+                    enginePref.set(name)
+                    picking = false
+                }
+            }
+        }
+    }
+}
+
+/** Narrows the voice list to some languages, only offered when the voices span more than one. */
+@Composable
+private fun VoiceLanguagesRow(preferences: NovelPreferences, options: TtsOptions) {
+    val languagesPref = preferences.readerTtsLanguages()
+    val selected by languagesPref.collectAsState()
+    val languages = remember(options.voices) {
+        options.voices.baseLanguages()
+            .map { code -> code to Locale.forLanguageTag(code).displayLanguage.ifBlank { code } }
+            .sortedBy { it.second }
+    }
+    if (languages.size <= 1) return
+    var picking by remember { mutableStateOf(false) }
+    PickerRow(
+        labelRes = MR.strings.pref_tts_languages,
+        value = languages.filter { it.first in selected }.joinToString { it.second }
+            .ifEmpty { stringResource(MR.strings.all) },
+        onClick = { picking = true },
+    )
+    if (picking) {
+        ListPickerDialog(MR.strings.pref_tts_languages, onDismiss = { picking = false }) {
+            languages.forEach { (code, name) ->
+                CheckboxItem(label = name, checked = code in selected) {
+                    languagesPref.set(if (code in selected) selected - code else selected + code)
+                }
+            }
+        }
+    }
+}
+
+/** The voice, named as the engine names it, and a list of the voices in the languages picked above. */
+@Composable
+private fun VoiceRow(preferences: NovelPreferences, options: TtsOptions) {
+    val voicePref = preferences.readerTtsVoice()
+    val voice by voicePref.collectAsState()
+    val languages by preferences.readerTtsLanguages().collectAsState()
+    var picking by remember { mutableStateOf(false) }
+    val defaultLabel = stringResource(MR.strings.label_default)
+    PickerRow(
+        labelRes = MR.strings.pref_tts_voice,
+        // Looked up in every voice: one picked before the language filter changed still plays.
+        value = if (voice.isEmpty()) {
+            defaultLabel
+        } else {
+            options.voices.firstOrNull { it.name == voice }?.displayName ?: voice
+        },
+        onClick = { picking = true },
+    )
+    if (picking) {
+        val shown = remember(options.voices, languages) { options.voices.inLanguages(languages) }
+        ListPickerDialog(MR.strings.pref_tts_voice, onDismiss = { picking = false }) {
+            RadioItem(label = defaultLabel, selected = voice.isEmpty()) {
+                voicePref.set("")
+                picking = false
+            }
+            shown.forEach {
+                RadioItem(label = it.displayName, selected = it.name == voice) {
+                    voicePref.set(it.name)
+                    picking = false
+                }
+            }
+        }
+    }
+}
+
+/** A setting's name and its current value, opening a picker on a tap. */
+@Composable
+private fun PickerRow(labelRes: StringResource, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/** A scrolling list of choices under [titleRes], closed by its button or by picking one. */
+@Composable
+private fun ListPickerDialog(
+    titleRes: StringResource,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(titleRes)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                content = content,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_close)) }
+        },
+    )
+}
+
+/** The named colours as chips, then Custom, which opens the picker and is selected for any other colour. */
+@Composable
+private fun ColumnScope.TtsColorRow(pref: Preference<Int>, presets: List<TtsColorPreset>, labelRes: StringResource) {
+    val color by pref.collectAsState()
+    var picking by remember { mutableStateOf(false) }
+    val label = stringResource(labelRes)
+    SettingsChipRow(labelRes) {
+        presets.forEach {
+            FilterChip(
+                selected = color == it.argb,
+                onClick = { pref.set(it.argb) },
+                label = { Text(stringResource(it.nameRes)) },
+            )
+        }
+        FilterChip(
+            selected = presets.none { it.argb == color },
+            onClick = { picking = true },
+            label = { Text(stringResource(MR.strings.color_custom)) },
+        )
+    }
+    if (picking) {
+        ColorPickerDialog(
+            title = label,
+            initialColor = color,
+            onDismiss = { picking = false },
+            onConfirm = {
+                pref.set(it)
+                picking = false
             },
         )
     }

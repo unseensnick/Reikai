@@ -700,19 +700,36 @@
       }
       var flat = chars.join('');
       var cursor = 0;
-      // Searched rather than walked in step, so text the page hides (and innerText leaves out) is skipped.
-      var ranges = texts.map(function (text) {
-        var key = text.replace(/\s/g, '');
-        var at = flat.indexOf(key, cursor);
-        if (at < 0) return null;
-        cursor = at + key.length;
-        var last = at + key.length - 1;
+      function rangeOver(first, last) {
         var range = document.createRange();
-        range.setStart(nodes[at], offsets[at]);
+        range.setStart(nodes[first], offsets[first]);
         range.setEnd(nodes[last], offsets[last] + 1);
         return range;
+      }
+      // Searched rather than walked in step, so text the page hides (and innerText leaves out) is skipped.
+      var starts = texts.map(function (text) {
+        var key = text.replace(/\s/g, '');
+        var at = flat.indexOf(key, cursor);
+        if (at < 0) return -1;
+        cursor = at + key.length;
+        return at;
       });
-      return { texts: texts, ranges: ranges };
+      var ranges = texts.map(function (text, i) {
+        return starts[i] < 0 ? null : rangeOver(starts[i], starts[i] + text.replace(/\s/g, '').length - 1);
+      });
+      /*
+       * Part of paragraph i, from and to being offsets in its text. Located by counting the non-space
+       * characters before each end, the rule the paragraph itself was found by; null when the part holds none.
+       */
+      function part(i, from, to) {
+        if (starts[i] < 0) return null;
+        var text = texts[i];
+        var before = text.slice(0, from).replace(/\s/g, '').length;
+        var inside = text.slice(from, to).replace(/\s/g, '').length;
+        if (inside === 0) return null;
+        return rangeOver(starts[i] + before, starts[i] + before + inside - 1);
+      }
+      return { texts: texts, ranges: ranges, part: part };
     }
 
     function entry(id) {
@@ -724,7 +741,10 @@
       return cache[id];
     }
 
-    /* The spoken paragraph's range, dropping the position once its chapter has left the page. */
+    /*
+     * The spoken sentence's range, or the paragraph's when no sentence is named or it cannot be found,
+     * dropping the position once its chapter has left the page.
+     */
     function spokenRange() {
       if (!spoken) return null;
       var found = entry(spoken.id);
@@ -732,7 +752,8 @@
         spoken = null;
         return null;
       }
-      return found.ranges[spoken.index] || null;
+      var sentence = spoken.from >= 0 && found.texts[spoken.index] ? found.part(spoken.index, spoken.from, spoken.to) : null;
+      return sentence || found.ranges[spoken.index] || null;
     }
 
     function clear() {
@@ -835,8 +856,9 @@
         }
         return null;
       },
-      highlight: function (id, index) {
-        spoken = id === null ? null : { id: String(id), index: index };
+      /* from and to name the sentence being spoken inside the paragraph, and -1 names the whole paragraph. */
+      highlight: function (id, index, from, to) {
+        spoken = id === null ? null : { id: String(id), index: index, from: from, to: to };
         draw();
         follow();
       },

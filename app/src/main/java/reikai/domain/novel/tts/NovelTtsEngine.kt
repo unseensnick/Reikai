@@ -23,9 +23,17 @@ interface NovelTtsEngine {
     fun setRate(rate: Float)
     fun setPitch(pitch: Float)
 
-    /** Speak [text]; [onDone] fires once when the utterance finishes (or fails). Replaces any
-     *  utterance already in progress. */
-    fun speak(text: String, onDone: () -> Unit)
+    /**
+     * [text] as the pieces this engine can speak, each within its input limit. [bySentence] gives every
+     * sentence a piece of its own, so the one being spoken can be marked and stepped to.
+     */
+    fun pieces(text: String, bySentence: Boolean): List<TtsPiece>
+
+    /**
+     * Speak [pieces] in order; [onDone] fires once when all of them finish (or fail). Replaces any
+     * utterance already in progress. [onPieceStart] fires as each piece begins, with its index in [pieces].
+     */
+    fun speak(pieces: List<TtsPiece>, onPieceStart: (index: Int) -> Unit, onDone: () -> Unit)
 
     /** Stop the current utterance immediately, without firing its [speak] `onDone`. */
     fun stop()

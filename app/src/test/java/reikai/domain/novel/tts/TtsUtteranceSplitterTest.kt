@@ -110,4 +110,32 @@ class TtsUtteranceSplitterTest {
         chunks.forEach { Character.isHighSurrogate(it.last()) shouldBe false }
         chunks.joinToString("") shouldBe "𝄞".repeat(60)
     }
+
+    @Test
+    fun `sentence pieces give every sentence a piece of its own`() {
+        TtsUtteranceSplitter.pieces("First one. Second one.", maxLength = 100, Locale.ENGLISH, bySentence = true)
+            .map { it.text } shouldBe listOf("First one.", "Second one.")
+    }
+
+    @Test
+    fun `a piece's offsets name its text in the paragraph`() {
+        val text = "First one. Second one."
+        val pieces = TtsUtteranceSplitter.pieces(text, maxLength = 100, Locale.ENGLISH, bySentence = true)
+
+        pieces.map { text.substring(it.start, it.end) } shouldBe pieces.map { it.text }
+    }
+
+    @Test
+    fun `packed pieces keep their offsets in the paragraph`() {
+        val text = sentences(count = 5, wordsEach = 10)
+        val pieces = TtsUtteranceSplitter.pieces(text, maxLength = 200, Locale.ENGLISH, bySentence = false)
+
+        pieces.map { text.substring(it.start, it.end) } shouldBe pieces.map { it.text }
+    }
+
+    @Test
+    fun `a sentence past the cap still splits under it when spoken by sentence`() {
+        TtsUtteranceSplitter.pieces(runOnSentence, maxLength = 200, Locale.ENGLISH, bySentence = true)
+            .forEach { it.text.length shouldBeLessThanOrEqual 200 }
+    }
 }
