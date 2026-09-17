@@ -1,0 +1,100 @@
+---
+title: Downloads
+titleTemplate: Frequently Asked Questions
+description: Frequently Asked Question about Downloads.
+---
+
+# Downloads
+Frequently Asked Question about Downloads.
+
+## How do I download multiple chapters or series at the same time?
+Two settings in <nav to="downloads"> control this for manga, and both start conservative on purpose: hammering a source is how you get your IP banned from it.
+
+* **Concurrent source downloads** is how many sources are worked at once, five by default.
+* **Concurrent page downloads** is how many pages are pulled at once from each of them.
+
+Raise the second one only for a source you know tolerates it. A source that starts returning errors or blank pages under load is telling you to put it back.
+
+Light novels ignore both settings: their queue downloads one chapter at a time.
+
+## Why did my downloads stop midway?
+Downloads stopping midway may be related to network connection issues or source problems.
+**Reikai** will provide notifications regarding encountered errors during download attempts.
+
+## Why can't I see my downloads?
+Downloads might not be detected due to multiple factors:
+
+* Inaccessibility of the download location.
+  > Ensure the SD card is properly detected if in use.
+* Source name changes.
+  > Rename the source's folder to match the new name. Light novel folders use the plugin id, so a renamed novel source needs nothing.
+* Series title modified by the source.
+  > Adjust the folder title to the updated name.
+
+## How do I manage what's downloading?
+Navigate to <nav to="download-queue"> to interact with queued downloads.
+
+Manga and light novels share the queue, with **All** / **Manga** / **Novels** chips to narrow it. Each series is one card holding its chapters.
+
+* The pause button stops and restarts whatever is currently shown, so pausing on **Manga** leaves novels running.
+* **Sort** is an icon in the toolbar and **Cancel all** is in the overflow beside it. **Cancel all** clears only what is shown.
+* Drag a card by its handle to move that series up or down the queue.
+
+## Can I use both internal storage and external SD card storage?
+No, you must choose a single location. Internal storage performs better than external SD cards.
+
+## Why does my device photo gallery contain series pages?
+**Reikai** typically prevents series pages in downloads from appearing in your device's photo gallery by default through a `.nomedia` file.
+However, in some cases, this might not function as intended.
+
+A quick solution is to create the `.nomedia` file yourself, name it as such, and place it in your downloads folder. If the issue pertains to local source, put the `.nomedia` file in the respective local folder.
+
+## How are downloads organized on the filesystem?
+They are stored as `downloads/Source Name/Manga Name/Chapter Name_abcdef.cbz`, where the six characters after the underscore are a hash of the chapter's address.
+Light novels use a folder of their own, `novel_downloads/Plugin id/Novel Name/`, with each chapter saved as `Chapter Name_abcdef.html`. The folder is named after the novel plugin's id, not its display name.
+The `abcdef` string is the first 6 hexadecimal digits of the MD5 hash of the URL of the chapter, so that if two chapters have the same name, they won't try to write to the same filename.
+For a manga chapter with a scanlator, it is `Scanlator Name_Chapter Name` instead of just `Chapter Name`. Novel chapters never carry a scanlator prefix.
+
+Because of the prevalence of operating systems like Windows which have arbitrary limitations on special characters in filenames, by default Reikai will avoid using certain characters in filenames, specifically: `"*:<>?\|`.
+Of course, `/` is also banned.
+All of these characters are replaced by underscores if they appear in source, manga, chapter, or scanlator names.
+
+Some users have reported using exceptionally buggy operating systems which also have problems with other Unicode characters, such as (but not necessarily limited to) emojis.
+If you must use Reikai with such an operating system, turn on **Disallow non-ASCII filenames** in <nav to="advanced">, which keeps any non-ASCII character out of a filename.
+Such characters will be replaced with their hexadecimal representations instead.
+The special characters mentioned above are still replaced with underscores, if present, rather than hexadecimal.
+
+None of the above considerations affect the way series and chapters are displayed in Reikai, which is based on their metadata rather than filenames.
+Because the local source reads comic metadata files, if present, its functioning is also not affected by filename changes if you convert an external source download directory into a local source directory.
+
+If you change that setting after downloading anything, you may need to do some manual work so Reikai can still find those downloads.
+Chapter filenames do not need to be changed, as Reikai is able to check multiple options for a chapter filename, and will find the already-downloaded chapters.
+Manga and source directory names, however, need to be updated manually if they contain non-ASCII characters.
+Here is an example:
+
+```text
+./例 ソース (ALL)/最高のマンガ！/Scanlator Name_始まり_182cce.cbz
+./e4be8b20e382bde383bce382b9 (ALL)/e69c80e9ab98e381aee3839ee383b3e382acefbc81/Scanlator Name_e5a78be381bee3828a_182cce.cbz
+```
+
+The inability for a device to handle Unicode characters in filenames is a bug.
+Please consider contacting your device or operating system vendor to report this, or consider using a standards-compliant device in future, if possible.
+
+## A download keeps failing. Is that a bug in Reikai?
+
+Usually not. Reikai's download code is Mihon's, so whether a chapter can actually be
+fetched is almost always on the source or extension side, not the app. Common cases:
+
+- **Blank in the reader too / a Cloudflare error:** the source's own server is
+  unreachable. Nothing to do but wait for it to come back, or route it through a
+  [Cloudflare bypass proxy](/docs/flaresolverr) if that is the block.
+- **Won't download until you open a chapter first:** some sources only build their page
+  list once you have opened the reader (a session or decrypt step). The downloader asks
+  for the list cold and gets nothing until you have viewed a chapter once.
+- **Renders in the reader but saves zero pages:** the page shows, but the extension's
+  parser returns no pages, so there is nothing to save.
+
+Quick test: try the same source and chapter in Mihon. If it fails there too, it is not
+specific to Reikai (more likely the source blocking you, or something on your network:
+ISP, DNS, a VPN or firewall). If it works in Mihon but not Reikai, that one is on me,
+so open an issue with the exact source, chapter, and steps.

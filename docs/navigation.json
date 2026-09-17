@@ -1,0 +1,38 @@
+{
+  "main_library": { "name": "Library", "icon": "library" },
+  "main_updates": { "name": "Updates", "icon": "updates" },
+  "main_history": { "name": "History", "icon": "history" },
+  "main_browse": { "name": "Browse", "icon": "browse" },
+  "main_more": { "name": "More", "icon": "more" },
+
+  "sources": { "name": "Sources", "under": "main_browse" },
+  "extensions": { "name": "Extensions", "under": "main_browse" },
+  "migrate": { "name": "Migrate", "under": "main_browse" },
+
+  "downloaded-only": { "name": "Downloaded only", "icon": "download", "under": "main_more" },
+  "incognito-mode": { "name": "Incognito mode", "icon": "incognito", "under": "main_more" },
+  "download-queue": { "name": "Download queue", "icon": "download", "under": "main_more" },
+  "categories": { "name": "Categories", "icon": "categories", "under": "main_more" },
+  "statistics": { "name": "Statistics", "icon": "statistics", "under": "main_more" },
+  "data-and-storage": { "name": "Data and storage", "icon": "storage", "under": "main_more" },
+  "batch-add": { "name": "Batch add", "icon": "library", "under": "main_more" },
+  "settings": { "name": "Settings", "icon": "settings", "under": "main_more" },
+  "about": { "name": "About", "icon": "about", "under": "main_more" },
+  "help": { "name": "Help", "icon": "help", "under": "main_more" },
+
+  "appearance": { "name": "Appearance", "icon": "appearance", "under": "settings" },
+  "library": { "name": "Library", "icon": "library", "under": "settings" },
+  "reader": { "name": "Reader", "icon": "reader", "under": "settings" },
+  "downloads": { "name": "Downloads", "icon": "download", "under": "settings" },
+  "tracking": { "name": "Tracking", "icon": "tracking", "under": "settings" },
+  "browse": { "name": "Browse", "icon": "browse", "under": "settings" },
+  "security-and-privacy": { "name": "Security and privacy", "icon": "security", "under": "settings" },
+  "advanced": { "name": "Advanced", "icon": "advanced", "under": "settings" },
+  "recommendations": { "name": "Recommendations", "under": "library" },
+  "e-hentai": { "name": "E-Hentai", "under": "settings" },
+  "mangadex": { "name": "MangaDex", "under": "settings" },
+
+  "overflow": { "name": "Overflow", "icon": "overflow" },
+  "webview": { "name": "Open in WebView", "icon": "webview", "under": "overflow" },
+  "webview-single": { "name": "WebView", "icon": "webview" }
+}
