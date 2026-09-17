@@ -20,7 +20,7 @@ An entry joins a group when you accept the prompt shown as you add it, or when y
 
 ## Grouping series
 
-Turn grouping on with **Group series across sources**, in <nav to="library"> under **Sources**, or in the library display sheet.
+Turn grouping on with **Group series across sources**, in <nav to="library"> under **Merged series**, or in the library display sheet.
 
 With it on, every group renders as one card.
 Turning it off expands each group back into its per-source entries and keeps the groups, so turning it on again collapses them exactly as they were.
@@ -36,7 +36,7 @@ Pick the entry it belongs with, and the new copy is added to your library and jo
 Adding from Browse, global search, a series' own details page, History or Updates, or MangaDex Follows.
 :::
 
-That prompt is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Sources**, once for **Manga** and once for **Novels**.
+That prompt is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Merged series**, once for **Manga** and once for **Novels**.
 With it off, adding a matching series never offers to group it.
 
 ### Reading a merged card
@@ -116,7 +116,7 @@ On the details screen, open <nav to="overflow"> and tap **Manage sources** to se
 
 Long-press a row to select several sources and split or remove them together.
 
-The global ranking those first two items refer to is **Preferred sources**, in <nav to="library"> under **Sources**.
+The global ranking those first two items refer to is **Preferred sources**, in <nav to="library"> under **Merged series**.
 It decides which source leads a merged chapter list when a group has no order of its own.
 
 ## Removing a grouped series

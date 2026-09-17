@@ -19,8 +19,8 @@ Leave the switch alone and the app behaves as though none of it exists.
 ## Turning it on
 
 ::: tip How to enable adult sources
-1. Go to <nav to="advanced">.
-1. Turn on **Enable adult sources (E-Hentai)**.
+1. Go to <nav to="browse">.
+1. Under **Extensions**, turn on **Enable adult sources (E-Hentai)**.
 :::
 
 E-Hentai then appears in <nav to="main_browse">, and you can search and read from it straight away without an account.

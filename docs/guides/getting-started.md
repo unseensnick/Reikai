@@ -74,8 +74,8 @@ If you want to search for series across all your sources, you can use the Global
 Follow these steps:
 
 1. Go to the "**Browse**" section.
-1. Ensure you're on the "**Sources**" tab, the first of the three along the top.
-1. Use the Search icon in the toolbar to find series from all available sources.
+1. Open the "**Sources**" tab. It comes first unless you turned on the **Feed** tab and put it in front.
+1. Tap **Global search** in the toolbar, the globe icon, to find series across all your sources. The plain search icon beside it only filters the source list.
 
 ### Trouble finding a specific series?
 

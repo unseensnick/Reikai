@@ -128,9 +128,9 @@ Search with a different title if there is no match.
 * If your Kitsu account still has its SFW filter on, Kitsu leaves its adult categories out before Reikai ever sees them, so **Fill from tracker** gives a Kitsu-bound entry fewer genres than another tracker would.
 * Nothing in Reikai can bring them back. To get them, turn the SFW filter off in your Kitsu account settings.
 
-### Can't find a series on MyAnimeList?
-* If you cannot find a series by name, you can look it up on MyAnimeList and then search for it in **Reikai** using the following format: `id:<id from series URL>`.
-* You can also search for a series on your MAL profile list by searching in the following format: `my:<series name>`.
+### Can't find a series on a tracker?
+* If you cannot find a series by name, look it up on the tracker's site and search for it in **Reikai** as `id:<id from series URL>`. Every tracker takes this except NovelUpdates, MDList and the enhanced trackers.
+* On MyAnimeList you can also search your own list with `my:<series name>`.
 
 ### Finding tracked/untracked series in your library
 * On your <nav to="main_library"> page, tap the **Filter** button (three-lines icon), then include or exclude **Tracked**.
