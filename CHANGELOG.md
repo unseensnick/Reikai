@@ -553,6 +553,7 @@ every release now also ships a foss build with neither in it.
 
 ### Other
 
+- The light-novel plugin manager now fetches the plugin repos once, and only while its tab is open. Opening Browse used to fetch every repo twice.
 - A category link that no picker for its content type could show is now refused where it is written, so a manga can no longer be filed under a novels-only category or the reverse.
 - Help links in a Nightly build now open the Nightly docs at reikai.app/preview/docs, which describe what that build runs. Stable builds still open the stable docs.
 - Gradle's configuration cache is on, which takes a no-op incremental build from about 26 seconds to under 2.

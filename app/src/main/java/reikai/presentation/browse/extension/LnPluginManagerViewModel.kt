@@ -8,12 +8,25 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.WhileSubscribed
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
@@ -26,14 +39,17 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdate
 import reikai.novel.update.findPluginUpdates
 import tachiyomi.core.common.util.lang.launchIO
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Drives the light-novel plugin manager on the Browse → Extensions tab (Novels chip). Mirrors
  * Mihon's [eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel] sections (Updates /
  * Installed / Available) over the plugin host: [NovelSourceManager] for what's installed,
  * [LnPluginInstaller.fetchRepo] across the added repos for what's available, and a version diff for
- * what has updates. Single source of network truth so one fetch feeds both Available and Updates.
+ * what has updates. One fetch feeds both Available and Updates, and runs only while the screen
+ * watches [state]; a change to the added repos or a [refresh] cancels a fetch still running.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @Inject
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
@@ -43,34 +59,54 @@ class LnPluginManagerViewModel(
     private val prefs: NovelPreferences,
 ) : ViewModel() {
 
-    val state: StateFlow<LnPluginManagerViewModel.State>
-        field = MutableStateFlow<LnPluginManagerViewModel.State>(State())
+    private val refreshRequests =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    init {
-        viewModelScope.launchIO {
-            installer.ensureLoaded()
-            manager.sources.collectLatest { sources ->
-                state.update { it.copy(installed = sources) }
-            }
-        }
-        viewModelScope.launchIO {
-            installer.failures.collectLatest { failures ->
-                state.update { it.copy(notLoaded = failures.values.toList()) }
-            }
-        }
-        // Re-fetch when the added-repos set changes (e.g. a backup restore or adding a repo on another
-        // screen), so the tab reflects a restored repo without needing to be reopened. The pref's
-        // changes() doesn't replay the current value, so do an explicit first refresh below.
-        viewModelScope.launchIO {
-            prefs.addedRepoUrls().changes().collectLatest { refresh() }
-        }
-        refresh()
+    private val isRefreshing = MutableStateFlow(false)
+
+    /** Canonical URLs with an install in flight, and the last error per URL. */
+    private val installs = MutableStateFlow(Installs())
+
+    private val installed: Flow<List<NovelSource>> = flow {
+        installer.ensureLoaded()
+        emitAll(manager.sources)
     }
 
+    private val repos: Flow<Set<String>> = prefs.addedRepoUrls().changes()
+
+    /** Null until the first fetch lands. The pref replays its value on subscribe, which is the first fetch. */
+    private val fetched: Flow<RepoFetch?> = merge(repos, refreshRequests.map { prefs.addedRepoUrls().get() })
+        .mapLatest<Set<String>, RepoFetch?> { fetch(it) }
+        .onStart { emit(null) }
+
+    val state: StateFlow<State> = combine(
+        installed,
+        installer.failures,
+        fetched,
+        isRefreshing,
+        installs,
+    ) { installed, failures, fetched, refreshing, installs ->
+        State(
+            isRefreshing = refreshing,
+            hasLoaded = fetched != null,
+            hasRepos = fetched?.hasRepos ?: false,
+            installed = installed,
+            notLoaded = failures.values.toList(),
+            installedVersions = fetched?.installedVersions.orEmpty(),
+            available = fetched?.available.orEmpty(),
+            updates = fetched?.updates.orEmpty(),
+            inProgress = installs.inProgress,
+            errors = installs.errors,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+
     fun refresh() {
-        viewModelScope.launchIO {
-            val repos = prefs.addedRepoUrls().get()
-            state.update { it.copy(isRefreshing = true, hasRepos = repos.isNotEmpty()) }
+        refreshRequests.tryEmit(Unit)
+    }
+
+    private suspend fun fetch(repos: Set<String>): RepoFetch {
+        isRefreshing.value = true
+        try {
             val installedUrls = prefs.installedPluginUrls().get()
             val metadata = prefs.installedPluginMetadata().get()
 
@@ -89,24 +125,20 @@ class LnPluginManagerViewModel(
                     if (key !in byUrl) byUrl[key] = entry
                 }
             }
-
-            val available = byUrl.filterKeys { it !in installedUrls }.values.toList()
             val updates = findPluginUpdates(installedUrls, metadata, fetched.flatten())
 
             // Keep the Browse badge in sync with what the user is looking at.
             prefs.pluginUpdatesCount().set(updates.size)
-            val versions = metadata.values
-                .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
-                .toMap()
-            state.update {
-                it.copy(
-                    isRefreshing = false,
-                    hasLoaded = true,
-                    available = available,
-                    updates = updates,
-                    installedVersions = versions,
-                )
-            }
+            return RepoFetch(
+                hasRepos = repos.isNotEmpty(),
+                available = byUrl.filterKeys { it !in installedUrls }.values.toList(),
+                updates = updates,
+                installedVersions = metadata.values
+                    .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
+                    .toMap(),
+            )
+        } finally {
+            isRefreshing.value = false
         }
     }
 
@@ -135,14 +167,14 @@ class LnPluginManagerViewModel(
     private fun install(url: String, metadata: LnInstalledPluginMetadata) {
         val key = canonicalizePluginUrl(url)
         viewModelScope.launchIO {
-            state.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
+            installs.update { it.copy(inProgress = it.inProgress + key, errors = it.errors - key) }
             try {
                 installer.installFromUrl(url, metadata)
                 refresh()
             } catch (e: Throwable) {
-                state.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }
+                installs.update { it.copy(errors = it.errors + (key to (e.message ?: "Install failed"))) }
             } finally {
-                state.update { it.copy(inProgress = it.inProgress - key) }
+                installs.update { it.copy(inProgress = it.inProgress - key) }
             }
         }
     }
@@ -177,6 +209,15 @@ class LnPluginManagerViewModel(
         iconUrl = iconUrl,
         version = version,
         lang = lang,
+    )
+
+    private data class Installs(val inProgress: Set<String> = emptySet(), val errors: Map<String, String> = emptyMap())
+
+    private class RepoFetch(
+        val hasRepos: Boolean,
+        val available: List<LnRegistryEntry>,
+        val updates: List<LnPluginUpdate>,
+        val installedVersions: Map<String, String>,
     )
 
     @Immutable
